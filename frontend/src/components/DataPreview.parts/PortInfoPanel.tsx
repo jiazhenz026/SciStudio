@@ -105,7 +105,9 @@ export function PortInfoPanel({ inputPorts, outputPorts, schema }: PortInfoPanel
       )}
       {hasOutputs && (
         <>
-          <p className={`text-xs uppercase tracking-[0.2em] text-stone-500 ${hasInputs ? "mt-3" : ""}`}>
+          <p
+            className={`text-xs uppercase tracking-[0.2em] text-stone-500 ${hasInputs ? "mt-3" : ""}`}
+          >
             Output Port
           </p>
           <ul className="mt-1">

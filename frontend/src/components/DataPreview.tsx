@@ -1,10 +1,6 @@
 import { useMemo } from "react";
 
-import type {
-  BlockPortResponse,
-  BlockSchemaResponse,
-  DataPreviewResponse,
-} from "../types/api";
+import type { BlockPortResponse, BlockSchemaResponse, DataPreviewResponse } from "../types/api";
 
 import { OMEMetadataPanel } from "./OutputPreview/OMEMetadataPanel";
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";

@@ -15,7 +15,7 @@ import type { BlockPortResponse, BlockSchemaResponse } from "../../types/api";
 import { PortInfoPanel } from "./PortInfoPanel";
 
 const TYPE_HIERARCHY = [
-  { name: "DataObject", base_type: null, description: "" },
+  { name: "DataObject", base_type: "DataObject", description: "" },
   { name: "Image", base_type: "DataObject", description: "" },
 ];
 
@@ -34,24 +34,16 @@ function port(name: string, description = "", types: string[] = ["DataObject"]):
 function schema(partial: Partial<BlockSchemaResponse> = {}): BlockSchemaResponse {
   return {
     name: "TestBlock",
+    type_name: "TestBlock",
     description: "",
+    version: "1.0.0",
     base_category: "process",
-    subcategory: null,
+    subcategory: "",
     input_ports: [],
     output_ports: [],
     config_schema: {},
-    allowed_input_types: [],
-    allowed_output_types: [],
-    variadic_inputs: false,
-    variadic_outputs: false,
     type_hierarchy: TYPE_HIERARCHY,
     dynamic_ports: null,
-    min_input_ports: null,
-    max_input_ports: null,
-    min_output_ports: null,
-    max_output_ports: null,
-    format_capabilities: [],
-    metadata_fidelity: { level: "pixel_only", typed_meta_reads: [], typed_meta_writes: [], format_metadata_reads: [], format_metadata_writes: [] },
     ...partial,
   };
 }

@@ -177,9 +177,7 @@ export function PortHandles({
   const portsConfigFor = (direction: Direction): Array<{ name: string; types: string[] }> => {
     const key = direction === "input" ? "input_ports" : "output_ports";
     const current = data.config?.[key];
-    return Array.isArray(current)
-      ? (current as Array<{ name: string; types: string[] }>)
-      : [];
+    return Array.isArray(current) ? (current as Array<{ name: string; types: string[] }>) : [];
   };
 
   const handleAddPortConfirmed = (direction: Direction, name: string, typeName: string) => {
@@ -268,9 +266,7 @@ export function PortHandles({
           typeHierarchy={data.schema?.type_hierarchy}
           defaultName={`port_${portsConfigFor(addPortDirection).length + 1}`}
           onCancel={() => setAddPortDirection(null)}
-          onSubmit={(name, typeName) =>
-            handleAddPortConfirmed(addPortDirection, name, typeName)
-          }
+          onSubmit={(name, typeName) => handleAddPortConfirmed(addPortDirection, name, typeName)}
         />
       )}
     </>

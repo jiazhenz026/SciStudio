@@ -7,8 +7,7 @@ created: 2026-05-23
 input: "Issue #1326 — UX/spec: port behavior annotations in right-side preview pane (bundled with #1325 + #1488 in a single PR per owner direction 2026-05-23)."
 owners:
   - "@jiazhenz026"
-related_adrs:
-  - 40
+related_adrs: []
 related_specs: []
 scope:
   in:

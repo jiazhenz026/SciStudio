@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AddPortDialog } from "../BlockNode.parts/AddPortDialog";
 
 const TYPE_HIERARCHY = [
-  { name: "DataObject", base_type: null, description: "" },
+  { name: "DataObject", base_type: "DataObject", description: "" },
   { name: "Image", base_type: "DataObject", description: "" },
   { name: "DataFrame", base_type: "DataObject", description: "" },
 ];
