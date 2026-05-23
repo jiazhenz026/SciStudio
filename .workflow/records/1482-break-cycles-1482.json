@@ -6,16 +6,37 @@
       "exclude": [],
       "include": [],
       "reason": "Implementation complete: 4 cycles broken (loaders TYPE_CHECKING edge dropped + duck-typed block param per ADR-028 Add1 \u00a7C9; code_block backend-registry extracted to _backends_registry.py with re-exports; _format_capabilities_from_class relocated _capability \u2192 _spec; frontend GitSlice/GitMergeInProgress/LineageSlice interfaces relocated into types.ts with slice-file re-exports). Sentrux acyclicity.raw 6 \u2192 2, quality_signal 4009 \u2192 4817."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1482-break-cycles-1482.json",
+        ".workflow/records/1482-sentrux-evidence.json",
+        "src/scistudio/blocks/registry/__init__.py"
+      ],
+      "reason": "Scope expansion: gate-record files (self-reference for ADR-042 evidence) and src/scistudio/blocks/registry/__init__.py (re-export reroute for relocated _format_capabilities_from_class) need to be in include."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/architecture/test_no_new_cycles.py"
+      ],
+      "reason": "Add regression test tests/architecture/test_no_new_cycles.py that asserts the Python SCC count stays \u22644 (post-#1482 baseline). Required because ADR-042 implementation-category tasks (refactor) must add tests."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1482-full-audit.json"
+      ],
+      "reason": "Include .workflow/records/1482-full-audit.json (full-audit evidence file referenced by gate check)."
     }
   ],
   "branch": "refactor/break-cycles-1482",
   "changed_test_paths": [
-    "tests/blocks/io",
-    "tests/blocks/code",
-    "tests/blocks/test_registry.py",
-    "tests/blocks/test_registry_package_layout.py",
-    "tests/blocks/test_block_registry_capabilities.py",
-    "tests/blocks/test_registry_version_strict.py"
+    "tests/architecture/test_no_new_cycles.py"
   ],
   "check_results": [
     {
@@ -65,7 +86,16 @@
     "checklist": {},
     "docs": {}
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --format json --output .workflow/records/1482-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".workflow/records/1482-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
@@ -87,15 +117,22 @@
     "src/scistudio/blocks/registry/__init__.py",
     "frontend/src/store/types.ts",
     "frontend/src/store/gitSlice.ts",
-    "frontend/src/store/lineageSlice.ts"
+    "frontend/src/store/lineageSlice.ts",
+    "scripts/find_cycles.py",
+    ".workflow/records/1482-break-cycles-1482.json",
+    ".workflow/records/1482-sentrux-evidence.json",
+    ".workflow/records/1482-full-audit.json",
+    "tests/architecture/test_no_new_cycles.py"
   ],
   "pull_request": null,
   "record_path": ".workflow/records/1482-break-cycles-1482.json",
   "required_checks": [
     "pytest tests/blocks/io tests/blocks/code tests/blocks (impacted) \u2014 pass",
+    "pytest tests/architecture/test_no_new_cycles.py \u2014 pass",
     "vitest store + full \u2014 pass",
     "tsc --noEmit \u2014 pass",
-    "sentrux check_rules \u2014 pass (max_cycles)"
+    "sentrux check_rules \u2014 pass (max_cycles)",
+    "full_audit \u2014 pass"
   ],
   "schema_version": "1",
   "scope": {
