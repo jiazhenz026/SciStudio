@@ -98,7 +98,7 @@
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "No ADR change."
+      "rationale": "No ADR change \u2014 implementation-level cleanup of #1412 baseline waivers."
     },
     "changelog": {
       "paths": [
@@ -109,10 +109,13 @@
       "not_applicable": true,
       "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md; W3-D row updated by manager post-merge."
     },
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor; CHANGELOG bullet captures behavior-preserving 21-file function/complexity reorganization. ADR-045 version-vector contract preserved on the 3 ADR-touched files (versionVector tests still pass without modification)."
+    },
     "spec": {
       "not_applicable": true,
-      "rationale": "No public contract or schema change."
+      "rationale": "No public contract or schema change \u2014 refactor preserves all exports."
     }
   },
   "full_audit": {
