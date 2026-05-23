@@ -1,5 +1,11 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "applied_at": "2026-05-23T09:30:46.446398Z",
+      "applied_by": "@jiazhenz026",
+      "name": "admin-approved:core-change"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
@@ -115,7 +121,7 @@
     "CHANGELOG.md"
   ],
   "provenance": {
-    "head_content_hash": "sha256:cbb5f5474bb306fb3edebe489efb33e8897ef3dd8b4b2b599d8d17e41f80e593",
+    "head_content_hash": "sha256:ffc7d901bee669fc47250cfa434609de07b3909377900b4aa5313933f3511d5b",
     "mutations": [
       {
         "content_hash_after": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
@@ -247,6 +253,18 @@
           "include_added": 0
         },
         "timestamp": "2026-05-23T09:28:18.468350Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:ffc7d901bee669fc47250cfa434609de07b3909377900b4aa5313933f3511d5b",
+        "content_hash_before": "sha256:cbb5f5474bb306fb3edebe489efb33e8897ef3dd8b4b2b599d8d17e41f80e593",
+        "subcommand": "admin-label-add",
+        "summary": {
+          "approved_by": "@jiazhenz026",
+          "label": "admin-approved:core-change",
+          "reason": "Touches src/scistudio/qa/governance/ which is in mod_guard.PROTECTED_PATTERNS. Owner authorized via 2026-05-23 chat 'directly do it, add all gate-record CLI commands you think are needed'."
+        },
+        "timestamp": "2026-05-23T09:30:46.446638Z",
         "tool_version": "scistudio.qa.governance.gate_record/dev"
       }
     ],
