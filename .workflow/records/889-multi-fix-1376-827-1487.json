@@ -1,0 +1,273 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/889-multi-fix-1376-827-1487.json",
+        "docs/audit/889-multi-fix-full-audit.json",
+        "docs/audit/889-multi-fix-sentrux-evidence.json"
+      ],
+      "reason": "Include committed gate-record + full-audit + sentrux evidence artifacts required by ADR-042 gated workflow."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/App.parts/useCanvasHandlers.ts",
+        "src/scistudio/api/schemas.py"
+      ],
+      "reason": "Extend scope to include API schemas (#889 request body change) and frontend App.parts handler (#889 client wire-up)."
+    }
+  ],
+  "branch": "fix/batch-1376-889-827-1487-20260523",
+  "changed_test_paths": [
+    "tests/engine/test_scheduler_terminal_data.py",
+    "tests/api/test_blocks.py",
+    "tests/utils/test_event_logger.py",
+    "tests/utils/test_logging.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src ruff check <changed files>",
+      "exit_code": 0,
+      "name": "ruff check",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src ruff format --check <changed files>",
+      "exit_code": 0,
+      "name": "ruff format --check",
+      "output_path": "11 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/engine/test_scheduler_state_machine_contract.py tests/engine/test_scheduler_terminal_data.py tests/utils tests/api/test_blocks.py -k 'not test_validate_connection_endpoint_uses_registry_type_information and not test_imaging_io_schema and not test_block_schema_exposes_serializable and not test_list_blocks_keeps_palette_compact and not test_plugin_blocks_retain_package_name' --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "pytest engine + utils + targeted blocks",
+      "output_path": "123 passed, 5 pre-existing baseline failures excluded (Merge / scistudio-blocks-imaging not installed in local env without pip install -e .)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run lint (frontend)",
+      "exit_code": 0,
+      "name": "frontend eslint",
+      "output_path": "0 errors, 32 pre-existing warnings (all waivered per #1412)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run (frontend)",
+      "exit_code": 0,
+      "name": "frontend vitest",
+      "output_path": "584 passed | 13 skipped (60 files)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx tsc --noEmit (frontend)",
+      "exit_code": 0,
+      "name": "frontend tsc --noEmit",
+      "output_path": "0 errors",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/889-multi-fix-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/889-multi-fix-full-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/889-multi-fix-1376-827-1487.json",
+    "shas": [
+      "eb17c3567ad9e9bb2ec70bffbf6bf37ae977d419"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No multi-agent dispatch \u2014 single implementer batch under owner one-PR override."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Implementation conforms to existing contracts. #1376 aligns scheduler with ARCHITECTURE.md \u00a75.2 state table (no doc change \u2014 code drift fix). #827 implements per issue body design (no ADR exists for utils/event_logger; issue + CHANGELOG is the spec). #889 implements ADR-028 Addendum 1 D4 / ADR-029 D12 effective-ports contract (no doc change \u2014 code drift fix). #1487 is a CSS-equivalent colour tweak with no spec impact."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/889-multi-fix-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/889-multi-fix-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 889,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/889"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1376,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1376"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 827,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/827"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1487,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1487"
+    }
+  ],
+  "owner_directive": "Owner authorized one bundled PR for four small/medium fixes: bug #1376 (scheduler cancel_block state-machine guard), bug #889 (validate_connection & edge coloring effective-ports drift), enhancement #827 (event_logger helper subscribing to all engine events), bug #1487 (DataObject port color too light). Owner accepted scope concentration after I flagged it; original session began as 4-issue mixed-task batch and dropped #56 (subprocess->engine status channel) after I flagged it as multi-module feature requiring its own PR.",
+  "persona": "implementer",
+  "planned_files": [
+    "src/scistudio/engine/scheduler/_events.py",
+    "src/scistudio/api/routes/blocks.py",
+    "src/scistudio/api/schemas/__init__.py",
+    "src/scistudio/utils/event_logger.py",
+    "src/scistudio/utils/logging.py",
+    "src/scistudio/api/runtime/__init__.py",
+    "frontend/src/config/typeColorMap.ts",
+    "frontend/src/components/WorkflowCanvas.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/api/blocks.ts",
+    "tests/engine/test_scheduler_terminal_data.py",
+    "tests/api/test_blocks.py",
+    "tests/utils/test_event_logger.py",
+    "tests/utils/test_logging.py",
+    "frontend/src/config/__tests__/typeColorMap.test.ts",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1376,
+      889,
+      827,
+      1487
+    ],
+    "number": 1490,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1490"
+  },
+  "record_path": ".workflow/records/889-multi-fix-1376-827-1487.json",
+  "required_checks": [
+    "ruff",
+    "ruff format",
+    "pytest",
+    "eslint",
+    "frontend vitest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/engine/scheduler/_events.py",
+      "src/scistudio/api/routes/blocks.py",
+      "src/scistudio/api/schemas/**",
+      "src/scistudio/utils/event_logger.py",
+      "src/scistudio/utils/logging.py",
+      "src/scistudio/api/runtime/**",
+      "frontend/src/config/typeColorMap.ts",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/**",
+      "frontend/src/App.tsx",
+      "frontend/src/api/blocks.ts",
+      "frontend/src/lib/api/blocks.ts",
+      "tests/engine/test_scheduler*.py",
+      "tests/api/test_blocks.py",
+      "tests/utils/test_event_logger.py",
+      "tests/utils/test_logging.py",
+      "frontend/src/config/__tests__/**",
+      "frontend/src/components/__tests__/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "docs/audit/889-multi-fix-sentrux-evidence.json",
+    "pro_required": false,
+    "quality_signal": 4815.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "889-multi-fix-1376-889-827-1487",
+  "task_kind": "maintenance"
+}

@@ -50,6 +50,7 @@ from scistudio.engine.resources import ResourceManager
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 from scistudio.engine.scheduler import DAGScheduler
+from scistudio.utils.event_logger import install_event_logger
 
 from . import _data, _projects, _runs, _workflows
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
@@ -234,6 +235,15 @@ class ApiRuntime:
         # ``open_project`` and closed when switching projects. ``None`` when
         # no project is open or when initialization failed (best-effort).
         self.lineage_store: Any = None
+
+        # #827: structured stdlib-logging audit trail for every engine
+        # event. Independent of ``_bind_event_logging`` below — that
+        # callback fans out to the WS LogBroadcaster (live frontend
+        # Logs panel) and only subscribes to seven of the ~18 emitted
+        # event types. The event_logger subscriber observes every
+        # event type and writes one record per event on the
+        # ``scistudio.events`` logger.
+        install_event_logger(self.event_bus)
 
         self._load_known_projects()
         self._configure_static_registries()
