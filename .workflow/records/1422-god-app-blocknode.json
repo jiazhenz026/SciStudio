@@ -112,7 +112,7 @@
     },
     "checklist": {
       "not_applicable": true,
-      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md and updates W2-A row post-merge \u2014 agent does not touch it by dispatch design."
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md and updates W2-A row post-merge — agent does not touch it by dispatch design."
     },
     "docs": {
       "not_applicable": true,
@@ -252,5 +252,6 @@
     }
   ],
   "task_id": "1422-god-app-blocknode",
-  "task_kind": "refactor"
+  "task_kind": "refactor",
+  "persona": "implementer"
 }

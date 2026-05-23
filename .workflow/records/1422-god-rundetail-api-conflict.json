@@ -97,11 +97,11 @@
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
-      "rationale": "No addendum needed \u2014 refactor scoped to a single tracked waiver."
+      "rationale": "No addendum needed — refactor scoped to a single tracked waiver."
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "No ADR change \u2014 implementation-level reorganization tracked under #1412."
+      "rationale": "No ADR change — implementation-level reorganization tracked under #1412."
     },
     "changelog": {
       "paths": [
@@ -118,7 +118,7 @@
     },
     "spec": {
       "not_applicable": true,
-      "rationale": "No spec change \u2014 pure file split, public surfaces unchanged."
+      "rationale": "No spec change — pure file split, public surfaces unchanged."
     }
   },
   "full_audit": {
@@ -242,5 +242,6 @@
     }
   ],
   "task_id": "1422-god-rundetail-api-conflict",
-  "task_kind": "refactor"
+  "task_kind": "refactor",
+  "persona": "implementer"
 }
