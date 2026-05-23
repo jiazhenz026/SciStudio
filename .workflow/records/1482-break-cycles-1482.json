@@ -1,0 +1,183 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation complete: 4 cycles broken (loaders TYPE_CHECKING edge dropped + duck-typed block param per ADR-028 Add1 \u00a7C9; code_block backend-registry extracted to _backends_registry.py with re-exports; _format_capabilities_from_class relocated _capability \u2192 _spec; frontend GitSlice/GitMergeInProgress/LineageSlice interfaces relocated into types.ts with slice-file re-exports). Sentrux acyclicity.raw 6 \u2192 2, quality_signal 4009 \u2192 4817."
+    }
+  ],
+  "branch": "refactor/break-cycles-1482",
+  "changed_test_paths": [
+    "tests/blocks/io",
+    "tests/blocks/code",
+    "tests/blocks/test_registry.py",
+    "tests/blocks/test_registry_package_layout.py",
+    "tests/blocks/test_block_registry_capabilities.py",
+    "tests/blocks/test_registry_version_strict.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m pytest tests/blocks/io tests/blocks/code tests/blocks/test_registry.py tests/blocks/test_registry_package_layout.py tests/blocks/test_block_registry_capabilities.py tests/blocks/test_registry_version_strict.py --deselect TestBlockRegistryTier2 --deselect TestAppBlockSubclassConfigCleanup",
+      "exit_code": 0,
+      "name": "pytest-impacted-blocks",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/workflow tests/blocks/test_runner_registry.py",
+      "exit_code": 0,
+      "name": "pytest-workflow-runner",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "(cd frontend) node_modules/.bin/vitest run --no-coverage",
+      "exit_code": 0,
+      "name": "vitest-frontend",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "(cd frontend) node_modules/.bin/tsc --project tsconfig.json --noEmit",
+      "exit_code": 0,
+      "name": "tsc-noemit",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "all": {
+      "not_applicable": true,
+      "rationale": "Pure import-graph refactor with no behaviour or public API change. CodeBlockBackend / CodeBlockRuntimeContext / list_codeblock_backends / register_codeblock_backend / unregister_codeblock_backend / resolve_codeblock_backend / ensure_codeblock_backends_loaded / run_codeblock_process are still importable from scistudio.blocks.code and scistudio.blocks.code.code_block (re-exports). _format_capabilities_from_class is still importable from scistudio.blocks.registry and scistudio.blocks.registry._capability (re-exports). GitSlice / GitMergeInProgress / LineageSlice are still importable from ./gitSlice and ./lineageSlice (re-exports). The four governing docs (ADR-041 / ADR-043 / ADR-047 / spec adr-041-codeblock-v2 / spec adr-043-package-migration / spec adr-043-io-format-capability-registry) name behaviour and class identities that are preserved; the new sibling module (_backends_registry.py) is an implementation detail consistent with ADR-028 Addendum 1 \u00a7C9 'split god files into private siblings'."
+    },
+    "changelog": {},
+    "checklist": {},
+    "docs": {}
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1482,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1482"
+    }
+  ],
+  "owner_directive": "User asked in chat to break the 3 simple Python import cycles and the frontend store triangle into a single PR (2026-05-22 session).",
+  "persona": "implementer",
+  "planned_files": [
+    "src/scistudio/blocks/io/loaders/_capability.py",
+    "src/scistudio/blocks/code/code_block.py",
+    "src/scistudio/blocks/code/validation.py",
+    "src/scistudio/blocks/code/_backends_registry.py",
+    "src/scistudio/blocks/registry/_capability.py",
+    "src/scistudio/blocks/registry/_spec.py",
+    "src/scistudio/blocks/registry/__init__.py",
+    "frontend/src/store/types.ts",
+    "frontend/src/store/gitSlice.ts",
+    "frontend/src/store/lineageSlice.ts"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1482-break-cycles-1482.json",
+  "required_checks": [
+    "pytest tests/blocks/io tests/blocks/code tests/blocks (impacted) \u2014 pass",
+    "vitest store + full \u2014 pass",
+    "tsc --noEmit \u2014 pass",
+    "sentrux check_rules \u2014 pass (max_cycles)"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/io/loaders/_capability.py",
+      "src/scistudio/blocks/io/loaders/load_data.py",
+      "src/scistudio/blocks/code/code_block.py",
+      "src/scistudio/blocks/code/validation.py",
+      "src/scistudio/blocks/code/_backends_registry.py",
+      "src/scistudio/blocks/registry/_capability.py",
+      "src/scistudio/blocks/registry/_spec.py",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/gitSlice.ts",
+      "frontend/src/store/lineageSlice.ts",
+      "tests/blocks/code/test_code_block.py",
+      "tests/blocks/code/test_validation.py",
+      "tests/blocks/io/loaders/test_load_data.py",
+      "tests/blocks/registry/test_registry_capabilities.py",
+      "tests/architecture/test_no_new_cycles.py",
+      "docs/adr/ADR-041.md",
+      "docs/adr/ADR-043.md",
+      "docs/adr/ADR-047.md",
+      "docs/specs/adr-041-codeblock-v2.md",
+      "docs/specs/adr-043-io-format-capability-registry.md",
+      "scripts/find_cycles.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": ".workflow/records/1482-sentrux-evidence.json",
+    "pro_required": false,
+    "quality_signal": 4817.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "acyclicity.raw_max": "5",
+      "max_cycles": "5"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1482-break-cycles-1482",
+  "task_kind": "refactor"
+}

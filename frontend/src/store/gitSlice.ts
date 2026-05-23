@@ -97,14 +97,14 @@
 import type { StateCreator } from "zustand";
 
 import { api, ApiError } from "../lib/api";
-import type {
-  GitBranch,
-  GitCommit,
-  GitCommitPrefix,
-  GitHistoryFilter,
-  GitStatus,
-} from "../types/api";
-import type { AppStore } from "./types";
+import type { GitCommit, GitCommitPrefix, GitHistoryFilter } from "../types/api";
+import type { AppStore, GitMergeInProgress, GitSlice } from "./types";
+
+// Issue #1482: the ``GitSlice`` and ``GitMergeInProgress`` interfaces are
+// declared in ``./types.ts`` alongside every other slice so the static
+// dependency graph stays one-way (slices → types). They are re-exported
+// here for callers that historically imported them from this module.
+export type { GitMergeInProgress, GitSlice } from "./types";
 
 const LOG_ALL_KEY = "<all>";
 
@@ -123,87 +123,6 @@ function describeApiError(err: unknown, fallback: string): string {
     return err.message || fallback;
   }
   return fallback;
-}
-
-// ---------------------------------------------------------------------------
-// State shape (exported separately so AppStore can union it in)
-// ---------------------------------------------------------------------------
-
-export interface GitMergeInProgress {
-  source_branch: string;
-  conflicted_files: string[];
-}
-
-export interface GitSlice {
-  branches: GitBranch[] | null;
-  currentBranch: string | null;
-  logCache: Record<string, GitCommit[]>;
-  logLoading: Record<string, boolean>;
-  historyFilter: GitHistoryFilter;
-  status: GitStatus | null;
-  mergeInProgress: GitMergeInProgress | null;
-  lastError: string | null;
-  /**
-   * ADR-039 Addendum 1 (#1354) — transient "safety auto-commit landed"
-   * notice. Set by `switchBranch` / `restore` when the backend
-   * response carries a non-null `auto_commit_sha`, consumed by
-   * `BranchPicker` (toast on switch) and `RestoreWorkflowButton`
-   * (inline hint on restore). Components clear it via
-   * `setLastNotice(null)` after rendering, mirroring the
-   * `lastError` lifecycle. Kept distinct from `lastError` so
-   * downstream UI does not confuse "your change was committed
-   * safely" with "something failed".
-   */
-  lastNotice: string | null;
-  /**
-   * ADR-039 §3.5 (#972 — Codex P1 on PR #974) — branch the user clicked
-   * "Merge into current" on. Driving this from the slice (rather than
-   * local Git-tab state) keeps the MergeFlow modal mounted at the
-   * BottomPanel level so switching bottom tabs during an in-flight
-   * conflict resolution does NOT tear it down and orphan the merge
-   * (MergeFlow's close guard would otherwise be bypassed). `null` =
-   * modal hidden.
-   */
-  mergeFlowSource: string | null;
-
-  /**
-   * Project ID active when `mergeFlowSource` was set (#975 Codex P1 on
-   * PR #980). Used by the App-level `<AppLevelMergeFlow>` mount to
-   * gate visibility: the modal renders only when the current open
-   * project matches this id. Switching to a different project hides
-   * the modal (state preserved); switching back re-shows it. Without
-   * this gate, modal actions like `complete merge` / `abort merge`
-   * would run against the wrong backend project context. `null` when
-   * no merge is in flight.
-   */
-  mergeFlowProjectId: string | null;
-
-  // Actions — D39-2.3b fills bodies.
-  setHistoryFilter: (filter: GitHistoryFilter) => void;
-  invalidateHistory: () => void;
-  loadBranches: () => Promise<void>;
-  loadLog: (branch?: string) => Promise<void>;
-  loadStatus: () => Promise<void>;
-  commit: (message: string, files?: string[]) => Promise<string>;
-  switchBranch: (name: string) => Promise<{ auto_commit_sha: string | null }>;
-  createBranch: (name: string, baseSha?: string) => Promise<void>;
-  deleteBranch: (name: string, force?: boolean) => Promise<void>;
-  restore: (
-    commitSha: string,
-    files?: string[],
-  ) => Promise<{ status: "ok"; auto_commit_sha: string | null }>;
-  setMergeInProgress: (state: GitMergeInProgress | null) => void;
-  /**
-   * Open or close MergeFlow. `source` is the branch being merged into
-   * the current branch (or `null` to close). `projectId` is the
-   * current open project's id — stamped here so the App-level mount
-   * can gate visibility against project switches (#975 Codex P1 on
-   * PR #980). Pass `null` for `projectId` when closing (`source=null`)
-   * or when opening outside any project context (test fixtures).
-   */
-  setMergeFlowSource: (source: string | null, projectId?: string | null) => void;
-  setLastError: (message: string | null) => void;
-  setLastNotice: (message: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------

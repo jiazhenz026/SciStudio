@@ -21,7 +21,7 @@ side.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scistudio.core.types.array import Array
@@ -32,11 +32,17 @@ from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
 
-if TYPE_CHECKING:
-    # Avoid a hard import cycle at module load time: ``LoadData`` lives
-    # in the sibling ``load_data`` module which itself imports from this
-    # one.
-    from scistudio.blocks.io.loaders.load_data import LoadData
+# Issue #1482: ``_resolve_format`` previously typed its ``block`` parameter
+# as ``LoadData | None`` and imported ``LoadData`` under
+# ``if TYPE_CHECKING:`` from :mod:`scistudio.blocks.io.loaders.load_data`.
+# Sentrux's AST analysis counted that as a bidirectional edge and flagged
+# the bare ``_capability ↔ load_data`` cycle even though the import never
+# executed at runtime. Per ADR-028 Addendum 1 §C9 this sibling module
+# must hold no helper classes (so a structural ``Protocol`` is also
+# disallowed); the parameter is duck-typed as ``Any | None`` instead.
+# The single call site (``LoadData._load_*``) always passes ``self`` or
+# ``None``; the runtime contract is "an object with
+# ``_detect_format(Path) -> str | None``".
 
 
 _PICKLE_NOTE: str = "requires allow_pickle=True"
@@ -432,7 +438,7 @@ def _supported_load_extensions() -> tuple[str, ...]:
     return tuple(sorted(_LOAD_EXTENSION_MAP.keys()))
 
 
-def _resolve_format(path: Path, block: LoadData | None) -> str | None:
+def _resolve_format(path: Path, block: Any | None) -> str | None:
     """Resolve a path's format identifier from the LoadData capability map.
 
     Walks ``Path.suffixes`` longest-first to support compound suffixes,

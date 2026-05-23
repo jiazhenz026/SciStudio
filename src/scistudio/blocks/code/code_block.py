@@ -15,19 +15,33 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
-import os
 import subprocess
 import uuid
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, cast
+from typing import Any, ClassVar, cast
 
 from pydantic import ValidationError
 
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
+# Issue #1482: backend-registry primitives live in the sibling
+# ``_backends_registry`` module so ``validation.py`` can depend on them
+# without forming a cycle through ``code_block``. The names are
+# re-exported below for backward compatibility with the ``backends/``
+# subpackage and ``scistudio.blocks.code.__init__`` consumers.
+from scistudio.blocks.code._backends_registry import (
+    CodeBlockBackend,
+    CodeBlockRuntimeContext,
+    CodeBlockTimeoutError,
+    ensure_codeblock_backends_loaded,
+    list_codeblock_backends,
+    register_codeblock_backend,
+    resolve_codeblock_backend,
+    run_codeblock_process,
+    unregister_codeblock_backend,
+)
 from scistudio.blocks.code.config import CodeBlockConfig, MigrationDiagnostic, legacy_migration_diagnostics
 from scistudio.blocks.code.exchange import (
     CodeBlockExchangeError,
@@ -36,7 +50,6 @@ from scistudio.blocks.code.exchange import (
     collect_codeblock_outputs,
     prepare_codeblock_exchange,
 )
-from scistudio.blocks.code.interpreters import ResolvedInterpreter
 from scistudio.blocks.code.lazy_list import LazyList
 from scistudio.blocks.code.provenance import (
     build_codeblock_provenance_payload,
@@ -77,156 +90,9 @@ class CodeBlockExecutionError(RuntimeError):
         self.stderr = stderr
 
 
-class CodeBlockTimeoutError(TimeoutError):
-    """Raised when a CodeBlock v2 script exceeds its configured timeout."""
-
-    def __init__(self, message: str, *, timeout_seconds: float, stdout: str | None, stderr: str | None) -> None:
-        super().__init__(message)
-        self.timeout_seconds = timeout_seconds
-        self.stdout = stdout
-        self.stderr = stderr
-
-
 _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
     cls.__name__: cls for cls in (DataObject, Array, DataFrame, Series, Text, Artifact, CompositeData)
 }
-
-
-@dataclass(frozen=True)
-class CodeBlockRuntimeContext:
-    """Shared CodeBlock v2 execution context passed to interpreter backends."""
-
-    config: CodeBlockConfig
-    script_path: Path
-    project_dir: Path
-    exchange_dir: Path
-    environment_config: Mapping[str, Any]
-
-
-class CodeBlockBackend(Protocol):
-    """Registration surface for CodeBlock v2 interpreter backends."""
-
-    name: str
-    extensions: frozenset[str]
-
-    def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
-        """Return whether this backend can run *script_path*."""
-
-    def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
-        """Resolve interpreter metadata for a CodeBlock run."""
-
-    def run(
-        self,
-        context: CodeBlockRuntimeContext,
-        interpreter: ResolvedInterpreter,
-    ) -> subprocess.CompletedProcess[str]:
-        """Execute a prepared CodeBlock run."""
-
-
-_CODEBLOCK_BACKENDS: list[CodeBlockBackend] = []
-_BACKEND_MODULES_LOADED = False
-
-
-def register_codeblock_backend(backend: CodeBlockBackend, *, replace: bool = False) -> None:
-    """Register a CodeBlock v2 interpreter backend.
-
-    Sibling ADR-041 tracks should register notebook, R/Quarto, shell, and
-    MATLAB-family backends through this surface instead of editing
-    ``CodeBlock`` dispatch logic.
-    """
-
-    normalized_extensions = frozenset(extension.lower() for extension in backend.extensions)
-    if not backend.name:
-        raise ValueError("CodeBlock backend name must not be empty")
-    if not normalized_extensions:
-        raise ValueError("CodeBlock backend must declare at least one extension")
-    if any(not extension.startswith(".") for extension in normalized_extensions):
-        raise ValueError("CodeBlock backend extensions must include a leading dot")
-
-    conflicts = [
-        existing
-        for existing in _CODEBLOCK_BACKENDS
-        if existing.name == backend.name or existing.extensions.intersection(normalized_extensions)
-    ]
-    if conflicts and not replace:
-        names = ", ".join(sorted(existing.name for existing in conflicts))
-        raise ValueError(f"CodeBlock backend conflicts with existing backend(s): {names}")
-
-    _CODEBLOCK_BACKENDS[:] = [
-        existing
-        for existing in _CODEBLOCK_BACKENDS
-        if existing.name != backend.name and not existing.extensions.intersection(normalized_extensions)
-    ]
-    _CODEBLOCK_BACKENDS.append(backend)
-
-
-def unregister_codeblock_backend(name: str) -> None:
-    """Remove a registered CodeBlock backend by name."""
-
-    _CODEBLOCK_BACKENDS[:] = [backend for backend in _CODEBLOCK_BACKENDS if backend.name != name]
-
-
-def list_codeblock_backends() -> tuple[CodeBlockBackend, ...]:
-    """Return registered CodeBlock v2 interpreter backends."""
-
-    ensure_codeblock_backends_loaded()
-    return tuple(_CODEBLOCK_BACKENDS)
-
-
-def resolve_codeblock_backend(script_path: Path, config: CodeBlockConfig) -> CodeBlockBackend:
-    """Select the registered backend for a CodeBlock v2 script."""
-
-    ensure_codeblock_backends_loaded()
-    for backend in _CODEBLOCK_BACKENDS:
-        if backend.supports(script_path, config):
-            return backend
-    supported = sorted({extension for backend in _CODEBLOCK_BACKENDS for extension in backend.extensions})
-    raise ValueError(
-        f"Unsupported CodeBlock script extension {script_path.suffix or '<none>'!r}; "
-        f"registered extensions: {supported}."
-    )
-
-
-def ensure_codeblock_backends_loaded() -> None:
-    """Load built-in CodeBlock backend modules exactly once."""
-
-    global _BACKEND_MODULES_LOADED
-    if _BACKEND_MODULES_LOADED:
-        return
-    from scistudio.blocks.code.backends import load_codeblock_backend_modules
-
-    load_codeblock_backend_modules()
-    _BACKEND_MODULES_LOADED = True
-
-
-def run_codeblock_process(
-    *,
-    argv: Sequence[str],
-    cwd: Path,
-    env_delta: Mapping[str, str],
-    timeout_seconds: float | None,
-) -> subprocess.CompletedProcess[str]:
-    """Run an interpreter process with CodeBlock v2 environment handling."""
-
-    env = os.environ.copy()
-    env.update({str(key): str(value) for key, value in env_delta.items()})
-    try:
-        return subprocess.run(
-            [str(arg) for arg in argv],
-            cwd=cwd,
-            env=env,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise CodeBlockTimeoutError(
-            f"CodeBlock script timed out after {timeout_seconds} seconds.",
-            timeout_seconds=float(timeout_seconds or 0),
-            stdout=exc.stdout if isinstance(exc.stdout, str) else None,
-            stderr=exc.stderr if isinstance(exc.stderr, str) else None,
-        ) from exc
 
 
 class CodeBlock(Block):

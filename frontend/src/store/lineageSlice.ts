@@ -203,7 +203,7 @@ import type { StateCreator } from "zustand";
 
 import { ApiError, api } from "../lib/api";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
-import type { AppStore } from "./types";
+import type { AppStore, LineageSlice } from "./types";
 
 // Re-export wire-shape types (single source: `types/lineage.ts`) so
 // components and tests can import either from this slice OR from
@@ -217,32 +217,11 @@ export type {
   LineageRunSummary,
 } from "../types/lineage";
 
-export interface LineageSlice {
-  // list pane
-  runs: LineageRunSummary[];
-  runsLoading: boolean;
-  runsError: string | null;
-  // detail pane
-  selectedRunId: string | null;
-  runDetails: Record<string, LineageRunDetail>;
-  runDetailLoading: Record<string, boolean>;
-  runDetailError: Record<string, string | null>;
-  // per-block expansion (UI-only)
-  expandedBlockExecutionIds: string[];
-  // dialogs (UI-only)
-  methodsDialogRunId: string | null;
-  rerunDialogRunId: string | null;
-  // actions
-  fetchRuns: (opts?: { workflowId?: string; limit?: number }) => Promise<void>;
-  fetchRunDetail: (runId: string) => Promise<void>;
-  selectRun: (runId: string | null) => void;
-  toggleBlockExecutionExpanded: (blockExecutionId: string) => void;
-  openMethodsDialog: (runId: string) => void;
-  closeMethodsDialog: () => void;
-  openRerunDialog: (runId: string) => void;
-  closeRerunDialog: () => void;
-  clearLineage: () => void;
-}
+// Issue #1482: the ``LineageSlice`` interface is declared in
+// ``./types.ts`` (next to every other slice type) so the static
+// dependency graph stays one-way (slices → types). It is re-exported
+// here for callers that historically imported it from this module.
+export type { LineageSlice } from "./types";
 
 const INITIAL_LINEAGE_STATE = {
   runs: [] as LineageRunSummary[],

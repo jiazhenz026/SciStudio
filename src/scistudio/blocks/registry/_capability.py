@@ -16,8 +16,11 @@ Owns:
   reach the block class behind a capability (mtime-aware re-import).
 - ``_resolve_class`` — generic spec → class re-import.
 - ``_validate_dynamic_ports`` — ADR-028 Addendum 1 shape check.
-- ``_format_capabilities_from_class`` — ADR-043 class-level descriptor
-  extraction (used by ``_spec._spec_from_class``).
+
+Note: ``_format_capabilities_from_class`` was relocated to
+:mod:`scistudio.blocks.registry._spec` per issue #1482 to break the
+static import cycle between this module and ``_spec``. It is re-exported
+through ``scistudio.blocks.registry`` for backward compatibility.
 
 Module-level utilities:
 
@@ -154,24 +157,12 @@ def _validate_capability_id(capability: FormatCapability) -> None:
         raise CapabilityRegistrationError(f"Capability id {capability.id!r} must not contain whitespace.")
 
 
-def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:
-    from scistudio.blocks.io.io_block import IOBlock
-    from scistudio.blocks.registry import CapabilityRegistrationError
-    from scistudio.blocks.registry._spec import _validate_class_capability, _validate_simple_extension_declaration
-
-    if not issubclass(cls, IOBlock):
-        return []
-
-    _validate_simple_extension_declaration(cls)
-    capabilities = list(cls.get_format_capabilities())
-    for capability in capabilities:
-        if not isinstance(capability, FormatCapability):
-            raise CapabilityRegistrationError(
-                f"{cls.__name__}.get_format_capabilities() returned {type(capability).__name__}, "
-                "expected FormatCapability."
-            )
-        _validate_class_capability(cls, capability)
-    return capabilities
+# Issue #1482: ``_format_capabilities_from_class`` was relocated to
+# :mod:`scistudio.blocks.registry._spec` to break the static import cycle
+# between this module and ``_spec`` (sentrux flagged the bi-directional
+# lazy edge as a cycle). ``_spec._spec_from_class`` is the only caller;
+# the helper lives next to its caller now. Dependent imports flow
+# one-way: ``_spec → _capability`` (for ``_validate_capability_id``).
 
 
 # ---------------------------------------------------------------------------
@@ -581,7 +572,6 @@ __all__ = [
     "_exact_ext_in_mapping",
     "_ext_in_mapping",
     "_find_format_capability",
-    "_format_capabilities_from_class",
     "_iter_capability_specs",
     "_iter_compound_to_single_suffix",
     "_resolve_capability_class",
