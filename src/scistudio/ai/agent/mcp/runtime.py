@@ -78,6 +78,11 @@ class StandaloneMCPRuntime:
     type_registry: TypeRegistry
     _project_dir: Path | None = None
     workflow_runs: dict[str, Any] = field(default_factory=dict)
+    # ADR-040 Addendum 5 / #1488: satisfies the ``active_workflow_id``
+    # member of the MCPContext Protocol. Standalone bridges have no
+    # live GUI editor, so the value is always ``None`` — callers that
+    # need the live id must run against the FastAPI ``_RuntimeAdapter``.
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:

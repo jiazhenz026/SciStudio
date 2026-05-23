@@ -180,11 +180,33 @@ export function PortHandles({
     return Array.isArray(current) ? (current as Array<{ name: string; types: string[] }>) : [];
   };
 
+  // Issue #1325 P1 (Codex review): variadic blocks with static defaults
+  // (Code Block's ``data``/``result``) must NOT lose those defaults the
+  // first time the user adds or removes a port. The wire contract:
+  // ``flowNodeBuilder.resolveVariadicPorts`` replaces the schema-level
+  // ports wholesale once ``config.{input,output}_ports`` is non-empty.
+  // Without this seed, the first add-port writes only the new entry to
+  // config, the resolver replaces ``data``/``result``, and any existing
+  // edges attached to those static names break.
+  //
+  // Mitigation: when the per-instance config is still empty, seed it
+  // with the current EFFECTIVE port list (which already reflects any
+  // ADR-028 dynamic-port type substitution) before applying the mutation.
+  // Subsequent adds / removes operate on the now-populated config.
+  const seedFromEffectiveIfEmpty = (
+    direction: Direction,
+  ): Array<{ name: string; types: string[] }> => {
+    const current = portsConfigFor(direction);
+    if (current.length > 0) return current;
+    const effective = direction === "input" ? effectiveInputPorts : effectiveOutputPorts;
+    return effective.map((p) => ({ name: p.name, types: p.accepted_types ?? [] }));
+  };
+
   const handleAddPortConfirmed = (direction: Direction, name: string, typeName: string) => {
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = portsConfigFor(direction);
+    const base = seedFromEffectiveIfEmpty(direction);
     data.onUpdateConfig?.({
-      [key]: [...current, { name, types: [typeName] }],
+      [key]: [...base, { name, types: [typeName] }],
     });
     setAddPortDirection(null);
   };
@@ -203,10 +225,12 @@ export function PortHandles({
       deleteElements({ edges: connected });
     }
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key])
-      ? (data.config[key] as Array<{ name: string; types: string[] }>)
-      : [];
-    data.onUpdateConfig?.({ [key]: current.filter((p) => p.name !== portName) });
+    // Same seeding concern as ``handleAddPortConfirmed``: a remove on a
+    // not-yet-seeded variadic block must operate on the effective list,
+    // not on an empty config (which would otherwise leave config empty
+    // and silently restore the just-removed static default).
+    const base = seedFromEffectiveIfEmpty(direction);
+    data.onUpdateConfig?.({ [key]: base.filter((p) => p.name !== portName) });
   };
 
   return (

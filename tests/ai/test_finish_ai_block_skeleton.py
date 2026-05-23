@@ -32,12 +32,12 @@ def test_finish_ai_block_is_registered() -> None:
     assert "write" in tags
 
 
-def test_registry_now_has_26_tools() -> None:
-    """ADR-035 §3.5 + ADR-040 §3.1: FastMCP exposes 26 tools."""
+def test_registry_now_has_27_tools() -> None:
+    """ADR-035 §3.5 + ADR-040 §3.1 + Addendum 5: FastMCP exposes 27 tools."""
     from scistudio.ai.agent.mcp.server import mcp
 
     tools = _run(mcp.list_tools())
-    assert len(tools) == 26
+    assert len(tools) == 27
 
 
 def test_finish_ai_block_handler_has_docstring() -> None:

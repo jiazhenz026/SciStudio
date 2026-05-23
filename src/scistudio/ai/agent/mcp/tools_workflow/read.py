@@ -320,7 +320,12 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
     ``metadata.title`` / ``metadata.name``.
     """
     ctx = get_context()
-    workflow_id = ctx.active_workflow_id
+    # ADR-040 Addendum 5 / #1488. Defensive read: older third-party
+    # MCPContext implementations (e.g. test stubs, alternate adapters)
+    # predate this Protocol member, so an AttributeError here would
+    # take the whole tool offline. ``getattr`` keeps the worst case
+    # to a None envelope rather than a 500.
+    workflow_id = getattr(ctx, "active_workflow_id", None)
     if not workflow_id:
         return ActiveWorkflowContextResult(workflow_id=None, workflow_name=None)
     # Best-effort name resolution. A missing / unreadable file MUST NOT
