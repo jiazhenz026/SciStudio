@@ -64,7 +64,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1488-ai-context-and-port-ux.json",
+    "shas": [
+      "98a279d5"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "paths": [
@@ -148,7 +154,15 @@
     "CHANGELOG.md",
     ".gitignore"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1488,
+      1325,
+      1326
+    ],
+    "number": 1491,
+    "url": null
+  },
   "record_path": ".workflow/records/1488-ai-context-and-port-ux.json",
   "required_checks": [
     "ruff",
@@ -232,7 +246,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
