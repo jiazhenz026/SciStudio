@@ -68,7 +68,10 @@
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Single-agent implementation PR; no manager dispatch / multi-agent coordination, so no docs/planning/ checklist is required (gated-workflow.md \u00a73.5 docs landing accepts N/A rationale for inapplicable doc classes)."
+    },
     "docs": {
       "paths": [
         "docs/ai-developer/rules.md",
@@ -121,7 +124,7 @@
     "CHANGELOG.md"
   ],
   "provenance": {
-    "head_content_hash": "sha256:ffc7d901bee669fc47250cfa434609de07b3909377900b4aa5313933f3511d5b",
+    "head_content_hash": "sha256:1908840aefed1ef6535e20ec7531219f0f64519c3d730c45ab4f4088d623070b",
     "mutations": [
       {
         "content_hash_after": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
@@ -265,6 +268,22 @@
           "reason": "Touches src/scistudio/qa/governance/ which is in mod_guard.PROTECTED_PATTERNS. Owner authorized via 2026-05-23 chat 'directly do it, add all gate-record CLI commands you think are needed'."
         },
         "timestamp": "2026-05-23T09:30:46.446638Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:1908840aefed1ef6535e20ec7531219f0f64519c3d730c45ab4f4088d623070b",
+        "content_hash_before": "sha256:ffc7d901bee669fc47250cfa434609de07b3909377900b4aa5313933f3511d5b",
+        "subcommand": "docs",
+        "summary": {
+          "added_changelog": 0,
+          "added_checklist": 0,
+          "added_docs": 0,
+          "na_classes": [
+            "checklist"
+          ],
+          "replace": false
+        },
+        "timestamp": "2026-05-23T09:32:33.347953Z",
         "tool_version": "scistudio.qa.governance.gate_record/dev"
       }
     ],
