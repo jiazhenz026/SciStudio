@@ -109,7 +109,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1486-system-tests.json",
     "shas": [
-      "4f6cbb1a622c2ed3a3cd912c79000d447cb0ad70"
+      "1b532fa1878c40fd57fe1191b109d455d19d91e3"
     ],
     "trailers": {}
   },
@@ -153,8 +153,8 @@
     "body_closes_issues": [
       1486
     ],
-    "number": null,
-    "url": null
+    "number": 1489,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1489"
   },
   "record_path": ".workflow/records/1486-system-tests.json",
   "required_checks": [
