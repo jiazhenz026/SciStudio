@@ -245,6 +245,8 @@ def test_self_hosting_end_to_end(tmp_path: Path) -> None:
             "selfhost",
             "--task-kind",
             "refactor",
+            "--persona",
+            "implementer",
             "--branch",
             "refactor/issue-1433/selfhost",
             "--owner-directive",

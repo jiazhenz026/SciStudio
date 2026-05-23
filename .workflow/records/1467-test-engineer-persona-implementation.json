@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/qa/governance/test_gate_record_package.py"
+      ],
+      "reason": "Update self-hosting gate-record package test fixture for required --persona CLI argument."
+    }
+  ],
   "branch": "track/issue-1467/test-engineer-persona",
   "changed_test_paths": [
     "tests/qa/test_persona_policy.py",
@@ -28,24 +37,6 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py -q --no-cov",
-      "exit_code": 0,
-      "name": "targeted_pytest",
-      "output_path": "targeted persona, scope guard, and gate-record tests passed with --no-cov for narrow behavioral run",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
-      "command_or_tool": "ruff format --check src/scistudio/qa/governance/persona_policy.py src/scistudio/qa/governance/test_engineer_scope_guard.py src/scistudio/qa/governance/gate_record tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py",
-      "exit_code": 0,
-      "name": "ruff_format_check",
-      "output_path": "15 files already formatted",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
       "command_or_tool": "git diff --check",
       "exit_code": 0,
       "name": "git_diff_check",
@@ -59,6 +50,33 @@
       "exit_code": 0,
       "name": "ruff_format_check_full",
       "output_path": "735 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/qa/governance/persona_policy.py src/scistudio/qa/governance/test_engineer_scope_guard.py src/scistudio/qa/governance/gate_record tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/governance/test_gate_record_package.py",
+      "exit_code": 0,
+      "name": "ruff_format_check",
+      "output_path": "16 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/governance/test_gate_record_package.py -q --no-cov",
+      "exit_code": 0,
+      "name": "targeted_pytest",
+      "output_path": "targeted persona, scope guard, gate-record, and self-hosting package tests passed with --no-cov",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.governance.gate_record ci --gate-record .workflow/records/1467-test-engineer-persona-implementation.json --base origin/main --head HEAD --pr-body <PR #1474 body>",
+      "exit_code": 0,
+      "name": "gate_record_ci",
+      "output_path": "gate_record: pass",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -83,19 +101,8 @@
     },
     "docs": {
       "paths": [
-        "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
-        "docs/ai-developer/rules.md",
-        "docs/ai-developer/specific_rules/gated-workflow.md",
-        "docs/ai-developer/specific_rules/agent-dispatch.md",
-        "docs/ai-developer/specific_rules/test-engineering.md",
-        "docs/ai-developer/personas/test-engineer.md",
-        "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
-        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
-        "docs/ai-developer/checklists/agent-manager-rules-review.md",
-        "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
-        ".agents/skills/test-engineer/SKILL.md",
-        ".codex/skills/test-engineer/SKILL.md",
-        ".claude/skills/test-engineer/SKILL.md"
+        "tests/qa/governance/test_gate_record_package.py",
+        "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json"
       ]
     }
   },
