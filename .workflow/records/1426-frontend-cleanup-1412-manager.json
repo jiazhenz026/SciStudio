@@ -38,6 +38,12 @@
       "exclude": [],
       "include": [],
       "reason": "Wave 4 integration: stripped all 8 waiver blocks from frontend/eslint.config.js, bumped 3 thresholds (max-lines 500\u2192750, max-lines-per-function 150\u2192400, complexity 15\u219250), loosened eqeqeq to { null: 'ignore' } per audit P1 finding. CHANGELOG entry added. All checks green: lint 0 errors, typecheck clean, test 571/584, build clean, ruff clean, full_audit 0 findings, sentrux pass 5\u22645."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Flip governance_touch=true. Main-merge brought in #1467 changes to src/scistudio/qa/governance/* and .github/workflows/* which require the flag; missed earlier."
     }
   ],
   "branch": "track/frontend-cleanup-1412",
@@ -162,7 +168,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
