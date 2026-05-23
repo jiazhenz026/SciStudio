@@ -60,7 +60,11 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         # sub-packages whose largest sub-module is < 750 LOC.
         # ``src/scistudio/api/routes/ai_pty.py`` removed 2026-05-22 (#1432) —
         # the 757-LOC route file was split into the ``ai_pty/`` sub-package.
-        "src/scistudio/core/versioning/git_engine.py",
+        # ``src/scistudio/core/versioning/git_engine.py`` removed 2026-05-22
+        # (#1472, Phase 3 D3 of umbrella #1427) — the 849-LOC subprocess
+        # wrapper was decomposed via the class-binding pattern per ADR-046
+        # Addendum 1. Method bodies live in private ``_*_ops.py`` siblings;
+        # the file now sits at ~231 LOC.
     }
 )
 
