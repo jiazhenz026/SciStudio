@@ -203,6 +203,7 @@ class ApiRuntime:
         # subprocess can discover it.
         self._mcp_port: int | None = None
         self._entity_versions: dict[tuple[str, str], int] = {}
+        self._entity_disk_versions: dict[tuple[str, str], int] = {}
         self._first_party_entity_writes: dict[tuple[str, str], FirstPartyEntityWrite] = {}
         self._version_lock = threading.RLock()
         # ADR-039 §5.2: the in-memory ``_workflow_revisions`` counter and its
@@ -276,51 +277,55 @@ class ApiRuntime:
         """Initialize ADR-045 version state from the active project's disk state."""
         workflows_dir = project_dir / "workflows"
         seeded: dict[tuple[str, str], int] = {}
+        disk_versions: dict[tuple[str, str], int] = {}
         if workflows_dir.is_dir():
             for pattern in ("*.yaml", "*.yml"):
                 for path in workflows_dir.glob(pattern):
                     try:
-                        disk_version = path.stat().st_mtime_ns
+                        disk_version = int(path.stat().st_mtime_ns)
                     except OSError:
                         continue
                     key = (WORKFLOW_ENTITY_CLASS, path.stem)
-                    seeded[key] = max(seeded.get(key, 0), int(disk_version))
+                    seeded[key] = max(seeded.get(key, 0), 1)
+                    disk_versions[key] = max(disk_versions.get(key, 0), disk_version)
         with self._version_lock:
             self._entity_versions = seeded
+            self._entity_disk_versions = disk_versions
             self._first_party_entity_writes.clear()
 
-    def current_entity_version(
-        self,
-        entity_class: str,
-        entity_id: str,
-        *,
-        path: Path | None = None,
-    ) -> int:
-        """Return the current server-owned version for ``(entity_class, entity_id)``."""
+    def current_entity_version(self, entity_class: str, entity_id: str, *, path: Path | None = None) -> int:
         key = self._version_key(entity_class, entity_id)
         with self._version_lock:
-            current = self._entity_versions.get(key)
-            if current is None:
-                current = self._initial_version_from_path(path)
-                self._entity_versions[key] = current
-            return current
+            return self._entity_version_locked(key, path=path, bump=False, disk=False)
 
-    def bump_entity_version(
-        self,
-        entity_class: str,
-        entity_id: str,
-        *,
-        path: Path | None = None,
-    ) -> int:
-        """Advance and return the next monotonic version for an entity."""
+    def bump_entity_version(self, entity_class: str, entity_id: str, *, path: Path | None = None) -> int:
         key = self._version_key(entity_class, entity_id)
         with self._version_lock:
-            current = self._entity_versions.get(key)
-            if current is None:
-                current = self._initial_version_from_path(path)
-            version = int(current) + 1
-            self._entity_versions[key] = version
-            return version
+            return self._entity_version_locked(key, path=path, bump=True, disk=False)
+
+    def current_entity_disk_version(self, entity_class: str, entity_id: str, *, path: Path | None = None) -> int:
+        key = self._version_key(entity_class, entity_id)
+        with self._version_lock:
+            return self._entity_version_locked(key, path=path, bump=False, disk=True)
+
+    def _entity_version_locked(
+        self,
+        key: tuple[str, str],
+        *,
+        path: Path | None,
+        bump: bool,
+        disk: bool,
+    ) -> int:
+        target = self._entity_disk_versions if disk else self._entity_versions
+        current = target.get(key)
+        if current is None:
+            current = self._disk_version_from_path(path) if disk else self._initial_version_from_path(path)
+        elif bump:
+            current = int(current) + 1
+        target[key] = current
+        if not disk and path is not None and (bump or key not in self._entity_disk_versions):
+            self._entity_disk_versions[key] = self._disk_version_from_path(path)
+        return current
 
     def current_workflow_version(self, workflow_id: str) -> int:
         return self.current_entity_version(
@@ -344,6 +349,15 @@ class ApiRuntime:
             return normalized, None, None, False
         return normalized, int(stat.st_mtime_ns), int(stat.st_size), True
 
+    def _signature_for_entity_write(
+        self, path: Path | None, *, pending: bool
+    ) -> tuple[str | None, int | None, int | None, bool | None]:
+        if path is None:
+            return None, None, None, None
+        if pending:
+            return str(path.resolve()), None, None, None
+        return self._first_party_write_signature(path)
+
     def mark_entity_first_party_write(
         self,
         entity_class: str,
@@ -356,14 +370,7 @@ class ApiRuntime:
     ) -> None:
         """Record an exact write-site signature so watcher fallback can suppress echoes."""
         key = self._version_key(entity_class, entity_id)
-        path_key: str | None = None
-        mtime_ns: int | None = None
-        size: int | None = None
-        exists: bool | None = None
-        if path is not None:
-            path_key = str(path.resolve())
-            if not pending:
-                path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+        path_key, mtime_ns, size, exists = self._signature_for_entity_write(path, pending=pending)
         with self._version_lock:
             self._first_party_entity_writes[key] = FirstPartyEntityWrite(
                 version=int(version),
@@ -374,6 +381,8 @@ class ApiRuntime:
                 exists=exists,
                 kind=kind,
             )
+            if mtime_ns is not None:
+                self._entity_disk_versions[key] = mtime_ns
 
     def mark_workflow_first_party_write(
         self,
@@ -385,6 +394,29 @@ class ApiRuntime:
     ) -> None:
         self.mark_entity_first_party_write(WORKFLOW_ENTITY_CLASS, workflow_id, version, path=path, kind=kind)
 
+    def _active_first_party_entity_write(
+        self, key: tuple[str, str], version: int | None
+    ) -> FirstPartyEntityWrite | None:
+        entry = self._first_party_entity_writes.get(key)
+        if entry is None:
+            return None
+        if time.monotonic() - entry.seen_at > _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS:
+            self._first_party_entity_writes.pop(key, None)
+            return None
+        if version is not None and int(version) != entry.version:
+            return None
+        return entry
+
+    def _entity_write_path_matches(self, entry: FirstPartyEntityWrite, path: Path, kind: str | None) -> bool:
+        path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+        if entry.path != path_key:
+            return False
+        if entry.exists is None:
+            return True
+        if entry.exists is False:
+            return exists is False and entry.kind == "deleted" and kind == "deleted"
+        return exists is True and entry.mtime_ns == mtime_ns and entry.size == size
+
     def is_recent_first_party_entity_write(
         self,
         entity_class: str,
@@ -394,35 +426,12 @@ class ApiRuntime:
         path: Path | None = None,
         kind: str | None = None,
     ) -> bool:
-        key = self._version_key(entity_class, entity_id)
-        now = time.monotonic()
+        key = (str(entity_class), str(entity_id))
         with self._version_lock:
-            entry = self._first_party_entity_writes.get(key)
-            if entry is None:
-                return False
-            if now - entry.seen_at > _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS:
-                self._first_party_entity_writes.pop(key, None)
-                return False
-            if version is not None and int(version) != entry.version:
-                return False
+            entry = self._active_first_party_entity_write(key, version)
             if path is None:
-                return version is not None
-            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
-            if entry.path != path_key:
-                return False
-            if entry.exists is None:
-                # Pending in-flight write: the writer marked the signature
-                # before completing the rename, so we know any event for
-                # this exact path during the suppression window is our own
-                # echo. On Linux, ``os.replace(tmp, target)`` surfaces as a
-                # FileMovedEvent which maps to kind="created"; on Windows
-                # it is typically kind="modified". Don't enforce kind match
-                # in pending mode — the path match plus the short 2s window
-                # are sufficient.
-                return True
-            if entry.exists is False:
-                return exists is False and entry.kind == "deleted" and kind == "deleted"
-            return exists is True and entry.mtime_ns == mtime_ns and entry.size == size
+                return entry is not None and version is not None
+            return entry is not None and self._entity_write_path_matches(entry, path, kind)
 
     def is_recent_workflow_first_party_write(
         self,
@@ -474,6 +483,15 @@ class ApiRuntime:
 
     @staticmethod
     def _initial_version_from_path(path: Path | None) -> int:
+        if path is None:
+            return 0
+        try:
+            return 1 if path.exists() else 0
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _disk_version_from_path(path: Path | None) -> int:
         if path is None:
             return 0
         try:

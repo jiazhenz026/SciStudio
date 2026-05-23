@@ -10,6 +10,8 @@ from scistudio.api.runtime import ApiRuntime
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 from tests.api.helpers import build_linear_workflow, wait_for_condition
 
+JS_MAX_SAFE_INTEGER = 9_007_199_254_740_991
+
 
 def test_workflow_responses_return_monotonic_state_versions(
     client: TestClient,
@@ -24,6 +26,7 @@ def test_workflow_responses_return_monotonic_state_versions(
     assert created_body["entity_id"] == "versioned-flow"
     assert created_body["version"] == "1.0.0"
     assert isinstance(created_body["state_version"], int)
+    assert created_body["state_version"] <= JS_MAX_SAFE_INTEGER
     assert created_body["workflow_version"] == "1.0.0"
     assert created_body["source"] == "canvas"
     assert created_body["kind"] == "created"
@@ -42,6 +45,7 @@ def test_workflow_responses_return_monotonic_state_versions(
     updated_body = updated.json()
     assert updated_body["version"] == "1.0.0"
     assert updated_body["state_version"] == created_body["state_version"] + 1
+    assert updated_body["state_version"] <= JS_MAX_SAFE_INTEGER
     assert updated_body["kind"] == "modified"
 
 

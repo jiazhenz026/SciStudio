@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
+import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime
+from scistudio.api.routes import workflow_watcher
+from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime, WorkflowRun
 from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
@@ -29,6 +32,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
+
+
+def _yaml_error_detail(workflow_id: str, exc: yaml.YAMLError) -> dict[str, Any]:
+    mark = getattr(exc, "problem_mark", None)
+    problem = getattr(exc, "problem", None)
+    location = ""
+    if mark is not None:
+        location = f" at line {int(mark.line) + 1}, column {int(mark.column) + 1}"
+    problem_text = f": {problem}" if problem else ""
+    detail: dict[str, Any] = {
+        "message": f"Workflow '{workflow_id}' on disk is not valid YAML{location}{problem_text}.",
+        "error": str(exc),
+    }
+    if mark is not None:
+        detail["line"] = int(mark.line) + 1
+        detail["column"] = int(mark.column) + 1
+    if problem:
+        detail["problem"] = str(problem)
+    context = getattr(exc, "context", None)
+    if context:
+        detail["context"] = str(context)
+    return detail
 
 
 class VersionedWorkflowResponse(BaseModel):
@@ -51,26 +76,19 @@ class VersionedWorkflowResponse(BaseModel):
 
 
 def _mark_self_write(path: Path) -> None:
-    """ADR-034 Phase 2: tell the FS watcher this YAML write was canvas-originated.
-
-    Suppresses the next ``workflow.changed`` event for ``(path, mtime, size)``
-    so the watcher does not echo the canvas's own save back at the canvas.
-    Silent no-op when the watcher singleton has not been installed (e.g. in
-    pure-route unit tests).
-    """
-    try:
-        from scistudio.api.routes.workflow_watcher import mark_self_write as _mark
-
-        _mark(path)
-    except Exception:
-        # Watcher failures must not affect the user-facing save response.
-        import logging
-
-        logging.getLogger(__name__).debug("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
+    with contextlib.suppress(Exception):
+        workflow_watcher.mark_self_write(path)
 
 
 def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
+
+
+def _get_run_or_404(runtime: ApiRuntime, workflow_id: str) -> WorkflowRun:
+    try:
+        return runtime.get_run(workflow_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 def _request_source_id(request: Request, body: Any | None = None) -> str | None:
@@ -329,6 +347,8 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkfl
                 "errors": exc.errors(),
             },
         ) from exc
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=422, detail=_yaml_error_detail(workflow_id, exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _workflow_response(definition, state_version=runtime.current_workflow_version(definition.id))
@@ -428,22 +448,14 @@ async def execute_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExe
 
 @router.post("/{workflow_id}/pause", response_model=WorkflowExecutionResponse)
 async def pause_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExecutionResponse:
-    """Pause a running workflow."""
-    try:
-        run = runtime.get_run(workflow_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    run = _get_run_or_404(runtime, workflow_id)
     await run.scheduler.pause()
     return WorkflowExecutionResponse(workflow_id=workflow_id, status="paused", message="Pause requested.")
 
 
 @router.post("/{workflow_id}/resume", response_model=WorkflowExecutionResponse)
 async def resume_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExecutionResponse:
-    """Resume a paused workflow."""
-    try:
-        run = runtime.get_run(workflow_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    run = _get_run_or_404(runtime, workflow_id)
     await run.scheduler.resume()
     return WorkflowExecutionResponse(workflow_id=workflow_id, status="running", message="Workflow resumed.")
 
@@ -451,10 +463,7 @@ async def resume_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExec
 @router.post("/{workflow_id}/cancel", response_model=CancelPropagationResponse)
 async def cancel_workflow(workflow_id: str, runtime: RuntimeDep) -> CancelPropagationResponse:
     """Cancel an entire workflow."""
-    try:
-        run = runtime.get_run(workflow_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    run = _get_run_or_404(runtime, workflow_id)
 
     await run.scheduler.cancel_workflow()
     block_states = run.scheduler.block_states()
@@ -474,10 +483,7 @@ async def cancel_block(
     runtime: RuntimeDep,
 ) -> CancelPropagationResponse:
     """Cancel a single block within a workflow."""
-    try:
-        run = runtime.get_run(workflow_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    run = _get_run_or_404(runtime, workflow_id)
 
     await run.scheduler.cancel_block(block_id)
     block_states = run.scheduler.block_states()

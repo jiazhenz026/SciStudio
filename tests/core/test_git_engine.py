@@ -287,13 +287,30 @@ def test_restore_round_trip(tmp_path: Path) -> None:
     assert head_sha == sha_b
 
 
+def test_restore_to_commit_missing_file_deletes_worktree_file(tmp_path: Path) -> None:
+    engine = _init_engine(tmp_path)
+    sha_without_file = engine.head_state().commit_sha
+    target = tmp_path / "workflows" / "new.yaml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("workflow:\n  id: new\n  nodes: []\n", encoding="utf-8")
+    sha_with_file = engine.commit("add workflow")
+
+    engine.restore(sha_without_file, files=["workflows/new.yaml"])
+
+    assert not target.exists()
+    assert engine.head_state().commit_sha == sha_with_file
+    status = engine.status()
+    assert "workflows/new.yaml" in status["modified"]
+    assert "workflows/new.yaml" not in status["staged"]
+
+
 def test_restore_does_not_auto_handle_dirty_tree(tmp_path: Path) -> None:
     """ADR-039 Addendum 1 (#1354): the engine.restore method is now a
     pure soft restore — it does NOT auto-stash or auto-commit a dirty
     tree. The auto-commit responsibility lives at the route layer
     (``scistudio.api.routes.git::restore``). This test pins the engine
     contract: ``restore`` against a dirty tree either succeeds without
-    creating a new commit (if git allows the checkout) or raises the
+    creating a new commit (if git allows the restore) or raises the
     raw ``GitError`` (which the route layer catches AFTER it has
     already auto-committed).
     """

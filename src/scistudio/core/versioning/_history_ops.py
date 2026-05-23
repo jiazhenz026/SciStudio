@@ -154,7 +154,7 @@ def _restore(engine: GitEngine, commit_sha: str, *, files: list[str] | None = No
 
     Hotfix #997: when every target file's content at ``commit_sha``
     is byte-identical to its current working-tree content, restore
-    is a no-op — skip the actual ``git checkout``. Pre-fix, clicking
+    is a no-op — skip the actual ``git restore``. Pre-fix, clicking
     "Restore this run's workflow" on a run whose recorded commit
     happened to match the current working tree still triggered an
     auto-handler against a tree that was dirty in *any* file (even
@@ -168,17 +168,21 @@ def _restore(engine: GitEngine, commit_sha: str, *, files: list[str] | None = No
             all_unchanged = _files_unchanged_vs_commit(engine, commit_sha, files)
         except GitError:
             # If we can't compare (commit doesn't exist, etc.) let
-            # the subsequent checkout produce the real error message.
+            # the subsequent restore produce the real error message.
             all_unchanged = False
         if all_unchanged:
             logger.debug(
-                "restore: %s @ %s already matches working tree; skipping checkout",
+                "restore: %s @ %s already matches working tree; skipping restore",
                 files,
                 commit_sha[:7],
             )
             return
 
-    args = ["checkout", commit_sha, "--"]
+    # Use `git restore --worktree` instead of `git checkout <sha> --`
+    # so soft restore updates the working tree without staging the
+    # restored content. If the source commit lacks a tracked path, git
+    # restores the working tree by deleting that file.
+    args = ["restore", f"--source={commit_sha}", "--worktree", "--"]
     if files:
         args.extend(files)
     else:
@@ -203,5 +207,5 @@ def _files_unchanged_vs_commit(engine: GitEngine, commit_sha: str, files: list[s
     if proc.returncode == 1:
         return False
     # Any other return code: treat as unable-to-determine; let the
-    # caller fall through to the normal checkout path.
+    # caller fall through to the normal restore path.
     raise GitError(proc.returncode, proc.stderr or "", diff_args)

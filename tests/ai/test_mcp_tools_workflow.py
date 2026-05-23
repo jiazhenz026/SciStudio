@@ -21,6 +21,7 @@ import pytest
 from scistudio.ai.agent.mcp import _context, tools_workflow
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.registry import TypeRegistry
+from scistudio.engine.events import WORKFLOW_CHANGED
 
 # --- Stub MCPContext -------------------------------------------------------
 
@@ -47,6 +48,106 @@ class _StubRuntime:
 class _StubRun:
     task: Any = None
     scheduler: Any = None
+
+
+class _StubEventBus:
+    def __init__(self) -> None:
+        self.events: list[Any] = []
+
+    async def emit(self, event: Any) -> None:
+        self.events.append(event)
+
+
+class _VersionedStubRuntime(_StubRuntime):
+    def __init__(self, project_dir: Path) -> None:
+        super().__init__(_project_dir=project_dir)
+        self.event_bus = _StubEventBus()
+        self.event_bus.runtime = self
+        self._versions: dict[str, int] = {}
+        self.first_party_writes: list[dict[str, Any]] = []
+        self.pending_first_party_writes: list[dict[str, Any]] = []
+
+    def bump_workflow_version(self, workflow_id: str) -> int:
+        version = self._versions.get(workflow_id, 0) + 1
+        self._versions[workflow_id] = version
+        return version
+
+    def mark_workflow_first_party_write(
+        self,
+        workflow_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> None:
+        self.first_party_writes.append(
+            {
+                "workflow_id": workflow_id,
+                "version": version,
+                "path": path,
+                "kind": kind,
+            }
+        )
+
+    def mark_entity_first_party_write(
+        self,
+        entity_class: str,
+        entity_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+        pending: bool = False,
+    ) -> None:
+        if pending:
+            self.pending_first_party_writes.append(
+                {
+                    "entity_class": entity_class,
+                    "entity_id": entity_id,
+                    "version": version,
+                    "path": path,
+                    "kind": kind,
+                    "pending": pending,
+                }
+            )
+
+    def versioned_change_payload(
+        self,
+        *,
+        entity_class: str,
+        entity_id: str,
+        version: int,
+        source: str,
+        source_id: str | None,
+        kind: str,
+        **extra: Any,
+    ) -> dict[str, Any]:
+        return {
+            "entity_class": entity_class,
+            "entity_id": entity_id,
+            "version": version,
+            "source": source,
+            "source_id": source_id,
+            "kind": kind,
+            **extra,
+        }
+
+
+class _RuntimeAdapterStub(_StubRuntime):
+    """Matches the API lifespan adapter shape used by the MCP context."""
+
+    def __init__(self, runtime: _VersionedStubRuntime) -> None:
+        super().__init__(
+            block_registry=runtime.block_registry,
+            type_registry=runtime.type_registry,
+            workflow_runs=runtime.workflow_runs,
+            _project_dir=runtime.project_dir,
+        )
+        self.event_bus = runtime.event_bus
+        self._runtime = runtime
+
+    def start_workflow(self, workflow_id: str) -> dict[str, Any]:
+        return self._runtime.start_workflow(workflow_id)
 
 
 @pytest.fixture
@@ -165,6 +266,88 @@ def test_write_workflow_creates_file(ctx: _StubRuntime, tmp_path: Path) -> None:
     assert "lines" in result.diff_summary
     # ADR-040 §3.2: write-class envelope must carry next_step.
     assert result.next_step and "validate_workflow" in result.next_step
+
+
+def test_write_workflow_emits_agent_versioned_change_event(tmp_path: Path) -> None:
+    runtime = _VersionedStubRuntime(tmp_path)
+    _context.set_context(runtime)
+    try:
+        target = tmp_path / "workflows" / "agent_edit.yaml"
+        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML))
+    finally:
+        _context.set_context(None)
+
+    assert target.exists()
+    assert result.bytes_written > 0
+    assert runtime.pending_first_party_writes == [
+        {
+            "entity_class": "workflow",
+            "entity_id": "agent_edit",
+            "version": 1,
+            "path": target,
+            "kind": "created",
+            "pending": True,
+        }
+    ]
+    assert runtime.first_party_writes == [
+        {
+            "workflow_id": "agent_edit",
+            "version": 1,
+            "path": target,
+            "kind": "created",
+        }
+    ]
+    assert len(runtime.event_bus.events) == 1
+    event = runtime.event_bus.events[0]
+    assert event.event_type == WORKFLOW_CHANGED
+    assert event.data["entity_class"] == "workflow"
+    assert event.data["entity_id"] == "agent_edit"
+    assert event.data["workflow_id"] == "agent_edit"
+    assert event.data["version"] == 1
+    assert event.data["source"] == "agent"
+    assert event.data["source_id"] is None
+    assert event.data["kind"] == "created"
+    assert event.data["path"] == "workflows/agent_edit.yaml"
+    assert event.data["changed_by"] == "mcp.write_workflow"
+
+
+def test_write_workflow_emits_versioned_event_through_runtime_adapter(tmp_path: Path) -> None:
+    runtime = _VersionedStubRuntime(tmp_path)
+    adapter = _RuntimeAdapterStub(runtime)
+    _context.set_context(adapter)
+    try:
+        target = tmp_path / "workflows" / "agent_adapter_edit.yaml"
+        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML))
+    finally:
+        _context.set_context(None)
+
+    assert target.exists()
+    assert result.bytes_written > 0
+    assert runtime.pending_first_party_writes == [
+        {
+            "entity_class": "workflow",
+            "entity_id": "agent_adapter_edit",
+            "version": 1,
+            "path": target,
+            "kind": "created",
+            "pending": True,
+        }
+    ]
+    assert runtime.first_party_writes == [
+        {
+            "workflow_id": "agent_adapter_edit",
+            "version": 1,
+            "path": target,
+            "kind": "created",
+        }
+    ]
+    assert len(runtime.event_bus.events) == 1
+    event = runtime.event_bus.events[0]
+    assert event.event_type == WORKFLOW_CHANGED
+    assert event.data["entity_id"] == "agent_adapter_edit"
+    assert event.data["version"] == 1
+    assert event.data["source"] == "agent"
+    assert event.data["path"] == "workflows/agent_adapter_edit.yaml"
 
 
 def test_write_workflow_rejects_unparseable_yaml(ctx: _StubRuntime, tmp_path: Path) -> None:

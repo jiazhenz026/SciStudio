@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -66,10 +67,12 @@ def test_spawn_codex_uses_cmd_when_windows_which_finds_bare_wrapper(
 
     terminal.spawn_codex(project_dir=tmp_path, dangerous=True)
 
-    assert spawned["argv"] == [
-        "C:/Users/dev/AppData/Roaming/npm/codex.cmd",
-        "--dangerously-bypass-approvals-and-sandbox",
-    ]
+    argv = spawned["argv"]
+    assert argv[0] == "C:/Users/dev/AppData/Roaming/npm/codex.cmd"
+    assert "--dangerously-bypass-approvals-and-sandbox" in argv
+    assert any(arg.startswith("mcp_servers.scistudio.command=") for arg in argv)
+    assert any(arg == 'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]' for arg in argv)
+    assert any(arg.startswith("mcp_servers.scistudio.env={SCISTUDIO_PROJECT_DIR=") for arg in argv)
 
 
 def test_spawn_claude_uses_cmd_when_windows_which_finds_bare_wrapper(
@@ -119,3 +122,33 @@ def test_spawn_argv_seam_bypasses_windows_resolution(monkeypatch: Any, tmp_path:
     terminal.spawn_codex(project_dir=tmp_path, dangerous=True, _spawn_argv=[sys.executable, "-c", "pass"])
 
     assert spawned["argv"] == [sys.executable, "-c", "pass"]
+
+
+def test_spawn_codex_injects_project_mcp_config_overrides(monkeypatch: Any, tmp_path: Path) -> None:
+    """Embedded Codex tabs must not depend on project/global config discovery."""
+    spawned: dict[str, Any] = {}
+
+    class FakePtyProcess:
+        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+            spawned["argv"] = argv
+            spawned["args"] = args
+            spawned["kwargs"] = kwargs
+
+    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
+
+    terminal.spawn_codex(project_dir=tmp_path, dangerous=False)
+
+    argv = spawned["argv"]
+    assert argv[:7] == [
+        "codex",
+        "-c",
+        f"mcp_servers.scistudio.command={json.dumps(sys.executable)}",
+        "-c",
+        'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]',
+        "-c",
+        f"mcp_servers.scistudio.env={{SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}}}",
+    ]
+    assert f"mcp_servers.scistudio.command={json.dumps(sys.executable)}" in argv
+    assert 'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]' in argv
+    assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in argv[-1]

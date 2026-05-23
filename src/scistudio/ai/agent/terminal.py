@@ -55,6 +55,7 @@ macOS notes (verified separately by user):
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import shutil
@@ -553,7 +554,7 @@ def spawn_codex(
     """Spawn ``codex`` inside a PTY, anchored at ``project_dir``.
 
     Argv:
-        ``["codex"]`` plus
+        ``["codex", "-c", "mcp_servers.scistudio...."]`` plus
         ``--dangerously-bypass-approvals-and-sandbox`` when
         ``dangerous``.
 
@@ -562,9 +563,10 @@ def spawn_codex(
     ``.codex/config.toml`` plus ``~/.codex/config.toml``. ADR-040 §3.7
     auto-provisions ``<project>/.codex/config.toml`` with the SciStudio MCP
     server entry; the user's ``scistudio install --target codex`` populates
-    the user-scope ``~/.codex/config.toml`` as a fallback. Both paths
-    converge on the same ``[mcp_servers.scistudio]`` block rendered by
-    ``scistudio.cli.install._render_codex_block``.
+    the user-scope ``~/.codex/config.toml`` as a fallback. The embedded GUI
+    path also injects the same ``mcp_servers.scistudio`` values via Codex
+    ``-c`` overrides so stale user config or project-scope loading drift
+    cannot select the wrong bridge.
 
     Codex also does not accept ``--append-system-prompt``; the SciStudio
     skill is picked up via the project-scope ``.agents/skills/scistudio/``
@@ -581,7 +583,10 @@ def spawn_codex(
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
-        argv = [resolve_windows_executable("codex") or "codex"]
+        argv = [
+            resolve_windows_executable("codex") or "codex",
+            *_codex_mcp_config_overrides(project_dir),
+        ]
         if dangerous:
             argv.append("--dangerously-bypass-approvals-and-sandbox")
 
@@ -593,3 +598,40 @@ def spawn_codex(
         cleanup_paths=[],
         extra_env=extra_env,
     )
+
+
+def _codex_mcp_config_overrides(project_dir: Path) -> list[str]:
+    """Render Codex ``-c`` overrides for the SciStudio MCP server.
+
+    Codex project-scope config loading has changed across 2026 CLI builds,
+    and stale user-scope config can point at the wrong Python interpreter.
+    The embedded SciStudio chat owns the process spawn, so pass the current
+    project MCP entry explicitly just like ``spawn_claude`` passes
+    ``--mcp-config``.
+    """
+    from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
+
+    entry = _mcp_entry_payload(project_dir)
+    command = entry["command"]
+    args = entry["args"]
+    env = entry.get("env")
+
+    if not isinstance(command, str):
+        raise TypeError("Codex MCP command must be a string")
+    if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
+        raise TypeError("Codex MCP args must be a list of strings")
+    if not isinstance(env, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in env.items()
+    ):
+        raise TypeError("Codex MCP env must be a string map")
+
+    env_literal = "{" + ",".join(f"{key}={json.dumps(value)}" for key, value in env.items()) + "}"
+    prefix = f"mcp_servers.{MCP_SERVER_NAME}"
+    return [
+        "-c",
+        f"{prefix}.command={json.dumps(command)}",
+        "-c",
+        f"{prefix}.args={json.dumps(args)}",
+        "-c",
+        f"{prefix}.env={env_literal}",
+    ]
