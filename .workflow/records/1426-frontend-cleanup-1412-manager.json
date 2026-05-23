@@ -11,7 +11,7 @@
       "approved_by": null,
       "exclude": [],
       "include": [],
-      "reason": "Merged origin/main twice into umbrella (commits 8d1e3262 + the second to pick up #1465 .sentrux max_cycles=5). Resolved 2-file conflict on lib/api.ts (hoisted ADR-045 helpers into new api/version.ts) + tabState.test.ts (auto-resolved). Added .claude/** to eslint+prettier ignores. All frontend checks green (lint 0 errors, test 556/569, build clean). Sentrux now pass (4 cycles ≤ 5). Umbrella ready for W3-D re-dispatch."
+      "reason": "Merged origin/main twice into umbrella (commits 8d1e3262 + the second to pick up #1465 .sentrux max_cycles=5). Resolved 2-file conflict on lib/api.ts (hoisted ADR-045 helpers into new api/version.ts) + tabState.test.ts (auto-resolved). Added .claude/** to eslint+prettier ignores. All frontend checks green (lint 0 errors, test 556/569, build clean). Sentrux now pass (4 cycles \u2264 5). Umbrella ready for W3-D re-dispatch."
     },
     {
       "approved_by": null,
@@ -31,13 +31,13 @@
         "docs/audit/full-audit-*.json",
         "docs/audit/*.md"
       ],
-      "reason": "Include W2-C's per-PR full audit output (docs/audit/full-audit-1422.json) — it was committed by W2-C's gate record but not in manager scope."
+      "reason": "Include W2-C's per-PR full audit output (docs/audit/full-audit-1422.json) \u2014 it was committed by W2-C's gate record but not in manager scope."
     },
     {
       "approved_by": null,
       "exclude": [],
       "include": [],
-      "reason": "Wave 4 integration: stripped all 8 waiver blocks from frontend/eslint.config.js, bumped 3 thresholds (max-lines 500→750, max-lines-per-function 150→400, complexity 15→50), loosened eqeqeq to { null: 'ignore' } per audit P1 finding. CHANGELOG entry added. All checks green: lint 0 errors, typecheck clean, test 571/584, build clean, ruff clean, full_audit 0 findings, sentrux pass 5≤5."
+      "reason": "Wave 4 integration: stripped all 8 waiver blocks from frontend/eslint.config.js, bumped 3 thresholds (max-lines 500\u2192750, max-lines-per-function 150\u2192400, complexity 15\u219250), loosened eqeqeq to { null: 'ignore' } per audit P1 finding. CHANGELOG entry added. All checks green: lint 0 errors, typecheck clean, test 571/584, build clean, ruff clean, full_audit 0 findings, sentrux pass 5\u22645."
     },
     {
       "approved_by": null,
@@ -58,6 +58,16 @@
         "packages/**"
       ],
       "reason": "Broaden scope to include backend test paths brought in by main-merge of #1467/#1474 (governance-related tests)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".agents/**",
+        ".claude/**",
+        ".codex/**"
+      ],
+      "reason": "Add .agents/ + .claude/ + .codex/ skill paths brought in by #1467 main-merge."
     }
   ],
   "branch": "track/frontend-cleanup-1412",
@@ -85,7 +95,7 @@
       "command_or_tool": "pytest",
       "exit_code": null,
       "name": "pytest",
-      "output_path": "Manager-bootstrap commit changes only docs/planning/*.md and .workflow/records/*.json — no Python source changed. Sub-agent PRs run pytest as needed.",
+      "output_path": "Manager-bootstrap commit changes only docs/planning/*.md and .workflow/records/*.json \u2014 no Python source changed. Sub-agent PRs run pytest as needed.",
       "status": "skipped",
       "summary": {},
       "timestamp": null
@@ -146,11 +156,11 @@
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
-      "rationale": "No addendum needed — issue-level scope tracked by #1426 + per-wave sub-issues."
+      "rationale": "No addendum needed \u2014 issue-level scope tracked by #1426 + per-wave sub-issues."
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "No ADR change — cleanup cascade for #1412 baseline waivers; ADR-046/047 came in via main-merge but are independent."
+      "rationale": "No ADR change \u2014 cleanup cascade for #1412 baseline waivers; ADR-046/047 came in via main-merge but are independent."
     },
     "changelog": {
       "paths": [
@@ -169,7 +179,7 @@
     },
     "spec": {
       "not_applicable": true,
-      "rationale": "No public contract or schema change — refactor + lint cleanup; lib/api public surface preserved via re-export shell."
+      "rationale": "No public contract or schema change \u2014 refactor + lint cleanup; lib/api public surface preserved via re-export shell."
     }
   },
   "full_audit": {
@@ -234,7 +244,7 @@
     "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "post-Wave-4-integration: 5 cycles ≤ 5 threshold, files=1433, lines=330956, modularity=0.223, redundancy=0.086",
+    "output_path": "post-Wave-4-integration: 5 cycles \u2264 5 threshold, files=1433, lines=330956, modularity=0.223, redundancy=0.086",
     "pro_required": false,
     "quality_signal": 4129.0,
     "rules_checked": 3,
