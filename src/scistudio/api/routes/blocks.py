@@ -265,43 +265,54 @@ async def get_block_schema(
     )
 
 
-def _resolve_effective_output_port(
+def _resolve_effective_port(
     spec: Any,
     registry: Any,
     block_type: str,
     port_name: str,
     node_config: dict[str, Any] | None,
-) -> OutputPort | None:
-    """Return the effective output port for *port_name* on *block_type*.
+    *,
+    direction: str,
+) -> InputPort | OutputPort | None:
+    """Return the effective port for ``(block_type, port_name)`` (#889).
 
-    #889: when ``node_config`` is provided, the port is resolved
-    against :meth:`Block.get_effective_output_ports` so the validator
-    sees the same contract the renderer uses (LoadData ``core_type``
-    drives the port type; variadic blocks define their ports in
-    config).
+    Direction-agnostic resolver shared by the input and output paths:
 
-    Falls back to the static class-level ``spec.output_ports`` when
-    no node config is supplied or when the registry cannot
-    instantiate the block (e.g. malformed config). The legacy
-    variadic-block fallback that synthesised a permissive
-    ``DataObject`` port is preserved for older clients that have not
-    started passing ``node_config`` yet.
+    * When ``node_config`` is provided, instantiate the block via the
+      registry and read its :meth:`Block.get_effective_input_ports`
+      or :meth:`Block.get_effective_output_ports` (per *direction*) so
+      the validator sees the same contract the renderer uses —
+      LoadData's ``core_type`` drives the port type and variadic
+      blocks define their ports in config.
+    * Falls back to the class-level ``spec.input_ports`` /
+      ``spec.output_ports`` when no config is supplied or the
+      registry cannot instantiate the block (e.g. malformed config).
+    * Preserves the ADR-029 legacy synthetic ``DataObject`` port for
+      variadic blocks when no other lookup matches, so older clients
+      that have not started passing ``node_config`` still get a
+      sensible answer.
     """
+    expected_cls: type[InputPort] | type[OutputPort] = InputPort if direction == "input" else OutputPort
+    static_ports = getattr(spec, f"{direction}_ports", []) or []
+    variadic_flag = f"variadic_{direction}s"
+    effective_attr = f"get_effective_{direction}_ports"
+
     if node_config is not None:
         try:
             block = registry.instantiate(block_type, node_config)
-            for port in block.get_effective_output_ports():
-                if port.name == port_name and isinstance(port, OutputPort):
+            for port in getattr(block, effective_attr)():
+                if port.name == port_name and isinstance(port, expected_cls):
                     return port
         except Exception:
             logger.debug(
-                "validate_connection: failed to resolve effective output ports for %s; falling back to static spec",
+                "validate_connection: failed to resolve effective %s ports for %s; falling back to static spec",
+                direction,
                 block_type,
                 exc_info=True,
             )
 
-    static_port = next((port for port in spec.output_ports if port.name == port_name), None)
-    if isinstance(static_port, OutputPort):
+    static_port = next((port for port in static_ports if port.name == port_name), None)
+    if isinstance(static_port, expected_cls):
         return static_port
 
     # ADR-029 legacy fallback: variadic blocks define ports in
@@ -309,40 +320,8 @@ def _resolve_effective_output_port(
     # block, synthesize a permissive port.
     from scistudio.core.types.base import DataObject
 
-    if getattr(spec, "variadic_outputs", False):
-        return OutputPort(name=port_name, accepted_types=[DataObject])
-    return None
-
-
-def _resolve_effective_input_port(
-    spec: Any,
-    registry: Any,
-    block_type: str,
-    port_name: str,
-    node_config: dict[str, Any] | None,
-) -> InputPort | None:
-    """Mirror of :func:`_resolve_effective_output_port` for input ports (#889)."""
-    if node_config is not None:
-        try:
-            block = registry.instantiate(block_type, node_config)
-            for port in block.get_effective_input_ports():
-                if port.name == port_name and isinstance(port, InputPort):
-                    return port
-        except Exception:
-            logger.debug(
-                "validate_connection: failed to resolve effective input ports for %s; falling back to static spec",
-                block_type,
-                exc_info=True,
-            )
-
-    static_port = next((port for port in spec.input_ports if port.name == port_name), None)
-    if isinstance(static_port, InputPort):
-        return static_port
-
-    from scistudio.core.types.base import DataObject
-
-    if getattr(spec, "variadic_inputs", False):
-        return InputPort(name=port_name, accepted_types=[DataObject])
+    if getattr(spec, variadic_flag, False):
+        return expected_cls(name=port_name, accepted_types=[DataObject])
     return None
 
 
@@ -365,13 +344,13 @@ async def validate_connection_route(
     if source is None or target is None:
         raise HTTPException(status_code=404, detail="Unknown block in connection validation.")
 
-    source_port = _resolve_effective_output_port(
-        source, registry, body.source_block, body.source_port, body.source_node_config
+    source_port = _resolve_effective_port(
+        source, registry, body.source_block, body.source_port, body.source_node_config, direction="output"
     )
-    target_port = _resolve_effective_input_port(
-        target, registry, body.target_block, body.target_port, body.target_node_config
+    target_port = _resolve_effective_port(
+        target, registry, body.target_block, body.target_port, body.target_node_config, direction="input"
     )
-    if source_port is None or target_port is None:
+    if not isinstance(source_port, OutputPort) or not isinstance(target_port, InputPort):
         raise HTTPException(status_code=404, detail="Unknown source or target port.")
 
     compatible, reason = validate_connection(source_port, target_port)

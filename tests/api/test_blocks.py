@@ -138,17 +138,17 @@ def test_validate_connection_rejects_load_data_core_type_mismatch(client: TestCl
     assert payload["compatible"] is False, payload
 
 
-def test_resolve_effective_output_port_uses_get_effective_output_ports() -> None:
-    """#889: helper consumes ``get_effective_output_ports`` when config given.
+def test_resolve_effective_port_output_uses_block_get_effective_output_ports() -> None:
+    """#889: resolver consumes ``get_effective_output_ports`` when config given.
 
-    Unit test against the resolver helper so we exercise the
+    Unit test against the shared resolver so we exercise the
     ``node_config`` -> ``Block.instantiate`` -> effective-ports path
     independent of which concrete blocks happen to be installed in the
     test environment.
     """
     from typing import ClassVar
 
-    from scistudio.api.routes.blocks import _resolve_effective_output_port
+    from scistudio.api.routes.blocks import _resolve_effective_port
     from scistudio.blocks.base.ports import OutputPort
     from scistudio.core.types.array import Array
     from scistudio.core.types.base import DataObject
@@ -162,32 +162,39 @@ def test_resolve_effective_output_port_uses_get_effective_output_ports() -> None
             cls = Array if core == "Array" else DataObject
             return [OutputPort(name="data", accepted_types=[cls])]
 
+        def get_effective_input_ports(self) -> list[OutputPort]:
+            return []
+
     class _FakeSpec:
         variadic_outputs = False
+        variadic_inputs = False
         output_ports: ClassVar[list[OutputPort]] = [
             OutputPort(name="data", accepted_types=[DataObject]),
         ]
+        input_ports: ClassVar[list[OutputPort]] = []
 
     class _FakeRegistry:
         def instantiate(self, block_type: str, config: dict[str, object]) -> _FakeBlock:
             return _FakeBlock(config)
 
-    # With node_config: resolver should return the Array-typed port.
-    port = _resolve_effective_output_port(_FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"})
-    assert port is not None
+    # Output direction with node_config — resolver returns the Array-typed port.
+    port = _resolve_effective_port(
+        _FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"}, direction="output"
+    )
+    assert isinstance(port, OutputPort)
     assert port.accepted_types == [Array]
 
-    # Without node_config: falls back to the static spec (DataObject).
-    static_port = _resolve_effective_output_port(_FakeSpec(), _FakeRegistry(), "fake", "data", None)
-    assert static_port is not None
+    # Output direction without node_config — falls back to static DataObject port.
+    static_port = _resolve_effective_port(_FakeSpec(), _FakeRegistry(), "fake", "data", None, direction="output")
+    assert isinstance(static_port, OutputPort)
     assert static_port.accepted_types == [DataObject]
 
 
-def test_resolve_effective_input_port_uses_get_effective_input_ports() -> None:
-    """#889: input-side mirror of the resolver unit test above."""
+def test_resolve_effective_port_input_direction_uses_block_get_effective_input_ports() -> None:
+    """#889: input direction mirrors the output-side contract."""
     from typing import ClassVar
 
-    from scistudio.api.routes.blocks import _resolve_effective_input_port
+    from scistudio.api.routes.blocks import _resolve_effective_port
     from scistudio.blocks.base.ports import InputPort
     from scistudio.core.types.array import Array
     from scistudio.core.types.base import DataObject
@@ -211,8 +218,10 @@ def test_resolve_effective_input_port_uses_get_effective_input_ports() -> None:
         def instantiate(self, block_type: str, config: dict[str, object]) -> _FakeBlock:
             return _FakeBlock(config)
 
-    port = _resolve_effective_input_port(_FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"})
-    assert port is not None
+    port = _resolve_effective_port(
+        _FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"}, direction="input"
+    )
+    assert isinstance(port, InputPort)
     assert port.accepted_types == [Array]
 
 
@@ -220,7 +229,7 @@ def test_resolve_effective_port_falls_back_when_registry_raises() -> None:
     """#889: a registry failure does not 500 — the resolver retries the static spec."""
     from typing import ClassVar
 
-    from scistudio.api.routes.blocks import _resolve_effective_output_port
+    from scistudio.api.routes.blocks import _resolve_effective_port
     from scistudio.blocks.base.ports import OutputPort
     from scistudio.core.types.base import DataObject
 
@@ -234,8 +243,10 @@ def test_resolve_effective_port_falls_back_when_registry_raises() -> None:
         def instantiate(self, block_type: str, config: dict[str, object]) -> object:
             raise RuntimeError("bad config")
 
-    port = _resolve_effective_output_port(_FakeSpec(), _ExplodingRegistry(), "fake", "data", {"core_type": "Array"})
-    assert port is not None
+    port = _resolve_effective_port(
+        _FakeSpec(), _ExplodingRegistry(), "fake", "data", {"core_type": "Array"}, direction="output"
+    )
+    assert isinstance(port, OutputPort)
     # Falls back to the static spec rather than propagating the error.
     assert port.accepted_types == [DataObject]
 
