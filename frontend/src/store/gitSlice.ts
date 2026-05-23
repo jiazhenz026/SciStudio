@@ -98,7 +98,7 @@ import type { StateCreator } from "zustand";
 
 import { api, ApiError } from "../lib/api";
 import type { GitCommit, GitCommitPrefix, GitHistoryFilter } from "../types/api";
-import type { AppStore, GitMergeInProgress, GitSlice } from "./types";
+import type { AppStore, GitSlice } from "./types";
 
 // Issue #1482: the ``GitSlice`` and ``GitMergeInProgress`` interfaces are
 // declared in ``./types.ts`` alongside every other slice so the static

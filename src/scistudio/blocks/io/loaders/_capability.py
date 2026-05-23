@@ -21,7 +21,7 @@ side.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scistudio.core.types.array import Array
@@ -455,7 +455,11 @@ def _resolve_format(path: Path, block: Any | None) -> str | None:
     """
 
     if block is not None:
-        return block._detect_format(path)
+        # ``block`` is ``LoadData`` at the call site; type as ``Any`` so this
+        # module doesn't import ``load_data`` (sentrux would flag the edge,
+        # see issue #1482) and ADR-028 Add 1 §C9 forbids a Protocol here.
+        # ``cast`` keeps mypy honest about the return contract.
+        return cast("str | None", block._detect_format(path))
     if not _LOAD_EXTENSION_MAP:
         return None
     suffixes = [s.lower() for s in path.suffixes]

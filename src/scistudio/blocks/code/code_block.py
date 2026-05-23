@@ -26,21 +26,38 @@ from pydantic import ValidationError
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
+
 # Issue #1482: backend-registry primitives live in the sibling
 # ``_backends_registry`` module so ``validation.py`` can depend on them
 # without forming a cycle through ``code_block``. The names are
 # re-exported below for backward compatibility with the ``backends/``
 # subpackage and ``scistudio.blocks.code.__init__`` consumers.
 from scistudio.blocks.code._backends_registry import (
-    CodeBlockBackend,
-    CodeBlockRuntimeContext,
-    CodeBlockTimeoutError,
-    ensure_codeblock_backends_loaded,
-    list_codeblock_backends,
-    register_codeblock_backend,
-    resolve_codeblock_backend,
-    run_codeblock_process,
-    unregister_codeblock_backend,
+    CodeBlockBackend as CodeBlockBackend,
+)
+from scistudio.blocks.code._backends_registry import (
+    CodeBlockRuntimeContext as CodeBlockRuntimeContext,
+)
+from scistudio.blocks.code._backends_registry import (
+    CodeBlockTimeoutError as CodeBlockTimeoutError,
+)
+from scistudio.blocks.code._backends_registry import (
+    ensure_codeblock_backends_loaded as ensure_codeblock_backends_loaded,
+)
+from scistudio.blocks.code._backends_registry import (
+    list_codeblock_backends as list_codeblock_backends,
+)
+from scistudio.blocks.code._backends_registry import (
+    register_codeblock_backend as register_codeblock_backend,
+)
+from scistudio.blocks.code._backends_registry import (
+    resolve_codeblock_backend as resolve_codeblock_backend,
+)
+from scistudio.blocks.code._backends_registry import (
+    run_codeblock_process as run_codeblock_process,
+)
+from scistudio.blocks.code._backends_registry import (
+    unregister_codeblock_backend as unregister_codeblock_backend,
 )
 from scistudio.blocks.code.config import CodeBlockConfig, MigrationDiagnostic, legacy_migration_diagnostics
 from scistudio.blocks.code.exchange import (

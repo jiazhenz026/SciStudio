@@ -83,6 +83,51 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff-format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "mypy src/scistudio/ --ignore-missing-imports --python-version 3.13",
+      "exit_code": 0,
+      "name": "mypy",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "(cd frontend) node_modules/.bin/eslint .",
+      "exit_code": 0,
+      "name": "eslint-frontend",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/architecture tests/blocks/io tests/blocks/code tests/blocks/test_registry* tests/blocks/test_block_registry_capabilities.py tests/blocks/test_registry_version_strict.py tests/workflow tests/blocks/test_runner_registry.py --deselect tests/blocks/test_registry.py::TestBlockRegistryTier2 --deselect tests/blocks/test_registry.py::TestAppBlockSubclassConfigCleanup --timeout=60",
+      "exit_code": 0,
+      "name": "pytest-full-impacted",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -95,13 +140,18 @@
     "trailers": {}
   },
   "docs_landing": {
-    "all": {
+    "changelog": {
       "not_applicable": true,
-      "rationale": "Pure import-graph refactor with no behaviour or public API change. CodeBlockBackend / CodeBlockRuntimeContext / list_codeblock_backends / register_codeblock_backend / unregister_codeblock_backend / resolve_codeblock_backend / ensure_codeblock_backends_loaded / run_codeblock_process are still importable from scistudio.blocks.code and scistudio.blocks.code.code_block (re-exports). _format_capabilities_from_class is still importable from scistudio.blocks.registry and scistudio.blocks.registry._capability (re-exports). GitSlice / GitMergeInProgress / LineageSlice are still importable from ./gitSlice and ./lineageSlice (re-exports). The four governing docs (ADR-041 / ADR-043 / ADR-047 / spec adr-041-codeblock-v2 / spec adr-043-package-migration / spec adr-043-io-format-capability-registry) name behaviour and class identities that are preserved; the new sibling module (_backends_registry.py) is an implementation detail consistent with ADR-028 Addendum 1 \u00a7C9 'split god files into private siblings'."
+      "rationale": "No user-facing behaviour change to announce \u2014 pure internal import-graph refactor; sentrux acyclicity bottleneck lifted as side effect (6\u21922 cycles)."
     },
-    "changelog": {},
-    "checklist": {},
-    "docs": {}
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No multi-PR cascade or umbrella checklist applies \u2014 this is a single self-contained refactor PR closing one issue."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Pure import-graph refactor with no behaviour or public API change. CodeBlockBackend / CodeBlockRuntimeContext / list_codeblock_backends / register_codeblock_backend / unregister_codeblock_backend / resolve_codeblock_backend / ensure_codeblock_backends_loaded / run_codeblock_process are still importable from scistudio.blocks.code and scistudio.blocks.code.code_block via PEP-484 explicit re-exports. _format_capabilities_from_class is still importable from scistudio.blocks.registry and scistudio.blocks.registry._capability (re-exports). GitSlice / GitMergeInProgress / LineageSlice are still importable from ./gitSlice and ./lineageSlice (re-exports). Governing docs (ADR-041 / ADR-043 / ADR-047 / spec adr-041-codeblock-v2 / spec adr-043-package-migration / spec adr-043-io-format-capability-registry) describe behaviour and class identities that are preserved; the new sibling module _backends_registry.py is an implementation detail consistent with ADR-028 Addendum 1 \u00a7C9 'split god files into private siblings'."
+    }
   },
   "full_audit": {
     "blocks_merge": false,
@@ -190,7 +240,7 @@
     "name": "sentrux.free_tier",
     "output_path": "docs/audit/1482-sentrux-evidence.json",
     "pro_required": false,
-    "quality_signal": 4817.0,
+    "quality_signal": 4816.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},

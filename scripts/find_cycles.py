@@ -1,4 +1,5 @@
 """Find import cycles in src/scistudio/ to corroborate sentrux's 5-cycle count."""
+
 from __future__ import annotations
 
 import ast
@@ -31,7 +32,7 @@ def collect_imports(path: Path, this_module: str) -> set[str]:
                 deps.add(alias.name)
         elif isinstance(node, ast.ImportFrom):
             if node.level:
-                base = pkg_parts[: len(pkg_parts) - node.level] if node.module is None else pkg_parts[: len(pkg_parts) - node.level]
+                base = pkg_parts[: len(pkg_parts) - node.level]
                 mod = ".".join(filter(None, base + ([node.module] if node.module else [])))
             else:
                 mod = node.module or ""

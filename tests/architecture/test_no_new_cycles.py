@@ -169,8 +169,7 @@ def test_python_import_cycle_count_does_not_regress() -> None:
     cycles = [comp for comp in sccs if len(comp) > 1]
     if len(cycles) > MAX_PYTHON_CYCLES:
         lines = [
-            f"Python import cycles exceed the post-#1482 baseline "
-            f"({len(cycles)} > {MAX_PYTHON_CYCLES}). Cycles:",
+            f"Python import cycles exceed the post-#1482 baseline ({len(cycles)} > {MAX_PYTHON_CYCLES}). Cycles:",
         ]
         cycles.sort(key=lambda comp: (-len(comp), sorted(comp)[0]))
         for i, comp in enumerate(cycles, 1):
