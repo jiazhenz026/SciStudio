@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "audit-reviewer-self",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json"
+      ],
+      "reason": "Meta-include the gate record itself; --include at start used pre-prefix path before the CLI prepended the 1412- issue slug."
+    }
+  ],
   "branch": "audit/2026-05-22-frontend-cleanup-no-context",
   "changed_test_paths": [],
   "check_results": [
@@ -68,7 +77,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json",
+    "shas": [
+      "4210bdb542230b9f2b8cfc3d7fc21075b49e7139"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -108,7 +123,11 @@
     "docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md",
     ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json",
   "required_checks": [
     "ruff_check",
@@ -161,7 +180,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -179,7 +198,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
