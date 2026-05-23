@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 
 import { resolveTypeColor } from "../config/typeColorMap";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
+import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
 import { TypedEdge } from "./TypedEdge";
 import { TypeLegend } from "./TypeLegend";
-import { parsePortRef } from "./WorkflowCanvas.parts/flowNodeBuilder";
+import { parsePortRef, resolveVariadicPorts } from "./WorkflowCanvas.parts/flowNodeBuilder";
 import { useCanvasHandlers } from "./WorkflowCanvas.parts/useCanvasHandlers";
 import { useFlowCallbacks } from "./WorkflowCanvas.parts/useFlowCallbacks";
 import { useFlowNodes } from "./WorkflowCanvas.parts/useFlowNodes";
@@ -100,7 +101,34 @@ function useFlowEdges(
       const target = parsePortRef(edge.target);
       const sourceNode = nodes.find((node) => node.id === source.nodeId);
       const sourceSchema = sourceNode ? schemas[sourceNode.block_type] : undefined;
-      const sourcePort = sourceSchema?.output_ports.find((port) => port.name === source.portName);
+      // #889: resolve the source port from the node's effective output
+      // ports — same path BlockNode renders — instead of the static
+      // class-level spec. Variadic blocks (AIBlock / CodeBlock /
+      // AppBlock) declare their ports in ``node.config.output_ports``;
+      // dynamic-port blocks (LoadData) override ``accepted_types`` via
+      // the ``dynamic_ports`` descriptor + driving config value.
+      const variadicSourcePorts =
+        sourceNode && sourceSchema
+          ? resolveVariadicPorts(
+              sourceSchema.output_ports ?? [],
+              sourceNode.config,
+              "output",
+              sourceSchema,
+            )
+          : (sourceSchema?.output_ports ?? []);
+      const dynamicPorts = sourceSchema?.dynamic_ports ?? null;
+      const sourceConfigKey = dynamicPorts?.source_config_key;
+      const drivingConfigValue =
+        sourceConfigKey != null
+          ? (sourceNode?.config?.[sourceConfigKey] as string | undefined)
+          : undefined;
+      const effectivePorts = computeEffectivePorts(
+        dynamicPorts,
+        drivingConfigValue,
+        variadicSourcePorts,
+        "output",
+      );
+      const sourcePort = effectivePorts.find((port) => port.name === source.portName);
       return {
         id: `${edge.source}->${edge.target}`,
         source: source.nodeId,

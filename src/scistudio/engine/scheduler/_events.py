@@ -77,26 +77,78 @@ async def _on_block_error(self: DAGScheduler, event: EngineEvent) -> None:
 async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle a block cancellation request.
 
-    Per ADR-018 Addendum 1, cancellation branches on whether a
-    ``ProcessHandle`` has been registered for the block yet:
+    Per ADR-018 Addendum 1 and the state table in
+    ``docs/architecture/ARCHITECTURE.md`` §5.2, ``CANCELLED`` is only
+    a valid transition from ``RUNNING`` or ``PAUSED``. A cancel
+    request against a block in any other state is a **no-op** — the
+    handler returns without emitting a lifecycle event or mutating
+    state. This matches the executable spec in
+    ``tests/engine/test_scheduler_state_machine_contract.py``
+    ``test_cancel_block_state_table`` (#1376).
 
-    * **Handle present** (block is executing inside a subprocess):
-      call ``handle.terminate()`` and let the worker unwind
-      naturally. ``_run_and_finalize`` observes the CANCELLED state
-      on its exception path and exits without emitting BLOCK_ERROR.
-    * **Handle absent** (block is still in its pre-subprocess setup
-      window or has no subprocess at all): call ``task.cancel()``
-      on the active task. ``_run_and_finalize`` receives a
-      ``CancelledError`` and unwinds via its ``finally`` clause.
-    * **No handle, no active task**: the block is pre-dispatch or
-      was set externally (e.g. tests that pre-assign RUNNING). In
-      that case we simply transition to CANCELLED without
-      terminating or cancelling anything.
+    Concretely:
+
+    * **RUNNING / PAUSED** — the only states the state-table allows
+      to transition into ``CANCELLED``. Branches on whether a
+      ``ProcessHandle`` has been registered for the block yet:
+
+      - *Handle present* (executing inside a subprocess): call
+        ``handle.terminate()`` and let the worker unwind naturally.
+        ``_run_and_finalize`` observes the ``CANCELLED`` state on
+        its exception path and exits without emitting
+        ``BLOCK_ERROR``.
+      - *Handle absent* (pre-subprocess setup window, or in-process
+        interactive block waiting in ``PAUSED``): call
+        ``task.cancel()`` on the active task. ``_run_and_finalize``
+        / ``_run_interactive`` receives ``CancelledError`` and
+        unwinds via its ``finally`` clause.
+
+    * **IDLE / READY** — the block has not started yet. The state
+      table does not permit ``IDLE``/``READY`` → ``CANCELLED``, so
+      ignore the request. Workflow-level cancellation handles
+      blanket cleanup of not-yet-started blocks via
+      :func:`_on_cancel_workflow`, which transitions them to
+      ``SKIPPED``. ``cancel_block`` against a single not-yet-started
+      block is treated as a stale UI click and intentionally takes
+      no action.
+
+    * **DONE / ERROR / CANCELLED / SKIPPED** — terminal states are
+      idempotent under cancellation: ignore the request, log a
+      debug-level note, and leave the state untouched. Re-emitting
+      ``BLOCK_CANCELLED`` for a block that already finished would
+      confuse downstream subscribers (the frontend would show a
+      second "cancelled" toast for a block that already reported
+      ``DONE``).
+
+    * **Unknown block id** — ignored silently; the scheduler only
+      cancels blocks it tracks.
     """
     if event.block_id is None:
         return
 
     block_id = event.block_id
+    current_state = self._block_states.get(block_id)
+    if current_state is None:
+        # Unknown block — nothing to cancel.
+        return
+
+    if current_state not in (BlockState.RUNNING, BlockState.PAUSED):
+        # #1376: per architecture §5.2, ``CANCELLED`` is only a valid
+        # transition from ``RUNNING`` / ``PAUSED``. For every other
+        # state (``IDLE``, ``READY``, ``DONE``, ``ERROR``,
+        # ``CANCELLED``, ``SKIPPED``) the cancel request is a no-op.
+        # The executable spec lives in
+        # ``tests/engine/test_scheduler_state_machine_contract.py``
+        # ``test_cancel_block_state_table``.
+        logger.debug(
+            "Ignoring cancel request for block %s in non-cancellable state %s",
+            block_id,
+            current_state.value,
+        )
+        return
+
+    # current_state is RUNNING or PAUSED — the architecture state
+    # table permits CANCELLED here.
     handle = None
     if self._process_registry is not None:
         handle = self._process_registry.get_handle(block_id)

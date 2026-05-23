@@ -265,27 +265,91 @@ async def get_block_schema(
     )
 
 
+def _resolve_effective_port(
+    spec: Any,
+    registry: Any,
+    block_type: str,
+    port_name: str,
+    node_config: dict[str, Any] | None,
+    *,
+    direction: str,
+) -> InputPort | OutputPort | None:
+    """Return the effective port for ``(block_type, port_name)`` (#889).
+
+    Direction-agnostic resolver shared by the input and output paths:
+
+    * When ``node_config`` is provided, instantiate the block via the
+      registry and read its :meth:`Block.get_effective_input_ports`
+      or :meth:`Block.get_effective_output_ports` (per *direction*) so
+      the validator sees the same contract the renderer uses —
+      LoadData's ``core_type`` drives the port type and variadic
+      blocks define their ports in config.
+    * Falls back to the class-level ``spec.input_ports`` /
+      ``spec.output_ports`` when no config is supplied or the
+      registry cannot instantiate the block (e.g. malformed config).
+    * Preserves the ADR-029 legacy synthetic ``DataObject`` port for
+      variadic blocks when no other lookup matches, so older clients
+      that have not started passing ``node_config`` still get a
+      sensible answer.
+    """
+    expected_cls: type[InputPort] | type[OutputPort] = InputPort if direction == "input" else OutputPort
+    static_ports = getattr(spec, f"{direction}_ports", []) or []
+    variadic_flag = f"variadic_{direction}s"
+    effective_attr = f"get_effective_{direction}_ports"
+
+    if node_config is not None:
+        try:
+            block = registry.instantiate(block_type, node_config)
+            for port in getattr(block, effective_attr)():
+                if port.name == port_name and isinstance(port, expected_cls):
+                    return port
+        except Exception:
+            logger.debug(
+                "validate_connection: failed to resolve effective %s ports for %s; falling back to static spec",
+                direction,
+                block_type,
+                exc_info=True,
+            )
+
+    static_port = next((port for port in static_ports if port.name == port_name), None)
+    if isinstance(static_port, expected_cls):
+        return static_port
+
+    # ADR-029 legacy fallback: variadic blocks define ports in
+    # config, not in static spec. If lookup fails on a variadic
+    # block, synthesize a permissive port.
+    from scistudio.core.types.base import DataObject
+
+    if getattr(spec, variadic_flag, False):
+        return expected_cls(name=port_name, accepted_types=[DataObject])
+    return None
+
+
 @router.post("/validate-connection", response_model=ConnectionValidationResponse)
 async def validate_connection_route(
     body: BlockConnectionValidation,
     registry: BlockRegistryDep,
 ) -> ConnectionValidationResponse:
-    """Validate whether two ports can be connected."""
+    """Validate whether two ports can be connected.
+
+    #889: when the client supplies ``source_node_config`` /
+    ``target_node_config`` the route resolves the endpoints' effective
+    ports per ADR-028 / ADR-029 (LoadData ``core_type`` drives the
+    output type; variadic blocks read their ports from config). The
+    legacy payload — block types and port names alone — still works
+    against the class-level static spec.
+    """
     source = registry.get_spec(body.source_block)
     target = registry.get_spec(body.target_block)
     if source is None or target is None:
         raise HTTPException(status_code=404, detail="Unknown block in connection validation.")
 
-    source_port = next((port for port in source.output_ports if port.name == body.source_port), None)
-    target_port = next((port for port in target.input_ports if port.name == body.target_port), None)
-    # ADR-029: variadic blocks define ports in config, not in static spec.
-    # If lookup fails on a variadic block, synthesize a permissive port.
-    from scistudio.core.types.base import DataObject
-
-    if source_port is None and getattr(source, "variadic_outputs", False):
-        source_port = OutputPort(name=body.source_port, accepted_types=[DataObject])
-    if target_port is None and getattr(target, "variadic_inputs", False):
-        target_port = InputPort(name=body.target_port, accepted_types=[DataObject])
+    source_port = _resolve_effective_port(
+        source, registry, body.source_block, body.source_port, body.source_node_config, direction="output"
+    )
+    target_port = _resolve_effective_port(
+        target, registry, body.target_block, body.target_port, body.target_node_config, direction="input"
+    )
     if not isinstance(source_port, OutputPort) or not isinstance(target_port, InputPort):
         raise HTTPException(status_code=404, detail="Unknown source or target port.")
 

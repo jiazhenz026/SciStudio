@@ -177,12 +177,25 @@ class BlockSchemaResponse(BlockSummary):
 
 
 class BlockConnectionValidation(BaseModel):
-    """Request body for validating a proposed port connection."""
+    """Request body for validating a proposed port connection.
+
+    ``source_node_config`` and ``target_node_config`` are optional per
+    #889 (ADR-028 / ADR-029 effective-ports drift). When provided, the
+    backend resolves each endpoint's effective ports from the per-node
+    config — required for ``LoadData`` (``core_type`` chooses the
+    output type) and variadic blocks (``AIBlock`` / ``CodeBlock`` /
+    ``AppBlock``) whose true ports live in
+    ``node.config.input_ports`` / ``node.config.output_ports``. When
+    absent, the backend falls back to the static class-level port
+    spec (legacy behaviour) so older clients keep working.
+    """
 
     source_block: str
     source_port: str
     target_block: str
     target_port: str
+    source_node_config: dict[str, Any] | None = None
+    target_node_config: dict[str, Any] | None = None
 
 
 class ConnectionValidationResponse(BaseModel):
