@@ -226,13 +226,18 @@ class LocalRunner:
         # imported modules relative to the launcher cwd (e.g. tests'
         # ``tests.fixtures.noop_io_block``) would then fail with
         # ``ModuleNotFoundError``. Preserve that import surface by adding
-        # the parent's cwd to the worker's ``PYTHONPATH``.
+        # the parent's cwd and source tree to the worker's ``PYTHONPATH``.
         worker_env: dict[str, str] | None = None
         if worker_cwd is not None:
             worker_env = dict(os.environ)
-            parent_cwd = os.getcwd()
-            existing_pp = worker_env.get("PYTHONPATH", "")
-            worker_env["PYTHONPATH"] = f"{parent_cwd}{os.pathsep}{existing_pp}" if existing_pp else parent_cwd
+            parent_cwd = Path(os.getcwd())
+            pythonpath_parts = [str(parent_cwd), str(parent_cwd / "src")]
+            for part in worker_env.get("PYTHONPATH", "").split(os.pathsep):
+                if not part:
+                    continue
+                path = Path(part)
+                pythonpath_parts.append(str(path if path.is_absolute() else parent_cwd / path))
+            worker_env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(pythonpath_parts))
         # #1365: propagate ``SCISTUDIO_PROJECT_DIR`` to the worker so the
         # worker-side :func:`scistudio.core.types.serialization._get_type_registry`
         # registers ``<project>/types`` as a TypeRegistry scan dir before the

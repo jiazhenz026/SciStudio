@@ -70,10 +70,6 @@ def _create_workflow(client: TestClient, opened_project: Path, workflow_id: str)
     return payload
 
 
-@pytest.mark.xfail(
-    reason="#1486: vertical proof for execution lifecycle frames over /ws is not yet established",
-    strict=True,
-)
 def test_execute_broadcasts_runtime_lifecycle_events_to_websocket(
     client: TestClient,
     runtime: ApiRuntime,
@@ -164,10 +160,6 @@ def test_git_restore_then_get_workflow_returns_restored_definition(
     assert fetched.json()["description"] == "version A"
 
 
-@pytest.mark.xfail(
-    reason="#1486: multi-session terminal execution state has no broad vertical proof yet",
-    strict=True,
-)
 def test_multi_session_execute_broadcasts_terminal_state_and_get_matches(
     client: TestClient,
     runtime: ApiRuntime,
@@ -196,10 +188,6 @@ def test_multi_session_execute_broadcasts_terminal_state_and_get_matches(
     assert fetched.json()["id"] == "vertical-multi-session"
 
 
-@pytest.mark.xfail(
-    reason="#1486: execute-from parent lineage plus websocket completion lacks one vertical guard",
-    strict=True,
-)
 def test_execute_from_records_parent_run_and_websocket_completion(
     client: TestClient,
     runtime: ApiRuntime,

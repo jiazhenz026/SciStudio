@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+  "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -24,7 +24,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -93,7 +93,7 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:08.756890Z",
+      "generated_at": "2026-05-23T04:39:20.000307Z",
       "source_sha": "",
       "findings": [],
       "summary": {
@@ -105,8 +105,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:09.975112Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "generated_at": "2026-05-23T04:39:21.190682Z",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "docs_checked": 220,
@@ -117,8 +117,8 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:11.635341Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "generated_at": "2026-05-23T04:39:22.718769Z",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "governed_docs_checked": 71,
@@ -134,8 +134,8 @@
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:12.930558Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "generated_at": "2026-05-23T04:39:24.029338Z",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "governed_docs_checked": 71,
@@ -150,8 +150,8 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:12.933734Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "generated_at": "2026-05-23T04:39:24.032481Z",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
@@ -165,8 +165,8 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:12.942125Z",
-      "source_sha": "4fb1d20993436a83c6b490dc2183c45da0de4dcb4dfca819b23f3c85d088f5fd",
+      "generated_at": "2026-05-23T04:39:24.040803Z",
+      "source_sha": "b99be6bafed9dac12fb57f09861295f5ad6e7a3f8baf84f61fe15bd317efcb3d",
       "findings": [],
       "summary": {
         "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-test-system-tests/docs/architecture/ARCHITECTURE.md",
@@ -180,7 +180,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-23T04:25:13.603716Z",
+      "generated_at": "2026-05-23T04:39:24.691132Z",
       "source_sha": "",
       "findings": [
         {

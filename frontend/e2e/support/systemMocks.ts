@@ -209,7 +209,13 @@ export async function installSystemMocks(page: Page): Promise<void> {
       });
     }
     if (path === "/api/git/status") {
-      return fulfill(route, { branch: "main", dirty: false, ahead: 0, behind: 0, changed_files: [] });
+      return fulfill(route, {
+        branch: "main",
+        dirty: false,
+        ahead: 0,
+        behind: 0,
+        changed_files: [],
+      });
     }
     if (path === "/api/git/branches") return fulfill(route, [{ name: "main", current: true }]);
     if (path === "/api/git/log") return fulfill(route, commits);
