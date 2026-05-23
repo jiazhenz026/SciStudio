@@ -88,7 +88,12 @@ class TestTerminalDataFromAllPaths:
         assert skipped[0].data["workflow_id"] == wf.id
 
     def test_cancel_block_request_carries_block_type(self) -> None:
-        """``_on_cancel_block`` emits CANCELLED with block_type populated."""
+        """``_on_cancel_block`` emits CANCELLED with block_type populated.
+
+        #1376: an IDLE block now skips to SKIPPED, so seed RUNNING
+        first — the architecture state table only permits
+        RUNNING/PAUSED → CANCELLED.
+        """
         wf = WorkflowDefinition(
             nodes=[NodeDef(id="X", block_type="TypeX")],
             edges=[],
@@ -96,14 +101,128 @@ class TestTerminalDataFromAllPaths:
         bus, seen = _capturing_bus()
         scheduler = _build_scheduler(wf, bus)
 
-        # No registry / process registry, no active task — _on_cancel_block
-        # still emits the CANCELLED event.
+        # Pre-set RUNNING so _on_cancel_block takes the
+        # state-table-permitted RUNNING → CANCELLED branch.
+        from scistudio.blocks.base.state import BlockState
+
+        scheduler._block_states["X"] = BlockState.RUNNING
+
         asyncio.run(scheduler._on_cancel_block(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="X")))
 
         cancelled = [e for e in seen if e.event_type == BLOCK_CANCELLED]
         assert len(cancelled) == 1
         assert cancelled[0].block_id == "X"
         assert cancelled[0].data["block_type"] == "TypeX"
+
+    def test_cancel_block_idle_is_noop(self) -> None:
+        """#1376: cancelling an IDLE block is a no-op.
+
+        The architecture state table in
+        ``docs/architecture/ARCHITECTURE.md`` §5.2 only permits
+        ``CANCELLED`` from ``RUNNING`` / ``PAUSED``. The executable
+        spec in
+        ``tests/engine/test_scheduler_state_machine_contract.py``
+        ``test_cancel_block_state_table[IDLE-noop]`` specifies a
+        no-op: state stays ``IDLE`` and no lifecycle event fires.
+        ``_on_cancel_workflow`` is responsible for skipping
+        not-yet-started blocks when the whole workflow is cancelled.
+        """
+        wf = WorkflowDefinition(
+            nodes=[NodeDef(id="X", block_type="TypeX")],
+            edges=[],
+        )
+        bus, seen = _capturing_bus()
+        scheduler = _build_scheduler(wf, bus)
+
+        from scistudio.blocks.base.state import BlockState
+
+        assert scheduler._block_states["X"] == BlockState.IDLE
+
+        asyncio.run(scheduler._on_cancel_block(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="X")))
+
+        # State unchanged and no lifecycle event fired.
+        assert scheduler._block_states["X"] == BlockState.IDLE
+        assert "X" not in scheduler.skip_reasons
+        assert seen == []
+
+    def test_cancel_block_ready_is_noop(self) -> None:
+        """#1376: cancelling a READY block is also a no-op.
+
+        Mirror of the IDLE case for the second non-cancellable
+        pre-start state.
+        """
+        wf = WorkflowDefinition(
+            nodes=[NodeDef(id="X", block_type="TypeX")],
+            edges=[],
+        )
+        bus, seen = _capturing_bus()
+        scheduler = _build_scheduler(wf, bus)
+
+        from scistudio.blocks.base.state import BlockState
+
+        scheduler._block_states["X"] = BlockState.READY
+
+        asyncio.run(scheduler._on_cancel_block(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="X")))
+
+        assert scheduler._block_states["X"] == BlockState.READY
+        assert seen == []
+
+    def test_cancel_block_terminal_state_is_noop(self) -> None:
+        """#1376: cancelling a DONE/ERROR/SKIPPED block does nothing.
+
+        Re-entering CANCELLED from a terminal state would violate
+        the state table and would re-emit a contradictory terminal
+        event. The handler must ignore the request and preserve the
+        existing state.
+        """
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(id="A", block_type="TypeA"),
+                NodeDef(id="B", block_type="TypeB"),
+                NodeDef(id="C", block_type="TypeC"),
+            ],
+            edges=[],
+        )
+        bus, seen = _capturing_bus()
+        scheduler = _build_scheduler(wf, bus)
+
+        from scistudio.blocks.base.state import BlockState
+
+        # Seed each block in a different terminal state.
+        scheduler._block_states["A"] = BlockState.DONE
+        scheduler._block_states["B"] = BlockState.ERROR
+        scheduler._block_states["C"] = BlockState.SKIPPED
+
+        for block_id in ("A", "B", "C"):
+            asyncio.run(scheduler._on_cancel_block(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id=block_id)))
+
+        # No terminal events emitted by _on_cancel_block — the seeded
+        # terminal states are preserved untouched.
+        assert scheduler._block_states["A"] == BlockState.DONE
+        assert scheduler._block_states["B"] == BlockState.ERROR
+        assert scheduler._block_states["C"] == BlockState.SKIPPED
+        for block_id in ("A", "B", "C"):
+            for event_type in (BLOCK_CANCELLED, BLOCK_SKIPPED, BLOCK_ERROR):
+                matching = [e for e in seen if e.event_type == event_type and e.block_id == block_id]
+                assert matching == [], f"unexpected {event_type} re-emitted for {block_id}"
+
+    def test_cancel_block_unknown_block_is_silent(self) -> None:
+        """#1376: cancelling an unknown block id is a silent no-op.
+
+        Defensive check: the scheduler only tracks blocks in its
+        DAG. A cancel for an unknown id must not raise and must not
+        synthesize any terminal event.
+        """
+        wf = WorkflowDefinition(
+            nodes=[NodeDef(id="A", block_type="TypeA")],
+            edges=[],
+        )
+        bus, seen = _capturing_bus()
+        scheduler = _build_scheduler(wf, bus)
+
+        asyncio.run(scheduler._on_cancel_block(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="does-not-exist")))
+
+        assert seen == []
 
     def test_build_terminal_data_handles_missing_node(self) -> None:
         """Calling _build_block_terminal_data for an unknown node id

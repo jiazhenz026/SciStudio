@@ -79,6 +79,167 @@ def test_validate_connection_endpoint_uses_registry_type_information(client: Tes
     assert bidirectional.json()["compatible"] is True
 
 
+def test_validate_connection_uses_load_data_effective_core_type(client: TestClient) -> None:
+    """#889: ``LoadData(core_type=Array)`` validates as ``Array``, not ``DataObject``.
+
+    Without ``source_node_config`` the route falls back to the static
+    spec — ``LoadData`` declares its output port as a placeholder
+    ``DataObject``, so a target requiring ``Array`` would be rejected
+    even when the user has chosen ``core_type='Array'`` on the canvas.
+    """
+    # With node_config: LoadData -> SaveData(core_type=Array) must be compatible
+    # because both sides resolve to the Array type via get_effective_*_ports().
+    compatible = client.post(
+        "/api/blocks/validate-connection",
+        json={
+            "source_block": "load_data",
+            "source_port": "data",
+            "target_block": "save_data",
+            "target_port": "data",
+            "source_node_config": {"core_type": "Array"},
+            "target_node_config": {"core_type": "Array"},
+        },
+    )
+    assert compatible.status_code == 200, compatible.text
+    assert compatible.json()["compatible"] is True, compatible.json()
+
+    # Without node_config the route still answers (legacy fallback).
+    legacy = client.post(
+        "/api/blocks/validate-connection",
+        json={
+            "source_block": "load_data",
+            "source_port": "data",
+            "target_block": "save_data",
+            "target_port": "data",
+        },
+    )
+    assert legacy.status_code == 200
+
+
+def test_validate_connection_rejects_load_data_core_type_mismatch(client: TestClient) -> None:
+    """#889: ``LoadData(core_type=DataFrame)`` -> ``SaveData(core_type=Array)`` fails.
+
+    The two endpoints resolve to different DataObject subclasses and
+    the connection validator rejects the link.
+    """
+    response = client.post(
+        "/api/blocks/validate-connection",
+        json={
+            "source_block": "load_data",
+            "source_port": "data",
+            "target_block": "save_data",
+            "target_port": "data",
+            "source_node_config": {"core_type": "DataFrame"},
+            "target_node_config": {"core_type": "Array"},
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["compatible"] is False, payload
+
+
+def test_resolve_effective_output_port_uses_get_effective_output_ports() -> None:
+    """#889: helper consumes ``get_effective_output_ports`` when config given.
+
+    Unit test against the resolver helper so we exercise the
+    ``node_config`` -> ``Block.instantiate`` -> effective-ports path
+    independent of which concrete blocks happen to be installed in the
+    test environment.
+    """
+    from typing import ClassVar
+
+    from scistudio.api.routes.blocks import _resolve_effective_output_port
+    from scistudio.blocks.base.ports import OutputPort
+    from scistudio.core.types.array import Array
+    from scistudio.core.types.base import DataObject
+
+    class _FakeBlock:
+        def __init__(self, config: dict[str, object]) -> None:
+            self.config = config
+
+        def get_effective_output_ports(self) -> list[OutputPort]:
+            core = self.config.get("core_type", "DataObject")
+            cls = Array if core == "Array" else DataObject
+            return [OutputPort(name="data", accepted_types=[cls])]
+
+    class _FakeSpec:
+        variadic_outputs = False
+        output_ports: ClassVar[list[OutputPort]] = [
+            OutputPort(name="data", accepted_types=[DataObject]),
+        ]
+
+    class _FakeRegistry:
+        def instantiate(self, block_type: str, config: dict[str, object]) -> _FakeBlock:
+            return _FakeBlock(config)
+
+    # With node_config: resolver should return the Array-typed port.
+    port = _resolve_effective_output_port(_FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"})
+    assert port is not None
+    assert port.accepted_types == [Array]
+
+    # Without node_config: falls back to the static spec (DataObject).
+    static_port = _resolve_effective_output_port(_FakeSpec(), _FakeRegistry(), "fake", "data", None)
+    assert static_port is not None
+    assert static_port.accepted_types == [DataObject]
+
+
+def test_resolve_effective_input_port_uses_get_effective_input_ports() -> None:
+    """#889: input-side mirror of the resolver unit test above."""
+    from typing import ClassVar
+
+    from scistudio.api.routes.blocks import _resolve_effective_input_port
+    from scistudio.blocks.base.ports import InputPort
+    from scistudio.core.types.array import Array
+    from scistudio.core.types.base import DataObject
+
+    class _FakeBlock:
+        def __init__(self, config: dict[str, object]) -> None:
+            self.config = config
+
+        def get_effective_input_ports(self) -> list[InputPort]:
+            core = self.config.get("core_type", "DataObject")
+            cls = Array if core == "Array" else DataObject
+            return [InputPort(name="data", accepted_types=[cls])]
+
+    class _FakeSpec:
+        variadic_inputs = False
+        input_ports: ClassVar[list[InputPort]] = [
+            InputPort(name="data", accepted_types=[DataObject]),
+        ]
+
+    class _FakeRegistry:
+        def instantiate(self, block_type: str, config: dict[str, object]) -> _FakeBlock:
+            return _FakeBlock(config)
+
+    port = _resolve_effective_input_port(_FakeSpec(), _FakeRegistry(), "fake", "data", {"core_type": "Array"})
+    assert port is not None
+    assert port.accepted_types == [Array]
+
+
+def test_resolve_effective_port_falls_back_when_registry_raises() -> None:
+    """#889: a registry failure does not 500 — the resolver retries the static spec."""
+    from typing import ClassVar
+
+    from scistudio.api.routes.blocks import _resolve_effective_output_port
+    from scistudio.blocks.base.ports import OutputPort
+    from scistudio.core.types.base import DataObject
+
+    class _FakeSpec:
+        variadic_outputs = False
+        output_ports: ClassVar[list[OutputPort]] = [
+            OutputPort(name="data", accepted_types=[DataObject]),
+        ]
+
+    class _ExplodingRegistry:
+        def instantiate(self, block_type: str, config: dict[str, object]) -> object:
+            raise RuntimeError("bad config")
+
+    port = _resolve_effective_output_port(_FakeSpec(), _ExplodingRegistry(), "fake", "data", {"core_type": "Array"})
+    assert port is not None
+    # Falls back to the static spec rather than propagating the error.
+    assert port.accepted_types == [DataObject]
+
+
 def test_imaging_io_schema_exposes_item_types_and_collection_flags(client: TestClient) -> None:
     """Imaging IO blocks should expose concrete item types and collection metadata."""
     load_schema = client.get("/api/blocks/imaging.load_image/schema")

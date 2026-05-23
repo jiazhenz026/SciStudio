@@ -15,7 +15,10 @@ export const typeColorMap: Record<string, string> = {
   CompositeData: "#8b5cf6",
   Label: "#8b5cf6",
   Mask: "#3b82f6",
-  DataObject: "#e5e7eb",
+  // #1487: was #e5e7eb (gray-200), unreadable on white canvas. gray-700
+  // keeps DataObject visually distinct from the saturated typed-port palette
+  // while staying legible as the fallback color for unresolved port types.
+  DataObject: "#374151",
 };
 
 // ---------------------------------------------------------------------------
