@@ -305,6 +305,34 @@ def _type_name_for_class(cls: type) -> str:
     return cls.__name__.replace("Block", "").lower() + "_block"
 
 
+def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:
+    """Return the ADR-043 :class:`FormatCapability` records declared on ``cls``.
+
+    Issue #1482: relocated from :mod:`scistudio.blocks.registry._capability`
+    to break the static import cycle between ``_capability`` and ``_spec``.
+    The only caller is :func:`_spec_from_class` below, so the helper now
+    lives next to its caller. Dependent imports flow one-way:
+    ``_spec → _capability`` (for ``_validate_capability_id`` via
+    :func:`_validate_class_capability`).
+    """
+    from scistudio.blocks.io.io_block import IOBlock
+    from scistudio.blocks.registry import CapabilityRegistrationError
+
+    if not issubclass(cls, IOBlock):
+        return []
+
+    _validate_simple_extension_declaration(cls)
+    capabilities = list(cls.get_format_capabilities())
+    for capability in capabilities:
+        if not isinstance(capability, FormatCapability):
+            raise CapabilityRegistrationError(
+                f"{cls.__name__}.get_format_capabilities() returned {type(capability).__name__}, "
+                "expected FormatCapability."
+            )
+        _validate_class_capability(cls, capability)
+    return capabilities
+
+
 def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     """Build a :class:`BlockSpec` from a Block subclass's class-level metadata.
 
@@ -319,7 +347,6 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     rather than the legacy ``getattr(cls, "version", "0.1.0")`` default.
     """
     from scistudio.blocks.registry import BlockRegistry, BlockSpec
-    from scistudio.blocks.registry._capability import _format_capabilities_from_class
 
     # Fail loudly at scan time on malformed dynamic-port descriptors.
     BlockRegistry._validate_dynamic_ports(cls)

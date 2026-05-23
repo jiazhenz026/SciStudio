@@ -387,11 +387,11 @@ class BlockRegistry:
 # ---------------------------------------------------------------------------
 
 from scistudio.blocks.registry._capability import (  # noqa: E402
-    _format_capabilities_from_class,
     _iter_compound_to_single_suffix,
     _validate_capability_id,
 )
 from scistudio.blocks.registry._spec import (  # noqa: E402
+    _format_capabilities_from_class,
     _infer_category,
     _merge_config_schema,
     _packages_distributions_cached,

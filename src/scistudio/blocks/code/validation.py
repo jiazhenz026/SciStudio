@@ -170,7 +170,10 @@ def _script_extension_diagnostics(
     except Exception:
         return []
 
-    from scistudio.blocks.code.code_block import list_codeblock_backends
+    # Issue #1482: import the backend-registry helper from the dedicated
+    # sibling module, not via ``code_block`` (which would re-introduce
+    # the ``code_block ↔ validation`` cycle that sentrux flags).
+    from scistudio.blocks.code._backends_registry import list_codeblock_backends
 
     extension = script_path.suffix.lower()
     supported = sorted({ext.lower() for backend in list_codeblock_backends() for ext in backend.extensions})

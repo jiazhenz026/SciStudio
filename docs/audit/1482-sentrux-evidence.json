@@ -1,0 +1,31 @@
+{
+  "issue": 1482,
+  "scan_path": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/break-cycles-1482",
+  "rule_results": {
+    "pass": true,
+    "rules_checked": 3,
+    "summary": "All architectural rules pass",
+    "violation_count": 0,
+    "violations": []
+  },
+  "health": {
+    "quality_signal": 4817,
+    "bottleneck": "depth",
+    "acyclicity": {
+      "raw": 2,
+      "score": 3333,
+      "delta_vs_origin_main": -4,
+      "note": "origin/main acyclicity.raw=6 (max_cycles=5 violation). After #1482 fixes: 2 cycles remain (core/storage<->core/types tracked in #1342; laneAssign 2-cycle in GitGraph). Net: 4 cycles removed."
+    },
+    "depth": {"raw": 18, "score": 3077},
+    "modularity": {"raw": 0.2266, "score": 4844},
+    "equality": {"raw": 0.4278, "score": 5722},
+    "redundancy": {"raw": 0.0874, "score": 9126},
+    "cross_module_edges": 2193,
+    "total_import_edges": 3028
+  },
+  "before_after": {
+    "origin_main": {"quality_signal": 4009, "acyclicity_raw": 6, "pass": false},
+    "branch": {"quality_signal": 4817, "acyclicity_raw": 2, "pass": true}
+  }
+}
