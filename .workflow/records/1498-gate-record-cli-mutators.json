@@ -1,9 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Mark implement stage done; implementation complete + tests pass + lint clean."
+    }
+  ],
   "branch": "feat/issue-1498-gate-record-cli-mutators",
   "changed_test_paths": [
-    "tests/qa/test_gate_record.py",
     "tests/qa/test_gate_record_mutators.py",
     "tests/qa/test_gate_record_provenance.py"
   ],
@@ -109,7 +115,7 @@
     "CHANGELOG.md"
   ],
   "provenance": {
-    "head_content_hash": "sha256:ccbade0af7434351805b80deac9fce7513c0ca9ef790349f30071bff6cb1029c",
+    "head_content_hash": "sha256:cbb5f5474bb306fb3edebe489efb33e8897ef3dd8b4b2b599d8d17e41f80e593",
     "mutations": [
       {
         "content_hash_after": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
@@ -217,6 +223,31 @@
         },
         "timestamp": "2026-05-23T09:26:08.165674Z",
         "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:ff5c9269f2a6eb143ee0ffc54c5be6dc4abc7e3f72f5e2a0370cd3d1b2d7135d",
+        "content_hash_before": "sha256:ccbade0af7434351805b80deac9fce7513c0ca9ef790349f30071bff6cb1029c",
+        "subcommand": "plan-remove",
+        "summary": {
+          "removed_checks": 0,
+          "removed_files": 0,
+          "removed_tests": 1
+        },
+        "timestamp": "2026-05-23T09:28:18.252504Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:cbb5f5474bb306fb3edebe489efb33e8897ef3dd8b4b2b599d8d17e41f80e593",
+        "content_hash_before": "sha256:ff5c9269f2a6eb143ee0ffc54c5be6dc4abc7e3f72f5e2a0370cd3d1b2d7135d",
+        "subcommand": "amend",
+        "summary": {
+          "approved_by": null,
+          "exclude_added": 0,
+          "governance_touch_flipped_true": false,
+          "include_added": 0
+        },
+        "timestamp": "2026-05-23T09:28:18.468350Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
       }
     ],
     "schema_version": "1"
@@ -276,7 +307,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
