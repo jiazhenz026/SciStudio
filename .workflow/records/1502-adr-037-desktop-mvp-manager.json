@@ -1,0 +1,113 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1502-adr-037-desktop-mvp-manager.json"
+      ],
+      "reason": "Gate record is committed evidence for manager-owned ADR-037 desktop MVP work."
+    }
+  ],
+  "branch": "adr-037-desktop-mvp-manager",
+  "changed_test_paths": [
+    "tests/cli/test_cli.py",
+    "tests/blocks/test_desktop_package_discovery.py"
+  ],
+  "check_results": [],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1502,
+      "url": null
+    }
+  ],
+  "owner_directive": "Investigate ADR-037 against later ADRs, write detailed implementation spec, dispatch up to five agents, and build an MVP desktop distribution on the desktop branch without touching main.",
+  "persona": "manager",
+  "planned_files": [
+    "docs/planning/adr-037-desktop-mvp-spec.md",
+    "docs/planning/adr-037-desktop-mvp-checklist.md",
+    "docs/planning/dispatch-prompts/adr-037-desktop-mvp-*.md",
+    "desktop/**",
+    "src/scistudio/paths.py",
+    "src/scistudio/cli/main.py",
+    "src/scistudio/blocks/registry/**"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1502-adr-037-desktop-mvp-manager.json",
+  "required_checks": [
+    "npm --prefix frontend run build",
+    "npm --prefix desktop run stage",
+    "pytest targeted",
+    "gate_record pre-commit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      ".agents/**",
+      ".claude/**",
+      ".codex/**"
+    ],
+    "include": [
+      "docs/planning/adr-037-desktop-mvp-spec.md",
+      "docs/planning/adr-037-desktop-mvp-checklist.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-*.md",
+      "desktop/**",
+      "src/scistudio/paths.py",
+      "src/scistudio/cli/main.py",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/engine/runners/**",
+      "tests/packaging/**",
+      "tests/cli/**",
+      "tests/blocks/**",
+      "pyproject.toml"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1502-adr-037-desktop-mvp",
+  "task_kind": "manager"
+}
