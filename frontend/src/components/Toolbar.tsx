@@ -104,7 +104,7 @@ export function Toolbar(props: ToolbarProps) {
         // ADR-039 §3.5 (#972) — Git affordances moved to the Git tab; the
         // toolbar no longer overflows. `overflow-x-auto` is kept as a
         // defensive fallback.
-        className="flex items-center gap-3 overflow-x-auto border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur"
+        className="flex min-w-0 items-center gap-2 overflow-hidden border-b border-stone-200 bg-white/85 px-3 py-3 backdrop-blur xl:gap-3 xl:px-5"
       >
         <ProjectHeader
           currentProject={currentProject}
@@ -112,7 +112,7 @@ export function Toolbar(props: ToolbarProps) {
           workflowDirty={workflowDirty}
         />
 
-        <Separator orientation="vertical" className="mx-1 h-8" />
+        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
 
         <ProjectsDropdown
           currentProject={currentProject}
@@ -124,7 +124,7 @@ export function Toolbar(props: ToolbarProps) {
           onCloseProject={onCloseProject}
         />
 
-        <Separator orientation="vertical" className="mx-1 h-8" />
+        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
 
         <FileOperationsGroup
           currentProject={currentProject}

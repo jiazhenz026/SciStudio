@@ -74,6 +74,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["PtyProcess", "resolve_windows_executable", "spawn_claude", "spawn_codex"]
 
 _WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
+_PTY_BLOCKED_ENV_VARS = frozenset({"ELECTRON_RUN_AS_NODE"})
 
 
 def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] | None = None) -> str | None:
@@ -101,6 +102,24 @@ def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] 
             return resolved
         return extensioned[0]
     return resolved
+
+
+def _build_child_env(extra_env: dict[str, str] | None = None) -> dict[str, str]:
+    """Build a clean environment for PTY-hosted agent CLIs."""
+    child_env = os.environ.copy()
+    for name in _PTY_BLOCKED_ENV_VARS:
+        child_env.pop(name, None)
+
+    child_env["TERM"] = "xterm-256color"
+    child_env["COLORTERM"] = "truecolor"
+    child_env.setdefault("FORCE_COLOR", "3")
+
+    if extra_env:
+        child_env.update(extra_env)
+        for name in _PTY_BLOCKED_ENV_VARS:
+            child_env.pop(name, None)
+
+    return child_env
 
 
 class PtyProcess:
@@ -162,22 +181,16 @@ class PtyProcess:
         # clipped or overwritten. Advertising ``xterm-256color`` (the
         # de-facto modern terminal type that xterm.js fully implements)
         # makes both CLIs use their proper full-featured render path.
-        child_env = os.environ.copy()
-        child_env["TERM"] = "xterm-256color"
-        child_env["COLORTERM"] = "truecolor"
+        child_env = _build_child_env(extra_env)
         # Some Node-based TUIs respect FORCE_COLOR for 24-bit output
         # even when stdout is detected as not-a-tty during nested
         # spawns. Harmless when ignored.
-        child_env.setdefault("FORCE_COLOR", "3")
         # Caller-supplied per-invocation env (e.g. SCISTUDIO_AI_BLOCK_RUN_DIR
         # from open_engine_initiated_tab so the spawned mcp-bridge
         # subprocess can resolve the active run dir for finish_ai_block,
         # ADR-035 §3.5 path a). These override anything inherited above
         # so each PTY gets the right per-block context without polluting
         # the engine's global environment.
-        if extra_env:
-            child_env.update(extra_env)
-
         if sys.platform == "win32":
             try:
                 import winpty  # type: ignore

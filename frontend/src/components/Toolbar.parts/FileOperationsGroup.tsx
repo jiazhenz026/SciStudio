@@ -46,16 +46,22 @@ export function FileOperationsGroup({
   onSaveAs,
 }: FileOperationsGroupProps) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1">
       {/*
        * ADR-036 §3.7 / §3.12 (I36c) — "New" is a constrained three-item
        * menu: workflow / custom block / note. No "New arbitrary file" entry.
        */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="toolbar" size="toolbar" disabled={!currentProject} type="button">
+          <Button
+            variant="toolbar"
+            size="toolbar"
+            disabled={!currentProject}
+            type="button"
+            aria-label="New"
+          >
             <FilePlus2 className="size-3.5" />
-            New
+            <span className="hidden xl:inline">New</span>
             <ChevronDown className="size-3" />
           </Button>
         </DropdownMenuTrigger>

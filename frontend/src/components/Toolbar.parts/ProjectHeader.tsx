@@ -11,11 +11,11 @@ export interface ProjectHeaderProps {
 
 export function ProjectHeader({ currentProject, workflowName, workflowDirty }: ProjectHeaderProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="rounded-[1.4rem] bg-ink px-4 py-2.5 text-stone-50">
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="shrink-0 rounded-[1.4rem] bg-ink px-3 py-2 text-stone-50 xl:px-4 xl:py-2.5">
         <p className="font-display text-lg leading-tight">SciStudio</p>
       </div>
-      <div className="w-[200px] shrink-0">
+      <div className="hidden min-w-0 shrink xl:block xl:w-[160px] 2xl:w-[200px]">
         <p
           className="truncate font-display text-base leading-tight text-ink"
           title={currentProject?.name ?? undefined}
@@ -48,7 +48,7 @@ export function StatusPill({ connected, label }: { connected: boolean; label: st
       }`}
     >
       <span className={`h-2 w-2 rounded-full ${connected ? "bg-pine" : "bg-stone-400"}`} />
-      {label}
+      <span className="hidden xl:inline">{label}</span>
     </span>
   );
 }

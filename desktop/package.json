@@ -11,6 +11,7 @@
     "stage": "powershell -ExecutionPolicy Bypass -File ./scripts/stage-resources.ps1",
     "stage:sh": "sh ./scripts/stage-resources.sh",
     "start": "node scripts/start-electron.js",
+    "dev": "node scripts/start-dev.js",
     "dist:dir": "electron-builder --dir"
   },
   "dependencies": {},

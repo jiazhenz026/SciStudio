@@ -33,9 +33,10 @@ export function ToolbarButton({
           disabled={disabled}
           onClick={onClick}
           type="button"
+          aria-label={label}
         >
           <Icon className={iconClassName ? `size-3.5 ${iconClassName}` : "size-3.5"} />
-          {label}
+          <span className="hidden xl:inline">{label}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">

@@ -1,10 +1,11 @@
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, session } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const readline = require("readline");
 
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
+const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
 
 let mainWindow = null;
 let runtimeProcess = null;
@@ -70,12 +71,27 @@ function runtimeEnv() {
     pythonPathEntries.push(existingPythonPath);
   }
 
-  return {
+  const env = {
     ...process.env,
     PYTHONPATH: pythonPathEntries.join(path.delimiter),
     SCISTUDIO_BUNDLED: "1",
     SCISTUDIO_DESKTOP_RESOURCES: resources
   };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+
+function runtimePort() {
+  const requested = process.env.SCISTUDIO_DESKTOP_RUNTIME_PORT;
+  if (!requested) {
+    return "0";
+  }
+  const parsed = Number.parseInt(requested, 10);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 65535) {
+    return String(parsed);
+  }
+  console.warn(`[scistudio] Ignoring invalid SCISTUDIO_DESKTOP_RUNTIME_PORT=${requested}`);
+  return "0";
 }
 
 function runtimeArgs(candidate) {
@@ -85,7 +101,7 @@ function runtimeArgs(candidate) {
     "scistudio.cli.main",
     "gui",
     "--port",
-    "0",
+    runtimePort(),
     "--bundled"
   ];
 }
@@ -193,6 +209,20 @@ function startRuntime() {
   });
 }
 
+function launchUrl(runtimeUrl) {
+  const frontendUrl = process.env.SCISTUDIO_DESKTOP_FRONTEND_URL;
+  const url = frontendUrl && frontendUrl.trim() ? frontendUrl.trim() : runtimeUrl;
+  try {
+    const parsed = new URL(url);
+    if (!frontendUrl) {
+      parsed.searchParams.set("_scistudio_desktop_boot", String(Date.now()));
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -248,7 +278,8 @@ function stopRuntime() {
 app.whenReady().then(async () => {
   try {
     const { ready } = await startRuntime();
-    createWindow(ready.url);
+    await session.defaultSession.clearCache();
+    createWindow(launchUrl(ready.url));
   } catch (error) {
     await dialog.showMessageBox({
       type: "error",
