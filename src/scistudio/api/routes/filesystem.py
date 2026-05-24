@@ -330,6 +330,20 @@ def _native_dialog_windows(
     safe_initial_dir = _ps_single_quote_escape(initial_dir or "")
     safe_default_filename = _ps_single_quote_escape(default_filename or "")
     safe_file_filter = _ps_single_quote_escape(file_filter or "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*")
+    owner_form_setup = (
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "[System.Windows.Forms.Application]::EnableVisualStyles();"
+        "$owner = New-Object System.Windows.Forms.Form;"
+        "$owner.StartPosition = 'CenterScreen';"
+        "$owner.Width = 1;"
+        "$owner.Height = 1;"
+        "$owner.Opacity = 0;"
+        "$owner.ShowInTaskbar = $false;"
+        "$owner.TopMost = $true;"
+        "$owner.Show();"
+        "$owner.Activate();"
+    )
+    owner_form_teardown = "if ($owner) { $owner.Close(); $owner.Dispose(); }"
     if mode == "directory":
         # Use modern IFileOpenDialog COM with FOS_PICKFOLDERS for Vista+ style
         # instead of the legacy Win2000-era FolderBrowserDialog.
@@ -383,13 +397,13 @@ public interface IShellItem {
 }
 
 public static class FolderPicker {
-    public static string Pick(string title) {
+    public static string Pick(string title, IntPtr owner) {
         var dlg = (IFileDialog)new FileOpenDialogClass();
         uint opts;
         dlg.GetOptions(out opts);
         dlg.SetOptions(opts | 0x20 | 0x40);
         if (title != null) dlg.SetTitle(title);
-        int hr = dlg.Show(IntPtr.Zero);
+        int hr = dlg.Show(owner);
         if (hr != 0) return null;
         IShellItem item;
         dlg.GetResult(out item);
@@ -401,30 +415,43 @@ public static class FolderPicker {
 """
         # Pass C# source in a PowerShell single-quoted string (escape ' as '').
         ps_script = (
-            "Add-Type -TypeDefinition '" + cs_source.replace("'", "''") + "';"
-            "$result = [FolderPicker]::Pick('Select Folder');"
-            "if ($result) { $result } else { '' }"
+            owner_form_setup
+            + "Add-Type -TypeDefinition '"
+            + cs_source.replace("'", "''")
+            + "';"
+            + "try {"
+            + "$result = [FolderPicker]::Pick('Select Folder', $owner.Handle);"
+            + "if ($result) { $result } else { '' }"
+            + "} finally {"
+            + owner_form_teardown
+            + "}"
         )
     elif mode == "save_file":
         ps_script = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
-            "[System.Windows.Forms.Application]::EnableVisualStyles();"
-            "$d = New-Object System.Windows.Forms.SaveFileDialog;"
-            f"$d.InitialDirectory = '{safe_initial_dir}';"
-            f"$d.FileName = '{safe_default_filename}';"
-            f"$d.Filter = '{safe_file_filter}';"
-            "if ($d.ShowDialog() -eq 'OK') { $d.FileName } else { '' }"
+            owner_form_setup
+            + "$d = New-Object System.Windows.Forms.SaveFileDialog;"
+            + f"$d.InitialDirectory = '{safe_initial_dir}';"
+            + f"$d.FileName = '{safe_default_filename}';"
+            + f"$d.Filter = '{safe_file_filter}';"
+            + "try {"
+            + "if ($d.ShowDialog($owner) -eq 'OK') { $d.FileName } else { '' }"
+            + "} finally {"
+            + owner_form_teardown
+            + "}"
         )
     else:
         # Bug 1 fix: single braces for non-f-string lines.
         # Bug 2 fix: enable Multiselect and return pipe-separated FileNames.
         ps_script = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
-            "[System.Windows.Forms.Application]::EnableVisualStyles();"
-            "$d = New-Object System.Windows.Forms.OpenFileDialog;"
-            "$d.Multiselect = $true;"
-            f"$d.InitialDirectory = '{safe_initial_dir}';"
-            "if ($d.ShowDialog() -eq 'OK') { ($d.FileNames -join '|') } else { '' }"
+            owner_form_setup
+            + "$d = New-Object System.Windows.Forms.OpenFileDialog;"
+            + "$d.Multiselect = $true;"
+            + f"$d.InitialDirectory = '{safe_initial_dir}';"
+            + "try {"
+            + "if ($d.ShowDialog($owner) -eq 'OK') { ($d.FileNames -join '|') } else { '' }"
+            + "} finally {"
+            + owner_form_teardown
+            + "}"
         )
     # No timeout: this is a desktop-local server and the user may legitimately
     # spend an arbitrary amount of time browsing the dialog (#678).

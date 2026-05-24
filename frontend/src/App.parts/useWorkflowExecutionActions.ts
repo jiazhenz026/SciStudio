@@ -30,6 +30,14 @@ export interface WorkflowExecutionActions {
   handleRestartBlock: (blockId: string) => Promise<void>;
 }
 
+function surfaceExecutionError(
+  setLastError: (message: string | null) => void,
+  error: unknown,
+): void {
+  const message = error instanceof Error ? error.message : String(error);
+  window.setTimeout(() => setLastError(message), 0);
+}
+
 export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): WorkflowExecutionActions {
   const {
     currentProject,
@@ -48,7 +56,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
       setLastError(null);
       // #793: do NOT auto-switch to the Logs tab.
     } catch (error) {
-      setLastError((error as Error).message);
+      surfaceExecutionError(setLastError, error);
     }
   }, [currentProject, saveWorkflow, setLastError, workflowPayloadId]);
 
@@ -74,7 +82,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
       await api.executeFrom(workflowId, selectedNodeId);
       setLastError(null);
     } catch (error) {
-      setLastError((error as Error).message);
+      surfaceExecutionError(setLastError, error);
     }
   }, [saveWorkflow, selectedNodeId, setLastError, workflowId]);
 
@@ -86,7 +94,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
         await api.executeFrom(workflowId, blockId);
         setLastError(null);
       } catch (error) {
-        setLastError((error as Error).message);
+        surfaceExecutionError(setLastError, error);
       }
     },
     [saveWorkflow, setLastError, workflowId],
@@ -100,7 +108,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
         await api.executeFrom(workflowId, blockId);
         setLastError(null);
       } catch (error) {
-        setLastError((error as Error).message);
+        surfaceExecutionError(setLastError, error);
       }
     },
     [saveWorkflow, setLastError, workflowId],

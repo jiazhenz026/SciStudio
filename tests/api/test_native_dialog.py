@@ -34,6 +34,8 @@ class TestNativeDialogWindowsDirectory:
         assert "FolderPicker" in ps_script
         assert "IFileDialog" in ps_script
         assert "Add-Type -TypeDefinition" in ps_script
+        assert "$owner.TopMost = $true;" in ps_script
+        assert "[FolderPicker]::Pick('Select Folder', $owner.Handle)" in ps_script
         assert "FolderBrowserDialog" not in ps_script
 
         assert result == [r"C:\Users\test\Documents"]
@@ -67,6 +69,8 @@ class TestNativeDialogWindowsDirectory:
 
         assert "OpenFileDialog" in ps_script
         assert "FolderPicker" not in ps_script
+        assert "$owner.TopMost = $true;" in ps_script
+        assert "$d.ShowDialog($owner)" in ps_script
         assert result == [r"C:\file1.txt", r"C:\file2.txt"]
 
 

@@ -6,7 +6,6 @@ import {
   BoxSelect,
   Eye,
   Loader2,
-  Pause,
   Play,
   RefreshCw,
   RotateCcw,
@@ -37,7 +36,7 @@ export interface WorkflowGroupsProps {
 }
 
 function ExecutionControls(props: WorkflowGroupsProps) {
-  const { currentProject, workflowId, isRunning, onRun, onPause, onStop, onReset } = props;
+  const { currentProject, workflowId, isRunning, onRun, onStop, onReset } = props;
   return (
     <div className="flex items-center gap-1">
       <ToolbarButton
@@ -49,7 +48,6 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         iconClassName={isRunning ? "animate-spin" : undefined}
         onClick={onRun}
       />
-      <ToolbarButton icon={Pause} label="Pause" disabled={!workflowId} onClick={onPause} />
       <ToolbarButton
         icon={Square}
         label="Stop"

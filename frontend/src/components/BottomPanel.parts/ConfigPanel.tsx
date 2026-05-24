@@ -1,6 +1,14 @@
-import { api } from "../../lib/api";
-import type { BlockSchemaResponse, WorkflowNode } from "../../types/api";
+import { useState } from "react";
+
+import { api, ApiError } from "../../lib/api";
+import type {
+  BlockSchemaResponse,
+  FormatCapabilityResponse,
+  TypeHierarchyEntry,
+  WorkflowNode,
+} from "../../types/api";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
+import { FileBrowserModal } from "../nodes/BlockNode.parts/FileBrowserModal";
 
 import { CaretPreservingTextInput } from "./CaretPreservingTextInput";
 import { CodeBlockConfigEditor } from "./CodeBlockConfigEditor";
@@ -9,46 +17,91 @@ import { isCodeBlockConfigTarget } from "./codeBlockPorts";
 
 type BrowseMode = "file" | "directory" | null;
 
+function ancestorTypeNames(typeName: string, typeHierarchy: TypeHierarchyEntry[]): Set<string> {
+  const ancestors = new Set<string>();
+  if (!typeName) return ancestors;
+  ancestors.add(typeName);
+  const index = new Map(typeHierarchy.map((entry) => [entry.name, entry]));
+  let current = index.get(typeName);
+  while (current?.base_type && !ancestors.has(current.base_type)) {
+    ancestors.add(current.base_type);
+    current = index.get(current.base_type);
+  }
+  return ancestors;
+}
+
+function capabilitiesForType(
+  capabilities: FormatCapabilityResponse[],
+  selectedType: string,
+  typeHierarchy: TypeHierarchyEntry[],
+): FormatCapabilityResponse[] {
+  if (!selectedType) return [];
+  const acceptedTypes = ancestorTypeNames(selectedType, typeHierarchy);
+  const filtered = capabilities.filter((capability) => acceptedTypes.has(capability.data_type));
+  if (!acceptedTypes.has("Artifact")) return filtered;
+  let artifactInserted = false;
+  return filtered.flatMap((capability) => {
+    if (capability.data_type !== "Artifact") return [capability];
+    if (artifactInserted) return [];
+    artifactInserted = true;
+    return [
+      {
+        ...capability,
+        id: `core.artifact.any.${capability.direction}`,
+        data_type: "Artifact",
+        format_id: "any",
+        extensions: [],
+        label: "Any",
+        is_default: true,
+        roundtrip_group: null,
+        is_synthesized: false,
+        migration_scaffold: false,
+      },
+    ];
+  });
+}
+
 function browseModeFor(uiWidget: string | undefined): BrowseMode {
   if (uiWidget === "file_browser") return "file";
   if (uiWidget === "directory_browser") return "directory";
   return null;
 }
 
-async function runBrowseDialog(
+function nativeInitialDir(
   browseMode: NonNullable<BrowseMode>,
   current: string,
-  schemaTypeRaw: unknown,
-  onUpdateConfig: (patch: Record<string, unknown>) => void,
-  key: string,
-) {
-  // Mirror BlockNode's inline browse pattern (#484): use the
-  // backend's native dialog so the user gets their OS file
-  // picker. Failure surfaces in console; the text field
-  // remains usable as the manual fallback.
-  let initialDir: string | undefined;
-  if (current) {
-    const sep = current.includes("\\") ? "\\" : "/";
-    const parts = current.split(sep);
-    if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
-      initialDir = parts.slice(0, -1).join(sep);
-    } else {
-      initialDir = current;
-    }
+): string | undefined {
+  if (!current) return undefined;
+  const sep = current.includes("\\") ? "\\" : "/";
+  const parts = current.split(sep);
+  if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
+    return parts.slice(0, -1).join(sep);
   }
-  try {
-    const result = await api.openNativeDialog(browseMode, initialDir);
-    if (result.paths.length > 0) {
-      const supportsArray = Array.isArray(schemaTypeRaw)
-        ? schemaTypeRaw.includes("array")
-        : schemaTypeRaw === "array";
-      onUpdateConfig({
-        [key]: supportsArray && result.paths.length > 1 ? result.paths : result.paths[0],
-      });
+  return current;
+}
+
+function shouldFallbackToInAppModal(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    if (err.status === 504) {
+      console.error(
+        "Native file dialog timed out (HTTP 504); not falling back to in-app picker.",
+        err,
+      );
+      return false;
     }
-  } catch (err) {
-    console.error("BottomPanel: native file dialog failed", err);
+    return true;
   }
+  return true;
+}
+
+function modalInitialPath(browseMode: NonNullable<BrowseMode>, current: string): string {
+  if (!current) return "";
+  const sep = current.includes("\\") ? "\\" : "/";
+  const parts = current.split(sep);
+  if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
+    return parts.slice(0, -1).join(sep);
+  }
+  return current;
 }
 
 function EnumField({
@@ -68,7 +121,13 @@ function EnumField({
       <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
       <select
         className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-        onChange={(event) => onUpdateConfig({ [fieldKey]: event.target.value })}
+        onChange={(event) =>
+          onUpdateConfig(
+            fieldKey === "core_type"
+              ? { [fieldKey]: event.target.value, capability_id: null }
+              : { [fieldKey]: event.target.value },
+          )
+        }
         value={String(currentValue)}
       >
         {enumValues.map((option) => (
@@ -94,6 +153,30 @@ function ScalarField({
 }) {
   const uiWidget = field.ui_widget as string | undefined;
   const browseMode = browseModeFor(uiWidget);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const applySelectedPath = (paths: string[]) => {
+    if (paths.length === 0) return;
+    const supportsArray = Array.isArray(field.type)
+      ? field.type.includes("array")
+      : field.type === "array";
+    onUpdateConfig({
+      [fieldKey]: supportsArray && paths.length > 1 ? paths : paths[0],
+    });
+  };
+  const handleBrowseClick = async () => {
+    if (!browseMode) return;
+    try {
+      const result = await api.openNativeDialog(
+        browseMode,
+        nativeInitialDir(browseMode, String(currentValue ?? "")),
+      );
+      applySelectedPath(result.paths);
+    } catch (err) {
+      if (shouldFallbackToInAppModal(err)) {
+        setBrowseOpen(true);
+      }
+    }
+  };
   return (
     <label className="grid gap-2 text-sm" key={fieldKey}>
       <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
@@ -114,20 +197,23 @@ function ScalarField({
             type="button"
             className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
             title="Browse filesystem"
-            onClick={() =>
-              runBrowseDialog(
-                browseMode,
-                String(currentValue ?? ""),
-                field.type,
-                onUpdateConfig,
-                fieldKey,
-              )
-            }
+            onClick={() => void handleBrowseClick()}
           >
             ...
           </button>
         )}
       </div>
+      {browseOpen && browseMode && (
+        <FileBrowserModal
+          mode={browseMode === "directory" ? "directory_browser" : "file_browser"}
+          initialPath={modalInitialPath(browseMode, String(currentValue ?? ""))}
+          onSelect={(selectedPath) => {
+            applySelectedPath([selectedPath]);
+            setBrowseOpen(false);
+          }}
+          onCancel={() => setBrowseOpen(false)}
+        />
+      )}
     </label>
   );
 }
@@ -222,6 +308,25 @@ export function ConfigPanel({
   const allowedInputTypes = schema.allowed_input_types ?? [];
   const allowedOutputTypes = schema.allowed_output_types ?? [];
   const formatCapabilities = schema.format_capabilities ?? [];
+  const coreTypeSchema = schema.config_schema.properties?.core_type;
+  const hasCoreTypeField = coreTypeSchema != null;
+  const selectedType =
+    typeof params.core_type === "string"
+      ? params.core_type
+      : typeof coreTypeSchema?.default === "string"
+        ? coreTypeSchema.default
+        : "";
+  const visibleFormatCapabilities = hasCoreTypeField
+    ? capabilitiesForType(formatCapabilities, selectedType, typeHierarchy)
+    : formatCapabilities;
+  const formatSelector =
+    visibleFormatCapabilities.length > 0 ? (
+      <FormatCapabilityConfig
+        capabilities={visibleFormatCapabilities}
+        onChange={(capabilityId) => onUpdateConfig({ capability_id: capabilityId })}
+        value={params.capability_id}
+      />
+    ) : null;
 
   return (
     <div>
@@ -247,26 +352,22 @@ export function ConfigPanel({
           typeHierarchy={typeHierarchy}
         />
       )}
-      {formatCapabilities.length > 0 ? (
-        <div className="mb-4 max-w-2xl">
-          <FormatCapabilityConfig
-            capabilities={formatCapabilities}
-            onChange={(capabilityId) => onUpdateConfig({ capability_id: capabilityId })}
-            value={params.capability_id}
-          />
-        </div>
+      {!hasCoreTypeField && formatSelector ? (
+        <div className="mb-4 max-w-2xl">{formatSelector}</div>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={hasCoreTypeField ? "grid max-w-2xl gap-4" : "grid gap-4 md:grid-cols-2"}>
         {ordered.map(([key, value]) => {
           const currentValue = params[key] ?? value.default ?? "";
           return (
-            <ConfigField
-              key={key}
-              fieldKey={key}
-              field={value}
-              currentValue={currentValue}
-              onUpdateConfig={onUpdateConfig}
-            />
+            <div key={key} className="contents">
+              <ConfigField
+                fieldKey={key}
+                field={value}
+                currentValue={currentValue}
+                onUpdateConfig={onUpdateConfig}
+              />
+              {hasCoreTypeField && key === "core_type" && formatSelector}
+            </div>
           );
         })}
       </div>

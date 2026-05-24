@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
+_NO_ACTIVE_PROJECT_MESSAGE = "No project is currently open."
 
 
 def _yaml_error_detail(workflow_id: str, exc: yaml.YAMLError) -> dict[str, Any]:
@@ -89,6 +91,16 @@ def _get_run_or_404(runtime: ApiRuntime, workflow_id: str) -> WorkflowRun:
         return runtime.get_run(workflow_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def _workflow_session_error(exc: RuntimeError) -> HTTPException:
+    status_code = 409 if str(exc) == _NO_ACTIVE_PROJECT_MESSAGE else 400
+    return HTTPException(status_code=status_code, detail=str(exc))
+
+
+def _bind_engine_api_url(request: Request) -> None:
+    """Publish this API process URL so worker subprocesses can call back."""
+    os.environ["SCISTUDIO_ENGINE_API_URL"] = str(request.base_url).rstrip("/")
 
 
 def _request_source_id(request: Request, body: Any | None = None) -> str | None:
@@ -188,7 +200,7 @@ async def list_workflows(runtime: RuntimeDep) -> list[str]:
     try:
         return runtime.list_project_workflows()
     except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _workflow_session_error(exc) from exc
 
 
 @router.post("/import", response_model=VersionedWorkflowResponse)
@@ -299,7 +311,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _workflow_session_error(exc) from exc
 
     source_id = _request_source_id(request, body)
     source = _request_source(request)
@@ -377,6 +389,8 @@ async def update_workflow(
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise _workflow_session_error(exc) from exc
 
     # changed_by: prefer an explicit ``X-Changed-By`` header (set by the MCP
     # tool / the embedded agent), else fall back to a generic "api" tag.
@@ -437,9 +451,14 @@ async def delete_workflow(workflow_id: str, runtime: RuntimeDep) -> None:
 
 
 @router.post("/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
-async def execute_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExecutionResponse:
+async def execute_workflow(
+    workflow_id: str,
+    runtime: RuntimeDep,
+    request: Request,
+) -> WorkflowExecutionResponse:
     """Start execution of a workflow."""
     try:
+        _bind_engine_api_url(request)
         result = runtime.start_workflow(workflow_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -501,6 +520,7 @@ async def execute_from_workflow(
     workflow_id: str,
     body: ExecuteFromRequest,
     runtime: RuntimeDep,
+    request: Request,
 ) -> ExecuteFromResponse:
     """Re-run a workflow from a specific block using checkpointed inputs.
 
@@ -530,6 +550,7 @@ async def execute_from_workflow(
                 exc_info=True,
             )
     try:
+        _bind_engine_api_url(request)
         result = runtime.start_workflow(
             workflow_id,
             execute_from=body.block_id,
