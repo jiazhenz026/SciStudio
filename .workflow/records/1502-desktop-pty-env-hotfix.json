@@ -120,7 +120,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1502-desktop-pty-env-hotfix.json",
+    "shas": [
+      "e538c07195d4486b4cd7123d017614f3ed50c598"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -152,13 +158,15 @@
   "owner_directive": "Hotfix mode: desktop built-in PTY cannot start.",
   "persona": "implementer",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1502
+    ],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/1502-desktop-pty-env-hotfix.json",
-  "required_checks": [
-    "npm --prefix frontend run build",
-    "npm --prefix frontend run test -- Toolbar.test.tsx",
-    "desktop dev script syntax"
-  ],
+  "required_checks": [],
   "schema_version": "1",
   "scope": {
     "exclude": [],
@@ -216,7 +224,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
