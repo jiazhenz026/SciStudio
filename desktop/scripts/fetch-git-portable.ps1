@@ -38,7 +38,7 @@ $BusyboxMinGitUrl = "https://github.com/git-for-windows/git/releases/download/v$
 # SHA-256 of the published archive.
 #
 # DESKTOP MAINTAINER ACTION REQUIRED before first release: this is a
-# placeholder. Run with $env:SCIEASY_SKIP_GIT_SHA_VERIFY = "1", copy the
+# placeholder. Run with $env:SCISTUDIO_SKIP_GIT_SHA_VERIFY = "1", copy the
 # computed hash printed to stderr, cross-verify against Git for Windows's
 # published checksums.txt.gpg, then paste it here and commit. After that
 # the script enforces integrity on every CI run. The bypass env var is for
@@ -88,8 +88,8 @@ try {
 try {
     # 5. SHA-256 verify (unless explicitly skipped).
     $hash = (Get-FileHash -Path $tempZip -Algorithm SHA256).Hash
-    if ($env:SCIEASY_SKIP_GIT_SHA_VERIFY -eq "1") {
-        Write-Warning "SCIEASY_SKIP_GIT_SHA_VERIFY=1: not verifying $hash"
+    if ($env:SCISTUDIO_SKIP_GIT_SHA_VERIFY -eq "1") {
+        Write-Warning "SCISTUDIO_SKIP_GIT_SHA_VERIFY=1: not verifying $hash"
     } elseif ($hash -ne $ExpectedSha256) {
         throw "SHA256 mismatch:`n  expected $ExpectedSha256`n  got      $hash`nUpdate `$ExpectedSha256 in this script after verifying against Git for Windows release checksums."
     }
