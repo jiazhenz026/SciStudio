@@ -11,7 +11,7 @@ export interface ProjectHeaderProps {
 
 export function ProjectHeader({ currentProject, workflowName, workflowDirty }: ProjectHeaderProps) {
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-fit shrink-0 items-center gap-3" data-testid="toolbar-project-header">
       <div className="shrink-0 rounded-[1.4rem] bg-ink px-3 py-2 text-stone-50 xl:px-4 xl:py-2.5">
         <p className="font-display text-lg leading-tight">SciStudio</p>
       </div>

@@ -79,6 +79,15 @@
         ".gitignore"
       ],
       "reason": "Ignore local portable Python download cache used by desktop runtime builder."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/Toolbar.parts/ProjectHeader.tsx",
+        "frontend/src/components/Toolbar.test.tsx"
+      ],
+      "reason": "Owner reported narrow desktop toolbar overlap between Projects and SciStudio brand."
     }
   ],
   "branch": "hotfix/desktop-pty-env",
@@ -215,6 +224,15 @@
       "exit_code": 0,
       "name": "desktop-self-contained-python-tests",
       "output_path": "16 passed, 1 warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm --prefix frontend run test -- Toolbar.test.tsx; npm --prefix frontend run build; npm --prefix desktop run stage; npm --prefix desktop run dist:dir; packaged exe smoke",
+      "exit_code": 0,
+      "name": "desktop-toolbar-brand-overlap",
+      "output_path": "Toolbar.test.tsx 12 passed; frontend build pass; stage pass; dist:dir pass; packaged exe alive/logReady true",
       "status": "pass",
       "summary": {},
       "timestamp": null
