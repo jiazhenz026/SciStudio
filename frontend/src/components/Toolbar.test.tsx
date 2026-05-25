@@ -3,7 +3,7 @@
  *
  * Verifies that:
  *   - When ``activeTabKind === "workflow"`` (default), the existing button
- *     set is rendered: Run / Pause / Stop / Reset / Reload / Delete /
+ *     set is rendered: Run / Stop / Reset / Reload / Delete /
  *     Note / Group are all present.
  *   - When ``activeTabKind === "file"``, those workflow-only buttons are
  *     hidden; only New / Import / Save remain.
@@ -60,7 +60,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof Toolbar>> = {}
 }
 
 describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
-  it("workflow tab: Run / Pause / Stop / Reset / Reload / Delete / Note / Group are visible", () => {
+  it("workflow tab: Run / Stop / Reset / Reload / Delete / Note / Group are visible", () => {
     render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
     // Group 2 (always present)
     expect(screen.getByRole("button", { name: /^new$/i })).toBeTruthy();
@@ -68,7 +68,7 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.getByRole("button", { name: /^save$/i })).toBeTruthy();
     // Workflow-only groups
     expect(screen.getByRole("button", { name: /^run$/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^pause$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^pause$/i })).toBeNull();
     expect(screen.getByRole("button", { name: /^stop$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^reset$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^delete$/i })).toBeTruthy();

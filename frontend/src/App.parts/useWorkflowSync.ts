@@ -12,7 +12,7 @@
 
 import { startTransition, useCallback } from "react";
 
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -37,6 +37,17 @@ export interface WorkflowSync {
   refreshBlocks: () => Promise<void>;
   saveWorkflow: () => Promise<void>;
   saveWorkflowAs: () => Promise<void>;
+}
+
+async function persistWorkflow(workflow: WorkflowResponse): Promise<WorkflowResponse> {
+  try {
+    return await api.updateWorkflow(workflow.id, workflow);
+  } catch (error) {
+    if (error instanceof ApiError && error.status !== 404) {
+      throw error;
+    }
+    return await api.createWorkflow(workflow);
+  }
 }
 
 export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
@@ -75,19 +86,26 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
     if (!currentProject) return;
     try {
       let saved: WorkflowResponse;
+      let projectForState = currentProject;
       try {
-        saved = await api.updateWorkflow(workflowPayload.id, workflowPayload);
-      } catch {
-        saved = await api.createWorkflow(workflowPayload);
+        saved = await persistWorkflow(workflowPayload);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 409) {
+          throw error;
+        }
+        const reopened = await api.openProject(currentProject.id);
+        projectForState = reopened;
+        setCurrentProject(reopened);
+        saved = await persistWorkflow(workflowPayload);
       }
       markWorkflowSaved();
       await refreshProjects();
       setCurrentProject({
-        ...currentProject,
+        ...projectForState,
         current_workflow_id: saved.id,
-        workflows: currentProject.workflows.includes(saved.id)
-          ? currentProject.workflows
-          : [...currentProject.workflows, saved.id],
+        workflows: projectForState.workflows.includes(saved.id)
+          ? projectForState.workflows
+          : [...projectForState.workflows, saved.id],
       });
     } catch (error) {
       setLastError((error as Error).message);

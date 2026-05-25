@@ -182,11 +182,6 @@ class SaveData(IOBlock):
             },
             # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
             # Direction-aware post-processing auto-switches to directory_browser.
-            "allow_pickle": {
-                "type": "boolean",
-                "default": False,
-                "ui_priority": 2,
-            },
         },
         "required": ["core_type"],
     }
@@ -219,7 +214,11 @@ class SaveData(IOBlock):
         documented default in :attr:`config_schema`).
         """
         type_name = self.config.get("core_type", "DataFrame")
-        cls = _CORE_TYPE_MAP.get(type_name, DataFrame)
+        cls = _CORE_TYPE_MAP.get(type_name)
+        if cls is None:
+            from scistudio.blocks.io._unified_dispatch import resolve_type_class
+
+            cls = resolve_type_class(str(type_name)) or DataFrame
         return [InputPort(name="data", accepted_types=[cls], required=True)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
@@ -240,6 +239,17 @@ class SaveData(IOBlock):
         :class:`ValueError`.
         """
         type_name = config.get("core_type", "DataFrame")
+        if type_name not in _CORE_TYPE_MAP:
+            from scistudio.blocks.io._unified_dispatch import delegate_save, resolve_type_class
+
+            if resolve_type_class(str(type_name)) is None:
+                raise ValueError(f"Unknown core_type {type_name!r}; expected a registered DataObject type.")
+            if isinstance(obj, Collection):
+                raise ValueError(f"SaveData custom core_type {type_name!r} requires a single DataObject input.")
+
+            delegate_save(obj=obj, config=config, core_type=str(type_name))
+            return
+
         if type_name not in _CORE_TYPE_MAP:
             raise ValueError(f"Unknown core_type {type_name!r}; expected one of {sorted(_CORE_TYPE_MAP.keys())}.")
 

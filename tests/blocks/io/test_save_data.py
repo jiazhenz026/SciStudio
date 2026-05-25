@@ -104,7 +104,7 @@ class TestSaveDataClassShape:
         schema = SaveData.config_schema
         assert schema["required"] == ["core_type"]
         assert schema["properties"]["core_type"]["default"] == "DataFrame"
-        assert schema["properties"]["allow_pickle"]["default"] is False
+        assert "allow_pickle" not in schema["properties"]
         # core_type enum exposes all six core types.
         assert set(schema["properties"]["core_type"]["enum"]) == set(_CORE_TYPE_MAP.keys())
 

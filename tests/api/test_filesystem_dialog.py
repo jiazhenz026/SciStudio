@@ -69,6 +69,8 @@ def test_save_file_dialog_escapes_apostrophes_in_initial_dir() -> None:
     # closing delimiter.
     assert r"$d.InitialDirectory = 'C:\Users\Bob''s runs';" in script
     assert "$d.FileName = 'workflow.yaml';" in script
+    assert "$owner.TopMost = $true;" in script
+    assert "$d.ShowDialog($owner)" in script
     # Sanity: the raw single apostrophe with no doubling does NOT appear.
     assert "Bob's runs" not in script
 
@@ -125,6 +127,8 @@ def test_open_file_dialog_escapes_apostrophes_in_initial_dir() -> None:
 
     script = _captured_ps_script(captured)
     assert r"$d.InitialDirectory = 'D:\Bob''s data';" in script
+    assert "$owner.TopMost = $true;" in script
+    assert "$d.ShowDialog($owner)" in script
 
 
 def test_dialog_with_none_initial_dir_does_not_crash() -> None:

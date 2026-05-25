@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
+import scistudio.api.ws as ws_module
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.ws import _OUTBOUND_EVENTS, websocket_handler
 from scistudio.engine.events import (
@@ -94,5 +97,46 @@ def test_websocket_handler_handles_cancelled_error_on_shutdown() -> None:
         # The handler should exit without propagating CancelledError
         with contextlib.suppress(asyncio.CancelledError):
             await task
+
+    asyncio.run(_run())
+
+
+def test_last_gui_disconnect_cancels_active_workflow(monkeypatch: Any) -> None:
+    """When the browser session disappears, running workflows must not leave lineage running."""
+
+    async def _run() -> None:
+        ws_module._gui_ws_clients.clear()
+        if ws_module._gui_disconnect_cancel_task is not None:
+            ws_module._gui_disconnect_cancel_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await ws_module._gui_disconnect_cancel_task
+            ws_module._gui_disconnect_cancel_task = None
+
+        monkeypatch.setattr(ws_module, "_GUI_DISCONNECT_GRACE_SEC", 0.01)
+
+        task = asyncio.create_task(asyncio.sleep(60))
+
+        async def cancel_workflow() -> None:
+            task.cancel()
+
+        scheduler = SimpleNamespace(cancel_workflow=AsyncMock(side_effect=cancel_workflow))
+        runtime = SimpleNamespace(workflow_runs={"wf-browser-owned": SimpleNamespace(task=task, scheduler=scheduler)})
+        event_bus = EventBus()
+        event_bus.runtime = runtime  # type: ignore[attr-defined]
+
+        ws = AsyncMock()
+        ws.accept = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=asyncio.CancelledError)
+        ws.send_json = AsyncMock(side_effect=asyncio.CancelledError)
+
+        handler = asyncio.create_task(websocket_handler(ws, event_bus))
+        await asyncio.sleep(0.02)
+        handler.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await handler
+
+        await asyncio.sleep(0.05)
+        scheduler.cancel_workflow.assert_awaited_once()
+        assert task.cancelled()
 
     asyncio.run(_run())

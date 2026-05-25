@@ -130,11 +130,6 @@ class LoadData(IOBlock):
                 "ui_priority": 0,
             },
             # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            "allow_pickle": {
-                "type": "boolean",
-                "default": False,
-                "ui_priority": 2,
-            },
         },
         "required": ["core_type"],
     }
@@ -173,7 +168,11 @@ class LoadData(IOBlock):
         block produces a Collection rather than a bare DataObject.
         """
         type_name = self.config.get("core_type", "DataFrame")
-        cls = _CORE_TYPE_MAP.get(type_name, DataFrame)
+        cls = _CORE_TYPE_MAP.get(type_name)
+        if cls is None:
+            from scistudio.blocks.io._unified_dispatch import resolve_type_class
+
+            cls = resolve_type_class(str(type_name)) or DataObject
         is_multi = isinstance(self.config.get("path"), list)
         return [OutputPort(name="data", accepted_types=[cls], is_collection=is_multi)]
 
@@ -200,6 +199,13 @@ class LoadData(IOBlock):
         object return behavior is preserved.
         """
         type_name = config.get("core_type", "DataFrame")
+        if type_name not in _CORE_TYPE_MAP:
+            from scistudio.blocks.io._unified_dispatch import delegate_load, resolve_type_class
+
+            if resolve_type_class(str(type_name)) is None:
+                raise ValueError(f"Unknown core_type: {type_name}")
+
+            return delegate_load(config=config, output_dir=output_dir, core_type=str(type_name))
 
         # ADR-031: dispatch table. Functions that don't need output_dir
         # are wrapped with lambdas to accept and ignore the parameter,
