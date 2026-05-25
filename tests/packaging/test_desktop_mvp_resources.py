@@ -24,7 +24,7 @@ def test_desktop_package_declares_mvp_scripts() -> None:
 
     scripts = package_data.get("scripts")
     assert isinstance(scripts, dict)
-    for script in ("build:frontend", "stage", "start", "dist:dir"):
+    for script in ("build:frontend", "build:python", "stage", "start", "dist:dir"):
         assert script in scripts
         assert isinstance(scripts[script], str)
         assert scripts[script].strip()
@@ -45,6 +45,28 @@ def test_desktop_stage_outputs_expected_resource_layout() -> None:
     assert not (resources / "app").exists()
     assert packages_keep.is_file()
     assert (resources / "git").is_dir()
+
+
+def test_desktop_main_checks_windows_pty_python_dependency() -> None:
+    """The desktop shell must not silently choose a Python without pywinpty."""
+    main_js = (DESKTOP_DIR / "main.js").read_text(encoding="utf-8")
+
+    assert "verifyPtyCapablePython" in main_js
+    assert "find_spec('winpty')" in main_js
+    assert "find_spec('pywinpty')" in main_js
+    assert "SCISTUDIO_DESKTOP_PYTHON" in main_js
+
+
+def test_desktop_has_portable_python_runtime_builder() -> None:
+    """The desktop MVP must have a reproducible self-contained Python builder."""
+    script = DESKTOP_DIR / "scripts" / "build-python-runtime.ps1"
+    content = script.read_text(encoding="utf-8")
+
+    assert script.exists()
+    assert "python.org/ftp/python" in content
+    assert "get-pip.py" in content
+    assert "pip install --no-warn-script-location $RepoRoot" in content
+    assert "import scistudio, fastapi, uvicorn, winpty" in content
 
 
 def test_portable_git_scripts_use_scistudio_skip_env_var() -> None:

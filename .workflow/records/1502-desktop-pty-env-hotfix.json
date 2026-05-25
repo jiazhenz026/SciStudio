@@ -59,6 +59,26 @@
         "desktop/resources/.gitignore"
       ],
       "reason": "Ignore generated staged backend resources after renaming resources/app to resources/backend."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "desktop/scripts/build-python-runtime.ps1",
+        "desktop/package.json",
+        "desktop/README.md",
+        "tests/packaging/test_desktop_mvp_resources.py",
+        "desktop/main.js"
+      ],
+      "reason": "Owner clarified MVP must be self-contained; add portable Python runtime builder and documentation."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".gitignore"
+      ],
+      "reason": "Ignore local portable Python download cache used by desktop runtime builder."
     }
   ],
   "branch": "hotfix/desktop-pty-env",
@@ -177,6 +197,24 @@
       "exit_code": 0,
       "name": "desktop-pty-error-startup-resource-hotfix",
       "output_path": "node check pass; frontend 51 passed; pytest 14 passed after stage/resource layout; stage pass; dist:dir pass; packaged exe alive with backend/window HTTP requests; resources/app absent resources/backend present",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm --prefix desktop run build:python; npm --prefix desktop run stage; npm --prefix desktop run dist:dir; stripped-PATH packaged exe smoke; packaged PTY WebSocket spawn",
+      "exit_code": 0,
+      "name": "desktop-self-contained-python-runtime",
+      "output_path": "portable CPython 3.12.10 built in desktop/resources/python; pywinpty/winpty import verified; dist resources/python/python.exe present; stripped PATH exe launched via staged python.exe; packaged PTY WS emitted stdout without pywinpty error",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/packaging/test_desktop_mvp_resources.py tests/ai/test_terminal_extra_env.py tests/api/test_ai_pty.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "desktop-self-contained-python-tests",
+      "output_path": "16 passed, 1 warning",
       "status": "pass",
       "summary": {},
       "timestamp": null

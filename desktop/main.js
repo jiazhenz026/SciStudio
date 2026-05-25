@@ -164,6 +164,57 @@ function runtimeArgs(candidate) {
   ];
 }
 
+function ptyProbeArgs(candidate) {
+  return [
+    ...candidate.argsPrefix,
+    "-c",
+    "import importlib.util, sys; sys.exit(0 if (importlib.util.find_spec('winpty') or importlib.util.find_spec('pywinpty')) else 86)"
+  ];
+}
+
+function verifyPtyCapablePython(candidate) {
+  if (process.platform !== "win32") {
+    return Promise.resolve({ ok: true });
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn(candidate.command, ptyProbeArgs(candidate), {
+      cwd: repoRoot(),
+      env: runtimeEnv(),
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill();
+      resolve({ ok: false, reason: "timed out probing pywinpty" });
+    }, 5000);
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      resolve({ ok: false, reason: error.message });
+    });
+    child.on("exit", (code) => {
+      clearTimeout(timeout);
+      if (code === 0) {
+        resolve({ ok: true });
+        return;
+      }
+      const detail = stderr.trim();
+      resolve({
+        ok: false,
+        reason:
+          code === 86
+            ? "missing pywinpty/winpty"
+            : `pywinpty probe exited ${code}${detail ? `: ${detail}` : ""}`
+      });
+    });
+  });
+}
+
 function spawnRuntimeCandidate(candidate) {
   return spawn(candidate.command, runtimeArgs(candidate), {
     cwd: repoRoot(),
@@ -204,11 +255,15 @@ function startRuntime() {
       reject(error);
     };
 
-    const tryNext = () => {
+    const tryNext = async () => {
       if (index >= candidates.length) {
+        const windowsPtyHint =
+          process.platform === "win32"
+            ? "\nWindows desktop PTY requires a bundled Python at resources/python/python.exe or a system Python selected via SCISTUDIO_DESKTOP_PYTHON with pywinpty installed."
+            : "";
         fail(
           new Error(
-            `Unable to launch SciStudio runtime. stderr:\n${stderrLines.join("\n")}`
+            `Unable to launch SciStudio runtime.${windowsPtyHint}\nstderr:\n${stderrLines.join("\n")}`
           )
         );
         return;
@@ -217,6 +272,13 @@ function startRuntime() {
       const candidate = candidates[index];
       index += 1;
       safeLog(`[scistudio] trying runtime candidate ${candidate.label}`);
+      const ptyProbe = await verifyPtyCapablePython(candidate);
+      if (!ptyProbe.ok) {
+        stderrLines.push(`[${candidate.label}] skipped: ${ptyProbe.reason}`);
+        safeError(`[scistudio] runtime candidate ${candidate.label} skipped: ${ptyProbe.reason}`);
+        tryNext();
+        return;
+      }
       const child = spawnRuntimeCandidate(candidate);
       let sawOutput = false;
       runtimeProcess = child;

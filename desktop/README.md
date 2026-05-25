@@ -16,6 +16,21 @@ through Vite. Backend edits are picked up by restarting this command; no
 The packaged desktop build still uses staged static assets:
 
 ```powershell
+npm --prefix desktop run build:python
 npm --prefix desktop run stage
 npm --prefix desktop run dist:dir
 ```
+
+## Runtime Python
+
+The ADR-037 MVP is expected to ship with a staged Python under
+`resources/python/python.exe`. Build it with:
+
+```powershell
+npm --prefix desktop run build:python
+```
+
+On Windows, that portable runtime includes `pywinpty`/`winpty` because embedded
+agent terminals are PTY-backed. System Python is only a developer fallback; an
+end-user desktop build should include `resources/python` so a user can launch
+SciStudio without installing Python first.

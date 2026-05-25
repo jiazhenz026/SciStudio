@@ -8,6 +8,7 @@
   "type": "commonjs",
   "scripts": {
     "build:frontend": "npm --prefix ../frontend run build",
+    "build:python": "powershell -ExecutionPolicy Bypass -File ./scripts/build-python-runtime.ps1",
     "stage": "powershell -ExecutionPolicy Bypass -File ./scripts/stage-resources.ps1",
     "stage:sh": "sh ./scripts/stage-resources.sh",
     "start": "node scripts/start-electron.js",
