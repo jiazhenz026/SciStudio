@@ -222,27 +222,59 @@ function startRuntime() {
 function launchUrl(runtimeUrl) {
   const frontendUrl = process.env.SCISTUDIO_DESKTOP_FRONTEND_URL;
   const url = frontendUrl && frontendUrl.trim() ? frontendUrl.trim() : runtimeUrl;
+  if (frontendUrl) {
+    return url;
+  }
+  return cacheBustedUrl(url, 0);
+}
+
+function cacheBustedUrl(url, attempt) {
   try {
     const parsed = new URL(url);
-    if (!frontendUrl) {
-      parsed.searchParams.set("_scistudio_desktop_boot", String(Date.now()));
-    }
+    parsed.searchParams.set("_scistudio_desktop_boot", `${Date.now()}-${attempt}`);
     return parsed.toString();
   } catch {
     return url;
   }
 }
 
-async function recoverBlankFirstPaint(window) {
-  const isBlank = await window.webContents
+async function pageHasRendered(window) {
+  return window.webContents
     .executeJavaScript(
-      "(() => { const root = document.getElementById('root'); return Boolean(document.body) && document.body.innerText.trim().length === 0 && (!root || root.childElementCount === 0); })()",
+      "(() => { const root = document.getElementById('root'); return Boolean(root && root.childElementCount > 0) || document.body.innerText.trim().length > 0; })()",
       true
     )
     .catch(() => false);
-  if (isBlank) {
-    window.webContents.reloadIgnoringCache();
-  }
+}
+
+function loadBeforeShowing(window, url, attempt = 0) {
+  const show = () => {
+    if (!window.isDestroyed() && !window.isVisible()) {
+      window.show();
+    }
+  };
+
+  window.webContents.once("did-finish-load", async () => {
+    const rendered = await pageHasRendered(window);
+    if (rendered || attempt >= 1) {
+      show();
+      return;
+    }
+    console.warn("[scistudio] blank first paint before window show; retrying once");
+    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
+  });
+
+  window.webContents.once("did-fail-load", (_event, _code, _description, validatedUrl) => {
+    if (attempt >= 1) {
+      console.error(`[scistudio] failed to load ${validatedUrl}; showing error page`);
+      show();
+      return;
+    }
+    console.error(`[scistudio] failed to load ${validatedUrl}; retrying once`);
+    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
+  });
+
+  window.loadURL(url);
 }
 
 function createWindow(url) {
@@ -262,24 +294,11 @@ function createWindow(url) {
     }
   });
 
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
-
-  mainWindow.webContents.once("did-finish-load", () => {
-    recoverBlankFirstPaint(mainWindow);
-  });
-
-  mainWindow.webContents.once("did-fail-load", (_event, _code, _description, validatedUrl) => {
-    console.error(`[scistudio] failed to load ${validatedUrl}; retrying once`);
-    mainWindow.webContents.reloadIgnoringCache();
-  });
-
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 
-  mainWindow.loadURL(url);
+  loadBeforeShowing(mainWindow, url);
 }
 
 function stopRuntime() {
