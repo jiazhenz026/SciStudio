@@ -133,4 +133,21 @@ describe("apiFetch error handling (#1422 split: core.ts)", () => {
     const out = await api.listProjects();
     expect(out).toEqual([{ id: "p1" }]);
   });
+
+  it("passes create_parent_dirs for constrained new-file scaffolds", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ mtime: 1, size: 6 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.putProjectFile("p1", "blocks/new_block.py", "x = 1\n", { createParentDirs: true });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      content: "x = 1\n",
+      create_parent_dirs: true,
+    });
+  });
 });
