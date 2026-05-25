@@ -84,7 +84,16 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
   launchTerminalTab: (id, provider, permissionMode) =>
     set((state) => ({
       terminalTabs: state.terminalTabs.map((t) =>
-        t.id === id ? { ...t, provider, permissionMode, state: "running", exitCode: undefined } : t,
+        t.id === id
+          ? {
+              ...t,
+              provider,
+              permissionMode,
+              state: "running",
+              exitCode: undefined,
+              errorMessage: undefined,
+            }
+          : t,
       ),
     })),
 
@@ -95,10 +104,17 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
       ),
     })),
 
+  markTerminalTabErrored: (id, message) =>
+    set((state) => ({
+      terminalTabs: state.terminalTabs.map((t) =>
+        t.id === id ? { ...t, state: "closed", exitCode: -2, errorMessage: message } : t,
+      ),
+    })),
+
   reopenTerminalTab: (id) =>
     set((state) => ({
       terminalTabs: state.terminalTabs.map((t) =>
-        t.id === id ? { ...t, state: "setup", exitCode: undefined } : t,
+        t.id === id ? { ...t, state: "setup", exitCode: undefined, errorMessage: undefined } : t,
       ),
     })),
 
@@ -164,6 +180,7 @@ export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
       ...t,
       state: "closed" as const,
       exitCode: -1,
+      errorMessage: undefined,
       ...(t.source === "ai-block" ? { blockStatus: "cancelled" as const } : {}),
     };
   });

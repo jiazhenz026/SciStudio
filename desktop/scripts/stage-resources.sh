@@ -7,8 +7,9 @@ REPO_ROOT=$(CDPATH= cd -- "$DESKTOP_ROOT/.." && pwd)
 RESOURCES_ROOT="$DESKTOP_ROOT/resources"
 FRONTEND_DIST="$REPO_ROOT/frontend/dist"
 FRONTEND_TARGET="$RESOURCES_ROOT/frontend"
-APP_ROOT="$RESOURCES_ROOT/app"
-SRC_TARGET="$APP_ROOT/src"
+LEGACY_APP_ROOT="$RESOURCES_ROOT/app"
+BACKEND_ROOT="$RESOURCES_ROOT/backend"
+SRC_TARGET="$BACKEND_ROOT/src"
 
 reset_dir() {
   rm -rf "$1"
@@ -24,10 +25,11 @@ if [ ! -d "$FRONTEND_DIST" ]; then
 fi
 
 mkdir -p "$RESOURCES_ROOT"
+rm -rf "$LEGACY_APP_ROOT"
 reset_dir "$FRONTEND_TARGET"
 cp -R "$FRONTEND_DIST"/. "$FRONTEND_TARGET"/
 
-mkdir -p "$APP_ROOT"
+mkdir -p "$BACKEND_ROOT"
 reset_dir "$SRC_TARGET"
 cp -R "$REPO_ROOT/src"/. "$SRC_TARGET"/
 

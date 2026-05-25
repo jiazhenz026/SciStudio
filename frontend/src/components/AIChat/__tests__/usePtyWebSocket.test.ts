@@ -47,6 +47,12 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.CLOSED;
     this.onclose?.({} as CloseEvent);
   }
+  failClose(code = 1006, reason = "") {
+    if (this.closed) return;
+    this.closed = true;
+    this.readyState = FakeWebSocket.CLOSED;
+    this.onclose?.({ code, reason } as CloseEvent);
+  }
 }
 
 const originalWs = global.WebSocket;
@@ -160,6 +166,27 @@ describe("usePtyWebSocket", () => {
     const calls = onMessage.mock.calls;
     const last = calls[calls.length - 1]?.[0];
     expect(last?.type).toBe("error");
+  });
+
+  it("does not replace opaque browser socket errors with fake PTY errors", () => {
+    const onMessage = vi.fn<(_: PtyServerFrame) => void>();
+    const onClose = vi.fn<(_: CloseEvent) => void>();
+    renderHook(() =>
+      usePtyWebSocket({
+        tabId: "t1",
+        projectDir: "/p",
+        provider: "claude-code",
+        dangerous: false,
+        onMessage,
+        onClose,
+      }),
+    );
+    const ws = FakeWebSocket.instances[0];
+    act(() => ws.open());
+    act(() => ws.onerror?.());
+    expect(onMessage).not.toHaveBeenCalledWith({ type: "error", message: "WebSocket error" });
+    act(() => ws.failClose(1006));
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("send() JSON-encodes frames once the socket is OPEN", () => {

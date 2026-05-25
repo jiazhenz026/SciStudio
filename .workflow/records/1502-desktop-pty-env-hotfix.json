@@ -24,6 +24,41 @@
         "docs/audit/latest/desktop-pty-env-hotfix-full-audit.json"
       ],
       "reason": "Add committed full-audit JSON evidence for hotfix exit."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/AIChat/TerminalTab.tsx",
+        "frontend/src/components/AIChat/TerminalView.tsx",
+        "frontend/src/components/AIChat/hooks/usePtyWebSocket.ts",
+        "frontend/src/store/terminalTabsSlice.ts",
+        "frontend/src/store/types.ts",
+        "frontend/src/components/AIChat/__tests__/TerminalTab.test.tsx",
+        "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
+        "frontend/src/components/AIChat/__tests__/usePtyWebSocket.test.ts"
+      ],
+      "reason": "Owner clarified failure occurs on newly opened PTY; preserve real PTY/WebSocket errors in frontend instead of showing reload-only message."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "desktop/main.js",
+        "desktop/package.json",
+        "desktop/scripts/stage-resources.ps1",
+        "desktop/scripts/stage-resources.sh",
+        "tests/packaging/test_desktop_mvp_resources.py"
+      ],
+      "reason": "Fix packaged desktop resource layout so backend sources do not occupy Electron resources/app, and harden desktop startup readiness/logging."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "desktop/resources/.gitignore"
+      ],
+      "reason": "Ignore generated staged backend resources after renaming resources/app to resources/backend."
     }
   ],
   "branch": "hotfix/desktop-pty-env",
@@ -133,6 +168,15 @@
       "exit_code": 0,
       "name": "desktop-no-post-show-reload",
       "output_path": "node check pass; 11 passed; stage pass; dist:dir pass; blank recovery moved before window show only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "node --check desktop/main.js; npm --prefix frontend run test -- TerminalTabs.test.tsx TerminalTab.test.tsx TerminalView.test.tsx usePtyWebSocket.test.ts; PYTHONPATH=src pytest tests/packaging/test_desktop_mvp_resources.py tests/ai/test_terminal_extra_env.py tests/api/test_ai_pty.py --timeout=60 --no-cov; npm --prefix desktop run stage; npm --prefix desktop run dist:dir; packaged exe smoke",
+      "exit_code": 0,
+      "name": "desktop-pty-error-startup-resource-hotfix",
+      "output_path": "node check pass; frontend 51 passed; pytest 14 passed after stage/resource layout; stage pass; dist:dir pass; packaged exe alive with backend/window HTTP requests; resources/app absent resources/backend present",
       "status": "pass",
       "summary": {},
       "timestamp": null

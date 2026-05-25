@@ -12,7 +12,7 @@
     "stage:sh": "sh ./scripts/stage-resources.sh",
     "start": "node scripts/start-electron.js",
     "dev": "node scripts/start-dev.js",
-    "dist:dir": "electron-builder --dir"
+    "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir"
   },
   "dependencies": {},
   "devDependencies": {

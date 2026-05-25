@@ -1,5 +1,6 @@
 frontend/
 app/
+backend/
 
 packages/*
 !packages/.gitkeep

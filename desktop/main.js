@@ -1,15 +1,63 @@
 const { app, BrowserWindow, dialog, session } = require("electron");
 const { spawn } = require("child_process");
+const fs = require("fs");
+const http = require("http");
+const https = require("https");
+const os = require("os");
 const path = require("path");
 const readline = require("readline");
 
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
+const HTTP_READY_TIMEOUT_MS = 30000;
 const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
 
 let mainWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
+
+function installPipeGuard(stream) {
+  if (!stream || typeof stream.on !== "function") {
+    return;
+  }
+  stream.on("error", (error) => {
+    if (!error || error.code === "EPIPE") {
+      return;
+    }
+  });
+}
+
+installPipeGuard(process.stdout);
+installPipeGuard(process.stderr);
+
+function safeWrite(stream, message) {
+  const line = `${message}\n`;
+  try {
+    fs.appendFileSync(
+      path.join(app.isReady() ? app.getPath("userData") : os.tmpdir(), "scistudio-desktop.log"),
+      line
+    );
+  } catch {
+    // Best-effort diagnostic log only.
+  }
+  try {
+    if (!stream || stream.destroyed || !stream.writable) {
+      return;
+    }
+    stream.write(line);
+  } catch {
+    // Packaged GUI apps may inherit a closed console pipe. Logging must never
+    // crash the Electron main process.
+  }
+}
+
+function safeLog(message) {
+  safeWrite(process.stdout, message);
+}
+
+function safeError(message) {
+  safeWrite(process.stderr, message);
+}
 
 function resourcesDir() {
   if (app.isPackaged) {
@@ -62,7 +110,7 @@ function pythonCandidates() {
 
 function runtimeEnv() {
   const resources = resourcesDir();
-  const stagedSrc = path.join(resources, "app", "src");
+  const stagedSrc = path.join(resources, "backend", "src");
   const checkoutSrc = path.join(repoRoot(), "src");
   const pythonPathEntries = [stagedSrc, checkoutSrc].filter(Boolean);
   const existingPythonPath = process.env.PYTHONPATH;
@@ -100,7 +148,7 @@ function runtimePort() {
   if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 65535) {
     return String(parsed);
   }
-  console.warn(`[scistudio] Ignoring invalid SCISTUDIO_DESKTOP_RUNTIME_PORT=${requested}`);
+  safeError(`[scistudio] Ignoring invalid SCISTUDIO_DESKTOP_RUNTIME_PORT=${requested}`);
   return "0";
 }
 
@@ -140,6 +188,7 @@ function parseReadyLine(line) {
 function startRuntime() {
   const candidates = pythonCandidates();
   const stderrLines = [];
+  safeLog("[scistudio] starting runtime");
 
   return new Promise((resolve, reject) => {
     let index = 0;
@@ -167,6 +216,7 @@ function startRuntime() {
 
       const candidate = candidates[index];
       index += 1;
+      safeLog(`[scistudio] trying runtime candidate ${candidate.label}`);
       const child = spawnRuntimeCandidate(candidate);
       let sawOutput = false;
       runtimeProcess = child;
@@ -178,9 +228,10 @@ function startRuntime() {
         if (ready && !settled) {
           settled = true;
           clearTimeout(timeout);
+          safeLog(`[scistudio] runtime ready at ${ready.url}`);
           resolve({ child, ready, candidate });
         } else {
-          console.log(`[scistudio] ${line}`);
+          safeLog(`[scistudio] ${line}`);
         }
       });
 
@@ -188,10 +239,11 @@ function startRuntime() {
       stderr.on("line", (line) => {
         sawOutput = true;
         stderrLines.push(`[${candidate.label}] ${line}`);
-        console.error(`[scistudio] ${line}`);
+        safeError(`[scistudio] ${line}`);
       });
 
       child.on("error", (error) => {
+        safeError(`[scistudio] runtime candidate ${candidate.label} error: ${error.message}`);
         if (error.code === "ENOENT" && !settled) {
           tryNext();
           return;
@@ -200,6 +252,9 @@ function startRuntime() {
       });
 
       child.on("exit", (code, signal) => {
+        safeError(
+          `[scistudio] runtime candidate ${candidate.label} exited code=${code} signal=${signal}`
+        );
         if (settled || isQuitting) {
           return;
         }
@@ -226,6 +281,51 @@ function launchUrl(runtimeUrl) {
     return url;
   }
   return cacheBustedUrl(url, 0);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function probeHttp(url) {
+  return new Promise((resolve) => {
+    let parsed = null;
+    try {
+      parsed = new URL(url);
+    } catch {
+      resolve(false);
+      return;
+    }
+
+    const client = parsed.protocol === "https:" ? https : http;
+    const req = client.request(
+      parsed,
+      { method: "GET", timeout: 2000 },
+      (res) => {
+        res.resume();
+        resolve(Boolean(res.statusCode && res.statusCode < 500));
+      }
+    );
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.on("error", () => resolve(false));
+    req.end();
+  });
+}
+
+async function waitForHttpReady(url) {
+  const deadline = Date.now() + HTTP_READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await probeHttp(url)) {
+      return;
+    }
+    await sleep(250);
+  }
+  throw new Error(`Timed out waiting for SciStudio HTTP endpoint: ${url}`);
 }
 
 function cacheBustedUrl(url, attempt) {
@@ -260,17 +360,17 @@ function loadBeforeShowing(window, url, attempt = 0) {
       show();
       return;
     }
-    console.warn("[scistudio] blank first paint before window show; retrying once");
+    safeError("[scistudio] blank first paint before window show; retrying once");
     loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
   });
 
   window.webContents.once("did-fail-load", (_event, _code, _description, validatedUrl) => {
     if (attempt >= 1) {
-      console.error(`[scistudio] failed to load ${validatedUrl}; showing error page`);
+      safeError(`[scistudio] failed to load ${validatedUrl}; showing error page`);
       show();
       return;
     }
-    console.error(`[scistudio] failed to load ${validatedUrl}; retrying once`);
+    safeError(`[scistudio] failed to load ${validatedUrl}; retrying once`);
     loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
   });
 
@@ -327,11 +427,16 @@ function stopRuntime() {
 
 app.whenReady().then(async () => {
   try {
+    safeLog("[scistudio] electron ready");
     const { ready } = await startRuntime();
+    safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
+    await waitForHttpReady(ready.url);
     await session.defaultSession.clearCache();
     const url = launchUrl(ready.url);
+    safeLog(`[scistudio] creating window for ${url}`);
     createWindow(url);
   } catch (error) {
+    safeError(`[scistudio] startup failed: ${error instanceof Error ? error.stack : String(error)}`);
     await dialog.showMessageBox({
       type: "error",
       title: "SciStudio failed to start",

@@ -34,14 +34,15 @@ def test_desktop_stage_outputs_expected_resource_layout() -> None:
     """After `npm --prefix desktop run stage`, resources should be package-friendly."""
     _desktop_package_json()
     resources = DESKTOP_DIR / "resources"
-    app_src = resources / "app" / "src"
+    backend_src = resources / "backend" / "src"
     packages_keep = resources / "packages" / ".gitkeep"
 
-    if not app_src.exists() or not packages_keep.exists():
+    if not backend_src.exists() or not packages_keep.exists():
         pytest.skip("Run `npm --prefix desktop run stage` before validating staged resources (#1502).")
 
     assert (resources / "frontend").is_dir()
-    assert (app_src / "scistudio").is_dir()
+    assert (backend_src / "scistudio").is_dir()
+    assert not (resources / "app").exists()
     assert packages_keep.is_file()
     assert (resources / "git").is_dir()
 

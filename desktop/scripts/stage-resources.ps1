@@ -6,8 +6,9 @@ $RepoRoot = Resolve-Path (Join-Path $DesktopRoot "..")
 $ResourcesRoot = Join-Path $DesktopRoot "resources"
 $FrontendDist = Join-Path $RepoRoot "frontend\dist"
 $FrontendTarget = Join-Path $ResourcesRoot "frontend"
-$AppRoot = Join-Path $ResourcesRoot "app"
-$SrcTarget = Join-Path $AppRoot "src"
+$LegacyAppRoot = Join-Path $ResourcesRoot "app"
+$BackendRoot = Join-Path $ResourcesRoot "backend"
+$SrcTarget = Join-Path $BackendRoot "src"
 $SrcSource = Join-Path $RepoRoot "src"
 
 function Ensure-Directory {
@@ -36,10 +37,13 @@ if (-not (Test-Path $FrontendDist)) {
 }
 
 Ensure-Directory $ResourcesRoot
+if (Test-Path $LegacyAppRoot) {
+    Remove-Item -LiteralPath $LegacyAppRoot -Recurse -Force
+}
 Reset-Directory $FrontendTarget
 Copy-Item -Path (Join-Path $FrontendDist "*") -Destination $FrontendTarget -Recurse -Force
 
-Ensure-Directory $AppRoot
+Ensure-Directory $BackendRoot
 Reset-Directory $SrcTarget
 Copy-Item -Path (Join-Path $SrcSource "*") -Destination $SrcTarget -Recurse -Force
 

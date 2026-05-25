@@ -70,6 +70,10 @@ export function TerminalView({
         onErrorRef.current(frame.message);
       }
     },
+    onClose: (ev) => {
+      const reason = ev.reason ? `: ${ev.reason}` : "";
+      onErrorRef.current(`WebSocket closed before PTY exit (code ${ev.code}${reason})`);
+    },
   });
 
   // Mount xterm.js on first render; tear it down on unmount.

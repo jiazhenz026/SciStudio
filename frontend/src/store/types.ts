@@ -229,6 +229,7 @@ export interface TerminalTab {
   permissionMode: "safe" | "dangerous" | null;
   state: "setup" | "running" | "closed";
   exitCode?: number;
+  errorMessage?: string;
   /**
    * ADR-035 §3.10 — origin of the tab.
    *   - "user"     (default) — user clicked the `+` button or Ctrl+T
@@ -262,6 +263,7 @@ export interface TerminalTabsSlice {
     permissionMode: "safe" | "dangerous",
   ) => void;
   markTerminalTabExited: (id: string, code: number) => void;
+  markTerminalTabErrored: (id: string, message: string) => void;
   reopenTerminalTab: (id: string) => void;
   setActiveTerminalTab: (id: string) => void;
   /**
