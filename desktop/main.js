@@ -66,13 +66,23 @@ function runtimeEnv() {
   const checkoutSrc = path.join(repoRoot(), "src");
   const pythonPathEntries = [stagedSrc, checkoutSrc].filter(Boolean);
   const existingPythonPath = process.env.PYTHONPATH;
+  const userHome = process.env.USERPROFILE || process.env.HOME || "";
+  const pathEntries = [];
 
   if (existingPythonPath) {
     pythonPathEntries.push(existingPythonPath);
   }
+  if (userHome) {
+    pathEntries.push(
+      path.join(userHome, ".local", "bin"),
+      path.join(userHome, "AppData", "Roaming", "npm")
+    );
+  }
+  pathEntries.push(process.env.PATH || "");
 
   const env = {
     ...process.env,
+    PATH: pathEntries.filter(Boolean).join(path.delimiter),
     PYTHONPATH: pythonPathEntries.join(path.delimiter),
     SCISTUDIO_BUNDLED: "1",
     SCISTUDIO_DESKTOP_RESOURCES: resources
@@ -223,6 +233,18 @@ function launchUrl(runtimeUrl) {
   }
 }
 
+async function recoverBlankFirstPaint(window) {
+  const isBlank = await window.webContents
+    .executeJavaScript(
+      "(() => { const root = document.getElementById('root'); return Boolean(document.body) && document.body.innerText.trim().length === 0 && (!root || root.childElementCount === 0); })()",
+      true
+    )
+    .catch(() => false);
+  if (isBlank) {
+    window.webContents.reloadIgnoringCache();
+  }
+}
+
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -242,6 +264,15 @@ function createWindow(url) {
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
+  });
+
+  mainWindow.webContents.once("did-finish-load", () => {
+    recoverBlankFirstPaint(mainWindow);
+  });
+
+  mainWindow.webContents.once("did-fail-load", (_event, _code, _description, validatedUrl) => {
+    console.error(`[scistudio] failed to load ${validatedUrl}; retrying once`);
+    mainWindow.webContents.reloadIgnoringCache();
   });
 
   mainWindow.on("closed", () => {
@@ -279,7 +310,8 @@ app.whenReady().then(async () => {
   try {
     const { ready } = await startRuntime();
     await session.defaultSession.clearCache();
-    createWindow(launchUrl(ready.url));
+    const url = launchUrl(ready.url);
+    createWindow(url);
   } catch (error) {
     await dialog.showMessageBox({
       type: "error",

@@ -118,6 +118,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "node --check desktop/main.js; PYTHONPATH=src pytest tests/ai/test_terminal_extra_env.py --timeout=60 --no-cov; npm --prefix desktop run stage; npm --prefix desktop run dist:dir",
+      "exit_code": 0,
+      "name": "desktop-blank-first-paint-and-pty-path",
+      "output_path": "node check pass; 6 passed; stage pass; dist:dir pass; claude/codex user CLI dirs resolve",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {

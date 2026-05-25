@@ -96,12 +96,28 @@ def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] 
         candidate = which(name + suffix)
         if candidate:
             extensioned.append(candidate)
+    for directory in _windows_user_cli_dirs():
+        for suffix in _WINDOWS_EXECUTABLE_SUFFIXES:
+            candidate_path = directory / f"{name}{suffix}"
+            if candidate_path.is_file():
+                extensioned.append(str(candidate_path))
 
     if extensioned:
         if resolved and Path(resolved).suffix.lower() in _WINDOWS_EXECUTABLE_SUFFIXES:
             return resolved
         return extensioned[0]
     return resolved
+
+
+def _windows_user_cli_dirs() -> list[Path]:
+    """Common per-user CLI install dirs missing from Explorer-launched PATH."""
+    if sys.platform != "win32":
+        return []
+    home = Path.home()
+    return [
+        home / ".local" / "bin",
+        home / "AppData" / "Roaming" / "npm",
+    ]
 
 
 def _build_child_env(extra_env: dict[str, str] | None = None) -> dict[str, str]:

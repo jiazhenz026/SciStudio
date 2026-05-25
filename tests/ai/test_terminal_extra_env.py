@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.ai.agent.terminal import PtyProcess, _build_child_env
+from scistudio.ai.agent.terminal import PtyProcess, _build_child_env, resolve_windows_executable
 
 
 def _python_print_env_argv(var: str) -> list[str]:
@@ -139,3 +139,18 @@ def test_pty_process_does_not_inherit_electron_node_mode(tmp_path: Path, monkeyp
         assert b"\n1" not in out
     finally:
         pty.kill_tree()
+
+
+def test_resolve_windows_executable_checks_user_cli_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explorer-launched desktop sessions may miss user CLI dirs on PATH."""
+    import scistudio.ai.agent.terminal as terminal_mod
+
+    cli_dir = tmp_path / "AppData" / "Roaming" / "npm"
+    cli_dir.mkdir(parents=True)
+    launcher = cli_dir / "codex.cmd"
+    launcher.write_text("@echo off\n", encoding="utf-8")
+
+    monkeypatch.setattr(terminal_mod.sys, "platform", "win32")
+    monkeypatch.setattr(terminal_mod, "_windows_user_cli_dirs", lambda: [cli_dir])
+
+    assert resolve_windows_executable("codex", which=lambda _name: None) == str(launcher)
