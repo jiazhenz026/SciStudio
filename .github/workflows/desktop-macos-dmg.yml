@@ -1,0 +1,59 @@
+name: Desktop macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build"
+        required: false
+        default: "desktop"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-macos-dmg-${{ github.event.inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-dmg:
+    name: Build macOS DMG
+    runs-on: macos-13
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm --prefix desktop ci
+
+      - name: Build portable Python runtime
+        run: npm --prefix desktop run build:python:mac
+
+      - name: Stage resources
+        run: npm --prefix desktop run stage:sh
+
+      - name: Build DMG
+        run: npm --prefix desktop run dist:dmg
+
+      - name: Verify DMG artifact exists
+        run: |
+          test -n "$(find desktop/dist -maxdepth 1 -name '*.dmg' -print -quit)"
+          find desktop/dist -maxdepth 1 -type f -print
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: scistudio-macos-dmg
+          path: desktop/dist/*.dmg
+          if-no-files-found: error

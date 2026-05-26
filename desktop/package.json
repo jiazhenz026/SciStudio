@@ -9,11 +9,13 @@
   "scripts": {
     "build:frontend": "npm --prefix ../frontend run build",
     "build:python": "powershell -ExecutionPolicy Bypass -File ./scripts/build-python-runtime.ps1",
+    "build:python:mac": "bash ./scripts/build-python-runtime-macos.sh",
     "stage": "powershell -ExecutionPolicy Bypass -File ./scripts/stage-resources.ps1",
     "stage:sh": "sh ./scripts/stage-resources.sh",
     "start": "node scripts/start-electron.js",
     "dev": "node scripts/start-dev.js",
-    "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir"
+    "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir",
+    "dist:dmg": "electron-builder --mac dmg --x64"
   },
   "dependencies": {},
   "devDependencies": {
@@ -43,6 +45,14 @@
     "win": {
       "target": "dir",
       "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     }
   }
 }

@@ -88,6 +88,26 @@
         "frontend/src/components/Toolbar.test.tsx"
       ],
       "reason": "Owner reported narrow desktop toolbar overlap between Projects and SciStudio brand."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "desktop/scripts/build-python-runtime-macos.sh",
+        "desktop/package.json",
+        "desktop/README.md",
+        ".github/workflows/desktop-macos-dmg.yml",
+        "tests/packaging/test_desktop_mvp_resources.py"
+      ],
+      "reason": "Owner approved macOS DMG build path with self-contained Python runtime and workflow_dispatch artifact."
+    },
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        ".github/workflows/desktop-macos-dmg.yml"
+      ],
+      "reason": "Owner approved adding manual macOS DMG GitHub Actions workflow for desktop branch artifacts."
     }
   ],
   "branch": "hotfix/desktop-pty-env",
@@ -236,6 +256,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "node package json parse; bash -n desktop/scripts/build-python-runtime-macos.sh; PYTHONPATH=src pytest tests/packaging/test_desktop_mvp_resources.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "desktop-macos-dmg-workflow-static-checks",
+      "output_path": "package json ok; bash syntax ok; 6 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -264,7 +293,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,

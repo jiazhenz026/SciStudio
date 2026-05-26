@@ -24,7 +24,16 @@ def test_desktop_package_declares_mvp_scripts() -> None:
 
     scripts = package_data.get("scripts")
     assert isinstance(scripts, dict)
-    for script in ("build:frontend", "build:python", "stage", "start", "dist:dir"):
+    for script in (
+        "build:frontend",
+        "build:python",
+        "build:python:mac",
+        "stage",
+        "stage:sh",
+        "start",
+        "dist:dir",
+        "dist:dmg",
+    ):
         assert script in scripts
         assert isinstance(scripts[script], str)
         assert scripts[script].strip()
@@ -67,6 +76,29 @@ def test_desktop_has_portable_python_runtime_builder() -> None:
     assert "get-pip.py" in content
     assert "pip install --no-warn-script-location $RepoRoot" in content
     assert "import scistudio, fastapi, uvicorn, winpty" in content
+
+
+def test_desktop_has_macos_dmg_builder() -> None:
+    """The macOS DMG path must include a standalone Python runtime builder."""
+    package_data = _desktop_package_json()
+    scripts = package_data["scripts"]
+    assert isinstance(scripts, dict)
+    assert "build-python-runtime-macos.sh" in scripts["build:python:mac"]
+    assert "--mac dmg --x64" in scripts["dist:dmg"]
+
+    script = DESKTOP_DIR / "scripts" / "build-python-runtime-macos.sh"
+    content = script.read_text(encoding="utf-8")
+    assert "python-build-standalone" in content
+    assert "resources/python" in content or 'PYTHON_ROOT="$RESOURCES_ROOT/python"' in content
+    assert "pip install --no-warn-script-location \"$REPO_ROOT\"" in content
+    assert "import scistudio, fastapi, uvicorn, pty" in content
+
+    workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"
+    workflow_text = workflow.read_text(encoding="utf-8")
+    assert "runs-on: macos-13" in workflow_text
+    assert "npm --prefix desktop run build:python:mac" in workflow_text
+    assert "npm --prefix desktop run dist:dmg" in workflow_text
+    assert "desktop/dist/*.dmg" in workflow_text
 
 
 def test_portable_git_scripts_use_scistudio_skip_env_var() -> None:

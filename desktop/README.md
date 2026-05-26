@@ -21,6 +21,14 @@ npm --prefix desktop run stage
 npm --prefix desktop run dist:dir
 ```
 
+The macOS DMG build runs on macOS:
+
+```bash
+npm --prefix desktop run build:python:mac
+npm --prefix desktop run stage:sh
+npm --prefix desktop run dist:dmg
+```
+
 ## Runtime Python
 
 The ADR-037 MVP is expected to ship with a staged Python under
@@ -34,3 +42,6 @@ On Windows, that portable runtime includes `pywinpty`/`winpty` because embedded
 agent terminals are PTY-backed. System Python is only a developer fallback; an
 end-user desktop build should include `resources/python` so a user can launch
 SciStudio without installing Python first.
+
+On macOS, `build:python:mac` stages a standalone Python under
+`resources/python/bin/python3` before `dist:dmg` builds the DMG.
