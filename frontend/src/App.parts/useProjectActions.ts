@@ -248,7 +248,9 @@ function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
     }
     try {
       const tpl = await api.getBlockTemplate("basic");
-      await api.putProjectFile(currentProject.id, filePath, tpl.content);
+      await api.putProjectFile(currentProject.id, filePath, tpl.content, {
+        createParentDirs: true,
+      });
       openFileTab(filePath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -7,6 +7,7 @@ Covers the test plan documented in the skeleton's docstrings:
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -232,3 +233,32 @@ def test_write_file_404_parent_missing(client: TestClient, project_parent: Path)
         json={"content": "x = 1\n"},
     )
     assert r.status_code == 404
+
+
+def test_write_custom_block_can_create_missing_blocks_dir(client: TestClient, project_parent: Path) -> None:
+    pid = _open(client, project_parent / "w8")
+    project_root = Path(client.app.state.runtime.known_projects[pid].path)
+    blocks_dir = project_root / "blocks"
+    shutil.rmtree(blocks_dir)
+    assert not blocks_dir.exists()
+
+    r = client.put(
+        f"/api/projects/{pid}/file?path=blocks/new_block.py",
+        json={"content": "x = 1\n", "create_parent_dirs": True},
+    )
+
+    assert r.status_code == 200, r.text
+    assert (blocks_dir / "new_block.py").read_text(encoding="utf-8") == "x = 1\n"
+
+
+def test_write_create_parent_dirs_rejects_unscaffolded_directory(client: TestClient, project_parent: Path) -> None:
+    pid = _open(client, project_parent / "w9")
+    project_root = Path(client.app.state.runtime.known_projects[pid].path)
+
+    r = client.put(
+        f"/api/projects/{pid}/file?path=nosuchdir/x.py",
+        json={"content": "x = 1\n", "create_parent_dirs": True},
+    )
+
+    assert r.status_code == 404
+    assert not (project_root / "nosuchdir").exists()

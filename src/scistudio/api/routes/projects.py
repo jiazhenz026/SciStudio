@@ -100,6 +100,7 @@ class FileWriteRequest(BaseModel):
     content: str
     source: str | None = None
     source_id: str | None = None
+    create_parent_dirs: bool = False
 
 
 class FileWriteResponse(BaseModel):
@@ -127,6 +128,14 @@ def _project_relative_entity_id(project_root: Path, target: Path) -> str:
     except ValueError:
         relative = Path(os.path.relpath(target, project_root))
     return str(relative).replace("\\", "/")
+
+
+def _is_new_custom_block_scaffold_path(path: str) -> bool:
+    """Return True only for the ADR-036 ``blocks/<name>.py`` scaffold path."""
+    parts = [part for part in path.replace("\\", "/").split("/") if part]
+    return (
+        len(parts) == 2 and parts[0] == "blocks" and Path(parts[1]).name == parts[1] and Path(parts[1]).suffix == ".py"
+    )
 
 
 def _request_source_id(request: Request, body: FileWriteRequest) -> str | None:
@@ -308,6 +317,11 @@ async def write_project_file(
             detail=(f"Content size {len(encoded)} exceeds editor cap {ADR036_FILE_SIZE_CAP_BYTES} bytes"),
         )
 
+    if body.create_parent_dirs and _is_new_custom_block_scaffold_path(path):
+        registered_project_root = Path(os.path.realpath(runtime.known_projects[project_id].path))
+        blocks_dir = registered_project_root / "blocks"
+        if not blocks_dir.exists():
+            blocks_dir.mkdir()
     if not target.parent.exists():
         # We do not auto-create directory trees; reject explicitly so the
         # frontend can surface a clear error rather than silently inventing
