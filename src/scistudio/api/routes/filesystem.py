@@ -105,6 +105,15 @@ class FilesystemBrowseResponse(BaseModel):
     entries: list[FilesystemEntry]
 
 
+class FilesystemStatResponse(BaseModel):
+    """Response from the filesystem stat endpoint."""
+
+    path: str
+    exists: bool
+    type: str | None = None
+    size: int | None = None
+
+
 # ---------------------------------------------------------------------------
 # Project tree endpoint (scoped to project root)
 # ---------------------------------------------------------------------------
@@ -239,6 +248,28 @@ async def browse_filesystem(
 
     entries = _list_directory(target)
     return FilesystemBrowseResponse(path=str(target), entries=entries)
+
+
+@router.get("/api/filesystem/stat", response_model=FilesystemStatResponse)
+async def stat_filesystem(
+    path: str = Query(..., description="File or directory path to inspect."),
+) -> FilesystemStatResponse:
+    """Return existence and coarse type information for a safe path."""
+
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not target.exists():
+        return FilesystemStatResponse(path=str(target), exists=False)
+    kind = "directory" if target.is_dir() else "file"
+    size: int | None = None
+    if target.is_file():
+        try:
+            size = target.stat().st_size
+        except OSError:
+            size = None
+    return FilesystemStatResponse(path=str(target), exists=True, type=kind, size=size)
 
 
 # ---------------------------------------------------------------------------

@@ -82,7 +82,7 @@ def _config_schema_for_block(spec: Any, registry: Any = None, type_registry: Any
     if "path" in properties:
         properties["path"]["title"] = "Path"
         properties["path"]["ui_priority"] = 0
-        properties["path"]["ui_widget"] = "file_browser"
+        properties["path"]["ui_widget"] = "file_browser" if spec.type_name == "load_data" else "directory_browser"
     merged["required"] = ["path", "core_type"]
     return merged
 

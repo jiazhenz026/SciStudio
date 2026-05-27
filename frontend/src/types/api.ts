@@ -31,6 +31,10 @@ export interface WorkflowExecutionResponse {
   message: string;
 }
 
+export interface WorkflowExecutionOptions {
+  overwriteNodeIds?: string[];
+}
+
 export interface ExecuteFromResponse extends WorkflowExecutionResponse {
   reused_blocks: string[];
   reset_blocks: string[];
@@ -255,6 +259,7 @@ export interface LogEntry {
   timestamp: string;
   level: string;
   message: string;
+  details?: string | null;
   workflow_id?: string | null;
   block_id?: string | null;
 }
@@ -268,6 +273,13 @@ export interface FilesystemEntry {
 export interface FilesystemBrowseResponse {
   path: string;
   entries: FilesystemEntry[];
+}
+
+export interface FilesystemStatResponse {
+  path: string;
+  exists: boolean;
+  type?: "file" | "directory" | null;
+  size?: number | null;
 }
 
 export interface TreeEntry {

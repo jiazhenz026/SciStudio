@@ -268,6 +268,8 @@ export default function App() {
     saveWorkflow,
     setLastError,
     workflowPayloadId: workflowPayload.id,
+    workflowNodes,
+    blockSchemas,
   });
 
   // Canvas / toolbar handlers (palette add, edge connect, view source, save).

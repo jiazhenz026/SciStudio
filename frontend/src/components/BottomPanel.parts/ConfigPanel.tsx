@@ -151,9 +151,23 @@ function ScalarField({
   currentValue: unknown;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
+  const [browseOpen, setBrowseOpen] = useState(false);
+  if (field.type === "boolean") {
+    return (
+      <label className="flex items-center gap-3 text-sm" key={fieldKey}>
+        <input
+          checked={Boolean(currentValue)}
+          className="h-4 w-4 rounded border-stone-300"
+          onChange={(event) => onUpdateConfig({ [fieldKey]: event.target.checked })}
+          type="checkbox"
+        />
+        <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
+      </label>
+    );
+  }
+
   const uiWidget = field.ui_widget as string | undefined;
   const browseMode = browseModeFor(uiWidget);
-  const [browseOpen, setBrowseOpen] = useState(false);
   const applySelectedPath = (paths: string[]) => {
     if (paths.length === 0) return;
     const supportsArray = Array.isArray(field.type)

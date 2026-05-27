@@ -54,10 +54,17 @@ class WorkflowExecutionResponse(BaseModel):
     message: str
 
 
+class ExecuteWorkflowRequest(BaseModel):
+    """Request body for workflow execution."""
+
+    overwrite_node_ids: list[str] = Field(default_factory=list)
+
+
 class ExecuteFromRequest(BaseModel):
     """Request body for selective re-run."""
 
     block_id: str
+    overwrite_node_ids: list[str] = Field(default_factory=list)
 
 
 class ExecuteFromResponse(WorkflowExecutionResponse):

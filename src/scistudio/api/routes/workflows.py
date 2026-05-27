@@ -20,6 +20,7 @@ from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
     ExecuteFromResponse,
+    ExecuteWorkflowRequest,
     WorkflowCreate,
     WorkflowEdge,
     WorkflowExecutionResponse,
@@ -455,11 +456,15 @@ async def execute_workflow(
     workflow_id: str,
     runtime: RuntimeDep,
     request: Request,
+    body: ExecuteWorkflowRequest | None = None,
 ) -> WorkflowExecutionResponse:
     """Start execution of a workflow."""
     try:
         _bind_engine_api_url(request)
-        result = runtime.start_workflow(workflow_id)
+        result = runtime.start_workflow(
+            workflow_id,
+            overwrite_node_ids=set(body.overwrite_node_ids) if body is not None else None,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
@@ -555,6 +560,7 @@ async def execute_from_workflow(
             workflow_id,
             execute_from=body.block_id,
             parent_run_id=parent_run_id,
+            overwrite_node_ids=set(body.overwrite_node_ids),
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -108,7 +108,97 @@ def delegate_params(params: dict[str, Any], capability: FormatCapability) -> dic
     delegated = {key: value for key, value in params.items() if key != "core_type"}
     delegated["capability_id"] = capability.id
     delegated["format_id"] = capability.format_id
+    delegated.setdefault("format", capability.format_id)
     return delegated
+
+
+def _default_delegated_filename(data_type: type[DataObject], capability: FormatCapability) -> str | None:
+    if not capability.extensions:
+        return None
+    return f"{data_type.__name__.lower()}{capability.extensions[0]}"
+
+
+def _source_filename(obj: DataObject) -> str | None:
+    raw_file_path = getattr(obj, "file_path", None)
+    if raw_file_path:
+        return Path(str(raw_file_path)).name
+    framework = getattr(obj, "framework", None)
+    source = getattr(framework, "source", "")
+    if isinstance(source, str) and source:
+        return Path(source).name
+    return None
+
+
+def _filename_config(params: dict[str, Any]) -> str | None:
+    raw = params.get("filename")
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(raw).__name__}")
+    cleaned = raw.strip()
+    if not cleaned:
+        return None
+    name = Path(cleaned).name
+    if name in {"", ".", ".."}:
+        raise ValueError("SaveData: filename must be a file name, not a directory path.")
+    return name
+
+
+def _filename_with_extension(name: str, capability: FormatCapability) -> str:
+    if not capability.extensions:
+        return name
+    path = Path(name)
+    supported = {extension.lower() for extension in capability.extensions}
+    if path.suffix.lower() in supported:
+        return path.name
+    stem = path.stem if path.suffix else path.name
+    return f"{stem}{capability.extensions[0]}"
+
+
+def _delegated_filename(
+    params: dict[str, Any],
+    *,
+    obj: DataObject,
+    data_type: type[DataObject],
+    capability: FormatCapability,
+) -> str:
+    configured = _filename_config(params)
+    if configured is not None:
+        return _filename_with_extension(configured, capability)
+    source_name = _source_filename(obj)
+    if source_name:
+        return _filename_with_extension(source_name, capability)
+    default = _default_delegated_filename(data_type, capability)
+    if default is not None and not Path(str(params.get("path", ""))).is_dir():
+        return default
+    raise ValueError(
+        "SaveData cannot infer an output filename because the input object has no source filename. "
+        "Set the Save block filename field."
+    )
+
+
+def _resolve_delegated_save_path(
+    params: dict[str, Any],
+    *,
+    obj: DataObject,
+    data_type: type[DataObject],
+    capability: FormatCapability,
+) -> None:
+    raw_path = params.get("path")
+    if not isinstance(raw_path, str) or not raw_path:
+        return
+    path = Path(raw_path)
+    original_path = path
+    if path.is_dir():
+        path = path / _delegated_filename(params, obj=obj, data_type=data_type, capability=capability)
+    elif not path.suffix and capability.extensions:
+        path = path.with_suffix(capability.extensions[0])
+    if path != original_path:
+        params["path"] = str(path)
+    if path.exists() and not bool(params.get("overwrite", False)):
+        raise ValueError(
+            f"SaveData refuses to overwrite existing output {str(path)!r}. Choose an empty folder or a new output path."
+        )
 
 
 def delegate_load(
@@ -145,5 +235,8 @@ def delegate_save(
         raise ValueError(f"Save: selected capability {capability.id!r} did not resolve to a package saver.")
     saver_cls = capability_owner_class(registry, capability)
     params = delegate_params(dict(config.params), capability)
+    _resolve_delegated_save_path(params, obj=obj, data_type=data_type, capability=capability)
+    if params.get("path") != config.params.get("path"):
+        config.params["path"] = params["path"]
     saver = saver_cls(config={"params": params})
     saver.save(obj, BlockConfig(params=params))

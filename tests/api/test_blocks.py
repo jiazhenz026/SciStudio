@@ -339,8 +339,12 @@ def test_core_load_save_schema_aggregates_registered_io_types(client: TestClient
     save_props = save_payload["config_schema"]["properties"]
     assert "Image" in save_props["core_type"]["enum"]
     assert "allow_pickle" not in save_props
-    assert save_props["path"]["ui_widget"] == "file_browser"
+    assert save_props["path"]["ui_widget"] == "directory_browser"
     assert any(capability["data_type"] == "Image" for capability in save_payload["format_capabilities"])
+    assert any(
+        capability["id"] == "scistudio-blocks-lcms.table.xlsx.save"
+        for capability in save_payload["format_capabilities"]
+    )
     assert save_payload["dynamic_ports"]["input_port_mapping"]["data"]["Image"] == ["Image"]
 
 

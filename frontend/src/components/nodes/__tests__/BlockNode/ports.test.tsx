@@ -117,24 +117,24 @@ describe("BlockNode — dynamic port live-update (ADR-028 Addendum 1 §D4)", () 
     expect(titles.some((t) => t.includes("DataObject"))).toBe(false);
   });
 
-  it("falls back to the placeholder type when core_type is unset", () => {
-    // Static block path: no core_type in config means no override applies.
+  it("uses the schema default dynamic type when core_type is unset", () => {
     const { container } = renderNode({
       category: "io",
       blockType: "load_data",
-      config: {}, // no core_type
+      config: {},
       outputPorts: [makePort("data", "output", ["DataObject"])],
       schema: makeSchema({
         base_category: "io",
         direction: "input",
         output_ports: [makePort("data", "output", ["DataObject"])],
         dynamic_ports: LOAD_DATA_DYNAMIC,
+        config_schema: LOAD_DATA_CONFIG_SCHEMA,
       }),
     });
     const handles = container.querySelectorAll('[data-handleid="data"]');
     const titles = Array.from(handles).map((h) => h.getAttribute("title") ?? "");
-    // Title format changed in #445: now shows primary type name, not "portName: typeList"
-    expect(titles.some((t) => t.includes("DataObject"))).toBe(true);
+    expect(titles.some((t) => t.includes("DataFrame"))).toBe(true);
+    expect(titles.some((t) => t.includes("DataObject"))).toBe(false);
   });
 
   it("renders the SaveData input port with accepted_types=['Series'] when core_type=Series", () => {

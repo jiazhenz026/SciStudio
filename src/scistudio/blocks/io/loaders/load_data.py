@@ -58,6 +58,7 @@ from scistudio.blocks.io.loaders._helpers import (
     _check_pickle_allowed,
     _resolve_path,
 )
+from scistudio.core.meta.framework import FrameworkMeta
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
@@ -66,6 +67,12 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+
+
+def _source_framework(path: Path) -> FrameworkMeta:
+    """Return framework metadata that preserves the boundary source path."""
+
+    return FrameworkMeta(source=str(path))
 
 
 class LoadData(IOBlock):
@@ -341,6 +348,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -353,6 +361,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -369,6 +378,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -395,6 +405,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(ndim)],
             shape=shape,
             dtype=dtype,
+            framework=_source_framework(path),
             storage_ref=ref,
         )
 
@@ -412,6 +423,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -467,6 +479,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -478,6 +491,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -505,6 +519,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -564,6 +579,7 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
             index_name=None,
             value_name=df.columns[0],
             length=df.row_count,
+            framework=_source_framework(path),
             storage_ref=storage_ref,
         )
 
@@ -609,6 +625,7 @@ def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
         content=content,
         format=_TEXT_FORMAT_MAP[suffix],
         encoding="utf-8",
+        framework=_source_framework(path),
     )
 
 
@@ -632,6 +649,7 @@ def _load_artifact(config: BlockConfig) -> Artifact:
         file_path=path,
         mime_type=mime,
         description=path.name,
+        framework=_source_framework(path),
     )
 
     sidecar = path.with_suffix(path.suffix + ".meta.json")
@@ -736,4 +754,4 @@ def _load_composite_data(config: BlockConfig, block: Any = None, output_dir: str
                 del slot_obj._arrow_table  # type: ignore[attr-defined]
         loaded_slots[slot_name] = slot_obj
 
-    return CompositeData(slots=loaded_slots)
+    return CompositeData(slots=loaded_slots, framework=_source_framework(path))

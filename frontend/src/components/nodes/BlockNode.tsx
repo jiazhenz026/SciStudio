@@ -88,6 +88,18 @@ function coreTypeFromConfig(
   return null;
 }
 
+function dynamicPortConfigValue(
+  configProps: ReturnType<typeof getTopConfigProperties>,
+  config: BlockNodeData["config"],
+  sourceConfigKey: string | undefined,
+): string | undefined {
+  if (sourceConfigKey == null) return undefined;
+  const configured = config?.[sourceConfigKey];
+  if (typeof configured === "string" && configured) return configured;
+  const schemaDefault = configProps.find((prop) => prop.key === sourceConfigKey)?.schema.default;
+  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
+}
+
 export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
   // ADR-028 Addendum 1 §B fix #2 / §C11: hide the ``direction`` config
   // field for any IO block (not just the legacy abstract-base type_name).
@@ -125,8 +137,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // user changes the dropdown.
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
-  const drivingConfigValue =
-    sourceConfigKey != null ? (data.config?.[sourceConfigKey] as string | undefined) : undefined;
+  const drivingConfigValue = dynamicPortConfigValue(configProps, data.config, sourceConfigKey);
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
