@@ -103,7 +103,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1505-hotfix-save-data-extension.json",
+    "shas": [
+      "5e93937f"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -174,7 +180,13 @@
     "tests/blocks/io/test_load_data.py",
     "tests/blocks/io/test_save_data.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1505
+    ],
+    "number": 1506,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1506"
+  },
   "record_path": ".workflow/records/1505-hotfix-save-data-extension.json",
   "required_checks": [
     "python-ruff-targeted",
@@ -251,7 +263,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
