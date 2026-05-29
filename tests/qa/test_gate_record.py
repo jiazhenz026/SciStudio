@@ -259,6 +259,111 @@ def test_check_says_run_init_when_no_ledger(git_repo: Path, capsys: pytest.Captu
 
 
 # ---------------------------------------------------------------------------
+# CI branch resolution (#1509): in `pull_request` events the checkout is a
+# detached merge commit, so `git rev-parse --abbrev-ref HEAD` is not the PR
+# branch. Discovery must scope to the CI-provided PR branch ref instead.
+# ---------------------------------------------------------------------------
+
+
+def test_ci_branch_resolution_finds_ledger_in_detached_head(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ledger for the PR branch (not the branch git currently has checked out).
+    pr_branch = "track/adr-042-add6/umbrella"
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "umbrella",
+            "runtime": "claude-code",
+            "task_kind": "manager",
+            "persona": "manager",
+            "branch": pr_branch,
+            "owner_directive": "umbrella integration",
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "1509-umbrella.json", ledger, repo_root=git_repo)
+
+    # Simulate a CI detached-HEAD checkout: HEAD points at a commit, no branch.
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    # Without CI env, the detached HEAD yields no branch -> single-ledger fallback.
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    assert io.current_branch(git_repo) is None
+
+    # With the GitHub Actions PR env set, the PR branch is resolved and matches.
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_HEAD_REF", pr_branch)
+    monkeypatch.setenv("GITHUB_REF_NAME", pr_branch)
+    assert io.current_branch(git_repo) == pr_branch
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).branch == pr_branch
+
+
+def test_ci_branch_resolution_falls_back_to_ref_name(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # GITHUB_REF_NAME is the fallback when GITHUB_HEAD_REF is unset (e.g. push).
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.setenv("GITHUB_REF_NAME", "track/x")
+    assert io.current_branch(git_repo) == "track/x"
+
+
+def test_detached_head_single_ledger_fallback(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # No CI env and a detached HEAD: discovery cannot scope to a branch, but a
+    # lone non-finalized v2 ledger is unambiguous and is used as a last resort.
+    other = GateLedger.model_validate(
+        {
+            "record_id": "lone",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "some/other-branch",
+            "owner_directive": "the only active gate work",
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "1-lone.json", other, repo_root=git_repo)
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    assert io.current_branch(git_repo) is None
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).record_id == "lone"
+
+
+def test_detached_head_multiple_ledgers_stays_ambiguous(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # With more than one active ledger and no resolvable branch, never guess:
+    # report the candidates so the caller passes --record.
+    for name in ("a", "b"):
+        ledger = GateLedger.model_validate(
+            {
+                "record_id": name,
+                "runtime": "claude-code",
+                "task_kind": "bugfix",
+                "persona": "implementer",
+                "branch": f"track/{name}",
+                "owner_directive": "d",
+            }
+        )
+        io.write_ledger(git_repo / RECORDS_DIR / f"{name}.json", ledger, repo_root=git_repo)
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.ambiguous
+    assert len(discovery.candidates) == 2
+
+
+# ---------------------------------------------------------------------------
 # Alias delegation (§5.8): aliases delegate to the new code, own no decision.
 # ---------------------------------------------------------------------------
 

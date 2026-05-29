@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import uuid
@@ -262,13 +263,30 @@ def _ledger_meta(path: Path) -> tuple[str | None, bool, bool]:
 
 
 def current_branch(repo_root: Path) -> str | None:
-    """Return the current git branch, or None when detached/unavailable."""
+    """Return the branch to scope discovery to, or None when unresolvable.
+
+    In CI (``pull_request`` events) the checkout is a detached merge commit, so
+    ``git rev-parse --abbrev-ref HEAD`` yields ``HEAD`` (not the PR branch) and a
+    branch-scoped ledger would never match. GitHub Actions does expose the PR
+    source branch via ``GITHUB_HEAD_REF`` (and ``GITHUB_REF_NAME`` as a
+    fallback), so prefer those CI-provided refs when running in CI before
+    falling back to the local git branch. Locally (no CI env) behavior is
+    unchanged: resolution is by the real git branch.
+    """
+
+    if os.environ.get("GITHUB_ACTIONS"):
+        ci_branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
+        if ci_branch and ci_branch.strip():
+            return ci_branch.strip()
 
     try:
         branch = _git_output(repo_root, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
-    return branch or None
+    # A detached HEAD reports the literal "HEAD"; that is not a branch name.
+    if not branch or branch == "HEAD":
+        return None
+    return branch
 
 
 def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryResult:
@@ -294,8 +312,18 @@ def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryR
 
     target_branch = branch if branch is not None else current_branch(repo_root)
     if target_branch is None:
-        # No resolvable current branch -> cannot scope discovery; never guess.
-        return DiscoveryResult(None, [])
+        # No resolvable branch (e.g. CI detached HEAD with no GITHUB_*_REF set).
+        # Last resort: if exactly one non-finalized schema-v2 ledger exists, use
+        # it; the active gate work is unambiguous. With multiple, keep guessing
+        # off so the caller reports the clear ambiguous/"pass --record" path.
+        active = []
+        for path in records:
+            _record_branch, is_v2, is_finalized = _ledger_meta(path)
+            if is_v2 and not is_finalized:
+                active.append(path)
+        if len(active) == 1:
+            return DiscoveryResult(active[0], active)
+        return DiscoveryResult(None, active if len(active) > 1 else [])
 
     matches = []
     for path in records:
