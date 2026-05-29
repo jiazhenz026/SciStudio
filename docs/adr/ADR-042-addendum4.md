@@ -19,10 +19,14 @@ governs:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
   contracts:
-    - scistudio.qa.governance.persona_policy.check
-    - scistudio.qa.governance.gate_record.models.GateRecord
+    # Restructured by ADR-042 Addendum 6: ``persona_policy`` moved under
+    # ``gate_record.guards``, ``models.GateRecord`` became the ledger type
+    # ``ledger.GateLedger``, and the ``validation`` module collapsed into the
+    # shared ``evaluator.reconcile`` entry point.
+    - scistudio.qa.governance.gate_record.guards.persona_policy.check
+    - scistudio.qa.governance.gate_record.ledger.GateLedger
     - scistudio.qa.governance.gate_record.cli.main
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum4.md
@@ -35,9 +39,9 @@ governs:
     - docs/ai-developer/templates/agent-dispatch-*.md
     - docs/ai-developer/checklists/agent-manager-rules-review.md
     - docs/ai-developer/skills/scistudio-e2e-test/SKILL.md
-    - src/scistudio/qa/governance/persona_policy.py
+    - src/scistudio/qa/governance/gate_record/guards/persona_policy.py
     - src/scistudio/qa/governance/gate_record/**
-    - tests/qa/test_persona_policy.py
+    - tests/qa/test_guard_calculators.py
     - tests/qa/test_gate_record.py
     - tests/qa/test_gate_record_ci.py
   excludes: []
@@ -63,6 +67,14 @@ translations: []
 # ADR-042 Addendum 4: Test Engineer AI Persona
 
 ## 1. Decision Summary
+
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. `persona_policy` moved into the
+> `gate_record.guards` package, `models.GateRecord` became the ledger type
+> `ledger.GateLedger`, the `validation` module collapsed into the shared
+> `evaluator.reconcile` entry point, and `test_persona_policy.py` was renamed
+> `test_guard_calculators.py`. The `governs` block has been repointed
+> accordingly.
 
 This addendum proposes a fifth ADR-042 AI persona, `test_engineer`, for
 test architecture, test design, regression coverage, runtime validation, and

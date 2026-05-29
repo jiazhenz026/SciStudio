@@ -17,13 +17,16 @@ is_code_implementation: true
 governs:
   modules:
     - scistudio.qa.governance.gate_record
-    - scistudio.qa.governance.sentrux_gate
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate
   contracts:
-    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427); contract
-    # paths below point to the canonical definition sites so doc_drift / closure
-    # can resolve them against generated facts.
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
+    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427) and was
+    # restructured by ADR-042 Addendum 6: the standalone ``validation`` module
+    # collapsed into the shared ``evaluator.reconcile`` entry point and the
+    # ``sentrux_gate`` guard moved under ``gate_record.guards``. Contract paths
+    # below point to the canonical definition sites in that layout so
+    # doc_drift / closure can resolve them against generated facts.
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum3.md
@@ -59,6 +62,13 @@ semantics**; all other Addendum 1 decisions (D2 committed gate records,
 D3 six-stage gate, D7 implementation tests, D8 legacy gate removal,
 D9 generated artifacts, D10 AI gate CLI, D11/D12 architecture
 frontmatter/drift) are unaffected.
+
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. The `validate_gate_record`
+> validator collapsed into the shared `evaluator.reconcile` entry point and
+> the `sentrux_gate` guard moved under `gate_record.guards`; its advisory
+> behavior is now expressed by `gate_record.guards.sentrux_gate.check`. The
+> `governs` block has been repointed accordingly.
 
 | Decision | Change | Enforcement target | Detailed section |
 |---|---|---|---|
