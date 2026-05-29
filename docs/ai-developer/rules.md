@@ -130,6 +130,12 @@ folded into the ledger as check and reconcile events. There is no separate
 and examples live in `docs/ai-developer/specific_rules/gated-workflow.md`;
 this section is the quick command index every persona should route back to.
 
+The full consolidated reference — every argument table, the `--mode` family,
+exit codes, strictness tiers, per-task-kind and per-persona profiles, and a
+soft-routing decision guide — is `docs/ai-developer/gate-cli-command-set.md`.
+Use that document when you need the complete argument detail or want to
+self-route a task; this section is only the quick index.
+
 | Need | Command |
 |---|---|
 | Create or update the gate ledger for the current task | `python -m scistudio.qa.governance.gate_record init --task-kind <kind> --persona <persona> --runtime <runtime> --branch <branch> --owner-directive "<directive>" [--issue <n>] [--include <path>] [--exclude <path>] [--governance-touch true]` |
@@ -182,6 +188,7 @@ requirements as other governance changes.
 |---|---|
 | Gate execution | `docs/ai-developer/specific_rules/gated-workflow.md` |
 | Gate CLI command index | `docs/ai-developer/rules.md#5-gate-cli-command-set` |
+| Gate CLI full reference (args, tiers, profiles, soft routing) | `docs/ai-developer/gate-cli-command-set.md` |
 | New feature | `docs/ai-developer/specific_rules/new-feature.md` |
 | Bug fix | `docs/ai-developer/specific_rules/bug-fix.md` |
 | Hotfix | `docs/ai-developer/specific_rules/hotfix.md` |

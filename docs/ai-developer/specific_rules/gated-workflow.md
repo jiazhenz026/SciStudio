@@ -99,6 +99,13 @@ The quick command index is also routed from
 `docs/ai-developer/rules.md#5-gate-cli-command-set`, `AGENTS.md`, and each
 persona guide so all AI runtimes land on the same command set.
 
+The full consolidated CLI reference — every argument table, the `--mode`
+family, exit codes, strictness tiers, per-task-kind and per-persona obligation
+profiles, and a soft-routing decision guide — is
+`docs/ai-developer/gate-cli-command-set.md`. This section summarizes the same
+contract for the procedure walkthrough; consult the reference for the complete
+argument detail.
+
 ### 2.1 `init` — Create Or Update The Ledger
 
 ```bash

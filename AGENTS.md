@@ -180,7 +180,10 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
   gate ledger, focused scope, and owner review.
 
 - The AI-facing gate command set is indexed in
-  `docs/ai-developer/rules.md#5-gate-cli-command-set`.
+  `docs/ai-developer/rules.md#5-gate-cli-command-set`. The full consolidated
+  reference (every argument table, the `--mode` family, exit codes, strictness
+  tiers, per-task-kind and per-persona profiles, and a soft-routing decision
+  guide) is `docs/ai-developer/gate-cli-command-set.md`.
 
 ### 3.8 Hotfix Mode
 
@@ -209,6 +212,11 @@ If any item is missing, the task is not complete.
   AI-facing gate ledger CLI commands (`init`, `plan`, `amend`, `check`,
   `finalize`). There is no separate `gate_receipt` command; receipt behavior
   is folded into the ledger as of ADR-042 Addendum 6.
+
+- Use `docs/ai-developer/gate-cli-command-set.md` for the full consolidated
+  gate CLI reference: every argument table, the `--mode` family, exit codes,
+  strictness tiers, per-task-kind and per-persona obligation profiles, and a
+  soft-routing decision guide an agent can follow to self-route a task.
 
 - Use `docs/ai-developer/specific_rules/gated-workflow.md` if you are doing
   AI-authored work that needs gate evidence.
