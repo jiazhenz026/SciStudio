@@ -1,0 +1,40 @@
+{
+  "schema_version": "1",
+  "task_id": "1509-adr042-add6-guards",
+  "task_kind": "feature",
+  "persona": "implementer",
+  "branch": "track/adr-042-add6/guards",
+  "owner_directive": "ADR-042 Addendum 6: implement the 10 evaluator-owned guard calculators as real logic, replacing B1 stubs. Read all inputs from GuardInputs; use core surfaces classifier + labels vocab; migrate admin-approved:ai-override -> admin-approved:bypass.",
+  "governance_touch": true,
+  "record_path": ".workflow/records/1509-adr042-add6-guards.json",
+  "scope": {
+    "include": [
+      ".workflow/records/1509-adr042-add6-guards.json",
+      "src/scistudio/qa/governance/gate_record/guards/**",
+      "tests/qa/test_guard_calculators.py"
+    ],
+    "exclude": []
+  },
+  "issues": [
+    {
+      "number": 1509,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1509",
+      "close_in_pr": true,
+      "followup_rationale": null
+    }
+  ],
+  "amendments": [],
+  "planned_files": [],
+  "required_checks": [],
+  "changed_test_paths": [],
+  "check_results": [],
+  "admin_labels": [],
+  "docs_landing": {},
+  "full_audit": {},
+  "sentrux": {},
+  "stages": [
+    {"stage": "scope_and_issue", "status": "done", "completed_at": null, "summary": null}
+  ],
+  "commit": {},
+  "pull_request": {}
+}
