@@ -147,6 +147,27 @@ def git_lines(repo_root: Path, args: list[str]) -> list[str]:
     return [normalize_path(line) for line in output.splitlines() if line.strip()]
 
 
+DEFAULT_BASE_REF = "origin/main"
+
+
+def resolve_default_base(repo_root: Path, *, upstream: str = DEFAULT_BASE_REF, head: str = "HEAD") -> str:
+    """Resolve the default diff base to the merge-base of ``upstream`` and ``head``.
+
+    A branch's delta is its own commits, so the correct default base is
+    ``git merge-base origin/main HEAD`` rather than raw ``origin/main`` (Fix D /
+    §7.5). This is correct for normal branches and better for stacked branches.
+    When the merge-base cannot be computed (no common ancestor, missing upstream,
+    git unavailable), fall back to the raw upstream ref. Deeply-stacked branches
+    may still need an explicit ``--base``.
+    """
+
+    try:
+        out = _git_output(repo_root, ["merge-base", upstream, head]).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return upstream
+    return out or upstream
+
+
 def resolve_sha(repo_root: Path, ref: str) -> str | None:
     """Resolve ``ref`` to a short SHA, or None when unresolvable."""
 

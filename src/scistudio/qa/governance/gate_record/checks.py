@@ -18,11 +18,11 @@ and returns sanitized :class:`CheckEvent` payloads.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
 
 import scistudio.qa.governance.gate_record.surfaces as surfaces
 from scistudio.qa.governance.gate_record.io import LOCAL_LOGS_DIR, fingerprint_paths
@@ -237,6 +237,60 @@ def select_checks(
     return selection
 
 
+# Signatures in check output that indicate an ENVIRONMENT-PARITY cause (a local
+# environment that is not CI-equivalent), NOT a genuine code/assertion failure.
+# A pytest collection ``ImportError``/``ModuleNotFoundError`` means an optional
+# plugin or dependency CI has is absent locally; a "No module named" from any
+# tool is the same class of gap. These must read as parity gaps (§7.10), never
+# as code failures, so a real test failure still reads as a code failure.
+_PARITY_CAUSE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"ModuleNotFoundError: No module named ['\"]?(?P<name>[\w.]+)"), "missing module: {name}"),
+    (re.compile(r"No module named ['\"]?(?P<name>[\w.]+)"), "missing module: {name}"),
+    (
+        re.compile(r"ImportError(?:\s+while importing| collecting)?[^\n]*?(?P<name>[\w./-]+)?"),
+        "import error during collection",
+    ),
+    (re.compile(r"error in (?P<name>[\w.-]+) setup command"), "build/setup dependency error: {name}"),
+    (re.compile(r"DistributionNotFound|pkg_resources\.\w*NotFound"), "missing distribution/dependency"),
+    (re.compile(r"executable not found|command not found|not recognized as an internal"), "tool/interpreter not found"),
+)
+
+# A pytest collection error specifically (distinct from test-body failures).
+_PYTEST_COLLECTION_ERROR_RE = re.compile(r"errors? during collection|ERROR collecting", re.IGNORECASE)
+
+
+def detect_parity_cause(output: str) -> str | None:
+    """Classify a nonzero check exit as an environment-parity cause, or None.
+
+    Returns a short human-readable detail of what is missing when the failure is
+    caused by the LOCAL environment not being CI-equivalent (missing optional
+    plugin / dependency / interpreter / tool, or a pytest collection ImportError
+    /ModuleNotFoundError). Returns ``None`` for genuine assertion/code failures so
+    they still read as code failures (§7.10).
+    """
+
+    if not output:
+        return None
+    for pattern, template in _PARITY_CAUSE_PATTERNS:
+        match = pattern.search(output)
+        if match is None:
+            continue
+        # An ImportError reported INSIDE a normal test body (not at collection)
+        # could be a genuine bug; only treat import/module errors as parity gaps
+        # when they look like collection-time or top-level import problems.
+        if template == "import error during collection" and not _PYTEST_COLLECTION_ERROR_RE.search(output):
+            # A bare ImportError without a collection marker is ambiguous; if a
+            # ModuleNotFoundError/No-module signature also matched it is covered
+            # by an earlier pattern, so here we skip to avoid false positives.
+            continue
+        try:
+            named = match.groupdict().get("name")
+        except (IndexError, AttributeError):
+            named = None
+        return template.format(name=named) if "{name}" in template and named else template.replace(" {name}", "")
+    return None
+
+
 def run_check(
     repo_root: Path,
     name: str,
@@ -304,7 +358,27 @@ def run_check(
         )
 
     raw_ref = _write_raw_log(repo_root, name, completed)
-    status: Literal["pass", "fail"] = "pass" if completed.returncode == 0 else "fail"
+    if completed.returncode == 0:
+        return CheckEvent(
+            name=name,
+            command=repo_relative_command,
+            tool_versions=versions,
+            covered_surface=spec.covered_surface,
+            input_fingerprint=input_fp,
+            exit_code=completed.returncode,
+            status="pass",
+            summary="clean",
+            raw_log_ref=raw_ref,
+        )
+
+    # Nonzero exit: distinguish an environment-parity cause from a genuine code
+    # failure (§7.10). A parity cause (collection ImportError / missing module /
+    # missing tool) is NOT a code failure; it means the local env is not
+    # CI-equivalent. We still record status="fail" so the surface is not treated
+    # as passing, but flag ``parity_gap`` so the evaluator reports it distinctly
+    # and never as a misleading code failure.
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    parity_detail = detect_parity_cause(combined_output)
     return CheckEvent(
         name=name,
         command=repo_relative_command,
@@ -312,9 +386,11 @@ def run_check(
         covered_surface=spec.covered_surface,
         input_fingerprint=input_fp,
         exit_code=completed.returncode,
-        status=status,
-        summary="clean" if status == "pass" else f"exit {completed.returncode}",
+        status="fail",
+        summary=(f"parity gap: {parity_detail}" if parity_detail else f"exit {completed.returncode}"),
         raw_log_ref=raw_ref,
+        parity_gap=parity_detail is not None,
+        parity_detail=parity_detail,
     )
 
 

@@ -102,6 +102,9 @@ class ReconcileResult:
     guard_events: list[GuardEvent] = field(default_factory=list)
     reconcile_event: ReconcileEvent | None = None
     parity_gaps: list[str] = field(default_factory=list)
+    # Non-blocking, loud warnings (e.g. a --check-na that has no force for a
+    # ci.yml-owned check, §7.5/Fix B). Surfaced by callers; never flips status.
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -464,7 +467,20 @@ def reconcile(
 
     # 8. Execute / validate checks with parity (§7.10), unless skipping.
     check_events: list[CheckEvent] = []
-    na_names = {na.name for na in ledger.check_na}
+    # A --check-na for a ci.yml-OWNED check has NO force (ci.yml is authoritative
+    # and runs it regardless, §7.5/Fix B): such an N/A may not waive the check for
+    # PR readiness. Only N/A for task-specific / non-ci-owned checks waives. We do
+    # NOT add an ERROR finding (that would block); we emit a loud non-blocking
+    # warning and simply ignore the N/A for the ci-owned check.
+    warnings: list[str] = []
+    ci_owned_na = sorted({na.name for na in ledger.check_na} & _CI_OWNED_QUALITY_CHECKS)
+    na_names = {na.name for na in ledger.check_na} - _CI_OWNED_QUALITY_CHECKS
+    for name in ci_owned_na:
+        warnings.append(
+            f"--check-na '{name}:...' has NO force: '{name}' is owned by ci.yml and the "
+            "standalone CI job runs it regardless. It does not waive that obligation for PR "
+            "readiness; the N/A is recorded but ignored for this check. Fix the check or rely on CI."
+        )
     if run_checks and mode not in ("commit-msg",):
         parity_report = parity.assess_parity(repo_root)
         if mode in ("pre-pr", "ci") and not parity_report.importable:
@@ -477,7 +493,22 @@ def reconcile(
             event = checks.run_check(repo_root, name, changed_files=observed_files, diff_fingerprint=fingerprint)
             check_events.append(event)
             ledger.check_events.append(event)
-            if event.status == "fail":
+            if event.status != "fail":
+                continue
+            if event.parity_gap:
+                # ENVIRONMENT-PARITY cause, not a code failure (§7.10): the local
+                # environment is not CI-equivalent (a dep/plugin/tool CI has is
+                # missing locally). Report it distinctly and fail closed for PR
+                # readiness rather than surfacing a misleading code failure. Do
+                # NOT auto-install anything.
+                detail = event.parity_detail or "local environment is not CI-equivalent"
+                gap = (
+                    f"{name}: local environment is not CI-equivalent: {detail}; "
+                    "reproduce the CI env (e.g. install the dev/test extras into an "
+                    "isolated per-worktree env) and re-run check, or rely on CI"
+                )
+                parity_gaps.append(gap)
+            else:
                 unsatisfied.append(f"checks.{name}")
                 repair_hints.append(f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}")
 
@@ -615,4 +646,5 @@ def reconcile(
         guard_events=guard_events,
         reconcile_event=reconcile_event,
         parity_gaps=parity_gaps,
+        warnings=warnings,
     )

@@ -383,9 +383,14 @@ Observes the diff only when the amended field affects scope/obligations/protecte
 ### 5.5 `check`
 
 The main local CI-equivalent preflight. Arguments: `--base` (default
-`origin/main`), `--head` (default `HEAD`), `--mode` (`local|pre-commit|commit-msg
-|pre-push|pre-pr|ci`, default `local`), `--pr-body-file`, plus the additive field
-flags from `plan`, plus `--only` (repeatable, recovery) and `--skip-execution`.
+`merge-base(origin/main, HEAD)`), `--head` (default `HEAD`), `--mode`
+(`local|pre-commit|commit-msg|pre-push|pre-pr|ci`, default `local`),
+`--pr-body-file`, plus the additive field flags from `plan`, plus `--only`
+(repeatable, recovery) and `--skip-execution`. When `--base` is omitted it
+defaults to `git merge-base origin/main HEAD` so a branch's delta is its own
+commits (correct for normal branches, better for stacked branches), falling back
+to raw `origin/main` when the merge-base cannot be computed; deeply-stacked
+branches may still need an explicit `--base`.
 
 `check` runs the §3.3 pipeline: observe diff -> infer tier-selected check set
 from the CI graph -> run required commands (unless `--only`/`--skip-execution`)

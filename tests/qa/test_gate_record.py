@@ -417,6 +417,132 @@ def test_pr_ready_alias_runs_check_in_pre_pr_mode(git_repo: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Fix C: --only / --skip-execution cannot report final readiness (§7.5).
+# ---------------------------------------------------------------------------
+
+
+def test_skip_execution_prints_not_final_readiness_banner(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    # local recovery: --skip-execution leaves mandatory tier checks unrun. It must
+    # print the "NOT final PR readiness" banner naming which mandatory checks were
+    # skipped, and must NOT print the unqualified "reconciliation passed" line
+    # (which would falsely claim final readiness).
+    _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    assert "mandatory" in out
+    # Never the bare final-readiness claim while mandatory checks are unrun.
+    assert "\nreconciliation passed" not in out
+
+
+def test_local_recovery_may_exit_zero_when_only_unrun_checks_remain(
+    git_repo: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Neutralize unrelated guards so the ONLY gap is the unrun mandatory checks;
+    # this isolates the §7.5 rule that local recovery may exit 0 but with the
+    # not-final-readiness banner.
+    monkeypatch.setattr(evaluator, "GUARD_REGISTRY", {}, raising=True)
+    _init(git_repo)
+    _run(
+        git_repo,
+        "plan",
+        "--include",
+        "src/scistudio/**",
+        "--include",
+        "tests/**",
+        "--issue",
+        "1509",
+        "--docs-na",
+        "implementation:internal change",
+        "--test-path",
+        "tests/test_x.py",
+    )
+    (git_repo / "src/scistudio").mkdir(parents=True, exist_ok=True)
+    (git_repo / "src/scistudio/x.py").write_text("x = 1\n", encoding="utf-8")
+    (git_repo / "tests").mkdir(parents=True, exist_ok=True)
+    (git_repo / "tests/test_x.py").write_text("def test_x():\n    assert True\n", encoding="utf-8")
+    _git(git_repo, "add", "src/scistudio/x.py", "tests/test_x.py")
+    _git(git_repo, "commit", "-q", "-m", "impl + test")
+    rc = _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    # Local recovery may exit 0; the banner is the required signal, not failure.
+    assert rc == workflow.EXIT_OK
+
+
+def test_only_recovery_in_pre_pr_is_not_final_readiness(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    # pre-pr (strict) with --only runs a subset; mandatory tier checks remain
+    # unrun, so this is NOT final readiness and must not exit 0 as if ready.
+    rc = _run(git_repo, "check", "--mode", "pre-pr", "--base", "HEAD~1", "--head", "HEAD", "--only", "__none__")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    assert rc != workflow.EXIT_OK
+
+
+def test_full_check_no_recovery_does_not_print_recovery_banner(
+    git_repo: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.qa.governance.gate_record import checks
+    from scistudio.qa.governance.gate_record.ledger import CheckEvent
+
+    # Stub check execution so this exercises the full (non-recovery) path without
+    # running heavy real tools; every required check is "run" -> no unrun gap.
+    def _pass(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(name=name, command="x", covered_surface="python", exit_code=0, status="pass", summary="clean")
+
+    monkeypatch.setattr(checks, "run_check", _pass)
+    _init(git_repo, task_kind="docs", persona="adr_author")
+    _run(git_repo, "plan", "--include", "docs/**", "--issue", "1509", "--test-na", "implementation:docs only")
+    _commit(git_repo, "docs/notes.md")
+    # A full docs-tier check (no --only/--skip-execution) should not emit the
+    # recovery banner.
+    _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" not in out
+
+
+# ---------------------------------------------------------------------------
+# Fix D: default base = merge-base(origin/main, HEAD), not raw origin/main.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_default_base_uses_merge_base(git_repo: Path) -> None:
+    # Build: base commit -> branch off -> add divergent commits on both sides.
+    _git(git_repo, "branch", "feature")
+    _commit(git_repo, "main_only.py", "m\n")  # advances track/x past the fork point
+    main_head = io.resolve_sha(git_repo, "HEAD")
+    _git(git_repo, "checkout", "-q", "feature")
+    _commit(git_repo, "feature_only.py", "f\n")
+    fork_point = subprocess.run(
+        ["git", "merge-base", "track/x", "HEAD"],
+        cwd=git_repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    resolved = io.resolve_default_base(git_repo, upstream="track/x", head="HEAD")
+    # The default base is the fork point (merge-base), NOT the advanced track/x tip.
+    assert resolved == fork_point
+    assert resolved != main_head
+
+
+def test_resolve_default_base_falls_back_when_no_merge_base(git_repo: Path) -> None:
+    # An unresolvable upstream ref cannot produce a merge-base -> fall back.
+    resolved = io.resolve_default_base(git_repo, upstream="origin/main", head="HEAD")
+    assert resolved == "origin/main"
+
+
+def test_explicit_base_is_honored_verbatim(git_repo: Path) -> None:
+    base = workflow._resolve_base(git_repo, "HEAD~0", "HEAD")
+    assert base == "HEAD~0"
+
+
+# ---------------------------------------------------------------------------
 # pre-push vs pre-pr: WIP push is not blocked as if opening a PR (§3.4).
 # ---------------------------------------------------------------------------
 

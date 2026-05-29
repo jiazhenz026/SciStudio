@@ -80,7 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
     # check ----------------------------------------------------------------
     check = sub.add_parser("check", help="Run tier-selected checks and reconcile.")
     check.add_argument("--record")
-    check.add_argument("--base", default="origin/main")
+    # Default base is resolved to merge-base(origin/main, HEAD) in workflow when
+    # omitted (Fix D); an explicit --base overrides that.
+    check.add_argument("--base", default=None)
     check.add_argument("--head", default="HEAD")
     check.add_argument("--mode", choices=_MODES, default="local")
     check.add_argument("--pr-body-file")
@@ -91,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     # finalize -------------------------------------------------------------
     finalize = sub.add_parser("finalize", help="Record commit/PR provenance and reconcile.")
     finalize.add_argument("--record")
-    finalize.add_argument("--base", default="origin/main")
+    finalize.add_argument("--base", default=None)
     finalize.add_argument("--head", default="HEAD")
     finalize.add_argument("--commit", action="append", default=[])
     finalize.add_argument("--pr")
@@ -137,7 +139,7 @@ def _add_alias(sub: argparse._SubParsersAction, name: str, target: str, template
 def _add_mode_alias(sub: argparse._SubParsersAction, name: str, mode: str) -> None:
     alias = sub.add_parser(name, help=f"Alias for `check --mode {mode}`.")
     alias.add_argument("--record")
-    alias.add_argument("--base", default="origin/main")
+    alias.add_argument("--base", default=None)
     alias.add_argument("--head", default="HEAD")
     alias.add_argument("--pr-body-file")
     alias.add_argument("--only", action="append", default=[])
@@ -150,7 +152,7 @@ def _add_commit_msg_alias(sub: argparse._SubParsersAction) -> None:
     alias = sub.add_parser("commit-msg", help="Alias for `check --mode commit-msg <message-file>`.")
     alias.add_argument("message_file", nargs="?")
     alias.add_argument("--record")
-    alias.add_argument("--base", default="origin/main")
+    alias.add_argument("--base", default=None)
     alias.add_argument("--head", default="HEAD")
     _add_field_flags(alias)
     alias.set_defaults(_alias_to="check", _alias_mode="commit-msg")

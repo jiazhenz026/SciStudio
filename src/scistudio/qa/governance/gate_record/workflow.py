@@ -281,6 +281,60 @@ def run_amend(repo_root: Path, args: Any) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _unrun_mandatory_checks(
+    result: evaluator.ReconcileResult,
+    *,
+    only: list[str] | None,
+    args: Any,
+) -> list[str]:
+    """Return required tier-selected checks that were NOT actually run/validated.
+
+    Used by the recovery-mode banner (§7.5): ``--only`` runs a subset and
+    ``--skip-execution`` runs none, so any required check whose run was skipped is
+    a mandatory check that this invocation did not establish. Checks with an
+    accepted N/A are not counted as unrun. The result is the gap between the
+    inferred required check set and what this call actually executed/validated.
+    """
+
+    required = set(result.required_obligations.checks)
+    if not required:
+        return []
+    if getattr(args, "skip_execution", False):
+        ran: set[str] = set()
+    elif only:
+        ran = set(only) & required
+    else:
+        ran = set(required)
+    # Checks that produced an event this run count as run.
+    ran |= {event.name for event in result.check_events}
+    return sorted(required - ran)
+
+
+def _recovery_banner(mode: str, unrun: list[str]) -> list[str]:
+    """Build the "not final PR readiness" recovery banner (§7.5)."""
+
+    return [
+        "",
+        "RECOVERY MODE (--only / --skip-execution): NOT final PR readiness.",
+        f"  Mandatory tier-selected checks not run/validated this invocation: {', '.join(unrun)}",
+        "  Run a full `gate_record check` (no --only/--skip-execution) for final readiness.",
+    ]
+
+
+def _resolve_base(repo_root: Path, base: str | None, head: str) -> str:
+    """Resolve the diff base (Fix D / §7.5).
+
+    An explicit ``--base`` is honored verbatim. When omitted, default to
+    ``git merge-base origin/main HEAD`` so a branch's delta is its own commits
+    (correct for normal branches; better for stacked branches). Falls back to
+    raw ``origin/main`` when the merge-base cannot be computed.
+    """
+
+    if base:
+        return base
+    return io.resolve_default_base(repo_root, head=head)
+
+
 def _read_pr_body(repo_root: Path, pr_body_file: str | None) -> str | None:
     if not pr_body_file:
         return None
@@ -307,11 +361,13 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
 
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
+    head = getattr(args, "head", "HEAD") or "HEAD"
+    base = _resolve_base(repo_root, getattr(args, "base", None), head)
     result = evaluator.reconcile(
         ledger=ledger,
         repo_root=repo_root,
-        base=getattr(args, "base", "origin/main") or "origin/main",
-        head=getattr(args, "head", "HEAD") or "HEAD",
+        base=base,
+        head=head,
         mode=effective_mode,  # type: ignore[arg-type]
         pr_body=pr_body,
         run_checks=not getattr(args, "skip_execution", False),
@@ -325,14 +381,47 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",
     ]
+    # Loud non-blocking warnings (e.g. --check-na with no force for ci.yml-owned
+    # checks, §7.5/Fix B).
+    if result.warnings:
+        lines.append("")
+        lines.append("WARNING:")
+        lines.extend(f"- {w}" for w in result.warnings)
+    # Recovery-mode banner (§7.5): --only / --skip-execution cannot create final
+    # PR readiness when mandatory tier checks were not actually run/validated.
+    recovery = bool(getattr(args, "only", None)) or bool(getattr(args, "skip_execution", False))
+    unrun = _unrun_mandatory_checks(result, only=getattr(args, "only", None) or None, args=args)
+    if recovery and unrun:
+        lines.extend(_recovery_banner(effective_mode, unrun))
+
+    # Environment-parity gaps (§7.10): the local env is not CI-equivalent, so we
+    # could not validate the affected checks. Report distinctly and fail closed
+    # for PR readiness (EXIT_TOOL) rather than as a misleading code failure.
+    if result.parity_gaps:
+        lines.append("")
+        lines.append("Environment parity gaps (local env is not CI-equivalent):")
+        lines.extend(f"- {gap}" for gap in result.parity_gaps)
+
+    non_parity_unsatisfied = [item for item in result.unsatisfied if not item.startswith("parity.")]
     if result.unsatisfied:
         lines.append("")
         lines.append("Unsatisfied obligations:")
-        lines.extend(result.repair_hints or [f"- {item}" for item in result.unsatisfied])
-        if any(item.startswith("parity.") for item in result.unsatisfied):
-            return _print_outcome(CommandOutcome(EXIT_TOOL, lines))
+        lines.extend(result.repair_hints or [f"- {item}" for item in non_parity_unsatisfied])
+        if non_parity_unsatisfied:
+            return _print_outcome(CommandOutcome(EXIT_FAIL, lines))
+        # Only parity gaps remain -> tool/environment failure, fail closed.
+        return _print_outcome(CommandOutcome(EXIT_TOOL, lines))
+
+    if result.parity_gaps and effective_mode in ("pre-pr", "ci"):
+        return _print_outcome(CommandOutcome(EXIT_TOOL, lines))
+
+    if recovery and unrun and effective_mode in ("pre-pr", "ci"):
+        # Recovery cannot create final readiness in strict modes.
         return _print_outcome(CommandOutcome(EXIT_FAIL, lines))
-    lines.append("reconciliation passed")
+
+    lines.append(
+        "recovery reconciliation passed; NOT final PR readiness" if (recovery and unrun) else "reconciliation passed"
+    )
     return _print_outcome(CommandOutcome(EXIT_OK, lines))
 
 
@@ -377,11 +466,13 @@ def run_finalize(repo_root: Path, args: Any) -> int:
 
     mode = "ci" if is_post_pr else "pre-pr"
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
+    head = getattr(args, "head", "HEAD") or "HEAD"
+    base = _resolve_base(repo_root, getattr(args, "base", None), head)
     result = evaluator.reconcile(
         ledger=ledger,
         repo_root=repo_root,
-        base=getattr(args, "base", "origin/main") or "origin/main",
-        head=getattr(args, "head", "HEAD") or "HEAD",
+        base=base,
+        head=head,
         mode=mode,  # type: ignore[arg-type]
         pr_body=pr_body,
         run_checks=True,
@@ -391,11 +482,18 @@ def run_finalize(repo_root: Path, args: Any) -> int:
         return _print_outcome(save_err)
 
     lines = [f"finalize mode={'post-PR' if is_post_pr else 'pre-PR'} tier={result.strictness_tier}"]
+    if result.warnings:
+        lines.append("WARNING:")
+        lines.extend(f"- {w}" for w in result.warnings)
+    if result.parity_gaps:
+        lines.append("Environment parity gaps (local env is not CI-equivalent):")
+        lines.extend(f"- {gap}" for gap in result.parity_gaps)
+    non_parity_unsatisfied = [item for item in result.unsatisfied if not item.startswith("parity.")]
     if result.unsatisfied:
         lines.append("Unsatisfied obligations:")
-        lines.extend(result.repair_hints or [f"- {item}" for item in result.unsatisfied])
-        if any(item.startswith("parity.") for item in result.unsatisfied):
-            return _print_outcome(CommandOutcome(EXIT_TOOL, lines))
-        return _print_outcome(CommandOutcome(EXIT_FAIL, lines))
+        lines.extend(result.repair_hints or [f"- {item}" for item in non_parity_unsatisfied])
+        if non_parity_unsatisfied:
+            return _print_outcome(CommandOutcome(EXIT_FAIL, lines))
+        return _print_outcome(CommandOutcome(EXIT_TOOL, lines))
     lines.append("ledger is PR-ready" if not is_post_pr else "post-PR reconciliation passed")
     return _print_outcome(CommandOutcome(EXIT_OK, lines))

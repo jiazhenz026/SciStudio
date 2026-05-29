@@ -461,3 +461,120 @@ def test_sanitizer_allows_repo_relative_event(tmp_path: Path) -> None:
     )
     # Should not raise.
     io.write_ledger(tmp_path / "ledger.json", ledger)
+
+
+# ---------------------------------------------------------------------------
+# Fix A: parity-gap classification — an env-parity cause is NOT a code failure.
+# ---------------------------------------------------------------------------
+
+
+def test_detect_parity_cause_classifies_missing_module() -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    out = "ImportError while importing test module\nE   ModuleNotFoundError: No module named 'pandas'\nerrors during collection"
+    detail = checks.detect_parity_cause(out)
+    assert detail is not None
+    assert "pandas" in detail
+
+
+def test_detect_parity_cause_ignores_genuine_assertion_failure() -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    out = "def test_x():\n>       assert 1 == 2\nE       assert 1 == 2\n1 failed in 0.01s"
+    assert checks.detect_parity_cause(out) is None
+
+
+def test_parity_gap_check_event_reports_distinctly_not_as_code_failure(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+
+    # Simulate a check whose nonzero exit is caused by a missing dependency CI
+    # has (env-parity cause), NOT a code/assertion failure.
+    def _fake_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(
+            name=name,
+            command="pytest -n auto",
+            covered_surface="python",
+            exit_code=2,
+            status="fail",
+            summary="parity gap: missing module: setuptools",
+            parity_gap=True,
+            parity_detail="missing module: setuptools",
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True
+    )
+    # Classified as a parity gap, fail closed for PR readiness, and NOT a
+    # checks.<name> code failure.
+    assert any("local environment is not CI-equivalent" in gap for gap in result.parity_gaps)
+    assert any(item.startswith("parity.") for item in result.unsatisfied)
+    assert not any(item.startswith("checks.") for item in result.unsatisfied)
+
+
+def test_genuine_check_failure_still_reads_as_code_failure(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+
+    def _fake_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(
+            name=name, command="ruff check .", covered_surface="python", exit_code=1, status="fail", summary="exit 1"
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=True
+    )
+    # A genuine failure stays a code failure, not a parity gap.
+    assert any(item.startswith("checks.") for item in result.unsatisfied)
+    assert not result.parity_gaps
+
+
+# ---------------------------------------------------------------------------
+# Fix B: --check-na for a ci.yml-owned check has no force.
+# ---------------------------------------------------------------------------
+
+
+def test_check_na_for_ci_owned_check_warns_and_does_not_waive(git_repo: Path) -> None:
+    from scistudio.qa.governance.gate_record.ledger import CheckNa
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+    ledger.check_na.append(CheckNa(name="python_tests", rationale="no time"))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
+    )
+    # Loud warning emitted; the N/A has no force for the ci.yml-owned check.
+    assert any("python_tests" in w and "NO force" in w for w in result.warnings)
+
+
+def test_check_na_for_non_ci_owned_check_still_waives(git_repo: Path) -> None:
+    from scistudio.qa.governance.gate_record.ledger import CheckNa
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+    # A task-specific (non-ci-owned) check name is waivable without a warning.
+    ledger.check_na.append(CheckNa(name="my_custom_task_check", rationale="not relevant here"))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
+    )
+    assert not any("my_custom_task_check" in w for w in result.warnings)

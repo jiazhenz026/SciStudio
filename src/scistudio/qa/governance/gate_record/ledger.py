@@ -161,6 +161,13 @@ class CheckEvent(BaseModel):
     summary: str = ""
     raw_log_ref: str | None = None
     pr_only: bool = False
+    # When True the nonzero exit is an ENVIRONMENT-PARITY cause (collection
+    # ImportError/ModuleNotFoundError, missing interpreter/tool, missing dep),
+    # NOT a genuine code/assertion failure (§7.10). The evaluator reports these
+    # as parity gaps (fail closed for PR readiness) rather than misleading code
+    # failures, and ``parity_detail`` names what is missing.
+    parity_gap: bool = False
+    parity_detail: str | None = None
 
     @model_validator(mode="after")
     def _validate_exit(self) -> CheckEvent:

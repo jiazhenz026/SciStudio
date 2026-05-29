@@ -675,7 +675,7 @@ Arguments:
 | Argument | Required | Repeatable | Meaning |
 |---|---:|---:|---|
 | `--record` | no | no | Optional explicit ledger path; normally auto-discovered from current branch |
-| `--base` | no | no | Base ref for diff; default `origin/main` |
+| `--base` | no | no | Base ref for diff; default `merge-base(origin/main, HEAD)`, falling back to `origin/main`. Deeply-stacked branches may need an explicit `--base` |
 | `--head` | no | no | Head ref for diff; default `HEAD` |
 | `--mode` | no | no | `local`, `pre-push`, `pre-pr`, or `ci`; default `local` |
 | `--pr-body-file` | no | no | Intended PR body file for pre-PR issue-closure checks |
@@ -833,7 +833,7 @@ Arguments:
 | Argument | Required | Repeatable | Meaning |
 |---|---:|---:|---|
 | `--record` | no | no | Optional explicit ledger path; normally auto-discovered from current branch |
-| `--base` | no | no | Base ref for final diff; default `origin/main` |
+| `--base` | no | no | Base ref for final diff; default `merge-base(origin/main, HEAD)`, falling back to `origin/main`. Deeply-stacked branches may need an explicit `--base` |
 | `--head` | no | no | Head ref for final diff; default `HEAD` |
 | `--commit` | yes | yes | Commit SHA included in the candidate or PR |
 | `--pr` | conditional | no | PR URL or number; required only for post-PR finalization |
