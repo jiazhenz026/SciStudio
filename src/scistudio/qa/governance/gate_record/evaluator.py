@@ -290,7 +290,7 @@ _GUARD_REPAIR_ACTIONS: dict[str, str] = {
     ),
     "human_bypass_guard": (
         "Use a valid ADR-042 override label applied by an authorized maintainer; "
-        "AI-authored evidence needs admin-approved:ai-override provenance."
+        "AI-authored evidence needs admin-approved:bypass provenance."
     ),
     "pr_merge_guard": (
         "AI merge automation needs admin-approved:merge applied by an authorized maintainer (verified in CI)."
