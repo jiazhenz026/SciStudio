@@ -1,27 +1,19 @@
 repos:
   - repo: local
     hooks:
-      - id: scistudio-governance-mod-guard
-        name: SciStudio governance modification guard
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.mod_guard --staged
-        language: system
-        pass_filenames: false
-        files: ^(AGENTS\.md|\.workflow/|\.github/workflows/|\.pre-commit-config\.yaml|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|src/scistudio/qa/|tests/qa/)
-      - id: scistudio-weakened-ci-check
-        name: SciStudio weakened CI/pre-commit check
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.weakened_ci_check --staged
-        language: system
-        pass_filenames: false
-        files: ^(\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml)
+      # ADR-042 Addendum 6 §6: every governance pre-commit hook is a thin caller
+      # of the single shared evaluator (gate_record check --mode pre-commit). No
+      # hook keeps its own protected-path list or bypass vocabulary; the
+      # evaluator's mod_guard / weakened_ci_check calculators own those.
       - id: scistudio-gate-record-pre-commit
         name: SciStudio ADR-042 gate record pre-commit
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record pre-commit --staged
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit
         language: system
         pass_filenames: false
-        files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|scripts/hooks/)
+        files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml|AGENTS\.md|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|scripts/hooks/)
       - id: scistudio-gate-record-commit-msg
         name: SciStudio ADR-042 gate record commit message
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode commit-msg
         language: system
         stages: [commit-msg]
 
@@ -37,18 +29,22 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
+  # ADR-042 Addendum 6 §6.2/§7.10: pin ruff/mypy to the CI-resolved versions so
+  # local pre-commit matches CI. CI installs unpinned `ruff` and `.[dev]` mypy,
+  # which currently resolve ruff 0.15.15 and mypy 2.1.0. mypy additional
+  # dependencies mirror the CI `.[dev]` stub packages (types-PyYAML).
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
+    rev: v0.15.15
     hooks:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    rev: v2.1.0
     hooks:
       - id: mypy
-        additional_dependencies: []
+        additional_dependencies: ["types-PyYAML>=6.0"]
         args: ["--ignore-missing-imports"]
 
   - repo: https://github.com/commitizen-tools/commitizen
