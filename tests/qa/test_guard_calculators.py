@@ -310,6 +310,69 @@ def test_weakened_ci_accepts_prelexed_lines() -> None:
     assert "weakened-ci.added-no-verify" in _rule_ids(report)
 
 
+def test_weakened_ci_tokens_are_specific_not_generic_python_head() -> None:
+    # Defect 1 regression (#1509): catalog commands launched via ``python -m``
+    # (full_audit, wheel build) must contribute a SPECIFIC distinguishing token
+    # (module path / subcommand), never the generic ``python -m`` head that
+    # collides with any other ``python -m ...`` invocation.
+    tokens = dict(weakened_ci_check._required_removal_tokens())
+    assert "python -m" not in set(tokens.values())
+    assert "python" not in set(tokens.values())
+    assert tokens["full_audit"] == "scistudio.qa.audit.full_audit"
+    assert tokens["wheel_release_smoke"] == "build"
+    assert tokens["type_check"] == "mypy"
+    assert tokens["import_contracts"] == "lint-imports"
+    assert tokens["semantic_dup"] == "scripts/semantic_dup_scan.py"
+
+
+def test_weakened_ci_does_not_flag_gate_record_ci_to_check_fold() -> None:
+    # Defect 1 regression (#1509): folding the CI invocation from
+    # ``python -m ...gate_record ci`` to ``... gate_record check --mode ci`` must
+    # NOT be read as removing a required CI/pre-commit check token. With the old
+    # truncated ``python -m`` token this removal false-matched full_audit/wheel.
+    diff = (
+        "diff --git a/.github/workflows/workflow-gate.yml b/.github/workflows/workflow-gate.yml\n"
+        "--- a/.github/workflows/workflow-gate.yml\n"
+        "+++ b/.github/workflows/workflow-gate.yml\n"
+        "-          PYTHONPATH=src python -m scistudio.qa.governance.gate_record ci \\\n"
+        "+          PYTHONPATH=src python -m scistudio.qa.governance.gate_record check \\\n"
+        "+            --mode ci \\\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_weakened_ci_still_flags_genuine_full_audit_removal() -> None:
+    # The token precision fix must NOT let a genuine removal slip: deleting the
+    # full_audit invocation from a governed CI workflow is still a weakening.
+    diff = (
+        "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n"
+        "--- a/.github/workflows/ci.yml\n"
+        "+++ b/.github/workflows/ci.yml\n"
+        "-          PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root .\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.blocks_merge
+    assert "weakened-ci.removed-full_audit" in _rule_ids(report)
+
+
+def test_weakened_ci_still_flags_deleted_pre_commit_hook() -> None:
+    # A pre-commit hook genuinely deleted with no replacement still trips the
+    # guard (the token precision change only narrows python -m, not real removals).
+    diff = (
+        "diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml\n"
+        "--- a/.pre-commit-config.yaml\n"
+        "+++ b/.pre-commit-config.yaml\n"
+        "-      - id: ruff\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.blocks_merge
+    assert "weakened-ci.removed-lint_format" in _rule_ids(report) or "weakened-ci.removed-format_check" in _rule_ids(
+        report
+    )
+
+
 # ---------------------------------------------------------------------------
 # sentrux_gate
 # ---------------------------------------------------------------------------

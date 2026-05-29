@@ -265,9 +265,7 @@ def test_check_says_run_init_when_no_ledger(git_repo: Path, capsys: pytest.Captu
 # ---------------------------------------------------------------------------
 
 
-def test_ci_branch_resolution_finds_ledger_in_detached_head(
-    git_repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ci_branch_resolution_finds_ledger_in_detached_head(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Ledger for the PR branch (not the branch git currently has checked out).
     pr_branch = "track/adr-042-add6/umbrella"
     ledger = GateLedger.model_validate(
@@ -301,9 +299,7 @@ def test_ci_branch_resolution_finds_ledger_in_detached_head(
     assert io.load_ledger(discovery.path).branch == pr_branch
 
 
-def test_ci_branch_resolution_falls_back_to_ref_name(
-    git_repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ci_branch_resolution_falls_back_to_ref_name(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # GITHUB_REF_NAME is the fallback when GITHUB_HEAD_REF is unset (e.g. push).
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
@@ -336,9 +332,7 @@ def test_detached_head_single_ledger_fallback(git_repo: Path, monkeypatch: pytes
     assert io.load_ledger(discovery.path).record_id == "lone"
 
 
-def test_detached_head_multiple_ledgers_stays_ambiguous(
-    git_repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_detached_head_multiple_ledgers_stays_ambiguous(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # With more than one active ledger and no resolvable branch, never guess:
     # report the candidates so the caller passes --record.
     for name in ("a", "b"):
@@ -510,9 +504,15 @@ def test_local_and_ci_use_same_evaluator_path(git_repo: Path) -> None:
     ci = evaluator.reconcile(
         ledger=_fresh(), repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
     )
-    # Same tier and same required check set: one reconciliation code path.
+    # One reconciliation code path, one tier-selection input: same tier and the
+    # SAME pre-role-split tier-selected check set for the same diff.
     assert local.strictness_tier == ci.strictness_tier == 1  # qa/governance escalates.
-    assert local.required_obligations.checks == ci.required_obligations.checks
+    # §7.5 role split (#1509): the workflow-gate ``ci`` mode validates GOVERNANCE
+    # + guards, so the ci.yml-owned quality matrix is dropped from ci-mode
+    # required obligations (ci.yml jobs are authoritative for it on the same PR).
+    # local keeps the full matrix as the CI-equivalent preflight.
+    assert set(local.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS
+    assert not (set(ci.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS)
 
 
 # ---------------------------------------------------------------------------

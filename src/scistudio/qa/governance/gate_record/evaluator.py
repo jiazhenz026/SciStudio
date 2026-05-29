@@ -49,6 +49,31 @@ _BASELINE_TIER: dict[str, StrictnessTier] = {
     "manager": 3,
 }
 
+# Quality checks owned by the separate ``ci.yml`` jobs (ADR-042 Addendum 6
+# §7.5 CI command-source table). The ``workflow-gate.yml`` / "Verify Workflow
+# Compliance" job validates GOVERNANCE + guards, NOT this quality matrix: those
+# jobs are authoritative for lint/format/type/test/audit/architecture/import-
+# contracts/frontend/wheel/semantic-dup and run independently. So in ``ci`` mode
+# the shared evaluator must NOT re-require ledger ``check_events`` for these --
+# doing so both duplicates ``ci.yml`` and blocks on evidence the workflow-gate
+# job was never meant to demand. ``local``/``pre-pr`` modes still run them as the
+# CI-equivalent preflight. This is the §7.5 role split, not a weakening: the
+# matrix remains enforced by ``ci.yml`` on the same PR.
+_CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
+    {
+        "lint_format",
+        "format_check",
+        "type_check",
+        "architecture_tests",
+        "full_audit",
+        "python_tests",
+        "import_contracts",
+        "frontend",
+        "wheel_release_smoke",
+        "semantic_dup",
+    }
+)
+
 # Surface classes the evaluator records on the observed diff.
 _SURFACE_CLASSIFIERS = {
     "implementation": surfaces.is_implementation_path,
@@ -142,6 +167,29 @@ def _verify_claims(declared: Sequence[str], changed_files: Sequence[str]) -> tup
     verified = [p for p in declared if surfaces.normalize_path(p) in changed]
     unverified = [p for p in declared if surfaces.normalize_path(p) not in changed]
     return verified, unverified
+
+
+def _observed_docs_evidence(grouped: dict[str, list[str]]) -> list[str]:
+    """Return docs/governed-doc files present in the observed diff (§7.5).
+
+    The workflow-gate job validates that documentation LANDED; a docs or
+    governed-doc file in the git diff is objective git-observed landing
+    evidence, independent of whether the agent declared it as a ``docs_event``.
+    Used in ``ci`` mode so docs-landing is satisfiable from the observed diff.
+    """
+
+    return sorted({*grouped.get("docs", []), *grouped.get("governed_docs", [])})
+
+
+def _observed_test_evidence(grouped: dict[str, list[str]]) -> list[str]:
+    """Return test files present in the observed diff (§7.5).
+
+    A changed test file in the git diff satisfies ``changed_test_required``
+    directly: the diff is the evidence, so ``ci`` mode does not require a
+    separately recorded ``test_event`` when tests visibly changed.
+    """
+
+    return sorted(set(grouped.get("test", [])))
 
 
 def _docs_na_rationales(ledger: GateLedger) -> list[str]:
@@ -360,6 +408,19 @@ def reconcile(
     # 4. Reconcile declared docs/test claims (claimed-but-unverified, §3.3.4).
     verified_docs, unverified_docs = _verify_claims(ledger.declared_docs_paths(), observed_files)
     verified_tests, unverified_tests = _verify_claims(ledger.declared_test_paths(), observed_files)
+
+    # ci mode aligns docs/test satisfaction to the workflow-gate role (§7.5):
+    # documentation that LANDED and tests that CHANGED are visible in the git
+    # diff, so the workflow-gate validates them from the observed diff without
+    # requiring separately declared docs_events/test_events. Git-observed facts
+    # are trusted over declarations, so observed docs/test surfaces augment the
+    # verified sets used by the obligations and the docs_landing guard. local /
+    # pre-pr keep their declared-evidence behavior unchanged.
+    if mode == "ci":
+        observed_docs = _observed_docs_evidence(grouped)
+        observed_tests = _observed_test_evidence(grouped)
+        verified_docs = sorted({*verified_docs, *observed_docs})
+        verified_tests = sorted({*verified_tests, *observed_tests})
     for path in unverified_docs:
         findings.append(
             AuditFinding(
@@ -382,6 +443,15 @@ def reconcile(
     # 7. Infer tier-selected required check set from the CI graph.
     selection = checks.select_checks(tier=tier, changed_files=observed_files)
     parity_gaps.extend(selection.parity_gaps)
+
+    # In ci mode the workflow-gate job does NOT own the ci.yml quality matrix
+    # (§7.5): those checks run as separate authoritative ci.yml jobs on the same
+    # PR. Drop them from the required obligations so the shared evaluator does
+    # not re-require ledger check_events for them (which would duplicate ci.yml
+    # and block on evidence the workflow-gate job was never meant to demand).
+    # local / pre-pr keep the full CI-equivalent preflight selection.
+    if mode == "ci":
+        selection.required = [name for name in selection.required if name not in _CI_OWNED_QUALITY_CHECKS]
 
     # 5. Infer obligations.
     obligations = _infer_obligations(

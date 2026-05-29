@@ -79,22 +79,52 @@ ADDED_WEAKENING_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
 )
 
 
+# Generic interpreter/launcher heads that are NOT distinguishing on their own:
+# truncating a catalog command to one of these (e.g. ``python -m``) makes the
+# token match ANY ``python -m ...`` invocation -- including the legitimate
+# ``python -m ...gate_record ci`` -> ``... gate_record check --mode ci`` fold --
+# and trips a false ``removed required ... token: python -m`` finding. The token
+# builder below skips these prefixes and uses the first SPECIFIC argv part
+# (module path, subcommand, or check name) so each catalog command contributes a
+# distinguishing token that only matches a genuine removal of that check.
+_GENERIC_COMMAND_HEADS: frozenset[str] = frozenset({"python", "python3", "-m", "uv", "uvx", "npx"})
+
+
+def _distinguishing_token(command: tuple[str, ...]) -> str:
+    """Return a specific token that identifies a catalog command's check.
+
+    Skips generic interpreter/launcher heads (``python``, ``-m``, ...) and
+    returns the first meaningful argv part. For ``python -m
+    scistudio.qa.audit.full_audit`` this yields the module path (not ``python
+    -m``); for ``python -m build`` it yields ``build``; for ``ruff check .`` it
+    yields ``ruff``. The token is the narrowest substring that still uniquely
+    identifies the removed check without colliding with unrelated ``python -m``
+    commands such as ``gate_record``.
+    """
+
+    for part in command:
+        if part.lower() not in _GENERIC_COMMAND_HEADS:
+            return part
+    # All parts were generic (should not happen for real catalog commands).
+    return command[-1] if command else ""
+
+
 def _required_removal_tokens() -> list[tuple[str, str]]:
     """Derive the required-token set from the CI graph + intrinsic tokens.
 
-    Each CI catalog command contributes its command head (e.g. ``ruff check``,
-    ``mypy``, ``lint-imports``) as a token that must not be removed from
-    governed configuration. This replaces the legacy hand-maintained list.
+    Each CI catalog command contributes one SPECIFIC distinguishing token (e.g.
+    ``ruff``, ``mypy``, ``pytest``, ``lint-imports``, the ``full_audit`` module
+    path, ``build``, ``semantic_dup_scan.py``) that must not be removed from
+    governed configuration. The token is derived past the generic interpreter
+    prefix so a ``python -m ...`` command yields its module/subcommand, never the
+    generic ``python -m`` head that collides with the gate-record fold.
     """
 
     tokens: dict[str, str] = {}
     for name, spec in checks.CHECK_CATALOG.items():
         if not spec.command:
             continue
-        # Use the first two argv parts as a stable, human-meaningful token
-        # (e.g. "ruff check", "ruff format", "mypy", "lint-imports").
-        head = " ".join(spec.command[:2]) if len(spec.command) >= 2 else spec.command[0]
-        tokens.setdefault(name, head)
+        tokens.setdefault(name, _distinguishing_token(spec.command))
     for suffix, token in _INTRINSIC_REMOVAL_TOKENS:
         tokens.setdefault(suffix, token)
     return sorted(tokens.items())

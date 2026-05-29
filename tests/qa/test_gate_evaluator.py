@@ -19,6 +19,7 @@ from scistudio.qa.governance.gate_record.ledger import (
     DeclaredScope,
     DocsEvent,
     GateLedger,
+    IssueRef,
     TestEvent,
 )
 
@@ -246,6 +247,138 @@ def test_guard_repair_hint_uses_finding_message_when_no_action_mapped() -> None:
     assert hint.startswith("- guard.some_guard")
     assert "thing is broken" in hint
     assert "Affected: a.py" in hint
+
+
+# ---------------------------------------------------------------------------
+# ci-mode obligation scope (§7.5): workflow-gate validates GOVERNANCE, not the
+# ci.yml quality matrix. Defect 2 regression (#1509).
+# ---------------------------------------------------------------------------
+
+
+def _ci_ready_repo(repo: Path) -> None:
+    """Stage a governance change WITH docs + tests landed in the same diff."""
+
+    (repo / "src/scistudio/qa/governance").mkdir(parents=True, exist_ok=True)
+    (repo / "src/scistudio/qa/governance/foo.py").write_text("y = 1\n", encoding="utf-8")
+    (repo / "docs/specs").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/specs/x.md").write_text("# spec\n", encoding="utf-8")
+    (repo / "tests/qa").mkdir(parents=True, exist_ok=True)
+    (repo / "tests/qa/test_foo.py").write_text("def test_foo():\n    assert True\n", encoding="utf-8")
+    _git(repo, "add", "src/scistudio/qa/governance/foo.py", "docs/specs/x.md", "tests/qa/test_foo.py")
+    _git(repo, "commit", "-q", "-m", "gov change + docs + tests")
+
+
+def test_ci_mode_passes_without_quality_check_events(git_repo: Path) -> None:
+    # (d) ci mode must NOT fail solely because the ci.yml quality matrix has no
+    # ledger check_events: those run as separate authoritative ci.yml jobs.
+    _ci_ready_repo(git_repo)
+    ledger = _ledger(task_kind="feature", issues=[IssueRef(number=1509)], governance_touch=True)
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        pr_body="Closes #1509",
+        run_checks=True,
+    )
+    # No quality-check obligations remain; docs+tests satisfied from the diff.
+    # (The synthetic tmp repo has no persona pointers / src import, so unrelated
+    # parity/persona gaps may remain; this test asserts only the §7.5 scope.)
+    assert not any(item.startswith("checks.") for item in result.unsatisfied), result.unsatisfied
+    assert "docs.docs_required_or_na" not in result.unsatisfied
+    assert "tests.changed_test_required" not in result.unsatisfied
+    assert "guard.docs_landing" not in result.unsatisfied
+    assert "issue.required" not in result.unsatisfied
+    assert "guard.issue_link" not in result.unsatisfied
+
+
+def test_ci_mode_quality_checks_dropped_from_obligations(git_repo: Path) -> None:
+    # The ci.yml quality matrix is never listed as a required ci-mode check.
+    _ci_ready_repo(git_repo)
+
+    ledger = _ledger(task_kind="feature", issues=[IssueRef(number=1509)], governance_touch=True)
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", pr_body="Closes #1509"
+    )
+    assert not (set(result.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS)
+
+
+def test_ci_mode_still_fails_without_issue_linkage(git_repo: Path) -> None:
+    # (c) ci mode still enforces issue linkage even with the quality matrix off.
+    _ci_ready_repo(git_repo)
+    ledger = _ledger(task_kind="feature", governance_touch=True)  # no issues
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", pr_body="some body"
+    )
+    assert "issue.required" in result.unsatisfied
+
+
+def test_ci_mode_still_fails_missing_closing_keyword(git_repo: Path) -> None:
+    # (c) ci mode still enforces the PR-body closing keyword via issue_link guard.
+    _ci_ready_repo(git_repo)
+
+    ledger = _ledger(task_kind="feature", issues=[IssueRef(number=1509)], governance_touch=True)
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        pr_body="No closing keyword here.",
+    )
+    assert "guard.issue_link" in result.unsatisfied
+
+
+def test_ci_mode_still_fails_out_of_scope_change(git_repo: Path) -> None:
+    # (c) ci mode still enforces scope reconciliation against the observed diff.
+    _add_change(git_repo, "src/scistudio/x.py")
+
+    ledger = _ledger(
+        task_kind="feature",
+        issues=[IssueRef(number=1509)],
+        declared_scope=DeclaredScope(include=["src/scistudio/y.py"]),
+    )
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", pr_body="Closes #1509"
+    )
+    assert any(f.rule_id == "scope.out-of-scope" for f in result.report.findings)
+    assert not result.passed
+
+
+def test_ci_mode_still_fails_governance_guard_violation(git_repo: Path) -> None:
+    # (c) ci mode still enforces governance guards: an unauthorized governance
+    # change (no governance_touch, no bypass) still blocks via mod_guard.
+    _add_change(git_repo, "docs/ai-developer/rules.md")
+
+    ledger = _ledger(
+        task_kind="feature",
+        issues=[IssueRef(number=1509)],
+        governance_touch=False,
+        declared_scope=DeclaredScope(include=["docs/**"]),
+    )
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", pr_body="Closes #1509"
+    )
+    assert "guard.mod_guard" in result.unsatisfied
+
+
+def test_local_mode_still_requires_quality_checks(git_repo: Path) -> None:
+    # Keep local behavior intact: local mode still selects the ci.yml quality
+    # matrix as the CI-equivalent preflight (not dropped like ci mode).
+    _ci_ready_repo(git_repo)
+
+    ledger = _ledger(task_kind="feature", issues=[IssueRef(number=1509)], governance_touch=True)
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="local",
+        run_checks=False,
+    )
+    # Quality checks remain in the required obligation set for local preflight.
+    assert set(result.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS
 
 
 # ---------------------------------------------------------------------------
