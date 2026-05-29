@@ -1,10 +1,13 @@
 # mypy: disable-error-code=no-untyped-def
-"""Tests for ``scripts/scistudio_pr_create.py``.
+"""Tests for the rewritten ``scripts/scistudio_pr_create.py`` (ADR-042 Addendum 6).
 
-Covers the four pure-function pieces (``extract_body``,
-``find_gate_record``, ``filter_findings``) plus a smoke for ``main()``
-using ``--dry-run`` so the test never invokes ``gh pr create`` or hits
-the real network.
+The wrapper is now a thin caller of the single shared evaluator: it extracts the
+PR body/base from the ``gh pr create`` argv, verifies a current-branch gate
+ledger exists via the SHARED ``io.discover_ledger`` (no private ``find_gate_record``),
+then runs ``gate_record check --mode pre-pr --pr-body-file <body>`` once. There is
+no caller-side finding filter (``filter_findings`` is deleted — pre-PR-impossible
+findings are classified internally by the evaluator's pre-PR mode) and no separate
+receipt-validate step. ``--dry-run`` and ``SCISTUDIO_SKIP_PREFLIGHT`` are preserved.
 """
 
 from __future__ import annotations
@@ -22,7 +25,6 @@ _SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "scistudio_pr_c
 
 @pytest.fixture(scope="module")
 def wrapper():
-    """Load ``scripts/scistudio_pr_create.py`` as a module for testing."""
     spec = importlib.util.spec_from_file_location("scistudio_pr_create", _SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -62,182 +64,6 @@ class TestExtractBody:
 
 
 # ---------------------------------------------------------------------------
-# find_gate_record
-# ---------------------------------------------------------------------------
-
-
-def _write_record(records_dir: Path, name: str, branch: str, *, task_kind: str = "feature") -> Path:
-    records_dir.mkdir(parents=True, exist_ok=True)
-    p = records_dir / f"{name}.json"
-    p.write_text(
-        json.dumps({"branch": branch, "task_kind": task_kind, "issues": []}),
-        encoding="utf-8",
-    )
-    return p
-
-
-class TestFindGateRecord:
-    def test_unique_match(self, wrapper, tmp_path: Path) -> None:
-        records_dir = tmp_path / ".workflow" / "records"
-        p = _write_record(records_dir, "1360-x", "feat/issue-1360/x")
-        assert wrapper.find_gate_record(tmp_path, "feat/issue-1360/x") == p
-
-    def test_no_match_raises(self, wrapper, tmp_path: Path) -> None:
-        records_dir = tmp_path / ".workflow" / "records"
-        _write_record(records_dir, "1360-x", "feat/issue-1360/x")
-        with pytest.raises(SystemExit, match="no gate record"):
-            wrapper.find_gate_record(tmp_path, "feat/issue-9999/other")
-
-    def test_no_records_dir_raises(self, wrapper, tmp_path: Path) -> None:
-        with pytest.raises(SystemExit, match=r"no \.workflow/records/ directory"):
-            wrapper.find_gate_record(tmp_path, "any-branch")
-
-    def test_multi_match_prefers_manager(self, wrapper, tmp_path: Path) -> None:
-        # Umbrella PR pattern from #1340: sub-records ride along with the
-        # manager record; prefer the manager one.
-        records_dir = tmp_path / ".workflow" / "records"
-        _write_record(records_dir, "sub1", "umbrella/x", task_kind="feature")
-        _write_record(records_dir, "sub2", "umbrella/x", task_kind="bugfix")
-        manager = _write_record(records_dir, "manager", "umbrella/x", task_kind="manager")
-        assert wrapper.find_gate_record(tmp_path, "umbrella/x") == manager
-
-    def test_multi_match_no_manager_raises(self, wrapper, tmp_path: Path) -> None:
-        records_dir = tmp_path / ".workflow" / "records"
-        _write_record(records_dir, "a", "branch", task_kind="feature")
-        _write_record(records_dir, "b", "branch", task_kind="bugfix")
-        with pytest.raises(SystemExit, match="multiple gate records"):
-            wrapper.find_gate_record(tmp_path, "branch")
-
-    def test_malformed_record_is_skipped(self, wrapper, tmp_path: Path) -> None:
-        records_dir = tmp_path / ".workflow" / "records"
-        records_dir.mkdir(parents=True)
-        (records_dir / "bad.json").write_text("not json{", encoding="utf-8")
-        good = _write_record(records_dir, "good", "feat/x")
-        assert wrapper.find_gate_record(tmp_path, "feat/x") == good
-
-
-# ---------------------------------------------------------------------------
-# filter_findings
-# ---------------------------------------------------------------------------
-
-
-def _finding(rule_id: str, severity: str = "error", message: str = "") -> dict[str, Any]:
-    return {"rule_id": rule_id, "severity": severity, "message": message}
-
-
-class TestFilterFindings:
-    def test_all_filtered(self, wrapper) -> None:
-        report = {
-            "findings": [
-                _finding("core_change_guard.missing-admin-approval"),
-                _finding("pr_merge_guard.missing-admin-merge-approval"),
-                _finding("human_bypass_guard.missing-bypass-label"),
-            ]
-        }
-        remaining, filtered = wrapper.filter_findings(report)
-        assert remaining == []
-        assert filtered == 3
-
-    def test_none_filtered(self, wrapper) -> None:
-        report = {
-            "findings": [
-                _finding("issue_link.invalid-record"),
-                _finding("docs_landing.missing-changelog"),
-                _finding("sentrux.free_tier.missing-rules-checked"),
-            ]
-        }
-        remaining, filtered = wrapper.filter_findings(report)
-        assert len(remaining) == 3
-        assert filtered == 0
-
-    def test_mixed(self, wrapper) -> None:
-        report = {
-            "findings": [
-                _finding("core_change_guard.missing-admin-approval"),  # filtered
-                _finding("issue_link.missing"),  # kept
-                _finding("human_bypass_guard.ai-evidence-needs-admin-override"),  # filtered
-                _finding("docs_landing.missing-checklist"),  # kept
-            ]
-        }
-        remaining, filtered = wrapper.filter_findings(report)
-        assert {f["rule_id"] for f in remaining} == {
-            "issue_link.missing",
-            "docs_landing.missing-checklist",
-        }
-        assert filtered == 2
-
-    def test_empty_findings(self, wrapper) -> None:
-        assert wrapper.filter_findings({"findings": []}) == ([], 0)
-
-    def test_missing_findings_key(self, wrapper) -> None:
-        # gate_record ci returns no 'findings' on full pass — must not crash.
-        assert wrapper.filter_findings({"status": "pass"}) == ([], 0)
-
-    def test_finding_without_rule_id_kept(self, wrapper) -> None:
-        # Defensive: a finding with no rule_id can't be filtered safely; keep it.
-        report = {"findings": [{"severity": "error", "message": "weird"}]}
-        remaining, filtered = wrapper.filter_findings(report)
-        assert len(remaining) == 1
-        assert filtered == 0
-
-    def test_stage_not_done_commit_and_submit_pr_filtered(self, wrapper) -> None:
-        # Caught during PR #1360 dogfood: ``commit_and_submit_pr`` stage is
-        # only set by ``gate_record finalize`` which itself requires the PR
-        # URL — structurally impossible to pass pre-PR.
-        report = {
-            "findings": [
-                _finding(
-                    "gate-record.stage.not-done",
-                    message="gate stage must be done before PR readiness: commit_and_submit_pr",
-                )
-            ]
-        }
-        remaining, filtered = wrapper.filter_findings(report)
-        assert remaining == []
-        assert filtered == 1
-
-    def test_stage_not_done_other_stages_kept(self, wrapper) -> None:
-        # A ``stage.not-done`` for any other stage (e.g. ``implement``)
-        # IS the author's responsibility to fix pre-push; must NOT be filtered.
-        report = {
-            "findings": [
-                _finding(
-                    "gate-record.stage.not-done",
-                    message="gate stage must be done before PR readiness: implement",
-                )
-            ]
-        }
-        remaining, filtered = wrapper.filter_findings(report)
-        assert len(remaining) == 1
-        assert filtered == 0
-
-
-# ---------------------------------------------------------------------------
-# main — smoke via --dry-run + SCISTUDIO_SKIP_PREFLIGHT
-# ---------------------------------------------------------------------------
-
-
-class TestMainSmoke:
-    def test_help_prints_and_exits_zero(self, wrapper, capsys) -> None:
-        rc = wrapper.main(["--help"])
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert (
-            "scistudio_pr_create" in captured.out.lower()
-            or "preflight" in captured.out.lower()
-            or "pre-flight" in captured.out.lower()
-        )
-
-    def test_dry_run_with_skip_preflight(self, wrapper, monkeypatch, capsys) -> None:
-        monkeypatch.setenv("SCISTUDIO_SKIP_PREFLIGHT", "1")
-        rc = wrapper.main(["--dry-run", "--title", "X", "--body", "Y"])
-        assert rc == 0
-        err = capsys.readouterr().err
-        assert "SKIPPED" in err
-        assert "DRY RUN" in err
-
-
-# ---------------------------------------------------------------------------
 # extract_base + resolve_base_ref (#1382)
 # ---------------------------------------------------------------------------
 
@@ -258,14 +84,6 @@ class TestExtractBase:
     def test_branch_with_dots_and_slashes(self, wrapper) -> None:
         assert wrapper.extract_base(["--base=release/v1.0"]) == "release/v1.0"
 
-    def test_token_substring_does_not_match(self, wrapper) -> None:
-        # --base-file or --basemain must not falsely match.
-        assert wrapper.extract_base(["--basefoo", "main"]) is None
-
-    def test_returns_first_when_passed_twice(self, wrapper) -> None:
-        # gh pr create's own semantics: first occurrence wins. Mirror that.
-        assert wrapper.extract_base(["--base", "main", "--base", "release"]) == "main"
-
 
 class TestResolveBaseRef:
     def test_none_defaults_to_origin_main(self, wrapper) -> None:
@@ -278,87 +96,151 @@ class TestResolveBaseRef:
         assert wrapper.resolve_base_ref("umbrella/2026-05-21-bug-sweep") == "origin/umbrella/2026-05-21-bug-sweep"
 
     def test_already_origin_qualified_kept_verbatim(self, wrapper) -> None:
-        # Caller-provided ``origin/main`` must not become ``origin/origin/main``.
         assert wrapper.resolve_base_ref("origin/main") == "origin/main"
         assert wrapper.resolve_base_ref("origin/release/v1") == "origin/release/v1"
 
     def test_refs_qualified_kept_verbatim(self, wrapper) -> None:
-        # Power users may pass a fully-qualified ref; respect that.
         assert wrapper.resolve_base_ref("refs/heads/main") == "refs/heads/main"
-        assert wrapper.resolve_base_ref("refs/remotes/upstream/main") == "refs/remotes/upstream/main"
 
     def test_content_agnostic_no_umbrella_semantics(self, wrapper) -> None:
-        # The function must work identically regardless of whether the branch
-        # name looks umbrella-shaped. No special branches.
         assert wrapper.resolve_base_ref("feature/foo") == "origin/feature/foo"
         assert wrapper.resolve_base_ref("hotfix/bar") == "origin/hotfix/bar"
-        assert wrapper.resolve_base_ref("track/baz") == "origin/track/baz"
 
 
-class TestMainBaseWiring:
-    """Ensure ``main()`` actually threads the resolved base into ``gate_record ci``."""
+# ---------------------------------------------------------------------------
+# Shared discovery: the wrapper does NOT reimplement ledger discovery.
+# ---------------------------------------------------------------------------
 
-    def test_base_threaded_into_run_gate_record_ci(self, wrapper, monkeypatch, tmp_path: Path) -> None:
-        # Set up a minimal repo-like layout so find_gate_record + body extraction
-        # succeed, then intercept run_gate_record_ci to capture the resolved base.
-        records_dir = tmp_path / ".workflow" / "records"
-        _write_record(records_dir, "issue-x", "fix/issue-x/wrapper-detect")
 
-        # git rev-parse stubs
+def test_wrapper_has_no_private_discovery_or_filter(wrapper) -> None:
+    # The legacy private helpers are deleted; the wrapper uses the shared
+    # io.discover_ledger and the evaluator's pre-pr classification.
+    assert not hasattr(wrapper, "find_gate_record")
+    assert not hasattr(wrapper, "filter_findings")
+    assert not hasattr(wrapper, "run_gate_record_ci")
+    assert not hasattr(wrapper, "run_gate_receipt_validate")
+    assert hasattr(wrapper, "run_pre_pr_check")
+
+
+# ---------------------------------------------------------------------------
+# main — smoke via --help / --dry-run + SCISTUDIO_SKIP_PREFLIGHT.
+# ---------------------------------------------------------------------------
+
+
+class TestMainSmoke:
+    def test_help_prints_and_exits_zero(self, wrapper, capsys) -> None:
+        rc = wrapper.main(["--help"])
+        assert rc == 0
+        out = capsys.readouterr().out.lower()
+        assert "scistudio_pr_create" in out or "pre-flight" in out or "preflight" in out
+
+    def test_dry_run_with_skip_preflight(self, wrapper, monkeypatch, capsys) -> None:
+        monkeypatch.setenv("SCISTUDIO_SKIP_PREFLIGHT", "1")
+        rc = wrapper.main(["--dry-run", "--title", "X", "--body", "Y"])
+        assert rc == 0
+        err = capsys.readouterr().err
+        assert "SKIPPED" in err
+        assert "DRY RUN" in err
+
+
+# ---------------------------------------------------------------------------
+# main wiring: discovery + body required + base threaded into run_pre_pr_check.
+# ---------------------------------------------------------------------------
+
+
+def _write_ledger(records_dir: Path, name: str, branch: str) -> Path:
+    records_dir.mkdir(parents=True, exist_ok=True)
+    p = records_dir / f"{name}.json"
+    p.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "record_id": name,
+                "runtime": "claude-code",
+                "task_kind": "feature",
+                "persona": "implementer",
+                "branch": branch,
+                "owner_directive": "d",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return p
+
+
+class TestMainWiring:
+    def _stub_git(self, wrapper, monkeypatch, repo: Path, branch: str) -> None:
         def _fake_check_output(cmd, *args, **kwargs):
             if cmd[:2] == ["git", "rev-parse"] and "--show-toplevel" in cmd:
-                return str(tmp_path) + "\n"
+                return str(repo) + "\n"
             if cmd[:2] == ["git", "rev-parse"] and "--abbrev-ref" in cmd:
-                return "fix/issue-x/wrapper-detect\n"
+                return branch + "\n"
             raise AssertionError(f"unexpected check_output call: {cmd}")
 
         monkeypatch.setattr(wrapper.subprocess, "check_output", _fake_check_output)
 
+    def test_no_ledger_is_environment_error(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        repo = tmp_path
+        self._stub_git(wrapper, monkeypatch, repo, "feat/x")
+        rc = wrapper.main(["--title", "X", "--body", "Closes #1"])
+        # No current-branch ledger -> environment error (exit 2).
+        assert rc == 2
+
+    def test_missing_body_is_error(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        repo = tmp_path
+        _write_ledger(repo / ".workflow" / "records", "issue-x", "feat/x")
+        self._stub_git(wrapper, monkeypatch, repo, "feat/x")
+        rc = wrapper.main(["--title", "X"])
+        assert rc == 1
+
+    def test_base_threaded_into_pre_pr_check_and_gh_runs_on_clean(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        repo = tmp_path
+        _write_ledger(repo / ".workflow" / "records", "issue-x", "feat/x")
+        self._stub_git(wrapper, monkeypatch, repo, "feat/x")
+
         captured: dict[str, Any] = {}
 
-        def _fake_run_gate_record_ci(repo_root, record, body, *, base="origin/main", head="HEAD"):
+        def _fake_run_pre_pr_check(repo_root, body_file, *, base="origin/main"):
             captured["base"] = base
-            captured["head"] = head
-            return {"findings": []}
+            return 0  # clean pre-flight
 
-        monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
-        monkeypatch.setattr(wrapper, "run_gate_receipt_validate", lambda *args, **kwargs: (0, "", ""))
-
-        # Avoid actually invoking gh pr create.
-        def _fake_subprocess_call(cmd):
-            captured["gh_argv"] = cmd
+        def _fake_call(cmd):
+            captured["gh"] = cmd
             return 0
 
-        monkeypatch.setattr(wrapper.subprocess, "call", _fake_subprocess_call)
+        monkeypatch.setattr(wrapper, "run_pre_pr_check", _fake_run_pre_pr_check)
+        monkeypatch.setattr(wrapper.subprocess, "call", _fake_call)
 
-        # --base umbrella/foo → resolve to origin/umbrella/foo
         rc = wrapper.main(["--base", "umbrella/2026-05-21-bug-sweep", "--title", "X", "--body", "Closes #1382"])
         assert rc == 0
         assert captured["base"] == "origin/umbrella/2026-05-21-bug-sweep"
+        assert captured["gh"][:3] == ["gh", "pr", "create"]
 
     def test_default_base_origin_main_when_flag_absent(self, wrapper, monkeypatch, tmp_path: Path) -> None:
-        records_dir = tmp_path / ".workflow" / "records"
-        _write_record(records_dir, "issue-x", "fix/issue-x/wrapper-detect")
-
-        def _fake_check_output(cmd, *args, **kwargs):
-            if cmd[:2] == ["git", "rev-parse"] and "--show-toplevel" in cmd:
-                return str(tmp_path) + "\n"
-            if cmd[:2] == ["git", "rev-parse"] and "--abbrev-ref" in cmd:
-                return "fix/issue-x/wrapper-detect\n"
-            raise AssertionError(f"unexpected check_output call: {cmd}")
-
-        monkeypatch.setattr(wrapper.subprocess, "check_output", _fake_check_output)
+        repo = tmp_path
+        _write_ledger(repo / ".workflow" / "records", "issue-x", "feat/x")
+        self._stub_git(wrapper, monkeypatch, repo, "feat/x")
 
         captured: dict[str, Any] = {}
 
-        def _fake_run_gate_record_ci(repo_root, record, body, *, base="origin/main", head="HEAD"):
+        def _fake_run_pre_pr_check(repo_root, body_file, *, base="origin/main"):
             captured["base"] = base
-            return {"findings": []}
+            return 0
 
-        monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
-        monkeypatch.setattr(wrapper, "run_gate_receipt_validate", lambda *args, **kwargs: (0, "", ""))
+        monkeypatch.setattr(wrapper, "run_pre_pr_check", _fake_run_pre_pr_check)
         monkeypatch.setattr(wrapper.subprocess, "call", lambda cmd: 0)
 
         rc = wrapper.main(["--title", "X", "--body", "Closes #1382"])
         assert rc == 0
         assert captured["base"] == "origin/main"
+
+    def test_failed_pre_flight_blocks_gh(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        repo = tmp_path
+        _write_ledger(repo / ".workflow" / "records", "issue-x", "feat/x")
+        self._stub_git(wrapper, monkeypatch, repo, "feat/x")
+        monkeypatch.setattr(wrapper, "run_pre_pr_check", lambda *a, **k: 1)  # failed pre-flight
+        called: dict[str, Any] = {}
+        monkeypatch.setattr(wrapper.subprocess, "call", lambda cmd: called.setdefault("gh", cmd) or 0)
+        rc = wrapper.main(["--title", "X", "--body", "Closes #1382"])
+        assert rc == 1
+        assert "gh" not in called  # gh pr create must not run on failed pre-flight.

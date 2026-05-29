@@ -141,6 +141,55 @@ def _verify_claims(declared: Sequence[str], changed_files: Sequence[str]) -> tup
     return verified, unverified
 
 
+def _docs_na_rationales(ledger: GateLedger) -> list[str]:
+    """Return docs N/A rationales recorded on the ledger (for ``extras['docs_na']``)."""
+
+    return [
+        f"{event.doc_class or 'docs'}: {event.rationale}"
+        for event in ledger.docs_events
+        if event.kind == "na" and event.rationale
+    ]
+
+
+def _recorded_sentrux_evidence(ledger: GateLedger) -> Any | None:
+    """Return the latest recorded Sentrux evidence payload, or None (§4).
+
+    Sentrux evidence rides in on a ``check_event`` (or ``guard_event``) the agent
+    recorded; the evaluator surfaces the latest such payload to the
+    ``sentrux_gate`` calculator via ``extras['sentrux_evidence']``. Absent
+    evidence means the guard records an advisory (opt-in), never a hard block.
+    """
+
+    for event in reversed(ledger.check_events):
+        name = (event.name or "").lower()
+        if ("sentrux" in name or event.covered_surface == "sentrux") and event.summary.strip().startswith("{"):
+            return event.summary
+    return None
+
+
+def _build_pr_context(
+    ledger: GateLedger,
+    mode: EvaluatorMode,
+    pr_context: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Assemble the PR context the merge/core/human guards read (§3.2).
+
+    The caller may pass a partial ``pr_context`` (real GitHub event in CI mode).
+    The evaluator enriches it with the ledger's ``observed_admin_labels`` (which
+    carry CI-verified actor/permission provenance) so ``observed_labels`` and
+    label-actor permission are available to the guards. In local modes there is
+    no real PR yet, so labels are recorded intent only and no context is built
+    unless the caller supplies one.
+    """
+
+    if mode not in ("pre-pr", "ci") and pr_context is None:
+        return None
+    context: dict[str, Any] = dict(pr_context or {})
+    if ledger.observed_admin_labels:
+        context.setdefault("observed_labels", [label.name for label in ledger.observed_admin_labels])
+    return context or (dict(pr_context) if pr_context is not None else None)
+
+
 def _infer_obligations(
     *,
     task_kind: TaskKind,
@@ -189,6 +238,12 @@ def reconcile(
     """The single shared reconciliation entry point (spec §3.1)."""
 
     staged = mode == "pre-commit"
+
+    # Modes that gate full PR readiness (docs/test/issue obligations are
+    # required-now). pre-push validates scope/diff coherence + recorded-check
+    # freshness only; it must NOT block a WIP push on PR-readiness obligations
+    # (those belong to pre-pr / ci, §3.4).
+    pr_readiness_mode = mode in ("pre-pr", "ci")
 
     # 1. Observe the git diff (objective evidence, never agent claims).
     observed_files = io.changed_files(repo_root, base, head, staged=staged)
@@ -275,27 +330,49 @@ def reconcile(
                 repair_hints.append(f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}")
 
     # Docs/test obligations unsatisfied when no verified evidence and no N/A.
+    # These are PR-readiness obligations: local and pre-pr/ci enforce them, but
+    # pre-push (a WIP push) does NOT block on them (§3.4).
     docs_na = any(event.kind == "na" for event in ledger.docs_events)
     tests_na = any(event.kind == "na" for event in ledger.test_events)
-    if obligations.docs and not verified_docs and not docs_na:
-        unsatisfied.append("docs.docs_required_or_na")
-        repair_hints.append(
-            "- docs.docs_required_or_na\n  Record a docs path or N/A:\n"
-            "  gate_record amend --reason '<why>' --docs-na 'implementation:<rationale>'"
-        )
-    if obligations.tests and not verified_tests and not tests_na:
-        unsatisfied.append("tests.changed_test_required")
-        repair_hints.append(
-            "- tests.changed_test_required\n  Add a changed test path:\n"
-            "  gate_record amend --reason '<why>' --test-path tests/<area>/test_<x>.py"
-        )
+    if mode != "pre-push":
+        if obligations.docs and not verified_docs and not docs_na:
+            unsatisfied.append("docs.docs_required_or_na")
+            repair_hints.append(
+                "- docs.docs_required_or_na\n  Record a docs path or N/A:\n"
+                "  gate_record amend --reason '<why>' --docs-na 'implementation:<rationale>'"
+            )
+        if obligations.tests and not verified_tests and not tests_na:
+            unsatisfied.append("tests.changed_test_required")
+            repair_hints.append(
+                "- tests.changed_test_required\n  Add a changed test path:\n"
+                "  gate_record amend --reason '<why>' --test-path tests/<area>/test_<x>.py"
+            )
 
-    # Issue obligation (always required before PR readiness, §7.7.3).
-    if mode in ("pre-pr", "ci") and not ledger.issues:
+    # Issue obligation (required before PR readiness, §7.7.3). Not enforced on a
+    # WIP pre-push: an in-scope push must not be blocked as if opening a PR.
+    if pr_readiness_mode and not ledger.issues:
         unsatisfied.append("issue.required")
         repair_hints.append("- issue.required\n  Link an issue:\n  gate_record amend --reason '<why>' --issue <n>")
 
-    # 9. Run guard calculators (each exactly once, §3.3.9).
+    # 9. Run guard calculators (each exactly once, §3.3.9). Build the evaluator-
+    #    supplied inputs the calculators expect (the integration wiring §4 needs):
+    #    - extras['governed_diff_text'] / ['governed_diff_lines']: the governed-
+    #      surface diff hunks for weakened_ci_check + mod_guard;
+    #    - extras['sentrux_evidence']: recorded Sentrux evidence for sentrux_gate;
+    #    - extras['docs_na']: recorded docs N/A rationales for docs_landing;
+    #    - pr_context: merge_intent / reviews / observed-label provenance for
+    #      core_change_guard / human_bypass_guard / pr_merge_guard (pre-pr/ci).
+    governed_surfaces = sorted(set(grouped["governance"]) | set(grouped["workflow_ci"]) | set(grouped["packaging"]))
+    governed_diff = io.diff_text(repo_root, base, head, staged=staged, paths=governed_surfaces)
+    extras: dict[str, Any] = {
+        "governed_diff_text": governed_diff,
+        "docs_na": _docs_na_rationales(ledger),
+    }
+    sentrux_evidence = _recorded_sentrux_evidence(ledger)
+    if sentrux_evidence is not None:
+        extras["sentrux_evidence"] = sentrux_evidence
+    effective_pr_context = _build_pr_context(ledger, mode, pr_context)
+
     guard_inputs = GuardInputs(
         repo_root=repo_root,
         mode=mode,
@@ -315,10 +392,15 @@ def reconcile(
         verified_test_paths=verified_tests,
         issues=list(ledger.issues),
         pr_body=pr_body,
-        pr_context=pr_context,
+        pr_context=effective_pr_context,
         requested_admin_labels=list(ledger.requested_admin_labels),
         observed_admin_labels=list(ledger.observed_admin_labels),
+        extras=extras,
     )
+    # Guards whose findings are PR-readiness obligations (docs landing, linked
+    # issue). On a WIP pre-push they still RUN and record, but they do not block
+    # the push (§3.4); the diff-coherence guards below still block on pre-push.
+    _pr_readiness_guards = {"docs_landing", "issue_link"}
     guard_reports: list[AuditReport] = []
     guard_events: list[GuardEvent] = []
     for name in sorted(GUARD_REGISTRY):
@@ -334,6 +416,8 @@ def reconcile(
         guard_events.append(guard_event)
         ledger.guard_events.append(guard_event)
         if report.blocks_merge:
+            if mode == "pre-push" and name in _pr_readiness_guards:
+                continue
             unsatisfied.append(f"guard.{name}")
             findings.extend(report.error_findings())
 

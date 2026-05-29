@@ -189,6 +189,26 @@ def diff_fingerprint(repo_root: Path, base: str, head: str, *, staged: bool = Fa
     return f"sha256:{digest}"
 
 
+def diff_text(repo_root: Path, base: str, head: str, *, staged: bool = False, paths: Sequence[str] = ()) -> str:
+    """Return the raw unified diff text (optionally limited to ``paths``).
+
+    Used by the evaluator to feed ``weakened_ci_check`` the governed-surface diff
+    hunks (§4). Returns an empty string when git cannot produce a diff (no common
+    ancestor, missing ref, git unavailable) so callers treat "no diff" and
+    "git failed" identically: nothing to scan, guard passes.
+    """
+
+    path_args = ["--", *paths] if paths else []
+    base_args = ["diff", "--cached", *path_args] if staged else ["diff", f"{base}...{head}", *path_args]
+    try:
+        return _git_output(repo_root, base_args)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        try:
+            return _git_output(repo_root, ["diff", base, head, *path_args])
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+
 def fingerprint_paths(paths: Sequence[str]) -> str:
     """Return a stable fingerprint of a sorted path list (covered surface)."""
 
@@ -217,15 +237,28 @@ class DiscoveryResult:
         return self.path is None and len(self.candidates) > 1
 
 
-def _ledger_branch(path: Path) -> str | None:
+def _ledger_meta(path: Path) -> tuple[str | None, bool, bool]:
+    """Return ``(branch, is_v2_ledger, is_finalized)`` for a record file.
+
+    ``is_v2_ledger`` is False for any non-dict / old-format / non-v2 record
+    (those must never be discovered as an active current-branch ledger).
+    ``is_finalized`` is True once a post-PR ``pull_request`` (url or number) is
+    recorded — the branch's gate work is complete and the record is no longer
+    the active ledger.
+    """
+
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return None
-    if isinstance(data, dict):
-        value = data.get("branch")
-        return value if isinstance(value, str) else None
-    return None
+        return None, False, False
+    if not isinstance(data, dict):
+        return None, False, False
+    branch = data.get("branch")
+    branch = branch if isinstance(branch, str) else None
+    is_v2 = data.get("schema_version") == 2
+    pr = data.get("pull_request")
+    is_finalized = bool(isinstance(pr, dict) and (pr.get("url") or pr.get("number")))
+    return branch, is_v2, is_finalized
 
 
 def current_branch(repo_root: Path) -> str | None:
@@ -239,11 +272,19 @@ def current_branch(repo_root: Path) -> str | None:
 
 
 def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryResult:
-    """Discover the active ledger for ``branch`` (§5.1).
+    """Discover the active ledger for the CURRENT branch (§5.1 / §10.2).
 
-    Exactly one match -> accepted. Zero -> caller prints "run init". Multiple ->
-    caller lists candidates and asks for ``--record``. The single canonical
-    discovery used by every command and the worktree write guard.
+    A record matches only when its ``branch`` equals the target branch, it is a
+    schema-v2 ledger, and it is not finalized. Then:
+
+    - exactly one match -> accepted;
+    - zero matches -> ``DiscoveryResult(None, [])`` so the caller prints "run init"
+      (stale, other-branch, finalized, and old-format records never match);
+    - multiple same-branch matches -> ``DiscoveryResult(None, matches)`` so the
+      caller lists candidates and asks for ``--record``.
+
+    The single canonical discovery used by every command, the PR wrapper, and the
+    worktree write guard; none reimplement it.
     """
 
     records_dir = repo_root / RECORDS_DIR
@@ -252,17 +293,20 @@ def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryR
         return DiscoveryResult(None, [])
 
     target_branch = branch if branch is not None else current_branch(repo_root)
-    if target_branch is not None:
-        matches = [path for path in records if _ledger_branch(path) == target_branch]
-        if len(matches) == 1:
-            return DiscoveryResult(matches[0], matches)
-        if len(matches) > 1:
-            return DiscoveryResult(None, matches)
+    if target_branch is None:
+        # No resolvable current branch -> cannot scope discovery; never guess.
+        return DiscoveryResult(None, [])
 
-    # No branch match: accept a lone record, otherwise report ambiguity.
-    if len(records) == 1:
-        return DiscoveryResult(records[0], records)
-    return DiscoveryResult(None, records)
+    matches = []
+    for path in records:
+        record_branch, is_v2, is_finalized = _ledger_meta(path)
+        if record_branch == target_branch and is_v2 and not is_finalized:
+            matches.append(path)
+    if len(matches) == 1:
+        return DiscoveryResult(matches[0], matches)
+    if len(matches) > 1:
+        return DiscoveryResult(None, matches)
+    return DiscoveryResult(None, [])
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +340,13 @@ def parse_class_rationale(value: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 # Patterns that must never appear in a committed ledger event.
-_ABS_PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/])|(?:^/(?:home|Users|root|tmp|var|mnt)/)|(?:/home/)|(?:/Users/)")
+# A Windows drive letter (``C:\`` / ``D:/``) is a single letter preceded by a
+# non-letter (so a URL scheme like ``https://`` — where the ``s`` before ``://``
+# IS preceded by a letter — is NOT mistaken for a drive path). GitHub URLs and
+# other ``scheme://`` references are legitimately allowed in committed events.
+_ABS_PATH_RE = re.compile(
+    r"(?:(?<![A-Za-z])[A-Za-z]:[\\/])|(?:^/(?:home|Users|root|tmp|var|mnt)/)|(?:/home/)|(?:/Users/)"
+)
 _HOME_RE = re.compile(r"(?:~/)|(?:\$HOME)|(?:%USERPROFILE%)|(?:\bC:\\Users\\)")
 _VENV_RE = re.compile(r"(?:site-packages)|(?:\.venv)|(?:virtualenvs)|(?:[\\/]venv[\\/])")
 

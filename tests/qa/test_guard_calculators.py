@@ -282,6 +282,20 @@ def test_weakened_ci_blocks_added_continue_on_error() -> None:
     assert "weakened-ci.added-continue-on-error" in _rule_ids(report)
 
 
+def test_weakened_ci_blocks_removed_intrinsic_pre_commit_hook() -> None:
+    # Ported from the deleted test_governance_weakened_ci_check.py: removing an
+    # intrinsic pre-commit safety hook (detect-private-key) is a weakening.
+    diff = (
+        "diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml\n"
+        "--- a/.pre-commit-config.yaml\n"
+        "+++ b/.pre-commit-config.yaml\n"
+        "-      - id: detect-private-key\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.blocks_merge
+    assert "weakened-ci.removed-detect-private-key" in _rule_ids(report)
+
+
 def test_weakened_ci_accepts_prelexed_lines() -> None:
     report = weakened_ci_check.check(
         _inputs(
@@ -344,6 +358,57 @@ def test_sentrux_normalizer_unwraps_nested_payload() -> None:
     evidence = sentrux_gate.parse_sentrux_result({"result": {"ok": True, "execution_mode": "free"}})
     assert evidence.status == "pass"
     assert evidence.mode == sentrux_gate.FREE_TIER_MODE
+
+
+def test_sentrux_normalizer_accepts_mcp_check_rules_summary_shape() -> None:
+    # Ported from the deleted test_sentrux_gate.py: the MCP ``check_rules`` shape
+    # with a nested ``summary`` block must normalize its quality/cycle/complexity
+    # /test-gap fields onto the evidence model.
+    evidence = sentrux_gate.parse_sentrux_result(
+        {
+            "check_rules": {
+                "ok": True,
+                "mode": "free-tier",
+                "rules_checked": 3,
+                "total_rules_defined": 15,
+                "summary": {
+                    "quality_signal": 4161,
+                    "cycle_summary": {"cycles": 0},
+                    "complexity_summary": {"max": 8},
+                    "test_gap_summary": {"missing": 2},
+                },
+            }
+        }
+    )
+    assert evidence.status == "pass"
+    assert evidence.mode == "free-tier"
+    assert evidence.rules_checked == 3
+    assert evidence.total_rules_defined == 15
+    assert evidence.quality_signal == 4161
+    assert evidence.cycles == {"cycles": 0}
+    assert evidence.complexity == {"max": 8}
+    assert evidence.test_gap == {"missing": 2}
+
+
+def test_sentrux_normalizer_accepts_cli_json_string() -> None:
+    # Ported from the deleted test_sentrux_gate.py: a CLI JSON string with
+    # ``success`` + ``thresholds`` normalizes correctly.
+    import json
+
+    evidence = sentrux_gate.parse_sentrux_result(
+        json.dumps(
+            {
+                "mode": "free",
+                "success": True,
+                "rules_checked": 2,
+                "total_rules_defined": 2,
+                "thresholds": {"max_cycles": 0},
+            }
+        )
+    )
+    assert evidence.mode == "free-tier"
+    assert evidence.status == "pass"
+    assert evidence.thresholds == {"max_cycles": 0}
 
 
 # ---------------------------------------------------------------------------
