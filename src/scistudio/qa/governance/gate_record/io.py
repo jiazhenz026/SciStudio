@@ -265,28 +265,28 @@ def _ledger_meta(path: Path) -> tuple[str | None, bool, bool]:
 def current_branch(repo_root: Path) -> str | None:
     """Return the branch to scope discovery to, or None when unresolvable.
 
-    In CI (``pull_request`` events) the checkout is a detached merge commit, so
-    ``git rev-parse --abbrev-ref HEAD`` yields ``HEAD`` (not the PR branch) and a
-    branch-scoped ledger would never match. GitHub Actions does expose the PR
-    source branch via ``GITHUB_HEAD_REF`` (and ``GITHUB_REF_NAME`` as a
-    fallback), so prefer those CI-provided refs when running in CI before
-    falling back to the local git branch. Locally (no CI env) behavior is
-    unchanged: resolution is by the real git branch.
+    Resolve by the REAL git branch first. Only when the checkout is a detached
+    HEAD (no branch) -- as in a GitHub Actions ``pull_request`` checkout, which is
+    a detached merge commit whose ``git rev-parse --abbrev-ref HEAD`` yields
+    ``HEAD`` -- fall back to the CI-provided PR source branch (``GITHUB_HEAD_REF``,
+    then ``GITHUB_REF_NAME``). This keeps isolated repos (e.g. test fixtures with
+    their own branches) resolving by their real branch even when running inside
+    CI, while still letting the real PR checkout match a branch-scoped ledger.
     """
-
-    if os.environ.get("GITHUB_ACTIONS"):
-        ci_branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
-        if ci_branch and ci_branch.strip():
-            return ci_branch.strip()
 
     try:
         branch = _git_output(repo_root, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    # A detached HEAD reports the literal "HEAD"; that is not a branch name.
-    if not branch or branch == "HEAD":
-        return None
-    return branch
+        branch = ""
+    # A real branch wins. A detached HEAD reports the literal "HEAD" (not a branch).
+    if branch and branch != "HEAD":
+        return branch
+    # Detached/unresolvable: in CI, fall back to the PR source branch.
+    if os.environ.get("GITHUB_ACTIONS"):
+        ci_branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
+        if ci_branch and ci_branch.strip():
+            return ci_branch.strip()
+    return None
 
 
 def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryResult:
