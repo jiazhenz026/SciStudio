@@ -36,6 +36,10 @@ def _env_with_pythonpath() -> dict[str, str]:
     existing = env.get("PYTHONPATH", "")
     parts = [str(_SRC_ROOT)] + ([existing] if existing else [])
     env["PYTHONPATH"] = os.pathsep.join(parts)
+    # §7.10: this self-hosting smoke runs the CLI as a real subprocess (the
+    # autouse conftest stub does not reach it). Disable real venv provisioning so
+    # the smoke never creates a venv or attempts a network install.
+    env["SCISTUDIO_GATE_NO_PROVISION"] = "1"
     return env
 
 

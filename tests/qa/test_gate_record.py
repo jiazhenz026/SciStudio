@@ -766,8 +766,17 @@ def test_parity_fails_closed_for_pr_readiness(git_repo: Path, monkeypatch: pytes
             "issues": [{"number": 1509, "url": "https://github.com/o/r/issues/1509"}],
         }
     )
-    # Simulate an unreproducible CI-equivalent importable environment.
-    monkeypatch.setattr(parity, "check_importable_env", lambda _repo: False)
+    # Simulate an unreproducible CI-equivalent environment WITHOUT creating a
+    # real venv or hitting the network: monkeypatch the provisioning seam to
+    # return a fail-closed report (§7.10). assess_parity delegates to
+    # provision_venv in local/pre-pr modes.
+    monkeypatch.setattr(
+        parity,
+        "provision_venv",
+        lambda _repo, **_k: parity.ParityReport(
+            importable=False, gaps=["cannot create isolated per-worktree venv: simulated"]
+        ),
+    )
     result = evaluator.reconcile(
         ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True, only=["__none__"]
     )

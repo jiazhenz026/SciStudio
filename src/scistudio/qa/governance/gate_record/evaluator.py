@@ -482,9 +482,19 @@ def reconcile(
             "readiness; the N/A is recorded but ignored for this check. Fix the check or rely on CI."
         )
     if run_checks and mode not in ("commit-msg",):
-        parity_report = parity.assess_parity(repo_root)
+        # §7.10: for LOCAL preflight modes this AUTO-PROVISIONS the isolated
+        # per-worktree venv with CI-equivalent deps and validates importability
+        # inside it, so the checks below run at CI tool versions in an equivalent
+        # environment. CRITICAL: ``ci`` mode never provisions — ci.yml owns its
+        # own quality matrix and environment — so we pass ``mode`` through and
+        # only validate the PYTHONPATH=src fallback in CI mode.
+        parity_report = parity.assess_parity(repo_root, mode=mode)
         if mode in ("pre-pr", "ci") and not parity_report.importable:
             # Fail closed for PR readiness (exit 4 surfaced by the CLI).
+            parity_gaps.extend(parity_report.gaps)
+        elif parity_report.gaps:
+            # Non-PR-readiness local modes still surface provisioning failures so
+            # the agent sees them, but do not hard-fail a WIP invocation.
             parity_gaps.extend(parity_report.gaps)
         to_run = [name for name in selection.required if name not in na_names]
         if only is not None:
@@ -605,10 +615,14 @@ def reconcile(
             findings.extend(report.error_findings())
             repair_hints.append(_guard_repair_hint(name, report))
 
-    # Parity gaps fail closed for PR readiness.
+    # Parity gaps fail closed for PR readiness. The detailed gap text (which can
+    # carry tool/venv error tails) is surfaced to the CONSOLE via
+    # ``ReconcileResult.parity_gaps``; the COMMITTED ledger records only a
+    # generic, sanitized token per gap so no local-machine detail (absolute
+    # paths, venv paths) ever lands in ``reconcile_event.unsatisfied`` (§8).
     if mode in ("pre-pr", "ci") and parity_gaps:
-        for gap in parity_gaps:
-            unsatisfied.append(f"parity.{gap}")
+        for _gap in parity_gaps:
+            unsatisfied.append("parity.environment-not-ci-equivalent")
 
     result_status = AuditStatus.FAIL if (findings or unsatisfied) else AuditStatus.PASS
     report = AuditReport(

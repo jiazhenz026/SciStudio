@@ -18,12 +18,15 @@ and returns sanitized :class:`CheckEvent` payloads.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import scistudio.qa.governance.gate_record.parity as parity
 import scistudio.qa.governance.gate_record.surfaces as surfaces
 from scistudio.qa.governance.gate_record.io import LOCAL_LOGS_DIR, fingerprint_paths
 from scistudio.qa.governance.gate_record.ledger import CheckEvent, StrictnessTier
@@ -291,6 +294,58 @@ def detect_parity_cause(output: str) -> str | None:
     return None
 
 
+def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | None, dict[str, str] | None]:
+    """Map a check spec to a concrete argv + env using the parity venv (§7.10).
+
+    When the isolated per-worktree venv is provisioned, the check's tool resolves
+    to the venv's executable (so local == CI tool versions), and a ``needs_src_
+    import`` check runs through the venv interpreter, which already imports
+    ``scistudio`` via the editable install — no ``PYTHONPATH`` hack needed.
+
+    Falls back to the ambient executable + ``PYTHONPATH=src`` when no venv exists
+    (CI mode, or a non-provisioned environment), preserving the prior behaviour.
+    Returns ``(None, None)`` when the tool cannot be resolved anywhere (skipped).
+    """
+
+    if not spec.command:
+        return None, None
+    tool = spec.command[0]
+    rest = list(spec.command[1:])
+    venv = parity.venv_path(repo_root)
+    venv_exists = venv.exists()
+
+    # Python-module invocations (``python -m ...``) run via the venv interpreter
+    # when present so the editable-installed scistudio is importable directly.
+    if tool == "python":
+        if venv_exists:
+            py = parity.venv_python(venv)
+            if py.exists():
+                return [str(py), *rest], None
+        py_env = dict(os.environ)
+        existing = py_env.get("PYTHONPATH", "")
+        src = str(repo_root / "src")
+        py_env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+        return list(spec.command), py_env
+
+    # Console-script tools (ruff, mypy, pytest, lint-imports, npm). Prefer the
+    # venv shim; the venv interpreter already imports scistudio for the
+    # import-needing tools, so no PYTHONPATH is required there.
+    venv_tool = parity.resolve_venv_executable(repo_root, tool) if venv_exists else None
+    if venv_tool is not None:
+        return [str(venv_tool), *rest], None
+
+    ambient = shutil.which(tool)
+    if ambient is None:
+        return None, None
+    env: dict[str, str] | None = None
+    if spec.needs_src_import:
+        env = dict(os.environ)
+        existing = env.get("PYTHONPATH", "")
+        src = str(repo_root / "src")
+        env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return [ambient, *rest], env
+
+
 def run_check(
     repo_root: Path,
     name: str,
@@ -311,18 +366,9 @@ def run_check(
     covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
     input_fp = fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint
 
-    env = None
-    if spec.needs_src_import:
-        import os
+    argv, env = _resolve_execution(repo_root, spec)
 
-        env = dict(os.environ)
-        existing = env.get("PYTHONPATH", "")
-        src = str(repo_root / "src")
-        env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
-
-    import shutil
-
-    if not spec.command or shutil.which(spec.command[0]) is None:
+    if argv is None:
         return CheckEvent(
             name=name,
             command=repo_relative_command,
@@ -336,7 +382,7 @@ def run_check(
 
     try:
         completed = subprocess.run(
-            list(spec.command),
+            argv,
             cwd=repo_root,
             env=env,
             capture_output=True,

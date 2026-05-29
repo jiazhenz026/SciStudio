@@ -1158,6 +1158,56 @@ local approximation. This is what makes the central promise true: completing the
 gate locally predicts a passing CI run, because the local checks are the CI
 checks at the same versions in an equivalent environment.
 
+#### 7.10.1 Isolated Per-Worktree Environment Auto-Provisioning
+
+`gate_record check` does not merely validate the environment; in its local
+preflight modes it **auto-provisions** a CI-equivalent environment so the checks
+it runs are the CI checks at CI versions. The mechanism is an isolated,
+per-worktree virtual environment:
+
+- **Isolated per-worktree venv.** The environment lives at a gitignored,
+  per-worktree path (`<worktree>/.workflow/local/venv`). Each worktree gets its
+  own venv, so parallel AI worktrees never share a writable environment. This is
+  the §7.10-sanctioned mechanism: `AGENTS.md` forbids `pip install -e .` because
+  it pollutes the *shared* environment, not because installing the package is
+  wrong — an isolated per-worktree venv is exactly how local reproduces the CI
+  environment without that pollution.
+
+- **Provisioning.** `check` ensures the venv exists with CI-equivalent
+  dependencies by installing `-e ".[dev]"` (the same extras CI installs) at the
+  CI-resolved tool versions, so `ruff`, `mypy`, `pytest` (+ plugins), and
+  `lint-imports` match CI and `scistudio` is importable in the venv (mypy and
+  pytest resolve the package without a `PYTHONPATH` hack). `uv` is used when
+  available (`uv venv` + `uv pip install`); otherwise `python -m venv` + `pip`.
+
+- **Caching / idempotence.** A marker hash of the `[dev]` extras, the resolved
+  tool pins, and the Python version is stored in the venv. The venv is
+  re-provisioned only when the marker changes; a warm venv with a matching
+  marker is reused untouched (near-instant), so the cost of a cold provision is
+  paid once.
+
+- **Cross-platform.** The venv's executables and interpreter are resolved
+  correctly on Windows (`<venv>/Scripts/`) and POSIX (`<venv>/bin/`).
+
+- **Checks run via the venv.** `checks.py` invokes `ruff`/`mypy`/`pytest`/
+  `lint-imports`/etc. using the venv's executables and the venv interpreter, not
+  the ambient ones, so local results match CI.
+
+- **Fail closed.** If venv creation or the install fails (no network, `uv`/`pip`
+  error), `check` does not run a broken approximation; it fails closed for PR
+  readiness with exit 4 and a clear, actionable parity gap. Gap messages and the
+  committed ledger are sanitized so no absolute path, home directory, or venv
+  path ever lands in committed events.
+
+- **Not in CI mode.** Provisioning applies only to the local preflight modes
+  (`local`, `pre-commit`, `pre-push`, `pre-pr`) that actually run the quality
+  checks. `check --mode ci` validates governance and guards only — `ci.yml`
+  owns the quality matrix and runs in its own environment — so CI mode never
+  creates a venv or runs the quality checks. The escape hatch
+  `SCISTUDIO_GATE_NO_PROVISION=1` disables real provisioning (used by CI and by
+  the self-hosting smoke that runs the CLI as a subprocess), falling back to the
+  `PYTHONPATH=src` importable validation only.
+
 ## 3. Implementation And Migration
 
 Implementation should proceed as a delete-and-replace implementation, not

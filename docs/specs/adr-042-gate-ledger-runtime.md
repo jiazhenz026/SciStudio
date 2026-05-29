@@ -531,20 +531,50 @@ versions run them, in which environment. `parity.py` implements this:
 - **One tool-version source = CI.** Read the CI-resolved versions of `ruff`,
   `mypy`, `pytest` (+ plugins), and frontend tools from the same source CI uses
   (`uv.lock` / pinned setup / pyproject resolution). `check` installs those exact
-  resolved versions into an **isolated per-worktree environment** (for example a
-  `.git/scistudio/gates/<session>/venv` or a uv-managed environment), never
-  relying on ambient developer-machine versions. When CI itself resolves an
-  unpinned latest, local resolves the same latest at run time.
-- **CI-equivalent importable environment without `pip install -e .`.** Several
-  CI jobs import `scistudio`. The repo forbids editable installs because they
-  pollute the *shared* environment, not because importing is wrong. `check`
-  reproduces importability either through the isolated per-worktree environment
-  or through the `PYTHONPATH=src` invocation CI's full-audit job already uses, so
-  `import scistudio` works without polluting the shared environment.
+  resolved versions into an **isolated per-worktree environment**, never relying
+  on ambient developer-machine versions. When CI itself resolves an unpinned
+  latest, local resolves the same latest at run time.
+- **CI-equivalent importable environment without polluting the shared env.**
+  Several CI jobs import `scistudio`. The repo forbids `pip install -e .` because
+  it pollutes the *shared* environment, not because importing is wrong. `check`
+  reproduces importability through the isolated per-worktree environment (an
+  editable install inside the venv), or — only when provisioning is disabled
+  (CI mode / `SCISTUDIO_GATE_NO_PROVISION=1`) — through the `PYTHONPATH=src`
+  invocation CI's full-audit job already uses, so `import scistudio` works
+  without polluting the shared environment.
 - **Fail closed.** If `check` cannot reproduce the CI tool versions or a
   CI-equivalent importable environment, it must fail closed for PR readiness
   (exit 4) and report the parity gap, never silently run a looser local
   approximation.
+
+### 7.1 Isolated Per-Worktree Venv Auto-Provisioning
+
+`parity.py` auto-provisions the CI-equivalent environment in the local preflight
+modes; it does not merely validate it:
+
+- **venv path.** `<worktree>/.workflow/local/venv` — gitignored (covered by the
+  `.workflow/local/` rule) and per-worktree, so parallel worktrees never share a
+  writable env.
+- **uv vs venv.** `uv venv` + `uv pip install --python <venv-py> -e ".[dev]"`
+  when `uv` is on PATH; otherwise `python -m venv` + the venv's `pip install -e
+  ".[dev]"`. The editable install makes `scistudio` importable inside the venv,
+  so `mypy`/`pytest` resolve it with no `PYTHONPATH` hack.
+- **cache marker.** `provisioning_marker()` hashes the `[dev]` extras + the
+  resolved CI tool pins + the Python version, stored as
+  `<venv>/.scistudio-parity-marker`. A warm venv whose marker matches is reused
+  untouched (near-instant); a mismatch re-provisions and rewrites the marker.
+- **cross-platform exec resolution.** `<venv>/Scripts/<tool>.exe` on Windows,
+  `<venv>/bin/<tool>` on POSIX; `checks.py` runs every tool through the resolved
+  venv executable / interpreter.
+- **fail closed.** A venv-creation or install failure returns a fail-closed
+  `ParityReport` (exit 4 in `pre-pr`/`ci`); error hints are sanitized so no
+  absolute/home/venv path leaks, and the committed `reconcile_event.unsatisfied`
+  records only the generic token `parity.environment-not-ci-equivalent`.
+- **not in CI mode.** `assess_parity(mode=...)` provisions only for
+  `local`/`pre-commit`/`pre-push`/`pre-pr`. `ci` mode never provisions; `ci.yml`
+  owns the quality matrix in its own environment. `SCISTUDIO_GATE_NO_PROVISION=1`
+  is the escape hatch (CI + subprocess self-hosting smoke) that falls back to the
+  `PYTHONPATH=src` importable validation.
 
 This is what makes "green locally predicts green in CI" true: local checks are
 the CI checks at the same versions in an equivalent environment.

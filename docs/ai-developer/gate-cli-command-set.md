@@ -632,17 +632,37 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
 
 ## 9. Behaviors To Know
 
-- **Parity fail-closed (exit 4).** `check` sets up or validates a CI-equivalent
-  importable environment at CI-resolved tool versions before running checks
-  (ADR-042 Addendum 6 §7.10). If it cannot reproduce the CI tool versions or a
-  CI-equivalent importable environment, in `pre-pr` / `ci` modes it fails closed
-  for PR readiness with exit 4 and an actionable "local env not CI-equivalent"
-  message, rather than running a looser local approximation. A nonzero check
-  that is caused by a missing module/plugin/tool (a parity gap) is reported
-  distinctly from a genuine code failure. To reproduce the CI environment,
-  install the dev/test extras into an isolated per-worktree environment, or use
-  the `PYTHONPATH=src` invocation CI's full-audit job uses; the tool never
-  auto-installs anything.
+- **Isolated per-worktree venv auto-provisioning (§7.10).** In its local
+  preflight modes (`local`, `pre-commit`, `pre-push`, `pre-pr`), `check`
+  **auto-provisions** a CI-equivalent environment before running checks: an
+  isolated, gitignored, per-worktree venv at `<worktree>/.workflow/local/venv`
+  with `-e ".[dev]"` installed at the CI-resolved tool versions. It prefers `uv`
+  (`uv venv` + `uv pip install`) and falls back to `python -m venv` + `pip`. The
+  package is editable-installed inside the venv, so `mypy`/`pytest` import
+  `scistudio` with no `PYTHONPATH` hack, and `ruff`/`mypy`/`pytest`/`lint-imports`
+  run at the same versions as CI. Provisioning is cached by a marker hash of the
+  `[dev]` extras + tool pins + Python version: a warm venv is reused near-instantly
+  and re-provisioned only when that marker changes. Executable resolution is
+  cross-platform (`Scripts/` on Windows, `bin/` on POSIX). The first cold provision
+  takes a minute or two (downloads); after that it is effectively free. Each
+  worktree has its own venv, so parallel worktrees never share a writable env.
+
+- **CRITICAL — `--mode ci` never provisions.** `ci.yml` owns the quality matrix
+  and runs in its own environment; `check --mode ci` validates governance and
+  guards only and does NOT create a venv or run the quality checks. The escape
+  hatch `SCISTUDIO_GATE_NO_PROVISION=1` also disables real provisioning (CI sets
+  it; the self-hosting subprocess smoke uses it), falling back to the
+  `PYTHONPATH=src` importable validation.
+
+- **Parity fail-closed (exit 4).** If `check` cannot reproduce the CI tool
+  versions or a CI-equivalent importable environment — venv creation or the
+  install fails (no network, `uv`/`pip` error), or importability cannot be
+  validated — then in `pre-pr` / `ci` modes it fails closed for PR readiness with
+  exit 4 and an actionable "local env not CI-equivalent" message, rather than
+  running a looser local approximation. A nonzero check caused by a missing
+  module/plugin/tool (a parity gap) is reported distinctly from a genuine code
+  failure. Gap messages and committed ledger events are sanitized, so no
+  absolute/home/venv path leaks.
 
 - **`--check-na` has no force for `ci.yml`-owned checks.** An N/A for a check
   the standalone `ci.yml` job owns (`lint_format`, `format_check`, `type_check`,
