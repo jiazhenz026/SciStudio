@@ -46,8 +46,9 @@ language_source: en
 - MUST use `agent-dispatch-audit-no-context-prompt-template.md` when the audit
   agent must independently compare repository docs, code, tests, and behavior.
 
-- MUST define task kind, issue, branch/worktree plan, scope, owners, and
-  expected artifacts before dispatch.
+- MUST define task kind (one of `hotfix`, `bugfix`, `feature`, `refactor`,
+  `docs`, `maintenance`, `manager`, `guided`), issue, branch/worktree plan,
+  scope, owners, and expected artifacts before dispatch.
 
 - MUST create an umbrella branch before dispatch.
   The branch protects integration work from the protected target branch.
@@ -138,43 +139,61 @@ language_source: en
   label for the current manager task.
 
 - MAY pass the authorized bypass label to local gate hook commands.
-  Only `human-authored` and `admin-approved:ai-override` are broad local
-  bypasses. `admin-approved:core-change` is narrow and must not bypass scope,
-  docs, issue, receipt, or required-check validation.
+  Valid broad bypass labels (per ADR-042 Addendum 6): `human-authored` and
+  `admin-approved:bypass`. The old `admin-approved:ai-override` label is
+  migrated to `admin-approved:bypass`. `admin-approved:core-change` is narrow
+  and must not bypass scope, docs, issue, or required-check validation.
 
 - MUST record the bypass label, reason, and owner authorization in the
   checklist when any bypass label is used.
 
+Per ADR-042 Addendum 6, `gate_record check` is the single local CI-equivalent
+preflight command. The old `pre-commit`, `commit-msg`, and `pre-push`
+subcommands are now `--mode` flags on `gate_record check`:
+
 ```bash
-python -m scistudio.qa.governance.gate_record pre-commit --staged
+# Pre-commit mode (staged diff only):
+python -m scistudio.qa.governance.gate_record check --mode pre-commit --staged
 
-python -m scistudio.qa.governance.gate_record pre-commit \
-  --staged \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+# With bypass label:
+python -m scistudio.qa.governance.gate_record check --mode pre-commit --staged \
+  --admin-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
 
-python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file> \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+# Commit-msg mode:
+python -m scistudio.qa.governance.gate_record check --mode commit-msg <commit-msg-file>
 
-python -m scistudio.qa.governance.gate_record pre-push \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+# Pre-push mode:
+python -m scistudio.qa.governance.gate_record check --mode pre-push \
+  --base origin/main --head HEAD
+
+# Pre-PR mode (replaces gate_receipt validate):
+python -m scistudio.qa.governance.gate_record check --mode pre-pr \
+  --base origin/main --head HEAD \
+  --pr-body-file .workflow/local/pr-body.md
 ```
 
-After integration, the manager must require a valid receipt for the exact
-candidate:
+After integration, the manager must run a pre-PR check for the exact candidate.
+The old `gate_receipt validate` step is replaced by `check --mode pre-pr` or
+pre-PR `finalize`:
 
 ```bash
-python -m scistudio.qa.governance.gate_receipt validate \
-  --gate-record .workflow/records/<record>.json \
+python -m scistudio.qa.governance.gate_record finalize \
   --base origin/main \
-  --pr-body-file .workflow/local/pr-body.md
+  --head HEAD \
+  --commit <sha> \
+  --pr-body-file .workflow/local/pr-body.md \
+  --closes "#<issue>"
 ```
 
 Each dispatched worktree is auto-provisioned with the worktree write guard
 PreToolUse hook
 (`scripts/hooks/check-worktree-write-guard.sh`,
-`src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`). The
-manager does not re-register the hook per dispatch, but should expect agents
-to hit it whenever a write strays outside the gate scope.
+`src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`).
+Per ADR-042 Addendum 6, the guard's role is narrowed to blocking writes from
+an agent that did not create a dedicated worktree (i.e., the agent is operating
+in the main checkout). It no longer enforces include/exclude scope at write
+time; scope enforcement moves to `check` reconciliation. The manager does not
+re-register the hook per dispatch.
 
 ## 7. Verification Rules
 
@@ -188,8 +207,9 @@ to hit it whenever a write strays outside the gate scope.
   the manager checklist or gate record.
 
 - MUST check whether AI workflow docs or dispatch templates need updates when
-  the work changes wrapper, hook, gate-record, receipt, CI, or AI-runtime
-  behavior.
+  the work changes wrapper, hook, gate-record, CI, or AI-runtime behavior.
+  Receipt behavior is now folded into the gate ledger; update `gated-workflow.md`
+  and dispatch templates when the ledger CLI or evaluator behavior changes.
 
 - MUST wait for CI to pass before calling the coordinated task complete.
 
@@ -215,7 +235,7 @@ to hit it whenever a write strays outside the gate scope.
 - Hard fail: a no-context audit receives issue, checklist, PR, or manager
   summary context.
 
-- Hard fail: an agent works outside scope and the gate record or checklist is
+- Hard fail: an agent works outside scope and the gate ledger or checklist is
   not amended.
 
 - Hard fail: a dispatched implementation has no test change and no approved

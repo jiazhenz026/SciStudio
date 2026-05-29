@@ -17,7 +17,7 @@ language_source: en
 ## 1. Change Summary
 
 - Owner request: `<one sentence>`
-- Task kind: `<feature|bugfix|hotfix|refactor|docs|maintenance|manager>`
+- Task kind: `<feature|bugfix|hotfix|refactor|docs|maintenance|manager|guided>`
 - Manager persona: `manager`
 - Issue: `#<issue>`
 - Gate record: `.workflow/records/<issue>-<task-slug>.json`
@@ -81,10 +81,10 @@ language_source: en
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `<label or N/A>` | `[ ]` | `<output or summary>` |
-| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | `<label or N/A>` | `[ ]` | `<output or summary>` |
-| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `<label or N/A>` | `[ ]` | `<output or summary>` |
-| Receipt | `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base <base> --pr-body-file <body-file>` | `<broad label or N/A>` | `[ ]` | `<receipt path or error>` |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file <body-file>` | `<broad label or N/A>` | `[ ]` | `<ledger reconcile event or error>` |
 
 ## 5.1 Docs Impact Check
 
@@ -163,7 +163,8 @@ amendment.
 | Tests | `<targeted pytest command>` | `[ ]` | `<output path or summary>` |
 | Full audit | `python -m scistudio.qa.audit.full_audit ...` | `[ ]` | `<output path>` |
 | Sentrux | `<MCP tool or CLI command>` | `[ ]` | `<evidence or N/A reason>` |
-| Addendum 5 receipt | `python -m scistudio.qa.governance.gate_receipt run --gate-record <record> --base origin/main --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<receipt path>` |
+| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<reconcile event or summary>` |
+| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` | `[ ]` | `<ledger path>` |
 | Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "<title>" --body "<body>"` | `[ ]` | `<output>` |
 
 ## 9. Drift Log

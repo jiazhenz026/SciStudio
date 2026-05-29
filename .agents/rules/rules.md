@@ -20,6 +20,9 @@ This file is a pointer only. It is not an independent policy source.
 - Use `docs/ai-developer/specific_rules/hotfix.md` if the owner explicitly
   authorizes hotfix mode.
 
+- Use `docs/ai-developer/specific_rules/guided-work.md` if you are carrying out
+  owner-directed live implementation (task kind `guided`).
+
 - Use `docs/ai-developer/specific_rules/docs-change.md` if you are changing
   documentation only.
 
@@ -42,6 +45,9 @@ This file is a pointer only. It is not an independent policy source.
 
 - Use `docs/ai-developer/personas/test-engineer.md` if you are the test
   engineer persona.
+
+- Use `docs/ai-developer/personas/live-implementer.md` if you are the
+  `live_implementer` persona carrying out a `guided` task kind.
 
 - Use `docs/ai-developer/templates/agent-dispatch-checklist-template.md` if you
   are creating a manager dispatch checklist.

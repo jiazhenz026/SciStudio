@@ -81,10 +81,18 @@ Use these rules with:
 
 - `docs/ai-developer/rules.md`
 - `docs/ai-developer/specific_rules/gated-workflow.md` for the final-gate
-  workflow that every hotfix exit must complete, including ADR-042 Addendum 5
-  receipt under §3.6 and the `scripts/scistudio_pr_create.py` wrapper under
-  §3.7
+  workflow that every hotfix exit must complete. `gate_record check --mode
+  pre-pr` and pre-PR `finalize` replace the old `gate_receipt` tooling; use the
+  `scripts/scistudio_pr_create.py` wrapper per §3.7.
 - `docs/ai-developer/specific_rules/bug-fix.md`
 - `docs/ai-developer/personas/implementer.md`
 - `docs/ai-developer/personas/audit-reviewer.md` when the hotfix comes from
   audit or CI findings
+
+`hotfix` is a Tier 2 task. The full task-kind CLI argument profile is in
+ADR-042 Addendum 6 §7.7.4.
+
+Note: for owner-directed live implementation that spans feature, bugfix,
+refactor, or multiple related areas, the `guided` task kind with the
+`live_implementer` persona may be more appropriate than `hotfix`. See
+`docs/ai-developer/specific_rules/guided-work.md`.

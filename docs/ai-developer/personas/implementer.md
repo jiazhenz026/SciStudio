@@ -33,6 +33,10 @@ language_source: en
 - Do not use this persona for audit-only work or governance-authoring-only
   work.
 
+- Do not use this persona for owner-directed live implementation sessions where
+  scope evolves through directives. Use the `live_implementer` persona with the
+  `guided` task kind instead.
+
 ## 3. What You Use This Persona For
 
 - Implement the approved behavior within the assigned scope.
@@ -93,12 +97,15 @@ language_source: en
 - Manager dispatch rules, when dispatched:
   `docs/ai-developer/specific_rules/agent-dispatch.md`
 
-- ADR-042 Addendum 5 receipt and PR-creation wrapper:
-  `python -m scistudio.qa.governance.gate_receipt`,
+- PR-creation wrapper (Addendum 6: use before opening any AI-authored PR):
   `python scripts/scistudio_pr_create.py`
 
-- Worktree write guard PreToolUse hook (blocks Edit/Write outside the active
-  gate scope):
+- Gate ledger commands (Addendum 6 CLI): use `gate_record init`, `plan`,
+  `amend`, `check`, and `finalize`; the gate record is the single source of
+  truth and the receipt subsystem is folded into ledger check/reconcile events.
+
+- Worktree write guard PreToolUse hook (blocks Edit/Write to the main checkout
+  when a worktree should be used):
   `scripts/hooks/check-worktree-write-guard.sh`
 
 - Root policy:
