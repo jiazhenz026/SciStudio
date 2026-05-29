@@ -211,6 +211,43 @@ def test_guards_run_exactly_once(git_repo: Path) -> None:
     assert set(guard_names) == set(evaluator.GUARD_REGISTRY.keys())
 
 
+def test_blocking_guard_emits_repair_hint(git_repo: Path) -> None:
+    # Defect 2 regression (#1509): a blocking guard finding must carry an
+    # actionable repair hint, not a bare ``- guard.<name>`` line, so the
+    # one-pass-guidance bar holds for the whole guard class.
+    _add_change(git_repo, "src/scistudio/core/foo.py")
+    ledger = _ledger(task_kind="bugfix", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.core_change_guard" in result.unsatisfied
+    guard_hints = [h for h in result.repair_hints if h.startswith("- guard.core_change_guard")]
+    assert guard_hints, result.repair_hints
+    hint = guard_hints[0]
+    # The hint surfaces the guard's own message AND a concrete per-guard action.
+    assert "Fix:" in hint
+    assert "admin-approved:core-change" in hint
+    # And the affected protected-core path is named.
+    assert "src/scistudio/core/foo.py" in hint
+
+
+def test_guard_repair_hint_uses_finding_message_when_no_action_mapped() -> None:
+    # The helper falls back to the finding's own message/remediation; the
+    # ``- guard.<name>`` header is always present.
+    from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
+
+    report = AuditReport(
+        tool="some_guard",
+        status=AuditStatus.FAIL,
+        source_sha="x",
+        findings=[Finding(rule_id="some_guard.x", severity=Severity.ERROR, message="thing is broken", file="a.py")],
+    )
+    hint = evaluator._guard_repair_hint("some_guard", report)
+    assert hint.startswith("- guard.some_guard")
+    assert "thing is broken" in hint
+    assert "Affected: a.py" in hint
+
+
 # ---------------------------------------------------------------------------
 # Reconcile event + mode equivalence.
 # ---------------------------------------------------------------------------

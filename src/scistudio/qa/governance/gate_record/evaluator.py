@@ -226,6 +226,85 @@ def _infer_obligations(
     )
 
 
+# Per-guard fallback repair actions (§5.2 one-pass guidance). Used only when a
+# blocking guard finding carries no remediation/suggested_fix of its own. These
+# are intentionally guard-class actions, not check waivers: NEVER suggest
+# ``--check-na`` here (that waiver is over-broad for merge-blocking standalone CI
+# jobs like python_tests/lint_format and has no force there).
+_GUARD_REPAIR_ACTIONS: dict[str, str] = {
+    "core_change_guard": (
+        "Request the admin-approved:core-change label (owner applies it; the "
+        "actor-permission provenance is verified in CI), or move the change out "
+        "of the protected-core surface."
+    ),
+    "human_bypass_guard": (
+        "Use a valid ADR-042 override label applied by an authorized maintainer; "
+        "AI-authored evidence needs admin-approved:ai-override provenance."
+    ),
+    "pr_merge_guard": (
+        "AI merge automation needs admin-approved:merge applied by an authorized maintainer (verified in CI)."
+    ),
+    "mod_guard": (
+        "Declare the governance touch and obtain owner review for the governed "
+        "surface change, or revert the unauthorized governed-file edit."
+    ),
+    "weakened_ci_check": (
+        "Restore the removed/altered required CI or pre-commit check token, or "
+        "get owner sign-off recorded for the governance change."
+    ),
+    "sentrux_gate": (
+        "Record passing Sentrux evidence for the changed surface "
+        "(scan + check_rules), or attach an owner-approved waiver rationale."
+    ),
+    "test_engineer_scope_guard": (
+        "Keep test-engineer edits inside the allowed test/fixture surface; amend "
+        "scope or move non-test changes to an implementer task."
+    ),
+    "docs_landing": (
+        "Record a docs/changelog/checklist path or an explicit N/A:\n"
+        "  gate_record amend --reason '<why>' --docs-na 'implementation:<rationale>'"
+    ),
+    "issue_link": ("Link an issue and close it in the PR body:\n  gate_record amend --reason '<why>' --issue <n>"),
+    "persona_policy": (
+        "Add the missing persona skill/constitution/root-policy pointer at the "
+        "path named in the finding evidence (match an existing persona's pointer; "
+        "git add -f gitignored runtime roots)."
+    ),
+}
+
+
+def _guard_repair_hint(guard_name: str, report: AuditReport) -> str:
+    """Build an actionable repair hint for a blocking guard (§5.2).
+
+    Prefers the guard's own remediation/suggested_fix, falls back to the
+    finding message, and always appends a concrete per-guard action plus the
+    relevant finding evidence (e.g. the missing pointer path) so guard findings
+    carry the same one-pass guidance as docs/test/issue/check obligations.
+    """
+
+    lines = [f"- guard.{guard_name}"]
+    errors = report.error_findings()
+    # Surface what the guard reported (its own remediation wins; else the
+    # descriptive message). Dedupe so repeated per-file findings don't repeat.
+    seen: set[str] = set()
+    for finding in errors:
+        detail = finding.remediation or finding.suggested_fix or finding.message
+        if detail and detail not in seen:
+            seen.add(detail)
+            lines.append(f"  {detail}")
+    action = _GUARD_REPAIR_ACTIONS.get(guard_name)
+    if action:
+        lines.append(f"  Fix: {action}")
+    # Append the load-bearing evidence (paths/labels) so the hint is concrete.
+    evidence_bits: list[str] = []
+    for finding in errors:
+        if finding.file and finding.file not in evidence_bits:
+            evidence_bits.append(finding.file)
+    if evidence_bits:
+        lines.append(f"  Affected: {', '.join(evidence_bits[:5])}")
+    return "\n".join(lines)
+
+
 def reconcile(
     *,
     ledger: GateLedger,
@@ -423,6 +502,7 @@ def reconcile(
                 continue
             unsatisfied.append(f"guard.{name}")
             findings.extend(report.error_findings())
+            repair_hints.append(_guard_repair_hint(name, report))
 
     # Parity gaps fail closed for PR readiness.
     if mode in ("pre-pr", "ci") and parity_gaps:

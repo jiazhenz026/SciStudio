@@ -540,6 +540,17 @@ def test_persona_policy_allows_live_implementer() -> None:
     assert "persona_policy.unsupported-persona" not in _rule_ids(report)
 
 
+@pytest.mark.parametrize("runtime", ["claude-code", "codex", "gemini", "agents"])
+def test_persona_policy_live_implementer_pointer_resolves(runtime: str) -> None:
+    # Defect 1 regression (#1509): the live-implementer skill pointer must ship
+    # under every supported runtime root so a guided/live_implementer flow is no
+    # longer dead-on-arrival. _inputs uses the real REPO_ROOT, so PASS proves the
+    # on-disk skill pointer, persona guide, and root policy all resolve.
+    report = persona_policy.check(_inputs(persona="live_implementer", runtime=runtime))
+    assert report.status is AuditStatus.PASS, _rule_ids(report)
+    assert "persona_policy.missing-skill-pointer" not in _rule_ids(report)
+
+
 def test_persona_policy_blocks_unsupported_persona() -> None:
     report = persona_policy.check(_inputs(persona="reviewer_bot", runtime="claude-code"))
     assert report.blocks_merge
