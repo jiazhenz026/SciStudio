@@ -118,32 +118,6 @@ def _default_delegated_filename(data_type: type[DataObject], capability: FormatC
     return f"{data_type.__name__.lower()}{capability.extensions[0]}"
 
 
-def _source_filename(obj: DataObject) -> str | None:
-    raw_file_path = getattr(obj, "file_path", None)
-    if raw_file_path:
-        return Path(str(raw_file_path)).name
-    framework = getattr(obj, "framework", None)
-    source = getattr(framework, "source", "")
-    if isinstance(source, str) and source:
-        return Path(source).name
-    return None
-
-
-def _filename_config(params: dict[str, Any]) -> str | None:
-    raw = params.get("filename")
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(raw).__name__}")
-    cleaned = raw.strip()
-    if not cleaned:
-        return None
-    name = Path(cleaned).name
-    if name in {"", ".", ".."}:
-        raise ValueError("SaveData: filename must be a file name, not a directory path.")
-    return name
-
-
 def _filename_with_extension(name: str, capability: FormatCapability) -> str:
     if not capability.extensions:
         return name
@@ -162,6 +136,12 @@ def _delegated_filename(
     data_type: type[DataObject],
     capability: FormatCapability,
 ) -> str:
+    # Reuse the canonical filename helpers from the saver capability module
+    # instead of maintaining near-identical private copies here (ADR-028
+    # Addendum 1 §C9 "prefer existing helpers"; dedups the semantic-dup
+    # clusters that copies of these two functions otherwise create).
+    from scistudio.blocks.io.savers._capability import _filename_config, _source_filename
+
     configured = _filename_config(params)
     if configured is not None:
         return _filename_with_extension(configured, capability)
