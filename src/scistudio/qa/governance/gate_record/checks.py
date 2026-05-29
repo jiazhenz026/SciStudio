@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from scistudio.qa.governance.gate_record import surfaces
+import scistudio.qa.governance.gate_record.surfaces as surfaces
 from scistudio.qa.governance.gate_record.io import LOCAL_LOGS_DIR, fingerprint_paths
 from scistudio.qa.governance.gate_record.ledger import CheckEvent, StrictnessTier
 from scistudio.qa.governance.gate_record.parity import resolve_ci_tool_versions

@@ -26,8 +26,9 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from scistudio.qa.governance.gate_record import checks, surfaces
-from scistudio.qa.governance.gate_record.guards import GuardInputs
+import scistudio.qa.governance.gate_record.checks as checks
+import scistudio.qa.governance.gate_record.surfaces as surfaces
+from scistudio.qa.governance.gate_record.guards._base import GuardInputs
 from scistudio.qa.governance.gate_record.guards._stub import source_sha
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 

@@ -14,8 +14,8 @@ lets a test engineer touch QA tooling when scope authorizes it.
 
 from __future__ import annotations
 
-from scistudio.qa.governance.gate_record import surfaces
-from scistudio.qa.governance.gate_record.guards import GuardInputs
+import scistudio.qa.governance.gate_record.surfaces as surfaces
+from scistudio.qa.governance.gate_record.guards._base import GuardInputs
 from scistudio.qa.governance.gate_record.guards._stub import source_sha
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 

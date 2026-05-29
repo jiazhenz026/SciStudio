@@ -21,7 +21,7 @@ runtime config root and the canonical persona guide under
 
 from __future__ import annotations
 
-from scistudio.qa.governance.gate_record.guards import GuardInputs
+from scistudio.qa.governance.gate_record.guards._base import GuardInputs
 from scistudio.qa.governance.gate_record.guards._stub import source_sha
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 

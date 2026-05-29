@@ -18,7 +18,8 @@ from typing import Any
 
 import pydantic
 
-from scistudio.qa.governance.gate_record import evaluator, io
+import scistudio.qa.governance.gate_record.evaluator as evaluator
+import scistudio.qa.governance.gate_record.io as io
 from scistudio.qa.governance.gate_record.instructions import generate_instructions
 from scistudio.qa.governance.gate_record.io import SanitizationError
 from scistudio.qa.governance.gate_record.labels import ADMIN_LABELS

@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from scistudio.qa.governance.gate_record import workflow
+import scistudio.qa.governance.gate_record.workflow as workflow
 from scistudio.qa.governance.gate_record.labels import ADMIN_LABELS
 from scistudio.qa.governance.gate_record.ledger import SUPPORTED_PERSONAS, SUPPORTED_TASK_KINDS
 

@@ -18,7 +18,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from scistudio.qa.governance.gate_record import checks, io, parity, surfaces
+import scistudio.qa.governance.gate_record.checks as checks
+import scistudio.qa.governance.gate_record.io as io
+import scistudio.qa.governance.gate_record.parity as parity
+import scistudio.qa.governance.gate_record.surfaces as surfaces
 from scistudio.qa.governance.gate_record.guards import GUARD_REGISTRY, GuardInputs
 from scistudio.qa.governance.gate_record.ledger import (
     CheckEvent,
