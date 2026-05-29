@@ -503,7 +503,7 @@ def _source_filename(obj: DataObject | None) -> str | None:
     return None
 
 
-def _filename_config(config: object) -> str | None:
+def _filename_config(config: dict[str, object]) -> str | None:
     raw = config.get("filename")
     if raw is None:
         return None
@@ -536,7 +536,7 @@ def _filename_with_format(name: str, format_id: str, data_type: type[DataObject]
 def _configured_or_source_filename(
     format_id: str,
     data_type: type[DataObject],
-    config: object,
+    config: dict[str, object],
     obj: DataObject | None,
 ) -> str:
     configured = _filename_config(config)
@@ -593,7 +593,7 @@ def _resolve_save_format(
 def _resolve_save_path_and_format(
     path: Path,
     data_type: type[DataObject],
-    config: object,
+    config: dict[str, object],
     obj: DataObject | None = None,
 ) -> tuple[Path, str | None]:
     """Return the output path and format for a SaveData write.
@@ -635,7 +635,7 @@ def _resolve_save_path_and_format(
     return path, fmt
 
 
-def _ensure_save_target_available(path: Path, config: object) -> None:
+def _ensure_save_target_available(path: Path, config: dict[str, object]) -> None:
     """Reject existing output targets unless overwrite is explicit."""
 
     if not path.exists() or bool(config.get("overwrite", False)):

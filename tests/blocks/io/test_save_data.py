@@ -29,6 +29,14 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
+
+try:
+    import openpyxl  # noqa: F401
+    import pandas  # noqa: F401
+
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
 import pyarrow.csv as pcsv
 import pyarrow.parquet as pq
 import pytest
@@ -747,6 +755,10 @@ class TestSaveDataFilename:
         with pytest.raises(ValueError, match="no source filename"):
             block.save(_make_dataframe(), block.config)
 
+    @pytest.mark.skipif(
+        not _PANDAS_AVAILABLE,
+        reason="pandas or openpyxl not installed (LCMS plugin required)",
+    )
     def test_package_owned_capability_delegates_to_registered_saver(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
