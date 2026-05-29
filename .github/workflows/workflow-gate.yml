@@ -46,13 +46,91 @@ jobs:
           PR_BODY_FILE="$(mktemp)"
           printf '%s' "$PR_BODY" > "$PR_BODY_FILE"
 
-          # Migrated label vocabulary (Addendum 6 §4.2): the broad bypass label
-          # is now `admin-approved:bypass` (was `admin-approved:ai-override`).
-          # The evaluator verifies label-actor provenance internally in ci mode;
-          # this step only forwards PR context and the evaluator's exit code.
+          # Assemble the PR context the evaluator's ci mode feeds to the
+          # core_change / human_bypass / pr_merge guards (Addendum 6 §3.2/§4).
+          # The labeling actor's repository permission is the provenance the
+          # guards require: an admin/bypass/merge label only AUTHORIZES when its
+          # labeling actor has admin/maintain/write permission. We resolve that
+          # from the GitHub API (labeled events -> labeling actor -> that actor's
+          # collaborator permission), plus PR reviews and the merge intent. Every
+          # API call is best-effort: a failure leaves provenance unverified, so
+          # the guards fail closed (an unverified label does not authorize). With
+          # no labels the context is empty and the outcome is unchanged.
+          # Migrated label vocabulary (§4.2): the legacy
+          # `admin-approved:ai-override` maps to `admin-approved:bypass`.
+          PR_CONTEXT_FILE="$(mktemp)"
+          PR_CONTEXT_FILE="$PR_CONTEXT_FILE" PYTHONPATH=src python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+          pr_number = os.environ.get("PR_NUMBER", "").strip()
+          out_path = os.environ["PR_CONTEXT_FILE"]
+
+          # Legacy override-label migration (§4.2).
+          LABEL_MIGRATION = {"admin-approved:ai-override": "admin-approved:bypass"}
+          OVERRIDE_LABELS = {
+              "human-authored",
+              "admin-approved:bypass",
+              "admin-approved:core-change",
+              "admin-approved:merge",
+          }
+
+          def _gh_json(args):
+              try:
+                  raw = subprocess.check_output(
+                      ["gh", "api", *args],
+                      text=True,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  return json.loads(raw)
+              except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+                  return None
+
+          def _actor_permission(actor, fallback=""):
+              if not actor:
+                  return fallback
+              data = _gh_json([f"repos/{repo}/collaborators/{actor}/permission"])
+              if isinstance(data, dict):
+                  return str(data.get("permission", fallback) or fallback)
+              return fallback
+
+          labels = []
+          reviews = []
+          merge_intent = ""
+          if pr_number and repo:
+              events = _gh_json([f"repos/{repo}/issues/{pr_number}/events", "--paginate"]) or []
+              if isinstance(events, list):
+                  for event in events:
+                      if not isinstance(event, dict) or event.get("event") != "labeled":
+                          continue
+                      name = (event.get("label") or {}).get("name")
+                      name = LABEL_MIGRATION.get(name, name)
+                      if name not in OVERRIDE_LABELS:
+                          continue
+                      actor = (event.get("actor") or {}).get("login")
+                      permission = _actor_permission(actor, str(event.get("author_association", "")).lower())
+                      labels.append({"name": name, "actor": actor, "permission": permission})
+
+              review_events = _gh_json([f"repos/{repo}/pulls/{pr_number}/reviews", "--paginate"]) or []
+              if isinstance(review_events, list):
+                  for review in review_events:
+                      if not isinstance(review, dict):
+                          continue
+                      actor = (review.get("user") or {}).get("login")
+                      permission = _actor_permission(actor, str(review.get("author_association", "")).lower())
+                      reviews.append({"state": review.get("state"), "actor": actor, "permission": permission})
+
+          context = {"labels": labels, "reviews": reviews, "merge_intent": merge_intent}
+          with open(out_path, "w", encoding="utf-8") as handle:
+              json.dump(context, handle)
+          PY
+
           PYTHONPATH=src python -m scistudio.qa.governance.gate_record check \
             --mode ci \
             --base "origin/$BASE_REF" \
             --head HEAD \
-            --pr-body-file "$PR_BODY_FILE"
+            --pr-body-file "$PR_BODY_FILE" \
+            --pr-context-file "$PR_CONTEXT_FILE"
         shell: bash

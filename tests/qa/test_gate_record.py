@@ -226,6 +226,35 @@ def test_discovery_ignores_finalized_and_old_format_records(git_repo: Path) -> N
     assert io.load_ledger(discovery.path).record_id != "done"
 
 
+def test_discovery_ignores_stale_v1_record_alongside_v2(git_repo: Path) -> None:
+    # Codex P1 #1 (#1509): the deleted 1509-adr042-add6-guards.json was a
+    # throwaway schema-v1 scope record on a sub-branch, superseded by the v2
+    # umbrella ledger. Even on the SAME branch a stale v1 record must never be
+    # discovered as the active ledger; only the v2 record resolves.
+    branch = "track/adr-042-add6/umbrella"
+    v2 = GateLedger.model_validate(
+        {
+            "record_id": "1509-umbrella-integration",
+            "runtime": "claude-code",
+            "task_kind": "feature",
+            "persona": "implementer",
+            "branch": branch,
+            "owner_directive": "umbrella integration",
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "1509-umbrella-integration.json", v2, repo_root=git_repo)
+    # A stale schema-v1 throwaway record on the same branch (as the deleted file).
+    (git_repo / RECORDS_DIR / "1509-adr042-add6-guards.json").write_text(
+        json.dumps({"schema_version": "1", "branch": branch, "task_id": "1509-adr042-add6-guards"}),
+        encoding="utf-8",
+    )
+    discovery = io.discover_ledger(git_repo, branch=branch)
+    assert discovery.found
+    assert discovery.path is not None
+    assert discovery.path.name == "1509-umbrella-integration.json"
+    assert io.load_ledger(discovery.path).record_id == "1509-umbrella-integration"
+
+
 def test_discovery_zero_matches_reports_run_init(git_repo: Path) -> None:
     discovery = io.discover_ledger(git_repo)
     assert not discovery.found

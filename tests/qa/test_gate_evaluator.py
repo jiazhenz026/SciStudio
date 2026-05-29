@@ -578,3 +578,279 @@ def test_check_na_for_non_ci_owned_check_still_waives(git_repo: Path) -> None:
         ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
     )
     assert not any("my_custom_task_check" in w for w in result.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Codex P1 #3: a REQUIRED check that comes back "skipped" must fail closed for
+# PR readiness (not be silently passed). Not double-counted with a parity gap.
+# ---------------------------------------------------------------------------
+
+
+def test_required_skipped_check_is_unsatisfied_in_pr_readiness(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+
+    # The tool is genuinely unavailable -> run_check returns status="skipped"
+    # (NOT a parity-gap fail, NOT an explicit --check-na).
+    def _fake_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(
+            name=name,
+            command="ruff check .",
+            covered_surface="python",
+            exit_code=None,
+            status="skipped",
+            summary="tool unavailable: ruff",
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True
+    )
+    # The skipped required check is unsatisfied (fail closed), with a repair hint,
+    # and is NOT recorded as a parity gap (no double counting).
+    assert any(item.startswith("checks.") for item in result.unsatisfied), result.unsatisfied
+    assert any("SKIPPED" in h for h in result.repair_hints)
+    assert not result.parity_gaps
+
+
+def test_required_skipped_check_does_not_block_local_wip(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+
+    def _fake_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(
+            name=name,
+            command="ruff check .",
+            covered_surface="python",
+            exit_code=None,
+            status="skipped",
+            summary="tool unavailable: ruff",
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    # A non-PR-readiness local invocation records the event but does not block on
+    # the skipped check (§3.4): no checks.<name> obligation is added.
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=True
+    )
+    assert not any(item.startswith("checks.") for item in result.unsatisfied), result.unsatisfied
+
+
+def test_required_skipped_check_waived_by_na(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import checks
+    from scistudio.qa.governance.gate_record.ledger import CheckNa
+
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+    # A non-ci-owned check with an explicit N/A is removed from ``to_run`` before
+    # execution, so a skip there is never even produced -> no unsatisfied entry.
+    ledger.check_na.append(CheckNa(name="my_custom_task_check", rationale="not relevant"))
+
+    def _fake_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        # Should not be called for the N/A check; guard the test anyway.
+        return CheckEvent(
+            name=name, command="x", covered_surface="python", exit_code=None, status="skipped", summary="unavailable"
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True
+    )
+    assert "checks.my_custom_task_check" not in result.unsatisfied
+
+
+# ---------------------------------------------------------------------------
+# Codex P1 #2: a maintainer-applied admin label in the CI PR context must reach
+# the core/human/merge guards as provenance-carrying observed labels. Wired via
+# reconcile(pr_context=...) -> GuardInputs.observed_admin_labels + pr_context.
+# ---------------------------------------------------------------------------
+
+
+def test_core_change_authorized_by_admin_provenance_label_in_ci(git_repo: Path) -> None:
+    # A protected-core change is BLOCKED in ci with no label/context...
+    _add_change(git_repo, "src/scistudio/core/foo.py")
+    ledger = _ledger(task_kind="bugfix", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    blocked = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.core_change_guard" in blocked.unsatisfied
+
+    # ...and AUTHORIZED when the CI PR context carries an admin-applied
+    # admin-approved:core-change label (provenance verified in the workflow).
+    ledger_ok = _ledger(task_kind="bugfix", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    authorized = evaluator.reconcile(
+        ledger=ledger_ok,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={
+            "labels": [{"name": "admin-approved:core-change", "actor": "owner", "permission": "admin"}],
+        },
+    )
+    assert "guard.core_change_guard" not in authorized.unsatisfied
+
+
+def test_core_change_label_by_non_admin_actor_does_not_authorize(git_repo: Path) -> None:
+    _add_change(git_repo, "src/scistudio/core/foo.py")
+    ledger = _ledger(task_kind="bugfix", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={
+            "labels": [{"name": "admin-approved:core-change", "actor": "drive-by", "permission": "read"}],
+        },
+    )
+    # A non-admin actor's label carries insufficient provenance -> still blocks.
+    assert "guard.core_change_guard" in result.unsatisfied
+
+
+def test_human_bypass_authorized_by_admin_provenance_label_in_ci(git_repo: Path) -> None:
+    # An AI-runtime PR with human-authored only is blocked; adding an
+    # admin-applied admin-approved:bypass label clears human_bypass_guard.
+    _add_change(git_repo, "src/scistudio/x.py")
+    blocked_ledger = _ledger(runtime="claude-code", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    blocked = evaluator.reconcile(
+        ledger=blocked_ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={"labels": [{"name": "human-authored", "actor": "owner", "permission": "admin"}]},
+    )
+    assert "guard.human_bypass_guard" in blocked.unsatisfied
+
+    ok_ledger = _ledger(runtime="claude-code", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    authorized = evaluator.reconcile(
+        ledger=ok_ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={
+            "labels": [
+                {"name": "human-authored", "actor": "owner", "permission": "admin"},
+                {"name": "admin-approved:bypass", "actor": "owner", "permission": "admin"},
+            ]
+        },
+    )
+    assert "guard.human_bypass_guard" not in authorized.unsatisfied
+
+
+def test_human_bypass_label_by_non_admin_actor_does_not_authorize(git_repo: Path) -> None:
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(runtime="claude-code", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={"labels": [{"name": "admin-approved:bypass", "actor": "drive-by", "permission": "read"}]},
+    )
+    # An override label without admin provenance is unauthorized -> blocks.
+    assert "guard.human_bypass_guard" in result.unsatisfied
+
+
+def test_pr_merge_authorized_by_admin_provenance_label_in_ci(git_repo: Path) -> None:
+    # AI merge automation is blocked without an authorized merge label...
+    _add_change(git_repo, "src/scistudio/x.py")
+    blocked_ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    blocked = evaluator.reconcile(
+        ledger=blocked_ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={"merge_intent": "merge", "is_ai_actor": True, "labels": []},
+    )
+    assert "guard.pr_merge_guard" in blocked.unsatisfied
+
+    # ...and authorized with an admin-applied admin-approved:merge label.
+    ok_ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    authorized = evaluator.reconcile(
+        ledger=ok_ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={
+            "merge_intent": "merge",
+            "is_ai_actor": True,
+            "labels": [{"name": "admin-approved:merge", "actor": "owner", "permission": "maintain"}],
+        },
+    )
+    assert "guard.pr_merge_guard" not in authorized.unsatisfied
+
+
+def test_observed_labels_from_context_carry_provenance() -> None:
+    # Unit-level: the evaluator helper turns CI context labels into
+    # provenance-carrying AdminLabels and merges them with the ledger set.
+    from scistudio.qa.governance.gate_record.ledger import AdminLabel
+
+    context = {
+        "labels": [
+            {"name": "admin-approved:core-change", "actor": "owner", "permission": "admin"},
+            {"name": "no-name-entry"},  # kept (has name)
+            {"bad": "entry"},  # dropped (no name)
+        ]
+    }
+    built = evaluator._observed_labels_from_context(context)
+    by_name = {label.name: label for label in built}
+    assert by_name["admin-approved:core-change"].actor_permission == "admin"
+    assert by_name["admin-approved:core-change"].applied_by == "owner"
+
+    # Merge: a context label of the same name overrides the ledger entry's
+    # (missing) provenance; ledger-only names are kept.
+    merged = evaluator._merge_observed_labels(
+        [AdminLabel(name="admin-approved:core-change"), AdminLabel(name="ledger-only")],
+        built,
+    )
+    merged_by_name = {label.name: label for label in merged}
+    assert merged_by_name["admin-approved:core-change"].actor_permission == "admin"
+    assert "ledger-only" in merged_by_name
+
+
+def test_no_pr_context_leaves_outcome_unchanged(git_repo: Path) -> None:
+    # A PR with no labels/context behaves exactly as before: a clean
+    # non-protected-core change has no core/human/merge guard block.
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+    )
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_body="Closes #1509",
+    )
+    assert "guard.core_change_guard" not in result.unsatisfied
+    assert "guard.human_bypass_guard" not in result.unsatisfied
+    assert "guard.pr_merge_guard" not in result.unsatisfied

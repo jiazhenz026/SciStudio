@@ -12,6 +12,7 @@ Exit codes (spec §5.7):
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -345,6 +346,36 @@ def _read_pr_body(repo_root: Path, pr_body_file: str | None) -> str | None:
     return path.read_text(encoding="utf-8")
 
 
+def _read_pr_context(repo_root: Path, pr_context_file: str | None) -> dict[str, Any] | None:
+    """Parse the CI PR-context JSON file, or return None when absent/unusable.
+
+    The workflow assembles this file from the real GitHub event (labels with
+    actor/permission provenance, reviews, merge intent). A missing, empty, or
+    malformed file yields ``None`` so a PR with no context (like a labelless PR)
+    behaves exactly as before: no PR context reaches the guards. Parse failures
+    are non-fatal by design — provenance enrichment is best-effort and the
+    guards fail closed without it.
+    """
+
+    if not pr_context_file:
+        return None
+    path = Path(pr_context_file)
+    path = path if path.is_absolute() else repo_root / path
+    if not path.exists():
+        return None
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     effective_mode = mode or getattr(args, "mode", "local") or "local"
     path, err = _resolve_ledger_path(repo_root, args.record)
@@ -361,6 +392,7 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
 
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
+    pr_context = _read_pr_context(repo_root, getattr(args, "pr_context_file", None))
     head = getattr(args, "head", "HEAD") or "HEAD"
     base = _resolve_base(repo_root, getattr(args, "base", None), head)
     result = evaluator.reconcile(
@@ -370,6 +402,7 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         head=head,
         mode=effective_mode,  # type: ignore[arg-type]
         pr_body=pr_body,
+        pr_context=pr_context,
         run_checks=not getattr(args, "skip_execution", False),
         only=getattr(args, "only", None) or None,
     )

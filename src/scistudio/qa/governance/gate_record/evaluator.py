@@ -13,7 +13,7 @@ sanitize committed events.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +24,7 @@ import scistudio.qa.governance.gate_record.parity as parity
 import scistudio.qa.governance.gate_record.surfaces as surfaces
 from scistudio.qa.governance.gate_record.guards import GUARD_REGISTRY, GuardInputs
 from scistudio.qa.governance.gate_record.ledger import (
+    AdminLabel,
     CheckEvent,
     GateLedger,
     GuardEvent,
@@ -221,26 +222,84 @@ def _recorded_sentrux_evidence(ledger: GateLedger) -> Any | None:
     return None
 
 
+def _observed_labels_from_context(pr_context: Mapping[str, Any] | None) -> list[AdminLabel]:
+    """Convert CI PR-context ``labels`` into provenance-carrying AdminLabels (§4).
+
+    The CI workflow assembles ``pr_context['labels']`` from the real GitHub event
+    as ``[{name, actor, permission}, ...]`` where ``actor``/``permission`` are the
+    labeling actor and that actor's repository permission (resolved in CI via the
+    GitHub API). Each entry becomes an observed :class:`AdminLabel` whose
+    ``actor_permission`` is the verified provenance the core/human/merge guards
+    require — they authorize an admin label ONLY when its labeling actor has an
+    admin/maintainer permission, so a label with no/insufficient provenance never
+    authorizes. Entries without a name are dropped; malformed entries are skipped.
+    """
+
+    if not pr_context:
+        return []
+    raw = pr_context.get("labels")
+    if not isinstance(raw, Sequence) or isinstance(raw, str):
+        return []
+    labels: list[AdminLabel] = []
+    for entry in raw:
+        if not isinstance(entry, Mapping):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        actor = entry.get("actor")
+        permission = entry.get("permission", entry.get("actor_permission"))
+        labels.append(
+            AdminLabel(
+                name=name,
+                applied_by=actor if isinstance(actor, str) else None,
+                actor_permission=permission if isinstance(permission, str) else None,
+            )
+        )
+    return labels
+
+
+def _merge_observed_labels(
+    ledger_labels: Sequence[AdminLabel],
+    context_labels: Sequence[AdminLabel],
+) -> list[AdminLabel]:
+    """Merge ledger + CI-context observed labels, latest provenance wins per name.
+
+    A given label name may appear in both the committed ledger and the live CI
+    context; the CI context carries the authoritative actor/permission provenance,
+    so context entries override ledger entries of the same name. Names unique to
+    either source are kept. The result is the single observed-label set the guards
+    read.
+    """
+
+    merged: dict[str, AdminLabel] = {label.name: label for label in ledger_labels}
+    for label in context_labels:
+        merged[label.name] = label
+    return list(merged.values())
+
+
 def _build_pr_context(
     ledger: GateLedger,
     mode: EvaluatorMode,
-    pr_context: dict[str, Any] | None,
+    pr_context: Mapping[str, Any] | None,
+    observed_admin_labels: Sequence[AdminLabel],
 ) -> dict[str, Any] | None:
     """Assemble the PR context the merge/core/human guards read (§3.2).
 
-    The caller may pass a partial ``pr_context`` (real GitHub event in CI mode).
-    The evaluator enriches it with the ledger's ``observed_admin_labels`` (which
-    carry CI-verified actor/permission provenance) so ``observed_labels`` and
-    label-actor permission are available to the guards. In local modes there is
-    no real PR yet, so labels are recorded intent only and no context is built
-    unless the caller supplies one.
+    The caller may pass a partial ``pr_context`` (real GitHub event in CI mode)
+    carrying ``reviews`` and ``merge_intent``. The evaluator passes those through
+    and also surfaces the merged observed-label names (which carry CI-verified
+    actor/permission provenance) as ``observed_labels`` so the guards see the same
+    label set as ``GuardInputs.observed_admin_labels``. In local modes there is no
+    real PR yet, so labels are recorded intent only and no context is built unless
+    the caller supplies one.
     """
 
     if mode not in ("pre-pr", "ci") and pr_context is None:
         return None
     context: dict[str, Any] = dict(pr_context or {})
-    if ledger.observed_admin_labels:
-        context.setdefault("observed_labels", [label.name for label in ledger.observed_admin_labels])
+    if observed_admin_labels:
+        context.setdefault("observed_labels", [label.name for label in observed_admin_labels])
     return context or (dict(pr_context) if pr_context is not None else None)
 
 
@@ -503,6 +562,24 @@ def reconcile(
             event = checks.run_check(repo_root, name, changed_files=observed_files, diff_fingerprint=fingerprint)
             check_events.append(event)
             ledger.check_events.append(event)
+            if event.status == "skipped":
+                # FAIL CLOSED (§7.5): a REQUIRED check that comes back "skipped"
+                # (e.g. its tool is genuinely unavailable and the skip is NOT a
+                # recorded parity gap, NOT an explicit --check-na — those are
+                # already removed from ``to_run`` above) is unproven, not proven
+                # passing. Silently passing it would let a required obligation
+                # slip. For PR-readiness modes treat it as unsatisfied with a
+                # clear repair hint; non-PR-readiness local modes still record
+                # the event but do not block a WIP invocation.
+                if pr_readiness_mode:
+                    unsatisfied.append(f"checks.{name}")
+                    repair_hints.append(
+                        f"- checks.{name}\n  Required check was SKIPPED (tool unavailable): {event.summary}\n"
+                        f"  Make the tool available and re-run, record an explicit N/A "
+                        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n"
+                        f"  {event.command}"
+                    )
+                continue
             if event.status != "fail":
                 continue
             if event.parity_gap:
@@ -564,7 +641,14 @@ def reconcile(
     sentrux_evidence = _recorded_sentrux_evidence(ledger)
     if sentrux_evidence is not None:
         extras["sentrux_evidence"] = sentrux_evidence
-    effective_pr_context = _build_pr_context(ledger, mode, pr_context)
+    # Observed labels the guards read = committed ledger labels merged with the
+    # CI PR-context labels (which carry the authoritative actor/permission
+    # provenance the GitHub workflow resolved). In CI the ledger's set is empty,
+    # so this is how a maintainer-applied admin label reaches the guards;
+    # provenance from the live context wins per name.
+    context_labels = _observed_labels_from_context(pr_context)
+    effective_observed_labels = _merge_observed_labels(ledger.observed_admin_labels, context_labels)
+    effective_pr_context = _build_pr_context(ledger, mode, pr_context, effective_observed_labels)
 
     guard_inputs = GuardInputs(
         repo_root=repo_root,
@@ -587,7 +671,7 @@ def reconcile(
         pr_body=pr_body,
         pr_context=effective_pr_context,
         requested_admin_labels=list(ledger.requested_admin_labels),
-        observed_admin_labels=list(ledger.observed_admin_labels),
+        observed_admin_labels=effective_observed_labels,
         extras=extras,
     )
     # Guards whose findings are PR-readiness obligations (docs landing, linked

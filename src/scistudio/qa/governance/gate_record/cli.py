@@ -86,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--head", default="HEAD")
     check.add_argument("--mode", choices=_MODES, default="local")
     check.add_argument("--pr-body-file")
+    # CI-only PR context: a JSON file the workflow assembles from the real
+    # GitHub event (labels with actor/permission provenance, reviews, merge
+    # intent). The evaluator consumes it so label/actor provenance reaches the
+    # core/human/merge guards. No file -> no PR context (local intent only).
+    check.add_argument("--pr-context-file")
     check.add_argument("--only", action="append", default=[])
     check.add_argument("--skip-execution", action="store_true")
     _add_field_flags(check)
@@ -142,6 +147,7 @@ def _add_mode_alias(sub: argparse._SubParsersAction, name: str, mode: str) -> No
     alias.add_argument("--base", default=None)
     alias.add_argument("--head", default="HEAD")
     alias.add_argument("--pr-body-file")
+    alias.add_argument("--pr-context-file")
     alias.add_argument("--only", action="append", default=[])
     alias.add_argument("--skip-execution", action="store_true")
     _add_field_flags(alias)
