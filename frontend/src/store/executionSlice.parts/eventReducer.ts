@@ -8,11 +8,27 @@
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 type ExecutionEvent = WorkflowEventMessage;
+const MAX_ERROR_SUMMARY_LEN = 160;
+const PYTHON_EXCEPTION_PREFIX = /^[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning):\s*/;
 
 export interface BlockErrorExtraction {
   isBlockError: boolean;
   errorText: string | undefined;
   summaryText: string | undefined;
+}
+
+export function summarizeErrorText(errorText: string | undefined): string | undefined {
+  if (errorText === undefined) return undefined;
+  const lines = errorText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const lastLine = lines[lines.length - 1] ?? errorText.trim();
+  const cleaned = lastLine.replace(PYTHON_EXCEPTION_PREFIX, "").replace(/\s+/g, " ").trim();
+  const summary = cleaned || "Block failed.";
+  return summary.length > MAX_ERROR_SUMMARY_LEN
+    ? `${summary.slice(0, MAX_ERROR_SUMMARY_LEN - 1)}…`
+    : summary;
 }
 
 /** Detect a block_error event and pull out the error/summary strings. */
@@ -23,8 +39,9 @@ export function extractBlockError(event: ExecutionEvent): BlockErrorExtraction {
     return { isBlockError: false, errorText: undefined, summaryText: undefined };
   }
   const errorText = typeof event.data.error === "string" ? event.data.error : undefined;
-  const summaryText =
-    typeof event.data.error_summary === "string" ? event.data.error_summary : undefined;
+  const rawSummary =
+    typeof event.data.error_summary === "string" ? event.data.error_summary : errorText;
+  const summaryText = summarizeErrorText(rawSummary);
   return { isBlockError, errorText, summaryText };
 }
 
@@ -96,14 +113,15 @@ export function maybeAppendErrorLog(
   extraction: BlockErrorExtraction,
   current: LogEntry[],
 ): { logEntries: LogEntry[]; appended: boolean } {
-  const { isBlockError, errorText } = extraction;
-  if (!isBlockError || errorText === undefined) {
+  const { isBlockError, errorText, summaryText } = extraction;
+  if (!isBlockError || (errorText === undefined && summaryText === undefined)) {
     return { logEntries: current, appended: false };
   }
   const next: LogEntry = {
     timestamp: event.timestamp,
     level: "error",
-    message: errorText,
+    message: summaryText ?? errorText ?? "Block failed.",
+    details: errorText !== undefined && errorText !== summaryText ? errorText : undefined,
     workflow_id: event.workflow_id ?? null,
     block_id: event.block_id ?? null,
   };

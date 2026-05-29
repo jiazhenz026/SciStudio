@@ -60,6 +60,7 @@ from __future__ import annotations
 import json
 import pickle
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -76,8 +77,10 @@ from scistudio.blocks.io.savers._capability import (
     _PICKLE_NOTE,  # noqa: F401  re-export for backward compat
     _SAVE_CAPABILITIES,
     _SAVE_EXTENSION_MAP,
+    _ensure_save_target_available,
     _legacy_save_extension_map,  # noqa: F401  re-export for backward compat
-    _resolve_save_format,
+    _resolve_save_format,  # noqa: F401  re-export for backward compat
+    _resolve_save_path_and_format,
     _save_capability,  # noqa: F401  re-export for backward compat
     _supported_save_extensions,
 )
@@ -105,6 +108,77 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+
+
+def _source_file_stem(obj: DataObject) -> tuple[str, str]:
+    if isinstance(obj, Artifact) and obj.file_path is not None:
+        source_name = Path(obj.file_path).name
+    else:
+        source = getattr(obj.framework, "source", "")
+        source_name = Path(source).name if isinstance(source, str) and source else ""
+    if not source_name:
+        return type(obj).__name__.lower(), ""
+    source_path = Path(source_name)
+    return source_path.stem or source_path.name, source_path.name
+
+
+def _collection_item_filename(
+    configured: str | None,
+    item: DataObject,
+    *,
+    index: int,
+) -> str:
+    _stem, name = _source_file_stem(item)
+    if configured and configured.strip():
+        path = Path(configured.strip()).name
+        candidate = Path(path)
+        return f"{candidate.stem}-{index}{candidate.suffix}" if candidate.suffix else f"{path}-{index}"
+    if name:
+        return name
+    raise ValueError(
+        "SaveData cannot name collection items because no source filename is available. "
+        "Set the Save block filename field."
+    )
+
+
+def _save_collection(
+    collection: Collection,
+    *,
+    target_cls: type[DataObject],
+    dispatch_fn: Callable[[DataObject, BlockConfig], None],
+    config: BlockConfig,
+) -> None:
+    items = list(collection)
+    if not items:
+        raise ValueError("SaveData received an empty Collection; nothing to save.")
+    for item in items:
+        if not isinstance(item, target_cls):
+            raise ValueError(
+                f"SaveData(core_type={target_cls.__name__}) received a "
+                f"Collection item of type {type(item).__name__}; all items must match the configured core_type."
+            )
+    output_dir = _require_path(config)
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError("SaveData received a multi-item Collection; config.path must be a folder path.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    configured = config.get("filename")
+    if configured is not None and not isinstance(configured, str):
+        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(configured).__name__}")
+    for idx, item in enumerate(items, start=1):
+        params = dict(config.params)
+        params["path"] = str(output_dir)
+        params["filename"] = _collection_item_filename(configured, item, index=idx)
+        item_config = BlockConfig(params=params)
+        dispatch_fn(item, item_config)
+
+
+def _selected_package_save_capability(config: BlockConfig) -> str | None:
+    raw = config.get("capability_id")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    capability_id = raw.strip()
+    core_capability_ids = {capability.id for capability in _SAVE_CAPABILITIES}
+    return None if capability_id in core_capability_ids else capability_id
 
 
 class SaveData(IOBlock):
@@ -180,6 +254,18 @@ class SaveData(IOBlock):
                 "default": "DataFrame",
                 "ui_priority": 0,
             },
+            "filename": {
+                "type": "string",
+                "title": "Filename",
+                "default": "",
+                "ui_priority": 2,
+            },
+            "overwrite": {
+                "type": "boolean",
+                "title": "Overwrite",
+                "default": False,
+                "ui_priority": 3,
+            },
             # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
             # Direction-aware post-processing auto-switches to directory_browser.
         },
@@ -232,11 +318,10 @@ class SaveData(IOBlock):
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
         """Dispatch to the matching ``_save_*`` function based on ``core_type``.
 
-        ``obj`` may be a bare :class:`DataObject` (the common case) or
-        a single-item :class:`Collection` whose ``item_type`` matches
-        the configured ``core_type``. Mixed-type Collections are
-        explicitly out-of-scope per spec §j and raise
-        :class:`ValueError`.
+        ``obj`` may be a bare :class:`DataObject` or a homogeneous
+        :class:`Collection` whose items match the configured
+        ``core_type``. Multi-item Collections are written as one file per
+        item under the configured folder path.
         """
         type_name = config.get("core_type", "DataFrame")
         if type_name not in _CORE_TYPE_MAP:
@@ -250,14 +335,17 @@ class SaveData(IOBlock):
             delegate_save(obj=obj, config=config, core_type=str(type_name))
             return
 
-        if type_name not in _CORE_TYPE_MAP:
-            raise ValueError(f"Unknown core_type {type_name!r}; expected one of {sorted(_CORE_TYPE_MAP.keys())}.")
-
-        # Unwrap a single-item Collection so the dispatch functions
-        # always see a bare DataObject. Mixed-type Collections are
-        # rejected with an explicit ValueError per spec §j.
         target_cls = _CORE_TYPE_MAP[type_name]
-        unwrapped = _unwrap_for_save(obj, target_cls)
+        if _selected_package_save_capability(config) is not None:
+            from scistudio.blocks.io._unified_dispatch import delegate_save
+
+            if isinstance(obj, Collection):
+                raise ValueError(
+                    f"SaveData package capability {config.get('capability_id')!r} requires a single DataObject input."
+                )
+            unwrapped = _unwrap_for_save(obj, target_cls)
+            delegate_save(obj=unwrapped, config=config, core_type=str(type_name))
+            return
 
         dispatch: dict[str, Any] = {
             "Array": _save_array,
@@ -267,6 +355,11 @@ class SaveData(IOBlock):
             "Artifact": _save_artifact,
             "CompositeData": _save_composite_data,
         }
+        if isinstance(obj, Collection) and len(obj) > 1:
+            _save_collection(obj, target_cls=target_cls, dispatch_fn=dispatch[type_name], config=config)
+            return
+
+        unwrapped = _unwrap_for_save(obj, target_cls)
         dispatch[type_name](unwrapped, config)
 
 
@@ -291,7 +384,8 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, Array, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -356,7 +450,7 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported Array file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(Array))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -373,7 +467,8 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, DataFrame, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -406,7 +501,7 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported DataFrame file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(DataFrame))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -422,7 +517,8 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, Series), f"Expected Series, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, Series, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -469,7 +565,7 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported Series file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(Series))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -483,6 +579,8 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Text), f"Expected Text, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, Text, config, obj)
+    _ensure_save_target_available(path, config)
     # ADR-043 FR-003: cross-check via the SaveData capability map (the
     # canonical registry-visible set). The internal ``supported`` frozenset
     # below is a permissive superset retained for backward compatibility
@@ -507,7 +605,7 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     if suffix not in supported:
         raise ValueError(
             f"Unsupported Text file extension {suffix!r}. "
-            f"Supported extensions: {list(_supported_save_extensions())} "
+            f"Supported extensions: {list(_supported_save_extensions(Text))} "
             f"(Text-specific superset: {sorted(supported)})."
         )
 
@@ -530,6 +628,8 @@ def _save_artifact(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Artifact), f"Expected Artifact, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, Artifact, config, obj)
+    _ensure_save_target_available(path, config)
 
     if obj.file_path is not None and Path(obj.file_path).exists():
         shutil.copy2(str(obj.file_path), str(path))
@@ -570,6 +670,8 @@ def _save_composite_data(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, CompositeData), f"Expected CompositeData, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, CompositeData, config, obj)
+    _ensure_save_target_available(path, config)
     if path.suffix.lower() != ".json":
         raise ValueError(f"CompositeData manifest must use the .json extension, got {path.suffix!r}.")
 

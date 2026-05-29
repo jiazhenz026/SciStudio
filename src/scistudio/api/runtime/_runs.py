@@ -6,6 +6,7 @@ Issue #1430 / umbrella #1427: behavior unchanged.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 from datetime import UTC
 from pathlib import Path
@@ -165,6 +166,7 @@ def start_workflow(
     *,
     execute_from: str | None = None,
     parent_run_id: str | None = None,
+    overwrite_node_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Schedule a workflow run.
 
@@ -234,6 +236,13 @@ def start_workflow(
         )
 
     workflow = self.load_workflow(workflow_id)
+    if overwrite_node_ids:
+        workflow = copy.deepcopy(workflow)
+        for node in workflow.nodes:
+            if node.id in overwrite_node_ids:
+                params = node.config.setdefault("params", {})
+                if isinstance(params, dict):
+                    params["overwrite"] = True
     checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
     checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
     if execute_from is not None and checkpoint is None:

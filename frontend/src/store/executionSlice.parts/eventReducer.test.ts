@@ -13,6 +13,7 @@ import {
   nextBlockStates,
   nextErrorMaps,
   nextIsRunning,
+  summarizeErrorText,
 } from "./eventReducer";
 
 function makeEvent(overrides: Partial<WorkflowEventMessage> = {}): WorkflowEventMessage {
@@ -47,11 +48,35 @@ describe("eventReducer helpers", () => {
       expect(result.summaryText).toBe("short");
     });
 
+    it("derives a one-line summary from a traceback when no summary is provided", () => {
+      const traceback = [
+        "Traceback (most recent call last):",
+        '  File "worker.py", line 1, in main',
+        "ValueError: SaveData cannot infer an output filename.",
+      ].join("\n");
+      const result = extractBlockError(
+        makeEvent({
+          type: "block_error",
+          data: { error: traceback },
+        }),
+      );
+      expect(result.errorText).toBe(traceback);
+      expect(result.summaryText).toBe("SaveData cannot infer an output filename.");
+    });
+
     it("returns isBlockError=false when block_id missing", () => {
       const result = extractBlockError(
         makeEvent({ type: "block_error", block_id: null, data: { error: "x" } }),
       );
       expect(result.isBlockError).toBe(false);
+    });
+  });
+
+  describe("summarizeErrorText", () => {
+    it("keeps the final exception message concise", () => {
+      expect(summarizeErrorText("Traceback\nRuntimeError: Something failed")).toBe(
+        "Something failed",
+      );
     });
   });
 
@@ -131,7 +156,7 @@ describe("eventReducer helpers", () => {
     it("appends a structured log row for block_error", () => {
       const result = maybeAppendErrorLog(
         makeEvent({ type: "block_error" }),
-        { isBlockError: true, errorText: "boom", summaryText: undefined },
+        { isBlockError: true, errorText: "RuntimeError: boom", summaryText: "boom" },
         [],
       );
       expect(result.appended).toBe(true);
@@ -139,7 +164,24 @@ describe("eventReducer helpers", () => {
       expect(result.logEntries[0]).toMatchObject({
         level: "error",
         message: "boom",
+        details: "RuntimeError: boom",
         block_id: "block-1",
+      });
+    });
+    it("stores the full traceback as expandable log details", () => {
+      const traceback = [
+        "Traceback (most recent call last):",
+        '  File "worker.py", line 1, in main',
+        "ValueError: Choose a new output path.",
+      ].join("\n");
+      const result = maybeAppendErrorLog(
+        makeEvent({ type: "block_error" }),
+        { isBlockError: true, errorText: traceback, summaryText: "Choose a new output path." },
+        [],
+      );
+      expect(result.logEntries[0]).toMatchObject({
+        message: "Choose a new output path.",
+        details: traceback,
       });
     });
     it("caps at 400 entries", () => {
@@ -150,7 +192,7 @@ describe("eventReducer helpers", () => {
       })) as LogEntry[];
       const result = maybeAppendErrorLog(
         makeEvent({ type: "block_error" }),
-        { isBlockError: true, errorText: "new", summaryText: undefined },
+        { isBlockError: true, errorText: "new", summaryText: "new" },
         fill,
       );
       expect(result.logEntries).toHaveLength(400);

@@ -29,12 +29,21 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
+
+try:
+    import openpyxl  # noqa: F401
+    import pandas  # noqa: F401
+
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
 import pyarrow.csv as pcsv
 import pyarrow.parquet as pq
 import pytest
 
 from scistudio.blocks.io import SaveData
 from scistudio.blocks.io.savers.save_data import _CORE_TYPE_MAP
+from scistudio.core.meta.framework import FrameworkMeta
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
@@ -159,10 +168,10 @@ def _make_arrow_table() -> pa.Table:
     return pa.table({"x": [1, 2, 3], "y": [4.0, 5.0, 6.0]})
 
 
-def _make_dataframe() -> DataFrame:
+def _make_dataframe(**kwargs: object) -> DataFrame:
     """Build a DataFrame DataObject with an in-memory _arrow_table."""
     table = _make_arrow_table()
-    df = DataFrame(columns=table.column_names, row_count=table.num_rows)
+    df = DataFrame(columns=table.column_names, row_count=table.num_rows, **kwargs)
     df._arrow_table = table  # type: ignore[attr-defined]
     return df
 
@@ -193,6 +202,94 @@ class TestRoundTripDataFrame:
             parse_options=pcsv.ParseOptions(delimiter="\t"),
         )
         assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_path_without_extension_defaults_to_csv(self, tmp_path: Path) -> None:
+        path = tmp_path / "df"
+        expected = tmp_path / "df.csv"
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(path)}})
+        block.save(_make_dataframe(), block.config)
+
+        assert expected.exists()
+        assert block.config.get("path") == str(expected)
+        recovered = pcsv.read_csv(str(expected))
+        assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_directory_path_uses_source_filename(self, tmp_path: Path) -> None:
+        source = tmp_path / "input.tsv"
+        expected = tmp_path / "input.csv"
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(tmp_path)}})
+        block.save(_make_dataframe(framework=FrameworkMeta(source=str(source))), block.config)
+
+        assert expected.exists()
+        assert block.config.get("path") == str(expected)
+        recovered = pcsv.read_csv(str(expected))
+        assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_directory_path_refuses_existing_source_file(self, tmp_path: Path) -> None:
+        source = tmp_path / "input.csv"
+        expected = tmp_path / "input.csv"
+        expected.write_text("existing\n", encoding="utf-8")
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(tmp_path)}})
+
+        with pytest.raises(ValueError, match="refuses to overwrite existing output"):
+            block.save(_make_dataframe(framework=FrameworkMeta(source=str(source))), block.config)
+
+        assert expected.read_text(encoding="utf-8") == "existing\n"
+
+    def test_dataframe_directory_path_can_overwrite_when_explicit(self, tmp_path: Path) -> None:
+        source = tmp_path / "input.csv"
+        expected = tmp_path / "input.csv"
+        expected.write_text("existing\n", encoding="utf-8")
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(tmp_path), "overwrite": True}})
+        block.save(_make_dataframe(framework=FrameworkMeta(source=str(source))), block.config)
+
+        recovered = pcsv.read_csv(str(expected))
+        assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_path_without_extension_uses_explicit_tsv_format(self, tmp_path: Path) -> None:
+        path = tmp_path / "df"
+        expected = tmp_path / "df.tsv"
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(path), "format": "tsv"}})
+        block.save(_make_dataframe(), block.config)
+
+        assert expected.exists()
+        assert block.config.get("path") == str(expected)
+        recovered = pcsv.read_csv(
+            str(expected),
+            parse_options=pcsv.ParseOptions(delimiter="\t"),
+        )
+        assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_directory_path_uses_explicit_tsv_format(self, tmp_path: Path) -> None:
+        source = tmp_path / "input.csv"
+        expected = tmp_path / "input.tsv"
+        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(tmp_path), "format": "tsv"}})
+        block.save(_make_dataframe(framework=FrameworkMeta(source=str(source))), block.config)
+
+        assert expected.exists()
+        assert block.config.get("path") == str(expected)
+        recovered = pcsv.read_csv(
+            str(expected),
+            parse_options=pcsv.ParseOptions(delimiter="\t"),
+        )
+        assert recovered.column_names == ["x", "y"]
+
+    def test_dataframe_path_without_extension_uses_capability_id(self, tmp_path: Path) -> None:
+        path = tmp_path / "df"
+        expected = tmp_path / "df.tsv"
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(path),
+                    "capability_id": "core.dataframe.tsv.save",
+                }
+            }
+        )
+        block.save(_make_dataframe(), block.config)
+
+        assert expected.exists()
+        assert block.config.get("path") == str(expected)
 
     def test_dataframe_round_trip_parquet(self, tmp_path: Path) -> None:
         path = tmp_path / "df.parquet"
@@ -540,15 +637,57 @@ class TestMixedTypeRejection:
         with pytest.raises(ValueError, match="Collection item of type Text"):
             block.save(text_collection, block.config)
 
-    def test_multi_item_collection_raises(self, tmp_path: Path) -> None:
-        """A Collection of >1 same-type items must raise because core
-        SaveData writes one file at the configured path."""
-        path = tmp_path / "df.csv"
-        block = SaveData(config={"params": {"core_type": "DataFrame", "path": str(path)}})
-        df1 = _make_dataframe()
-        df2 = _make_dataframe()
+    def test_multi_item_collection_writes_one_file_per_item(self, tmp_path: Path) -> None:
+        """A Collection of >1 same-type items writes a batch of files."""
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.tsv.save",
+                }
+            }
+        )
+        df1 = _make_dataframe(framework=FrameworkMeta(source=str(tmp_path / "first.csv")))
+        df2 = _make_dataframe(framework=FrameworkMeta(source=str(tmp_path / "second.csv")))
         coll = Collection(items=[df1, df2], item_type=DataFrame)
-        with pytest.raises(ValueError, match="Collection of 2 items"):
+
+        block.save(coll, block.config)
+
+        assert (tmp_path / "first.tsv").exists()
+        assert (tmp_path / "second.tsv").exists()
+
+    def test_multi_item_collection_gui_filename_adds_index(self, tmp_path: Path) -> None:
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.csv.save",
+                    "filename": "batch",
+                }
+            }
+        )
+        coll = Collection(items=[_make_dataframe(), _make_dataframe()], item_type=DataFrame)
+
+        block.save(coll, block.config)
+
+        assert (tmp_path / "batch-1.csv").exists()
+        assert (tmp_path / "batch-2.csv").exists()
+
+    def test_multi_item_collection_without_source_or_filename_raises(self, tmp_path: Path) -> None:
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.csv.save",
+                }
+            }
+        )
+        coll = Collection(items=[_make_dataframe(), _make_dataframe()], item_type=DataFrame)
+
+        with pytest.raises(ValueError, match="no source filename"):
             block.save(coll, block.config)
 
     def test_empty_collection_raises(self, tmp_path: Path) -> None:
@@ -566,6 +705,85 @@ class TestMixedTypeRejection:
         # Must not raise — the single-item Collection is unwrapped.
         block.save(coll, block.config)
         assert path.exists()
+
+
+class TestSaveDataFilename:
+    def test_directory_target_uses_configured_filename(self, tmp_path: Path) -> None:
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.tsv.save",
+                    "filename": "custom-name",
+                }
+            }
+        )
+
+        block.save(_make_dataframe(), block.config)
+
+        assert (tmp_path / "custom-name.tsv").exists()
+
+    def test_directory_target_uses_source_filename_when_filename_blank(self, tmp_path: Path) -> None:
+        source = tmp_path / "input.csv"
+        df = _make_dataframe(framework=FrameworkMeta(source=str(source)))
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.tsv.save",
+                }
+            }
+        )
+
+        block.save(df, block.config)
+
+        assert (tmp_path / "input.tsv").exists()
+
+    def test_directory_target_without_source_or_filename_raises(self, tmp_path: Path) -> None:
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "core.dataframe.tsv.save",
+                }
+            }
+        )
+
+        with pytest.raises(ValueError, match="no source filename"):
+            block.save(_make_dataframe(), block.config)
+
+    @pytest.mark.skipif(
+        not _PANDAS_AVAILABLE,
+        reason="pandas or openpyxl not installed (LCMS plugin required)",
+    )
+    def test_package_owned_capability_delegates_to_registered_saver(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SCISTUDIO_DEV", "1")
+        source = tmp_path / "input.csv"
+        df = _make_dataframe(framework=FrameworkMeta(source=str(source)))
+        block = SaveData(
+            config={
+                "params": {
+                    "core_type": "DataFrame",
+                    "path": str(tmp_path),
+                    "capability_id": "scistudio-blocks-lcms.table.xlsx.save",
+                }
+            }
+        )
+
+        block.save(df, block.config)
+
+        output = tmp_path / "input.xlsx"
+        assert output.exists()
+        import pandas as pd
+
+        frame = pd.read_excel(output)
+        assert list(frame.columns) == ["x", "y"]
+        assert frame["x"].tolist() == [1, 2, 3]
 
 
 # ---------------------------------------------------------------------------
@@ -776,7 +994,7 @@ class TestCapabilityDerivedExtensionDispatch:
         with pytest.raises(ValueError) as excinfo:
             block.save(arr, block.config)
         msg = str(excinfo.value)
-        for key in _supported_save_extensions():
+        for key in _supported_save_extensions(Array):
             assert re.search(re.escape(repr(key)), msg), f"missing {key!r} in error: {msg}"
 
     def test_unknown_extension_dataframe_error_lists_supported_set(self, tmp_path: Path) -> None:
@@ -788,6 +1006,7 @@ class TestCapabilityDerivedExtensionDispatch:
             block.save(df, block.config)
         msg = str(excinfo.value)
         assert ".csv" in msg
+        assert ".tsv" in msg
         assert ".parquet" in msg
 
     def test_supported_extensions_inherits_empty_default_from_ioblock(self) -> None:
