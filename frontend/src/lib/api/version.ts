@@ -51,6 +51,7 @@ export interface ProjectFileWriteResponse {
 export interface VersionedWriteOptions {
   sourceId?: string;
   source?: "canvas" | "agent" | "gitRestore" | "import" | "external" | string;
+  createParentDirs?: boolean;
 }
 
 const pendingWorkflowSourceIds = new Map<string, Set<string>>();
