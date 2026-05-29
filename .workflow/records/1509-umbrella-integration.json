@@ -1,0 +1,85 @@
+{
+  "branch": "track/adr-042-add6/umbrella",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/**",
+      "scripts/hooks/**",
+      ".github/workflows/**",
+      "docs/**",
+      "tests/qa/**",
+      "tests/scripts/**",
+      ".pre-commit-config.yaml",
+      "scripts/scistudio_pr_create.py",
+      ".gitignore"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1509,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-042 Addendum 6 governance rewrite umbrella integration; owner-authorized autonomous build (issue #1509)",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1509-umbrella-integration",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-05-29T10:26:02.938810Z",
+      "pattern": "AGENTS.md",
+      "reason": "cover root policy, rules indexes, and gate records in umbrella integration scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-05-29T10:26:02.938836Z",
+      "pattern": ".agents/**",
+      "reason": "cover root policy, rules indexes, and gate records in umbrella integration scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-05-29T10:26:02.938839Z",
+      "pattern": ".claude/**",
+      "reason": "cover root policy, rules indexes, and gate records in umbrella integration scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-05-29T10:26:02.938842Z",
+      "pattern": ".codex/**",
+      "reason": "cover root policy, rules indexes, and gate records in umbrella integration scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-05-29T10:26:02.938844Z",
+      "pattern": ".workflow/records/**",
+      "reason": "cover root policy, rules indexes, and gate records in umbrella integration scope"
+    }
+  ],
+  "session_id": "fbf7a4cf-70c5-41e3-8c20-9f48d5056a9c",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}
