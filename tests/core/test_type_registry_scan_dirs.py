@@ -241,6 +241,85 @@ class TestAddScanDir:
         spec = registry.all_types()["DataObject"]
         assert spec.module_path == "scistudio.core.types.base"
 
+    def test_module_name_unique_across_scan_dirs_same_stem_and_mtime(self, tmp_path: Path) -> None:
+        """Regression for #1374: same-stem files in two scan dirs must not collide.
+
+        Before #1374, the synthetic module name was built from
+        ``stem + int(mtime)`` only. Two files with the same stem from
+        different scan dirs would get the same synthetic name, so the second
+        file's module would silently overwrite the first in sys.modules and
+        its classes would be registered under the wrong TypeSpec.
+
+        The fix adds a per-path hash component so the names are always unique
+        regardless of stem and mtime.
+        """
+        import sys
+
+        # Create two scan dirs each containing a file named "custom_type.py"
+        # that defines a *differently-named* class. Use identical mtimes to
+        # maximise the chance of a collision under the old scheme.
+        dir_a = tmp_path / "dir_a"
+        dir_b = tmp_path / "dir_b"
+
+        _write_module(
+            dir_a,
+            "custom_type.py",
+            """
+from scistudio.core.types.base import DataObject
+
+
+class TypeFromDirA(DataObject):
+    \"\"\"Drop-in from dir_a.\"\"\"
+""",
+        )
+        _write_module(
+            dir_b,
+            "custom_type.py",
+            """
+from scistudio.core.types.base import DataObject
+
+
+class TypeFromDirB(DataObject):
+    \"\"\"Drop-in from dir_b.\"\"\"
+""",
+        )
+
+        # Force both files to the same mtime to reproduce the #1374 collision.
+        import os
+
+        fixed_mtime = 1_700_000_000.0
+        for d in (dir_a, dir_b):
+            p = d / "custom_type.py"
+            os.utime(p, (fixed_mtime, fixed_mtime))
+
+        registry = TypeRegistry()
+        registry.add_scan_dir(dir_a)
+        registry.add_scan_dir(dir_b)
+        registry.scan_all()
+
+        all_types = registry.all_types()
+        # Both classes must be registered.
+        assert "TypeFromDirA" in all_types, "TypeFromDirA should be registered"
+        assert "TypeFromDirB" in all_types, "TypeFromDirB should be registered"
+
+        # Their module paths must differ (path-hash disambiguates them).
+        spec_a = all_types["TypeFromDirA"]
+        spec_b = all_types["TypeFromDirB"]
+        assert spec_a.module_path != spec_b.module_path, (
+            f"Module paths collided: {spec_a.module_path!r} == {spec_b.module_path!r}"
+        )
+
+        # Both must be loadable (present in sys.modules).
+        assert spec_a.module_path in sys.modules, f"{spec_a.module_path!r} missing from sys.modules"
+        assert spec_b.module_path in sys.modules, f"{spec_b.module_path!r} missing from sys.modules"
+
+        # load_class must return the correct class from each module.
+        cls_a = registry.load_class("TypeFromDirA")
+        cls_b = registry.load_class("TypeFromDirB")
+        assert cls_a.__name__ == "TypeFromDirA"
+        assert cls_b.__name__ == "TypeFromDirB"
+        assert cls_a is not cls_b
+
 
 # ---------------------------------------------------------------------------
 # ApiRuntime wiring tests

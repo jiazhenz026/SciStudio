@@ -32,6 +32,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from scistudio.utils.atomic_io import atomic_writer
+
 logger = logging.getLogger(__name__)
 
 
@@ -260,7 +262,13 @@ def save_checkpoint(checkpoint: WorkflowCheckpoint, path: str | Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data = asdict(checkpoint)
     data["timestamp"] = checkpoint.timestamp.isoformat()
-    with open(path, "w") as f:
+    # BUG-1 (#1515): the single checkpoint slot is overwritten on every
+    # terminal block event, so a crash mid-``json.dump`` used to leave a
+    # truncated file that broke "run from here" until a full re-run. Write
+    # to a temp sibling, fsync, then atomically ``os.replace`` so a crash
+    # leaves the prior good checkpoint readable. This atomicity is
+    # self-contained here; callers are unchanged.
+    with atomic_writer(path, mode="w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
 
 

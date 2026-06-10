@@ -49,12 +49,27 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
     )
     from scistudio.workflow.validator import validate_workflow
 
-    errors = validate_workflow(definition, registry=self.block_registry)
-    if errors:
+    # #1518 (DSN-2): ``validate_workflow`` previously only ``logger.warning``-ed
+    # and saved anyway, so an ill-typed / cyclic / contract-violating graph
+    # persisted cleanly and only failed deep inside a block at run time. Now
+    # we partition the diagnostics: messages the validator prefixes with
+    # ``"Warning:"`` (unknown block type, missing port — intentionally
+    # non-fatal so an agent can save a partial graph mid-edit) stay as log
+    # warnings; everything else (duplicate node id, cycle, type-incompatible
+    # edge, dangling required input, variadic cardinality, duplicate
+    # extension, CodeBlock/boundary capability errors) is a hard error that
+    # rejects the save. The route layer maps the raised ``ValueError`` to
+    # HTTP 422 (api/routes/workflows.py create/update handlers).
+    diagnostics = validate_workflow(definition, registry=self.block_registry)
+    warnings = [d for d in diagnostics if str(d).startswith("Warning:")]
+    hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
+    if warnings:
         logger.warning(
             "Workflow validation warnings: %s",
-            "; ".join(str(e) for e in errors),
+            "; ".join(str(w) for w in warnings),
         )
+    if hard_errors:
+        raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))
 
     path = self.workflow_path(definition.id)
     save_yaml(definition, path)

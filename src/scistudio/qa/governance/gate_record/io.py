@@ -196,6 +196,66 @@ def changed_files(repo_root: Path, base: str, head: str, *, staged: bool = False
             return []
 
 
+def scope_changed_files(repo_root: Path, base: str, head: str, *, staged: bool = False) -> list[str]:
+    """Return the PR-AUTHORED changed-file set used for scope reconciliation.
+
+    Distinct from :func:`changed_files` (which returns the full merge-base diff
+    used for surface classification, tier derivation, and check selection): the
+    scope check must judge only files the PR branch INTENTIONALLY authored, not
+    files that entered the branch via ``git merge origin/main`` (issue #1463
+    Bug A). A 2-parent merge commit's diff can attribute main-side or
+    conflict-resolution edits to the branch even though no PR-authored,
+    non-merge commit ever touched them.
+
+    The PR-authored set is the union of files changed by the FIRST-PARENT,
+    NON-MERGE commits on ``base..head`` (``git log --first-parent --no-merges``
+    semantics). Merge commits themselves are skipped, so main-side changes
+    integrated by a merge are never scope-checked as if the branch authored
+    them. Falls back to :func:`changed_files` when first-parent history cannot
+    be resolved (staged/pre-commit mode, shallow clone, git unavailable) so the
+    check fails closed to the broader set rather than silently checking nothing.
+    """
+
+    if staged:
+        return changed_files(repo_root, base, head, staged=True)
+    try:
+        revs = _git_output(repo_root, ["rev-list", "--first-parent", "--no-merges", f"{base}..{head}"]).split()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return changed_files(repo_root, base, head, staged=False)
+    if not revs:
+        # No first-parent, non-merge PR commits (e.g. the branch delta is purely
+        # merge commits). Nothing the PR authored -> nothing to scope-check. This
+        # is the precise #1463 case: a merge-only update must not flag main-side
+        # files as out-of-scope.
+        return []
+    collected: set[str] = set()
+    for rev in revs:
+        try:
+            out = _git_output(repo_root, ["diff-tree", "--no-commit-id", "--name-only", "-r", rev])
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+        for line in out.splitlines():
+            if line.strip():
+                collected.add(normalize_path(line))
+    return sorted(collected)
+
+
+def tracked_files(repo_root: Path, ref: str) -> list[str]:
+    """Return the tracked file paths at ``ref`` (for stale-include detection).
+
+    Used by the evaluator's main-side rename tolerance (#1463 Bug B): a declared
+    include glob that matches zero files at either the base or head tree is a
+    candidate stale path. Returns an empty list when the ref cannot be listed
+    (missing ref, git unavailable) so the caller treats "unknown" as "no tracked
+    files" and falls back to the non-tolerant path rather than crashing.
+    """
+
+    try:
+        return git_lines(repo_root, ["ls-tree", "-r", "--name-only", ref])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+
+
 def diff_fingerprint(repo_root: Path, base: str, head: str, *, staged: bool = False) -> str | None:
     """Return a deterministic sha256 fingerprint of the diff content."""
 

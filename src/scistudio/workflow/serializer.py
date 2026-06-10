@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from scistudio.utils.atomic_io import atomic_write_text
 from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.schema import WorkflowFileModel, WorkflowModel
 
@@ -124,8 +125,14 @@ def save_yaml(workflow: WorkflowDefinition, path: str | Path) -> None:
     model = WorkflowModel.from_definition(workflow)
     file_model = WorkflowFileModel(workflow=model)
     data = file_model.model_dump(exclude_none=True)
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(
+    # BUG-8 (#1543): the FS watcher and concurrent readers (canvas + agent
+    # via update_workflow / import_* routes) read this file while it is
+    # written. A direct ``Path.write_text`` let a reader observe truncated
+    # YAML (surfaced as a 422 from get_workflow's yaml.YAMLError handler),
+    # and two writers raced last-write-wins. Atomic temp-then-os.replace
+    # makes every reader see either the whole old file or the whole new one.
+    atomic_write_text(
+        Path(path),
         yaml.safe_dump(data, default_flow_style=False, sort_keys=False),
         encoding="utf-8",
     )

@@ -37,6 +37,7 @@ validation hook added here.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.metadata
 import importlib.util
@@ -506,7 +507,11 @@ class TypeRegistry:
                     continue
                 try:
                     mtime = py_file.stat().st_mtime
-                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}"
+                    # Include a hash of the absolute path to prevent module-name
+                    # collisions when two scan dirs contain files with the same
+                    # stem and the same mtime (issue #1374).
+                    path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
+                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue

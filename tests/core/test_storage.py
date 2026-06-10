@@ -146,6 +146,79 @@ class TestZarrBackend:
         assert exc_info.value.ref == ref
         assert exc_info.value.operation == "read"
 
+    # -- #1440: corrupt store must surface as StorageReferenceInvalidError ----
+
+    def test_corrupt_zarr_read_raises_reference_invalid_error(self, tmp_path: Path) -> None:
+        """#1440: a corrupt store raises StorageReferenceInvalidError, not a raw KeyError.
+
+        Before #1440 was fixed, ``ZarrBackend.read`` only caught the specific
+        ``_ZARR_MISSING_ERRORS`` tuple. Any other exception — including
+        ``KeyError`` or ``ValueError`` raised by a corrupt store — bubbled up
+        as an untyped exception. The fix routes ``read`` through
+        ``_wrap_zarr_read_error`` which maps the error to
+        ``StorageReferenceInvalidError(reason="corrupt_or_unreadable")``.
+        """
+        corrupt_path = tmp_path / "corrupt.zarr"
+        corrupt_path.mkdir()
+        # Write garbage bytes where zarr metadata is expected.
+        (corrupt_path / ".zarray").write_bytes(b"not valid json {{{")
+
+        backend = ZarrBackend()
+        ref = StorageReference(backend="zarr", path=str(corrupt_path))
+
+        with pytest.raises(StorageReferenceInvalidError) as exc_info:
+            backend.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "read"
+        assert exc_info.value.reason == "corrupt_or_unreadable"
+
+    def test_corrupt_zarr_slice_raises_reference_invalid_error(self, tmp_path: Path) -> None:
+        """#1440: corrupt store raises StorageReferenceInvalidError from slice()."""
+        corrupt_path = tmp_path / "corrupt_slice.zarr"
+        corrupt_path.mkdir()
+        (corrupt_path / ".zarray").write_bytes(b"not valid json {{{")
+
+        backend = ZarrBackend()
+        ref = StorageReference(backend="zarr", path=str(corrupt_path))
+
+        with pytest.raises(StorageReferenceInvalidError) as exc_info:
+            backend.slice(ref, slice(0, 1))
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "slice"
+        assert exc_info.value.reason == "corrupt_or_unreadable"
+
+    def test_corrupt_zarr_get_metadata_raises_reference_invalid_error(self, tmp_path: Path) -> None:
+        """#1440: corrupt store raises StorageReferenceInvalidError from get_metadata()."""
+        corrupt_path = tmp_path / "corrupt_meta.zarr"
+        corrupt_path.mkdir()
+        (corrupt_path / ".zarray").write_bytes(b"not valid json {{{")
+
+        backend = ZarrBackend()
+        ref = StorageReference(backend="zarr", path=str(corrupt_path))
+
+        with pytest.raises(StorageReferenceInvalidError) as exc_info:
+            backend.get_metadata(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "get_metadata"
+        assert exc_info.value.reason == "corrupt_or_unreadable"
+
+    def test_missing_zarr_still_raises_storage_missing_error(self, tmp_path: Path) -> None:
+        """#1440 regression: a missing path still raises StorageMissingError, not the generic error."""
+        backend = ZarrBackend()
+        ref = StorageReference(backend="zarr", path=str(tmp_path / "no_such.zarr"))
+
+        with pytest.raises(StorageMissingError) as exc_info:
+            backend.read(ref)
+
+        # StorageMissingError is a subclass of StorageReferenceInvalidError;
+        # check for the specific subtype to confirm the missing-vs-corrupt
+        # distinction is preserved after the #1440 fix.
+        assert type(exc_info.value) is StorageMissingError
+        assert exc_info.value.operation == "read"
+
 
 class TestArrowBackend:
     """Round-trip write/read for Parquet tables."""

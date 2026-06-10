@@ -11,9 +11,13 @@ ADR-031 D2: ViewProxy eliminated.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.base import DataObject
 from scistudio.engine.runners.worker import (
     main,
     reconstruct_inputs,
@@ -398,3 +402,91 @@ class TestWorkerStorageErrors:
         assert parsed["upstream_block"] == "loader-1"
         assert parsed["ref"]["path"] == str(missing_path).replace("\\", "/")
         assert "Traceback" not in parsed["message"]
+
+
+# ---------------------------------------------------------------------------
+# #1518 (DSN-2): Block.validate() is enforced on the worker execution path.
+# ---------------------------------------------------------------------------
+
+
+class _RequiresInputBlock(Block):
+    """Real ``Block`` subclass with a required input port and no run side
+    effects. Used to prove the worker calls ``validate`` before ``run``."""
+
+    input_ports: ClassVar[list[InputPort]] = [
+        InputPort(name="needed", accepted_types=[DataObject], required=True),
+    ]
+    output_ports: ClassVar[list[OutputPort]] = [
+        OutputPort(name="result", accepted_types=[DataObject], required=False),
+    ]
+
+    def run(self, inputs: dict, config: object) -> dict:  # pragma: no cover - must not run
+        raise AssertionError("run() must not be reached when validate() fails")
+
+
+def _run_worker_with_inputs(block_class_path: str, inputs: dict) -> tuple[int, dict]:
+    import json
+    import os
+    import subprocess
+    import sys
+
+    payload = json.dumps(
+        {
+            "block_class": block_class_path,
+            "inputs": inputs,
+            "config": {},
+            "output_dir": "",
+        }
+    )
+    env = os.environ.copy()
+    repo_src = Path(__file__).resolve().parents[2] / "src"
+    if repo_src.is_dir():
+        env["PYTHONPATH"] = str(repo_src) + os.pathsep + env.get("PYTHONPATH", "")
+    result = subprocess.run(
+        [sys.executable, "-m", "scistudio.engine.runners.worker"],
+        input=payload,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    return result.returncode, dict(json.loads(result.stdout))
+
+
+class TestWorkerValidate:
+    """#1518: an ill-typed / missing-input block must fail at the contract
+    boundary (validate) instead of warn-and-continue into ``run``."""
+
+    def test_missing_required_input_fails_before_run(self) -> None:
+        code, parsed = _run_worker_with_inputs(
+            "tests.engine.test_worker._RequiresInputBlock",
+            inputs={},  # required port 'needed' absent
+        )
+        assert code == 1, parsed
+        assert "error" in parsed
+        # The error is the validate() contract error, not the run() assertion.
+        assert "Required input port 'needed' is missing" in parsed["error"]
+        assert "run() must not be reached" not in parsed["error"]
+
+
+class TestValidateOutputs:
+    """#1518: ``_validate_outputs`` enforces the produced-output contract."""
+
+    def test_missing_required_output_raises(self) -> None:
+        from scistudio.engine.runners.worker import _validate_outputs
+
+        ports = [OutputPort(name="result", accepted_types=[DataObject], required=True)]
+        with pytest.raises(ValueError, match="Required output port 'result'"):
+            _validate_outputs({}, ports)
+
+    def test_optional_output_may_be_absent(self) -> None:
+        from scistudio.engine.runners.worker import _validate_outputs
+
+        ports = [OutputPort(name="result", accepted_types=[DataObject], required=False)]
+        _validate_outputs({}, ports)  # must not raise
+
+    def test_present_required_output_passes(self) -> None:
+        from scistudio.engine.runners.worker import _validate_outputs
+
+        ports = [OutputPort(name="result", accepted_types=[DataObject], required=True)]
+        _validate_outputs({"result": object()}, ports)  # must not raise

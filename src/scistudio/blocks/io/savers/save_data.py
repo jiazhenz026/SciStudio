@@ -108,6 +108,13 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+from scistudio.utils.atomic_io import (
+    atomic_path,
+    atomic_replace_dir,
+    atomic_write_bytes,
+    atomic_write_text,
+    atomic_writer,
+)
 
 
 def _source_file_stem(obj: DataObject) -> tuple[str, str]:
@@ -388,8 +395,16 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in (allow_pickle=True).
+        # The reciprocal LoadData.pickle path executes arbitrary code on
+        # load, so a shared workflow that enables allow_pickle can run code
+        # on the opener's machine. _check_pickle_gate already raised unless
+        # the user opted in and logged a loud WARNING; we only reach here
+        # for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic temp+fsync+os.replace so a crash mid-dump
+        # leaves any prior artifact intact instead of a truncated .pkl.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
@@ -397,14 +412,27 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
         import numpy as np
 
         data = obj.get_in_memory_data()
-        np.save(str(path), np.asarray(data))
+        # BUG-2 (#1516): np.save writes directly to the path and would
+        # truncate a prior artifact on a crash; serialise to a buffer and
+        # write atomically. np.save appends ".npy" when missing, so target
+        # the buffer (which never rewrites the suffix) and keep ``path``.
+        import io as _io
+
+        buf = _io.BytesIO()
+        np.save(buf, np.asarray(data))
+        atomic_write_bytes(path, buf.getvalue())
         return
 
     if fmt == "npz":
         import numpy as np
 
         data = obj.get_in_memory_data()
-        np.savez(str(path), data=np.asarray(data))
+        # BUG-2 (#1516): same atomic-buffer pattern as .npy.
+        import io as _io
+
+        buf = _io.BytesIO()
+        np.savez(buf, data=np.asarray(data))
+        atomic_write_bytes(path, buf.getvalue())
         return
 
     if fmt == "zarr":
@@ -417,16 +445,21 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
 
         # ADR-031 Phase 3: zarr-to-zarr streaming copy via store copy
         # when the source is zarr-backed. Zero materialization.
+        # BUG-2 (#1516): a zarr store is a *directory* tree; build it in a
+        # temp sibling dir and atomically swap it into place so a crash
+        # mid-copy never leaves a half-written store at ``path``.
         ref = getattr(obj, "_storage_ref", None)
         if ref is not None and ref.backend == "zarr":
-            _zarr_store_copy(ref.path, str(path))
+            with atomic_replace_dir(path) as tmp_dir:
+                _zarr_store_copy(ref.path, str(tmp_dir))
             return
 
         import numpy as np
 
         data = obj.get_in_memory_data()
         arr = np.asarray(data)
-        zarr.save(str(path), arr)  # type: ignore[arg-type]
+        with atomic_replace_dir(path) as tmp_dir:
+            zarr.save(str(tmp_dir), arr)  # type: ignore[arg-type]
         return
 
     if fmt == "parquet":
@@ -445,7 +478,9 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
                 "only 1-D arrays are supported. Use .npy / .npz / .zarr for N-D."
             )
         table = pa.table({"value": arr})
-        pq.write_table(table, str(path))
+        # BUG-2 (#1516): write parquet via the atomic context manager.
+        with atomic_writer(path, mode="wb") as fh:
+            pq.write_table(table, fh)
         return
 
     raise ValueError(
@@ -471,23 +506,34 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in; the LoadData pickle
+        # path executes arbitrary code on load. _check_pickle_gate logged a
+        # loud WARNING and only returns True for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic write so a crash mid-dump keeps the prior
+        # artifact intact.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
     # ADR-031 Phase 3: streaming paths for CSV/TSV/Parquet when
     # the source is arrow-backed.
+    # BUG-2 (#1516): the streaming exporters write directly by path; wrap
+    # each in atomic_path so the chunked write lands on a temp sibling and
+    # only atomically replaces ``path`` once the full file is durable.
     if fmt == "csv":
-        _streaming_save_dataframe_csv(obj, path, delimiter=",")
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_csv(obj, tmp, delimiter=",")
         return
 
     if fmt == "tsv":
-        _streaming_save_dataframe_csv(obj, path, delimiter="\t")
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_csv(obj, tmp, delimiter="\t")
         return
 
     if fmt == "parquet":
-        _streaming_save_dataframe_parquet(obj, path)
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_parquet(obj, tmp)
         return
 
     if fmt == "json":
@@ -495,7 +541,8 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
         # the complete record list.
         table = _dataframe_to_arrow_table(obj)
         records = table.to_pylist()
-        with path.open("w", encoding="utf-8") as fh:
+        # BUG-2 (#1516): atomic JSON write.
+        with atomic_writer(path, mode="w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
@@ -521,8 +568,12 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in; LoadData unpickling
+        # executes arbitrary code. _check_pickle_gate already logged a loud
+        # WARNING and only returns True for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic write.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
@@ -535,31 +586,36 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     # numpy; an existing Table is passed through verbatim.
     table = raw if isinstance(raw, pa.Table) else pa.table({column_name: pa.array(raw)})
 
+    # BUG-2 (#1516): pyarrow writers take a path/handle; route every format
+    # through the atomic helpers so a crash mid-write keeps the prior file.
     if fmt == "csv":
         import pyarrow.csv as pcsv
 
-        pcsv.write_csv(table, str(path))
+        with atomic_path(path) as tmp:
+            pcsv.write_csv(table, str(tmp))
         return
 
     if fmt == "tsv":
         import pyarrow.csv as pcsv
 
-        pcsv.write_csv(
-            table,
-            str(path),
-            write_options=pcsv.WriteOptions(delimiter="\t"),
-        )
+        with atomic_path(path) as tmp:
+            pcsv.write_csv(
+                table,
+                str(tmp),
+                write_options=pcsv.WriteOptions(delimiter="\t"),
+            )
         return
 
     if fmt == "parquet":
         import pyarrow.parquet as pq
 
-        pq.write_table(table, str(path))
+        with atomic_writer(path, mode="wb") as fh:
+            pq.write_table(table, fh)
         return
 
     if fmt == "json":
         records = table.to_pylist()
-        with path.open("w", encoding="utf-8") as fh:
+        with atomic_writer(path, mode="w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
@@ -613,7 +669,9 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
         raise ValueError("Cannot save Text with content=None; populate Text.content first.")
 
     encoding = obj.encoding or "utf-8"
-    path.write_text(obj.content, encoding=encoding)
+    # BUG-2 (#1516): atomic text write so an overwrite crash keeps the old
+    # file readable instead of truncating it.
+    atomic_write_text(path, obj.content, encoding=encoding)
 
 
 def _save_artifact(obj: DataObject, config: BlockConfig) -> None:
@@ -631,21 +689,27 @@ def _save_artifact(obj: DataObject, config: BlockConfig) -> None:
     path, _fmt = _resolve_save_path_and_format(path, Artifact, config, obj)
     _ensure_save_target_available(path, config)
 
+    # BUG-2 (#1516): every artifact byte/string write goes through the
+    # atomic helpers so a crash mid-write leaves any prior artifact intact.
     if obj.file_path is not None and Path(obj.file_path).exists():
-        shutil.copy2(str(obj.file_path), str(path))
+        # shutil.copy2 writes directly into the destination; copy into a
+        # temp sibling and atomically replace.
+        with atomic_path(path) as tmp:
+            shutil.copy2(str(obj.file_path), str(tmp))
     else:
         data = obj.get_in_memory_data()
         if isinstance(data, str):
-            path.write_text(data, encoding="utf-8")
+            atomic_write_text(path, data, encoding="utf-8")
         elif isinstance(data, bytes):
-            path.write_bytes(data)
+            atomic_write_bytes(path, data)
         else:
             raise ValueError(
                 f"Cannot save Artifact: get_in_memory_data() returned {type(data).__name__}, expected bytes or str."
             )
 
     sidecar = path.with_suffix(path.suffix + ".meta.json")
-    sidecar.write_text(
+    atomic_write_text(
+        sidecar,
         json.dumps(
             {
                 "mime_type": obj.mime_type,
@@ -711,7 +775,10 @@ def _save_composite_data(obj: DataObject, config: BlockConfig) -> None:
         "kind": "CompositeData",
         "slots": manifest_slots,
     }
-    path.write_text(
+    # BUG-2 (#1516): atomic manifest write. Per-slot files are written by
+    # the recursive _save_* dispatch above, each of which is itself atomic.
+    atomic_write_text(
+        path,
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
