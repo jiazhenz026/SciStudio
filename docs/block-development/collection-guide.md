@@ -178,9 +178,9 @@ Applies a function to each item sequentially, auto-flushing each result:
 ```python
 def transform(item):
     data = np.asarray(item.to_memory())
-    result = Array(axes=list(item.axes), shape=data.shape, dtype=str(data.dtype))
-    result._data = some_transform(data)
-    return result
+    result_data = some_transform(data)
+    return Array(axes=list(item.axes), shape=result_data.shape,
+                 dtype=str(result_data.dtype), data=result_data)
 
 output = self.map_items(transform, inputs["images"])
 ```

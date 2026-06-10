@@ -239,9 +239,8 @@ Collection. The `state` argument is whatever `setup()` returned.
 def process_item(self, item, config, state=None):
     data = np.asarray(item.to_memory())
     result_data = some_algorithm(data, state)
-    result = Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype))
-    result._data = result_data
-    return result
+    return Array(axes=list(item.axes), shape=result_data.shape,
+                 dtype=str(result_data.dtype), data=result_data)
 ```
 
 **Signature**: Always use the three-argument form

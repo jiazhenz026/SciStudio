@@ -64,12 +64,11 @@ class GaussianBlur(ProcessBlock):
         data = np.asarray(item.to_memory())
         blurred = gaussian_filter(data, sigma=sigma)
 
-        result = Array(
+        return Array(
             axes=list(item.axes),
             shape=tuple(blurred.shape),
             dtype=str(blurred.dtype),
             framework=item.framework.derive(),
             user=dict(item.user),
+            data=blurred,
         )
-        result._data = blurred  # type: ignore[attr-defined]
-        return result

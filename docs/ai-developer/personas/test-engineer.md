@@ -100,9 +100,8 @@ language_source: en
   Test runs are recorded as `check_events` in the gate ledger (Addendum 6).
   Use `gate_record check` to run and record tier-selected checks, including
   test execution. Raw transcripts are written only to ignored local paths under
-  `.workflow/local/**`. The old `gate_receipt exec` wrapper is a compatibility
-  alias; the ledger `check_events` and `reconcile_events` are the canonical
-  gate evidence.
+  `.workflow/local/**`. There is no separate receipt execution step; the
+  ledger `check_events` and `reconcile_events` are the canonical gate evidence.
 
 - Root policy:
   `AGENTS.md`

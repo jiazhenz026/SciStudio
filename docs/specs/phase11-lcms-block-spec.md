@@ -902,8 +902,9 @@ def get_blocks() -> list[type]:
 - [ ] `packages/scistudio-blocks-lcms/pyproject.toml` declares the
       dependencies, entry-points, package-data, and pytest markers
       exactly as specified in §g.
-- [ ] `pip install -e packages/scistudio-blocks-lcms` succeeds in a clean
-      virtual environment with the core scistudio package already installed.
+- [ ] `python -m pip install packages/scistudio-blocks-lcms` succeeds in a
+      clean virtual environment with the core scistudio package already
+      installed.
 - [ ] `python -c "import scistudio_blocks_lcms"` succeeds.
 - [ ] `python -c "from scistudio_blocks_lcms import get_blocks; assert get_blocks() == []"` succeeds.
 - [ ] `python -c "from scistudio_blocks_lcms._base import _LCMSBlockMixin; assert _LCMSBlockMixin.package_name == 'scistudio-blocks-lcms'"` succeeds.
@@ -1858,8 +1859,8 @@ run_accucor <- function(inputs, params) {
 - [ ] `_resolve_script_path` honours the user override when set.
 - [ ] `run()` patches `script_path` / `entry_function` / `language` /
       `mode` into config before delegating to `CodeBlock.run()`.
-- [ ] `accucor_default.R` is installed as package data (picked up by
-      `pip install -e .`).
+- [ ] `accucor_default.R` is installed as package data (picked up by a normal
+      package install in a clean virtual environment).
 - [ ] `THIRD_PARTY_LICENSES.md` reproduces the AccuCor MIT LICENSE.
 - [ ] Unit tests pass; integration test marked
       `@pytest.mark.requires_r`.

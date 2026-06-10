@@ -71,7 +71,7 @@ plugins). Trust the rendered values; do not invent project metadata.
 ## Tool catalog
 
 The injected block below is replaced at prompt-composition time with
-the live MCP tool catalog (26 tools across workflow / authoring /
+the live MCP tool catalog (27 tools across workflow / authoring /
 inspection / qa). Use tool names and descriptions from the rendered
 catalog; do not type from memory if uncertain.
 
@@ -87,21 +87,22 @@ skill (`scistudio-build-workflow`, `scistudio-write-block`,
 for the documented call sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (26 tools — Codex sees this; Claude sees the live
+**Static fallback (27 tools — Codex sees this; Claude sees the live
 catalog re-spliced from FastMCP at compose time).**
 
-- **Workflow (10)** — `list_blocks`, `get_block_schema`, `list_types`,
+- **Workflow (11)** — `list_blocks`, `get_block_schema`, `list_types`,
   `get_workflow`, `validate_workflow`, `write_workflow`,
-  `run_workflow`, `cancel_run`, `get_run_status`, `finish_ai_block`.
+  `run_workflow`, `cancel_run`, `get_run_status`, `finish_ai_block`,
+  `get_active_workflow_context`.
   Read schemas and write/run workflow YAML; poll run status; close
-  out AI blocks.
+  out AI blocks; retrieve active workflow context for the current session.
 - **Authoring (5)** — `read_block_source`, `list_block_examples`,
   `scaffold_block`, `reload_blocks`, `run_block_tests`. Author and
   test new blocks under `<project>/blocks/`.
 - **Inspection (7)** — `inspect_data`, `preview_data`,
   `get_block_output`, `get_lineage`, `get_block_logs`,
-  `list_block_runs`, `update_block_config`. Walk data refs, logs,
-  and ADR-038 lineage without materialising arrays.
+  `get_block_config`, `update_block_config`. Walk data refs, logs,
+  block configuration, and ADR-038 lineage without materialising arrays.
 - **QA / project (4)** — `get_project_info`, `list_data`,
   `search_docs`, `get_doc`. Project structure, raw-asset listing,
   doc search.

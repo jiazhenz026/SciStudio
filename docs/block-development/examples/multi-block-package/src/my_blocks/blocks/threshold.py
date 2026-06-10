@@ -74,12 +74,11 @@ class SimpleThreshold(ProcessBlock):
 
         mask = data > thresh
 
-        result = Array(
+        return Array(
             axes=list(item.axes),
             shape=tuple(mask.shape),
             dtype=str(mask.dtype),
             framework=item.framework.derive(),
             user=dict(item.user),
+            data=mask,
         )
-        result._data = mask  # type: ignore[attr-defined]
-        return result

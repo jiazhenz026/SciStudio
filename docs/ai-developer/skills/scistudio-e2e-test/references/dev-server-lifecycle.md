@@ -137,9 +137,9 @@ python -c "import scistudio; print(scistudio.__file__)"
 
 If the path is not under the current worktree's `src/scistudio/`, a prior
 `pip install -e .` from another worktree has contaminated the global
-environment. Resolve by `pip install -e .` from the current worktree
-before launching, or use `python -m scistudio.cli.main gui ...` with
-`PYTHONPATH=src` set.
+environment. Resolve by clearing the stale editable install or switching to a
+clean per-worktree virtual environment, then launch with
+`PYTHONPATH=src python -m scistudio.cli.main gui ...`.
 
 This is more common than it should be in multi-worktree workflows.
 

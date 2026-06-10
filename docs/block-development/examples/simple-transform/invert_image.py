@@ -62,14 +62,14 @@ class InvertImage(ProcessBlock):
         # Core algorithm
         inverted = data.max() - data
 
-        # Build result with propagated metadata
-        result = Array(
+        # Build result with propagated metadata. The in-memory data is
+        # passed via the `data=` constructor parameter (ADR-031 Addendum 2);
+        # the framework auto-flushes it to zarr.
+        return Array(
             axes=list(item.axes),
             shape=tuple(inverted.shape),
             dtype=str(inverted.dtype),
             framework=item.framework.derive(),
             user=dict(item.user),
+            data=inverted,
         )
-        # Transient in-memory data; the framework auto-flushes to zarr
-        result._data = inverted  # type: ignore[attr-defined]
-        return result

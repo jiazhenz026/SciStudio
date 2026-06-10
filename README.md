@@ -37,9 +37,9 @@ Six base data types -- `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, and `
 
 ### Lazy by Default
 
-Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr, Parquet, or filesystem) until a block requests a specific slice via `ViewProxy`. Memory usage stays bounded even for enormous datasets.
+Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr, Parquet, or filesystem) until a block requests a specific slice. Lazy loading is built into `DataObject` and `Array` directly — there is no separate accessor class (ADR-031). Memory usage stays bounded even for enormous datasets.
 
-### Five Block Categories + Composition
+### Six Block Categories + Composition
 
 | Category | Purpose |
 |----------|---------|
@@ -87,7 +87,7 @@ SciStudio is organized into six horizontal layers, each depending only on the la
 |  FastAPI REST, WebSocket, SSE, SPA fallback middleware      |
 +-------------------------------------------------------------+
 |  Layer 4: AI Services                                       |
-|  Block generation, workflow synthesis, param optimization   |
+|  Embedded coding agent, MCP server, AI block runtime       |
 +-------------------------------------------------------------+
 |  Layer 3: Execution Engine                                  |
 |  DAG scheduler, process lifecycle, resource management      |
@@ -153,19 +153,24 @@ scistudio gui
 The wheel ships with the prebuilt React SPA, so `scistudio gui` opens the full
 workflow editor directly. No Node.js required at install time.
 
-**Developers** — clone and install editable:
+**Developers** — clone and run from source in an isolated environment:
 
-```bash
+```powershell
 git clone https://github.com/zjzcpj/SciStudio.git
 cd SciStudio
-pip install -e ".[dev]"
-(cd frontend && npm install && npm run build)   # one-time SPA build
-scistudio gui
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # Windows PowerShell
+python -m pip install -U pip
+python -m pip install ".[dev]"
+Push-Location frontend; npm install; npm run build; Pop-Location   # one-time SPA build
+$env:PYTHONPATH = "src"
+python -m scistudio.cli.main gui
 ```
 
 The dev path serves the SPA from `frontend/dist/` automatically, so you can
-iterate on Python + SPA without reinstalling. For hot-reload frontend dev,
-run `(cd frontend && npm run dev)` against a separate `scistudio serve`
+iterate on Python + SPA without an editable install. For hot-reload frontend dev,
+run `npm run dev` from `frontend/` against a separate
+`python -m scistudio.cli.main serve` process with `PYTHONPATH=src` set.
 backend — Vite proxies `/api/*` to `http://localhost:8000`.
 
 > If `scistudio gui` lands on the FastAPI `/docs` page instead of the workflow
@@ -202,7 +207,6 @@ SciStudio/
 │   ├── core/                       # Layer 1: Data foundation
 │   │   ├── types/                  #   DataObject hierarchy + TypeRegistry
 │   │   ├── storage/                #   Zarr, Arrow/Parquet, filesystem backends
-│   │   ├── proxy.py                #   ViewProxy (lazy loading)
 │   │   └── lineage/                #   Provenance tracking (SQLite)
 │   ├── blocks/                     # Layer 2: Block system
 │   │   ├── base/                   #   Block ABC, ports, state machine, config
@@ -220,9 +224,7 @@ SciStudio/
 │   │   ├── checkpoint.py           #   Checkpoint save/load/resume
 │   │   └── runners/                #   LocalRunner, ProcessHandle, worker.py
 │   ├── ai/                         # Layer 4: AI services
-│   │   ├── generation/             #   Block + type generation + validation
-│   │   ├── synthesis/              #   Workflow synthesis
-│   │   └── optimization/           #   Parameter optimization
+│   │   └── agent/                  #   Embedded coding agent + MCP server
 │   ├── api/                        # Layer 5: FastAPI backend
 │   │   ├── app.py                  #   App factory + SPA static file serving
 │   │   ├── routes/                 #   REST endpoints (workflows, blocks, data, projects)
@@ -266,11 +268,12 @@ my_project/
 │   ├── raw/                  # Original uploaded files (read-only after import)
 │   ├── zarr/                 # Zarr stores for Array-type data
 │   ├── parquet/              # Parquet files for DataFrame-type data
-│   └── artifacts/            # PDFs, reports, images, other files
+│   ├── artifacts/            # PDFs, reports, images, other files
+│   └── exchange/             # File handoff area for AppBlock / CodeBlock
 ├── blocks/                   # Project-local custom blocks (drop-in .py files)
 ├── types/                    # Project-local custom data types (drop-in .py files)
-├── checkpoints/              # Serialized workflow states for pause/resume
-├── lineage/                  # SQLite lineage database
+├── .scistudio/               # Per-project runtime state (gitignored by default)
+│                             #   lineage.db, pause/, mcp.sock, session markers
 └── logs/                     # Execution logs
 ```
 
@@ -283,23 +286,37 @@ my_project/
 Save a `.py` file in your project's `blocks/` directory:
 
 ```python
-from scistudio.blocks.base import ProcessBlock, InputPort, OutputPort
-from scistudio.core.types import Spectrum
+import numpy as np
+
+from scistudio.blocks.base import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
 class RamanDenoise(ProcessBlock):
     name = "Raman denoise"
     description = "Savitzky-Golay smoothing for Raman spectra"
     version = "0.1.0"
-    category = "spectroscopy"
+    subcategory = "spectroscopy"
 
-    input_ports = [InputPort(name="spectrum", accepted_types=[Spectrum])]
-    output_ports = [OutputPort(name="smoothed", accepted_types=[Spectrum])]
+    input_ports = [InputPort(name="spectrum", accepted_types=[Array])]
+    output_ports = [OutputPort(name="smoothed", accepted_types=[Array])]
 
-    def process_item(self, item, config):
+    def process_item(self, item, config, state=None):
         from scipy.signal import savgol_filter
-        data = item.view().to_memory()
-        return savgol_filter(data, config.get("window", 11), config.get("order", 3))
+        data = np.asarray(item.to_memory())
+        smoothed = savgol_filter(
+            data, config.get("window", 11), config.get("order", 3)
+        )
+        return Array(
+            axes=list(item.axes),
+            shape=smoothed.shape,
+            dtype=str(smoothed.dtype),
+            data=smoothed,
+        )
 ```
+
+See the [Block Developer SDK Quickstart](docs/block-development/quickstart.md)
+for a complete, tested example and the full ClassVar contract.
 
 Click "Reload Blocks" in the GUI and it appears in the palette.
 
@@ -320,18 +337,16 @@ This scaffolds a complete package with entry-points, example blocks, tests using
 ### Backend
 
 ```bash
-# Install with dev dependencies
-pip install -e ".[dev]"
+# Install dev dependencies in an isolated environment.
+# AI-authored repository work must use the gate workflow in AGENTS.md instead
+# of installing editable packages into a shared environment.
+python -m pip install ".[dev]"
 
-# Run tests
-pytest
+# Run the repository-owned local gate.
+PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --mode local
 
-# Lint and format
-ruff check .
-ruff format --check .
-
-# Type check
-mypy src/scistudio/ --ignore-missing-imports
+# During development, targeted tests are still useful before the full gate.
+PYTHONPATH=src pytest <targeted-tests-or-test-directory>
 ```
 
 ### Frontend
@@ -353,7 +368,7 @@ pre-commit install
 The GitHub Actions CI pipeline runs on every PR:
 - Ruff lint + format check
 - mypy type checking
-- pytest with coverage enforcement (85% minimum)
+- pytest with coverage enforcement (70% minimum, enforced on the Python 3.13 CI leg only)
 - Import contract verification (layer dependency rules)
 
 ---
@@ -361,7 +376,7 @@ The GitHub Actions CI pipeline runs on every PR:
 ## Developer integrations
 
 Drive SciStudio projects from your own terminal CLI (`claude` or `codex`),
-outside the SciStudio GUI, with the full 25-tool MCP surface and a
+outside the SciStudio GUI, with the full 27-tool MCP surface and a
 SciStudio-aware skill installed:
 
 ```bash
@@ -390,7 +405,7 @@ SciStudio follows a structured development workflow to ensure traceability and a
 
 ### Architecture Decision Records
 
-Significant design decisions are documented as ADRs in [`docs/adr/ADR.md`](docs/adr/ADR.md). Notable decisions include:
+Significant design decisions are documented as ADRs in [`docs/adr/`](docs/adr/). Notable decisions include:
 
 | ADR | Decision |
 |-----|----------|
@@ -414,12 +429,12 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 **Implemented:**
 - Core data type hierarchy with six base types and domain-specific subtypes
 - Storage backends: Zarr (arrays), Arrow/Parquet (tables), filesystem (text/artifacts), composite store
-- ViewProxy lazy loading with chunk-aware slicing
+- Reference-only lazy loading built into `DataObject`/`Array` directly (ADR-031; ViewProxy eliminated)
 - Lineage tracking with SQLite-backed provenance graph
 - All six block categories (IO, Process, Code, App, AI, SubWorkflow)
 - Block registry with Tier 1 (drop-in) and Tier 2 (entry-points) discovery
-- Format adapters (CSV, Parquet, TIFF) with adapter registry
-- Python code runner (inline and script modes); R and Julia runners are stubs
+- IO format capability registry with structured `FormatCapability` declarations, aggregate IOBlocks, and deterministic loader/saver lookup (ADR-043)
+- CodeBlock v2 backend system (ADR-041): Python (`.py`), shell (`.sh`), Jupyter notebook (`.ipynb`), R/Quarto (`.qmd`), and MATLAB backends; R (`RRunner`, via `Rscript`) and Julia (`JuliaRunner`, via `julia`) runners for legacy inline/script execution paths
 - Collection-based data transport (ADR-020)
 - Event-driven DAG scheduler with cancellation and skip propagation
 - Subprocess isolation with cross-platform ProcessHandle
@@ -429,17 +444,41 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 - React + ReactFlow frontend with live execution, block palette, config panels, data previews
 - CLI commands: init, validate, run, blocks, serve, gui
 - Plugin entry-points protocol with PackageInfo (ADR-025)
-- 85%+ test coverage enforced in CI
+- Block SDK: `scistudio init-block-package` scaffold command and `BlockTestHarness` contract-validation / smoke-test helper (ADR-026)
+- 70%+ test coverage enforced in CI (Python 3.13 leg only; see pyproject.toml `fail_under`)
 
 **Planned / In Progress:**
-- Block SDK scaffolding CLI and BlockTestHarness (ADR-026)
 - AI block generation and workflow synthesis (templates exist, runtime integration in progress)
 - Runtime parameter optimization
-- R and Julia code runners (stubs exist)
+- Additional CodeBlock backends and extended R/Julia integration (conda/renv environments, streaming output)
 - Remote execution runners (SSH, Slurm, cloud -- interfaces designed)
 - Block marketplace and version pinning
 - Streaming/pipelined data transfer (StreamPort)
 - Container and WASM sandboxing
+
+---
+
+## Limitations and Operational Posture
+
+SciStudio is pre-alpha software designed for single-user, local use. The following
+constraints are intentional for this stage and will be addressed in future releases:
+
+- **Single active project**: the API runtime (`ApiRuntime`) holds a single
+  `active_project` reference at a time. Opening a second project replaces the
+  first. Multi-project concurrent access, project switching without server
+  restart, and shared-server multi-tenant operation are not currently supported.
+  (`src/scistudio/api/runtime/_projects.py`)
+
+- **Unauthenticated WebSocket cancel**: the WebSocket endpoint (`/api/ws`)
+  accepts `cancel_block` and `cancel_workflow` messages from any connected
+  client without authentication or session validation. Any browser tab that
+  can reach the backend can cancel running blocks or workflows. This is
+  intentional for a local single-user deployment; adding authentication is
+  tracked for the multi-user roadmap. (`src/scistudio/api/ws.py`)
+
+- **Local single-user deployment**: there is no user management, access
+  control, or network isolation built in. Do not expose a SciStudio backend
+  on a shared network without an external authentication proxy.
 
 ---
 
@@ -462,4 +501,5 @@ Development follows a phased plan. Completed phases:
 
 ## License
 
-SciStudio is released under the [MIT License](https://opensource.org/licenses/MIT).
+SciStudio is released under the MIT License. See the [LICENSE](LICENSE) file for
+the full text.

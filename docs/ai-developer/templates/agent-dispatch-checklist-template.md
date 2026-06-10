@@ -75,7 +75,7 @@ language_source: en
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `<human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge|N/A>`
+- Authorized bypass label: `<human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge|N/A>`
 - Owner authorization source: `<chat/date/link or N/A>`
 - Reason: `<why bypass was needed or N/A>`
 
@@ -158,11 +158,9 @@ amendment.
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | `<output path or summary>` |
-| Format | `ruff format --check .` | `[ ]` | `<output path or summary>` |
-| Tests | `<targeted pytest command>` | `[ ]` | `<output path or summary>` |
-| Full audit | `python -m scistudio.qa.audit.full_audit ...` | `[ ]` | `<output path>` |
-| Sentrux | `<MCP tool or CLI command>` | `[ ]` | `<evidence or N/A reason>` |
+| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base <base-ref> --head HEAD` | `[ ]` | `<reconcile event or summary>` |
+| Targeted tests | `<task-specific test commands recorded with gate_record amend --test-path/--check>` | `[ ]` | `<output summary or N/A reason>` |
+| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base <base-ref> --head HEAD` | `[ ]` | `<reconcile event or summary>` |
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<reconcile event or summary>` |
 | Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` | `[ ]` | `<ledger path>` |
 | Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "<title>" --body "<body>"` | `[ ]` | `<output>` |

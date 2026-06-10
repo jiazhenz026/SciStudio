@@ -181,7 +181,7 @@ mode only changes which facts are required-now versus recorded as a pre-PR gap.
 | Input | Source | Notes |
 |---|---|---|
 | Ledger | `.workflow/records/<...>.json` via deterministic discovery | The declared facts: task kind, persona, runtime, scope, issues, docs/test claims, directives, prior events. |
-| Observed git diff | `git diff <base>...<head>` (and `--staged` for pre-commit) | Objective changed-file set, base/head SHAs, diff fingerprint. This is the evidence; agent declarations are claims. |
+| Observed git diff | `git diff <base>...<head>` plus evaluator-selected local pre-commit state | Objective changed-file set, base/head SHAs, diff fingerprint. This is the evidence; agent declarations are claims. |
 | CI workflow graph + path filters | `.github/workflows/*.yml` parsed (or a generated manifest derived from them) | The source of command truth for tier-selected check inference (§7.5 CI snapshot table). |
 | Repo config | `pyproject.toml`, `.pre-commit-config.yaml`, `uv.lock`, CI setup steps | Tool-version source for parity (§7.10) and protected/governance surface config. |
 | PR context | GitHub event / `gh api` (CI mode only) | Observed labels, label-actor permission provenance, reviews, merge intent. Local modes record these as pre-PR gaps. |
@@ -238,7 +238,7 @@ mode only changes which facts are required-now versus recorded as a pre-PR gap.
 | `local` | manual `gate_record check` | `base...head` | Full local CI-equivalent preflight at the selected tier; PR-state facts (labels, provenance) recorded as pre-PR gaps, not failures. |
 | `pre-commit` | `.pre-commit-config.yaml` hook | staged diff | Fast structural reconciliation (scope, governance-touch, protected-path, weakened-CI on staged governance files); not the full check matrix. |
 | `commit-msg` | `.pre-commit-config.yaml` commit-msg hook | n/a | Validate required commit trailers (`Gate-Record:`, `Assisted-by:`) via the evaluator's trailer rules. |
-| `pre-push` | `scripts/hooks/check-gate-before-push.sh` | `origin/main...HEAD` | Pre-push reconciliation: replaces today's `gate_record pre-push` + `gate_receipt validate` two-step. |
+| `pre-push` | `scripts/hooks/check-gate-before-push.sh` | `origin/main...HEAD` | Pre-push reconciliation: replaces the legacy two-step local validation path. |
 | `pre-pr` | `scripts/hooks/check-gate-before-pr.sh` + PR wrapper | `origin/main...HEAD` | Pre-PR readiness with `--pr-body-file`; PR-state-impossible findings (core/merge/bypass label provenance) are internally classified as pre-PR gaps, not caller-filtered. |
 | `ci` | `.github/workflows/workflow-gate.yml` | PR base...head | Authoritative mode with `pr_context`; verifies label provenance, runs every guard, enforces all obligations. The merge-blocking surface. |
 
@@ -468,7 +468,7 @@ step.
 | `scripts/hooks/check-gate-before-push.sh` | Thin shell: `gate_record check --mode pre-push --base origin/main --head HEAD`; forward exit code. Remove inline label/bypass Python. |
 | `scripts/hooks/check-gate-before-pr.sh` | Thin shell: extract PR body file path from the `gh pr create` argv, then `gate_record check --mode pre-pr --pr-body-file <path> --base origin/main --head HEAD`. Remove inline closing-keyword regex and label extraction. |
 | `scripts/hooks/check-ci-after-pr.sh` | **Keep**; update the reminder to mention `gate_record finalize --pr <url>` as the required post-creation step in addition to CI-watch guidance. |
-| `.pre-commit-config.yaml` `scistudio-gate-record-pre-commit` | Thin entry calling `gate_record check --mode pre-commit --staged`. |
+| `.pre-commit-config.yaml` `scistudio-gate-record-pre-commit` | Thin entry calling `gate_record check --mode pre-commit`. |
 | `.pre-commit-config.yaml` `scistudio-gate-record-commit-msg` | Thin entry calling `gate_record check --mode commit-msg <message-file>`. |
 | `.pre-commit-config.yaml` `scistudio-governance-mod-guard` | Thin entry routed through the evaluator (`mod_guard` calculator); no independent protected-path/bypass set. |
 | `.pre-commit-config.yaml` `scistudio-weakened-ci-check` | Thin entry routed through the evaluator (`weakened_ci_check` calculator); required-token set derived from the CI graph. |
@@ -555,10 +555,11 @@ modes; it does not merely validate it:
 - **venv path.** `<worktree>/.workflow/local/venv` — gitignored (covered by the
   `.workflow/local/` rule) and per-worktree, so parallel worktrees never share a
   writable env.
-- **uv vs venv.** `uv venv` + `uv pip install --python <venv-py> -e ".[dev]"`
-  when `uv` is on PATH; otherwise `python -m venv` + the venv's `pip install -e
-  ".[dev]"`. The editable install makes `scistudio` importable inside the venv,
-  so `mypy`/`pytest` resolve it with no `PYTHONPATH` hack.
+- **uv vs venv.** `uv venv` + `uv pip install --python <venv-py> ".[dev]"`
+  when `uv` is on PATH; otherwise `python -m venv` + the venv's
+  `python -m pip install ".[dev]"`. The evaluator sets `PYTHONPATH=src` when
+  running source-checkout commands so `mypy`/`pytest` resolve the current
+  worktree without an editable install.
 - **cache marker.** `provisioning_marker()` hashes the `[dev]` extras + the
   resolved CI tool pins + the Python version, stored as
   `<venv>/.scistudio-parity-marker`. A warm venv whose marker matches is reused
@@ -787,7 +788,7 @@ new events. `schema_version` is bumped to `2`.
     {
       "at": "2026-05-29T12:10:02Z",
       "name": "lint_format",
-      "command": "ruff check . && ruff format --check .",
+      "command": "python -m ruff check <tier-selected paths> && python -m ruff format --check <tier-selected paths>",
       "tool_versions": { "ruff": "0.11.4" },
       "covered_surface": "python",
       "input_fingerprint": "sha256:9f2c...",

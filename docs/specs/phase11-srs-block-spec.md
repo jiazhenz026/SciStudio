@@ -577,7 +577,8 @@ whose `get_types()` returns `[]`. T-SRS-001 replaces it with the real
 **h. Acceptance criteria**:
 - [ ] `packages/scistudio-blocks-srs/` directory exists with the layout
       described in §2.3.
-- [ ] `pip install -e packages/scistudio-blocks-srs/` succeeds.
+- [ ] `python -m pip install packages/scistudio-blocks-srs/` succeeds in a
+      clean virtual environment.
 - [ ] `python -c "import scistudio_blocks_srs; print(scistudio_blocks_srs.get_blocks())"`
       prints `[]`.
 - [ ] `python -c "from scistudio_blocks_srs.types import get_types; print(get_types())"`

@@ -261,13 +261,14 @@ Tier-selected check breadth:
 - **Tier 3**: runs only mandatory checks for the observed diff and repository
   gate rules.
 
-Compatibility aliases delegating to `check`:
-- `pre-commit --staged` → `check --mode pre-commit --staged`
-- `commit-msg <file>` → `check --mode commit-msg <file>`
-- `pre-push` → `check --mode pre-push`
-- `ci` → `check --mode ci`
-- `sentrux` (old evidence-recording subcommand) → handled internally by
-  `check` as a guard event
+Compatibility aliases exposed by the current CLI:
+
+- `start` delegates to `init`
+- `pre-commit` delegates to `check --mode pre-commit`
+- `commit-msg <file>` delegates to `check --mode commit-msg <file>`
+- `pre-push` delegates to `check --mode pre-push`
+- `pr-ready` delegates to `check --mode pre-pr`
+- `ci` delegates to `check --mode ci`
 
 ### 2.5 `finalize` — Record Commit And PR Provenance
 
@@ -314,15 +315,15 @@ obligations are unsatisfied.
 | Old subcommand | Delegates to |
 |---|---|
 | `start` | `init` |
-| `docs` | `amend` (docs become `--docs-updated` / `--docs-na` fields) |
-| `pre-commit --staged` | `check --mode pre-commit --staged` |
+| `pre-commit` | `check --mode pre-commit` |
 | `commit-msg <file>` | `check --mode commit-msg <file>` |
 | `pre-push` | `check --mode pre-push` |
+| `pr-ready` | `check --mode pre-pr` |
 | `ci` | `check --mode ci` |
-| `sentrux` | internal `check` guard event |
 
-Old subcommands still exist during migration but delegate to the new ledger
-implementation. They must not own validation decisions independently.
+Compatibility aliases delegate to the ledger implementation. They must not own
+validation decisions independently. New instructions should prefer the
+canonical `init`, `amend`, `check`, and `finalize` commands.
 
 ### 2.7 Bypass Labels
 
@@ -335,9 +336,8 @@ The valid administrator bypass labels are:
 | `admin-approved:merge` | Authorization for AI-assisted merge into `origin/main` only |
 | `human-authored` | Human AI-harness bypass at PR level |
 
-The old `admin-approved:ai-override` label is migrated to
-`admin-approved:bypass`. Local ledger records of requested labels are not
-authoritative; CI verifies observed PR label and actor provenance.
+Local ledger records of requested labels are not authoritative; CI verifies the
+observed PR label and actor provenance.
 
 ### 2.8 CLI Exit Codes
 
@@ -591,8 +591,9 @@ sentrux check .
 ```
 
 Sentrux evidence is recorded automatically as a guard event inside
-`gate_record check`. The old `gate_record sentrux` subcommand is a
-compatibility alias for this behavior.
+`gate_record check`. There is no separate Sentrux gate-recording subcommand in
+the current workflow; run the scanner only when diagnosing or when a
+gate-selected check asks for supporting local output.
 
 For a pre-PR preflight that also validates the intended PR body:
 
@@ -709,8 +710,7 @@ evidence helps review; CI evidence is authoritative.
 - MUST treat CI evidence as authoritative.
 - MUST use bypass labels exactly as accepted by the gate CLI. The valid bypass
   labels are: `admin-approved:bypass`, `admin-approved:core-change`,
-  `admin-approved:merge`, `human-authored`. The old `admin-approved:ai-override`
-  label is migrated to `admin-approved:bypass`.
+  `admin-approved:merge`, `human-authored`.
 - MUST use local bypass labels only when the owner authorizes that bypass.
 - MUST treat `admin-approved:core-change` as authorization for protected core
   paths only, not as a broad gate or bypass.

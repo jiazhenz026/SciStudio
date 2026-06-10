@@ -138,6 +138,12 @@ language_source: en
 
 ## 1. Change Summary
 
+> **Legacy command-surface note:** This specification records the Addendum 1
+> design. ADR-042 Addendum 6 replaced the stage-specific `gate_record docs`,
+> `gate_record sentrux`, `pre-commit --staged`, local bypass environment, and
+> old override-label flows with the ledger-backed `gate_record init` / `plan` /
+> `amend` / `check` / `finalize` workflow.
+
 This spec implements ADR-042 Addendum 1. The implementation first teaches
 ADR-042 tooling to understand standalone addendum files such as
 `docs/adr/ADR-042-addendum1.md`. It then replaces the ADR-042 local-only gate
@@ -169,7 +175,7 @@ issue listed in the gate record unless the record and PR body include an
 owner-approved rationale for a non-closing follow-up reference.
 
 The override label vocabulary is fixed by ADR-042 and ADR-042 Addendum 1:
-`human-authored`, `admin-approved:ai-override`,
+`human-authored`, `admin-approved:bypass`,
 `admin-approved:core-change`, and `admin-approved:merge`. Implementation code,
 CI, specs, and contributor docs must use these exact strings.
 
@@ -399,7 +405,7 @@ As a maintainer, I need bypass and administrator approval labels to use one
 fixed vocabulary across docs, code, tests, and CI.
 
 Independent Test: Validate label fixtures for `human-authored`,
-`admin-approved:ai-override`, `admin-approved:core-change`,
+`admin-approved:bypass`, `admin-approved:core-change`,
 `admin-approved:merge`, misspelled labels, and unauthorized label actors.
 
 Acceptance Scenarios:
@@ -476,7 +482,7 @@ Acceptance Scenarios:
   change rules, protected core, and governance files when administrators approve
   the PR for merge.
 - FR-021: The implementation MUST use these exact override labels:
-  `human-authored`, `admin-approved:ai-override`,
+  `human-authored`, `admin-approved:bypass`,
   `admin-approved:core-change`, and `admin-approved:merge`.
 - FR-022: `human_bypass_guard`, `core_change_guard`, and `pr_merge_guard` MUST
   validate label provenance and MUST reject misspelled, missing, or
@@ -703,7 +709,7 @@ every stage to be `done` including `commit_and_submit_pr`.
 
 All local intermediate hooks that can block PR submission must accept the four
 ADR-042 override labels as local-only bypass inputs: `human-authored`,
-`admin-approved:ai-override`, `admin-approved:core-change`, and
+`admin-approved:bypass`, `admin-approved:core-change`, and
 `admin-approved:merge`. The `gate_record` CLI must expose `--bypass-label` for
 `pre-commit`, `commit-msg`, and `pre-push`, and `--pr-label` for `pr-ready`.
 It must also read `SCISTUDIO_GATE_BYPASS_LABELS`. The pre-push wrapper should
@@ -754,7 +760,7 @@ python -m scistudio.qa.governance.gate_record ci \
     without changed test files.
 12. Fail if override labels are misspelled, missing, or applied by unauthorized
     actors. The only valid override labels are `human-authored`,
-    `admin-approved:ai-override`, `admin-approved:core-change`, and
+    `admin-approved:bypass`, `admin-approved:core-change`, and
     `admin-approved:merge`.
 
 ### 5.6 Implementation Sequence

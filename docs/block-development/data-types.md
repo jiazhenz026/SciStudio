@@ -44,7 +44,7 @@ Domain-specific subclasses (e.g., `Image`, `FluorImage`, `PeakTable`,
 ## DataObject Base Class
 
 `scistudio.core.types.base.DataObject` is the root of the data type
-hierarchy. Every data object has four declared slots:
+hierarchy. Every data object has five declared slots:
 
 ```python
 class DataObject:
@@ -52,6 +52,9 @@ class DataObject:
     _meta: BaseModel | None     # typed domain metadata (Pydantic)
     _user: dict[str, Any]       # free-form user metadata (JSON-serializable)
     _storage_ref: StorageReference | None  # pointer to persisted data
+    _transient_data: Any        # in-memory data set via the `data=`
+                                # constructor parameter (ADR-031 Addendum 2);
+                                # never serialized, auto-flushed to storage
 ```
 
 ### Construction
