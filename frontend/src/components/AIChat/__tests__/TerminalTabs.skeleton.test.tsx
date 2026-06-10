@@ -18,7 +18,6 @@ describe("ADR-035 §3.10 — engine-initiated PTY tab events (skeleton)", () => 
   it("exports handleBlockPtyClosed as a function", () => {
     expect(typeof handleBlockPtyClosed).toBe("function");
   });
-
 });
 
 describe("ADR-035 §3.5 / §3.9 — AI-Block tab UI elements (skeleton)", () => {
@@ -29,5 +28,4 @@ describe("ADR-035 §3.5 / §3.9 — AI-Block tab UI elements (skeleton)", () => 
   it("MarkDoneButton component exports", () => {
     expect(typeof MarkDoneButton).toBe("function");
   });
-
 });

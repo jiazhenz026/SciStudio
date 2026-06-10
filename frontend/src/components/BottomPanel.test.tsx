@@ -727,9 +727,7 @@ describe("BottomPanel", () => {
     apiMocks.openNativeDialog.mockResolvedValueOnce({ paths: [] });
     const onUpdateConfig = renderBrowser("file_browser", "/old/path.tif");
     fireEvent.click(screen.getByTitle("Browse filesystem"));
-    await waitFor(() =>
-      expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/old"),
-    );
+    await waitFor(() => expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/old"));
     expect(onUpdateConfig).not.toHaveBeenCalled();
   });
 
