@@ -163,8 +163,10 @@ export default function App() {
     setActiveBottomTab,
   });
 
-  const { connected: wsConnected } = useWorkflowWebSocket(Boolean(currentProject));
-  const { connected: sseConnected } = useLogStream(
+  const { connected: wsConnected, status: wsStatus } = useWorkflowWebSocket(
+    Boolean(currentProject),
+  );
+  const { connected: sseConnected, status: sseStatus } = useLogStream(
     workflowId,
     activeBottomTab === "logs" ? selectedNodeId : null,
   );
@@ -345,6 +347,8 @@ export default function App() {
             selectedNodeId={selectedNodeId}
             wsConnected={wsConnected}
             sseConnected={sseConnected}
+            wsStatus={wsStatus}
+            sseStatus={sseStatus}
             recentProjects={recentProjects}
             activeTabKind={activeTabKind}
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
