@@ -188,8 +188,10 @@ def test_list_blocks_no_context_raises() -> None:
 
 def test_get_block_schema_happy(ctx: _StubRuntime) -> None:
     specs = ctx.block_registry.all_specs()
-    if not specs:
-        pytest.skip("no blocks registered for test environment")
+    # The ctx fixture calls block_registry.scan(); a regression that registers
+    # no blocks must FAIL here rather than silently skip the schema contract
+    # under test (#1559).
+    assert specs, "ctx fixture scanned the registry but no blocks were registered"
     name = next(iter(specs))
     schema = _run(tools_workflow.get_block_schema(name))
     assert schema.type_name == specs[name].name

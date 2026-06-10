@@ -100,8 +100,15 @@ class TestSubWorkflowBlock:
         assert result["extra"] == 99
 
     def test_state_transitions(self) -> None:
+        """An empty subworkflow with unmapped inputs passes them through (#1541).
+
+        Previously this test ran the block and asserted nothing. Assert the
+        real contract: with no child blocks and no mappings, inputs flow
+        straight to the outputs unchanged.
+        """
         block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-        block.run({}, block.config)
+        result = block.run({"a": 1, "b": 2}, block.config)
+        assert result == {"a": 1, "b": 2}
 
     def test_scheduler_factory_injection(self) -> None:
         """Verify that _scheduler_factory ClassVar can be set and triggers _run_with_scheduler."""

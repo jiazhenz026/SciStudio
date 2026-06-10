@@ -39,12 +39,25 @@ class TestMergeBlock:
         assert merged.columns == ["a", "b"]
 
     def test_state_transitions(self) -> None:
+        """A default-configured MergeBlock concatenates its two inputs (#1541).
+
+        Previously this test ran the block and asserted nothing, so a reader
+        grepping "state_transitions" saw green while the block contract was
+        untested. Assert the real output contract.
+        """
         left = _make_df({"x": [1]})
         right = _make_df({"x": [2]})
 
         block = MergeBlock()
 
-        block.run({"left": left, "right": right}, block.config)
+        result = block.run({"left": left, "right": right}, block.config)
+
+        merged_col = result["merged"]
+        assert isinstance(merged_col, Collection)
+        merged = merged_col[0]
+        assert isinstance(merged, DataFrame)
+        assert merged.row_count == 2
+        assert merged.columns == ["x"]
 
 
 class TestSplitBlock:

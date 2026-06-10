@@ -573,11 +573,41 @@ class TestSchedulerState:
         scheduler.set_state("A", BlockState.DONE)
         assert scheduler._block_states["A"] == BlockState.DONE
 
-    def test_save_checkpoint_does_not_raise(self) -> None:
-        """save_checkpoint is a no-op placeholder, should not raise."""
+    def test_save_checkpoint_without_manager_is_noop(self) -> None:
+        """Calling save_checkpoint with no manager early-returns (no error).
+
+        The no-manager branch is a legitimate guard, not the whole behaviour:
+        see ``test_save_checkpoint_persists_state`` for the real persistence
+        contract (#1541).
+        """
         wf = _wf(nodes=[("A", "proc")])
         scheduler, _, _ = _make_scheduler(wf)
-        scheduler.save_checkpoint()
+        scheduler.save_checkpoint()  # no manager -> early return, no raise
+
+    def test_save_checkpoint_persists_state(self, tmp_path) -> None:
+        """save_checkpoint writes real durable state via the checkpoint manager.
+
+        Regression guard for #1541: the implementation at
+        ``engine/scheduler/__init__.py`` builds a ``WorkflowCheckpoint`` from
+        the live block states and persists it. This test exercises that real
+        path (not the early-return branch) and asserts the persisted checkpoint
+        round-trips with the scheduler's current state.
+        """
+        from scistudio.engine.checkpoint import CheckpointManager
+
+        wf = _wf(nodes=[("A", "proc"), ("B", "proc")], edges=[("A:out", "B:in")])
+        scheduler, _, _ = _make_scheduler(wf)
+        scheduler.set_state("A", BlockState.DONE)
+
+        manager = CheckpointManager(checkpoint_dir=tmp_path)
+        scheduler.save_checkpoint(manager)
+
+        loaded = manager.load(wf.id)
+        assert loaded is not None, "checkpoint was not persisted"
+        assert loaded.workflow_id == wf.id
+        # Live block states are captured (as their string values).
+        assert loaded.block_states["A"] == BlockState.DONE.value
+        assert "B" in loaded.block_states
 
 
 # ---------------------------------------------------------------------------
