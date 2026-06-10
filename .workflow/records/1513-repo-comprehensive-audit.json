@@ -32,7 +32,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1513-repo-comprehensive-audit.json",
+    "shas": [
+      "8f2299f36424c4887c8fadf88cb734a85c07caf2"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -66,7 +72,13 @@
   "planned_files": [
     "docs/audit/**"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1513
+    ],
+    "number": 1514,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1514"
+  },
   "record_path": ".workflow/records/1513-repo-comprehensive-audit.json",
   "required_checks": [
     "ruff",
@@ -128,7 +140,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
