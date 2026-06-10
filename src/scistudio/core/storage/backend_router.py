@@ -54,10 +54,14 @@ def get_router() -> BackendRouter:
     """Return the default singleton ``BackendRouter``, building it on first access."""
     global _default_router
     if _default_router is None:
-        # TODO(#1342): lazy import preserves the public symbol path
+        # TODO(#1342): this import cannot be hoisted to module top level because
+        # _defaults.py imports BackendRouter from this module, creating a cycle:
+        #   backend_router -> _defaults -> backend_router
+        # The lazy import breaks the cycle while preserving the public symbol path
         # `scistudio.core.storage.backend_router.get_router` and the test
         # monkeypatch target at tests/blocks/test_auto_flush_composite.py:49,72.
-        # Out of scope per #1335 surgical-extraction plan.
+        # Resolving this properly requires either splitting BackendRouter out or
+        # inverting the dependency; tracked at issue #1342.
         # Followup: https://github.com/zjzcpj/SciStudio/issues/1342
         from scistudio.core.storage._defaults import build_default
 
