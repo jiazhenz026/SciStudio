@@ -16,7 +16,7 @@ pip install ruff mypy pytest import-linter
 4. Run checks before pushing:
    ```bash
    ruff check . && ruff format --check .
-   mypy packages/ --ignore-missing-imports
+   mypy src/scistudio/ --ignore-missing-imports
    pytest
    ```
 5. Open a PR against `main`, fill in the template, and link the issue.
