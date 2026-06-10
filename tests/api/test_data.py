@@ -49,6 +49,101 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
     assert "hello from SciStudio" in text_preview.json()["preview"]["content"]
 
 
+def test_upload_oversized_file_rejected_with_413(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """#1526: an upload exceeding the cap is rejected with 413."""
+    from scistudio.api.routes import data as data_routes
+
+    # Shrink the cap so the test does not need a multi-GB payload.
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    payload = b"x" * 4096  # 4 KiB > 1 KiB cap
+    resp = client.post(
+        "/api/data/upload",
+        files={"file": ("big.bin", payload, "application/octet-stream")},
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"].lower()
+
+
+def test_upload_at_cap_boundary_is_accepted(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """#1526: an upload exactly at the cap is accepted (off-by-one guard)."""
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    payload = b"y" * 1024  # exactly at the cap
+    resp = client.post(
+        "/api/data/upload",
+        files={"file": ("atcap.bin", payload, "application/octet-stream")},
+    )
+    assert resp.status_code == 200
+
+
+def test_upload_streams_and_aborts_without_buffering_whole_body(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """#1526: the handler aborts mid-stream and never reads the full body.
+
+    Drives ``upload_data`` directly with a fake ``UploadFile`` that records
+    how many bytes were handed out. Once the running counter crosses the cap
+    the handler must raise 413 *before* draining the rest of the stream — i.e.
+    it must not materialize the entire (potentially OOM-sized) body first.
+    """
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    class _FakeUpload:
+        """Emit a very large body 256 bytes at a time, counting reads."""
+
+        filename = "huge.bin"
+
+        def __init__(self, total_bytes: int) -> None:
+            self._remaining = total_bytes
+            self.bytes_served = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            if self._remaining <= 0:
+                return b""
+            n = self._remaining if size < 0 else min(size, self._remaining)
+            self._remaining -= n
+            self.bytes_served += n
+            return b"z" * n
+
+    # 1 GiB "virtual" body; if the handler buffered the whole thing it would
+    # serve all of it. We assert it stops far earlier.
+    total = 1024 * 1024 * 1024
+    fake = _FakeUpload(total)
+
+    raised = False
+    try:
+        asyncio.run(data_routes.upload_data(fake, runtime=object()))  # type: ignore[arg-type]
+    except HTTPException as exc:
+        raised = True
+        assert exc.status_code == 413
+
+    assert raised, "oversized stream should raise 413"
+    # The handler must have stopped reading shortly after crossing the cap,
+    # not drained the whole 1 GiB body.
+    assert fake.bytes_served <= data_routes.MAX_UPLOAD_SIZE + data_routes._UPLOAD_CHUNK_SIZE
+    assert fake.bytes_served < total
+
+
 def test_preview_supports_image_series_composite_and_artifact_types(
     client: TestClient,
     runtime: ApiRuntime,
