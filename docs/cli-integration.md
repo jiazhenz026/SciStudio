@@ -7,7 +7,7 @@ does this internally; CLI integration exposes the same MCP surface plus
 a SciStudio-aware skill to any compatible client.
 
 The result: `pip install scistudio && scistudio install --all && claude`
-in a project dir, and your CLI immediately has 25 SciStudio tools plus a
+in a project dir, and your CLI immediately has 27 SciStudio tools plus a
 skill describing how to use them.
 
 ## Quick start

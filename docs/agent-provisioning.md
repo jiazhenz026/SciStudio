@@ -17,21 +17,22 @@ the first time it is created or opened:
     settings.json                          # Claude Code PreToolUse + PostToolUse hook config
     .scistudio-provision-version             # Version marker (current: 0.1.0)
     hooks/
+      worktree_write_guard.py              # PreToolUse / Edit|Write|MultiEdit — blocks writes outside worktree
       deny_scistudio_cli.py                  # PreToolUse / Bash — blocks `scistudio <subcommand>`
-      protect_workflow_yaml.py             # PreToolUse / Edit|Write — blocks workflows/*.yaml writes
+      protect_workflow_yaml.py             # PreToolUse / Edit|Write|MultiEdit — blocks workflows/*.yaml writes
       enforce_list_blocks_before_block_write.py
                                            # PreToolUse — requires list_blocks call before authoring a block
       remind_poll_status.py                # PostToolUse / run_workflow — stderr reminder to poll
       mark_list_blocks_called.py           # PostToolUse / list_blocks — writes session marker
       enforce_concrete_port_types.py       # PostToolUse — stderr-warns on DataObject ports
-    skills/scistudio/                        # 6 task-scoped Claude Code skills
+    skills/                                  # 6 task-scoped Claude Code skills (flat — one level only)
       scistudio/SKILL.md                     # base index
       scistudio-build-workflow/SKILL.md
       scistudio-write-block/SKILL.md
       scistudio-debug-run/SKILL.md
       scistudio-inspect-data/SKILL.md
       scistudio-project-qa/SKILL.md
-  .agents/skills/scistudio/                  # 6 task-scoped Codex skills (mirror of .claude/skills/)
+  .agents/skills/                            # 6 task-scoped Codex skills (mirror of .claude/skills/)
     scistudio/SKILL.md
     ... (5 more)
   .codex/
@@ -142,7 +143,7 @@ wins inside a SciStudio project tree.
 
 ## Known limitations
 
-- **Codex hook system** has documented gaps (ADR-040 §3.10) — the 6
+- **Codex hook system** has documented gaps (ADR-040 §3.10) — the 7
   hooks govern Claude Code only. The `AGENTS.md` file gives Codex the
   same prose-level guidance, but matcher-driven blocking is
   Claude-Code-specific until Codex hooks mature.
