@@ -60,7 +60,7 @@ Engine process                    Block subprocess
      |  --- JSON (config, refs) --->   |
      |                                 |  block.run(inputs, config)
      |                                 |  item.to_memory()  # reads from zarr
-     |                                 |  result._data = ...
+     |                                 |  Array(..., data=...)
      |                                 |  _auto_flush(result)  # writes to zarr
      |  <-- JSON (output refs) ---     |
      |                                 |
@@ -180,9 +180,8 @@ iteration, auto-flush, and Collection packing. Peak memory: O(1 item).
 def process_item(self, item, config, state=None):
     data = np.asarray(item.to_memory())
     result_data = some_transform(data)
-    result = Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype))
-    result._data = result_data
-    return result
+    return Array(axes=list(item.axes), shape=result_data.shape,
+                 dtype=str(result_data.dtype), data=result_data)
 ```
 
 ### Tier 2: map_items / parallel_map
@@ -194,10 +193,9 @@ def run(self, inputs, config):
     images = inputs["images"]
     def transform(item):
         data = np.asarray(item.to_memory())
-        # ... transform ...
-        result = Array(axes=list(item.axes), shape=data.shape, dtype=str(data.dtype))
-        result._data = transformed
-        return result
+        transformed = some_transform(data)
+        return Array(axes=list(item.axes), shape=transformed.shape,
+                     dtype=str(transformed.dtype), data=transformed)
     output = self.map_items(transform, images)
     return {"output": output}
 ```

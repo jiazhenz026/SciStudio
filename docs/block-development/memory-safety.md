@@ -33,6 +33,64 @@ controlling how many items are in memory at any point.
 
 ---
 
+## Data Access Strategies
+
+Block authors choose how to read input data and how to produce output data.
+The framework supports both full materialization and streaming -- choose based
+on your expected data size.
+
+### Reading input data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full load** | `arr = item.to_memory()` | O(full array) | Data fits in RAM; need full array for computation |
+| **Partial read** | `plane = item.sel(z=5)` | O(slice) | Only need a subset of dimensions |
+| **Chunked iteration** | `for chunk in item.iter_chunks(1024):` | O(chunk) | Process large data piece by piece |
+
+### Writing output data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full output** | `Array(..., data=result)` | O(result) | Result fits in RAM (most blocks) |
+| **Streaming write** | `ref = self.persist_array(chunk_iter, shape, dtype)` | O(chunk) | Producing very large output |
+
+### Common patterns
+
+**Pattern 1 -- Simple transform (most blocks):**
+
+```python
+def process_item(self, item, config, state=None):
+    data = item.to_memory()                          # full read
+    result = some_transform(data)
+    return Array(axes=list(item.axes), shape=result.shape,
+                 dtype=str(result.dtype), data=result)  # full write
+```
+
+**Pattern 2 -- Large data, chunked processing:**
+
+```python
+def process_item(self, item, config, state=None):
+    def compute():
+        for i, chunk in enumerate(item.iter_chunks(1024)):  # streaming read
+            yield i, transform(chunk)
+    ref = self.persist_array(compute(), shape, dtype)        # streaming write
+    return Array(axes=list(item.axes), shape=shape,
+                 dtype=str(dtype), storage_ref=ref)
+```
+
+**Pattern 3 -- Partial read, full write:**
+
+```python
+def process_item(self, item, config, state=None):
+    plane = item.sel(z=config.get("z_index"))   # partial read
+    data = plane.to_memory()
+    result = process_plane(data)
+    return Array(axes=list(plane.axes), shape=result.shape,
+                 dtype=str(result.dtype), data=result)  # full write
+```
+
+---
+
 ## Tier 1: process_item with Auto-Flush
 
 **O(1) peak memory** -- the recommended approach for 80% of blocks.
@@ -44,13 +102,12 @@ class MyBlock(ProcessBlock):
     def process_item(self, item, config, state=None):
         data = np.asarray(item.to_memory())       # load one item
         result_data = transform(data)               # process it
-        result = Array(
+        return Array(                                # auto-flushed, then GC'd
             axes=list(item.axes),
             shape=result_data.shape,
             dtype=str(result_data.dtype),
+            data=result_data,
         )
-        result._data = result_data
-        return result                               # auto-flushed, then GC'd
 ```
 
 How it works:
@@ -101,9 +158,7 @@ def run(self, inputs, config):
     def transform(item):
         data = np.asarray(item.to_memory())
         result_data = process(data)
-        result = Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype))
-        result._data = result_data
-        return result
+        return Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype), data=result_data)
     output = self.map_items(transform, images)
     return {"output": output}
 ```

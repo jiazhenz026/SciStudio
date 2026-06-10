@@ -44,14 +44,13 @@ class TestGaussianBlur:
         # Create noisy image
         rng = np.random.default_rng(42)
         data = rng.standard_normal((64, 64)).astype(np.float32)
-        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-        item._data = data  # type: ignore[attr-defined]
+        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
         block = GaussianBlur()
         result = block.process_item(item, BlockConfig(sigma=2.0))
 
         # Blurred result should have lower variance
-        assert result._data.std() < data.std()  # type: ignore[attr-defined]
+        assert result.to_memory().std() < data.std()
 
 
 class TestSimpleThreshold:
@@ -66,11 +65,10 @@ class TestSimpleThreshold:
         from my_blocks.blocks.threshold import SimpleThreshold
 
         data = np.array([[10, 200], [50, 150]], dtype=np.float32)
-        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-        item._data = data  # type: ignore[attr-defined]
+        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
         block = SimpleThreshold()
         result = block.process_item(item, BlockConfig(method="manual", value=100.0))
 
         expected = np.array([[False, True], [False, True]])
-        np.testing.assert_array_equal(result._data, expected)  # type: ignore[attr-defined]
+        np.testing.assert_array_equal(result.to_memory(), expected)

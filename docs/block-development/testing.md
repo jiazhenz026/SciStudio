@@ -102,8 +102,7 @@ from scistudio.core.types.collection import Collection
 
 def test_my_block_smoke(tmp_path):
     # Create synthetic input
-    arr = Array(axes=["y", "x"], shape=(64, 64), dtype="float64")
-    arr._data = np.random.rand(64, 64)
+    arr = Array(axes=["y", "x"], shape=(64, 64), dtype="float64", data=np.random.rand(64, 64))
     coll = Collection(items=[arr], item_type=Array)
 
     harness = BlockTestHarness(MyBlock, work_dir=tmp_path)
@@ -155,8 +154,7 @@ from scistudio.core.types.collection import Collection
 
 def test_invert_smoke():
     data = np.array([[0, 100], [200, 255]], dtype=np.uint8)
-    arr = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-    arr._data = data
+    arr = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
     coll = Collection(items=[arr], item_type=Array)
 
     harness = BlockTestHarness(InvertImage)
@@ -177,11 +175,10 @@ def test_process_item_directly():
     config = BlockConfig()
 
     data = np.array([[10, 20], [30, 40]], dtype=np.float64)
-    item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-    item._data = data
+    item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
     result = block.process_item(item, config)
-    result_data = result._data
+    result_data = result.to_memory()
     expected = np.array([[40, 30], [20, 10]], dtype=np.float64)
     np.testing.assert_array_equal(result_data, expected)
 ```
@@ -213,8 +210,7 @@ from scistudio.core.types.collection import Collection
 @pytest.fixture
 def sample_image():
     data = np.random.rand(128, 128).astype(np.float32)
-    arr = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-    arr._data = data
+    arr = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
     return arr
 
 @pytest.fixture

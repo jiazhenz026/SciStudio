@@ -24,30 +24,27 @@ class TestInvertImageLogic:
 
     def test_invert_uint8(self):
         data = np.array([[0, 100], [200, 255]], dtype=np.uint8)
-        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-        item._data = data  # type: ignore[attr-defined]
+        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
         block = InvertImage()
         result = block.process_item(item, BlockConfig())
 
         expected = np.array([[255, 155], [55, 0]], dtype=np.uint8)
-        np.testing.assert_array_equal(result._data, expected)  # type: ignore[attr-defined]
+        np.testing.assert_array_equal(result.to_memory(), expected)
 
     def test_invert_float(self):
         data = np.array([[0.0, 0.5], [0.75, 1.0]], dtype=np.float64)
-        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype))
-        item._data = data  # type: ignore[attr-defined]
+        item = Array(axes=["y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
         block = InvertImage()
         result = block.process_item(item, BlockConfig())
 
         expected = np.array([[1.0, 0.5], [0.25, 0.0]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result._data, expected)  # type: ignore[attr-defined]
+        np.testing.assert_array_almost_equal(result.to_memory(), expected)
 
     def test_preserves_axes(self):
         data = np.random.rand(3, 64, 64).astype(np.float32)
-        item = Array(axes=["c", "y", "x"], shape=data.shape, dtype=str(data.dtype))
-        item._data = data  # type: ignore[attr-defined]
+        item = Array(axes=["c", "y", "x"], shape=data.shape, dtype=str(data.dtype), data=data)
 
         block = InvertImage()
         result = block.process_item(item, BlockConfig())
@@ -62,8 +59,8 @@ class TestInvertImageLogic:
             shape=data.shape,
             dtype=str(data.dtype),
             user={"experiment": "test-001"},
+            data=data,
         )
-        item._data = data  # type: ignore[attr-defined]
 
         block = InvertImage()
         result = block.process_item(item, BlockConfig())
