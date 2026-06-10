@@ -49,9 +49,24 @@ dev = [
     "import-linter>=2.0",
     "griffe>=1.7",
     "pre-commit>=4.0",
+    # ADR-042 Addendum 6 parity venvs must be able to run the local mirror of
+    # ci.yml jobs. Keep build-system helpers in the dev extra so python_tests
+    # and wheel_release_smoke do not fail as environment-parity gaps.
+    "setuptools>=68.0",
+    "build>=1.2",
+    # Several selected python_tests import tabular and TIFF preview/inspection
+    # paths. Keep the CI-equivalent dev environment complete without making
+    # these optional data-format helpers core runtime dependencies.
+    "pandas>=2.2",
+    "tifffile>=2024.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
     "vulture>=2.11",
+    # ADR-042 Addendum 2 / Addendum 6: semantic-dup parity checks run
+    # scripts/semantic_dup_scan.py locally from the gate_record parity venv.
+    # CI installs fastembed explicitly for the same ratchet job; keep the dev
+    # extra in sync so auto-provisioned local parity environments can run it.
+    "fastembed>=0.7",
     # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
     # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
     # ``ome: OME | None`` field. Listed here as well so the skeleton import
@@ -163,6 +178,13 @@ packages = ["scistudio"]
 # See issue #693.
 [[tool.mypy.overrides]]
 module = ["zarr", "zarr.*"]
+follow_imports = "skip"
+
+# tifffile uses Python 3.12+ type-alias syntax in current releases. The package
+# remains an optional/dev data-format helper for tests, while SciStudio's mypy
+# target is still Python 3.11, so do not parse tifffile internals.
+[[tool.mypy.overrides]]
+module = ["tifffile", "tifffile.*"]
 follow_imports = "skip"
 
 [tool.pytest.ini_options]

@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+import scistudio.qa.governance.gate_record.checks as checks
 import scistudio.qa.governance.gate_record.parity as parity
 
 # Capture the real implementation before the autouse conftest fixture stubs it.
@@ -109,6 +110,20 @@ def test_marker_changes_with_deps(tmp_path: Path) -> None:
     assert marker_a.startswith("sha256:")
 
 
+def test_local_ci_tool_dependencies_are_in_dev_extra() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    assert "semantic_dup" in checks.CHECK_CATALOG
+    assert "wheel_release_smoke" in checks.CHECK_CATALOG
+    assert "python_tests" in checks.CHECK_CATALOG
+    dev_deps = parity._dev_extras(repo_root)
+    normalized = [dep.lower() for dep in dev_deps]
+    assert any(dep.lower().startswith("fastembed") for dep in dev_deps)
+    assert any(dep.startswith("build") for dep in normalized)
+    assert any(dep.startswith("pandas") for dep in normalized)
+    assert any(dep.startswith("setuptools") for dep in normalized)
+    assert any(dep.startswith("tifffile") for dep in normalized)
+
+
 def _make_src(repo: Path) -> None:
     (repo / "src" / "scistudio").mkdir(parents=True, exist_ok=True)
     (repo / "src" / "scistudio" / "__init__.py").write_text("", encoding="utf-8")
@@ -139,17 +154,42 @@ def test_marker_mismatch_triggers_reprovision(tmp_path: Path, monkeypatch: pytes
     venv = parity.venv_path(tmp_path)
     venv.mkdir(parents=True)
     (venv / parity._MARKER_NAME).write_text("sha256:stale\n", encoding="utf-8")
+    (venv / "stale.txt").write_text("old dependency state", encoding="utf-8")
 
     calls: list[str] = []
-    monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: calls.append("create") or (True, "ok"))
+
+    def _fake_create(_repo_root: Path, venv_path: Path) -> tuple[bool, str]:
+        calls.append("create")
+        assert not venv_path.exists()
+        venv_path.mkdir(parents=True)
+        return True, "ok"
+
+    monkeypatch.setattr(parity, "_create_venv", _fake_create)
     monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: calls.append("install") or (True, "ok"))
     monkeypatch.setattr(parity, "check_importable_env", lambda _repo, **_k: True)
 
     report = real_provision(tmp_path)
     assert report.ok and report.provisioned
     assert calls == ["create", "install"]
+    assert not (venv / "stale.txt").exists()
     # The fresh marker is written so the next run is warm.
     assert (venv / parity._MARKER_NAME).read_text(encoding="utf-8").strip() == parity.provisioning_marker(tmp_path)
+
+
+def test_stale_venv_removal_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+    _make_src(tmp_path)
+    venv = parity.venv_path(tmp_path)
+    venv.mkdir(parents=True)
+    (venv / parity._MARKER_NAME).write_text("sha256:stale\n", encoding="utf-8")
+
+    monkeypatch.setattr(parity, "_remove_stale_venv", lambda *a, **k: (False, "refusing test path"))
+    create_called: list[str] = []
+    monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: create_called.append("create") or (True, "ok"))
+
+    report = real_provision(tmp_path)
+    assert not report.ok
+    assert any("cannot remove stale isolated per-worktree venv" in gap for gap in report.gaps)
+    assert create_called == []
 
 
 # ---------------------------------------------------------------------------

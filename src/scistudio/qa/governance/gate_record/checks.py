@@ -263,6 +263,7 @@ _PARITY_CAUSE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # A pytest collection error specifically (distinct from test-body failures).
 _PYTEST_COLLECTION_ERROR_RE = re.compile(r"errors? during collection|ERROR collecting", re.IGNORECASE)
+_PYTEST_TEST_FAILURE_RE = re.compile(r"=+\s+FAILURES\s+=+|^FAILED\s+", re.IGNORECASE | re.MULTILINE)
 
 
 def detect_parity_cause(output: str) -> str | None:
@@ -277,14 +278,25 @@ def detect_parity_cause(output: str) -> str | None:
 
     if not output:
         return None
+    has_pytest_body_failure = _PYTEST_TEST_FAILURE_RE.search(output) is not None
+    has_pytest_collection_error = _PYTEST_COLLECTION_ERROR_RE.search(output) is not None
     for pattern, template in _PARITY_CAUSE_PATTERNS:
         match = pattern.search(output)
         if match is None:
             continue
+        if (
+            (
+                template in {"tool/interpreter not found", "missing distribution/dependency"}
+                or template.startswith("missing module")
+            )
+            and has_pytest_body_failure
+            and not has_pytest_collection_error
+        ):
+            continue
         # An ImportError reported INSIDE a normal test body (not at collection)
         # could be a genuine bug; only treat import/module errors as parity gaps
         # when they look like collection-time or top-level import problems.
-        if template == "import error during collection" and not _PYTEST_COLLECTION_ERROR_RE.search(output):
+        if template == "import error during collection" and not has_pytest_collection_error:
             # A bare ImportError without a collection marker is ambiguous; if a
             # ModuleNotFoundError/No-module signature also matched it is covered
             # by an earlier pattern, so here we skip to avoid false positives.

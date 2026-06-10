@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from scistudio.qa.governance.gate_record import checks, evaluator, io, surfaces
+from scistudio.qa.governance.gate_record import checks, evaluator, io, surfaces, workflow
 from scistudio.qa.governance.gate_record.io import SanitizationError
 from scistudio.qa.governance.gate_record.ledger import (
     CheckEvent,
@@ -20,8 +21,11 @@ from scistudio.qa.governance.gate_record.ledger import (
     DocsEvent,
     GateLedger,
     IssueRef,
+    PullRequestEvidence,
+    RequiredObligations,
     TestEvent,
 )
+from scistudio.qa.schemas.report import AuditReport, AuditStatus
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -62,6 +66,78 @@ def _add_change(repo: Path, rel: str, content: str = "x\n") -> None:
     path.write_text(content, encoding="utf-8")
     _git(repo, "add", rel)
     _git(repo, "commit", "-q", "-m", f"add {rel}")
+
+
+# ---------------------------------------------------------------------------
+# Ledger discovery and post-PR finalize behavior.
+# ---------------------------------------------------------------------------
+
+
+def test_discover_ledger_can_include_finalized_for_ci(tmp_path: Path) -> None:
+    records_dir = tmp_path / ".workflow" / "records"
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1568-finalized-ledger-ci.json"
+    ledger = _ledger(branch="track/x")
+    ledger.pull_request = PullRequestEvidence(url="https://github.com/zjzcpj/SciStudio/pull/1568", number=1568)
+    io.write_ledger(record_path, ledger, repo_root=tmp_path)
+
+    default_discovery = io.discover_ledger(tmp_path, branch="track/x")
+    assert not default_discovery.found
+    assert default_discovery.candidates == []
+
+    ci_discovery = io.discover_ledger(tmp_path, branch="track/x", include_finalized=True)
+    assert ci_discovery.found
+    assert ci_discovery.path == record_path
+
+
+def test_ci_mode_check_resolves_finalized_ledger(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _git(git_repo, "checkout", "-q", "-b", "track/x")
+    records_dir = git_repo / ".workflow" / "records"
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1568-finalized-ledger-ci.json"
+    ledger = _ledger(branch="track/x")
+    ledger.pull_request = PullRequestEvidence(url="https://github.com/zjzcpj/SciStudio/pull/1568", number=1568)
+    io.write_ledger(record_path, ledger, repo_root=git_repo)
+
+    def _fake_reconcile(**kwargs: object) -> evaluator.ReconcileResult:
+        resolved = kwargs["ledger"]
+        assert isinstance(resolved, GateLedger)
+        assert resolved.pull_request is not None
+        return evaluator.ReconcileResult(
+            report=AuditReport(tool="gate_record", status=AuditStatus.PASS, source_sha="test"),
+            strictness_tier=2,
+            required_obligations=RequiredObligations(),
+        )
+
+    monkeypatch.setattr(workflow.evaluator, "reconcile", _fake_reconcile)
+    args = SimpleNamespace(
+        record=None,
+        mode="ci",
+        owner_directive=[],
+        include=[],
+        exclude=[],
+        issue=[],
+        docs_updated=[],
+        docs_na=[],
+        test_path=[],
+        test_na=[],
+        check=[],
+        check_na=[],
+        admin_label=[],
+        skip_execution=True,
+        only=[],
+        pr_body_file=None,
+        pr_context_file=None,
+        head="HEAD",
+        base="HEAD",
+    )
+
+    assert workflow.run_check(git_repo, args) == workflow.EXIT_OK
+    output = capsys.readouterr().out
+    assert "no gate ledger found" not in output
+    assert "reconciliation passed" in output
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +557,21 @@ def test_detect_parity_cause_ignores_genuine_assertion_failure() -> None:
     from scistudio.qa.governance.gate_record import checks
 
     out = "def test_x():\n>       assert 1 == 2\nE       assert 1 == 2\n1 failed in 0.01s"
+    assert checks.detect_parity_cause(out) is None
+
+
+def test_detect_parity_cause_ignores_missing_optional_module_in_skip_summary() -> None:
+    from scistudio.qa.governance.gate_record import checks
+
+    out = "\n".join(
+        [
+            "================================== FAILURES ===================================",
+            "FAILED tests/example.py::test_real_failure - AssertionError: boom",
+            "E   ValueError: Command executable not found: 'echo'. Ensure it is on PATH",
+            "=========================== short test summary info ===========================",
+            "SKIPPED [1] tests/plugins/test_phase11_skeleton.py: could not import 'skimage': No module named 'skimage'",
+        ]
+    )
     assert checks.detect_parity_cause(out) is None
 
 

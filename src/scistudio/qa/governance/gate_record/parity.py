@@ -290,6 +290,32 @@ def _create_venv(repo_root: Path, venv: Path) -> tuple[bool, str]:
     return _run([sys.executable, "-m", "venv", str(venv)], cwd=repo_root)
 
 
+def _remove_stale_venv(repo_root: Path, venv: Path) -> tuple[bool, str]:
+    """Remove a stale per-worktree parity venv before re-provisioning.
+
+    The path is fixed by ``venv_path(repo_root)`` and lives under
+    ``.workflow/local``. Fail closed if a caller passes anything else.
+    """
+
+    try:
+        expected = venv_path(repo_root).resolve()
+        local_root = (repo_root / ".workflow" / "local").resolve()
+        target = venv.resolve()
+    except OSError as exc:
+        return False, f"{type(exc).__name__} resolving venv"
+    if target != expected:
+        return False, "refusing to remove unexpected venv path"
+    if target == local_root or local_root not in target.parents:
+        return False, "refusing to remove venv outside .workflow/local"
+    try:
+        shutil.rmtree(target)
+    except FileNotFoundError:
+        return True, "ok"
+    except OSError as exc:
+        return False, f"{type(exc).__name__} removing stale venv"
+    return True, "ok"
+
+
 def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
     """Install ``-e ".[dev]"`` into the venv with uv (preferred) or pip.
 
@@ -333,6 +359,14 @@ def provision_venv(repo_root: Path, *, force: bool = False) -> ParityReport:
         )
 
     venv.parent.mkdir(parents=True, exist_ok=True)
+    if venv.exists():
+        removed, remove_summary = _remove_stale_venv(repo_root, venv)
+        if not removed:
+            return ParityReport(
+                importable=False,
+                resolved_versions=resolved,
+                gaps=[f"cannot remove stale isolated per-worktree venv: {remove_summary}"],
+            )
     created, create_summary = _create_venv(repo_root, venv)
     if not created:
         return ParityReport(

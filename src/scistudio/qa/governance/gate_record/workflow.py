@@ -65,14 +65,19 @@ def _print_outcome(outcome: CommandOutcome) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_ledger_path(repo_root: Path, record: str | None) -> tuple[Path | None, CommandOutcome | None]:
+def _resolve_ledger_path(
+    repo_root: Path,
+    record: str | None,
+    *,
+    include_finalized: bool = False,
+) -> tuple[Path | None, CommandOutcome | None]:
     if record is not None:
         path = Path(record)
         path = path if path.is_absolute() else repo_root / path
         if not path.exists():
             return None, CommandOutcome(EXIT_USAGE, [f"ledger not found: {record}"])
         return path, None
-    discovery = io.discover_ledger(repo_root)
+    discovery = io.discover_ledger(repo_root, include_finalized=include_finalized)
     if discovery.found:
         return discovery.path, None
     if discovery.ambiguous:
@@ -378,7 +383,7 @@ def _read_pr_context(repo_root: Path, pr_context_file: str | None) -> dict[str, 
 
 def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     effective_mode = mode or getattr(args, "mode", "local") or "local"
-    path, err = _resolve_ledger_path(repo_root, args.record)
+    path, err = _resolve_ledger_path(repo_root, args.record, include_finalized=effective_mode == "ci")
     if err:
         return _print_outcome(err)
     assert path is not None
@@ -464,7 +469,8 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
 
 
 def run_finalize(repo_root: Path, args: Any) -> int:
-    path, err = _resolve_ledger_path(repo_root, args.record)
+    is_post_pr = bool(getattr(args, "pr", None))
+    path, err = _resolve_ledger_path(repo_root, args.record, include_finalized=is_post_pr)
     if err:
         return _print_outcome(err)
     assert path is not None
@@ -473,7 +479,6 @@ def run_finalize(repo_root: Path, args: Any) -> int:
         return _print_outcome(load_err)
     assert ledger is not None
 
-    is_post_pr = bool(getattr(args, "pr", None))
     if not is_post_pr and not getattr(args, "pr_body_file", None):
         return _print_outcome(CommandOutcome(EXIT_USAGE, ["pre-PR finalize requires --pr-body-file"]))
 

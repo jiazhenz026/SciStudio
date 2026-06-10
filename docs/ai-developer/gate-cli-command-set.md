@@ -298,6 +298,11 @@ metadata; it fails when checks are stale, required issue closure is missing from
 the PR body, required docs/tests are absent, or tier-selected check obligations
 are unsatisfied.
 
+After post-PR `finalize`, commit and push the ledger update. CI-mode ledger
+discovery includes finalized ledgers so the committed PR provenance is still
+validated by `gate_record check --mode ci`; only ordinary local active-session
+discovery excludes finalized ledgers.
+
 ## 3. The `--mode` Family
 
 `check` (and the mode-specific compatibility aliases) dispatch on `--mode`. All
