@@ -72,8 +72,13 @@ def _merge(engine: GitEngine, source_branch: str) -> dict[str, Any]:
         if before == after:
             # Already up to date.
             return {"result": "fast-forward", "conflicted_files": []}
-        # Detect FF: if HEAD moved but new commit has only one parent
-        # AND it was a known ancestor relationship.
+        # ADR-039 P3-B (#969): this heuristic combines the pre-merge
+        # ``merge-base --is-ancestor`` result with a post-merge parent-count
+        # check to classify FF vs three-way-clean.  The canonical approach
+        # would be to attempt ``git merge --ff-only`` first and fall back to
+        # a three-way merge; the heuristic here is accurate for all current
+        # SciStudio workflows (single-author, linear-ish histories) and is
+        # acceptable for v1.  Hardening is deferred; see issue #969.
         head_parents = engine._run(["rev-list", "--parents", "-n", "1", "HEAD"]).stdout.strip().split()
         if ff_possible and len(head_parents) == 2:
             return {"result": "fast-forward", "conflicted_files": []}

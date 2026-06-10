@@ -852,3 +852,226 @@ def test_git_binary_run_pins_utf8_decode() -> None:
         "GitBinary.run must use errors='replace' as a defensive fallback "
         "for any unexpected non-UTF-8 byte (hotfix #983)."
     )
+
+
+# ---------------------------------------------------------------------------
+# #1390 regression: branches() returns clean short name when a tag
+# shares the same short name as a branch.
+# ---------------------------------------------------------------------------
+
+
+def test_branches_not_prefixed_when_tag_shares_branch_name(tmp_path: Path) -> None:
+    """Regression for #1390 — ``engine.branches()`` must return ``feature``,
+    not ``heads/feature``, when a tag named ``feature`` exists alongside a
+    branch named ``feature``.
+
+    Before the fix, ``git for-each-ref --format=%(refname:short) refs/heads/``
+    used git's disambiguation prefix (``heads/feature``) when a tag of the
+    same short name existed.  The ``known_branches`` validator in
+    ``/api/git/branch/switch`` then failed to find ``feature`` in the set,
+    returning a spurious 404.
+
+    The fix: use ``%(refname)`` (fully-qualified) and strip ``refs/heads/``
+    client-side, which is always unambiguous.
+    """
+    engine = _init_engine(tmp_path)
+
+    # Create a branch named "feature".
+    engine.branch_create("feature")
+    engine.branch_switch("feature")
+    (tmp_path / "feature.txt").write_text("f", encoding="utf-8")
+    engine.commit("add feature.txt")
+    engine.branch_switch("main")
+
+    # Create a tag with the SAME short name as the branch.
+    sha = engine.head_state().commit_sha
+    engine._run(["tag", "feature", sha])
+
+    # engine.branches() must return the clean short name.
+    branch_names = [b["name"] for b in engine.branches()]
+    assert "feature" in branch_names, (
+        f"branches() returned {branch_names!r} — expected 'feature' (not "
+        f"'heads/feature').  Regression: #1390."
+    )
+    assert "heads/feature" not in branch_names, (
+        f"branches() returned disambiguation-prefixed name 'heads/feature' "
+        f"in {branch_names!r}.  Regression: #1390."
+    )
+    # Spot-check: 'main' is also present and clean.
+    assert "main" in branch_names
+
+
+def test_branches_is_current_correct_with_tag_name_collision(tmp_path: Path) -> None:
+    """``is_current`` flag must be correct even when a same-named tag exists.
+
+    Ensures that the ``name == current`` comparison in ``_branches()`` uses
+    the stripped name (not the full ``refs/heads/`` refname), so
+    ``is_current`` is still ``True`` for the active branch when a tag
+    collision is present.
+    """
+    engine = _init_engine(tmp_path)
+    engine.branch_create("work")
+    engine.branch_switch("work")
+    (tmp_path / "w.txt").write_text("w", encoding="utf-8")
+    engine.commit("work commit")
+
+    # Create a tag with the same name as the current branch.
+    sha = engine.head_state().commit_sha
+    engine._run(["tag", "work", sha])
+
+    branches = engine.branches()
+    work_entry = next((b for b in branches if b["name"] == "work"), None)
+    assert work_entry is not None, "Expected 'work' branch in branches() output"
+    assert work_entry["is_current"] is True, (
+        f"'work' branch should be marked is_current=True; got {work_entry!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# #1394 P3-3 regression: engine.tag force=False refuses to overwrite
+# ---------------------------------------------------------------------------
+
+
+def test_tag_force_false_raises_on_existing_ref(tmp_path: Path) -> None:
+    """``engine.tag(force=False)`` must raise ``GitError`` when the ref
+    already exists at a different SHA.
+
+    Fixes #1394 P3-3: previously ``force=False`` was accepted for API
+    symmetry but silently ignored (the ref was always overwritten).
+    The fix wires ``force=False`` to ``git update-ref <name> <new-sha> ""``
+    which instructs git to refuse the update when the ref already exists.
+    """
+    engine = _init_engine(tmp_path)
+    sha_a = engine.head_state().commit_sha
+
+    # Write a second commit so we have a different SHA to try to clobber with.
+    (tmp_path / "second.txt").write_text("second", encoding="utf-8")
+    sha_b = engine.commit("second commit")
+
+    ref_name = f"refs/scistudio/lineage/{sha_a}"
+
+    # First creation (ref does not exist yet) must succeed.
+    engine.tag(ref_name, sha_a, force=False)
+
+    # Attempting to overwrite with a different SHA must raise.
+    with pytest.raises(GitError):
+        engine.tag(ref_name, sha_b, force=False)
+
+    # The original value must still be intact.
+    proc = engine._run(["rev-parse", ref_name], check=False)
+    assert proc.returncode == 0
+    assert (proc.stdout or "").strip() == sha_a
+
+
+def test_tag_force_true_overwrites_existing_ref(tmp_path: Path) -> None:
+    """``engine.tag(force=True)`` (the default) overwrites an existing ref
+    without raising — preserving the idempotent safety-net contract.
+    """
+    engine = _init_engine(tmp_path)
+    sha_a = engine.head_state().commit_sha
+
+    (tmp_path / "second.txt").write_text("second", encoding="utf-8")
+    sha_b = engine.commit("second commit")
+
+    ref_name = f"refs/scistudio/lineage/{sha_a}"
+    engine.tag(ref_name, sha_a, force=True)
+
+    # Overwrite with force=True (default) must succeed silently.
+    engine.tag(ref_name, sha_b, force=True)
+
+    proc = engine._run(["rev-parse", ref_name], check=False)
+    assert proc.returncode == 0
+    assert (proc.stdout or "").strip() == sha_b
+
+
+# ---------------------------------------------------------------------------
+# #1394 P3-4: restore short-circuit + route-layer auto-commit interaction
+# ---------------------------------------------------------------------------
+
+
+def test_restore_short_circuit_does_not_prevent_route_layer_auto_commit(
+    tmp_path: Path,
+) -> None:
+    """Regression for #1394 P3-4: when the target files already match the
+    restore commit (short-circuit path), ``engine.restore()`` is a no-op
+    *at the engine level* — but the route layer must still have the
+    opportunity to create a pre-restore auto-commit for its dirty tree.
+
+    This test exercises the engine-side contract:
+
+    - ``engine.restore()`` does NOT create a commit (the route layer does).
+    - When target files are unchanged, the working-tree state is preserved
+      (no checkout performed).
+    - Unrelated dirty files remain dirty after the no-op restore.
+
+    The route-layer auto-commit behaviour is separately tested in
+    ``tests/api/test_git_endpoints.py``.
+    """
+    engine = _init_engine(tmp_path)
+
+    target = tmp_path / "workflow.yaml"
+    target.write_text("v1\n", encoding="utf-8")
+    sha_v1 = engine.commit("v1")
+
+    target.write_text("v2\n", encoding="utf-8")
+    sha_v2 = engine.commit("v2")
+
+    # Dirty an unrelated file to simulate a pre-restore dirty working tree.
+    (tmp_path / "unrelated.txt").write_text("dirty", encoding="utf-8")
+    assert engine.status()["dirty"] is True
+
+    commit_count_before = len(engine.log(limit=100))
+
+    # Restore to sha_v2 — target file already matches sha_v2 on disk,
+    # so this is a short-circuit no-op at the engine level.
+    engine.restore(sha_v2, files=["workflow.yaml"])
+
+    commit_count_after = len(engine.log(limit=100))
+    assert commit_count_after == commit_count_before, (
+        "engine.restore() must not create commits — the auto-commit "
+        "responsibility lives at the route layer (ADR-039 Addendum 1 #1354, "
+        "P3-4 #1394)."
+    )
+
+    # Target file content unchanged (short-circuit correctly skipped checkout).
+    assert target.read_text(encoding="utf-8") == "v2\n"
+
+    # Unrelated dirty file still dirty — engine did not stash or commit it.
+    assert engine.status()["dirty"] is True
+    assert "unrelated.txt" in engine.status()["untracked"]
+
+    # HEAD is still at sha_v2.
+    assert engine.head_state().commit_sha == sha_v2
+
+    # Suppress unused-variable warning.
+    _ = sha_v1
+
+
+# ---------------------------------------------------------------------------
+# #969 P3-A: is_repository returns True for git-worktree gitlink files
+# ---------------------------------------------------------------------------
+
+
+def test_is_repository_returns_true_for_worktree_gitlink(tmp_path: Path) -> None:
+    """ADR-039 P3-A (#969): ``is_repository`` must return ``True`` for a
+    git-worktree directory whose ``.git`` entry is a plain file (gitlink),
+    not a directory.
+
+    A ``git worktree add`` worktree has ``.git`` as a text file
+    (``gitdir: <path>``).  ``Path.exists()`` returns ``True`` for plain
+    files, so the first guard in ``is_repository`` already handles this
+    case.  This test pins that behaviour explicitly.
+    """
+    engine = _init_engine(tmp_path)
+
+    worktree_path = tmp_path / "wt"
+    worktree_path.mkdir()
+
+    # Simulate the gitlink file that git creates in a linked worktree.
+    gitlink = worktree_path / ".git"
+    gitlink.write_text(f"gitdir: {tmp_path / '.git' / 'worktrees' / 'wt'}\n")
+
+    assert engine.is_repository(worktree_path) is True, (
+        "is_repository() must return True when .git is a gitlink file "
+        "(git worktree case), not just when it is a directory."
+    )
