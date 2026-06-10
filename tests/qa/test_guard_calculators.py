@@ -275,6 +275,20 @@ def test_weakened_ci_blocks_removed_required_token() -> None:
     assert any(rid.startswith("weakened-ci.removed-") for rid in _rule_ids(report))
 
 
+def test_weakened_ci_ignores_removed_comment_mentions_of_required_tokens() -> None:
+    diff = (
+        "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n"
+        "--- a/.github/workflows/ci.yml\n"
+        "+++ b/.github/workflows/ci.yml\n"
+        "-        # Run 'cd frontend && npm run build' and commit the result.\n"
+        "-        # This step runs after the build step.\n"
+        "-            echo \"Run 'cd frontend && npm run build' and commit the result.\"\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
 def test_weakened_ci_blocks_added_continue_on_error() -> None:
     diff = "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n+        continue-on-error: true\n"
     report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
