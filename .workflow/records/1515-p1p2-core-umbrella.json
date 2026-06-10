@@ -1,0 +1,47 @@
+{
+  "branch": "claude/p1p2-core",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/**",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1515,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "P1-P2 and stale-bug fix session: Core (engine/blocks/lineage/storage/versioning) umbrella. [DO NOT MERGE] integration PR collecting per-agent Core fixes.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1515-p1p2-core-umbrella",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "2fa6d4e9-7927-4d3a-b2f1-a2d505fe7a48",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}
