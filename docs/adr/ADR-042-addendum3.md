@@ -69,19 +69,24 @@ frontmatter/drift) are unaffected.
 > the `sentrux_gate` guard moved under `gate_record.guards`; its advisory
 > behavior is now expressed by `gate_record.guards.sentrux_gate.check`. The
 > `governs` block has been repointed accordingly.
+>
+> **Current command surface:** Mentions of `gate_record sentrux` and
+> `SCISTUDIO_GATE_BYPASS_LABELS` below are historical Addendum 3 implementation
+> details. Current gate evidence and advisory Sentrux state are reconciled
+> through `gate_record check` ledger events.
 
 | Decision | Change | Enforcement target | Detailed section |
 |---|---|---|---|
 | D1. Drop sentrux missing-evidence as a hard gate | `validate_gate_record` no longer fails on missing/skipped/unknown sentrux evidence | Local pre-push / pr-ready / ci CLI | Section 3 |
 | D2. Keep sentrux recorded-failure as a hard gate (local only) | `validate_gate_record` still fails when sentrux evidence is explicitly `status="fail"` — the developer ran sentrux, saw a failure, and is pushing anyway | Local pre-push / pr-ready / ci CLI | Section 3 |
 | D3. CI sentrux step becomes advisory annotations | `workflow-gate.yml` calls `verify_free_tier_claims` and converts findings to `::warning::` annotations; does not contribute to the blocking reports list | GitHub Actions workflow-gate CI step | Section 4 |
-| D4. Override mechanism is unchanged | `admin-approved:ai-override` continues to bypass the recorded-fail local block when warranted | Existing ADR-042 override-label workflow | Section 5 |
+| D4. Override mechanism is unchanged | `admin-approved:bypass` continues to bypass the recorded-fail local block when warranted | Existing ADR-042 override-label workflow | Section 5 |
 
 ### 1.1 Problems Addressed
 
 | Problem | Risk | Decision | Detailed section |
 |---|---|---|---|
-| Sentrux binary is not installable in many contributor and AI-agent execution environments. The official distribution is a Rust source tree under the Claude marketplace; no prebuilt binary is shipped for the typical agent host. | Every PR that touches source / workflow / architecture / governance / sentrux rule files fails the local pre-push hook with `gate-record.sentrux.missing` until the author adds an `admin-approved:ai-override` label. The override is a documented escape but it shifts diagnostic work onto every reviewer for every such PR. Working example: PR #1406, which had to ship with the override label purely for tooling reasons. | Drop the missing-evidence requirement entirely. Sentrux evidence is now opt-in. | Section 3 |
+| Sentrux binary is not installable in many contributor and AI-agent execution environments. The official distribution is a Rust source tree under the Claude marketplace; no prebuilt binary is shipped for the typical agent host. | Every PR that touches source / workflow / architecture / governance / sentrux rule files fails the local pre-push hook with `gate-record.sentrux.missing` until the author adds an `admin-approved:bypass` label. The override is a documented escape but it shifts diagnostic work onto every reviewer for every such PR. Working example: PR #1406, which had to ship with the override label purely for tooling reasons. | Drop the missing-evidence requirement entirely. Sentrux evidence is now opt-in. | Section 3 |
 | CI sentrux step blocks merge on findings that are often advisory at merge time (architectural debt is information, not necessarily a release blocker). | Reviewers cannot weigh "this PR regressed structure" against "this is pre-existing debt the team has scoped to fix later" without a hard escape label. | Convert CI sentrux step to surface findings as `::warning::` annotations only; never contribute to the blocking decision. Reviewers read the warnings and decide. | Section 4 |
 | Recorded-failure evidence is a different signal from missing/skipped/unknown evidence. A developer who ran sentrux, observed a real failure, and chose to push anyway is the case the gate was actually designed to catch. | Removing all sentrux enforcement would also remove that targeted signal. | Keep recorded-failure as a local block; let the override label handle justified exceptions. | Section 3 |
 | Other Addendum 1 decisions are independent of sentrux's blocking semantics. | Conflating "sentrux is advisory" with "the rest of Addendum 1 is up for revision" creates uncertainty about gate workflow, architecture frontmatter, and override-label semantics. | Limit the supersession to §D1 (missing-evidence) and §D5 (blocking honesty rule); explicitly call out which decisions are NOT changed. | Section 6 |
@@ -128,7 +133,7 @@ Concretely:
 - Evidence recorded with `status="skipped"` or `status="unknown"`: no finding.
 - Evidence recorded with `status="fail"`: blocking finding.
 
-The override-label workflow (`admin-approved:ai-override` and the
+The override-label workflow (`admin-approved:bypass` and the
 human-authored bypass set established in Addendum 1) continues to skip
 all gate-record validation findings including this one.
 
@@ -156,7 +161,7 @@ block as before.
 
 ## 5. Override Mechanism
 
-The `admin-approved:ai-override` label continues to work as defined in
+The `admin-approved:bypass` label continues to work as defined in
 Addendum 1 §D6. It now applies primarily to the rare case where a
 developer ran sentrux, recorded `status="fail"`, and has a written
 rationale for proceeding (e.g. the failure is pre-existing debt
@@ -177,7 +182,7 @@ decisions as fully in force:
 - §D3 Six-stage gate (Scope+Issue → Plan → Implement → Update Docs →
   Test+Checks → Commit+Submit PR).
 - §D4 QA full audit evidence requirement.
-- §D6 Override-label set (`human-authored`, `admin-approved:ai-override`,
+- §D6 Override-label set (`human-authored`, `admin-approved:bypass`,
   `admin-approved:core-change`, `admin-approved:merge`).
 - §D7 Implementation tests required for implementation-category tasks.
 - §D8 Legacy gate removal (`.workflow/gate.py` deleted, single CI

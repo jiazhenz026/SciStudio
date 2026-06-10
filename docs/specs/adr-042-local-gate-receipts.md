@@ -89,9 +89,16 @@ language_source: en
 > gate-record ledger and has no successor symbol. The `governs` block has been
 > repointed to the surviving symbols.
 
-This spec implements ADR-042 Addendum 5. It defines a local preflight system
-that produces candidate-specific receipt JSON and stdout/stderr transcripts for
-AI-authored work before push or PR creation.
+This spec records the ADR-042 Addendum 5 receipt design. Current repository
+workflow no longer exposes a separate `gate_receipt` command: ADR-042 Addendum
+6 folded receipt behavior into the committed gate ledger through
+`gate_record check` and `gate_record finalize`. Treat the command names and
+receipt entities below as historical Addendum 5 design context unless a later
+Addendum 6 note explicitly maps them to a surviving symbol.
+
+The original spec implemented ADR-042 Addendum 5. It defined a local preflight
+system that produced candidate-specific receipt JSON and stdout/stderr
+transcripts for AI-authored work before push or PR creation.
 
 The spec also narrows override-label semantics and adds write-time worktree
 guards. The goal is to move predictable failures from GitHub CI to local hard

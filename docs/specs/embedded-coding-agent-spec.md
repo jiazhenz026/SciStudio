@@ -288,7 +288,7 @@ All errors are HTTP-mapped at the API boundary (`api/routes/ai.py`):
 An audit agent **must** verify, in order:
 
 1. The PR's diff is confined to the files listed in the ticket's `Owned files`.
-2. mypy and ruff are clean (`mypy src/scistudio/ --ignore-missing-imports` and `ruff check . && ruff format --check .`).
+2. The gate-selected local checks pass (`python -m scistudio.qa.governance.gate_record check --mode local`).
 3. Unit tests for the ticket exist and pass.
 4. Coverage for the new code is ≥ 85%.
 5. The acceptance criteria in the ticket are each individually satisfied.

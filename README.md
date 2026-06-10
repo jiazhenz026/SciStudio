@@ -332,18 +332,16 @@ This scaffolds a complete package with entry-points, example blocks, tests using
 ### Backend
 
 ```bash
-# Install with dev dependencies
-pip install -e ".[dev]"
+# Install dev dependencies in an isolated environment.
+# AI-authored repository work must use the gate workflow in AGENTS.md instead
+# of installing editable packages into a shared environment.
+python -m pip install ".[dev]"
 
-# Run tests
-pytest
+# Run the repository-owned local gate.
+PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --mode local
 
-# Lint and format
-ruff check .
-ruff format --check .
-
-# Type check
-mypy src/scistudio/ --ignore-missing-imports
+# During development, targeted tests are still useful before the full gate.
+PYTHONPATH=src pytest <targeted-tests-or-test-directory>
 ```
 
 ### Frontend

@@ -691,18 +691,16 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
 
 - **Compatibility aliases.** Older subcommand names remain only as aliases that
   delegate to the new ledger implementation and own no validation decision:
-  `start` → `init`; `docs` → `amend` (docs become `--docs-updated` /
-  `--docs-na`); `pre-commit` → `check --mode pre-commit`; `commit-msg <file>` →
-  `check --mode commit-msg`; `pre-push` → `check --mode pre-push`; `pr-ready` →
-  `check --mode pre-pr`; `ci` → `check --mode ci`; the old `sentrux`
-  evidence-recording subcommand is handled internally by `check` as a guard
-  event.
+  `start` -> `init`; `pre-commit` -> `check --mode pre-commit`;
+  `commit-msg <file>` -> `check --mode commit-msg`; `pre-push` ->
+  `check --mode pre-push`; `pr-ready` -> `check --mode pre-pr`; `ci` ->
+  `check --mode ci`. Record docs with `amend --docs-updated` / `--docs-na`;
+  Sentrux applicability is handled by `check` as a guard event.
 
 - **Admin / bypass labels.** The valid labels are `admin-approved:bypass`
   (one-off AI gate workflow bypass), `admin-approved:core-change` (protected
   core path authorization only), `admin-approved:merge` (AI merge automation),
-  and the PR-level `human-authored` (human AI-harness bypass). The older
-  `admin-approved:ai-override` is migrated to `admin-approved:bypass`. Locally
+  and the PR-level `human-authored` (human AI-harness bypass). Locally
   recorded requested labels are intent only; CI verifies the observed PR label
   and the actor's administrator/maintainer permission. None of these bypass
   branch protection, normal repository CI, or owner review.

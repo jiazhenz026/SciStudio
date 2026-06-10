@@ -107,10 +107,12 @@ Use these rules with:
 - `docs/ai-developer/specific_rules/agent-dispatch.md` when dispatched by a
   manager
 
-ADR-042 Addendum 5 receipt is the canonical home for test-runner stdout and
-stderr; wrap pytest or other test commands with
-`python -m scistudio.qa.governance.gate_receipt exec --name <name> -- <cmd>`
-so transcripts feed receipt validation. The
+ADR-042 Addendum 6 folds receipt behavior into the gate ledger. Record test
+obligations and outcomes with `gate_record amend --test-path ... --check ...`,
+then run `gate_record check` in the required mode so the ledger reconciles the
+observed diff and required checks. Raw stdout/stderr transcripts may be kept
+under ignored `.workflow/local/**` paths when a long test run needs local
+evidence, but there is no separate `gate_receipt` command. The
 `scripts/scistudio_pr_create.py` wrapper is the required final-PR entry point
 for any test-engineering PR (see
 `docs/ai-developer/specific_rules/gated-workflow.md` §3.7).

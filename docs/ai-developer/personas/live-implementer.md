@@ -253,10 +253,11 @@ python -m scistudio.qa.governance.gate_record finalize \
   --pr-body-file .workflow/local/pr-body.md
 ```
 
-The old `gate_record start` command is a compatibility alias for `init`. The
-old `gate_record docs`, `gate_record sentrux`, and
-`gate_record check` (passive evidence recording) are compatibility aliases
-that delegate to the new commands. Use the new command names in new sessions.
+The old `gate_record start` command is a compatibility alias for `init`.
+Mode-specific aliases such as `pre-commit`, `pre-push`, `pr-ready`, `ci`, and
+`commit-msg` delegate to `gate_record check --mode ...`. Use `init`, `amend`,
+`check`, and `finalize` in new sessions; record expected checks with
+`amend --check`, not the removed passive `check --name ...` form.
 
 The gate record is the single source of truth. The local receipt subsystem
 (`gate_receipt`) is folded into ledger `check_events` and `reconcile_events`

@@ -140,24 +140,23 @@ language_source: en
 
 - MAY pass the authorized bypass label to local gate hook commands.
   Valid broad bypass labels (per ADR-042 Addendum 6): `human-authored` and
-  `admin-approved:bypass`. The old `admin-approved:ai-override` label is
-  migrated to `admin-approved:bypass`. `admin-approved:core-change` is narrow
-  and must not bypass scope, docs, issue, or required-check validation.
+  `admin-approved:bypass`. `admin-approved:core-change` is narrow and must not
+  bypass scope, docs, issue, or required-check validation.
 
 - MUST record the bypass label, reason, and owner authorization in the
   checklist when any bypass label is used.
 
 Per ADR-042 Addendum 6, `gate_record check` is the single local CI-equivalent
-preflight command. The old `pre-commit`, `commit-msg`, and `pre-push`
-subcommands are now `--mode` flags on `gate_record check`:
+preflight command. Mode-specific aliases still exist, but new instructions
+should spell the mode explicitly with `gate_record check --mode ...`:
 
 ```bash
-# Pre-commit mode (staged diff only):
-python -m scistudio.qa.governance.gate_record check --mode pre-commit --staged
+# Pre-commit mode:
+python -m scistudio.qa.governance.gate_record check --mode pre-commit
 
 # With bypass label:
-python -m scistudio.qa.governance.gate_record check --mode pre-commit --staged \
-  --admin-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
+python -m scistudio.qa.governance.gate_record check --mode pre-commit \
+  --admin-label admin-approved:bypass
 
 # Commit-msg mode:
 python -m scistudio.qa.governance.gate_record check --mode commit-msg <commit-msg-file>
@@ -166,15 +165,15 @@ python -m scistudio.qa.governance.gate_record check --mode commit-msg <commit-ms
 python -m scistudio.qa.governance.gate_record check --mode pre-push \
   --base origin/main --head HEAD
 
-# Pre-PR mode (replaces gate_receipt validate):
+# Pre-PR mode:
 python -m scistudio.qa.governance.gate_record check --mode pre-pr \
   --base origin/main --head HEAD \
   --pr-body-file .workflow/local/pr-body.md
 ```
 
 After integration, the manager must run a pre-PR check for the exact candidate.
-The old `gate_receipt validate` step is replaced by `check --mode pre-pr` or
-pre-PR `finalize`:
+Use `check --mode pre-pr` or pre-PR `finalize`; there is no separate receipt
+validation command:
 
 ```bash
 python -m scistudio.qa.governance.gate_record finalize \

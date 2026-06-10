@@ -101,8 +101,6 @@ language_source: en
 ## 4. Authorization Labels
 
 - `admin-approved:bypass` authorizes a one-off AI gate workflow bypass.
-  (Migrated from `admin-approved:ai-override` per ADR-042 Addendum 6 §3
-  implementation inventory. Compatibility aliases may exist during migration.)
 
 - `admin-approved:core-change` authorizes protected core path changes only.
   It does not bypass scope, issue linkage, docs landing, ledger check evidence,
