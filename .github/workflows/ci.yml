@@ -205,22 +205,22 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      - name: Check frontend/dist not stale relative to src
-        # #406: Ensure the committed frontend/dist/ reflects the current
-        # frontend/src/.  If any source file is newer than dist/index.html
-        # the build was not committed and developers must run
-        # 'cd frontend && npm run build' and commit the result.
-        # This step runs AFTER the build step so dist/index.html always
-        # exists in CI, and the mtime comparison is meaningful.
+      - name: Verify frontend build is reproducible (no dirty git tree from rebuild)
+        # #1550: The previous mtime-comparison step was vacuous — it compared
+        # src mtimes against dist/index.html that was just rebuilt in the same
+        # job, so it could never fail. dist/ is gitignored (not committed), so
+        # the "committed dist" premise of issue #406 is obsolete.
+        # Replacement: rebuild the frontend, then assert that the committed
+        # source tree is clean (no new unstaged changes introduced by the
+        # build). This catches generated source files or config drift that
+        # would be silently missed by the mtime comparison.
         run: |
-          STALE=$(find frontend/src -newer frontend/dist/index.html 2>/dev/null | head -1)
-          if [ -n "$STALE" ]; then
-            echo "ERROR: frontend/dist is stale. At least one source file is newer than dist/index.html:"
-            echo "  $STALE"
-            echo "Run 'cd frontend && npm run build' and commit the result."
+          git diff --exit-code -- frontend/src frontend/package.json frontend/tsconfig.json || {
+            echo "ERROR: frontend build introduced changes to tracked source files."
+            echo "Commit the generated changes or fix the build configuration."
             exit 1
-          fi
-          echo "frontend/dist is up to date."
+          }
+          echo "frontend build did not modify tracked source files."
 
   wheel-release-smoke:
     name: Wheel Release Smoke
