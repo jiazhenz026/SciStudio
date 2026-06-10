@@ -59,7 +59,6 @@ from scistudio.core.types.dataframe import DataFrame  # noqa: E402
 from scistudio.core.types.series import Series  # noqa: E402
 from scistudio.core.types.text import Text  # noqa: E402
 
-
 # --- Synthetic subtypes to exercise multi-level subtype walking ----------
 # The core registry only ships base classes (ADR-027 D2 moved domain
 # subtypes to plugins). We add deterministic subtypes here so the oracle
