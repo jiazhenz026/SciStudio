@@ -1,3 +1,14 @@
+"""Structural wiring tests for ADR-042 Addendum 6 hooks / CI / wrapper (spec §6).
+
+Every enforcement surface collapses to one evaluator call: hooks, pre-commit,
+and CI invoke ``gate_record check --mode <m>`` and forward the exit code. No hook
+keeps a bypass vocabulary, a protected-path list, an issue-closing regex, or a
+receipt-validate step. These tests assert the wiring shape (not behaviour, which
+lives in the evaluator/guard tests): the new command names are used, the legacy
+entry points are gone, the migrated label vocabulary is in place, the minimal
+worktree-guard surface is wired, and ``.audit/`` is gitignored.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,49 +22,78 @@ def _text(path: str) -> str:
     return (REPO_ROOT / path).read_text(encoding="utf-8")
 
 
-def test_hook_wrappers_use_gate_record_cli_and_not_legacy_gate() -> None:
-    paths = [
-        "scripts/hooks/check-gate-before-push.sh",
-        "scripts/hooks/check-gate-before-pr.sh",
-        ".workflow/hooks/pre-commit",
-        ".pre-commit-config.yaml",
-        ".github/workflows/workflow-gate.yml",
-    ]
-
-    for path in paths:
-        text = _text(path)
-        assert "scistudio.qa.governance.gate_record" in text
-        assert ".workflow/gate.py" not in text
-        assert ".workflow/active" not in text
+# ---------------------------------------------------------------------------
+# Single evaluator entry point + new command/mode names.
+# ---------------------------------------------------------------------------
 
 
-def test_pre_commit_config_exposes_gate_record_hooks() -> None:
+def test_push_hook_calls_evaluator_pre_push_mode() -> None:
+    hook = _text("scripts/hooks/check-gate-before-push.sh")
+    assert "scistudio.qa.governance.gate_record check" in hook
+    assert "--mode pre-push" in hook
+    # No legacy bypass vocabulary / receipt step / protected-path list inline.
+    assert "admin-approved:ai-override" not in hook
+    assert "SCISTUDIO_GATE_BYPASS_LABELS" not in hook
+    assert "gate_receipt" not in hook
+    assert "validate" not in hook.lower().replace("validate the adr-042", "")
+
+
+def test_pr_hook_calls_evaluator_pre_pr_mode_with_body_file() -> None:
+    hook = _text("scripts/hooks/check-gate-before-pr.sh")
+    assert "scistudio.qa.governance.gate_record check" in hook
+    assert "--mode pre-pr" in hook
+    assert "--pr-body-file" in hook
+    # The evaluator's pre-pr mode owns closing-keyword / label / bypass logic.
+    assert "admin-approved:ai-override" not in hook
+    assert "gate_receipt" not in hook
+
+
+def test_pre_commit_config_exposes_thin_evaluator_hooks() -> None:
     config = yaml.safe_load(_text(".pre-commit-config.yaml"))
     local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
     hooks = {hook["id"]: hook for hook in local_repo["hooks"]}
 
     assert hooks["scistudio-gate-record-pre-commit"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record pre-commit --staged"
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit"
     )
     assert hooks["scistudio-gate-record-commit-msg"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg"
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode commit-msg"
     )
     assert hooks["scistudio-gate-record-commit-msg"]["stages"] == ["commit-msg"]
 
 
-def test_pre_commit_config_uses_src_layout_launcher_for_local_python_hooks() -> None:
+def test_pre_commit_local_hooks_use_src_layout_launcher() -> None:
     config = yaml.safe_load(_text(".pre-commit-config.yaml"))
     local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
-
     for hook in local_repo["hooks"]:
         assert hook["entry"].startswith("python scripts/hooks/run_python_module.py ")
 
 
-def test_git_pre_commit_wrapper_uses_src_layout_launcher() -> None:
+def test_git_pre_commit_wrapper_routes_through_gate_record() -> None:
     hook = _text(".workflow/hooks/pre-commit")
-
     assert 'scripts" / "hooks" / "run_python_module.py' in hook
     assert "scistudio.qa.governance.gate_record" in hook
+
+
+def test_workflow_gate_ci_is_single_evaluator_ci_invocation() -> None:
+    workflow = _text(".github/workflows/workflow-gate.yml")
+    assert "scistudio.qa.governance.gate_record check" in workflow
+    assert "--mode ci" in workflow
+    assert "--pr-body-file" in workflow
+    # The two legacy steps collapse into one evaluator call; no per-guard
+    # orchestration code runs inline in the workflow YAML.
+    assert "human_bypass_guard.check" not in workflow
+    assert "core_change_guard.check" not in workflow
+    assert "pr_merge_guard.check" not in workflow
+    assert "mod_guard.PROTECTED_PATTERNS" not in workflow
+    # The migrated label vocabulary (§4.2): the active label is admin-approved:bypass.
+    # (The YAML may mention the old ai-override name only in a migration comment.)
+    assert "admin-approved:bypass" in workflow
+
+
+# ---------------------------------------------------------------------------
+# Legacy entry points and state are gone.
+# ---------------------------------------------------------------------------
 
 
 def test_legacy_gate_py_removed() -> None:
@@ -64,48 +104,40 @@ def test_legacy_active_workflow_state_removed() -> None:
     assert not (REPO_ROOT / ".workflow" / "active").exists()
 
 
-def test_pre_commit_does_not_branch_match_hotfix() -> None:
-    assert "hotfix/" not in _text(".workflow/hooks/pre-commit")
-    assert "hotfix/" not in _text(".pre-commit-config.yaml")
-    assert "feat|fix|refactor|hotfix" not in _text("scripts/hooks/check-gate-before-push.sh")
-    assert "feat|fix|refactor|hotfix|track" not in _text("scripts/hooks/check-gate-before-pr.sh")
+def test_legacy_gate_receipt_module_removed() -> None:
+    # Receipt behaviour folds into ledger check/reconcile events (ADR §3 step 8).
+    assert not (REPO_ROOT / "src" / "scistudio" / "qa" / "governance" / "gate_receipt.py").exists()
+    assert not (REPO_ROOT / "src" / "scistudio" / "qa" / "governance" / "workflow_gate.py").exists()
 
 
-def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
-    push_hook = _text("scripts/hooks/check-gate-before-push.sh")
-    pr_hook = _text("scripts/hooks/check-gate-before-pr.sh")
-
-    for hook in (push_hook, pr_hook):
-        assert "human-authored" in hook
-        assert "admin-approved:ai-override" in hook
-        assert "admin-approved:core-change" in hook
-        assert "admin-approved:merge" in hook
-        assert "SCISTUDIO_GATE_BYPASS_LABELS" in hook
-        assert "ADR-042 local gate bypassed by broad override label" in hook
-
-    assert "--label" in pr_hook
-    assert 'gh", "pr", "view"' in push_hook
+def test_no_hook_references_legacy_gate_py_or_active_state() -> None:
+    for path in (
+        "scripts/hooks/check-gate-before-push.sh",
+        "scripts/hooks/check-gate-before-pr.sh",
+        ".workflow/hooks/pre-commit",
+        ".pre-commit-config.yaml",
+        ".github/workflows/workflow-gate.yml",
+    ):
+        text = _text(path)
+        assert ".workflow/gate.py" not in text
+        assert ".workflow/active" not in text
 
 
-def test_pr_hook_validates_receipt_against_real_pr_body() -> None:
-    pr_hook = _text("scripts/hooks/check-gate-before-pr.sh")
-
-    assert 'token in {"--body", "-b"}' in pr_hook
-    assert 'token == "--body-file"' in pr_hook
-    assert '--pr-body "$PR_BODY"' in pr_hook
-    assert '--pr-body "$CMD"' not in pr_hook
-    assert "printf '%s' \"$PR_BODY\"" in pr_hook
+# ---------------------------------------------------------------------------
+# Minimal worktree write guard surface + repository hygiene.
+# ---------------------------------------------------------------------------
 
 
-def test_workflow_orchestrates_adr042_governance_guards() -> None:
-    workflow = _text(".github/workflows/workflow-gate.yml")
+def test_worktree_write_guard_uses_migrated_bypass_label() -> None:
+    from scistudio.qa.governance import worktree_write_guard
 
-    assert "human_bypass_guard.check" in workflow
-    assert "core_change_guard.check" in workflow
-    assert "pr_merge_guard.check" in workflow
-    assert "collaborators/{actor}/permission" in workflow
-    assert "human-authored PR skips ADR-042 workflow-gate enforcement" in workflow
-    assert "protected_globs=mod_guard.PROTECTED_PATTERNS" in workflow
-    assert "allow_governance_change=not mod_approval_report.blocks_merge" in workflow
-    assert "allow_governance_change=not core_report.blocks_merge" not in workflow
-    assert "pulls/{pr_number}/reviews" in workflow
+    # §6.1: BROAD_OVERRIDE_LABELS migrated to admin-approved:bypass.
+    assert "admin-approved:bypass" in worktree_write_guard.BROAD_OVERRIDE_LABELS
+    assert "admin-approved:ai-override" not in worktree_write_guard.BROAD_OVERRIDE_LABELS
+
+
+def test_audit_scratch_dir_is_gitignored() -> None:
+    gitignore = _text(".gitignore")
+    assert ".audit/" in gitignore
+    # Raw transcripts live under .workflow/local/ and are never committed (§8).
+    assert ".workflow/local/" in gitignore

@@ -1,278 +1,229 @@
+"""CI-mode reconciliation tests for ADR-042 Addendum 6 (spec §3.4 / §10.4).
+
+Rewritten from the legacy ``validate_gate_record`` / ``check_pr`` assertions to
+ledger-reconcile assertions against the single shared evaluator in ``--mode ci``.
+Covers: issue closure from the PR body, scope reconciliation against the observed
+diff, test-evidence obligation, sentrux advisory (opt-in) semantics, guard
+aggregation, and ``test_engineer_scope_guard`` invocation — all through one
+``reconcile()`` call with ``run_checks=False`` (check execution is exercised in
+the CLI smoke / evaluator tests; here we assert reconciliation logic).
+"""
+
 from __future__ import annotations
 
-import sys
-import types
+import subprocess
+from pathlib import Path
 
-import scistudio.qa.governance.gate_record.validation as gate_record_validation
-from scistudio.qa.governance.gate_record import CANONICAL_STAGE_ORDER, check_pr, validate_gate_record
-from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
+import pytest
+
+from scistudio.qa.governance.gate_record import evaluator
+from scistudio.qa.governance.gate_record.ledger import (
+    DeclaredScope,
+    DocsEvent,
+    GateLedger,
+    IssueRef,
+    TestEvent,
+)
 
 
-def _record(**overrides: object) -> dict[str, object]:
-    record: dict[str, object] = {
-        "schema_version": "1",
-        "task_id": "1267-gate-record-core",
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
+
+
+@pytest.fixture
+def git_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "test")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-q", "-m", "base")
+    return repo
+
+
+def _commit(repo: Path, rel: str, content: str = "x\n") -> None:
+    path = repo / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    _git(repo, "add", rel)
+    _git(repo, "commit", "-q", "-m", f"add {rel}")
+
+
+def _ledger(**overrides: object) -> GateLedger:
+    base: dict[str, object] = {
+        "record_id": "1267-core",
+        "runtime": "claude-code",
         "task_kind": "feature",
         "persona": "implementer",
-        "branch": "feat/issue-1267/gate-record-core",
-        "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
-        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
-        "scope": {
-            "include": [
-                "src/scistudio/qa/governance/gate_record.py",
-                "src/scistudio/qa/governance/__init__.py",
-                ".workflow/**",
-                "tests/qa/test_gate_record*.py",
-            ],
-            "exclude": ["docs/adr/ADR-042.md"],
-        },
-        "governance_touch": True,
-        "stages": [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER],
-        "planned_files": ["src/scistudio/qa/governance/gate_record.py"],
-        "changed_test_paths": ["tests/qa/test_gate_record_ci.py"],
-        "sentrux": {
-            "mode": "free-tier",
-            "command_or_tool": "sentrux check .",
-            "status": "pass",
-            "rules_checked": 3,
-            "total_rules_defined": 15,
-            "pro_required": False,
-        },
-        "full_audit": {
-            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
-            "status": "pass",
-            "exit_code": 0,
-            "output_path": "docs/audit/full-audit-latest.json",
-            "blocks_merge": False,
-        },
+        "branch": "feat/issue-1267",
+        "owner_directive": "Implement gate-record core.",
+        "issues": [IssueRef(number=1267, url="https://github.com/o/r/issues/1267")],
     }
-    record.update(overrides)
-    return record
+    base.update(overrides)
+    return GateLedger.model_validate(base)
 
 
-def _changed_files(*extra: str) -> list[str]:
-    return [
-        "src/scistudio/qa/governance/gate_record.py",
-        "tests/qa/test_gate_record_ci.py",
-        ".workflow/gate-record.schema.json",
-        *extra,
-    ]
+def _reconcile(ledger: GateLedger, repo: Path, *, pr_body: str | None = None, mode: str = "ci"):
+    return evaluator.reconcile(
+        ledger=ledger,
+        repo_root=repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode=mode,  # type: ignore[arg-type]
+        pr_body=pr_body,
+        run_checks=False,
+    )
 
 
-def test_pr_body_must_close_every_gate_issue() -> None:
-    report = check_pr(_record(), changed_files=_changed_files(), pr_body="Refs #1267")
-
-    assert report.blocks_merge
-    assert {finding.rule_id for finding in report.findings} == {"gate-record.issue.not-closed"}
-
-    closed = check_pr(_record(), changed_files=_changed_files(), pr_body="Closes #1267")
-    assert not closed.blocks_merge
+# ---------------------------------------------------------------------------
+# Issue closure from the PR body (issue_link guard, ci mode).
+# ---------------------------------------------------------------------------
 
 
-def test_pr_readiness_requires_all_gate_stages_done() -> None:
-    stages = [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER]
-    stages[-1]["status"] = "pending"
+def test_ci_pr_body_must_close_every_gate_issue(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    refs = _reconcile(ledger, git_repo, pr_body="Refs #1267")
+    assert "guard.issue_link" in refs.unsatisfied
+    assert any(f.rule_id == "issue_link.missing-closing-keyword" for f in refs.report.findings)
 
-    report = check_pr(_record(stages=stages), changed_files=_changed_files(), pr_body="Closes #1267")
+    ledger_ok = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**", "tests/**"]))
+    ledger_ok.docs_events.append(
+        DocsEvent.model_validate({"kind": "na", "class": "implementation", "rationale": "internal"})
+    )
+    ledger_ok.test_events.append(TestEvent(kind="path", path="src/scistudio/x.py"))
+    closes = _reconcile(ledger_ok, git_repo, pr_body="Closes #1267")
+    assert "guard.issue_link" not in closes.unsatisfied
 
-    assert report.blocks_merge
-    assert "gate-record.stage.not-done" in {finding.rule_id for finding in report.findings}
 
-
-def test_multiple_issues_must_all_close() -> None:
-    record = _record(
+def test_ci_multiple_issues_must_all_close(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
         issues=[
-            {"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"},
-            {"number": 1266, "url": "https://github.com/zjzcpj/SciStudio/issues/1266"},
-        ]
-    )
-
-    report = check_pr(record, changed_files=_changed_files(), pr_body="Closes #1267")
-
-    assert report.blocks_merge
-    assert [finding.message for finding in report.findings] == [
-        "PR body must close issue #1266 with Closes, Fixes, or Resolves"
-    ]
-
-
-def test_scope_validation_rejects_files_outside_include_and_inside_exclude() -> None:
-    report = validate_gate_record(
-        _record(),
-        changed_files=_changed_files("docs/adr/ADR-042.md", "src/scistudio/core/secret.py"),
-    )
-
-    rule_ids = {finding.rule_id for finding in report.findings}
-    assert "gate-record.scope.inside-exclude" in rule_ids
-    assert "gate-record.scope.outside-include" in rule_ids
-
-
-def test_scope_amendment_can_expand_allowed_files() -> None:
-    record = _record(amendments=[{"reason": "fixture expansion", "include": ["src/scistudio/core/allowed.py"]}])
-
-    report = validate_gate_record(record, changed_files=_changed_files("src/scistudio/core/allowed.py"))
-
-    assert not report.blocks_merge
-
-
-def test_implementation_change_requires_changed_test_file() -> None:
-    record = _record(changed_test_paths=[])
-
-    report = validate_gate_record(record, changed_files=["src/scistudio/qa/governance/gate_record.py"])
-
-    assert report.blocks_merge
-    assert {finding.rule_id for finding in report.findings} == {"gate-record.tests.changed-test-required"}
-
-
-def test_changed_test_paths_must_be_in_pr_diff() -> None:
-    report = validate_gate_record(_record(), changed_files=["src/scistudio/qa/governance/gate_record.py"])
-
-    assert report.blocks_merge
-    assert {finding.rule_id for finding in report.findings} == {"gate-record.tests.changed-test-not-in-diff"}
-
-
-def test_docs_task_without_implementation_files_does_not_require_tests() -> None:
-    record = _record(
-        task_kind="docs",
-        changed_test_paths=[],
-        scope={"include": ["docs/**"], "exclude": ["docs/adr/ADR-042.md"]},
-        sentrux=None,
-    )
-
-    report = validate_gate_record(record, changed_files=["docs/contributing/workflows/human-bypass.md"])
-
-    assert not report.blocks_merge
-
-
-def test_sentrux_missing_evidence_is_allowed_for_applicable_changes() -> None:
-    # ADR-042 Addendum 3: sentrux is opt-in. Missing evidence no longer
-    # blocks the gate, even when applicable changes are present.
-    record = _record(sentrux=None)
-
-    report = validate_gate_record(record, changed_files=_changed_files())
-
-    assert not report.blocks_merge
-    assert "gate-record.sentrux.missing" not in {finding.rule_id for finding in report.findings}
-
-
-def test_sentrux_skipped_evidence_is_allowed_for_applicable_changes() -> None:
-    # ADR-042 Addendum 3: recorded ``status="skipped"`` (sentrux ran but
-    # had nothing to report, or was deliberately not run) is treated the
-    # same as missing evidence — no block.
-    record = _record(
-        sentrux={
-            "name": "sentrux.free_tier",
-            "command_or_tool": "sentrux check .",
-            "mode": "free-tier",
-            "status": "skipped",
-        }
-    )
-
-    report = validate_gate_record(record, changed_files=_changed_files())
-
-    sentrux_findings = {f.rule_id for f in report.findings if f.rule_id.startswith("gate-record.sentrux.")}
-    assert sentrux_findings == set()
-
-
-def test_sentrux_recorded_failure_still_blocks_locally() -> None:
-    # ADR-042 Addendum 3: the one remaining sentrux gate. The developer
-    # ran sentrux, observed a real failure, and is pushing anyway. The
-    # gate exists to catch exactly this case. Override via
-    # ``admin-approved:ai-override`` if justified.
-    record = _record(
-        sentrux={
-            "name": "sentrux.free_tier",
-            "command_or_tool": "sentrux check .",
-            "mode": "free-tier",
-            "status": "fail",
-        }
-    )
-
-    report = validate_gate_record(record, changed_files=_changed_files())
-
-    assert report.blocks_merge
-    assert "gate-record.sentrux.not-passing" in {f.rule_id for f in report.findings}
-
-
-def test_override_label_vocabulary_is_exact() -> None:
-    valid = check_pr(
-        _record(),
-        changed_files=_changed_files(),
-        pr_body="Fixes #1267",
-        pr_labels=["human-authored", "admin-approved:core-change"],
-    )
-    assert not valid.blocks_merge
-
-    invalid = check_pr(
-        _record(),
-        changed_files=_changed_files(),
-        pr_body="Fixes #1267",
-        pr_labels=["admin-approved:corechange"],
-    )
-    assert invalid.blocks_merge
-    assert "gate-record.override-label.invalid" in {finding.rule_id for finding in invalid.findings}
-
-
-def test_guard_reports_are_hard_fail_inputs() -> None:
-    guard_report = AuditReport(
-        tool="docs_landing",
-        status=AuditStatus.FAIL,
-        source_sha="fixture",
-        findings=[
-            Finding(
-                rule_id="docs-landing.missing",
-                severity=Severity.ERROR,
-                file="docs/specs/example.md",
-                message="missing docs landing",
-            )
+            IssueRef(number=1267, url="https://github.com/o/r/issues/1267"),
+            IssueRef(number=1266, url="https://github.com/o/r/issues/1266"),
         ],
     )
-
-    report = validate_gate_record(_record(), changed_files=_changed_files(), guard_reports=[guard_report])
-
-    assert report.blocks_merge
-    assert "gate-record.guard.failed" in {finding.rule_id for finding in report.findings}
-
-
-def test_test_engineer_record_requires_scope_guard_module(monkeypatch) -> None:
-    def missing_import(name: str):
-        raise ModuleNotFoundError(name=name)
-
-    monkeypatch.setattr(gate_record_validation, "import_module", missing_import)
-    record = _record(
-        persona="test_engineer",
-        scope={"include": ["tests/**"], "exclude": []},
-        changed_test_paths=["tests/qa/test_gate_record_ci.py"],
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    # 1266 is not closed -> issue_link blocks.
+    assert any(
+        f.rule_id == "issue_link.missing-closing-keyword" and f.evidence.get("issue_number") == 1266
+        for f in result.report.findings
     )
 
-    report = validate_gate_record(record, changed_files=["tests/qa/test_gate_record_ci.py"])
 
-    assert report.blocks_merge
-    assert "gate-record.test-engineer-scope-guard.unavailable" in {finding.rule_id for finding in report.findings}
+# ---------------------------------------------------------------------------
+# Scope reconciliation against the observed diff.
+# ---------------------------------------------------------------------------
 
 
-def test_test_engineer_scope_guard_is_invoked(monkeypatch) -> None:
-    calls: dict[str, object] = {}
-    module = types.ModuleType("scistudio.qa.governance.test_engineer_scope_guard")
+def test_ci_scope_rejects_out_of_scope_and_excluded_files(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/core/secret.py")
+    ledger = _ledger(
+        declared_scope=DeclaredScope(include=["src/scistudio/api/**"], exclude=["src/scistudio/core/**"]),
+    )
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert any(f.rule_id == "scope.out-of-scope" for f in result.report.findings)
 
-    def check(*, record, changed_files):
-        calls["persona"] = record.persona
-        calls["changed_files"] = list(changed_files)
-        return AuditReport(
-            tool="test_engineer_scope_guard",
-            status=AuditStatus.PASS,
-            source_sha="fixture",
-            findings=[],
+
+def test_ci_scope_expansion_via_directive_allows_file(git_repo: Path) -> None:
+    from scistudio.qa.governance.gate_record.ledger import ScopeEvent
+
+    _commit(git_repo, "src/scistudio/core/allowed.py")
+    ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/api/**"]))
+    # An owner-directed scope expansion (recorded as an append-only scope event).
+    ledger.scope_events.append(ScopeEvent(action="add-include", pattern="src/scistudio/core/**", reason="owner"))
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert not any(f.rule_id == "scope.out-of-scope" for f in result.report.findings)
+
+
+# ---------------------------------------------------------------------------
+# Test-evidence obligation.
+# ---------------------------------------------------------------------------
+
+
+def test_ci_implementation_change_requires_changed_test(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/qa/governance/x.py")
+    ledger = _ledger(
+        task_kind="bugfix",
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+    )
+    ledger.docs_events.append(
+        DocsEvent.model_validate({"kind": "na", "class": "implementation", "rationale": "internal"})
+    )
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert "tests.changed_test_required" in result.unsatisfied
+
+
+def test_ci_docs_task_without_implementation_does_not_require_tests(git_repo: Path) -> None:
+    _commit(git_repo, "docs/contributing/guide.md")
+    ledger = _ledger(
+        task_kind="docs",
+        persona="adr_author",
+        declared_scope=DeclaredScope(include=["docs/**"]),
+    )
+    ledger.docs_events.append(DocsEvent(kind="path", path="docs/contributing/guide.md"))
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert "tests.changed_test_required" not in result.unsatisfied
+
+
+# ---------------------------------------------------------------------------
+# Sentrux advisory (opt-in) + recorded-failure block.
+# ---------------------------------------------------------------------------
+
+
+def test_ci_sentrux_missing_evidence_is_advisory_not_block(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    # Missing sentrux evidence is advisory (INFO), never a hard block.
+    assert "guard.sentrux_gate" not in result.unsatisfied
+
+
+def test_ci_recorded_sentrux_failure_blocks(git_repo: Path) -> None:
+    from scistudio.qa.governance.gate_record.ledger import CheckEvent
+
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    ledger.check_events.append(
+        CheckEvent(
+            name="sentrux",
+            command="sentrux check",
+            covered_surface="sentrux",
+            status="pass",
+            exit_code=0,
+            summary='{"mode": "free-tier", "status": "fail", "rules_checked": 5}',
         )
-
-    module.check = check
-    monkeypatch.setitem(sys.modules, "scistudio.qa.governance.test_engineer_scope_guard", module)
-    record = _record(
-        persona="test_engineer",
-        scope={"include": ["tests/**"], "exclude": []},
-        changed_test_paths=["tests/qa/test_gate_record_ci.py"],
     )
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert "guard.sentrux_gate" in result.unsatisfied
+    assert any(f.rule_id == "sentrux.free_tier.not-passing" for f in result.report.findings)
 
-    report = validate_gate_record(record, changed_files=["tests/qa/test_gate_record_ci.py"])
 
-    assert not report.blocks_merge
-    assert calls == {"persona": "test_engineer", "changed_files": ["tests/qa/test_gate_record_ci.py"]}
+# ---------------------------------------------------------------------------
+# Guard aggregation + test_engineer_scope_guard invocation.
+# ---------------------------------------------------------------------------
+
+
+def test_ci_aggregates_all_guards_each_once(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    guard_names = [e.guard for e in result.guard_events]
+    assert sorted(guard_names) == sorted(evaluator.GUARD_REGISTRY.keys())
+    assert len(guard_names) == len(set(guard_names))
+
+
+def test_ci_test_engineer_scope_guard_blocks_production_change(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/core/x.py")
+    ledger = _ledger(
+        task_kind="bugfix",
+        persona="test_engineer",
+        declared_scope=DeclaredScope(include=["src/scistudio/**"]),
+    )
+    result = _reconcile(ledger, git_repo, pr_body="Closes #1267")
+    assert "guard.test_engineer_scope_guard" in result.unsatisfied
+    assert any(f.rule_id == "test_engineer_scope_guard.blocked-path" for f in result.report.findings)

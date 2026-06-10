@@ -1,4 +1,13 @@
-"""ADR-042 governance guard tools."""
+"""ADR-042 Addendum 6 governance runtime.
+
+Single append-only gate ledger plus one shared evaluator. The historical
+top-level guard modules and the flat ``GateRecord`` schema are gone
+(delete-and-replace, ADR-042 Addendum 6 §3); guards are now evaluator-owned
+calculators under ``gate_record.guards`` and the ledger lives in
+``gate_record.ledger``.
+
+The public surface delegates to the ``gate_record`` package.
+"""
 
 from __future__ import annotations
 
@@ -6,32 +15,17 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from scistudio.qa.governance.gate_record import (
-        CheckEvidence,
-        FullAuditEvidence,
-        GateRecord,
-        GateStage,
-        SentruxEvidence,
+        GateLedger,
+        GuardInputs,
+        ReconcileResult,
     )
 
 __all__ = [
-    "CheckEvidence",
-    "FullAuditEvidence",
-    "GateRecord",
-    "GateStage",
-    "SentruxEvidence",
-    "amend_record",
-    "check_commit_msg",
-    "check_pr",
-    "check_pr_ready",
-    "check_pre_commit",
-    "check_pre_push",
-    "check_record",
-    "docs_record",
-    "finalize_record",
-    "plan_record",
-    "sentrux_record",
-    "start_record",
-    "validate_gate_record",
+    "GateLedger",
+    "GuardInputs",
+    "ReconcileResult",
+    "main",
+    "reconcile",
 ]
 
 

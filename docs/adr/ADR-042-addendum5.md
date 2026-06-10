@@ -19,13 +19,14 @@ governs:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
   contracts:
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.gate_record.validation.check_pre_push
-    - scistudio.qa.governance.gate_record.validation.check_pr_ready
-    - scistudio.qa.governance.gate_record.validation.check_pr
-    - scistudio.qa.governance.gate_record.workflow.run_ci
-    - scistudio.qa.governance.core_change_guard.check
-    - scistudio.qa.governance.human_bypass_guard.check
+    # Restructured by ADR-042 Addendum 6: the standalone ``validation`` and
+    # ``workflow`` modules (per-stage validators and ``run_ci``) collapsed into
+    # the single shared ``evaluator.reconcile`` entry point, and the guard
+    # modules moved under ``gate_record.guards``. The contract paths below
+    # point to the canonical definition sites in that layout.
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
+    - scistudio.qa.governance.gate_record.guards.core_change_guard.check
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum5.md
@@ -72,6 +73,14 @@ translations: []
 # ADR-042 Addendum 5: Local CI-Parity Gate Receipts And Worktree Guards
 
 ## 1. Decision Summary
+
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. The per-stage `validation`
+> validators and `workflow.run_ci` collapsed into the single shared
+> `evaluator.reconcile` entry point, and the guard modules moved under
+> `gate_record.guards`. The `gate_receipt` module was also folded into the
+> gate-record ledger. The `governs` block has been repointed to the surviving
+> symbols.
 
 This addendum accepts a stricter local gate model for AI-authored SciStudio
 work. The model closes the gap between local claims and CI evidence by making

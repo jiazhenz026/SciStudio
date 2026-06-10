@@ -23,6 +23,7 @@ language_source: en
 | Doc-guide docs | `docs/doc-guide/**` | Rules for writing and maintaining documentation |
 | Audit reports | `docs/audit/**` | Machine-readable or human-readable verification output |
 | Generated docs | `docs/user/reference/**`, `docs/user/llms.txt` | Generated from code or facts; hand edits rejected |
+| AI developer workflow docs | `docs/ai-developer/**` | **Governance surface** per ADR-042 Addendum 6 §7.8. Includes rules, persona guides, specific rules, dispatch templates, and skills. Changes require `--governance-touch true` in the gate ledger, focused scope, and owner review. |
 
 ### 3.3 ADR Schema
 

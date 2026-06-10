@@ -96,11 +96,13 @@ language_source: en
 - E2E workflow:
   `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md`
 
-- ADR-042 Addendum 5 receipt transcript:
-  Wrap test runs with
-  `python -m scistudio.qa.governance.gate_receipt exec --name <name> -- <command>`
-  so stdout/stderr land in the candidate `.log` transcript and exit codes feed
-  receipt validation.
+- ADR-042 Addendum 6 gate ledger check recording:
+  Test runs are recorded as `check_events` in the gate ledger (Addendum 6).
+  Use `gate_record check` to run and record tier-selected checks, including
+  test execution. Raw transcripts are written only to ignored local paths under
+  `.workflow/local/**`. The old `gate_receipt exec` wrapper is a compatibility
+  alias; the ledger `check_events` and `reconcile_events` are the canonical
+  gate evidence.
 
 - Root policy:
   `AGENTS.md`

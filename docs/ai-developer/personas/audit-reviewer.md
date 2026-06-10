@@ -107,11 +107,17 @@ language_source: en
 - ADR-042 document standards reference:
   `docs/ai-developer/specific_rules/document-standards.md`
 
-- ADR-042 Addendum 5 receipt audit:
-  Verify `.workflow/local/gate-receipts/<head-sha>.json` exists for the PR
-  candidate, fingerprint matches, and every required check has
-  `exit_code == 0`. Treat `admin-approved:core-change` as narrow
-  protected-core authorization only, never as a scope/docs/receipt bypass.
+- ADR-042 Addendum 6 gate ledger audit:
+  The gate record is the single source of truth (Addendum 6). Verify that the
+  committed gate ledger under `.workflow/records/` is consistent with the PR
+  diff: `observed_diff` must reflect actual changed files, `check_events` and
+  `reconcile_events` must satisfy the tier-selected obligations, `docs_events`
+  and `test_events` must have `verified_in_diff: true` for claimed paths, and
+  `issues` must have closing keywords in the PR body. Treat
+  `admin-approved:core-change` as narrow protected-core authorization only,
+  never as a scope/docs/check bypass. When auditing a `guided` task, verify
+  that every scope expansion is backed by a recorded owner directive event, not
+  only a declared include path.
 
 - Root policy:
   `AGENTS.md`

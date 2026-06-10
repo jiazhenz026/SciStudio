@@ -32,7 +32,7 @@ language_source: en
 - MUST decide if an ADR is required.
   ADRs are required for architectural or hard-to-reverse decisions.
 
-- MUST record these decisions in the gate record.
+- MUST record these decisions in the gate ledger.
   Use a clear N/A reason when SpecKit, spec, or ADR is not needed.
 
 ## 3. Feature Scope Rules
@@ -52,7 +52,7 @@ language_source: en
   If work must be deferred, it MUST have a tracked TODO.
 
 - MUST treat any scope split as explicit.
-  The issue, spec, ADR, or gate record must say what is out of scope.
+  The issue, spec, ADR, or gate ledger must say what is out of scope.
 
 - MUST NOT change core contracts, runtime semantics, storage behavior, or
   plugin contracts without the required spec or ADR.
@@ -67,6 +67,10 @@ Use these rules with:
 - `docs/ai-developer/personas/adr-author.md` when the feature includes
   spec or ADR writing
 
-ADR-042 Addendum 5 receipt and the `scripts/scistudio_pr_create.py` wrapper
-are mandatory for every feature PR; see
+The `scripts/scistudio_pr_create.py` wrapper is mandatory for every feature PR.
+`gate_record check --mode pre-pr` and pre-PR `finalize` replace the old
+`gate_receipt` tooling; see
 `docs/ai-developer/specific_rules/gated-workflow.md` §3.6 and §3.7.
+
+`feature` is a Tier 1 task. The full task-kind CLI argument profile is in
+ADR-042 Addendum 6 §7.7.4.

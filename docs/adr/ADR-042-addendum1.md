@@ -18,31 +18,31 @@ governs:
   modules:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
-    - scistudio.qa.governance.sentrux_gate
-    - scistudio.qa.governance.human_bypass_guard
-    - scistudio.qa.governance.core_change_guard
-    - scistudio.qa.governance.pr_merge_guard
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard
+    - scistudio.qa.governance.gate_record.guards.core_change_guard
+    - scistudio.qa.governance.gate_record.guards.pr_merge_guard
     - scistudio.qa.schemas.frontmatter
     - scistudio.qa.audit.architecture_drift
   contracts:
     - scistudio.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scistudio.qa.audit.architecture_drift.check
-    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427); contract
-    # paths below point to the canonical definition sites so doc_drift / closure
-    # can resolve them against generated facts. The re-exports at
-    # ``scistudio.qa.governance.gate_record.<name>`` remain stable.
-    - scistudio.qa.governance.gate_record.models.GateRecord
-    - scistudio.qa.governance.gate_record.models.CheckEvidence
-    - scistudio.qa.governance.gate_record.models.SentruxEvidence
-    - scistudio.qa.governance.gate_record.models.FullAuditEvidence
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.gate_record.validation.check_pre_commit
-    - scistudio.qa.governance.gate_record.validation.check_commit_msg
-    - scistudio.qa.governance.gate_record.validation.check_pr
-    - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
-    - scistudio.qa.governance.human_bypass_guard.check
-    - scistudio.qa.governance.core_change_guard.check
-    - scistudio.qa.governance.pr_merge_guard.check
+    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427) and was
+    # restructured into a ledger + shared evaluator + guards layout by ADR-042
+    # Addendum 6. The standalone ``models``/``validation`` modules and the
+    # per-stage validators collapsed into the ledger event types and the shared
+    # ``evaluator.reconcile`` entry point; guard modules moved under
+    # ``gate_record.guards``. The contract paths below point to the canonical
+    # definition sites in that new layout so doc_drift / closure can resolve
+    # them against generated facts.
+    - scistudio.qa.governance.gate_record.ledger.GateLedger
+    - scistudio.qa.governance.gate_record.ledger.CheckEvent
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate.SentruxEvidence
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate.check
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard.check
+    - scistudio.qa.governance.gate_record.guards.core_change_guard.check
+    - scistudio.qa.governance.gate_record.guards.pr_merge_guard.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum1.md
@@ -83,6 +83,14 @@ translations: []
 # ADR-042 Addendum 1: CI-Reviewed Gate Records And Sentrux Free-Tier Checks
 
 ## 1. Decision Summary
+
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. The `gate_record.models` and
+> `gate_record.validation` modules and the standalone guard modules were
+> superseded by the ledger event types, the shared `evaluator.reconcile`
+> entry point, and the `gate_record.guards` package; `FullAuditEvidence`
+> and the per-stage validators no longer exist as separate symbols. The
+> `governs` block has been repointed to the surviving symbols.
 
 This addendum makes the following decisions for ADR-042 gate and architecture
 governance:

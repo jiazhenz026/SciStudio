@@ -35,6 +35,10 @@ language_source: en
 - Use this persona when the owner asks for a manager, coordinator, dispatcher,
   or agent-manager role.
 
+- When dispatching a `guided` task, assign the `live_implementer` persona to
+  the implementing agent. The manager persona is not the correct persona for
+  carrying out owner-directed live implementation work.
+
 - Do not use this persona for normal implementation work unless the task is
   only coordination around that implementation.
 
@@ -105,6 +109,12 @@ language_source: en
 - Hotfix rules:
   `docs/ai-developer/specific_rules/hotfix.md`
 
+- Guided work persona (for dispatching live-implementation agents):
+  `docs/ai-developer/personas/live-implementer.md`
+
+- Guided work rules:
+  `docs/ai-developer/specific_rules/guided-work.md`
+
 - Checklist template:
   `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
 
@@ -116,11 +126,11 @@ language_source: en
   and
   `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
 
-- ADR-042 Addendum 5 PR-creation wrapper for the final dispatch PR:
-  `scripts/scistudio_pr_create.py`
+- PR-creation wrapper for the final dispatch PR:
+  `python scripts/scistudio_pr_create.py`
 
-- Post-integration receipt validation:
-  `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base origin/main --pr-body-file .workflow/local/pr-body.md`
+- Post-integration check and reconciliation (Addendum 6):
+  `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md`
 
 - Root policy:
   `AGENTS.md`
