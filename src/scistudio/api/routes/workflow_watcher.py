@@ -33,11 +33,15 @@ Design constraints (kept narrow on purpose):
 * **Single observer per app instance.** Started in ``lifespan`` after the
   ApiRuntime is built; stopped in the ``finally`` block. The
   ``WorkflowWatcher`` is a module-level singleton keyed by project path.
-* **Self-write suppression.** Canvas-side code paths (``ApiRuntime.save_workflow``
-  + the two ``save_yaml`` calls in :mod:`scistudio.api.routes.workflows`) call
-  :func:`mark_self_write` *immediately after* writing so the inbound
-  ``FileModifiedEvent`` for that exact ``(path, mtime, size)`` triple is
-  suppressed.  The dedupe deque caps at 32 entries (FIFO).
+* **Self-write suppression.** ADR-045 §5.1 #3 (NARROW): the primary
+  suppression is the runtime's version-vector first-party-write signature
+  (``is_recent_first_party_entity_write``), which drops only an *exact*
+  originating write signature. The legacy ``(path, mtime, size)`` dedupe
+  deque is retained as a **fallback only** for the runtime-less
+  drift-detector path (tests / degraded mode); when a runtime is wired the
+  workflow handler relies on the version signature and skips the deque. Canvas
+  write paths still call :func:`mark_self_write` so the fallback stays
+  functional. The dedupe deque caps at 32 entries (FIFO).
 * **200 ms per-path debounce.**  Editors that write atomically by renaming
   a tempfile, plus AV/cloud-sync churn on Windows, can produce a burst of
   Modified/Created events. The watcher coalesces them.
@@ -292,10 +296,21 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             )
             return
 
-        # Self-write suppression (only meaningful for events on existing
-        # files; deletions cannot match a (path, mtime, size) tuple).
-        if kind in {"modified", "created"} and self._is_self_write(path):
-            logger.debug("workflow_watcher: suppressing self-write event %s %s", kind, path)
+        # ADR-045 §5.1 #3 (NARROW): the ``(path, mtime, size)`` self-write
+        # deque is now a *fallback only*. When a runtime is wired, the
+        # version-vector first-party check above
+        # (``is_recent_workflow_first_party_write``) already suppresses the
+        # exact originating write signature — the spec verdict for layer 3 —
+        # so consulting the deque here is redundant. The deque is retained
+        # solely for the runtime-less drift-detector path (tests / degraded
+        # mode), where it remains the only first-party signal. Only meaningful
+        # for events on existing files; deletions cannot match the tuple.
+        if (
+            self._runtime is None
+            and kind in {"modified", "created"}
+            and self._is_self_write(path)
+        ):
+            logger.debug("workflow_watcher: suppressing self-write event %s %s (fallback deque)", kind, path)
             return
 
         if self._debounced(path):

@@ -436,12 +436,14 @@ def test_restore_rejects_unknown_commit_without_mutating_history(client: TestCli
 # ---------------------------------------------------------------------------
 # Hotfix #988: tree-mutating endpoints emit workflow.changed per file.
 #
-# Rationale (see ``_snapshot_workflows`` docstring in routes/git.py): the
+# Rationale (see ``_changed_workflow_paths`` docstring in routes/git.py): the
 # filesystem watcher is unreliable for bulk file rewrites that a git op
-# completes inside a debounce window. The endpoints actively diff workflow
-# YAMLs pre/post-op and emit ``workflow.changed`` per changed file so the
-# frontend's existing ``workflow.changed`` handler reloads the canvas.
-# These tests pin the contract end-to-end via the runtime's event bus.
+# completes inside a debounce window. ADR-045 §5.1 #5 retired the hash-snapshot
+# diff; the endpoints now derive the affected workflow set from git itself
+# (``git diff --name-status`` over the committed range + working tree) and emit
+# ``workflow.changed`` per changed file so the frontend's existing
+# ``workflow.changed`` handler reloads the canvas. These tests pin the contract
+# end-to-end via the runtime's event bus.
 # ---------------------------------------------------------------------------
 
 

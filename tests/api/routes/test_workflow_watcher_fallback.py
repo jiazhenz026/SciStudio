@@ -94,6 +94,61 @@ def test_first_party_workflow_write_suppresses_only_exact_echo(
     assert payload["version"] == version + 1
 
 
+def test_runtime_mode_ignores_legacy_self_write_deque(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-045 §5.1 #3 (NARROW) / #1461: with a runtime wired, the workflow
+    handler suppresses self-writes via the version-vector signature only — the
+    legacy ``(path, mtime, size)`` deque is NOT consulted.
+
+    We register a deque self-write (``mark_self_write``) but DO NOT register a
+    first-party version signature. Pre-narrowing the deque alone would suppress
+    the event; post-narrowing the runtime path ignores the deque, so the event
+    is emitted as a normal external change.
+    """
+    project = tmp_path / "project"
+    yaml_path = project / "workflows" / "deque-only.yaml"
+    yaml_path.parent.mkdir(parents=True)
+    yaml_path.write_text("id: deque-only\nnodes: []\nedges: []\n", encoding="utf-8")
+    runtime = _runtime_for_project(project, monkeypatch)
+    baseline = runtime.current_workflow_version("deque-only")
+
+    handler, captured = _handler(project, runtime)
+    # Modify the file so the disk-version delayed-echo guard passes (new
+    # mtime > cached), isolating the deque as the only possible suppressor.
+    yaml_path.write_text("id: deque-only\ndescription: changed\nnodes: []\nedges: []\n", encoding="utf-8")
+    # Populate ONLY the legacy deque (with the new content's signature) — no
+    # first-party version signature is registered.
+    handler.mark_self_write(yaml_path)
+    handler.on_any_event(FileModifiedEvent(str(yaml_path)))
+
+    # The deque is bypassed in runtime mode → event still emitted.
+    assert len(captured) == 1
+    assert captured[0]["source"] == "external"
+    assert captured[0]["version"] == baseline + 1
+
+
+def test_fallback_mode_still_uses_self_write_deque(tmp_path: Path) -> None:
+    """ADR-045 §5.1 #3: the deque remains the only first-party signal in the
+    runtime-less (drift-detector / degraded) path, so it must still suppress."""
+    project = tmp_path / "project"
+    yaml_path = project / "workflows" / "fallback.yaml"
+    yaml_path.parent.mkdir(parents=True)
+    yaml_path.write_text("id: fallback\nnodes: []\nedges: []\n", encoding="utf-8")
+
+    captured: list[dict[str, Any]] = []
+    handler = _WorkflowFileHandler(
+        project_dir=project,
+        broadcast=lambda payload: captured.append(payload),
+        loop=None,
+        runtime=None,
+    )
+    handler.mark_self_write(yaml_path)
+    handler.on_any_event(FileModifiedEvent(str(yaml_path)))
+    assert captured == []
+
+
 def test_first_party_workflow_delete_suppresses_exact_delete_echo(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
