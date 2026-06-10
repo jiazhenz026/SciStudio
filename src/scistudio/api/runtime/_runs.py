@@ -148,9 +148,24 @@ def _finalize_lineage_run(
     task: asyncio.Task[None],
     scheduler: DAGScheduler,
 ) -> None:
-    """Update the ``runs`` row when the workflow task finishes."""
+    """Update the ``runs`` row when the workflow task finishes.
+
+    #1527 (BUG-6): ``recorder.finalize_run`` now persists the recorder's
+    accumulated ``provenance_degraded`` latch onto the ``runs`` row, so a run
+    whose lineage / block_io writes silently failed can no longer be read
+    back as a clean "completed". We additionally emit a warning here when the
+    derived status would otherwise be a clean completion but provenance is
+    degraded, so the loss is visible in logs and not only in the DB column.
+    """
     try:
         status = self._derive_lineage_run_status(scheduler, task)
+        if getattr(recorder, "provenance_degraded", False):
+            logger.warning(
+                "ADR-038/#1527: run %s finished with status=%s but one or more "
+                "provenance writes failed; runs.provenance_degraded will be set.",
+                getattr(recorder, "run_id", "<unknown>"),
+                status,
+            )
         recorder.finalize_run(status=status)
     except Exception:
         logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
@@ -236,6 +251,21 @@ def start_workflow(
         )
 
     workflow = self.load_workflow(workflow_id)
+
+    # #1518 (DSN-2): ``start_workflow`` previously scheduled the run without
+    # ever calling ``validate_workflow``, so a graph that bypassed save-time
+    # validation (e.g. an externally edited YAML, or one saved before #1518)
+    # would fail deep inside a block at run time instead of being rejected up
+    # front. Re-run validation on the loaded definition and refuse to start
+    # on a hard error. ``"Warning:"``-prefixed diagnostics (unknown block
+    # type / missing port) remain non-fatal, matching ``save_workflow``.
+    from scistudio.workflow.validator import validate_workflow
+
+    diagnostics = validate_workflow(workflow, registry=self.block_registry)
+    hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
+    if hard_errors:
+        raise ValueError("Cannot start workflow; validation failed: " + "; ".join(str(e) for e in hard_errors))
+
     if overwrite_node_ids:
         workflow = copy.deepcopy(workflow)
         for node in workflow.nodes:

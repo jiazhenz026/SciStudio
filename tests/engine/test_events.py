@@ -175,6 +175,67 @@ class TestEventBus:
 
         assert len(received) == 1
 
+    def test_emit_safe_under_in_dispatch_unsubscribe(self) -> None:
+        """#1544 (BUG-9): a callback that unsubscribes during dispatch must
+        not corrupt the in-flight iteration.
+
+        Pre-fix, ``emit`` iterated the live subscriber list; a callback that
+        removed a subscriber mid-dispatch either skipped a later callback or
+        raised ``RuntimeError: list changed size during iteration`` (for the
+        equivalent dict-mutation case). With the snapshot copy, every
+        callback present at emit start still runs.
+        """
+        bus = EventBus()
+        order: list[str] = []
+
+        def first(_event: EngineEvent) -> None:
+            order.append("first")
+            # Unsubscribe a *later* callback during dispatch.
+            bus.unsubscribe(BLOCK_DONE, third)
+            # Also unsubscribe self.
+            bus.unsubscribe(BLOCK_DONE, first)
+
+        def second(_event: EngineEvent) -> None:
+            order.append("second")
+
+        def third(_event: EngineEvent) -> None:
+            order.append("third")
+
+        bus.subscribe(BLOCK_DONE, first)
+        bus.subscribe(BLOCK_DONE, second)
+        bus.subscribe(BLOCK_DONE, third)
+
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE)))
+
+        # All three callbacks present at emit start ran exactly once, in order,
+        # despite first() removing third() and itself mid-dispatch.
+        assert order == ["first", "second", "third"]
+
+    def test_emit_safe_under_in_dispatch_subscribe(self) -> None:
+        """#1544 (BUG-9): subscribing during dispatch must not raise and the
+        new callback only takes effect on the next emit (deterministic set)."""
+        bus = EventBus()
+        late: list[EngineEvent] = []
+
+        def late_handler(event: EngineEvent) -> None:
+            late.append(event)
+
+        def adder(_event: EngineEvent) -> None:
+            bus.subscribe(BLOCK_DONE, late_handler)
+
+        bus.subscribe(BLOCK_DONE, adder)
+
+        # First emit: adder registers late_handler, but the snapshot was taken
+        # before it existed, so late_handler does not run this round.
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE)))
+        assert late == []
+
+        # Second emit: late_handler is now in the snapshot and runs once.
+        # (adder runs again and re-adds another late_handler, but that one
+        # only takes effect next round.)
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE)))
+        assert len(late) == 1
+
     def test_subscriber_isolation_across_event_types(self) -> None:
         """Subscribers only receive events for their registered type."""
         bus = EventBus()

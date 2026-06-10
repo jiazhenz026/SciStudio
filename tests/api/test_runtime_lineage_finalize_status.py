@@ -89,3 +89,28 @@ def test_lineage_finalization_keeps_task_exception_as_failed() -> None:
 
     assert recorder.statuses == ["failed"]
     assert recorder.disposed is True
+
+
+class _DegradedRecorder(_Recorder):
+    """#1527: recorder that reports a degraded provenance state."""
+
+    run_id = "run-deg"
+    provenance_degraded = True
+
+
+def test_lineage_finalization_warns_on_degraded_provenance(caplog) -> None:  # type: ignore[no-untyped-def]
+    """#1527 (BUG-6): a run that finishes 'completed' but whose provenance
+    writes failed must surface the loss (warning log + still finalises)."""
+    import logging
+
+    runtime = _runtime()
+    recorder = _DegradedRecorder()
+    scheduler = _Scheduler({"A": BlockState.DONE, "B": BlockState.DONE})
+    task = _Task()
+
+    with caplog.at_level(logging.WARNING):
+        runtime._finalize_lineage_run(recorder, task, scheduler)  # type: ignore[arg-type]
+
+    assert recorder.statuses == ["completed"]
+    assert recorder.disposed is True
+    assert any("provenance" in rec.message.lower() for rec in caplog.records)

@@ -101,8 +101,15 @@ class EventBus:
         function its result is awaited. Exceptions in individual callbacks
         are caught, logged, and do **not** prevent subsequent callbacks
         from running (error isolation per ADR-018).
+
+        #1544 (BUG-9): iterate over a snapshot copy of the subscriber list.
+        A callback that (un)subscribes during dispatch — directly or via an
+        awaited coroutine — must not corrupt the in-flight iteration
+        (skipped callback / ``RuntimeError: list changed size``). The
+        snapshot also makes the per-event dispatch set deterministic:
+        callbacks added mid-dispatch only take effect on the next emit.
         """
-        for callback in self._subscribers[event.event_type]:
+        for callback in list(self._subscribers[event.event_type]):
             try:
                 result = callback(event)
                 if asyncio.iscoroutine(result):
