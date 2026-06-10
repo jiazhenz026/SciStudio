@@ -116,10 +116,20 @@ def _absolutify_node_config(
     return absolutify_paths(config, project_dir, schema)
 
 
-def delete_workflow(self: ApiRuntime, workflow_id: str) -> None:
+def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
+    """Delete a workflow's YAML from disk.
+
+    Returns ``True`` when a file was actually removed, ``False`` when no
+    workflow file existed. The route uses this to decide whether to emit the
+    versioned ``workflow.changed`` ``kind="deleted"`` event (#1462 / ADR-045
+    §3.4) so a user-initiated delete is attributed to ``source="canvas"``
+    rather than being mis-tagged ``source="external"`` by the FS watcher.
+    """
     path = self.workflow_path(workflow_id)
     if path.exists():
         path.unlink()
+        return True
+    return False
 
 
 def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, Any]:

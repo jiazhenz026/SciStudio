@@ -16,6 +16,7 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB read granularity
 
 
 @router.post("/upload", response_model=DataUploadResponse)
@@ -23,10 +24,25 @@ async def upload_data(
     file: UploadFileParam,
     runtime: RuntimeDep,
 ) -> DataUploadResponse:
-    """Upload a data file and register it in the active project."""
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (max 2 GB)")
+    """Upload a data file and register it in the active project.
+
+    #1526: stream the request body in fixed-size chunks while tracking a
+    running byte counter and abort with 413 as soon as the cap is exceeded.
+    Previously the whole body was buffered via ``await file.read()`` *before*
+    the size check, so an oversized upload (accidental or hostile) could
+    exhaust process memory before the 413 ever fired.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=413, detail="File too large (max 2 GB)")
+        chunks.append(chunk)
+    content = b"".join(chunks)
     payload = runtime.upload_file(file.filename or "upload.bin", content)
     return DataUploadResponse(**payload)
 

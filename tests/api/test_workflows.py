@@ -309,3 +309,138 @@ def test_x_changed_by_header_propagates_to_workflow_changed_event(
     wait_for_condition(lambda: len(seen) >= 1)
     assert seen[-1].data["changed_by"] == "embedded-agent"
     assert seen[-1].data["source"] == "agent"
+
+
+# ---------------------------------------------------------------------------
+# #1462 — DELETE emits a versioned workflow.changed kind="deleted" event
+# (ADR-045 §3.4): a user-initiated delete must be attributed to
+# source="canvas", not the FS watcher's source="external".
+# ---------------------------------------------------------------------------
+
+
+def test_delete_workflow_emits_versioned_deleted_event(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path
+) -> None:
+    """DELETE must emit a versioned ``workflow.changed`` ``kind="deleted"`` event."""
+    payload = build_linear_workflow(opened_project, workflow_id="delete-flow")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: seen.append(ev))
+
+    resp = client.delete("/api/workflows/delete-flow")
+    assert resp.status_code == 204
+    wait_for_condition(lambda: len(seen) >= 1)
+
+    event = seen[-1]
+    assert event.data["entity_class"] == "workflow"
+    assert event.data["entity_id"] == "delete-flow"
+    assert event.data["kind"] == "deleted"
+    # User-initiated delete is canvas-attributed, not "external".
+    assert event.data["source"] == "canvas"
+    assert isinstance(event.data["version"], int)
+    assert event.data["path"] == "workflows/delete-flow.yaml"
+
+
+def test_delete_workflow_honours_x_source_header(client: TestClient, runtime: ApiRuntime, opened_project: Path) -> None:
+    """An explicit ``X-Source`` header overrides the default canvas source."""
+    payload = build_linear_workflow(opened_project, workflow_id="delete-src")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: seen.append(ev))
+
+    resp = client.delete(
+        "/api/workflows/delete-src",
+        headers={"X-Source": "agent", "X-Source-Id": "agent-7"},
+    )
+    assert resp.status_code == 204
+    wait_for_condition(lambda: len(seen) >= 1)
+    assert seen[-1].data["source"] == "agent"
+    assert seen[-1].data["source_id"] == "agent-7"
+    assert seen[-1].data["kind"] == "deleted"
+
+
+def test_delete_missing_workflow_emits_no_event(client: TestClient, runtime: ApiRuntime, opened_project: Path) -> None:
+    """Deleting a non-existent workflow is a no-op and emits nothing."""
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: seen.append(ev))
+
+    resp = client.delete("/api/workflows/never-existed")
+    assert resp.status_code == 204
+    assert seen == []
+
+
+# ---------------------------------------------------------------------------
+# #1525 — re-executing a live workflow must not silently orphan the run.
+# The short-term guard rejects a second execute with HTTP 409.
+# ---------------------------------------------------------------------------
+
+
+def test_execute_while_running_is_rejected_with_409(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path
+) -> None:
+    """A second execute while a run is live returns 409, leaving the run intact."""
+    payload = build_linear_workflow(
+        opened_project,
+        workflow_id="double-run",
+        middle_sleep_seconds=0.4,
+    )
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    assert client.post("/api/workflows/double-run/execute").status_code == 200
+    wait_for_block_state(runtime, "double-run", "transform", "running")
+    live_run = runtime.workflow_runs["double-run"]
+
+    second = client.post("/api/workflows/double-run/execute")
+    assert second.status_code == 409
+    assert "already running" in second.json()["detail"].lower()
+
+    # The original run object must NOT have been replaced/orphaned.
+    assert runtime.workflow_runs["double-run"] is live_run
+
+    run = wait_for_workflow_completion(runtime, "double-run")
+    assert run.scheduler.block_states()["final"] == BlockState.DONE
+
+
+def test_execute_after_completion_is_allowed(client: TestClient, runtime: ApiRuntime, opened_project: Path) -> None:
+    """Once a run finishes, the workflow can be executed again (guard clears)."""
+    payload = build_linear_workflow(opened_project, workflow_id="rerun-after-done")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    assert client.post("/api/workflows/rerun-after-done/execute").status_code == 200
+    wait_for_workflow_completion(runtime, "rerun-after-done")
+
+    # The previous run is done, so a fresh execute is accepted (not 409).
+    again = client.post("/api/workflows/rerun-after-done/execute")
+    assert again.status_code == 200
+    wait_for_workflow_completion(runtime, "rerun-after-done")
+
+
+def test_is_workflow_running_helper(runtime: ApiRuntime) -> None:
+    """``_is_workflow_running`` reflects task liveness for a workflow."""
+    import asyncio
+
+    from scistudio.api.runtime._runs import _is_workflow_running
+
+    assert _is_workflow_running(runtime, "absent") is False
+
+    async def _check() -> None:
+        from scistudio.api.runtime import WorkflowRun
+
+        live = asyncio.get_event_loop().create_future()
+        task = asyncio.ensure_future(live)
+        runtime.workflow_runs["held"] = WorkflowRun(
+            scheduler=None,  # type: ignore[arg-type]
+            task=task,
+            checkpoint_manager=None,  # type: ignore[arg-type]
+        )
+        try:
+            assert _is_workflow_running(runtime, "held") is True
+            live.set_result(None)
+            await asyncio.sleep(0)
+            assert _is_workflow_running(runtime, "held") is False
+        finally:
+            runtime.workflow_runs.pop("held", None)
+
+    asyncio.run(_check())

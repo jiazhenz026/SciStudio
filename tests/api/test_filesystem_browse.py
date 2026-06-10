@@ -63,12 +63,38 @@ class TestBrowseFilesystem:
             assert entry["size"] is not None
             assert entry["size"] >= 0
 
-    def test_nonexistent_path_returns_404(self, client: TestClient) -> None:
+    def test_nonexistent_path_returns_404(self, client: TestClient, browse_dir: Path) -> None:
+        # The sanitiser (#1524) rejects anything outside the home/temp
+        # allowlist with 400, so a 404 can only be observed for a path that
+        # IS under an allowed root but does not exist. ``browse_dir`` lives
+        # under the pytest tmp tree (system temp), which is allowed.
+        missing = browse_dir / "does_not_exist_abc123"
         resp = client.get(
             "/api/filesystem/browse",
-            params={"path": "/nonexistent/path/abc123"},
+            params={"path": str(missing)},
         )
         assert resp.status_code == 404
+
+    def test_path_outside_allowlist_is_rejected(self, client: TestClient) -> None:
+        # #1524 regression: an unauthenticated client must not be able to
+        # enumerate arbitrary directories (e.g. ``/etc``). The sanitiser
+        # restricts browse to the home/temp allowlist and returns 400 for
+        # anything else — BEFORE any iterdir() / existence probe runs.
+        resp = client.get(
+            "/api/filesystem/browse",
+            params={"path": "/etc"},
+        )
+        assert resp.status_code == 400
+
+    def test_path_traversal_outside_allowlist_is_rejected(self, client: TestClient, browse_dir: Path) -> None:
+        # A ``..`` escape that canonicalises outside the allowlist is rejected
+        # by the realpath+commonpath guard, not silently followed.
+        escape = browse_dir / ".." / ".." / ".." / ".." / ".." / "etc"
+        resp = client.get(
+            "/api/filesystem/browse",
+            params={"path": str(escape)},
+        )
+        assert resp.status_code == 400
 
     def test_file_path_returns_400(self, client: TestClient, browse_dir: Path) -> None:
         file_path = browse_dir / "file_a.txt"
