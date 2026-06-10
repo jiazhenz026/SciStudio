@@ -212,6 +212,22 @@ class GitEngine:
         """Check whether ``path`` is the root of a git repository.
 
         See ADR-039 §3.2 line 94.
+
+        Returns ``True`` when ``.git`` exists at *path* **regardless of whether
+        it is a directory (normal clone) or a plain file (git worktree gitlink)**
+        — ``Path.exists()`` covers both.  In a ``git worktree add`` worktree the
+        ``.git`` entry is a plain text file whose content is
+        ``gitdir: <path-to-real-.git>``; ``(path / ".git").exists()`` returns
+        ``True`` for that case, so this method correctly reports ``True`` for
+        both normal checkouts and linked worktrees.
+
+        .. note::
+            ADR-039 P3-A (#969): a future tri-state return
+            ``Literal['repo', 'worktree', 'not-a-repo']`` would let callers
+            distinguish a main checkout from a linked worktree.  That is out
+            of scope for the current implementation; all callers today only
+            need the boolean "is this under git control?" answer.
+            Followup: see issue #969.
         """
         try:
             if (Path(path) / ".git").exists():

@@ -98,6 +98,13 @@ def _log(
         if not rec:
             continue
         fields = rec.split(US)
+        # ADR-039 P3-C (#969): the template emits exactly 8 US-separated
+        # fields per record — the trailing ``%b`` field is the empty string
+        # for commits with no body, so ``len(fields) == 8`` is guaranteed for
+        # every valid record.  The ``< 8`` guard below is therefore only a
+        # defensive check against malformed / truncated output, never a normal
+        # code path.  No behaviour change from the original implementation;
+        # this comment documents that the guard is safe.
         if len(fields) < 8:
             continue
         sha, short_sha, parents_raw, an, ae, ai, subject, body = fields[:8]
@@ -161,6 +168,18 @@ def _restore(engine: GitEngine, commit_sha: str, *, files: list[str] | None = No
     unrelated ones). The no-op short-circuit eliminates that
     false-dirty cascade for the specific-files variant (the most
     common Lineage tab path: ``files=['workflows/<id>.yaml']``).
+
+    ADR-039 Addendum 1 P3-4 (#1394): **interaction with the route-layer
+    auto-commit**.  The route layer (``api.routes.git::restore``) calls
+    ``_auto_commit_if_dirty`` **before** calling this method.  That means
+    the auto-commit runs even when the restore itself would be a no-op
+    (i.e., when every target file already matches ``commit_sha`` on disk).
+    The no-op short-circuit inside this engine method only prevents the
+    ``git restore`` checkout step; it does **not** prevent the route layer
+    from creating the pre-restore auto-commit.  This is the intended order:
+    the auto-commit captures the full dirty tree for lineage tracing, and
+    the short-circuit merely avoids an unnecessary checkout when the target
+    state is already present.
     """
     # Skip-if-unchanged short-circuit (files variant only).
     if files:
