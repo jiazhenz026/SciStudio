@@ -39,7 +39,7 @@ Six base data types -- `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, and `
 
 Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr, Parquet, or filesystem) until a block requests a specific slice. Lazy loading is built into `DataObject` and `Array` directly — there is no separate accessor class (ADR-031). Memory usage stays bounded even for enormous datasets.
 
-### Five Block Categories + Composition
+### Six Block Categories + Composition
 
 | Category | Purpose |
 |----------|---------|
@@ -402,7 +402,7 @@ SciStudio follows a structured development workflow to ensure traceability and a
 
 ### Architecture Decision Records
 
-Significant design decisions are documented as ADRs in [`docs/adr/ADR.md`](docs/adr/ADR.md). Notable decisions include:
+Significant design decisions are documented as ADRs in [`docs/adr/`](docs/adr/). Notable decisions include:
 
 | ADR | Decision |
 |-----|----------|
@@ -430,8 +430,8 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 - Lineage tracking with SQLite-backed provenance graph
 - All six block categories (IO, Process, Code, App, AI, SubWorkflow)
 - Block registry with Tier 1 (drop-in) and Tier 2 (entry-points) discovery
-- Format adapters (CSV, Parquet, TIFF) with adapter registry
-- Python code runner (inline and script modes); R and Julia runners are stubs
+- IO format capability registry with structured `FormatCapability` declarations, aggregate IOBlocks, and deterministic loader/saver lookup (ADR-043)
+- CodeBlock v2 backend system (ADR-041): Python (`.py`), shell (`.sh`), Jupyter notebook (`.ipynb`), R/Quarto (`.qmd`), and MATLAB backends; R (`RRunner`, via `Rscript`) and Julia (`JuliaRunner`, via `julia`) runners for legacy inline/script execution paths
 - Collection-based data transport (ADR-020)
 - Event-driven DAG scheduler with cancellation and skip propagation
 - Subprocess isolation with cross-platform ProcessHandle
@@ -441,17 +441,41 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 - React + ReactFlow frontend with live execution, block palette, config panels, data previews
 - CLI commands: init, validate, run, blocks, serve, gui
 - Plugin entry-points protocol with PackageInfo (ADR-025)
+- Block SDK: `scistudio init-block-package` scaffold command and `BlockTestHarness` contract-validation / smoke-test helper (ADR-026)
 - 70%+ test coverage enforced in CI (Python 3.13 leg only; see pyproject.toml `fail_under`)
 
 **Planned / In Progress:**
-- Block SDK scaffolding CLI and BlockTestHarness (ADR-026)
 - AI block generation and workflow synthesis (templates exist, runtime integration in progress)
 - Runtime parameter optimization
-- R and Julia code runners (stubs exist)
+- Additional CodeBlock backends and extended R/Julia integration (conda/renv environments, streaming output)
 - Remote execution runners (SSH, Slurm, cloud -- interfaces designed)
 - Block marketplace and version pinning
 - Streaming/pipelined data transfer (StreamPort)
 - Container and WASM sandboxing
+
+---
+
+## Limitations and Operational Posture
+
+SciStudio is pre-alpha software designed for single-user, local use. The following
+constraints are intentional for this stage and will be addressed in future releases:
+
+- **Single active project**: the API runtime (`ApiRuntime`) holds a single
+  `active_project` reference at a time. Opening a second project replaces the
+  first. Multi-project concurrent access, project switching without server
+  restart, and shared-server multi-tenant operation are not currently supported.
+  (`src/scistudio/api/runtime/_projects.py`)
+
+- **Unauthenticated WebSocket cancel**: the WebSocket endpoint (`/api/ws`)
+  accepts `cancel_block` and `cancel_workflow` messages from any connected
+  client without authentication or session validation. Any browser tab that
+  can reach the backend can cancel running blocks or workflows. This is
+  intentional for a local single-user deployment; adding authentication is
+  tracked for the multi-user roadmap. (`src/scistudio/api/ws.py`)
+
+- **Local single-user deployment**: there is no user management, access
+  control, or network isolation built in. Do not expose a SciStudio backend
+  on a shared network without an external authentication proxy.
 
 ---
 

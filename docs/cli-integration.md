@@ -245,9 +245,8 @@ their specific machine-driven contexts so the filter remains meaningful.
 
 ## See also
 
-- `docs/adr/ADR.md` ADR-033 — embedded coding agent architecture.
+- `docs/adr/ADR-033.md` — embedded coding agent architecture.
 - `docs/adr/ADR-038.md` — unified run lineage database (supersedes ADR-032).
 - `docs/adr/ADR-039.md` — git-backed source version control.
-- `docs/specs/eca-spike-codex-format.md` — Codex provider parity notes.
-- `docs/guides/ai-chat.md` — user-facing AI chat guide for the GUI.
+- `docs/adr/ADR-040.md` — CLI skill and MCP integration.
 - `CLAUDE.md` — non-negotiable project principles (repo root).
