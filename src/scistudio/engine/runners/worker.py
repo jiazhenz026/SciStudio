@@ -246,6 +246,25 @@ def _normalize_outputs(
     return outputs
 
 
+def _validate_outputs(outputs: dict[str, Any], output_ports: list[Any]) -> None:
+    """Enforce the block's declared output-port contract (#1518 / DSN-2).
+
+    Every required output port must be present in *outputs* with a
+    non-``None`` value. A block that silently drops a required output
+    previously surfaced only when a downstream block tried to consume the
+    missing edge (or never, if the port was a leaf); enforce it at the
+    producing boundary so the run fails with a clear contract error.
+
+    Ports with ``required=False`` may be absent. ``ValueError`` is raised
+    on the first violation, mirroring :meth:`Block.validate` for inputs.
+    """
+    for port in output_ports:
+        if not getattr(port, "required", True):
+            continue
+        if port.name not in outputs or outputs[port.name] is None:
+            raise ValueError(f"Required output port '{port.name}' was not produced by the block.")
+
+
 def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any]:
     """Serialize block outputs to JSON-compatible wire format.
 
@@ -435,6 +454,20 @@ def main() -> None:
 
         block_config = BlockConfig(**config)
 
+        # #1518 (DSN-2): enforce the documented Block.validate() contract on
+        # the execution path. Before #1518 ``validate()`` had zero call sites
+        # in the worker, so port/required/constraint checks were dead code and
+        # an ill-typed graph failed deep inside ``run`` instead of at the
+        # contract boundary. ``validate()`` raises ``ValueError`` on the first
+        # failed check; we let that propagate to the generic handler below so
+        # the run fails with the contract error rather than warn-and-continue.
+        # The ``callable`` guard mirrors the ``get_effective_output_ports``
+        # fallback below: real blocks always subclass ``Block`` (which defines
+        # ``validate``); duck-typed stubs without it simply skip the check.
+        _validate_fn = getattr(block, "validate", None)
+        if callable(_validate_fn):
+            _validate_fn(inputs)
+
         # Execute. Block.state / Block.transition were removed per #1334:
         # the engine-owned DAGScheduler (ADR-018 §8.1) is the authoritative
         # state machine. Cancellation from inside a block surfaces as a
@@ -467,6 +500,12 @@ def main() -> None:
             except AttributeError:
                 effective_output_ports = list(getattr(type(block), "output_ports", []))
             _normalize_outputs(outputs, effective_output_ports)
+            # #1518 (DSN-2): validate the produced outputs against the
+            # declared output-port contract. A block that fails to emit a
+            # required output port previously produced a partial result that
+            # failed only when a *downstream* block tried to consume the
+            # missing edge; enforce it at the producing boundary instead.
+            _validate_outputs(outputs, effective_output_ports)
 
         # Capture environment inside subprocess for accurate lineage (issue #54).
         from scistudio.core.lineage.environment import EnvironmentSnapshot

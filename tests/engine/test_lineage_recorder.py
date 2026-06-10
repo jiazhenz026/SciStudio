@@ -155,6 +155,70 @@ class TestLineageRecorder:
         assert run["finished_at"] is not None
 
 
+class TestProvenanceDegraded:
+    """#1527 (BUG-6): a failed provenance write must not let a run finalise as
+    a clean "completed". The recorder still swallows the store exception (a
+    lineage outage must not crash the workflow) but now latches a
+    ``provenance_degraded`` flag and persists it onto the runs row."""
+
+    def test_failed_block_write_sets_degraded_and_persists(self) -> None:
+        bus = EventBus()
+        store = LineageStore(":memory:")
+        store.insert_run(
+            RunRecord(
+                run_id="run-deg",
+                workflow_id="wf",
+                workflow_yaml_snapshot="",
+                started_at="2026-05-15T00:00:00",
+                status="running",
+                environment_snapshot={},
+            )
+        )
+        recorder = LineageRecorder(bus, lineage_store=store, run_id="run-deg")
+
+        # Make the block_execution write fail.
+        def _boom(_be: object) -> None:
+            raise RuntimeError("disk full")
+
+        store.insert_block_execution = _boom  # type: ignore[method-assign]
+
+        # The emit must NOT raise (outage isolation preserved)...
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="A", data={"outputs": {}})))
+        # ...but the recorder must have latched the degraded flag.
+        assert recorder.provenance_degraded is True
+
+        # Restore a working write path so finalize can persist the row.
+        del store.insert_block_execution  # type: ignore[attr-defined]
+        recorder.finalize_run(status="completed")
+
+        run = store.get_run("run-deg")
+        assert run is not None
+        # Status may say "completed" but the degraded flag tells the truth.
+        assert run["provenance_degraded"] == 1
+
+    def test_clean_run_is_not_degraded(self) -> None:
+        recorder, bus, store = _make_recorder(run_id="run-clean")
+        assert store is not None
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="A", data={"outputs": {}})))
+        recorder.finalize_run(status="completed")
+        assert recorder.provenance_degraded is False
+        run = store.get_run("run-clean")
+        assert run is not None
+        assert run["provenance_degraded"] == 0
+
+    def test_finalize_write_failure_latches_degraded(self) -> None:
+        recorder, _bus, store = _make_recorder(run_id="run-final-fail")
+        assert store is not None
+
+        def _boom(*_a: object, **_k: object) -> None:
+            raise RuntimeError("commit failed")
+
+        store.finalize_run = _boom  # type: ignore[method-assign]
+        # Must not raise; degraded latched.
+        recorder.finalize_run(status="completed")
+        assert recorder.provenance_degraded is True
+
+
 class TestLineageRecorderDispose:
     """D38-3.2 (closes Codex P1 on PR #926 / D38-3.1b P1-2).
 

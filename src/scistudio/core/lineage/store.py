@@ -50,6 +50,104 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Artifact content hashing (#1529 / DSN-5)
+# ---------------------------------------------------------------------------
+
+# Streamed in 1 MiB chunks so hashing a multi-GB artifact does not load the
+# whole file into memory.
+_HASH_CHUNK_BYTES = 1024 * 1024
+
+
+def hash_artifact_file(storage_path: str | None) -> str | None:
+    """Return an xxhash digest of the file at *storage_path*, or ``None``.
+
+    #1529 (DSN-5): records a content digest alongside the mutable
+    ``storage_path`` so a later run that overwrites the same path (ADR-038
+    §3.5 "no per-run isolation") can be detected as a dangling artifact.
+
+    Returns ``None`` (rather than raising) when *storage_path* is falsy, is
+    not a regular file (e.g. a directory-backed zarr store, or a path that
+    does not exist), or cannot be read — lineage hashing is best-effort and
+    must never break a workflow. Directory-backed backends are intentionally
+    not walked here; their integrity check is deferred (see TODO below).
+
+    TODO(#1517): hash directory-backed artifacts (zarr / parquet datasets)
+      by digesting their constituent files. Out of scope for #1529, which
+      targets single-file intermediates.
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1517.
+    """
+    if not storage_path:
+        return None
+    path = Path(storage_path)
+    try:
+        if not path.is_file():
+            return None
+        import xxhash
+
+        hasher = xxhash.xxh3_64()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(_HASH_CHUNK_BYTES), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except Exception:
+        logger.debug("lineage: content hash failed for %s", storage_path, exc_info=True)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Read-only query enforcement (#1546 / BUG-11)
+# ---------------------------------------------------------------------------
+
+# Leading keywords that begin a read-only statement. ``WITH`` covers
+# recursive-CTE ancestor/descendant queries (the documented use case);
+# ``EXPLAIN`` and the read form of ``PRAGMA`` are harmless introspection.
+_READONLY_PREFIXES = ("select", "with", "explain", "pragma", "values")
+
+
+def _reject_non_readonly_sql(sql: str) -> None:
+    """Raise ``ValueError`` unless *sql* is a single read-only statement.
+
+    #1546 (BUG-11): ``execute_query`` advertised "read-only" but executed any
+    SQL, so a future caller passing a mutating statement could silently
+    corrupt the lineage DB. We reject anything that is not a single
+    SELECT/WITH/EXPLAIN/PRAGMA/VALUES statement. The check is intentionally
+    conservative: it strips leading SQL comments, forbids statement
+    batching (a trailing ``;`` plus more SQL), and matches on the first
+    keyword case-insensitively.
+    """
+    stripped = _strip_sql_leading_comments(sql).strip()
+    if not stripped:
+        raise ValueError("execute_query: empty SQL is not allowed")
+
+    # Forbid statement batching: split on ';' and ensure at most one
+    # non-empty statement remains.
+    statements = [s for s in (part.strip() for part in stripped.split(";")) if s]
+    if len(statements) > 1:
+        raise ValueError("execute_query: multiple statements are not allowed (read-only)")
+
+    first_word = statements[0].split(None, 1)[0].lower() if statements else ""
+    if first_word not in _READONLY_PREFIXES:
+        raise ValueError(
+            f"execute_query is read-only; statement starting with {first_word!r} is rejected"
+        )
+
+
+def _strip_sql_leading_comments(sql: str) -> str:
+    """Strip leading ``--`` line comments and ``/* */`` block comments."""
+    text = sql.lstrip()
+    while True:
+        if text.startswith("--"):
+            newline = text.find("\n")
+            text = "" if newline == -1 else text[newline + 1 :].lstrip()
+            continue
+        if text.startswith("/*"):
+            end = text.find("*/")
+            text = "" if end == -1 else text[end + 2 :].lstrip()
+            continue
+        return text
+
+
+# ---------------------------------------------------------------------------
 # Schema (ADR-038 §3.1 verbatim)
 # ---------------------------------------------------------------------------
 
@@ -69,7 +167,12 @@ _SCHEMA_STATEMENTS: list[str] = [
         triggered_by            TEXT NOT NULL,
         parent_run_id           TEXT REFERENCES runs(run_id),
         execute_from_block_id   TEXT,
-        user_notes              TEXT
+        user_notes              TEXT,
+        -- #1527 (BUG-6): set to 1 when one or more provenance writes for
+        -- this run failed, so a run whose lineage is incomplete cannot
+        -- be reported as a clean "completed" with only a log line as
+        -- evidence. Surfaced on the run row / API response.
+        provenance_degraded     INTEGER NOT NULL DEFAULT 0
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_runs_workflow ON runs(workflow_id, started_at DESC)",
@@ -104,7 +207,16 @@ _SCHEMA_STATEMENTS: list[str] = [
         created_at              TEXT NOT NULL,
         wire_payload            TEXT NOT NULL,
         derived_from            TEXT REFERENCES data_objects(object_id),
-        produced_by_execution   TEXT REFERENCES block_executions(block_execution_id)
+        produced_by_execution   TEXT REFERENCES block_executions(block_execution_id),
+        -- #1529 (DSN-5): content digest (xxhash) of the bytes at
+        -- ``storage_path`` captured at record time, plus the size/mtime
+        -- snapshot. ADR-038 §3.5 says on-disk intermediates may be
+        -- overwritten by a later run with no per-run isolation, so a bare
+        -- ``storage_path`` can silently dangle (point at bytes that no
+        -- longer match what the producing run wrote). Recording the digest
+        -- lets ``detect_dangling_objects`` flag artifacts whose current
+        -- bytes differ from (or are missing relative to) the recorded ones.
+        content_hash            TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_do_storage ON data_objects(storage_path)",
@@ -135,7 +247,39 @@ def _apply_pragmas_and_schema(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA foreign_keys=ON")
     for stmt in _SCHEMA_STATEMENTS:
         conn.execute(stmt)
+    _migrate_runs_provenance_degraded(conn)
+    _migrate_data_objects_content_hash(conn)
     conn.commit()
+
+
+def _column_names(conn: sqlite3.Connection, table: str) -> set[str]:
+    """Return the set of column names for *table* (allow-listed by caller)."""
+    cur = conn.execute(f"PRAGMA table_info({table})")  # table name is an internal literal
+    return {row[1] for row in cur.fetchall()}
+
+
+def _migrate_runs_provenance_degraded(conn: sqlite3.Connection) -> None:
+    """Add ``runs.provenance_degraded`` to pre-#1527 databases.
+
+    ``CREATE TABLE IF NOT EXISTS`` does not add new columns to an existing
+    table, so a lineage.db created before #1527 (BUG-6) lacks the
+    ``provenance_degraded`` column. Detect its absence and ``ALTER TABLE``
+    it in with the same ``DEFAULT 0`` so existing rows read as "clean".
+    """
+    if "provenance_degraded" not in _column_names(conn, "runs"):
+        conn.execute("ALTER TABLE runs ADD COLUMN provenance_degraded INTEGER NOT NULL DEFAULT 0")
+
+
+def _migrate_data_objects_content_hash(conn: sqlite3.Connection) -> None:
+    """Add ``data_objects.content_hash`` to pre-#1529 databases.
+
+    Same ``CREATE TABLE IF NOT EXISTS`` limitation as the provenance-degraded
+    migration: a lineage.db created before #1529 (DSN-5) lacks the
+    ``content_hash`` column. New column is nullable so existing rows read as
+    "no recorded digest" (treated as not-checkable rather than dangling).
+    """
+    if "content_hash" not in _column_names(conn, "data_objects"):
+        conn.execute("ALTER TABLE data_objects ADD COLUMN content_hash TEXT")
 
 
 class LineageStore:
@@ -259,12 +403,30 @@ class LineageStore:
             )
             conn.commit()
 
-    def finalize_run(self, run_id: str, *, finished_at: str, status: str) -> None:
-        """Update terminal columns on a ``runs`` row."""
+    def finalize_run(
+        self,
+        run_id: str,
+        *,
+        finished_at: str,
+        status: str,
+        provenance_degraded: bool = False,
+    ) -> None:
+        """Update terminal columns on a ``runs`` row.
+
+        #1527 (BUG-6): ``provenance_degraded`` records whether any lineage
+        write for this run failed. It is OR-ed into the existing column so a
+        single failed write latches the flag even if later writes succeed.
+        """
         with self._connect() as conn:
             conn.execute(
-                "UPDATE runs SET finished_at = ?, status = ? WHERE run_id = ?",
-                (finished_at, status, run_id),
+                """
+                UPDATE runs
+                SET finished_at = ?,
+                    status = ?,
+                    provenance_degraded = MAX(provenance_degraded, ?)
+                WHERE run_id = ?
+                """,
+                (finished_at, status, 1 if provenance_degraded else 0, run_id),
             )
             conn.commit()
 
@@ -426,27 +588,58 @@ class LineageStore:
         of the same object_id are no-ops; we deliberately do NOT update
         ``storage_path`` because subsequent runs may overwrite the path and
         the stored value should reflect the producing run's state.
+
+        #1529 (DSN-5): when the row has a ``storage_path`` but no
+        ``content_hash`` we compute the xxhash digest of the on-disk bytes
+        here (first-writer-wins, matching the ``INSERT OR IGNORE`` upsert) so
+        :meth:`detect_dangling_objects` can later tell whether the path still
+        points at the bytes the producing run wrote. ``size_bytes`` /
+        ``mtime_at_write`` are snapshotted from the same ``stat`` when not
+        already supplied.
         """
+        content_hash = row.content_hash
+        size_bytes = row.size_bytes
+        mtime_at_write = row.mtime_at_write
+        if row.storage_path:
+            path = Path(row.storage_path)
+            try:
+                if path.is_file():
+                    if content_hash is None:
+                        content_hash = hash_artifact_file(row.storage_path)
+                    stat = path.stat()
+                    if size_bytes is None:
+                        size_bytes = stat.st_size
+                    if mtime_at_write is None:
+                        mtime_at_write = str(stat.st_mtime)
+            except Exception:
+                logger.debug(
+                    "lineage: stat/hash failed for data_object %s at %s",
+                    row.object_id,
+                    row.storage_path,
+                    exc_info=True,
+                )
+
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT OR IGNORE INTO data_objects (
                     object_id, type_name, backend, storage_path, size_bytes,
                     mtime_at_write, created_at, wire_payload, derived_from,
-                    produced_by_execution
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    produced_by_execution, content_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row.object_id,
                     row.type_name,
                     row.backend,
                     row.storage_path,
-                    row.size_bytes,
-                    row.mtime_at_write,
+                    size_bytes,
+                    mtime_at_write,
                     row.created_at,
                     json.dumps(row.wire_payload, default=str),
                     row.derived_from,
                     row.produced_by_execution,
+                    content_hash,
                 ),
             )
             conn.commit()
@@ -459,6 +652,79 @@ class LineageStore:
                 return None
             columns = [d[0] for d in cur.description]
             return dict(zip(columns, row, strict=False))
+
+    def check_object_integrity(self, object_id: str) -> str:
+        """Return the integrity status of one ``data_objects`` row (#1529).
+
+        Compares the recorded ``content_hash`` against a freshly computed
+        digest of the bytes currently at ``storage_path``. Possible results:
+
+        * ``"ok"``           — recorded hash matches the current file bytes.
+        * ``"dangling"``     — a hash was recorded but the file is missing or
+          its current bytes differ (overwritten by a later run, deleted,
+          etc.). This is the silent-dangling case #1529 targets.
+        * ``"unknown"``      — no row, no ``storage_path``, no recorded hash,
+          or a path that is not a regular file (e.g. directory-backed
+          backend). Not checkable, so neither confirmed ok nor dangling.
+        """
+        row = self.get_data_object(object_id)
+        if row is None:
+            return "unknown"
+        recorded = row.get("content_hash")
+        storage_path = row.get("storage_path")
+        if not recorded or not storage_path:
+            return "unknown"
+        current = hash_artifact_file(storage_path)
+        if current is None:
+            # Recorded a hash but the file is now missing / unreadable.
+            return "dangling"
+        return "ok" if current == recorded else "dangling"
+
+    def detect_dangling_objects(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        """Return ``data_objects`` whose on-disk bytes no longer match (#1529).
+
+        Iterates rows that carry both a ``content_hash`` and a
+        ``storage_path`` and recomputes the digest. Rows whose current bytes
+        differ from (or are missing relative to) the recorded digest are
+        returned, each augmented with an ``integrity`` key (always
+        ``"dangling"`` for returned rows). Rows without a recorded hash /
+        path are skipped (not checkable).
+
+        Parameters
+        ----------
+        run_id:
+            When provided, restrict the scan to objects produced by a block
+            execution in that run (via the ``produced_by_execution`` →
+            ``block_executions.run_id`` join). When ``None``, scan all rows.
+        """
+        with self._connect() as conn:
+            if run_id is None:
+                cur = conn.execute(
+                    "SELECT * FROM data_objects "
+                    "WHERE content_hash IS NOT NULL AND storage_path IS NOT NULL"
+                )
+            else:
+                cur = conn.execute(
+                    """
+                    SELECT do.* FROM data_objects do
+                    JOIN block_executions be
+                      ON do.produced_by_execution = be.block_execution_id
+                    WHERE be.run_id = ?
+                      AND do.content_hash IS NOT NULL
+                      AND do.storage_path IS NOT NULL
+                    """,
+                    (run_id,),
+                )
+            columns = [d[0] for d in cur.description]
+            rows = [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
+        dangling: list[dict[str, Any]] = []
+        for row in rows:
+            current = hash_artifact_file(row["storage_path"])
+            if current is None or current != row["content_hash"]:
+                row["integrity"] = "dangling"
+                dangling.append(row)
+        return dangling
 
     # ------------------------------------------------------------------
     # block_io
@@ -551,7 +817,7 @@ class LineageStore:
             return int(cur.fetchone()[0])
 
     def execute_query(self, sql: str, params: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
-        """Execute a read-only SQL query and return all rows.
+        """Execute a **read-only** SQL query and return all rows.
 
         Public helper added in D38-3.2 so the ``MetadataStore`` shim (and
         any future read-only consumer) doesn't have to reach into the
@@ -559,7 +825,38 @@ class LineageStore:
         ancestor / descendant queries that don't fit the high-level
         per-table accessors. Best-effort: SQLite errors propagate to the
         caller, which is expected to log + degrade.
+
+        #1546 (BUG-11): the "read-only" contract is now enforced rather than
+        merely documented. Two layers of defence:
+
+        1. **Statement check** — only a single ``SELECT`` / ``WITH`` /
+           ``EXPLAIN`` / read-form ``PRAGMA`` statement is accepted; anything
+           else (INSERT/UPDATE/DELETE/DROP/ATTACH/multiple statements/…)
+           raises :class:`ValueError` before touching the DB.
+        2. **Read-only connection** — for file-backed stores the query runs
+           on a ``file:...?mode=ro`` connection so even a statement that
+           slipped past the check cannot mutate the file. In-memory stores
+           cannot reopen read-only (a new ``:memory:`` connection is an empty
+           DB), so they rely on the statement check; SQLite query-only
+           PRAGMA is also engaged as a backstop.
         """
-        with self._connect() as conn:
+        _reject_non_readonly_sql(sql)
+        if self._is_memory:
+            assert self._persistent_conn is not None
+            conn = self._persistent_conn
+            conn.execute("PRAGMA query_only=ON")
+            try:
+                cur = conn.execute(sql, params)
+                return list(cur.fetchall())
+            finally:
+                conn.execute("PRAGMA query_only=OFF")
+        if self._closed:
+            raise sqlite3.ProgrammingError("LineageStore is closed")
+        uri = f"file:{Path(self._db_path).as_posix()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
+        try:
             cur = conn.execute(sql, params)
             return list(cur.fetchall())
+        finally:
+            with contextlib.suppress(Exception):
+                conn.close()

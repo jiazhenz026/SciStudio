@@ -9,10 +9,16 @@ Each dataclass mirrors one of the four normalized tables:
 
 The legacy single-table ``LineageRecord`` from pre-ADR-038 is removed
 (D38-3.2 / closes audit D38-3.1a P1-4); the ``ProvenanceGraph`` helper
-that consumed it is also deleted per ADR §3.4 (no content hashing → no
-hash-keyed graph). The pre-ADR-038 ``input_hashes`` / ``output_hashes``
-/ ``partial_output_refs`` / ``environment`` fields are gone — content
-hashing is explicitly forbidden by the ADR.
+that consumed it is also deleted. The pre-ADR-038 ``input_hashes`` /
+``output_hashes`` / ``partial_output_refs`` / ``environment`` fields are
+gone — ADR-038 §3.4 dropped hash-*keyed* identity (object identity is the
+UUIDv4 ``object_id`` from FrameworkMeta, not a content digest).
+
+#1529 (DSN-5) re-introduces a single ``content_hash`` *attribute* on
+:class:`DataObjectRow` for integrity verification only — it is a digest of
+the bytes at ``storage_path`` recorded so a dangling/overwritten artifact
+can be detected (ADR-038 §3.5 "no per-run isolation"). It is NOT used as an
+identity key and does not resurrect the hash-keyed graph.
 """
 
 from __future__ import annotations
@@ -87,6 +93,11 @@ class DataObjectRow:
     mtime_at_write: str | None = None
     derived_from: str | None = None
     produced_by_execution: str | None = None  # FK → block_executions.block_execution_id
+    # #1529 (DSN-5): xxhash digest of the bytes at ``storage_path`` captured
+    # at record time. ``None`` when no storage_path is set or the artifact
+    # could not be read. Used by ``LineageStore.detect_dangling_objects`` to
+    # flag artifacts whose on-disk bytes no longer match what the run wrote.
+    content_hash: str | None = None
 
 
 @dataclass
