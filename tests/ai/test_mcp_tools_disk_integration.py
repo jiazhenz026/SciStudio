@@ -1,5 +1,10 @@
 """Disk-state integration tests for MCP path-handling tools (issue #790).
 
+Restored from module-skip as part of #1539: the S40a skeleton has been
+replaced by a fully implemented FastMCP async server (ADR-040 §3.1,
+I40a Phase 2a). The original sync invocation pattern is rewritten here to
+use ``asyncio.run()`` directly against the async-decorated callables.
+
 The unit tests in ``test_mcp_tools_workflow.py`` and
 ``test_mcp_tools_inspection.py`` exercise tool happy/error paths but
 implicitly run with the backend CWD pointing at the same ``tmp_path``
@@ -22,6 +27,7 @@ Cross-platform notes (macOS):
 
 from __future__ import annotations
 
+import asyncio
 import os
 import threading
 from dataclasses import dataclass, field
@@ -30,17 +36,15 @@ from typing import Any
 
 import pytest
 
-# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
-#   phase. The MCP tool bodies are NotImplementedError stubs in S40a;
-#   I40a Phase 2a restores disk-level integration behavior. Out of scope
-#   per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
-pytestmark = pytest.mark.skip(
-    reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
-)
+from scistudio.ai.agent.mcp import _context, tools_inspection, tools_workflow
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.registry import TypeRegistry
 
-from scistudio.ai.agent.mcp import _context, tools_inspection, tools_workflow  # noqa: E402
-from scistudio.blocks.registry import BlockRegistry  # noqa: E402
-from scistudio.core.types.registry import TypeRegistry  # noqa: E402
+
+def _run(coro):
+    """Run a coroutine synchronously (mirrors test_mcp_fastmcp.py helper)."""
+    return asyncio.run(coro)
+
 
 # ---------------------------------------------------------------------------
 # Test scaffolding.
@@ -117,9 +121,11 @@ def test_write_workflow_relative_path_resolves_against_project_dir(
     project_root: Path,
 ) -> None:
     """A relative path lands under project_dir, not under os.getcwd()."""
-    result = tools_workflow.write_workflow(
-        path="workflows/main.yaml",
-        yaml=_VALID_WF_YAML,
+    result = _run(
+        tools_workflow.write_workflow(
+            path="workflows/main.yaml",
+            yaml=_VALID_WF_YAML,
+        )
     )
 
     expected = (project_root / "workflows" / "main.yaml").resolve()
@@ -127,9 +133,9 @@ def test_write_workflow_relative_path_resolves_against_project_dir(
     assert expected.is_file(), f"file not found at {expected}; got result {result}"
     assert expected.read_text(encoding="utf-8") == _VALID_WF_YAML
     # The response envelope returns the absolute resolved path, not the
-    # user-supplied relative one.
-    assert Path(result["path"]).resolve() == expected
-    assert Path(result["path"]).is_absolute()
+    # user-supplied relative one. result is a WriteWorkflowResult Pydantic model.
+    assert Path(result.path).resolve() == expected
+    assert Path(result.path).is_absolute()
 
 
 def test_write_workflow_ignores_backend_cwd(
@@ -148,9 +154,11 @@ def test_write_workflow_ignores_backend_cwd(
     monkeypatch.chdir(other_cwd)
     assert Path.cwd().resolve() == other_cwd  # sanity
 
-    result = tools_workflow.write_workflow(
-        path="workflows/cwd_test.yaml",
-        yaml=_VALID_WF_YAML,
+    result = _run(
+        tools_workflow.write_workflow(
+            path="workflows/cwd_test.yaml",
+            yaml=_VALID_WF_YAML,
+        )
     )
 
     expected = (project_root / "workflows" / "cwd_test.yaml").resolve()
@@ -158,7 +166,7 @@ def test_write_workflow_ignores_backend_cwd(
     # Crucially: the file is NOT at other_cwd/workflows/cwd_test.yaml.
     bogus = (other_cwd / "workflows" / "cwd_test.yaml").resolve()
     assert not bogus.exists(), f"file leaked to CWD at {bogus}"
-    assert Path(result["path"]).resolve() == expected
+    assert Path(result.path).resolve() == expected
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +183,7 @@ def test_write_workflow_absolute_outside_project_raises_permission_error(
     # is guaranteed to be outside.
     outside = (tmp_path / "outside_target.yaml").resolve()
     with pytest.raises(PermissionError, match="resolves outside project root"):
-        tools_workflow.write_workflow(path=str(outside), yaml=_VALID_WF_YAML)
+        _run(tools_workflow.write_workflow(path=str(outside), yaml=_VALID_WF_YAML))
     assert not outside.exists(), "write should not have occurred"
 
 
@@ -185,7 +193,7 @@ def test_write_workflow_relative_traversal_escape_raises_permission_error(
 ) -> None:
     """A ``../`` escape is normalised and rejected."""
     with pytest.raises(PermissionError, match="resolves outside project root"):
-        tools_workflow.write_workflow(path="../escape.yaml", yaml=_VALID_WF_YAML)
+        _run(tools_workflow.write_workflow(path="../escape.yaml", yaml=_VALID_WF_YAML))
     bogus = (project_root.parent / "escape.yaml").resolve()
     assert not bogus.exists()
 
@@ -200,9 +208,9 @@ def test_write_workflow_absolute_under_project_dir_succeeds(
     project_root: Path,
 ) -> None:
     target = project_root / "workflows" / "abs.yaml"
-    result = tools_workflow.write_workflow(path=str(target), yaml=_VALID_WF_YAML)
+    result = _run(tools_workflow.write_workflow(path=str(target), yaml=_VALID_WF_YAML))
     assert target.resolve().is_file()
-    assert Path(result["path"]).resolve() == target.resolve()
+    assert Path(result.path).resolve() == target.resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -214,21 +222,22 @@ def test_write_then_get_round_trip(
     ctx_with_project: _StubRuntime,
     project_root: Path,
 ) -> None:
-    tools_workflow.write_workflow(path="workflows/roundtrip.yaml", yaml=_VALID_WF_YAML)
-    data = tools_workflow.get_workflow(path="workflows/roundtrip.yaml")
-    assert data["id"] == "integration_test"
-    # get_workflow also returns the absolute resolved path.
+    _run(tools_workflow.write_workflow(path="workflows/roundtrip.yaml", yaml=_VALID_WF_YAML))
+    data = _run(tools_workflow.get_workflow(path="workflows/roundtrip.yaml"))
+    # data is a WorkflowDefinitionEnvelope Pydantic model.
+    # The workflow id comes from the workflow dict inside the YAML.
     expected = (project_root / "workflows" / "roundtrip.yaml").resolve()
-    assert Path(data["path"]).resolve() == expected
+    assert Path(data.path).resolve() == expected
 
 
 def test_write_then_validate_round_trip(
     ctx_with_project: _StubRuntime,
 ) -> None:
-    tools_workflow.write_workflow(path="workflows/validate.yaml", yaml=_VALID_WF_YAML)
-    result = tools_workflow.validate_workflow(yaml_or_path="workflows/validate.yaml")
-    assert result["valid"] is True
-    assert result["errors"] == []
+    _run(tools_workflow.write_workflow(path="workflows/validate.yaml", yaml=_VALID_WF_YAML))
+    result = _run(tools_workflow.validate_workflow(yaml_or_path="workflows/validate.yaml"))
+    # result is a ValidateWorkflowResult Pydantic model.
+    assert result.valid is True
+    assert result.errors == []
 
 
 # ---------------------------------------------------------------------------
@@ -240,10 +249,11 @@ def test_write_then_run_workflow_uses_resolved_stem(
     ctx_with_project: _StubRuntime,
     project_root: Path,
 ) -> None:
-    tools_workflow.write_workflow(path="workflows/run_me.yaml", yaml=_VALID_WF_YAML)
-    result = tools_workflow.run_workflow(path="workflows/run_me.yaml")
-    assert result["status"] == "queued"
-    assert result["run_id"] == "run_me"
+    _run(tools_workflow.write_workflow(path="workflows/run_me.yaml", yaml=_VALID_WF_YAML))
+    result = _run(tools_workflow.run_workflow(path="workflows/run_me.yaml"))
+    # result is a RunWorkflowResult Pydantic model.
+    assert result.status in ("queued", "started")
+    assert "run_me" in result.run_id
     assert "run_me" in ctx_with_project.workflow_runs
 
 
@@ -280,11 +290,13 @@ def test_update_block_config_preserves_comments(
     fix is responsible for. We assert preservation of *structural*
     comments that sit above/around the mutation.
     """
-    tools_workflow.write_workflow(path="workflows/commented.yaml", yaml=_COMMENTED_WF)
-    out = tools_inspection.update_block_config(
-        workflow_path="workflows/commented.yaml",
-        block_id="b1",
-        params={"params": {"backend": "parquet"}},
+    _run(tools_workflow.write_workflow(path="workflows/commented.yaml", yaml=_COMMENTED_WF))
+    out = _run(
+        tools_inspection.update_block_config(
+            workflow_path="workflows/commented.yaml",
+            block_id="b1",
+            params={"params": {"backend": "parquet"}},
+        )
     )
     target = (project_root / "workflows" / "commented.yaml").resolve()
     text = target.read_text(encoding="utf-8")
@@ -294,8 +306,8 @@ def test_update_block_config_preserves_comments(
     # The parameter was updated.
     assert "parquet" in text
     assert "csv" not in text
-    # Envelope echoes the resolved path.
-    assert Path(out["workflow_path"]).resolve() == target
+    # Envelope echoes the resolved path — out is an UpdateBlockConfigResult model.
+    assert Path(out.workflow_path).resolve() == target
 
 
 # ---------------------------------------------------------------------------
@@ -306,18 +318,20 @@ def test_update_block_config_preserves_comments(
 def test_write_tools_return_absolute_paths(
     ctx_with_project: _StubRuntime,
 ) -> None:
-    w_out = tools_workflow.write_workflow(path="workflows/abs1.yaml", yaml=_VALID_WF_YAML)
-    assert Path(w_out["path"]).is_absolute()
+    w_out = _run(tools_workflow.write_workflow(path="workflows/abs1.yaml", yaml=_VALID_WF_YAML))
+    assert Path(w_out.path).is_absolute()
 
-    u_out = tools_inspection.update_block_config(
-        workflow_path="workflows/abs1.yaml",
-        block_id="b1",
-        params={"params": {"backend": "json"}},
+    u_out = _run(
+        tools_inspection.update_block_config(
+            workflow_path="workflows/abs1.yaml",
+            block_id="b1",
+            params={"params": {"backend": "json"}},
+        )
     )
-    assert Path(u_out["workflow_path"]).is_absolute()
+    assert Path(u_out.workflow_path).is_absolute()
 
-    g_out = tools_workflow.get_workflow(path="workflows/abs1.yaml")
-    assert Path(g_out["path"]).is_absolute()
+    g_out = _run(tools_workflow.get_workflow(path="workflows/abs1.yaml"))
+    assert Path(g_out.path).is_absolute()
 
 
 # ---------------------------------------------------------------------------
@@ -330,18 +344,21 @@ def test_concurrent_write_workflow_serialises(
     project_root: Path,
 ) -> None:
     """Two concurrent writes on the same path: filelock serialises both."""
-    results: list[dict[str, Any]] = []
+    results: list[Any] = []
     errors: list[BaseException] = []
 
     def _worker(payload: str) -> None:
         try:
-            r = tools_workflow.write_workflow(path="workflows/concurrent.yaml", yaml=payload)
+            r = _run(tools_workflow.write_workflow(path="workflows/concurrent.yaml", yaml=payload))
             results.append(r)
         except BaseException as exc:
             errors.append(exc)
 
     t1 = threading.Thread(target=_worker, args=(_VALID_WF_YAML,))
-    t2 = threading.Thread(target=_worker, args=(_VALID_WF_YAML.replace("integration_test", "second"),))
+    t2 = threading.Thread(
+        target=_worker,
+        args=(_VALID_WF_YAML.replace("integration_test", "second"),),
+    )
     t1.start()
     t2.start()
     t1.join()
@@ -369,7 +386,7 @@ def test_write_workflow_without_open_project_raises_runtime_error(
     _context.set_context(runtime)
     try:
         with pytest.raises(RuntimeError, match="No project is currently open"):
-            tools_workflow.write_workflow(path="workflows/x.yaml", yaml=_VALID_WF_YAML)
+            _run(tools_workflow.write_workflow(path="workflows/x.yaml", yaml=_VALID_WF_YAML))
     finally:
         _context.set_context(None)
 
@@ -394,12 +411,14 @@ def test_resolved_path_uses_realpath_not_string_compare(
     relative segment must be normalised away.
     """
     # Path with redundant ./ and // separators in the relative portion.
-    result = tools_workflow.write_workflow(
-        path="workflows/./subdir/../redundant.yaml",
-        yaml=_VALID_WF_YAML,
+    result = _run(
+        tools_workflow.write_workflow(
+            path="workflows/./subdir/../redundant.yaml",
+            yaml=_VALID_WF_YAML,
+        )
     )
     expected = (project_root / "workflows" / "redundant.yaml").resolve()
-    assert Path(result["path"]).resolve() == expected
+    assert Path(result.path).resolve() == expected
     assert expected.is_file()
     # ``..`` should NOT have escaped (still inside workflows/).
     assert os.path.commonpath([str(expected), str(project_root)]) == str(project_root)

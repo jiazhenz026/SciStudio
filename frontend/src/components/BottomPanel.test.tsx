@@ -1,11 +1,29 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BottomPanel } from "./BottomPanel";
 import type { FormatCapabilityResponse } from "../types/api";
 
+// #1373: hoist api mocks so native-dialog and filesystem-fallback tests can
+// control openNativeDialog / browseFilesystem per-test.
+const apiMocks = vi.hoisted(() => ({
+  openNativeDialog: vi.fn(),
+  browseFilesystem: vi.fn(),
+}));
+
 vi.mock("../lib/api", () => ({
-  api: {},
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.name = "ApiError";
+      this.status = status;
+    }
+  },
+  api: {
+    openNativeDialog: apiMocks.openNativeDialog,
+    browseFilesystem: apiMocks.browseFilesystem,
+  },
   setWorkflowWriteStartedListener: vi.fn(),
 }));
 
@@ -62,6 +80,8 @@ describe("BottomPanel", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    apiMocks.openNativeDialog.mockReset();
+    apiMocks.browseFilesystem.mockReset();
   });
 
   it("renders config inputs from schema and emits config updates", () => {
@@ -617,6 +637,100 @@ describe("BottomPanel", () => {
       ],
       output_ports: [{ name: "table", types: ["DataFrame"] }],
     });
+  });
+
+  // --- #1373: native file-browser fallback regression coverage ---
+
+  // Shared helper: render BottomPanel with a single-field browser schema.
+  function renderBrowser(
+    widget: "file_browser" | "directory_browser",
+    initialPath: string,
+    onUpdateConfig = vi.fn(),
+  ) {
+    const isDir = widget === "directory_browser";
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: isDir ? "proc-1" : "load-1",
+          block_type: isDir ? "process_block" : "load_data",
+          config: { params: isDir ? { output_dir: initialPath } : { path: initialPath } },
+        }}
+        selectedSchema={{
+          name: isDir ? "Process Block" : "Load",
+          type_name: isDir ? "process_block" : "load_data",
+          base_category: isDir ? "process" : "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          config_schema: {
+            properties: {
+              [isDir ? "output_dir" : "path"]: {
+                type: "string",
+                title: isDir ? "Output directory" : "Path",
+                ui_priority: 0,
+                ui_widget: widget,
+              },
+            },
+          },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+    return onUpdateConfig;
+  }
+
+  it("config Browse button succeeds via native dialog (file_browser)", async () => {
+    // #1373: BottomPanel with a file_browser field must use openNativeDialog first.
+    apiMocks.openNativeDialog.mockResolvedValueOnce({ paths: ["/projects/data/sample.tif"] });
+    const onUpdateConfig = renderBrowser("file_browser", "/projects/data/old.tif");
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+    await waitFor(() =>
+      expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/projects/data"),
+    );
+    await waitFor(() =>
+      expect(onUpdateConfig).toHaveBeenCalledWith({ path: "/projects/data/sample.tif" }),
+    );
+    expect(apiMocks.browseFilesystem).not.toHaveBeenCalled();
+  });
+
+  it("config Browse button falls back to in-app modal on native dialog failure (file_browser)", async () => {
+    // #1373: HTTP 500 from openNativeDialog triggers the FileBrowserModal fallback.
+    const { ApiError } = await import("../lib/api");
+    apiMocks.openNativeDialog.mockRejectedValueOnce(new ApiError("Not available", 500));
+    apiMocks.browseFilesystem.mockResolvedValueOnce({ path: "/projects/data", entries: [] });
+    renderBrowser("file_browser", "");
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+    expect(await screen.findByText("Select File")).toBeInTheDocument();
+    expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", undefined);
+  });
+
+  it("config Browse button falls back to in-app modal on native dialog failure (directory_browser)", async () => {
+    // #1373: directory_browser mode also falls back; uses process_block to avoid
+    // CodeBlockConfigEditor which bypasses the generic browse button.
+    const { ApiError } = await import("../lib/api");
+    apiMocks.openNativeDialog.mockRejectedValueOnce(new ApiError("Not supported", 500));
+    apiMocks.browseFilesystem.mockResolvedValueOnce({ path: "/projects", entries: [] });
+    renderBrowser("directory_browser", "");
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+    expect(await screen.findByText("Select Directory")).toBeInTheDocument();
+    expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("directory", undefined);
+  });
+
+  it("config Browse button does not update config when user cancels native dialog", async () => {
+    // #1373: user-cancel (empty paths list) must not call onUpdateConfig.
+    apiMocks.openNativeDialog.mockResolvedValueOnce({ paths: [] });
+    const onUpdateConfig = renderBrowser("file_browser", "/old/path.tif");
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+    await waitFor(() =>
+      expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/old"),
+    );
+    expect(onUpdateConfig).not.toHaveBeenCalled();
   });
 
   it("adds CodeBlock v2 output rows with non-colliding default names", () => {
