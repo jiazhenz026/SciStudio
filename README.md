@@ -283,23 +283,37 @@ my_project/
 Save a `.py` file in your project's `blocks/` directory:
 
 ```python
-from scistudio.blocks.base import ProcessBlock, InputPort, OutputPort
-from scistudio.core.types import Spectrum
+import numpy as np
+
+from scistudio.blocks.base import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
 class RamanDenoise(ProcessBlock):
     name = "Raman denoise"
     description = "Savitzky-Golay smoothing for Raman spectra"
     version = "0.1.0"
-    category = "spectroscopy"
+    subcategory = "spectroscopy"
 
-    input_ports = [InputPort(name="spectrum", accepted_types=[Spectrum])]
-    output_ports = [OutputPort(name="smoothed", accepted_types=[Spectrum])]
+    input_ports = [InputPort(name="spectrum", accepted_types=[Array])]
+    output_ports = [OutputPort(name="smoothed", accepted_types=[Array])]
 
-    def process_item(self, item, config):
+    def process_item(self, item, config, state=None):
         from scipy.signal import savgol_filter
-        data = item.view().to_memory()
-        return savgol_filter(data, config.get("window", 11), config.get("order", 3))
+        data = np.asarray(item.to_memory())
+        smoothed = savgol_filter(
+            data, config.get("window", 11), config.get("order", 3)
+        )
+        return Array(
+            axes=list(item.axes),
+            shape=smoothed.shape,
+            dtype=str(smoothed.dtype),
+            data=smoothed,
+        )
 ```
+
+See the [Block Developer SDK Quickstart](docs/block-development/quickstart.md)
+for a complete, tested example and the full ClassVar contract.
 
 Click "Reload Blocks" in the GUI and it appears in the palette.
 
@@ -462,4 +476,5 @@ Development follows a phased plan. Completed phases:
 
 ## License
 
-SciStudio is released under the [MIT License](https://opensource.org/licenses/MIT).
+SciStudio is released under the MIT License. See the [LICENSE](LICENSE) file for
+the full text.

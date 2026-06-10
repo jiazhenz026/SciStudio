@@ -125,14 +125,13 @@ class LoadNpy(IOBlock):
                 storage_ref=ref,
             )
         # Fallback for direct calls outside workflow context
-        arr = Array(
+        return Array(
             axes=axes,
             shape=tuple(data.shape),
             dtype=str(data.dtype),
             framework=FrameworkMeta(source=str(path)),
+            data=data,
         )
-        arr._data = data  # type: ignore[attr-defined]
-        return arr
 
     def _load_streaming(self, path: Path, config: BlockConfig, output_dir: str) -> Array:
         """Streaming path: memory-mapped read + chunked zarr write.
