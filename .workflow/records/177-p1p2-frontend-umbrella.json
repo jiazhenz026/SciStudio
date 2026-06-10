@@ -1,6 +1,56 @@
 {
   "branch": "claude/p1p2-frontend",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-10T17:39:44.994016Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:39:52.695591Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:39:52.777009Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -10,9 +60,79 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-10T17:38:51.904963Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-10T17:39:52.831975Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:52.857140Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:52.881233Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:52.915275Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:52.939527Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:52.964024Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:53.115972Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:53.138795Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:53.161740Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:39:53.184786Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -22,25 +142,104 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "a13a460c568f88e4b15bb16b23d982b07e3ab1cc",
+    "base_sha": "a13a460c",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "eaeabe63",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "P1-P2 and stale-bug fix session: Frontend umbrella (reconnection, port conformance, auto-open investigation). [DO NOT MERGE] integration PR.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-10T17:39:53.184824Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "177-p1p2-frontend-umbrella",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-10T17:38:51.904883Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Fix #177 WebSocket heartbeat as a real application-level ping/pong protocol instead of only checking readyState; frontend reconnects OPEN-but-stale sockets after timeout."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T17:38:51.904908Z",
+      "pattern": "tests/api/test_ws.py",
+      "reason": "Fix #177 WebSocket heartbeat as a real application-level ping/pong protocol instead of only checking readyState; frontend reconnects OPEN-but-stale sockets after timeout."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T17:38:51.904911Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "Fix #177 WebSocket heartbeat as a real application-level ping/pong protocol instead of only checking readyState; frontend reconnects OPEN-but-stale sockets after timeout."
+    }
+  ],
   "session_id": "9ba52eae-be05-4a38-934b-0cb6a3e4428b",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "bugfix",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-10T17:38:51.904970Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useReconnect.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T17:38:51.904975Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ws.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }

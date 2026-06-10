@@ -72,6 +72,15 @@ def test_websocket_inbound_messages_emit_cancel_events(client: TestClient, runti
     assert (CANCEL_WORKFLOW_REQUEST, None, "wf-2") in seen
 
 
+def test_websocket_replies_to_heartbeat_ping(client: TestClient, runtime: ApiRuntime) -> None:
+    """#177: browser heartbeat pings receive a pong frame."""
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "ping"})
+        message = websocket.receive_json()
+
+    assert message == {"type": "pong"}
+
+
 def test_websocket_handler_handles_cancelled_error_on_shutdown() -> None:
     """websocket_handler must exit cleanly when asyncio.CancelledError is raised.
 

@@ -48,6 +48,10 @@ class MockWebSocket {
     this.sent.push(data);
   }
 
+  message(payload: unknown) {
+    this.onmessage?.({ data: JSON.stringify(payload) } as MessageEvent<string>);
+  }
+
   // Simulate the network dropping the connection (server-driven close).
   drop() {
     this.readyState = MockWebSocket.CLOSED;
@@ -203,20 +207,29 @@ describe("realtime reconnection (#177)", () => {
     act(() => sock.open());
     expect(view.getByTestId("ws-status").textContent).toBe("connected");
 
-    // While OPEN, the heartbeat tick is a no-op (the backend has no
-    // ping/pong, so we never force-close a healthy socket).
+    // While OPEN, the heartbeat sends an application-level ping.
     act(() => {
       vi.advanceTimersByTime(30000);
+    });
+    expect(sock.sent.map((data) => JSON.parse(data))).toContainEqual({ type: "ping" });
+    expect(view.getByTestId("ws-status").textContent).toBe("connected");
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    // A pong response before the timeout keeps the socket alive.
+    act(() => sock.message({ type: "pong" }));
+    act(() => {
+      vi.advanceTimersByTime(10000);
     });
     expect(view.getByTestId("ws-status").textContent).toBe("connected");
     expect(MockWebSocket.instances).toHaveLength(1);
 
-    // Simulate a half-open socket: the browser moved it out of OPEN
-    // without firing onclose (laptop sleep/wake). The next heartbeat tick
-    // detects the stale readyState and drives the managed reconnect.
-    sock.readyState = MockWebSocket.CLOSED;
+    // Simulate the real stale case: the browser still reports OPEN but the
+    // server never replies to the next heartbeat.
     act(() => {
       vi.advanceTimersByTime(30000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(10000);
     });
     expect(view.getByTestId("ws-status").textContent).toBe("reconnecting");
 

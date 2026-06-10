@@ -11,6 +11,7 @@ import { dispatchWorkflowEvent } from "./useWebSocket.parts/dispatchEvent";
 
 /** Heartbeat interval (#177): ping the server to detect stale sockets. */
 const HEARTBEAT_INTERVAL_MS = 30000;
+const HEARTBEAT_TIMEOUT_MS = 10000;
 
 /** Ref-holder for the active WebSocket so components can send messages. */
 let _activeSocket: WebSocket | null = null;
@@ -63,7 +64,9 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
     let socket: WebSocket | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let heartbeatTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
     let delay = RECONNECT_INITIAL_DELAY_MS;
+    let lastInboundAt = 0;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const url = `${protocol}://${window.location.host}/ws`;
@@ -73,35 +76,50 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
       }
+      if (heartbeatTimeoutTimer) {
+        clearTimeout(heartbeatTimeoutTimer);
+        heartbeatTimeoutTimer = null;
+      }
     };
 
-    // #177 heartbeat. The SciStudio backend WS handler does NOT implement
-    // an application-level ping/pong (its inbound loop logs unknown frame
-    // types and never replies — see `src/scistudio/api/ws.py`), and that
-    // module is frozen by ADR-035/036 scope. So we MUST NOT rely on a
-    // server pong to judge liveness — doing so would force-close a
-    // perfectly healthy socket every interval.
-    //
-    // Instead the heartbeat detects the half-open case (laptop sleep/wake,
-    // network handoff) where the browser has moved the socket out of OPEN
-    // without yet firing `onclose`: if `readyState` is no longer OPEN we
-    // force-close so the managed reconnect path runs promptly rather than
-    // waiting for the browser's own (sometimes very delayed) close event.
+    // #177 heartbeat. Browsers cannot send WebSocket protocol pings, so
+    // SciStudio uses an application-level ping/pong frame. Any inbound frame
+    // after a ping proves the socket is live. If no frame arrives before the
+    // timeout, the hook treats the still-OPEN socket as stale and reconnects.
     const startHeartbeat = () => {
       clearHeartbeat();
       heartbeatTimer = setInterval(() => {
         if (cancelled || !socket) return;
         if (socket.readyState !== WebSocket.OPEN) {
-          // Stale / half-open socket — drive the reconnect now.
+          // Stale or half-open socket: drive the reconnect now.
           handleClosed();
+          return;
         }
+        if (heartbeatTimeoutTimer) {
+          clearTimeout(heartbeatTimeoutTimer);
+          heartbeatTimeoutTimer = null;
+        }
+        const pingSentAt = Date.now();
+        try {
+          socket.send(JSON.stringify({ type: "ping" }));
+        } catch {
+          handleClosed();
+          return;
+        }
+        heartbeatTimeoutTimer = setTimeout(() => {
+          if (cancelled || !socket) return;
+          if (lastInboundAt >= pingSentAt) return;
+          socket.close();
+          handleClosed();
+        }, HEARTBEAT_TIMEOUT_MS);
       }, HEARTBEAT_INTERVAL_MS);
     };
 
     const scheduleReconnect = () => {
-      if (cancelled) return;
+      if (cancelled || retryTimer) return;
       setStatus("reconnecting");
       retryTimer = setTimeout(() => {
+        retryTimer = null;
         delay = nextBackoffDelay(delay);
         connect();
       }, delay);
@@ -123,6 +141,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
       socket.onopen = () => {
         if (cancelled) return;
         delay = RECONNECT_INITIAL_DELAY_MS;
+        lastInboundAt = Date.now();
         setStatus("connected");
         startHeartbeat();
       };
@@ -137,6 +156,8 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
       };
       socket.onmessage = (event) => {
         const payload = JSON.parse(event.data) as WorkflowEventMessage;
+        lastInboundAt = Date.now();
+        if (payload.type === "pong") return;
         const consumed = dispatchWorkflowEvent(payload, {
           appendLog,
           setInteractivePrompt,
@@ -148,7 +169,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
 
         // The Logs unread badge is coupled to ``appendLog`` / ``consumeEvent``
         // itself (executionSlice) so it tracks actual rendered rows. The
-        // Problems tab was removed in the same change set — block_error rows
+        // Problems tab was removed in the same change set; block_error rows
         // surface in the Logs panel (filterable via the level selector) and
         // as the inline error badge on the BlockNode itself.
       };
