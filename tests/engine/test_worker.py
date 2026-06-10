@@ -220,19 +220,24 @@ class TestWorkerMain:
             timeout=30,
         )
 
-        # If the block import fails, it's because the test stub isn't importable
-        # from the subprocess context. In that case we fall back to checking
-        # that the error payload is well-formed JSON (the worker always writes
-        # JSON to stdout).
+        # The worker always writes JSON to stdout. The subprocess MUST succeed:
+        # if the stub block becomes unimportable (an easy regression in a
+        # src-layout repo), the worker emits an ``error`` payload and the
+        # documented ``environment`` contract would go untested. Fail loudly in
+        # that case rather than degrading to a vacuous pass (#1522).
         parsed = json.loads(result.stdout)
 
-        if "error" not in parsed:
-            assert "outputs" in parsed, f"Missing 'outputs' key: {parsed}"
-            assert "environment" in parsed, f"Missing 'environment' key: {parsed}"
-            env = parsed["environment"]
-            assert "python_version" in env
-            assert "platform" in env
-            assert "key_packages" in env
+        assert "error" not in parsed, (
+            "worker subprocess errored instead of running the stub block; "
+            f"the environment contract was not exercised: {parsed} "
+            f"(stderr: {result.stderr!r})"
+        )
+        assert "outputs" in parsed, f"Missing 'outputs' key: {parsed}"
+        assert "environment" in parsed, f"Missing 'environment' key: {parsed}"
+        env = parsed["environment"]
+        assert "python_version" in env
+        assert "platform" in env
+        assert "key_packages" in env
 
 
 class _StubBlock:
