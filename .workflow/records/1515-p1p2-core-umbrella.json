@@ -1,6 +1,56 @@
 {
   "branch": "claude/p1p2-core",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-10T18:23:28.703934Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T18:23:37.499544Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:23:37.581856Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -10,10 +60,86 @@
       "tests/**"
     ]
   },
-  "directive_events": [],
-  "docs_events": [],
-  "governance_touch": false,
-  "guard_events": [],
+  "directive_events": [
+    {
+      "at": "2026-06-10T18:22:39.828858Z",
+      "owner_directive": "Owner review requested for #1561 core umbrella; CI already carries admin-approved:core-change and this amendment declares the governance-touch portion of the integrated gate-runtime fixes.",
+      "reason": "declare governance gate-runtime changes for workflow-gate mod_guard"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-10T18:22:39.828890Z",
+      "class": "governance-runtime",
+      "kind": "na",
+      "path": null,
+      "rationale": "core umbrella PR body and committed investigation docs cover gate-runtime changes; no separate user-facing docs delta in this ledger-only fix",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-10T18:23:37.635406Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.659418Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.683967Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.708637Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.862642Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.890592Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.918299Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.945019Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.970961Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:23:37.996002Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -23,25 +149,104 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "a13a460c568f88e4b15bb16b23d982b07e3ab1cc",
+    "base_sha": "a13a460c",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "3ca47c66",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "P1-P2 and stale-bug fix session: Core (engine/blocks/lineage/storage/versioning) umbrella. [DO NOT MERGE] integration PR collecting per-agent Core fixes.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-10T18:23:37.996038Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1515-p1p2-core-umbrella",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:22:39.828874Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "reason": "declare governance gate-runtime changes for workflow-gate mod_guard"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:22:39.828880Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/io.py",
+      "reason": "declare governance gate-runtime changes for workflow-gate mod_guard"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:22:39.828882Z",
+      "pattern": ".workflow/records/1515-p1p2-core-umbrella.json",
+      "reason": "declare governance gate-runtime changes for workflow-gate mod_guard"
+    }
+  ],
   "session_id": "2fa6d4e9-7927-4d3a-b2f1-a2d505fe7a48",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "bugfix",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-10T18:22:39.828894Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:22:39.828898Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
