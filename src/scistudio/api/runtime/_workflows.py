@@ -7,6 +7,7 @@ docstring for the free-function-bound-as-method pattern.
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -116,20 +117,56 @@ def _absolutify_node_config(
     return absolutify_paths(config, project_dir, schema)
 
 
-def delete_workflow(self: ApiRuntime, workflow_id: str) -> None:
+def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
+    """Delete a workflow's YAML from disk.
+
+    Returns ``True`` when a file was actually removed, ``False`` when no
+    workflow file existed. The route uses this to decide whether to emit the
+    versioned ``workflow.changed`` ``kind="deleted"`` event (#1462 / ADR-045
+    §3.4) so a user-initiated delete is attributed to ``source="canvas"``
+    rather than being mis-tagged ``source="external"`` by the FS watcher.
+    """
     path = self.workflow_path(workflow_id)
     if path.exists():
         path.unlink()
+        return True
+    return False
 
 
-def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, Any]:
+def _upload_destination(self: ApiRuntime, filename: str) -> Path:
     project = self.require_active_project()
     safe_name = Path(filename).name  # strips all directory components
     if not safe_name or safe_name.startswith("."):
         raise ValueError(f"Invalid filename: {filename!r}")
     destination = Path(project.path) / "data" / "raw" / safe_name
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(content)
+    return destination
+
+
+def stage_upload_file(self: ApiRuntime, filename: str) -> tuple[Path, Path]:
+    """Return final and temporary same-directory paths for a streamed upload."""
+    destination = self._upload_destination(filename)
+    with tempfile.NamedTemporaryFile(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".upload",
+        delete=False,
+    ) as staged:
+        staged_path = Path(staged.name)
+    return destination, staged_path
+
+
+def discard_staged_upload(self: ApiRuntime, staged_path: Path) -> None:
+    try:
+        staged_path.unlink()
+    except FileNotFoundError:
+        return
+
+
+def finish_staged_upload(self: ApiRuntime, destination: Path, staged_path: Path) -> dict[str, Any]:
+    if destination.parent != staged_path.parent:
+        raise ValueError("staged upload must live beside the destination")
+    staged_path.replace(destination)
 
     extension = destination.suffix.lower().lstrip(".") or "bin"
     ref = StorageReference(
@@ -143,3 +180,13 @@ def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, An
         "type_name": record.type_name,
         "metadata": record.metadata,
     }
+
+
+def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, Any]:
+    destination, staged_path = self.stage_upload_file(filename)
+    try:
+        staged_path.write_bytes(content)
+        return self.finish_staged_upload(destination, staged_path)
+    except Exception:
+        self.discard_staged_upload(staged_path)
+        raise

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes import workflow_watcher
 from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime, WorkflowRun
+from scistudio.api.runtime._runs import WorkflowAlreadyRunningError
 from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
@@ -446,9 +447,31 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
 
 
 @router.delete("/{workflow_id}", status_code=204)
-async def delete_workflow(workflow_id: str, runtime: RuntimeDep) -> None:
-    """Delete a workflow."""
-    runtime.delete_workflow(workflow_id)
+async def delete_workflow(workflow_id: str, runtime: RuntimeDep, request: Request) -> None:
+    """Delete a workflow.
+
+    #1462 / ADR-045 §3.4: after the unlink, emit a versioned
+    ``workflow.changed`` event with ``kind="deleted"`` attributed to
+    ``source="canvas"`` (or the ``X-Source`` header) so other clients see a
+    user-initiated delete rather than the FS-watcher's ``source="external"``
+    echo. ``_emit_workflow_changed`` also marks the write first-party so the
+    watcher suppresses the redundant FS-driven event.
+    """
+    deleted = runtime.delete_workflow(workflow_id)
+    if not deleted:
+        return
+    changed_by = request.headers.get("X-Changed-By", "api")
+    source_id = _request_source_id(request)
+    source = _request_source(request, changed_by=changed_by)
+    await _emit_workflow_changed(
+        runtime,
+        workflow_id=workflow_id,
+        changed_by=changed_by,
+        source=source,
+        source_id=source_id,
+        kind="deleted",
+        path=f"workflows/{workflow_id}.yaml",
+    )
 
 
 @router.post("/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
@@ -467,6 +490,10 @@ async def execute_workflow(
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except WorkflowAlreadyRunningError as exc:
+        # #1525: a live run already exists; reject instead of silently
+        # orphaning it by starting a second scheduler.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
 
 
@@ -564,6 +591,10 @@ async def execute_from_workflow(
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except WorkflowAlreadyRunningError as exc:
+        # #1525: a live run already exists; reject instead of silently
+        # orphaning it by starting a second scheduler.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ExecuteFromResponse(**result)

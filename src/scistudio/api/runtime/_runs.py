@@ -27,6 +27,39 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class WorkflowAlreadyRunningError(RuntimeError):
+    """Raised when a workflow is re-executed while a live run is in flight.
+
+    Short-term concurrency guard for #1525: starting a second scheduler for
+    the same ``workflow_id`` while the first is still running silently orphans
+    the original run (both share the event bus, resource manager, process
+    registry, checkpoint slot, and lineage store, and ``get_run`` /
+    ``cancel_workflow`` only resolve the newest entry). The route maps this to
+    HTTP 409. The long-term fix (keying runs by ``run_id`` with an explicit
+    concurrency policy) is tracked separately.
+
+    TODO(#1517): replace this guard with run-identity keyed concurrency.
+      Out of scope per manager dispatch A1 (short-term guard only for #1525).
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1517
+    """
+
+    def __init__(self, workflow_id: str) -> None:
+        self.workflow_id = workflow_id
+        super().__init__(f"Workflow is already running: {workflow_id}")
+
+
+def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
+    """Return ``True`` when a live (non-finished) run exists for *workflow_id*.
+
+    Module-level helper (not a bound ``ApiRuntime`` method) so the guard works
+    without touching the runtime ``__init__`` method-binding table.
+    """
+    run = runtime.workflow_runs.get(workflow_id)
+    if run is None:
+        return False
+    return not run.task.done()
+
+
 def _ancestors_of(self: ApiRuntime, workflow: WorkflowDefinition, block_id: str) -> set[str]:
     from scistudio.engine.dag import build_dag
 
@@ -182,6 +215,16 @@ def start_workflow(
     ``workflow_dirty`` at INSERT time.
     """
     from . import WorkflowRun
+
+    # #1525 short-term guard: reject starting a second scheduler for a
+    # workflow whose previous run is still live. Without this, the old
+    # asyncio.Task / DAGScheduler is never cancelled and keeps racing the new
+    # one on the shared event bus, resource manager, process registry,
+    # checkpoint slot, and lineage store — and becomes uncancellable because
+    # get_run / cancel_workflow only resolve the newest run. Checked before any
+    # side effect (auto-commit, lineage INSERT, task creation).
+    if _is_workflow_running(self, workflow_id):
+        raise WorkflowAlreadyRunningError(workflow_id)
 
     # ADR-039 §3.4 pre-run auto-commit
     workflow_git_commit: str | None = None

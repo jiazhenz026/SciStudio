@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,40 @@ from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.array import Array
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.series import Series
+
+
+class _DirectUploadRuntime:
+    def __init__(self, project_dir: Path) -> None:
+        self.project_dir = project_dir
+        self.destination: Path | None = None
+        self.staged_path: Path | None = None
+        self.finished = False
+        self.discarded = False
+
+    def stage_upload_file(self, filename: str) -> tuple[Path, Path]:
+        destination = self.project_dir / "data" / "raw" / Path(filename).name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        staged_path = destination.parent / f".{destination.name}.upload"
+        self.destination = destination
+        self.staged_path = staged_path
+        return destination, staged_path
+
+    def finish_staged_upload(self, destination: Path, staged_path: Path) -> dict[str, Any]:
+        self.finished = True
+        staged_path.replace(destination)
+        return {
+            "ref": "data-1",
+            "type_name": "Artifact",
+            "metadata": {"size": destination.stat().st_size},
+        }
+
+    def discard_staged_upload(self, staged_path: Path) -> None:
+        self.discarded = True
+        with suppress(FileNotFoundError):
+            staged_path.unlink()
+
+    def upload_file(self, filename: str, content: bytes) -> dict[str, Any]:
+        raise AssertionError("upload route must stream through staged upload paths")
 
 
 def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened_project: Path) -> None:
@@ -47,6 +82,149 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
     assert text_preview.status_code == 200
     assert text_preview.json()["preview"]["kind"] == "text"
     assert "hello from SciStudio" in text_preview.json()["preview"]["content"]
+
+
+def test_upload_oversized_file_rejected_with_413(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """#1526: an upload exceeding the cap is rejected with 413."""
+    from scistudio.api.routes import data as data_routes
+
+    # Shrink the cap so the test does not need a multi-GB payload.
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    payload = b"x" * 4096  # 4 KiB > 1 KiB cap
+    resp = client.post(
+        "/api/data/upload",
+        files={"file": ("big.bin", payload, "application/octet-stream")},
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"].lower()
+
+
+def test_upload_at_cap_boundary_is_accepted(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """#1526: an upload exactly at the cap is accepted (off-by-one guard)."""
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    payload = b"y" * 1024  # exactly at the cap
+    resp = client.post(
+        "/api/data/upload",
+        files={"file": ("atcap.bin", payload, "application/octet-stream")},
+    )
+    assert resp.status_code == 200
+
+
+def test_upload_streams_success_without_runtime_byte_buffer(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """#1526: successful uploads are streamed to a staged file, not bytes API."""
+    import asyncio
+
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 4096)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 128)
+
+    class _ChunkedUpload:
+        filename = "stream.bin"
+
+        def __init__(self, payload: bytes) -> None:
+            self._payload = payload
+            self._offset = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            if self._offset >= len(self._payload):
+                return b""
+            n = len(self._payload) - self._offset if size < 0 else min(size, len(self._payload) - self._offset)
+            start = self._offset
+            self._offset += n
+            return self._payload[start : start + n]
+
+    runtime = _DirectUploadRuntime(tmp_path)
+    payload = b"streamed-body" * 64
+
+    response = asyncio.run(data_routes.upload_data(_ChunkedUpload(payload), runtime=runtime))  # type: ignore[arg-type]
+
+    assert response.ref == "data-1"
+    assert runtime.finished is True
+    assert runtime.destination is not None
+    assert runtime.destination.read_bytes() == payload
+
+
+def test_upload_streams_and_aborts_without_buffering_whole_body(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """#1526: the handler aborts mid-stream and never reads the full body.
+
+    Drives ``upload_data`` directly with a fake ``UploadFile`` that records
+    how many bytes were handed out. Once the running counter crosses the cap
+    the handler must raise 413 *before* draining the rest of the stream — i.e.
+    it must not materialize the entire (potentially OOM-sized) body first.
+    """
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 1024)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 256)
+
+    class _FakeUpload:
+        """Emit a very large body 256 bytes at a time, counting reads."""
+
+        filename = "huge.bin"
+
+        def __init__(self, total_bytes: int) -> None:
+            self._remaining = total_bytes
+            self.bytes_served = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            if self._remaining <= 0:
+                return b""
+            n = self._remaining if size < 0 else min(size, self._remaining)
+            self._remaining -= n
+            self.bytes_served += n
+            return b"z" * n
+
+    # 1 GiB "virtual" body; if the handler buffered the whole thing it would
+    # serve all of it. We assert it stops far earlier.
+    total = 1024 * 1024 * 1024
+    fake = _FakeUpload(total)
+    runtime = _DirectUploadRuntime(tmp_path)
+    existing = tmp_path / "data" / "raw" / "huge.bin"
+    existing.parent.mkdir(parents=True, exist_ok=True)
+    existing.write_bytes(b"existing")
+
+    raised = False
+    try:
+        asyncio.run(data_routes.upload_data(fake, runtime=runtime))  # type: ignore[arg-type]
+    except HTTPException as exc:
+        raised = True
+        assert exc.status_code == 413
+
+    assert raised, "oversized stream should raise 413"
+    # The handler must have stopped reading shortly after crossing the cap,
+    # not drained the whole 1 GiB body.
+    assert fake.bytes_served <= data_routes.MAX_UPLOAD_SIZE + data_routes._UPLOAD_CHUNK_SIZE
+    assert fake.bytes_served < total
+    assert runtime.finished is False
+    assert runtime.discarded is True
+    assert runtime.staged_path is not None
+    assert not runtime.staged_path.exists()
+    assert existing.read_bytes() == b"existing"
 
 
 def test_preview_supports_image_series_composite_and_artifact_types(

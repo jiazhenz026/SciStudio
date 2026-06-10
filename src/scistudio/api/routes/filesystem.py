@@ -240,7 +240,15 @@ async def browse_filesystem(
     if not path:
         return FilesystemBrowseResponse(path="", entries=_list_roots())
 
-    target = Path(path)
+    # Route the user-supplied path through the same home/temp allowlist guard
+    # the sibling ``stat`` and ``reveal`` endpoints use (#1524). The module
+    # docstring mandates the sanitiser for browse too; without it an
+    # unauthenticated client could enumerate arbitrary directories
+    # (e.g. ``?path=/etc``).
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path does not exist: {path}")
     if not target.is_dir():
