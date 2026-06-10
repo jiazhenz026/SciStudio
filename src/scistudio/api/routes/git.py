@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -89,54 +88,114 @@ def _engine_for_request(request: Request) -> GitEngine:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def _snapshot_workflows(project_dir: Path) -> dict[str, str | None]:
-    """Capture content hashes for every ``workflows/*.yaml`` under *project_dir*.
+def _capture_pre_op_ref(engine: GitEngine) -> str | None:
+    """Capture the HEAD SHA before a tree-mutating git op (ADR-045 §5.1 #5).
 
-    Hotfix #988: tree-mutating git operations (``branch_switch``, ``restore``,
-    ``merge``, ``cherry_pick``) rewrite workflow YAML files on
-    disk so the canvas must reload them. The ADR-039 design relied on the
-    filesystem-level :class:`WorkflowWatcher` to fire ``workflow.changed``
-    events for any post-git modification — but watchdog event coalescing,
-    debounce windows, and Windows-specific atomic-replace ordering make that
-    signal unreliable for bulk file rewrites that complete inside a single
-    debounce slice. The canonical fix is for each git endpoint to **actively**
-    diff workflows pre/post-op and emit ``workflow.changed`` per file.
+    ADR-045 §5.1 row #5 retires the SHA-256 hash-snapshot diff: each git
+    endpoint is a **write site** that already knows the semantic, so the set
+    of affected workflows is derived from git itself rather than by hashing
+    every YAML pre/post-op. Callers capture the pre-op HEAD here, run the git
+    operation, then call :func:`_emit_workflow_diff`, which asks git which
+    ``workflows/*.yaml`` paths changed.
 
-    Returns a mapping of POSIX-style ``workflows/...`` paths to SHA-256 hex
-    digests (or ``None`` if the file vanished mid-snapshot). Files outside
-    ``workflows/`` are intentionally ignored — only those drive the canvas.
+    Returns ``None`` when HEAD cannot be resolved (e.g. an unborn branch with
+    no commits yet); :func:`_emit_workflow_diff` falls back to a working-tree
+    diff in that case.
     """
-    workflows_dir = project_dir / "workflows"
-    snapshot: dict[str, str | None] = {}
-    if not workflows_dir.is_dir():
-        return snapshot
-    for yaml_path in workflows_dir.rglob("*.yaml"):
+    try:
+        state = engine.head_state()
+    except GitError:
+        return None
+    return state.commit_sha or None
+
+
+def _changed_workflow_paths(engine: GitEngine, project_dir: Path, before_ref: str | None) -> dict[str, str]:
+    """Return ``{posix_relative_path: kind}`` for workflow YAMLs git says changed.
+
+    ADR-045 §5.1 #5: replaces the hash-snapshot diff. Affected workflows are
+    discovered with ``git diff --name-status`` over two surfaces, unioned:
+
+    * **committed**: ``<before_ref>..HEAD`` — captures branch switch, merge,
+      cherry-pick, merge-complete (operations that move HEAD).
+    * **working tree**: ``HEAD`` vs the working tree — captures ``restore``
+      (which overlays historical content without committing) and any residual
+      uncommitted rewrite.
+
+    Only paths under ``workflows/`` with a YAML suffix drive the canvas, so
+    everything else is filtered out. ``kind`` is normalised to the
+    ``created`` / ``deleted`` / ``modified`` vocabulary the watcher and the
+    frontend handler at ``useWebSocket.ts`` already share.
+    """
+    diffs: list[str] = []
+    after_ref = _capture_pre_op_ref(engine)  # current (post-op) HEAD SHA
+    if before_ref and after_ref and before_ref != after_ref:
         try:
-            data = yaml_path.read_bytes()
-            digest = hashlib.sha256(data).hexdigest()
-        except OSError:
-            digest = None
-        relative = yaml_path.relative_to(project_dir).as_posix()
-        snapshot[relative] = digest
-    return snapshot
+            diffs.append(engine._run(["diff", "--name-status", f"{before_ref}..{after_ref}"]).stdout or "")
+        except GitError:
+            logger.debug("git endpoint: committed-range diff failed", exc_info=True)
+    # Working-tree changes vs HEAD (restore / uncommitted rewrites).
+    try:
+        diffs.append(engine._run(["diff", "--name-status", "HEAD"]).stdout or "")
+    except GitError:
+        logger.debug("git endpoint: working-tree diff failed", exc_info=True)
+
+    changed: dict[str, str] = {}
+
+    # Untracked workflow YAMLs are not reported by ``git diff`` but a git op can
+    # leave a new-on-disk workflow the canvas must learn about; surface them as
+    # ``created`` (matches the retired hash-snapshot's filesystem scan).
+    try:
+        untracked = engine._run(["ls-files", "--others", "--exclude-standard"]).stdout or ""
+        for line in untracked.splitlines():
+            rel = line.strip()
+            if rel.startswith("workflows/") and Path(rel).suffix.lower() in {".yaml", ".yml"}:
+                changed[rel] = "created"
+    except GitError:
+        logger.debug("git endpoint: untracked listing failed", exc_info=True)
+
+    for block in diffs:
+        for line in block.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("\t")
+            status = parts[0]
+            # Renames/copies report two paths (R100 old new); take the dest.
+            rel = parts[-1]
+            if not rel.startswith("workflows/") or Path(rel).suffix.lower() not in {".yaml", ".yml"}:
+                continue
+            code = status[0]
+            if code == "A" or code == "R" or code == "C":
+                kind = "created"
+            elif code == "D":
+                kind = "deleted"
+            else:
+                kind = "modified"
+            # A path appearing in both surfaces: prefer a concrete create/delete
+            # over a generic modify; otherwise keep the first seen.
+            existing = changed.get(rel)
+            if existing is None or (existing == "modified" and kind != "modified"):
+                changed[rel] = kind
+    return changed
 
 
 async def _emit_workflow_diff(
     runtime: Any,
     project_dir: Path,
-    before: dict[str, str | None],
+    engine: GitEngine,
+    before_ref: str | None,
     *,
     source: str,
     source_id: str | None = None,
 ) -> None:
-    """Diff *before* against the current on-disk state, emit ``workflow.changed``
-    once per changed file.
+    """Emit ``workflow.changed`` once per workflow YAML the git op rewrote.
 
-    This is the second half of the hotfix #988 pair: callers snapshot before
-    the git op, then call this helper after the op completes. The helper
-    re-snapshots, classifies each path as ``created`` / ``deleted`` /
-    ``modified`` (matching the schema the watcher uses so the existing
-    frontend handler at ``useWebSocket.ts:67`` treats backend-driven and
+    ADR-045 §5.1 #5 (retire the hash-snapshot diff): callers capture the
+    pre-op HEAD via :func:`_capture_pre_op_ref`, run the git operation, then
+    call this helper. It asks git which ``workflows/*.yaml`` paths changed
+    (see :func:`_changed_workflow_paths`), classifies each as ``created`` /
+    ``deleted`` / ``modified`` (the same schema the watcher uses so the
+    frontend handler at ``useWebSocket.ts`` treats backend-driven and
     watcher-driven events identically), and emits one event per change.
 
     ``workflow_id`` is derived from the file stem so the frontend's
@@ -148,23 +207,10 @@ async def _emit_workflow_diff(
     a stale-canvas-until-next-refresh fallback. The watcher is still
     running as insurance.
     """
-    after = _snapshot_workflows(project_dir)
+    changed = _changed_workflow_paths(engine, project_dir, before_ref)
 
-    all_paths = set(before.keys()) | set(after.keys())
-    for relative in sorted(all_paths):
-        prev = before.get(relative)
-        curr = after.get(relative)
-        if prev is None and curr is None:
-            # Both reads failed (rare); nothing meaningful to emit.
-            continue
-        if prev == curr:
-            continue
-        if prev is None:
-            kind = "created"
-        elif curr is None:
-            kind = "deleted"
-        else:
-            kind = "modified"
+    for relative in sorted(changed.keys()):
+        kind = changed[relative]
         workflow_id = Path(relative).stem
         workflow_path = project_dir / relative
         version = runtime.bump_workflow_version(workflow_id)
@@ -342,7 +388,7 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     # Codex P2 on PR #1378: validate the restore target BEFORE creating
     # the auto-commit. Pre-fix, an invalid commit_sha (typo, dropped
     # ref, etc.) would mutate history with an `auto: pre-restore` commit
@@ -365,8 +411,9 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
         engine.restore(body.commit_sha, files=body.files)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    # Hotfix #988: emit per-file workflow.changed so the canvas reloads.
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.commit_sha)
+    # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
+    # canvas reloads, deriving the affected set from git rather than a hash diff.
+    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
     return {"status": "ok", "auto_commit_sha": auto_sha}
 
 
@@ -412,7 +459,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     old_branch = engine.current_branch() or "(detached)"
     # Codex P1 on PR #1378: validate the target branch exists BEFORE
     # creating the auto-commit. Pre-fix, a stale/invalid branch name
@@ -449,11 +496,14 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
             "branch_switch: refresh_block_registry failed (non-fatal)",
             exc_info=True,
         )
-    # Hotfix #988: emit per-file workflow.changed so the canvas reloads
-    # each workflow YAML that the branch switch rewrote. See
-    # ``_snapshot_workflows`` docstring for why this can't rely on the
-    # filesystem watcher.
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.branch_name)
+    # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
+    # canvas reloads each workflow YAML the branch switch rewrote. The affected
+    # set is derived from git (committed-range + working-tree diff) rather than
+    # a pre/post hash snapshot, and this can't rely on the filesystem watcher
+    # alone (bulk rewrites coalesce inside a single debounce slice).
+    await _emit_workflow_diff(
+        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.branch_name
+    )
     return {
         "status": "ok",
         "current_branch": body.branch_name,
@@ -574,16 +624,18 @@ async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     try:
         result = engine.merge(body.source_branch)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    # Hotfix #988: FF / clean merges rewrite workflow YAMLs; emit per-file
-    # workflow.changed even when conflicted_files is non-empty so the user
-    # sees both the conflict UI AND the canvas reflecting the pre-conflict
-    # half of the merge that did apply.
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.source_branch)
+    # Hotfix #988 / ADR-045 §5.1 #5: FF / clean merges rewrite workflow YAMLs;
+    # emit per-file workflow.changed even when conflicted_files is non-empty so
+    # the user sees both the conflict UI AND the canvas reflecting the
+    # pre-conflict half of the merge that did apply.
+    await _emit_workflow_diff(
+        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.source_branch
+    )
     return result
 
 
@@ -593,12 +645,14 @@ async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, An
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     try:
         result = engine.cherry_pick(body.commit_sha)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.commit_sha)
+    await _emit_workflow_diff(
+        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha
+    )
     return result
 
 
@@ -626,7 +680,7 @@ async def merge_complete(request: Request) -> dict[str, str]:
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     try:
         sha = engine.merge_complete()
     except GitError as exc:
@@ -634,7 +688,7 @@ async def merge_complete(request: Request) -> dict[str, str]:
     # Merge-complete is the final write in a conflict-resolution flow:
     # the staged conflict resolutions become the working tree. Emit so
     # the canvas reflects the resolved YAML.
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=sha)
+    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=sha)
     return {"status": "ok", "commit_sha": sha}
 
 
@@ -644,12 +698,14 @@ async def merge_abort(request: Request) -> dict[str, str]:
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
+    before_ref = _capture_pre_op_ref(engine)
     try:
         engine.merge_abort()
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # Abort rewinds the working tree to the pre-merge state — workflow
     # YAML files revert too.
-    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id="merge-abort")
+    await _emit_workflow_diff(
+        runtime, project_dir, engine, before_ref, source="gitRestore", source_id="merge-abort"
+    )
     return {"status": "ok"}
