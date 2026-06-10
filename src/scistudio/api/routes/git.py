@@ -501,9 +501,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     # set is derived from git (committed-range + working-tree diff) rather than
     # a pre/post hash snapshot, and this can't rely on the filesystem watcher
     # alone (bulk rewrites coalesce inside a single debounce slice).
-    await _emit_workflow_diff(
-        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.branch_name
-    )
+    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.branch_name)
     return {
         "status": "ok",
         "current_branch": body.branch_name,
@@ -650,9 +648,7 @@ async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, An
         result = engine.cherry_pick(body.commit_sha)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    await _emit_workflow_diff(
-        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha
-    )
+    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
     return result
 
 
@@ -705,7 +701,5 @@ async def merge_abort(request: Request) -> dict[str, str]:
         raise _git_error_to_http(exc) from exc
     # Abort rewinds the working tree to the pre-merge state — workflow
     # YAML files revert too.
-    await _emit_workflow_diff(
-        runtime, project_dir, engine, before_ref, source="gitRestore", source_id="merge-abort"
-    )
+    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id="merge-abort")
     return {"status": "ok"}

@@ -111,9 +111,7 @@ def test_git_restore_emits_semantic_modified_event_not_delete_clear(
     """ADR-045 §5.1 #5: the write-site emit produces a single versioned
     ``modified`` event for the workflow git rewrote — never a delete/clear."""
     runtime = ApiRuntime()
-    runtime.active_project = KnownProject(
-        id="p1", name="proj", path=str(git_project), description=""
-    )
+    runtime.active_project = KnownProject(id="p1", name="proj", path=str(git_project), description="")
     engine = GitEngine(git_project)
     before_ref = _capture_pre_op_ref(engine)
 

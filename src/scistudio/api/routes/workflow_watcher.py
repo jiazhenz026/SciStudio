@@ -305,11 +305,7 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         # solely for the runtime-less drift-detector path (tests / degraded
         # mode), where it remains the only first-party signal. Only meaningful
         # for events on existing files; deletions cannot match the tuple.
-        if (
-            self._runtime is None
-            and kind in {"modified", "created"}
-            and self._is_self_write(path)
-        ):
+        if self._runtime is None and kind in {"modified", "created"} and self._is_self_write(path):
             logger.debug("workflow_watcher: suppressing self-write event %s %s (fallback deque)", kind, path)
             return
 

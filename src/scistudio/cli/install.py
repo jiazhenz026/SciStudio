@@ -640,7 +640,9 @@ def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
 
         if removed_any:
             results.append(
-                InstallResult(target="skill", scope=scope, path=base_dest, action="removed", detail="flat skills removed")
+                InstallResult(
+                    target="skill", scope=scope, path=base_dest, action="removed", detail="flat skills removed"
+                )
             )
         else:
             results.append(
