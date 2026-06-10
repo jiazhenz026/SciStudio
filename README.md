@@ -37,7 +37,7 @@ Six base data types -- `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, and `
 
 ### Lazy by Default
 
-Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr, Parquet, or filesystem) until a block requests a specific slice via `ViewProxy`. Memory usage stays bounded even for enormous datasets.
+Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr, Parquet, or filesystem) until a block requests a specific slice. Lazy loading is built into `DataObject` and `Array` directly — there is no separate accessor class (ADR-031). Memory usage stays bounded even for enormous datasets.
 
 ### Five Block Categories + Composition
 
@@ -87,7 +87,7 @@ SciStudio is organized into six horizontal layers, each depending only on the la
 |  FastAPI REST, WebSocket, SSE, SPA fallback middleware      |
 +-------------------------------------------------------------+
 |  Layer 4: AI Services                                       |
-|  Block generation, workflow synthesis, param optimization   |
+|  Embedded coding agent, MCP server, AI block runtime       |
 +-------------------------------------------------------------+
 |  Layer 3: Execution Engine                                  |
 |  DAG scheduler, process lifecycle, resource management      |
@@ -202,7 +202,6 @@ SciStudio/
 │   ├── core/                       # Layer 1: Data foundation
 │   │   ├── types/                  #   DataObject hierarchy + TypeRegistry
 │   │   ├── storage/                #   Zarr, Arrow/Parquet, filesystem backends
-│   │   ├── proxy.py                #   ViewProxy (lazy loading)
 │   │   └── lineage/                #   Provenance tracking (SQLite)
 │   ├── blocks/                     # Layer 2: Block system
 │   │   ├── base/                   #   Block ABC, ports, state machine, config
@@ -220,9 +219,7 @@ SciStudio/
 │   │   ├── checkpoint.py           #   Checkpoint save/load/resume
 │   │   └── runners/                #   LocalRunner, ProcessHandle, worker.py
 │   ├── ai/                         # Layer 4: AI services
-│   │   ├── generation/             #   Block + type generation + validation
-│   │   ├── synthesis/              #   Workflow synthesis
-│   │   └── optimization/           #   Parameter optimization
+│   │   └── agent/                  #   Embedded coding agent + MCP server
 │   ├── api/                        # Layer 5: FastAPI backend
 │   │   ├── app.py                  #   App factory + SPA static file serving
 │   │   ├── routes/                 #   REST endpoints (workflows, blocks, data, projects)
@@ -266,11 +263,12 @@ my_project/
 │   ├── raw/                  # Original uploaded files (read-only after import)
 │   ├── zarr/                 # Zarr stores for Array-type data
 │   ├── parquet/              # Parquet files for DataFrame-type data
-│   └── artifacts/            # PDFs, reports, images, other files
+│   ├── artifacts/            # PDFs, reports, images, other files
+│   └── exchange/             # File handoff area for AppBlock / CodeBlock
 ├── blocks/                   # Project-local custom blocks (drop-in .py files)
 ├── types/                    # Project-local custom data types (drop-in .py files)
-├── checkpoints/              # Serialized workflow states for pause/resume
-├── lineage/                  # SQLite lineage database
+├── .scistudio/               # Per-project runtime state (gitignored by default)
+│                             #   lineage.db, pause/, mcp.sock, session markers
 └── logs/                     # Execution logs
 ```
 
@@ -367,7 +365,7 @@ pre-commit install
 The GitHub Actions CI pipeline runs on every PR:
 - Ruff lint + format check
 - mypy type checking
-- pytest with coverage enforcement (85% minimum)
+- pytest with coverage enforcement (70% minimum, enforced on the Python 3.13 CI leg only)
 - Import contract verification (layer dependency rules)
 
 ---
@@ -375,7 +373,7 @@ The GitHub Actions CI pipeline runs on every PR:
 ## Developer integrations
 
 Drive SciStudio projects from your own terminal CLI (`claude` or `codex`),
-outside the SciStudio GUI, with the full 25-tool MCP surface and a
+outside the SciStudio GUI, with the full 27-tool MCP surface and a
 SciStudio-aware skill installed:
 
 ```bash
@@ -428,7 +426,7 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 **Implemented:**
 - Core data type hierarchy with six base types and domain-specific subtypes
 - Storage backends: Zarr (arrays), Arrow/Parquet (tables), filesystem (text/artifacts), composite store
-- ViewProxy lazy loading with chunk-aware slicing
+- Reference-only lazy loading built into `DataObject`/`Array` directly (ADR-031; ViewProxy eliminated)
 - Lineage tracking with SQLite-backed provenance graph
 - All six block categories (IO, Process, Code, App, AI, SubWorkflow)
 - Block registry with Tier 1 (drop-in) and Tier 2 (entry-points) discovery
@@ -443,7 +441,7 @@ SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under a
 - React + ReactFlow frontend with live execution, block palette, config panels, data previews
 - CLI commands: init, validate, run, blocks, serve, gui
 - Plugin entry-points protocol with PackageInfo (ADR-025)
-- 85%+ test coverage enforced in CI
+- 70%+ test coverage enforced in CI (Python 3.13 leg only; see pyproject.toml `fail_under`)
 
 **Planned / In Progress:**
 - Block SDK scaffolding CLI and BlockTestHarness (ADR-026)
