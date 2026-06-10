@@ -1,0 +1,49 @@
+{
+  "branch": "claude/p1p2-doc",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "README.md",
+      "docs/**",
+      "CONTRIBUTING.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1520,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "P1-P2 and stale-bug fix session: documentation-drift umbrella (README/ARCHITECTURE/CONTRIBUTING/skills drift, LICENSE). [DO NOT MERGE] integration PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1520-p1p2-doc-umbrella",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b94f8136-20b3-44b3-8427-30761f71bc6b",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}
