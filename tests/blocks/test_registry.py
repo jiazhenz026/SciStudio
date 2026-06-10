@@ -469,60 +469,6 @@ class TestScanTier2CallableProtocol:
 
 
 # ----------------------------------------------------------------------------
-# Stage 10.1 Part 2 — skipped test stubs authored by Agent A.
-#
-# Agent B will remove the skip markers and implement these in Part 2.
-# ----------------------------------------------------------------------------
-
-
-class TestStage101CategoryAndSource:
-    """Stage 10.1 — category ClassVar override, Custom default, source rename."""
-
-    @pytest.mark.skip(reason="Agent B implements in Stage 10.1 Part 2")
-    def test_explicit_category_classvar_wins(self, tmp_path: Path) -> None:
-        """A Tier 1 block with ``category = "segmentation"`` keeps that value.
-
-        The explicit ClassVar override must take precedence over the Custom
-        default Agent B applies in ``_scan_tier1``. Drop-in blocks that
-        declare a category are NOT reclassified as Custom.
-        """
-
-    @pytest.mark.skip(reason="Agent B implements in Stage 10.1 Part 2")
-    def test_tier1_block_without_category_defaults_to_custom(self, tmp_path: Path) -> None:
-        """A Tier 1 drop-in block with no category ClassVar gets "Custom".
-
-        This verifies the default assignment in ``_scan_tier1`` — blocks
-        from drop-in directories are palette-classified as Custom unless
-        they explicitly declare otherwise.
-        """
-
-    @pytest.mark.skip(reason="Agent B implements in Stage 10.1 Part 2")
-    def test_tier2_block_without_category_uses_hierarchy_inference(self) -> None:
-        """An entry-point block without a ClassVar still uses hierarchy inference.
-
-        Tier 2 (installed packages) must NOT be classified as Custom.
-        A ProcessBlock subclass from an entry-point gets ``category == "process"``.
-        """
-
-    @pytest.mark.skip(reason="Agent B implements in Stage 10.1 Part 2")
-    def test_spec_source_values_after_rename(self) -> None:
-        """After the Stage 10.1 rename, source values are builtin/custom/package.
-
-        - ``_scan_builtins`` -> ``spec.source == "builtin"``
-        - ``_scan_tier1``    -> ``spec.source == "custom"``
-        - ``_scan_tier2``    -> ``spec.source == "package"``
-        """
-
-    @pytest.mark.skip(reason="Agent B implements in Stage 10.1 Part 2")
-    def test_hot_reload_still_recognizes_custom_source(self, tmp_path: Path) -> None:
-        """``hot_reload`` prunes stale Tier 1 specs by matching new ``custom`` source.
-
-        After Agent B updates the comparison in ``hot_reload`` to
-        ``spec.source == "custom"``, deleted drop-in files are still pruned.
-        """
-
-
-# ----------------------------------------------------------------------------
 # ADR-030 — config_schema MRO merge tests
 # ----------------------------------------------------------------------------
 
