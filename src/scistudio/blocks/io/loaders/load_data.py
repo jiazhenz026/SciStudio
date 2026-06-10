@@ -24,6 +24,20 @@ The helper symbols are re-imported below so legacy callers that do
 ``from scistudio.blocks.io.loaders.load_data import _LOAD_CAPABILITIES``
 (test code, mostly) continue to work without change. The load side has
 no streaming sibling: pyarrow readers already operate batch-by-batch.
+
+Security — pickle is remote code execution (#1545 / BUG-10)
+----------------------------------------------------------
+``.pkl`` / ``.pickle`` inputs are deserialised with :func:`pickle.load`,
+which **executes arbitrary code** embedded in the byte stream. Because
+the ``allow_pickle`` opt-in lives in the block config (persisted in the
+workflow YAML), a *shared or untrusted* workflow that sets
+``allow_pickle: true`` on a ``LoadData`` block pointed at a crafted
+``.pkl`` turns "open someone's project and press Run" into code
+execution on the opener's machine. The gate (:func:`_check_pickle_allowed`)
+keeps the default ``False`` (hard refusal unless explicitly enabled) and
+emits a loud ``WARNING`` whenever the opt-in is honoured so the run is
+auditable. Per #1545 we do not change the default behavior here; a richer
+UI acknowledgement is tracked on that issue.
 """
 
 from __future__ import annotations
@@ -335,6 +349,12 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
     fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE in
+        # the byte stream. We only reach here when the workflow explicitly
+        # set allow_pickle=True; _check_pickle_allowed already raised
+        # otherwise and logged a loud WARNING. A shared/untrusted workflow
+        # enabling allow_pickle is a remote-code-execution vector — only
+        # load .pkl files you trust. See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
@@ -459,6 +479,9 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
     fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE.
+        # Reached only on an explicit allow_pickle=True opt-in (the gate
+        # raised + warned otherwise). See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
@@ -551,6 +574,9 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
     fmt = _resolve_format(path, detector)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE.
+        # Reached only on an explicit allow_pickle=True opt-in (the gate
+        # raised + warned otherwise). See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
