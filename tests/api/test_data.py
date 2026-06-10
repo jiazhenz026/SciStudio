@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,40 @@ from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.array import Array
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.series import Series
+
+
+class _DirectUploadRuntime:
+    def __init__(self, project_dir: Path) -> None:
+        self.project_dir = project_dir
+        self.destination: Path | None = None
+        self.staged_path: Path | None = None
+        self.finished = False
+        self.discarded = False
+
+    def stage_upload_file(self, filename: str) -> tuple[Path, Path]:
+        destination = self.project_dir / "data" / "raw" / Path(filename).name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        staged_path = destination.parent / f".{destination.name}.upload"
+        self.destination = destination
+        self.staged_path = staged_path
+        return destination, staged_path
+
+    def finish_staged_upload(self, destination: Path, staged_path: Path) -> dict[str, Any]:
+        self.finished = True
+        staged_path.replace(destination)
+        return {
+            "ref": "data-1",
+            "type_name": "Artifact",
+            "metadata": {"size": destination.stat().st_size},
+        }
+
+    def discard_staged_upload(self, staged_path: Path) -> None:
+        self.discarded = True
+        with suppress(FileNotFoundError):
+            staged_path.unlink()
+
+    def upload_file(self, filename: str, content: bytes) -> dict[str, Any]:
+        raise AssertionError("upload route must stream through staged upload paths")
 
 
 def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened_project: Path) -> None:
@@ -89,8 +124,47 @@ def test_upload_at_cap_boundary_is_accepted(
     assert resp.status_code == 200
 
 
+def test_upload_streams_success_without_runtime_byte_buffer(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """#1526: successful uploads are streamed to a staged file, not bytes API."""
+    import asyncio
+
+    from scistudio.api.routes import data as data_routes
+
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 4096)
+    monkeypatch.setattr(data_routes, "_UPLOAD_CHUNK_SIZE", 128)
+
+    class _ChunkedUpload:
+        filename = "stream.bin"
+
+        def __init__(self, payload: bytes) -> None:
+            self._payload = payload
+            self._offset = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            if self._offset >= len(self._payload):
+                return b""
+            n = len(self._payload) - self._offset if size < 0 else min(size, len(self._payload) - self._offset)
+            start = self._offset
+            self._offset += n
+            return self._payload[start : start + n]
+
+    runtime = _DirectUploadRuntime(tmp_path)
+    payload = b"streamed-body" * 64
+
+    response = asyncio.run(data_routes.upload_data(_ChunkedUpload(payload), runtime=runtime))  # type: ignore[arg-type]
+
+    assert response.ref == "data-1"
+    assert runtime.finished is True
+    assert runtime.destination is not None
+    assert runtime.destination.read_bytes() == payload
+
+
 def test_upload_streams_and_aborts_without_buffering_whole_body(
     monkeypatch: MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """#1526: the handler aborts mid-stream and never reads the full body.
 
@@ -129,10 +203,14 @@ def test_upload_streams_and_aborts_without_buffering_whole_body(
     # serve all of it. We assert it stops far earlier.
     total = 1024 * 1024 * 1024
     fake = _FakeUpload(total)
+    runtime = _DirectUploadRuntime(tmp_path)
+    existing = tmp_path / "data" / "raw" / "huge.bin"
+    existing.parent.mkdir(parents=True, exist_ok=True)
+    existing.write_bytes(b"existing")
 
     raised = False
     try:
-        asyncio.run(data_routes.upload_data(fake, runtime=object()))  # type: ignore[arg-type]
+        asyncio.run(data_routes.upload_data(fake, runtime=runtime))  # type: ignore[arg-type]
     except HTTPException as exc:
         raised = True
         assert exc.status_code == 413
@@ -142,6 +220,11 @@ def test_upload_streams_and_aborts_without_buffering_whole_body(
     # not drained the whole 1 GiB body.
     assert fake.bytes_served <= data_routes.MAX_UPLOAD_SIZE + data_routes._UPLOAD_CHUNK_SIZE
     assert fake.bytes_served < total
+    assert runtime.finished is False
+    assert runtime.discarded is True
+    assert runtime.staged_path is not None
+    assert not runtime.staged_path.exists()
+    assert existing.read_bytes() == b"existing"
 
 
 def test_preview_supports_image_series_composite_and_artifact_types(

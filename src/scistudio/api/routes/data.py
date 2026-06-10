@@ -32,18 +32,22 @@ async def upload_data(
     the size check, so an oversized upload (accidental or hostile) could
     exhaust process memory before the 413 ever fired.
     """
-    chunks: list[bytes] = []
+    destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
     total = 0
-    while True:
-        chunk = await file.read(_UPLOAD_CHUNK_SIZE)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > MAX_UPLOAD_SIZE:
-            raise HTTPException(status_code=413, detail="File too large (max 2 GB)")
-        chunks.append(chunk)
-    content = b"".join(chunks)
-    payload = runtime.upload_file(file.filename or "upload.bin", content)
+    try:
+        with staged_path.open("wb") as staged:
+            while True:
+                chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_UPLOAD_SIZE:
+                    raise HTTPException(status_code=413, detail="File too large (max 2 GB)")
+                staged.write(chunk)
+        payload = runtime.finish_staged_upload(destination, staged_path)
+    except Exception:
+        runtime.discard_staged_upload(staged_path)
+        raise
     return DataUploadResponse(**payload)
 
 
