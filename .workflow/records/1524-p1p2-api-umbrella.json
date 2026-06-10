@@ -1,0 +1,48 @@
+{
+  "branch": "claude/p1p2-api",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/**",
+      "src/scistudio/cli/**",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1524,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "P1-P2 and stale-bug fix session: API/CLI/runtime umbrella. [DO NOT MERGE] integration PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1524-p1p2-api-umbrella",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "ae8c38c1-faac-495c-8fbf-9e4e1e9caf9f",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}
