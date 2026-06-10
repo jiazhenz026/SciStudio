@@ -137,8 +137,37 @@ def derive_tier(task_kind: TaskKind, grouped: dict[str, list[str]]) -> Strictnes
     return tier
 
 
-def _scope_findings(ledger: GateLedger, changed_files: Sequence[str]) -> list[AuditFinding]:
-    """Reconcile declared scope against the observed diff (§3.3.3)."""
+# Task kinds whose gate record represents an INTEGRATION / umbrella PR rather
+# than a single worker task (issue #1283). An integration record legitimately
+# spans the union of every merged worker scope, so applying a narrow declared
+# worker-scope to the whole integration PR produces false ``scope.out-of-scope``
+# failures. For these records the declared include is advisory (it still records
+# intent), and out-of-scope files are reported as a NON-blocking WARNING instead
+# of a blocking ERROR. This does NOT weaken enforcement: the worker sub-PRs were
+# each gate-validated on their own narrow scope before merging into the
+# integration branch, and the integration PR still runs every guard + tier check.
+_INTEGRATION_TASK_KINDS: frozenset[str] = frozenset({"manager"})
+
+
+def _scope_findings(
+    ledger: GateLedger,
+    changed_files: Sequence[str],
+    *,
+    repo_root: Path | None = None,
+    base: str | None = None,
+    head: str | None = None,
+) -> list[AuditFinding]:
+    """Reconcile declared scope against the PR-authored diff (§3.3.3).
+
+    ``changed_files`` here is the PR-AUTHORED scope set (first-parent, non-merge
+    commits) so merge-imported main-side changes are never flagged as
+    out-of-scope (#1463 Bug A). Integration/umbrella records (manager task kind)
+    treat declared scope as advisory and downgrade out-of-scope to a warning
+    (#1283). Main-side renames of a scoped path are tolerated: when a scoped
+    include glob matches zero current files but the path was renamed/split on the
+    base, the out-of-scope finding for the new location is downgraded to a
+    warning with a remap hint rather than blocking (#1463 Bug B).
+    """
 
     include = ledger.effective_include()
     exclude = ledger.effective_exclude()
@@ -146,22 +175,72 @@ def _scope_findings(ledger: GateLedger, changed_files: Sequence[str]) -> list[Au
     if not include:
         # No declared include: scope reconciliation defers to tier obligations.
         return findings
+
+    is_integration = ledger.task_kind in _INTEGRATION_TASK_KINDS
+    # Includes that no longer match ANY current file are candidates for a
+    # main-side rename/split (#1463 Bug B): a scoped path the umbrella refactored
+    # away. We tolerate continuation work on the renamed location instead of hard
+    # blocking, but only as a warning so the drift stays visible.
+    stale_includes = (
+        _stale_include_globs(repo_root, include, base=base, head=head)
+        if repo_root is not None and base is not None and head is not None
+        else set()
+    )
+    rename_tolerant = bool(stale_includes)
+
     for path in changed_files:
         if surfaces.is_gate_record_path(path):
             continue
         in_scope = surfaces.matches_any(path, include)
         excluded = surfaces.matches_any(path, exclude)
-        if not in_scope or excluded:
-            findings.append(
-                AuditFinding(
-                    rule_id="scope.out-of-scope",
-                    severity=Severity.ERROR,
-                    file=path,
-                    message="changed file is outside the effective declared scope",
-                    evidence={"include": include, "exclude": exclude},
-                )
+        if in_scope and not excluded:
+            continue
+        # Downgrade to a non-blocking warning for integration records or when a
+        # main-side rename plausibly relocated in-scope work (#1283 / #1463 B).
+        downgrade = is_integration or (rename_tolerant and not excluded)
+        findings.append(
+            AuditFinding(
+                rule_id="scope.out-of-scope",
+                severity=Severity.WARNING if downgrade else Severity.ERROR,
+                file=path,
+                message=(
+                    "changed file is outside the effective declared scope "
+                    + (
+                        "(integration/umbrella record: advisory only)"
+                        if is_integration
+                        else (
+                            "(a scoped path was renamed/split on the base; amend --include the new "
+                            "location and cite the upstream rename)"
+                            if downgrade
+                            else ""
+                        )
+                    )
+                ).strip(),
+                evidence={"include": include, "exclude": exclude, "stale_includes": sorted(stale_includes)},
             )
+        )
     return findings
+
+
+def _stale_include_globs(repo_root: Path, include: Sequence[str], *, base: str, head: str) -> set[str]:
+    """Return declared include globs that match zero files in the working tree.
+
+    Used for #1463 Bug B rename tolerance: an include like
+    ``src/scistudio/api/runtime.py`` that no longer exists (it was split into a
+    ``runtime/`` package on the base while the PR was in review) matches nothing
+    on the PR branch. Such a stale glob signals a main-side rename/split, so the
+    evaluator tolerates the continuation work on the new location with a warning
+    instead of a hard block. Literal globs (no wildcard) that resolve to a
+    missing path are the clearest signal; wildcard globs are checked against the
+    union of base+head trees.
+    """
+
+    tracked = set(io.tracked_files(repo_root, head)) | set(io.tracked_files(repo_root, base))
+    stale: set[str] = set()
+    for glob in include:
+        if not any(surfaces.match_path(path, glob) for path in tracked):
+            stale.add(glob)
+    return stale
 
 
 def _verify_claims(declared: Sequence[str], changed_files: Sequence[str]) -> tuple[list[str], list[str]]:
@@ -464,8 +543,29 @@ def reconcile(
     repair_hints: list[str] = []
     parity_gaps: list[str] = []
 
-    # 3. Reconcile declared scope against the observed diff.
-    findings.extend(_scope_findings(ledger, observed_files))
+    # 3. Reconcile declared scope against the PR-AUTHORED diff (first-parent,
+    #    non-merge commits), NOT the full merge-base diff: merge-imported
+    #    main-side changes must not be flagged as out-of-scope (#1463 Bug A).
+    #    Integration/umbrella (manager) records and main-side renames downgrade
+    #    out-of-scope to a non-blocking warning (#1283 / #1463 Bug B).
+    scope_files = io.scope_changed_files(repo_root, base, head, staged=staged)
+    scope_findings = _scope_findings(ledger, scope_files, repo_root=repo_root, base=base, head=head)
+    findings.extend(scope_findings)
+    # Surface BLOCKING scope violations as unsatisfied obligations so the CLI
+    # actually fails on them (previously scope findings only flipped the report
+    # status, which run_check/run_finalize never inspected -> scope violations
+    # silently passed at the CLI). Warning-severity scope findings (integration
+    # records / rename tolerance) stay non-blocking.
+    blocking_scope = [f for f in scope_findings if f.severity == Severity.ERROR]
+    if blocking_scope:
+        unsatisfied.append("scope.out-of-scope")
+        offenders = ", ".join(sorted({f.file for f in blocking_scope if f.file})[:5])
+        repair_hints.append(
+            "- scope.out-of-scope\n"
+            f"  Changed files outside the declared scope: {offenders}\n"
+            "  Amend the scope to include them (cite the reason) or move them out of this PR:\n"
+            "  gate_record amend --reason '<why>' --include '<glob>'"
+        )
 
     # 4. Reconcile declared docs/test claims (claimed-but-unverified, §3.3.4).
     verified_docs, unverified_docs = _verify_claims(ledger.declared_docs_paths(), observed_files)
