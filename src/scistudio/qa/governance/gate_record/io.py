@@ -370,15 +370,22 @@ def current_branch(repo_root: Path) -> str | None:
     return None
 
 
-def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryResult:
+def discover_ledger(
+    repo_root: Path,
+    *,
+    branch: str | None = None,
+    include_finalized: bool = False,
+) -> DiscoveryResult:
     """Discover the active ledger for the CURRENT branch (§5.1 / §10.2).
 
     A record matches only when its ``branch`` equals the target branch, it is a
-    schema-v2 ledger, and it is not finalized. Then:
+    schema-v2 ledger, and it is not finalized unless ``include_finalized`` is
+    true. Then:
 
     - exactly one match -> accepted;
     - zero matches -> ``DiscoveryResult(None, [])`` so the caller prints "run init"
-      (stale, other-branch, finalized, and old-format records never match);
+      (stale, other-branch, finalized unless explicitly included, and
+      old-format records never match);
     - multiple same-branch matches -> ``DiscoveryResult(None, matches)`` so the
       caller lists candidates and asks for ``--record``.
 
@@ -400,7 +407,7 @@ def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryR
         active = []
         for path in records:
             _record_branch, is_v2, is_finalized = _ledger_meta(path)
-            if is_v2 and not is_finalized:
+            if is_v2 and (include_finalized or not is_finalized):
                 active.append(path)
         if len(active) == 1:
             return DiscoveryResult(active[0], active)
@@ -409,7 +416,7 @@ def discover_ledger(repo_root: Path, *, branch: str | None = None) -> DiscoveryR
     matches = []
     for path in records:
         record_branch, is_v2, is_finalized = _ledger_meta(path)
-        if record_branch == target_branch and is_v2 and not is_finalized:
+        if record_branch == target_branch and is_v2 and (include_finalized or not is_finalized):
             matches.append(path)
     if len(matches) == 1:
         return DiscoveryResult(matches[0], matches)

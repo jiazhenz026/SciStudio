@@ -310,6 +310,11 @@ PR metadata. It fails when checks are stale, required issue closure is missing
 from the PR body, required docs or tests are absent, or tier-selected check
 obligations are unsatisfied.
 
+CI mode still discovers and validates this post-PR finalized ledger after it is
+committed back to the PR branch. Finalized ledger state is excluded only from
+ordinary local active-session discovery, where it means "do not keep editing this
+completed gate as the current task."
+
 ### 2.6 Compatibility Aliases
 
 | Old subcommand | Delegates to |
@@ -661,6 +666,10 @@ python -m scistudio.qa.governance.gate_record finalize \
   --pr <url-or-number> \
   --pr-body-file .workflow/local/pr-body.md
 ```
+
+Commit and push the resulting ledger update. The CI workflow's
+`gate_record check --mode ci` discovery includes finalized ledgers so the
+committed PR provenance remains machine-verifiable.
 
 When wrapper, hook, gate-record, CI, or AI-runtime behavior changes, explicitly
 check whether these docs also need updates:
