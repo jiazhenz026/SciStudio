@@ -178,6 +178,12 @@ def _governed_diff_lines(extras: Mapping[str, Any]) -> tuple[list[tuple[str, str
     return [], False
 
 
+def _is_non_executable_removal(text: str) -> bool:
+    """Return True for removed explanatory text that cannot remove a check."""
+
+    return text.startswith("#") or text.startswith("echo ")
+
+
 def check(inputs: GuardInputs) -> AuditReport:
     """Fail when governed diffs remove required checks or add weakening."""
 
@@ -188,6 +194,8 @@ def check(inputs: GuardInputs) -> AuditReport:
     for path, sign, text in lines:
         lowered = text.lower()
         if sign == "-":
+            if _is_non_executable_removal(text):
+                continue
             for rule_suffix, token in required_tokens:
                 if token.lower() in lowered:
                     findings.append(

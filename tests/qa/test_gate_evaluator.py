@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.qa.governance.gate_record import evaluator, io, surfaces
+from scistudio.qa.governance.gate_record import checks, evaluator, io, surfaces
 from scistudio.qa.governance.gate_record.io import SanitizationError
 from scistudio.qa.governance.gate_record.ledger import (
     CheckEvent,
@@ -670,6 +670,39 @@ def test_required_skipped_check_waived_by_na(git_repo: Path, monkeypatch: pytest
         ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True
     )
     assert "checks.my_custom_task_check" not in result.unsatisfied
+
+
+def test_frontend_check_runs_in_frontend_working_directory(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], Path]] = []
+
+    def _fake_run(
+        argv: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str] | None,
+        capture_output: bool,
+        text: bool,
+        encoding: str,
+        errors: str,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append((argv, cwd))
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(checks.parity, "resolve_venv_executable", lambda _repo, _tool: None)
+    monkeypatch.setattr(checks.shutil, "which", lambda tool: tool if tool == "npm" else None)
+    monkeypatch.setattr(checks.subprocess, "run", _fake_run)
+
+    event = checks.run_check(
+        git_repo,
+        "frontend",
+        changed_files=["frontend/src/App.tsx"],
+        diff_fingerprint=None,
+    )
+
+    assert event.status == "pass"
+    assert event.command == "(cd frontend && npm run lint)"
+    assert calls == [(["npm", "run", "lint"], git_repo / "frontend")]
 
 
 # ---------------------------------------------------------------------------

@@ -11,11 +11,16 @@ worktree-guard surface is wired, and ``.audit/`` is gitignored.
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+WRITE_GUARD_HOOK = REPO_ROOT / "scripts" / "hooks" / "check-worktree-write-guard.sh"
 
 
 def _text(path: str) -> str:
@@ -141,3 +146,127 @@ def test_audit_scratch_dir_is_gitignored() -> None:
     assert ".audit/" in gitignore
     # Raw transcripts live under .workflow/local/ and are never committed (§8).
     assert ".workflow/local/" in gitignore
+
+
+# ---------------------------------------------------------------------------
+# Behavioural execution of the worktree write guard hook script (#1523).
+#
+# The structural tests above only grep hook *text*. These tests actually run
+# ``scripts/hooks/check-worktree-write-guard.sh`` with fabricated PreToolUse
+# payloads against a real temp git repo + linked worktree, and assert BOTH the
+# allow and deny paths including exit codes. A quoting/exit-code bug in the
+# wrapper, or a payload parser that returned ``[]`` for every input (blocking
+# nothing) or blocked everything, would be caught here — the previous suite let
+# all of those pass silently.
+# ---------------------------------------------------------------------------
+
+
+def _git(repo: Path, *args: str) -> None:
+    # Disable commit signing / GPG and any user hooks so the fixture works in a
+    # CI/dev environment that globally forces signed commits.
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "tag.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            *args,
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_write_guard_hook(payload: dict, *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Execute the hook shell script with a JSON PreToolUse payload on stdin."""
+    env = dict(os.environ)
+    # Ensure the guard's ``python -m scistudio...`` import resolves regardless
+    # of how the test runner set PYTHONPATH.
+    src = str(REPO_ROOT / "src")
+    env["PYTHONPATH"] = src + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    return subprocess.run(
+        ["sh", str(WRITE_GUARD_HOOK)],
+        input=json.dumps(payload),
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+@pytest.fixture
+def main_and_linked_worktree(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a real git repo (main working tree) plus one linked worktree."""
+    main = tmp_path / "main"
+    main.mkdir()
+    _git(main, "init", "-b", "main")
+    _git(main, "config", "user.email", "test@example.com")
+    _git(main, "config", "user.name", "Test")
+    (main / "README.md").write_text("seed\n", encoding="utf-8")
+    _git(main, "add", "README.md")
+    _git(main, "commit", "-m", "seed")
+
+    linked = tmp_path / "linked"
+    _git(main, "worktree", "add", "-b", "feature", str(linked))
+    return main.resolve(), linked.resolve()
+
+
+def test_write_guard_hook_allows_write_inside_linked_worktree(
+    main_and_linked_worktree: tuple[Path, Path],
+) -> None:
+    """Positive control: an in-scope write into a linked worktree -> exit 0."""
+    _main, linked = main_and_linked_worktree
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(linked / "src" / "new_module.py")},
+        "cwd": str(linked),
+    }
+    result = _run_write_guard_hook(payload, cwd=linked)
+    assert result.returncode == 0, (
+        f"expected ALLOW (exit 0) for linked-worktree write; "
+        f"got {result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}"
+    )
+
+
+def test_write_guard_hook_blocks_write_targeting_main_checkout(
+    main_and_linked_worktree: tuple[Path, Path],
+) -> None:
+    """Negative control: a write targeting the MAIN working tree -> exit 2."""
+    main, linked = main_and_linked_worktree
+    payload = {
+        "tool_name": "Edit",
+        # Agent forgot to create a worktree: target resolves into the main tree.
+        "tool_input": {"file_path": str(main / "src" / "leak.py")},
+        # cwd is the linked worktree to prove the decision is path-based, not cwd-based.
+        "cwd": str(linked),
+    }
+    result = _run_write_guard_hook(payload, cwd=linked)
+    assert result.returncode == 2, (
+        f"expected BLOCK (exit 2) for main-checkout write; "
+        f"got {result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}"
+    )
+    assert "dedicated worktree" in result.stderr
+
+
+def test_write_guard_hook_allows_bypass_label_for_main_checkout(
+    main_and_linked_worktree: tuple[Path, Path],
+) -> None:
+    """A broad override label suppresses the block even for a main-tree write."""
+    main, _linked = main_and_linked_worktree
+    payload = {
+        "tool_name": "Edit",
+        "tool_input": {"file_path": str(main / "src" / "leak.py")},
+        "cwd": str(main),
+        "labels": ["admin-approved:bypass"],
+    }
+    result = _run_write_guard_hook(payload, cwd=main)
+    assert result.returncode == 0, (
+        f"expected ALLOW (exit 0) when bypass label present; "
+        f"got {result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}"
+    )

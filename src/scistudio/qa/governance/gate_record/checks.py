@@ -42,6 +42,8 @@ class CheckSpec:
     covered_surface: str
     # CI job this mirrors; used for parity-mapping diagnostics.
     ci_job: str
+    # Repo-relative working directory used by CI for this command.
+    cwd: str = "."
     # When True the check is PR-only review automation (recorded, never a local
     # failure), e.g. ai-review.yml.
     pr_only: bool = False
@@ -114,6 +116,7 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         command=("npm", "run", "lint"),
         covered_surface="frontend",
         ci_job="ci.yml/Frontend",
+        cwd="frontend",
     ),
     "wheel_release_smoke": CheckSpec(
         name="wheel_release_smoke",
@@ -362,7 +365,8 @@ def run_check(
 
     spec = CHECK_CATALOG[name]
     versions = {tool: ver for tool, ver in resolve_ci_tool_versions(repo_root).items() if tool in spec.command}
-    repo_relative_command = " ".join(spec.command)
+    command_text = " ".join(spec.command)
+    repo_relative_command = command_text if spec.cwd == "." else f"(cd {spec.cwd} && {command_text})"
     covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
     input_fp = fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint
 
@@ -383,7 +387,7 @@ def run_check(
     try:
         completed = subprocess.run(
             argv,
-            cwd=repo_root,
+            cwd=repo_root / spec.cwd,
             env=env,
             capture_output=True,
             text=True,

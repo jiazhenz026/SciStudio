@@ -167,7 +167,10 @@ follow_imports = "skip"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+# TODO(#1540): Restore coverage gate to ≥80% once ADR-034 Phase 1-3 tests are
+#   added back. Lowered temporarily during PR #808 rollback.
+#   Out of scope per owner decision recorded in issue #1540.
+#   Followup: https://github.com/zjzcpj/scistudio/issues/1540
 addopts = "-ra -q --cov=scistudio --cov-report=term-missing --cov-fail-under=70"
 # ADR-040 preflight: per-test 60s wall-clock kill via pytest-timeout. Without
 # this, hung tests (Windows subprocess pipe issues, deadlocked asyncio) hang
@@ -182,6 +185,39 @@ markers = [
     "requires_imaging: marks tests that need scistudio-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
     "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scistudio-blocks-imaging/pyproject.toml.",
+]
+# filterwarnings policy (issue #1560):
+#   - "error" is NOT applied globally — the suite uses third-party libraries
+#     (zarr, fsspec, h5py, PIL, pytest-asyncio) that emit deprecation warnings
+#     we do not own.  Turning those into errors would break CI on every upstream
+#     release.  Instead we silence known third-party deprecations explicitly and
+#     let unrecognised warnings from scistudio.* surface as errors so regressions
+#     are visible.
+#
+#   Policy rationale:
+#     1. Third-party DeprecationWarnings: ignore (not our responsibility to fix
+#        until we upgrade the dependency; tracked via normal dependency updates).
+#     2. PendingDeprecationWarning from third-parties: ignore (same rationale).
+#     3. DeprecationWarning whose source is scistudio.*: error (we own it).
+#     4. PytestUnraisableExceptionWarning: error (signals hidden async failures).
+#
+#   Conservative approach: we deliberately do NOT use "error::DeprecationWarning"
+#   globally because zarr, h5py, and fsspec emit stdlib deprecations that would
+#   make the suite fail today; that cleanup belongs in the dependency-upgrade
+#   milestone (issue #1560).
+filterwarnings = [
+    # Surface first-party regressions as errors.
+    "error::DeprecationWarning:scistudio.*",
+    "error::PendingDeprecationWarning:scistudio.*",
+    # Catch hidden async failures that would otherwise be swallowed.
+    "error::pytest.PytestUnraisableExceptionWarning",
+    # Known third-party deprecations — ignore until upstream resolves.
+    "ignore::DeprecationWarning:zarr.*",
+    "ignore::DeprecationWarning:fsspec.*",
+    "ignore::DeprecationWarning:h5py.*",
+    "ignore::DeprecationWarning:PIL.*",
+    "ignore::DeprecationWarning:pkg_resources.*",
+    "ignore::PendingDeprecationWarning",
 ]
 
 [tool.importlinter]
@@ -255,7 +291,10 @@ omit = [
 ]
 
 [tool.coverage.report]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+# TODO(#1540): Restore coverage gate to ≥80% once ADR-034 Phase 1-3 tests are
+#   added back. Lowered temporarily during PR #808 rollback.
+#   Out of scope per owner decision recorded in issue #1540.
+#   Followup: https://github.com/zjzcpj/scistudio/issues/1540
 fail_under = 70
 show_missing = true
 exclude_lines = [

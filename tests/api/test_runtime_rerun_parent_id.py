@@ -45,8 +45,11 @@ class TestBuildLineageRecorderParentRunId:
     def test_parent_run_id_recorded_in_runs_row(self, runtime_with_project) -> None:
         """When parent_run_id is passed, the runs row carries that link."""
         runtime = runtime_with_project
-        if runtime.lineage_store is None:
-            pytest.skip("lineage store unavailable in this environment")
+        # The behaviour under test is precisely that parent_run_id is recorded
+        # in the lineage store; a None store would silently skip a regression
+        # that nulls the store (#1559). The fixture constructs a project, so the
+        # store must exist — assert it hard.
+        assert runtime.lineage_store is not None, "lineage store must be initialised for a project"
 
         # Seed a parent run so the FK on parent_run_id is satisfied.
         runtime.lineage_store.insert_run(
@@ -78,8 +81,7 @@ class TestBuildLineageRecorderParentRunId:
 
     def test_no_parent_run_id_when_unset(self, runtime_with_project) -> None:
         runtime = runtime_with_project
-        if runtime.lineage_store is None:
-            pytest.skip("lineage store unavailable in this environment")
+        assert runtime.lineage_store is not None, "lineage store must be initialised for a project"
 
         workflow = WorkflowDefinition(id="main")
         recorder = runtime._build_lineage_recorder(
