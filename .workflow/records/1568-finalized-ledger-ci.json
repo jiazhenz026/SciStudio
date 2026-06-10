@@ -990,7 +990,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "c639d98952c13c1df60a611df7156bceb07036e3",
+    "shas": [
+      "c639d98952c13c1df60a611df7156bceb07036e3"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1601,6 +1607,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.617596Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.644840Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.671264Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.698118Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.728475Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.756083Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.783563Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.813270Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.840371Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T20:35:18.868260Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1613,37 +1701,44 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "35ab776ed08e5acf9c21e4b174fad2fcd3c00687",
     "base_sha": "35ab776e",
     "changed_files": [
       ".workflow/records/1568-finalized-ledger-ci.json",
       "docs/ai-developer/gate-cli-command-set.md",
       "docs/ai-developer/specific_rules/gated-workflow.md",
       "pyproject.toml",
+      "src/scistudio/qa/governance/gate_record/checks.py",
       "src/scistudio/qa/governance/gate_record/io.py",
+      "src/scistudio/qa/governance/gate_record/parity.py",
       "src/scistudio/qa/governance/gate_record/workflow.py",
       "tests/qa/test_gate_evaluator.py",
       "tests/qa/test_gate_parity_provision.py"
     ],
-    "diff_fingerprint": "sha256:be3c20ac60422e13ae38ddbcd4e5e072888a9473fee901070154bacbebc3d82d",
+    "diff_fingerprint": "sha256:10234993175d4eec6b50cadcc526f928051eef7c2509d73bdf913ae2cf5e89a1",
     "head": "HEAD",
-    "head_sha": "8c1f11d5",
+    "head_sha": "c639d989",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
-      "governance": 5,
+      "governance": 7,
       "governed_docs": 2,
-      "implementation": 3,
+      "implementation": 5,
       "packaging": 1,
       "protected_core": 0,
-      "sentrux": 4,
+      "sentrux": 6,
       "test": 2,
       "workflow_ci": 0
     }
   },
   "owner_directive": "Fix issue #1568: CI mode must discover and validate post-PR finalized gate ledgers instead of reporting no ledger found.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1569,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1569"
+  },
   "reconcile_events": [
     {
       "at": "2026-06-10T19:56:32.117887Z",
@@ -1716,23 +1811,21 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-06-10T20:35:18.868292Z",
+      "diff_fingerprint": "sha256:10234993175d4eec6b50cadcc526f928051eef7c2509d73bdf913ae2cf5e89a1",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1568-finalized-ledger-ci",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "architecture_tests",
-      "format_check",
-      "full_audit",
-      "import_contracts",
-      "lint_format",
-      "python_tests",
-      "semantic_dup",
-      "type_check",
-      "wheel_release_smoke"
-    ],
+    "checks": [],
     "docs": [
       "docs_required_or_na"
     ],
