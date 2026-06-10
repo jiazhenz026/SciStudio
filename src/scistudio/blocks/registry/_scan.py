@@ -119,7 +119,19 @@ def _scan_builtins(registry: BlockRegistry) -> None:
 
 
 def _scan_tier1(registry: BlockRegistry) -> None:
-    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses."""
+    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
+
+    Security boundary (issue #1531): drop-in files are executed as Python
+    modules in the server process.  Only files from trusted project- or
+    user-controlled directories should be registered via
+    :meth:`BlockRegistry.add_scan_dir`.  Hostile or corrupt drop-ins are
+    isolated by the try/except below — a failing module is logged as a
+    warning and skipped without crashing the palette refresh.
+
+    TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
+      Out of scope per issue #1531 (contained hardening only for this PR).
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1531
+    """
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
 
@@ -129,6 +141,13 @@ def _scan_tier1(registry: BlockRegistry) -> None:
         for py_file in scan_dir.glob("*.py"):
             if py_file.name.startswith("_"):
                 continue
+            # Issue #1531: emit a security warning before executing any
+            # drop-in so operators can audit which files run in-process.
+            logger.warning(
+                "SECURITY: executing drop-in block module from %s in the server process. "
+                "Only add trusted directories via BlockRegistry.add_scan_dir.",
+                py_file,
+            )
             try:
                 mtime = py_file.stat().st_mtime
                 mod_name = f"_scistudio_dropin_{py_file.stem}_{int(mtime)}"
@@ -136,7 +155,18 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 if spec is None or spec.loader is None:
                     continue
                 module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+                # Issue #1531: wrap exec_module in its own try/except so a
+                # failing or hostile drop-in cannot crash the palette refresh.
+                try:
+                    spec.loader.exec_module(module)
+                except Exception:
+                    logger.warning(
+                        "Drop-in block module %s raised during import; skipping. "
+                        "This file will not contribute any blocks to the palette.",
+                        py_file,
+                        exc_info=True,
+                    )
+                    continue
 
                 for attr_name in dir(module):
                     obj = getattr(module, attr_name)

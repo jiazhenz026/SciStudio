@@ -43,8 +43,8 @@ class ZarrBackend:
         try:
             arr = zarr.open_array(ref.path, mode="r")
             return np.asarray(arr)
-        except _ZARR_MISSING_ERRORS as exc:
-            raise StorageMissingError(ref, operation="read", detail=str(exc)) from exc
+        except Exception as exc:
+            raise _wrap_zarr_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* (numpy array) as a Zarr array to *ref*.
@@ -91,8 +91,8 @@ class ZarrBackend:
         try:
             arr = zarr.open_array(ref.path, mode="r")
             return np.asarray(arr[args])
-        except _ZARR_MISSING_ERRORS as exc:
-            raise StorageMissingError(ref, operation="slice", detail=str(exc)) from exc
+        except Exception as exc:
+            raise _wrap_zarr_read_error(ref, "slice", exc) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
         """Yield chunks along axis 0 of the Zarr array at *ref*."""
@@ -117,8 +117,8 @@ class ZarrBackend:
         """Return Zarr-level metadata for *ref*."""
         try:
             arr = zarr.open_array(ref.path, mode="r")
-        except _ZARR_MISSING_ERRORS as exc:
-            raise StorageMissingError(ref, operation="get_metadata", detail=str(exc)) from exc
+        except Exception as exc:
+            raise _wrap_zarr_read_error(ref, "get_metadata", exc) from exc
         meta: dict[str, Any] = {
             "shape": list(arr.shape),
             "dtype": str(arr.dtype),
