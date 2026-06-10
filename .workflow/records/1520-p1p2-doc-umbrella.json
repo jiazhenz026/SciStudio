@@ -45,6 +45,21 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:36:22.435755Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -265,6 +280,94 @@
       "path": "docs/specs/adr-042-gate-record-sentrux-workflow.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844719Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844738Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/cli-integration.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844740Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/skills/scistudio-e2e-test/references/dev-server-lifecycle.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844742Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/PROJECT_TREE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844743Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/phase11-srs-block-spec.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844745Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/phase11-lcms-block-spec.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844746Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/phase11-implementation-standards.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:30:49.844747Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:35:37.086161Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-ai-governance-tools.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:35:37.086181Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-local-gate-receipts.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:35:37.086183Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -448,6 +551,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.487530Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.511756Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.534774Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.557846Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.580425Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.602500Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.624679Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.647245Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.669910Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:36:22.692115Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -465,7 +628,7 @@
     "changed_files": [],
     "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "head": "HEAD",
-    "head_sha": "480be703",
+    "head_sha": "c71831e7",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -501,6 +664,14 @@
     },
     {
       "at": "2026-06-10T18:18:29.313653Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-10T18:36:22.692168Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "mode": "pre-commit",
       "result": "fail",

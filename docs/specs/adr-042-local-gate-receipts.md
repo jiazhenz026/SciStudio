@@ -79,6 +79,11 @@ language_source: en
 
 # ADR-042 Local Gate Receipts And Worktree Guard Specification
 
+> **Superseded command-surface note:** This spec records ADR-042 Addendum 5.
+> ADR-042 Addendum 6 folded standalone `gate_receipt` behavior into committed
+> gate-record ledger events. Current AI-authored work uses `gate_record check`
+> modes instead of `gate_receipt run` / `exec` / `validate`.
+
 ## 1. Change Summary
 
 > **Note (ADR-042 Addendum 6):** The implementation symbols this spec governs

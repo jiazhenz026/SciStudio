@@ -14,7 +14,9 @@ skill describing how to use them.
 
 ```bash
 # 1. Install SciStudio.
-pip install scistudio   # or pip install -e . from a source checkout
+pip install scistudio
+# Source checkout development should use an isolated env plus PYTHONPATH=src,
+# not an editable install from a shared worktree.
 
 # 2. Wire up your CLI of choice. --all installs claude + codex + skill at user scope.
 scistudio install --all

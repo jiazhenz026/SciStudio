@@ -77,6 +77,12 @@ language_source: en
 
 # ADR-042 AI Governance Tooling Specification
 
+> **Legacy command-surface note:** This draft records the pre-Addendum 6 guard
+> CLI design. Current AI-authored work uses the ledger-backed
+> `gate_record init` / `amend` / `check` / `finalize` workflow, and hooks route
+> through `gate_record check --mode ...` instead of calling these guard CLIs
+> directly.
+
 ## 1. Change Summary
 
 This spec defines the custom AI restriction and human exemption tools required

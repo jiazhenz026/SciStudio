@@ -153,19 +153,24 @@ scistudio gui
 The wheel ships with the prebuilt React SPA, so `scistudio gui` opens the full
 workflow editor directly. No Node.js required at install time.
 
-**Developers** — clone and install editable:
+**Developers** — clone and run from source in an isolated environment:
 
-```bash
+```powershell
 git clone https://github.com/zjzcpj/SciStudio.git
 cd SciStudio
-pip install -e ".[dev]"
-(cd frontend && npm install && npm run build)   # one-time SPA build
-scistudio gui
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # Windows PowerShell
+python -m pip install -U pip
+python -m pip install ".[dev]"
+Push-Location frontend; npm install; npm run build; Pop-Location   # one-time SPA build
+$env:PYTHONPATH = "src"
+python -m scistudio.cli.main gui
 ```
 
 The dev path serves the SPA from `frontend/dist/` automatically, so you can
-iterate on Python + SPA without reinstalling. For hot-reload frontend dev,
-run `(cd frontend && npm run dev)` against a separate `scistudio serve`
+iterate on Python + SPA without an editable install. For hot-reload frontend dev,
+run `npm run dev` from `frontend/` against a separate
+`python -m scistudio.cli.main serve` process with `PYTHONPATH=src` set.
 backend — Vite proxies `/api/*` to `http://localhost:8000`.
 
 > If `scistudio gui` lands on the FastAPI `/docs` page instead of the workflow
