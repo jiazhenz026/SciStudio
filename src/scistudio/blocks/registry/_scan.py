@@ -160,9 +160,13 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 try:
                     spec.loader.exec_module(module)
                 except Exception:
+                    # #1531: skip-don't-crash on a failing/hostile drop-in.
+                    # Keep the historical "Failed to import block from" wording
+                    # (asserted by the registry-logging contract test) so the
+                    # hardening does not change the observable error log.
                     logger.warning(
-                        "Drop-in block module %s raised during import; skipping. "
-                        "This file will not contribute any blocks to the palette.",
+                        "Failed to import block from %s: drop-in module raised "
+                        "during import; skipping (it contributes no blocks).",
                         py_file,
                         exc_info=True,
                     )

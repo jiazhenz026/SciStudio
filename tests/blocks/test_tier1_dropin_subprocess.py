@@ -313,9 +313,7 @@ class TestBrokenDropInDoesNotCrashScan:
         # scan() must not raise — the broken file is skipped with a warning.
         reg.scan()
 
-    def test_broken_dropin_does_not_prevent_good_dropin_from_registering(
-        self, tmp_path: Path
-    ) -> None:
+    def test_broken_dropin_does_not_prevent_good_dropin_from_registering(self, tmp_path: Path) -> None:
         """A broken drop-in must not prevent a good one in the same dir from registering."""
         (tmp_path / "broken_block.py").write_text("raise RuntimeError('hostile')\n")
         (tmp_path / "good_block.py").write_text(DROPIN_SOURCE)
@@ -328,9 +326,7 @@ class TestBrokenDropInDoesNotCrashScan:
             "Good drop-in must still register even when another drop-in in the same dir crashes"
         )
 
-    def test_broken_dropin_warns(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_broken_dropin_warns(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """A failing drop-in must emit at least one WARNING log entry referencing the file."""
         import logging
 

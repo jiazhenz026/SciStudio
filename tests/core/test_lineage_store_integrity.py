@@ -224,9 +224,7 @@ def test_execute_query_allows_select_and_with(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _seed_run_and_exec(store)
     assert store.execute_query("SELECT run_id FROM runs") == [("run-1",)]
-    assert store.execute_query(
-        "WITH x AS (SELECT run_id FROM runs) SELECT * FROM x"
-    ) == [("run-1",)]
+    assert store.execute_query("WITH x AS (SELECT run_id FROM runs) SELECT * FROM x") == [("run-1",)]
     # Comment + SELECT is fine.
     assert store.execute_query("-- comment\nSELECT 1") == [(1,)]
 

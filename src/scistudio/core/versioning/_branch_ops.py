@@ -61,7 +61,7 @@ def _branches(engine: GitEngine) -> list[dict[str, Any]]:
             continue
         refname, sha = line.split("\t", 1)
         # Always strip the known prefix; result is the clean short name.
-        name = refname[len(_HEADS_PREFIX):] if refname.startswith(_HEADS_PREFIX) else refname
+        name = refname[len(_HEADS_PREFIX) :] if refname.startswith(_HEADS_PREFIX) else refname
         out.append(
             {
                 "name": name,
@@ -96,7 +96,7 @@ def _current_branch(engine: GitEngine) -> str | None:
     if not ref:
         return None
     if ref.startswith(_HEADS_PREFIX):
-        return ref[len(_HEADS_PREFIX):]
+        return ref[len(_HEADS_PREFIX) :]
     # Unexpected ref namespace (should not happen for a normal checkout).
     return ref
 

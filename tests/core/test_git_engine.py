@@ -890,12 +890,10 @@ def test_branches_not_prefixed_when_tag_shares_branch_name(tmp_path: Path) -> No
     # engine.branches() must return the clean short name.
     branch_names = [b["name"] for b in engine.branches()]
     assert "feature" in branch_names, (
-        f"branches() returned {branch_names!r} — expected 'feature' (not "
-        f"'heads/feature').  Regression: #1390."
+        f"branches() returned {branch_names!r} — expected 'feature' (not 'heads/feature').  Regression: #1390."
     )
     assert "heads/feature" not in branch_names, (
-        f"branches() returned disambiguation-prefixed name 'heads/feature' "
-        f"in {branch_names!r}.  Regression: #1390."
+        f"branches() returned disambiguation-prefixed name 'heads/feature' in {branch_names!r}.  Regression: #1390."
     )
     # Spot-check: 'main' is also present and clean.
     assert "main" in branch_names
@@ -922,9 +920,7 @@ def test_branches_is_current_correct_with_tag_name_collision(tmp_path: Path) -> 
     branches = engine.branches()
     work_entry = next((b for b in branches if b["name"] == "work"), None)
     assert work_entry is not None, "Expected 'work' branch in branches() output"
-    assert work_entry["is_current"] is True, (
-        f"'work' branch should be marked is_current=True; got {work_entry!r}"
-    )
+    assert work_entry["is_current"] is True, f"'work' branch should be marked is_current=True; got {work_entry!r}"
 
 
 # ---------------------------------------------------------------------------

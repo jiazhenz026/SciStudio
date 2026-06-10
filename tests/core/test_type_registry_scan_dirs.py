@@ -241,9 +241,7 @@ class TestAddScanDir:
         spec = registry.all_types()["DataObject"]
         assert spec.module_path == "scistudio.core.types.base"
 
-    def test_module_name_unique_across_scan_dirs_same_stem_and_mtime(
-        self, tmp_path: Path
-    ) -> None:
+    def test_module_name_unique_across_scan_dirs_same_stem_and_mtime(self, tmp_path: Path) -> None:
         """Regression for #1374: same-stem files in two scan dirs must not collide.
 
         Before #1374, the synthetic module name was built from

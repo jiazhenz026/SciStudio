@@ -53,9 +53,7 @@ def test_save_workflow_allows_valid_graph(runtime: ApiRuntime, opened_project: P
     assert runtime.workflow_path("linear_wf").exists()
 
 
-def test_create_workflow_route_returns_422_on_cycle(
-    client: TestClient, opened_project: Path
-) -> None:
+def test_create_workflow_route_returns_422_on_cycle(client: TestClient, opened_project: Path) -> None:
     response = client.post("/api/workflows/", json=_cyclic_payload())
     assert response.status_code == 422
 

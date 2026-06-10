@@ -127,9 +127,7 @@ def _reject_non_readonly_sql(sql: str) -> None:
 
     first_word = statements[0].split(None, 1)[0].lower() if statements else ""
     if first_word not in _READONLY_PREFIXES:
-        raise ValueError(
-            f"execute_query is read-only; statement starting with {first_word!r} is rejected"
-        )
+        raise ValueError(f"execute_query is read-only; statement starting with {first_word!r} is rejected")
 
 
 def _strip_sql_leading_comments(sql: str) -> str:
@@ -700,8 +698,7 @@ class LineageStore:
         with self._connect() as conn:
             if run_id is None:
                 cur = conn.execute(
-                    "SELECT * FROM data_objects "
-                    "WHERE content_hash IS NOT NULL AND storage_path IS NOT NULL"
+                    "SELECT * FROM data_objects WHERE content_hash IS NOT NULL AND storage_path IS NOT NULL"
                 )
             else:
                 cur = conn.execute(
