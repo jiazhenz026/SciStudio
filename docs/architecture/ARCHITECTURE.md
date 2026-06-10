@@ -1559,6 +1559,8 @@ block, data, run, and permission schemas owned by the backend.
 Realtime channels use **WebSocket** and streaming responses to keep clients in
 sync with runtime activity. They carry block state, run progress, interactive
 prompts, workflow changes, Git-head changes, logs, and agent-terminal updates.
+The WebSocket protocol also supports an application-level `ping` -> `pong`
+heartbeat so the browser can detect an OPEN-but-stale socket and reconnect.
 
 The event source is the backend **EventBus** and runtime services. The frontend
 does not infer execution state locally, manufacture block transitions, or treat

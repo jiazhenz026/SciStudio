@@ -301,6 +301,8 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                             data=data.get("data", {}),
                         )
                     )
+                elif msg_type == "ping":
+                    outbound_queue.put_nowait({"type": "pong"})
                 elif msg_type == "block_user_marked_done":
                     # Audit P1-E (Codex #866-3): ADR-035 §3.5 path (c) —
                     # the user clicked "Mark done" in an AI Block tab.
