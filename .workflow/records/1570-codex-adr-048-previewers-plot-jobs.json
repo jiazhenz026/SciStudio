@@ -1,0 +1,731 @@
+{
+  "branch": "codex/adr-048-previewers-plot-jobs",
+  "check_events": [
+    {
+      "at": "2026-06-10T23:04:44.938829Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T23:40:13.604775Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T23:41:16.179909Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T23:43:17.699785Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T23:43:54.232127Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T23:56:11.916312Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-048.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-10T23:14:32.711462Z",
+      "owner_directive": "Write three companion specs for ADR-048: preview system implementation/migration; AI MCP tool and skill/docs; package/block developer docs rewrite. Dispatch three agents to research each scope and write reports to docs/planning.",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "at": "2026-06-10T23:55:54.812316Z",
+      "owner_directive": "Strengthen ADR-048 developer-docs spec: active package/block developer docs must be deleted and rewritten, and rewrite must audit recent ADRs for all new features and changed authoring patterns. Create a separate governance follow-up issue for planned-but-unimplemented governed surfaces (#1571).",
+      "reason": "Owner requested developer docs spec rewrite scope expansion and governance follow-up issue."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-10T23:03:42.789731Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:03:51.659521Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:14:32.711500Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:14:32.711504Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-ai-plot-tools.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:14:32.711506Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-developer-docs-refresh.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:39:43.352065Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-preview-system-scope.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:39:43.352084Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-ai-plot-tools-scope.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:39:43.352086Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-developer-docs-scope.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:55:54.812333Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:55:54.812340Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-developer-docs-refresh.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-10T23:04:45.114783Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.136465Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.158976Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.189909Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.213405Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.235847Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.261041Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.285730Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.309514Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:04:45.334138Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.781945Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.804420Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.825928Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.847625Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.869171Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.891157Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.914806Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.937762Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.961921Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:40:13.985407Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.226195Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.247072Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.267837Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.289894Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.311069Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.332298Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.360133Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.382086Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.404034Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:41:16.425727Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.749360Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.774810Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.799230Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.822764Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.845303Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.867953Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.889926Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.911852Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.933337Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:17.955348Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.281722Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.304471Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.326398Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.350307Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.373867Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.397893Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.420061Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.441352Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.462346Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:43:54.483835Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:11.971691Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:11.996474Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.019517Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.043913Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.068767Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.093154Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.116943Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.142106Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.172552Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T23:56:12.196719Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1570,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "7ab8deaa",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "7ab8deaa",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Rewrite ADR-048 from scratch for extensible type previewers and preview-side plot jobs; legacy ADR-048/spec are superseded as draft material and not the governing design.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-10T23:04:45.334173Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-10T23:40:13.985451Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-06-10T23:41:16.425771Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-06-10T23:43:17.955391Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-06-10T23:43:54.483876Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-10T23:56:12.196763Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1570-codex-adr-048-previewers-plot-jobs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "Codex:gpt-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711480Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711487Z",
+      "pattern": "docs/specs/adr-048-ai-plot-tools.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711490Z",
+      "pattern": "docs/specs/adr-048-developer-docs-refresh.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711491Z",
+      "pattern": "docs/planning/adr-048-preview-system-scope.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711493Z",
+      "pattern": "docs/planning/adr-048-ai-plot-tools-scope.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T23:14:32.711494Z",
+      "pattern": "docs/planning/adr-048-developer-docs-scope.md",
+      "reason": "Owner expanded ADR-048 work from ADR only to three companion specs and three impact-scope research reports."
+    }
+  ],
+  "session_id": "238ccd97-00ff-441a-9d75-c201c57e2b30",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-06-10T23:03:42.789761Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only ADR planning document; implementation tests are specified as future obligations",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T23:03:51.659551Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only ADR planning document; implementation tests are specified as future obligations",
+      "verified_in_diff": null
+    }
+  ]
+}
