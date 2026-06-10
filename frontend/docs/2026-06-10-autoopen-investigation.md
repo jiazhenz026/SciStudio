@@ -33,7 +33,7 @@ auto-open block was extracted in #1413/#1414. It now lives in
 
 There is a second, independent auto-open path on `workflow_started`
 (`handleLifecycle.ts::handleWorkflowStartedAutoOpen`) used when an agent
-*runs* a workflow. That path is NOT triggered by a plain `write_workflow`
+_runs_ a workflow. That path is NOT triggered by a plain `write_workflow`
 (no run), so a pure create relies entirely on the `kind === "created"`
 gate.
 
@@ -58,7 +58,7 @@ the frontend reads first — so the `changedId` derivation is sound.
 ### H1 (most likely) — `kind` is not reliably `"created"` for a new file
 
 The auto-open is strictly gated on `kind === "created"`. The wire `kind`
-depends on which watchdog event the OS delivers *first* and on the
+depends on which watchdog event the OS delivers _first_ and on the
 suppression/debounce pipeline:
 
 - An atomic write is `tmp` write -> `os.replace(tmp, final)`. On some
@@ -72,7 +72,7 @@ suppression/debounce pipeline:
   a single `modified` for an atomic create.
 
 When the surviving frame is `kind="modified"`, `isUnopenedCreatedWorkflow`
-returns false. Because the new workflow is also not the *current* canvas
+returns false. Because the new workflow is also not the _current_ canvas
 workflow, `handleWorkflowChanged` then returns without opening anything —
 **silent no-op**, exactly matching the symptom. This is platform/timing
 dependent, which explains the intermittency and the dev-vs-prod split.

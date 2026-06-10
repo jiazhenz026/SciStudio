@@ -43,666 +43,372 @@
     },
     {
       "source_accepted_types": [],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "target_accepted_types": ["Array"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["Array"],
       "target_accepted_types": [],
       "expected_compatible": true
     },
     {
       "source_accepted_types": [],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["DataObject"],
       "target_accepted_types": [],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataObject"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["DataObject"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["Array"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Series"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["Series"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "DataFrame"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["DataFrame"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "ImageLike"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["ImageLike"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "DataObject"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["DataObject"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "Array"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["Array"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "DataFrame"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["DataFrame"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "Text"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["Text"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "ImageLike"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["ImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["PeakTableLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Array",
-        "Series"
-      ],
-      "target_accepted_types": [
-        "Series"
-      ],
+      "source_accepted_types": ["Array", "Series"],
+      "target_accepted_types": ["Series"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "Array",
-        "Series"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["Array", "Series"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "Text"
-      ],
-      "target_accepted_types": [
-        "Array",
-        "DataFrame"
-      ],
+      "source_accepted_types": ["Text"],
+      "target_accepted_types": ["Array", "DataFrame"],
       "expected_compatible": false
     },
     {
-      "source_accepted_types": [
-        "ImageLike",
-        "Text"
-      ],
-      "target_accepted_types": [
-        "FluorImageLike"
-      ],
+      "source_accepted_types": ["ImageLike", "Text"],
+      "target_accepted_types": ["FluorImageLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "FluorImageLike"
-      ],
-      "target_accepted_types": [
-        "Array",
-        "PeakTableLike"
-      ],
+      "source_accepted_types": ["FluorImageLike"],
+      "target_accepted_types": ["Array", "PeakTableLike"],
       "expected_compatible": true
     },
     {
-      "source_accepted_types": [
-        "PeakTableLike"
-      ],
-      "target_accepted_types": [
-        "Text",
-        "Series"
-      ],
+      "source_accepted_types": ["PeakTableLike"],
+      "target_accepted_types": ["Text", "Series"],
       "expected_compatible": false
     }
   ]
