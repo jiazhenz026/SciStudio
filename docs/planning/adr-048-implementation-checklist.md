@@ -182,7 +182,9 @@ Append only.
 
 ## 10. Final Readiness (per spec)
 
-- [ ] SPEC 1: agents done · manager reviewed all files · gate complete · umbrella PR closes #1574 · CI green.
-- [ ] SPEC 2: agents done · manager reviewed all files · gate complete · umbrella PR closes #1575 · CI green.
-- [ ] SPEC 3: agents done · manager reviewed all files · gate complete · umbrella PR closes #1576 · CI green.
-- [ ] Browser smoke tests (3 rounds) complete with evidence.
+- [x] SPEC 1: agents done · manager reviewed all files · gate complete · umbrella PR #1577 closes #1574 · CI 15/15 green · audit PASS (P2s fixed).
+- [x] SPEC 2: agents done · manager reviewed all files · gate complete · umbrella PR #1580 closes #1575 · CI green · audit PASS · FR-016 plot-collection bug found in smoke test + fixed (`aede02ad`).
+- [x] SPEC 3: agents done · manager reviewed all files · gate complete · umbrella PR #1581 closes #1576 · CI 10/10 green · audit APPROVE.
+- [x] Browser smoke tests (3 rounds) complete with evidence — `docs/audit/2026-06-11-adr-048-smoke-tests.md`; all 3 rounds PASS; FR-016 bug found + fixed in-PR.
+- [x] Codex auto-review on all 3 PRs replied + resolved (fix SHAs `e51a7aa3`/`e29bc5f5`/`f92fe2bf`).
+- Follow-ups tracked: #1578 (DRY previewer providers), #1579 (manifest first-class envelope field).
