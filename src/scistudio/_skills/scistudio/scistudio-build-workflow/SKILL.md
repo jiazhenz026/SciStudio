@@ -247,9 +247,9 @@ write_workflow(path, content)          # writes YAML, pre-validates against sche
 validate_workflow(path)                # second pass: edges, type compat, DAG
 run_workflow(path)                     # returns run_id
 get_run_status(run_id)                 # poll until terminal
-get_block_output(run_id, node_id, port_name)   # fetch refs from interesting blocks
+get_block_output(run_id, block_id, port)       # returns {ref, type, produced_at}
 inspect_data(ref)                      # shape, dtype, axes
-preview_data(ref)                      # thumbnail / first rows
+preview_data(ref, fmt)                 # thumbnail / first rows
 ```
 
 Every write-class tool (`write_workflow`, `run_workflow`,

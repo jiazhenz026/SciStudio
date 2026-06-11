@@ -145,10 +145,10 @@ For shipping a block as a pip-installable plugin:
 ```toml
 # pyproject.toml of the plugin package
 [project.entry-points."scistudio.blocks"]
-mypkg = "mypkg"
+mypkg = "mypkg:get_blocks"
 
 [project.entry-points."scistudio.types"]
-mypkg = "mypkg.types"
+mypkg = "mypkg:get_types"
 ```
 
 For **most user blocks**, drop a `*.py` file into the project's

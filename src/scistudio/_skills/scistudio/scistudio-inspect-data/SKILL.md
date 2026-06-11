@@ -77,10 +77,19 @@ block produced it, on which run, from which input refs. Useful for
 `get_lineage` returns the ADR-038-recorded lineage; the answers are
 authoritative. Do not guess at provenance.
 
-## 5. `get_block_output(run_id, node_id, port_name)`
+## 5. `get_block_output(run_id, block_id, port)`
 
 Fetches a ref by addressing the producing block. Use when the user
-asks about the output of a specific node in a specific run.
+asks about the output of a specific block in a specific run.
+
+The tool returns a `GetBlockOutputResult` envelope:
+
+- `ref`: the StorageReference wire dict to pass to `inspect_data` or
+  `preview_data`.
+- `type`: `{type_chain: [...], type_name: "..."}` extracted from the ref
+  metadata when available.
+- `produced_at`: the recorded production timestamp, or an empty string when
+  that timestamp is unavailable.
 
 If the block emits a Collection, `get_block_output` returns the
 Collection wrapper; call `inspect_data` on it to see the per-item
@@ -108,16 +117,17 @@ User: "What's in the output of the threshold step?"
 
 ```
 # Step 1: address the ref
-get_block_output(run_id="r-abc123", node_id="thr", port_name="mask")
-# → ref "rf-099"
+mask_output = get_block_output(run_id="r-abc123", block_id="thr", port="mask")
+# -> {ref: {...}, type: {type_chain: ["DataObject", "Mask"], type_name: "Mask"},
+#     produced_at: ""}
 
 # Step 2: shape/type
-inspect_data(ref="rf-099")
+inspect_data(ref=mask_output.ref)
 # → {type: "Mask", shape: [512, 512], dtype: "bool", axes: "YX",
 #    backend: "zarr", size_bytes: 262144}
 
 # Step 3: thumbnail (for the user to see)
-preview_data(ref="rf-099", fmt="png_base64")
+preview_data(ref=mask_output.ref, fmt="png_base64")
 # → {fmt: "png_base64", payload: {...}, truncated: true}  # clamped to 256×256
 
 # Step 4: report

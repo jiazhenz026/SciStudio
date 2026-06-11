@@ -33,11 +33,18 @@ BLOCK_DEV = REPO_ROOT / "docs" / "block-development"
 PREVIEWERS_AND_PLOTS = BLOCK_DEV / "previewers-and-plots.md"
 IMPACT_MATRIX = REPO_ROOT / "docs" / "planning" / "adr-048-impact-matrix.md"
 INSPECT_SKILL = REPO_ROOT / "src" / "scistudio" / "_skills" / "scistudio" / "scistudio-inspect-data" / "SKILL.md"
+SKILL_ROOT = REPO_ROOT / "src" / "scistudio" / "_skills"
 SCAFFOLD_TEMPLATES = REPO_ROOT / "src" / "scistudio" / "cli" / "templates" / "block_package"
 
 
 def _block_dev_pages() -> list[Path]:
     return sorted(BLOCK_DEV.glob("*.md"))
+
+
+def _iter_doc_files() -> list[Path]:
+    files = list(BLOCK_DEV.glob("*.md"))
+    files.append(IMPACT_MATRIX)
+    return files
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +69,33 @@ def test_impact_matrix_exists_and_covers_range() -> None:
 _PRODUCED_TYPE_USAGE = re.compile(r"produced_type\s*=")
 # Old preview_data signature with the removed bounding arguments.
 _OLD_PREVIEW_ARGS = re.compile(r"preview_data\([^)]*\b(max_rows|max_dim)\b")
+# Any documented call to preview_data must include the required fmt argument.
+_PREVIEW_DATA_CALL = re.compile(r"preview_data\(([^)]*)\)")
+# Old get_block_output names from ADR-033-era prose.
+_OLD_GET_BLOCK_OUTPUT_ARGS = re.compile(r"get_block_output\([^)]*\b(node_id|port_name)\b")
+# Editable installs are forbidden in active packaged guidance.
+_FORBIDDEN_EDITABLE_INSTALL = re.compile(
+    r"\b(?:uv\s+pip\s+install|python\s+-m\s+pip\s+install|pip\s+install)[^\n`]*\s-e(?:\s|$)",
+    re.IGNORECASE,
+)
+_ENTRY_POINT_BLOCK = re.compile(
+    r'\[project\.entry-points\."(?P<group>scistudio\.(?:blocks|types|previewers))"\]\s*\n'
+    r"(?P<body>(?:\s*[A-Za-z0-9_.-]+\s*=\s*\"[^\"]+\"\s*\n?)+)",
+    re.MULTILINE,
+)
+_ENTRY_POINT_LINE = re.compile(r'^\s*(?P<name>[A-Za-z0-9_.-]+)\s*=\s*"(?P<ref>[^"]+)"\s*$', re.MULTILINE)
+
+
+def _packaged_guidance_files() -> list[Path]:
+    skill_files = sorted(SKILL_ROOT.rglob("*.md"))
+    template_files = sorted(
+        path for path in SCAFFOLD_TEMPLATES.rglob("*") if path.is_file() and path.suffix in {".md", ".tpl", ".toml"}
+    )
+    return skill_files + template_files
+
+
+def _contract_guidance_files() -> list[Path]:
+    return _block_dev_pages() + _packaged_guidance_files()
 
 
 @pytest.mark.parametrize("page", _block_dev_pages(), ids=lambda p: p.name)
@@ -99,6 +133,51 @@ def test_inspect_skill_has_no_stale_preview_args() -> None:
     assert "preview_data(ref, fmt)" in text, "inspect-data skill must document preview_data(ref, fmt)"
 
 
+@pytest.mark.parametrize("doc", _contract_guidance_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_preview_data_examples_include_required_fmt(doc: Path) -> None:
+    """FR-021: active skill/template examples must call ``preview_data`` with ``fmt``."""
+    text = doc.read_text(encoding="utf-8")
+    offenders = [match.group(0) for match in _PREVIEW_DATA_CALL.finditer(text) if "fmt" not in match.group(1)]
+    assert not offenders, f"{doc.relative_to(REPO_ROOT)} has preview_data calls missing fmt: {offenders}"
+
+
+@pytest.mark.parametrize("doc", _contract_guidance_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_get_block_output_examples_use_current_parameters(doc: Path) -> None:
+    """Active docs must use ``get_block_output(run_id, block_id, port)``."""
+    text = doc.read_text(encoding="utf-8")
+    match = _OLD_GET_BLOCK_OUTPUT_ARGS.search(text)
+    assert match is None, f"{doc.relative_to(REPO_ROOT)} uses stale get_block_output parameter {match.group(1)!r}"
+
+
+def test_inspect_skill_documents_get_block_output_envelope() -> None:
+    """The inspect-data skill must document the return envelope fields agents consume."""
+    text = INSPECT_SKILL.read_text(encoding="utf-8")
+    assert "get_block_output(run_id, block_id, port)" in text
+    assert "GetBlockOutputResult" in text
+    for field in ("`ref`", "`type`", "`produced_at`"):
+        assert field in text, f"inspect-data skill does not document get_block_output envelope field {field}"
+
+
+@pytest.mark.parametrize("doc", _packaged_guidance_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_packaged_guidance_has_no_editable_install_commands(doc: Path) -> None:
+    """Active packaged skills/templates must not teach editable installs."""
+    text = doc.read_text(encoding="utf-8")
+    assert not _FORBIDDEN_EDITABLE_INSTALL.search(text), f"{doc.relative_to(REPO_ROOT)} teaches editable install"
+
+
+@pytest.mark.parametrize("doc", _contract_guidance_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_entry_point_examples_use_callable_factories(doc: Path) -> None:
+    """Entry-point examples must name callable factories, not module-only refs."""
+    text = doc.read_text(encoding="utf-8")
+    offenders: list[str] = []
+    for block in _ENTRY_POINT_BLOCK.finditer(text):
+        for line in _ENTRY_POINT_LINE.finditer(block.group("body")):
+            ref = line.group("ref")
+            if ":" not in ref or not ref.rsplit(":", 1)[1]:
+                offenders.append(f'{line.group("name")} = "{ref}"')
+    assert not offenders, f"{doc.relative_to(REPO_ROOT)} has module-only entry points: {offenders}"
+
+
 def test_previewers_and_plots_states_preview_only_rule() -> None:
     """FR-015: plot jobs are preview-side artifacts, never workflow blocks/DAG nodes."""
     text = PREVIEWERS_AND_PLOTS.read_text(encoding="utf-8").lower()
@@ -120,12 +199,6 @@ def test_publishing_teaches_three_entry_points() -> None:
 
 # Matches markdown links [text](target). Skips images and inline anchors.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]+\]\(([^)]+)\)")
-
-
-def _iter_doc_files() -> list[Path]:
-    files = list(BLOCK_DEV.glob("*.md"))
-    files.append(IMPACT_MATRIX)
-    return files
 
 
 @pytest.mark.parametrize("doc", _iter_doc_files(), ids=lambda p: p.name)

@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install -e .
+python -m pip install .
 ```
 
 After installation, SciStudio will automatically discover the blocks in this
@@ -25,7 +25,7 @@ You should see **{display_name} Example** in the block list.
 
 ```bash
 # Install with dev dependencies
-pip install -e ".[dev]"
+python -m pip install ".[dev]"
 
 # Run tests
 pytest
