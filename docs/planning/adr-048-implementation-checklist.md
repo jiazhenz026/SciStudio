@@ -110,8 +110,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| S1-backend | implementer | N/A | §7.1 below | previewers core + API + runtime + MCP sharing + backend tests | `feat/adr-048-preview-backend` | `sci-wt/s1-backend` | `src/scistudio/previewers/**`, `src/scistudio/api/**`, `src/scistudio/ai/agent/mcp/tools_inspection/**`, `tests/previewers/**`, `tests/api/**`, `tests/ai/test_mcp_tools_inspection.py` | frontend, imaging, blocks/** | `#1574` | `[ ]` |
-| S1-frontend | implementer | N/A | §7.2 below | PreviewHost + manifest loader + fallback viewers + store + FE tests | `feat/adr-048-preview-frontend` | `sci-wt/s1-frontend` | `frontend/src/**`, `frontend/package.json` | backend, imaging | `#1574` | `[ ]` |
+| S1-backend | implementer | N/A | §7.1 / `dispatch-prompts/s1-backend.md` | previewers core + API + runtime + MCP sharing + backend tests | `feat/adr-048-preview-backend` | `sci-wt/s1-backend` | `src/scistudio/previewers/**`, `src/scistudio/api/**`, `src/scistudio/ai/agent/mcp/tools_inspection/**`, `tests/previewers/**`, `tests/api/**`, `tests/ai/test_mcp_tools_inspection.py` | frontend, imaging, blocks/** | `#1574` | `[x]` commit `f961170f`; merged `4c7f0a09` |
+| S1-frontend | implementer | N/A | §7.2 / `dispatch-prompts/s1-frontend.md` | PreviewHost + manifest loader + fallback viewers + store + FE tests | `feat/adr-048-preview-frontend` | `sci-wt/s1-frontend` | `frontend/src/**`, `frontend/package.json` | backend, imaging | `#1574` | `[~]` dispatched |
 | S1-imaging | implementer | N/A | §7.3 below | imaging Image/Label previewers (backend provider + FE assets + entry point + tests) | `feat/adr-048-preview-imaging` | `sci-wt/s1-imaging` | `packages/scistudio-blocks-imaging/**` | core, frontend host | `#1574` | `[ ]` |
 | S1-audit | audit_reviewer | with-context | audit template | audit integrated SPEC 1 + Codex review reconcile | `audit/adr-048-spec1` | `sci-wt/s1-audit` | `docs/audit/<date>-adr-048-spec1.md` | implementation code | `#1574` | `[ ]` |
 
@@ -125,9 +125,10 @@ language_source: en
 - Required tests: `tests/previewers/test_preview_registry.py`,
   `test_preview_routing.py`, `test_preview_data_access.py`, `tests/api/test_previewers.py`,
   `tests/api/test_data.py`, `tests/ai/test_mcp_tools_inspection.py`.
-- [ ] Implementation -> `<commit>`
-- [ ] Tests -> `<commit>`
-- [ ] Local gate check green -> `<reconcile>`
+- [x] Implementation -> `f961170f` (previewers/** + api/** ; 4153 insertions)
+- [x] Tests -> `f961170f` (tests/previewers/** + tests/api/test_previewers.py); manager-verified 63 passed locally, agent 79 passed/1 skipped, ruff+mypy clean
+- [x] Integrated into umbrella -> merge `4c7f0a09`, pushed
+- [ ] Final umbrella gate check (after frontend+imaging+audit) -> `<reconcile>`
 
 ### 7.2 S1-frontend — PreviewHost + fallback viewers
 - In scope: `frontend/src/**`, `frontend/package.json`.
