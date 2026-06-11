@@ -88,8 +88,14 @@ class TestBrowseFilesystem:
 
     def test_path_traversal_outside_allowlist_is_rejected(self, client: TestClient, browse_dir: Path) -> None:
         # A ``..`` escape that canonicalises outside the allowlist is rejected
-        # by the realpath+commonpath guard, not silently followed.
-        escape = browse_dir / ".." / ".." / ".." / ".." / ".." / "etc"
+        # by the realpath+commonpath guard, not silently followed. Use enough
+        # ``..`` segments to climb to the filesystem/drive root from any depth
+        # (excess ``..`` at the root are no-ops under realpath), so the escape
+        # lands outside the home/temp allowlist on every OS. A fixed shallow
+        # ``..`` depth is NOT portable: on Windows the tempdir nests under the
+        # home dir (``C:\\Users\\<u>\\AppData\\Local\\Temp``), so a shallow climb
+        # stays inside the home allowlist and the guard never fires.
+        escape = browse_dir.joinpath(*([".."] * 64), "scistudio_nonexistent_outside_allowlist")
         resp = client.get(
             "/api/filesystem/browse",
             params={"path": str(escape)},
