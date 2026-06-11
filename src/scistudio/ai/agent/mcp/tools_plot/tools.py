@@ -18,13 +18,13 @@ from typing import Annotated
 
 from pydantic import Field
 
+import scistudio.ai.agent.mcp.tools_plot.examples as _examples
+import scistudio.ai.agent.mcp.tools_plot.runtime as _runtime
+import scistudio.ai.agent.mcp.tools_plot.scaffold as _scaffold
+import scistudio.ai.agent.mcp.tools_plot.targets as _targets
+import scistudio.ai.agent.mcp.tools_plot.validation as _validation
 from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.server import mcp
-from scistudio.ai.agent.mcp.tools_plot import examples as _examples
-from scistudio.ai.agent.mcp.tools_plot import runtime as _runtime
-from scistudio.ai.agent.mcp.tools_plot import scaffold as _scaffold
-from scistudio.ai.agent.mcp.tools_plot import targets as _targets
-from scistudio.ai.agent.mcp.tools_plot import validation as _validation
 from scistudio.ai.agent.mcp.tools_plot.models import (
     ListPlotExamplesResult,
     ListPlotTargetsResult,

@@ -1,6 +1,148 @@
 {
   "branch": "track/adr-048-spec2-plot-tools",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-11T03:24:51.108798Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:24:51.281004Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T03:25:00.540234Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:25:00.984257Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:25:01.066182Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T03:26:54.144612Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:27:46.814341Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:27:55.714163Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-11T03:28:07.782622Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -19,9 +161,172 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
-  "governance_touch": false,
-  "guard_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-11T03:35:35.144561Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T03:35:35.144579Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/cli-integration.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-11T03:28:07.817370Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.830683Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/_skills/scistudio/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+              "src/scistudio/agent_provisioning/_orchestrate.py",
+              "src/scistudio/agent_provisioning/skills.py",
+              "src/scistudio/ai/agent/mcp/__init__.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/__init__.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/examples.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/scaffold.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+              "src/scistudio/ai/agent/system_prompt.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T03:28:07.843310Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.856234Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.871114Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T03:28:07.884374Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.896955Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.909757Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.922323Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:08.064633Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -31,25 +336,135 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/track/adr-048-spec1-preview-system",
+    "base_sha": "74c347d8",
+    "changed_files": [
+      ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      "docs/cli-integration.md",
+      "docs/planning/adr-048-dispatch-prompts/s2-impl.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "pyproject.toml",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/skills.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/__init__.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/examples.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/scaffold.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+      "src/scistudio/ai/agent/system_prompt.py",
+      "tests/agent_provisioning/test_orchestrate.py",
+      "tests/agent_provisioning/test_skills.py",
+      "tests/ai/test_finish_ai_block_skeleton.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_mcp_tools_plot.py",
+      "tests/ai/test_system_prompt.py",
+      "tests/api/test_preview_plot_jobs.py",
+      "tests/cli/test_install.py",
+      "tests/cli/test_mcp_bridge.py",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py",
+      "tests/packaging/test_wheel_skills.py"
+    ],
+    "diff_fingerprint": "sha256:c86d40f2d144ae7ad3801087617a9bcfc0d23d10903a713627849976786219a2",
+    "head": "HEAD",
+    "head_sha": "a1913143",
+    "surfaces": {
+      "docs": 3,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 16,
+      "packaging": 1,
+      "protected_core": 0,
+      "sentrux": 27,
+      "test": 12,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement ADR-048 SPEC 2 (AI plot tools + preview-side plot jobs) in full; deliver one [DO NOT MERGE] umbrella PR (stacked on SPEC 1) closing #1575; CI must pass.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-11T03:28:08.064665Z",
+      "diff_fingerprint": "sha256:c86d40f2d144ae7ad3801087617a9bcfc0d23d10903a713627849976786219a2",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1575-track-adr-048-spec2-plot-tools",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "0751a377-5241-4095-b615-1db13d027693",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-11T03:35:35.144584Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T03:35:35.144587Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
