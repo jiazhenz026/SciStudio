@@ -1,0 +1,79 @@
+{
+  "branch": "audit/2026-06-11-codebase-no-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit",
+      "docs/planning"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-11T07:48:59.052854Z",
+      "owner_directive": "Plan: write manager dispatch checklist under docs/planning/, dispatch 3 no-context audit agents, then land 3 per-lens audit reports + 1 consolidated index under docs/audit/. No implementation code changes.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-11T07:48:59.052877Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/codebase-no-context-audit-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:48:59.052890Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Audit-evidence-only PR (reports under docs/audit/ + dispatch checklist); no user-facing or behavioral change to record.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1589,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatches 3 no-context audit_reviewer agents (may read only ADRs/specs/docs/code/tests; not issues, gate records, PR claims, or manager summaries) to find doc/contract drift, layer & module routing/boundary problems, and serious code bugs; land severity-ordered audit reports under docs/audit/ in a new PR.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1589-audit-2026-06-11-codebase-no-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-fable-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "42c39819-fe08-44d3-99cc-33a683d59bd5",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-06-11T07:48:59.052896Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Manager/audit task adds only docs/audit reports and a docs/planning dispatch checklist; no implementation code paths change, so no test add/modify is required.",
+      "verified_in_diff": null
+    }
+  ]
+}
