@@ -208,6 +208,15 @@ def _sanitize_error(message: str, root: Path) -> str:
     return _truncate(message)
 
 
+def _clear_current_artifacts(cache_dir: Path) -> None:
+    """Remove stale display artifacts while preserving ``current.json`` state."""
+    if not cache_dir.exists():
+        return
+    for old in cache_dir.glob("current.*"):
+        if old.name != "current.json":
+            old.unlink()
+
+
 def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float | None = None) -> PlotRunResult:
     """Execute a plot job preview-side and write display-only artifacts (FR-023..FR-031)."""
     from scistudio.blocks.code._backends_registry import (
@@ -226,6 +235,7 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
     workflow_id = manifest.target.workflow_id or Path(manifest.target.workflow_path).stem
     cache_dir = preview_cache_dir(root, workflow_id, manifest.target.node_id, manifest.target.output_port, plot_id)
     cache_key = cache_key_for(workflow_id, manifest.target.node_id, manifest.target.output_port, plot_id)
+    _clear_current_artifacts(cache_dir)
 
     warnings: list[str] = []
     errors: list[str] = []
@@ -372,9 +382,7 @@ def _promote_artifacts(
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     # Current-overwrite: clear previous current.* before writing new ones (FR-027).
-    for old in cache_dir.glob("current.*"):
-        if old.name != "current.json":
-            old.unlink()
+    _clear_current_artifacts(cache_dir)
 
     # Order: declared artifacts first, then any extras found on disk.
     ordered: list[Path] = []

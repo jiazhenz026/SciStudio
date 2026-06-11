@@ -180,6 +180,8 @@ def test_failed_rerun_records_failure(setup) -> None:
     project, _runtime, _wf = setup
     ok = _run(run_plot_job(plot_id="p1"))
     assert ok.status == "succeeded"
+    previous_svg = Path(ok.artifact_paths[0])
+    assert previous_svg.is_file()
     (project / "plots" / "p1" / "render.py").write_text(
         "def render(collection, context):\n    raise ValueError('boom')\n", encoding="utf-8"
     )
@@ -188,6 +190,7 @@ def test_failed_rerun_records_failure(setup) -> None:
     record = json.loads(Path(bad.metadata_path).read_text(encoding="utf-8"))
     assert record["status"] == "failed"
     assert record["error"]
+    assert not previous_svg.exists()
 
 
 # ---------------------------------------------------------------------------

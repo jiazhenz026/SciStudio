@@ -59,6 +59,26 @@ class _StubBlockRegistry:
         return self._specs.get(type_name)
 
 
+class _DynamicBlock:
+    """Block instance whose output ports are config-driven."""
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        params = config.get("params")
+        if isinstance(params, dict):
+            config = params
+        self._port_name = str(config.get("output_port", "measurements"))
+
+    def get_effective_output_ports(self) -> list[_StubPort]:
+        return [_StubPort(name=self._port_name, accepted_types=[_Measurements])]
+
+
+class _DynamicBlockRegistry(_StubBlockRegistry):
+    def instantiate(self, type_name: str, config: dict[str, Any] | None = None) -> _DynamicBlock:
+        if type_name != "demo.dynamic":
+            raise KeyError(type_name)
+        return _DynamicBlock(config or {})
+
+
 class _StubScheduler:
     def __init__(self, block_outputs: dict[str, dict[str, Any]]) -> None:
         self._block_outputs = block_outputs
@@ -184,6 +204,40 @@ def test_list_targets_availability_with_recorded_output(project: Path, csv_outpu
     assert t.latest_run_id == "run_1"
 
 
+def test_list_targets_rejects_workflow_path_traversal(project: Path, tmp_path: Path) -> None:
+    """FR-004: workflow_path is project-confined."""
+    outside = tmp_path / "outside.yaml"
+    outside.write_text(
+        "workflow:\n  id: outside\n  version: 1.0.0\n  nodes:\n"
+        "  - id: node_x\n    block_type: demo.segment\n    config: {}\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    _set_ctx(_make_runtime(project))
+    with pytest.raises(PermissionError):
+        _run(list_plot_targets(workflow_path="../outside.yaml"))
+
+
+def test_list_targets_uses_effective_output_ports(project: Path) -> None:
+    """Dynamic blocks must be listed with their config-driven output port."""
+    wf = project / "workflows" / "main.yaml"
+    wf.write_text(
+        "workflow:\n  id: main\n  version: 1.0.0\n  nodes:\n"
+        "  - id: node_dyn\n    block_type: demo.dynamic\n    config:\n"
+        "      params:\n        output_port: dynamic_measurements\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    registry = _DynamicBlockRegistry(
+        {"demo.dynamic": _StubSpec(output_ports=[_StubPort(name="placeholder", accepted_types=[object])])}
+    )
+    _set_ctx(_StubRuntime(_project_dir=project, block_registry=registry))
+    result = _run(list_plot_targets())
+    assert result.count == 1
+    assert result.targets[0].output_port == "dynamic_measurements"
+    assert result.targets[0].output_type == "_Measurements"
+
+
 # ---------------------------------------------------------------------------
 # scaffold_plot (FR-007, FR-008, FR-009).
 # ---------------------------------------------------------------------------
@@ -274,6 +328,22 @@ def test_read_requires_exactly_one_selector(project: Path) -> None:
     res = _run(read_plot_source(plot_id="readme"))
     assert res.plot_id == "readme"
     assert "def render(collection, context)" in res.script_source
+
+
+def test_read_rejects_manifest_script_path_traversal(project: Path, tmp_path: Path) -> None:
+    """FR-004/FR-020: read_plot_source must not read escaped render scripts."""
+    _set_ctx(_make_runtime(project))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="escaped_read", target_id=tid, language="python"))
+    outside = tmp_path / "outside_render.py"
+    outside.write_text("def render(collection, context):\n    return None\n", encoding="utf-8")
+    manifest = project / "plots" / "escaped_read" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("path: render.py", "path: ../../../outside_render.py"),
+        encoding="utf-8",
+    )
+    with pytest.raises(PermissionError, match=r"script\.path"):
+        _run(read_plot_source(plot_id="escaped_read"))
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +452,30 @@ def test_run_python_sanitized_failure(project: Path, csv_output: Path) -> None:
     assert str(project.resolve()) not in joined
 
 
+def test_run_rejects_manifest_script_path_traversal(project: Path, csv_output: Path, tmp_path: Path) -> None:
+    """FR-004/FR-023: run_plot_job must not execute escaped render scripts."""
+    _set_ctx(_make_runtime(project, with_output_csv=csv_output))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="escaped_run", target_id=tid, language="python"))
+    outside = tmp_path / "outside_render.py"
+    outside.write_text(
+        (
+            "def render(collection, context):\n"
+            "    fig, ax = context.plt.subplots()\n"
+            "    ax.plot([1, 2, 3])\n"
+            "    return context.save_figure(fig, 'figure.svg')\n"
+        ),
+        encoding="utf-8",
+    )
+    manifest = project / "plots" / "escaped_run" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("path: render.py", "path: ../../../outside_render.py"),
+        encoding="utf-8",
+    )
+    with pytest.raises(PermissionError, match=r"script\.path"):
+        _run(run_plot_job(plot_id="escaped_run"))
+
+
 def test_run_overwrites_current(project: Path, csv_output: Path) -> None:
     """FR-027: rerun overwrites current.* + records the new run."""
     _set_ctx(_make_runtime(project, with_output_csv=csv_output))
@@ -443,6 +537,7 @@ def test_run_failed_rerun_records_failure_state(project: Path, csv_output: Path)
     record = json.loads(Path(bad.metadata_path).read_text(encoding="utf-8"))
     assert record["status"] == "failed"
     assert record["error"]
+    assert not Path(ok.artifact_paths[0]).exists()
 
 
 def test_run_enforces_file_count_cap(project: Path, csv_output: Path) -> None:
