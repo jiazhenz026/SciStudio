@@ -1,0 +1,55 @@
+{
+  "branch": "track/adr-048-spec2-plot-tools",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/**",
+      "src/scistudio/_skills/scistudio/**",
+      "src/scistudio/agent_provisioning/**",
+      "src/scistudio/cli/**",
+      "tests/**",
+      "docs/cli-integration.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "docs/planning/adr-048-dispatch-prompts/**",
+      "CHANGELOG.md",
+      "pyproject.toml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1575,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-048 SPEC 2 (AI plot tools + preview-side plot jobs) in full; deliver one [DO NOT MERGE] umbrella PR (stacked on SPEC 1) closing #1575; CI must pass.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1575-track-adr-048-spec2-plot-tools",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0751a377-5241-4095-b615-1db13d027693",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}

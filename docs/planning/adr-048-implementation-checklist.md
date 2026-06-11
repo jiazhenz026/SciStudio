@@ -113,11 +113,18 @@ language_source: en
 | S1-backend | implementer | N/A | §7.1 / `dispatch-prompts/s1-backend.md` | previewers core + API + runtime + MCP sharing + backend tests | `feat/adr-048-preview-backend` | `sci-wt/s1-backend` | `src/scistudio/previewers/**`, `src/scistudio/api/**`, `src/scistudio/ai/agent/mcp/tools_inspection/**`, `tests/previewers/**`, `tests/api/**`, `tests/ai/test_mcp_tools_inspection.py` | frontend, imaging, blocks/** | `#1574` | `[x]` commit `f961170f`; merged `4c7f0a09` |
 | S1-frontend | implementer | N/A | §7.2 / `dispatch-prompts/s1-frontend.md` | PreviewHost + manifest loader + fallback viewers + store + FE tests | `feat/adr-048-preview-frontend` | `sci-wt/s1-frontend` | `frontend/src/**`, `frontend/package.json` | backend, imaging | `#1574` | `[x]` commit `6d57fb9c`; merged `e4f79538`; vitest 707 pass, tsc/eslint/prettier/build green |
 | S1-imaging | implementer | N/A | §7.3 / `dispatch-prompts/s1-imaging.md` | imaging Image/Label previewers (backend provider + ESM viewer + entry point + tests) | `feat/adr-048-preview-imaging` | `sci-wt/s1-imaging` | `packages/scistudio-blocks-imaging/**` | core, frontend host | `#1574` | `[x]` commit `fb1489f1`; merged `2d841cef`; 12 registration tests pass |
-| S1-audit | audit_reviewer | with-context | `dispatch-prompts/s1-audit.md` | audit integrated SPEC 1 + Codex review reconcile | `audit/adr-048-spec1` | `sci-wt/s1-audit` | `docs/audit/2026-06-10-adr-048-spec1.md` | implementation code | `#1574` | `[~]` dispatched |
+| S1-audit | audit_reviewer | with-context | `dispatch-prompts/s1-audit.md` | audit integrated SPEC 1 + Codex review reconcile | `audit/adr-048-spec1` | `sci-wt/s1-audit` | `docs/audit/2026-06-10-adr-048-spec1.md` | implementation code | `#1574` | `[x]` report `f9964763` merged `af46f758`; PASS-WITH-FIXES, no P1; both P2 fixed `e51a7aa3` (#1578/#1579 follow-ups) |
 
 **SPEC 1 CI on #1577 (commit `78224b4f`): GREEN** — Test 3.11/3.13, Semantic-dup ratchet, Architecture, Frontend, Full Audit, Import Contracts, Lint & Format, Type Check, Verify Workflow Compliance (gate), Wheel Release Smoke, CodeQL Analyze (python/js/actions) all PASS. Only red = the 2s GitHub default-setup "CodeQL" status check (infra; green on `main`; advanced Analyze jobs pass) — flagged for owner, not a code issue. Two CI fixes applied: imaging-agnostic collection test; semantic-dup baseline re-ratchet (#1578 follow-up).
 
-(SPEC 2 and SPEC 3 dispatch rows appended when their umbrellas are created.)
+### SPEC 2 dispatch (umbrella `track/adr-048-spec2-plot-tools`, stacked on SPEC 1, gate `.workflow/records/1575-track-adr-048-spec2-plot-tools.json`)
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| S2-impl | implementer | N/A | `dispatch-prompts/s2-impl.md` | 6 MCP plot tools + plot.yaml + Python/R templates + preview-side plot runtime + scistudio-write-plot skill + provisioning + count-test updates | `feat/adr-048-plot-tools` | `sci-wt/s2-impl` | `src/scistudio/ai/agent/mcp/tools_plot/**`, mcp `__init__`/`server`/`system_prompt`/`_context`, `_skills/scistudio/**`, `agent_provisioning/**`, `cli/install.py`, `docs/cli-integration.md`, related tests | `blocks/**` (import-only), `previewers/**`, `api/**`, `frontend/**`, `packages/**` | `#1575` | `[~]` dispatched |
+| S2-audit | audit_reviewer | with-context | `dispatch-prompts/s2-audit.md` (pending) | audit integrated SPEC 2 + Codex reconcile | `audit/adr-048-spec2` | `sci-wt/s2-audit` | `docs/audit/2026-06-10-adr-048-spec2.md` | implementation code | `#1575` | `[ ]` |
+
+(SPEC 3 dispatch rows appended when its umbrella is created.)
 
 ## 7. Tracks
 
