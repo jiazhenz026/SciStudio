@@ -404,7 +404,11 @@ class PreviewDataAccess:
         size = path.stat().st_size if path.exists() and path.is_file() else 0
         resolved_mime = mime_type or self._guess_mime(path)
         data_uri: str | None = None
-        if path.is_file() and size <= self.max_bytes and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"}:
+        if (
+            path.is_file()
+            and size <= self.max_bytes
+            and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg", ".pdf"}
+        ):
             data_uri = f"data:{resolved_mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
         return ArtifactInfo(path=ref.path, mime_type=resolved_mime, size_bytes=size, data_uri=data_uri)
 

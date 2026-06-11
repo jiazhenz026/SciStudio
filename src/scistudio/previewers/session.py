@@ -20,11 +20,13 @@ API (FR-028/FR-029). Sessions never mutate workflow/data/lineage state.
 
 from __future__ import annotations
 
+import base64
 import logging
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -53,6 +55,13 @@ logger = logging.getLogger(__name__)
 # Bound the in-memory session store so a long GUI session does not leak
 # (mirrors the ApiRuntime bounded registries, #1551).
 _DEFAULT_MAX_SESSIONS = 512
+_PLOT_EXPORT_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".pdf": "application/pdf",
+}
 
 
 class PreviewSessionManager:
@@ -157,7 +166,7 @@ class PreviewSessionManager:
         """
         session = self._get_session(session_id)
         merged: dict[str, Any] = dict(session.query)
-        merged.update(params or {})
+        merged.update(_public_resource_params(params or {}))
         access = self._data_access_factory(session.limits)
 
         if resource_id == "tile":
@@ -188,6 +197,9 @@ class PreviewSessionManager:
                     detail={"resource_id": resource_id},
                 )
             return self.render_target(child_target, merged).to_dict()
+
+        if resource_id == "export":
+            return self._export_plot_resource(session, merged)
 
         raise ProviderError(
             f"unknown resource id {resource_id!r} for session {session_id}",
@@ -366,6 +378,75 @@ class PreviewSessionManager:
             )
         return None
 
+    def _export_plot_resource(self, session: PreviewSession, params: dict[str, Any]) -> dict[str, Any]:
+        from scistudio.previewers.fallbacks import sanitize_svg
+        from scistudio.previewers.models import TargetKind
+
+        if session.target.kind is not TargetKind.PLOT_ARTIFACT and session.previewer_id != "core.plot.basic":
+            raise ProviderError(
+                f"resource 'export' is not available for previewer {session.previewer_id!r}",
+                detail={"resource_id": "export", "previewer_id": session.previewer_id},
+            )
+
+        ref = _storage_ref_from_query(params, session.target.ref)
+        path = Path(ref.path)
+        suffix = path.suffix.lower()
+        mime = _PLOT_EXPORT_MIME.get(suffix)
+        if mime is None:
+            raise ProviderError(
+                f"unsupported plot export format: {suffix or '<none>'}",
+                detail={"resource_id": "export", "format": suffix.lstrip(".")},
+            )
+        if not path.is_file():
+            raise ProviderError(
+                f"plot export source is unavailable: {path.name or session.target.ref}",
+                detail={"resource_id": "export"},
+            )
+
+        actual_format = suffix.lstrip(".")
+        requested_format = str(params.get("format") or actual_format).lower().lstrip(".")
+        accepted_formats = {actual_format}
+        if actual_format in {"jpg", "jpeg"}:
+            accepted_formats.update({"jpg", "jpeg"})
+        if requested_format not in accepted_formats:
+            raise ProviderError(
+                f"plot export format {requested_format!r} does not match artifact format {actual_format!r}",
+                detail={"resource_id": "export", "format": requested_format},
+            )
+
+        if suffix == ".svg":
+            raw_text = path.read_text(encoding="utf-8", errors="replace")
+            sanitized, removed = sanitize_svg(raw_text)
+            payload = sanitized.encode("utf-8")
+            if len(payload) > session.limits.max_bytes:
+                raise ProviderError(
+                    "plot export exceeds preview byte budget",
+                    detail={"resource_id": "export", "size_bytes": len(payload), "max_bytes": session.limits.max_bytes},
+                )
+            return {
+                "format": "svg",
+                "mime_type": mime,
+                "filename": path.name,
+                "size_bytes": len(payload),
+                "data_uri": _data_uri(mime, payload),
+                "sanitized": removed,
+            }
+
+        size = path.stat().st_size
+        if size > session.limits.max_bytes:
+            raise ProviderError(
+                "plot export exceeds preview byte budget",
+                detail={"resource_id": "export", "size_bytes": size, "max_bytes": session.limits.max_bytes},
+            )
+        payload = path.read_bytes()
+        return {
+            "format": "jpeg" if actual_format == "jpg" else actual_format,
+            "mime_type": mime,
+            "filename": path.name,
+            "size_bytes": len(payload),
+            "data_uri": _data_uri(mime, payload),
+        }
+
 
 def _import_provider(dotted: str) -> PreviewProvider | None:
     """Resolve a ``module:callable`` (or ``module.callable``) provider import path."""
@@ -394,6 +475,15 @@ def _storage_ref_from_query(query: dict[str, Any], fallback_ref: str) -> Any:
         format=storage.get("format"),
         metadata=storage.get("metadata"),
     )
+
+
+def _public_resource_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Return resource params without private session-enrichment keys."""
+    return {str(key): value for key, value in params.items() if not str(key).startswith("_")}
+
+
+def _data_uri(mime_type: str, payload: bytes) -> str:
+    return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
 
 
 def _missing_spec(previewer_id: str) -> PreviewerSpec:
