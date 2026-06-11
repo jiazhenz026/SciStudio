@@ -126,7 +126,7 @@ language_source: en
 - [x] Forbidden editable-install template guidance removed. -> `src/scistudio/cli/templates/block_package/README.md.tpl`; `python -m pytest tests\cli\test_new_block_package.py -q --no-cov`
 - [x] Contract regression tests added. -> `tests/docs/test_block_development_docs.py`; `ruff check tests\docs\test_block_development_docs.py`
 - [!] Gate record refreshed for #1581. -> `.workflow/records/1576-track-adr-048-spec3-docs.json`; full `gate_record check --mode pre-pr --base origin/track/adr-048-spec2-plot-tools --head HEAD --pr-body-file .workflow/local/pr-body.md` ran and remains blocked by broad `python_tests` failures (12 failed, 4342 passed in latest completed log).
-- [ ] Commit pushed to `track/adr-048-spec3-docs`.
+- [x] Commit pushed to `track/adr-048-spec3-docs`. -> `a79c8532` pushed to origin.
 
 ## 8. Verification Evidence
 
