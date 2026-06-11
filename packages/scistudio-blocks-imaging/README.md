@@ -58,6 +58,10 @@ materialising a full array) and embed the wire `FrontendManifest`
 module. The `Image` envelope uses `kind=array` so a failed dynamic-module load
 degrades cleanly to the core Array viewer (FR-026).
 
+This package is the worked reference for the ADR-048 previewer model. The
+author guide for registering package or project previewers (and preview-side
+plot jobs) is `docs/block-development/previewers-and-plots.md`.
+
 ## ADR-043 IO format capabilities
 
 The imaging IO pilot declares explicit `FormatCapability` records for the
