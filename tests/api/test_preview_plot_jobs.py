@@ -22,7 +22,7 @@ import pytest
 
 from scistudio.ai.agent.mcp import _context
 from scistudio.ai.agent.mcp.tools_plot import run_plot_job, scaffold_plot
-from scistudio.ai.agent.mcp.tools_plot.runtime import preview_cache_dir
+from scistudio.ai.agent.mcp.tools_plot.runtime import _flatten_to_refs, preview_cache_dir
 from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
 
 pytest.importorskip("pandas")
@@ -263,3 +263,46 @@ def test_artifact_consumable_by_plot_previewer(setup) -> None:
     # SVG path goes through the sanitizer and is embedded inline.
     assert "svg" in envelope.payload
     assert envelope.payload.get("sandboxed") is True
+
+
+# ---------------------------------------------------------------------------
+# FR-016: the plot script must receive the ACTUAL selected block-output
+# collection — regression guard for the canonical Collection wire-form
+# {"_collection": True, "items": [...], "item_type": "..."} produced by the
+# worker/scheduler/checkpoint layers (not a bespoke "_collection_items" key).
+# ---------------------------------------------------------------------------
+
+
+def test_flatten_to_refs_reads_canonical_collection_wire_form() -> None:
+    # The shape the engine actually emits in scheduler._block_outputs[node][port].
+    wire = {
+        "_collection": True,
+        "item_type": "DataFrame",
+        "items": [
+            {
+                "backend": "filesystem",
+                "path": "/data/a.parquet",
+                "format": "parquet",
+                "metadata": {"type_chain": ["DataFrame"], "framework": {"object_id": "obj-a"}},
+            },
+            {
+                "backend": "filesystem",
+                "path": "/data/b.parquet",
+                "format": "parquet",
+                "metadata": {"type_chain": ["DataFrame"], "framework": {"object_id": "obj-b"}},
+            },
+        ],
+    }
+    refs, collection_ids = _flatten_to_refs(wire)
+    # Both items resolved (NOT an empty collection).
+    assert [r["path"] for r in refs] == ["/data/a.parquet", "/data/b.parquet"]
+    assert collection_ids == ["obj-a", "obj-b"]
+
+
+def test_flatten_to_refs_single_ref_and_legacy_alias() -> None:
+    single = {"backend": "filesystem", "path": "/data/x.csv", "format": "csv"}
+    refs, _ = _flatten_to_refs(single)
+    assert [r["path"] for r in refs] == ["/data/x.csv"]
+    legacy = {"_collection_items": [{"backend": "filesystem", "path": "/data/y.csv"}]}
+    refs2, _ = _flatten_to_refs(legacy)
+    assert [r["path"] for r in refs2] == ["/data/y.csv"]
