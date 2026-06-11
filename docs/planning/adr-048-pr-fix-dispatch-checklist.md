@@ -107,7 +107,7 @@ language_source: en
 - [x] Plot `export` resource either implemented end-to-end or removed from advertised resources with docs/tests aligned. Evidence: `tests/api/test_previewers.py::test_plot_export_resource_returns_bounded_sanitized_svg`, `frontend/src/components/DataPreview.parts/PreviewHost.test.tsx` SVG export case, `docs/specs/adr-048-preview-system.md`.
 - [x] Regression tests added for child resources and plot export behavior. Evidence: `python -m pytest tests/api/test_previewers.py --no-cov` -> 13 passed; `npm run test -- src/components/DataPreview.parts/PreviewHost.test.tsx` -> 13 passed.
 - [!] Gate record refreshed for #1577. Evidence: `.workflow/records/1574-track-adr-048-spec1-preview-system.json` amended with SPEC1-FIX plan, focused test/docs evidence, and pre-PR check events. `gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` failed on broad `python_tests` (15 unrelated failures outside SPEC1 preview-resource scope).
-- [ ] Commit pushed to `track/adr-048-spec1-preview-system`.
+- [x] Commit pushed to `track/adr-048-spec1-preview-system`. Evidence: implementation commit `7da915c9` pushed to origin.
 
 ### SPEC 2
 

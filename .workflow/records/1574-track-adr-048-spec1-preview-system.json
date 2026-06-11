@@ -334,6 +334,14 @@
       "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:29:34.570787Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
