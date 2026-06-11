@@ -85,36 +85,38 @@ all three. **Tracked as issue #1591.**
 - `src/scistudio/api/runtime.py` absent (now a package); `flatten_subworkflows`
   absent from `src/`; `src/scistudio/previewers` absent. (DRIFT-03/04)
 
-## 6. Proposed follow-up plan
+## 6. Owner triage & issue tracking (2026-06-11)
 
-**Opened:**
+Owner decisions on review:
 
-- **#1591** — `bug(packaging/imports)`: add `ai/agent/__init__.py`; fix the
-  unmasked blocks→ai inversion; add grimp-coverage + wheel-content CI assertions.
-  (ROUTE-01/02/06, P1.)
+- **The ADR-048 preview path is reclassified P0.** Track B/C found `PreviewHost`
+  is mounted nowhere, so the ADR-048-prescribed routed preview path is
+  non-functional end-to-end (not a cosmetic scope note). Filed as **#1592**.
+- **Pre-alpha → no compatibility/adapter layers.** Delete the shims and migrate
+  callers to the canonical contracts; where old code did not fit, change the
+  callers, not add an adapter. This reverses ADR-048's FR-007/FR-008 compat-adapter
+  approach and needs an ADR/amendment. Filed as **#1594 (P1)**.
 
-**Proposed (pending owner triage — not yet filed to avoid issue spam from a
-prevention pass):**
+Every P0–P2 finding is now tracked by a GitHub issue:
 
-1. `bug(engine/concurrency)`: scope cancel + lineage events by `workflow_id`
-   (or per-run event bus). Covers BUG-WSCANCEL-02 + BUG-LINEAGE-03 (P2) — the
-   still-live concurrent-different-workflow half of the documented DSN-1 root
-   cause.
-2. `bug(engine/resources)`: wire `ResourceManager.acquire()/release()` and the
-   block's real `ResourceRequest` into `_dispatch` so ADR-022 GPU/CPU gating
-   actually throttles; add a non-mock counter test. BUG-RM-01 (P2).
-3. `refactor(imports)`: remove the blocks→engine importlib-string edge
-   (ROUTE-03), break/pin the engine↔workflow cycle (ROUTE-04), relocate the
-   self-write debounce primitive (ROUTE-05), and correct the stale import-linter
-   comment (ROUTE-07).
-4. `bug(engine/leaks)`: reap orphaned engine-initiated PTY tabs (BUG-PTYLEAK-04);
-   deregister `ProcessHandle` on completion and key the registry by
-   `(run_id, block_id)` (BUG-PIDLEAK-05).
-5. `docs(audit/specs)`: regenerate or de-track the stale
-   `docs/audit/latest/facts-summary.json` (DRIFT-01); advance three shipped specs
-   from `Planned` to `Implemented` (DRIFT-02); fix the ADR-044 phantom governed
-   path (DRIFT-03); add a `governs.entry_points` existence check to `doc_drift`
-   (DRIFT-04).
+| Issue | Sev | Finding(s) |
+|---|---|---|
+| **#1592** | **P0** | ADR-048 routed preview path dead-wired — `PreviewHost` mounted nowhere; live UI on legacy renderer (Track B #1577 F2 + Track C #1577 F3) |
+| **#1591** | P1 | Missing `ai/agent/__init__.py` → import-linter blind + wheel exclusion + hidden blocks→ai inversion (ROUTE-01/02/06) |
+| **#1593** | P1 | `Collection[T]` mis-routes to a single-item previewer before core collection fallback (#1577 F1) |
+| **#1594** | P1 | Architecture: pre-alpha — delete all compat/adapter layers, migrate callers (owner directive) |
+| **#1595** | P2 | ADR-022 GPU/CPU dispatch gating is dead code — `ResourceManager.acquire()` never called (BUG-RM-01) |
+| **#1596** | P2 | Cancel + lineage events not scoped by `workflow_id` — concurrent workflows cross-cancel/cross-attribute (BUG-WSCANCEL-02 + BUG-LINEAGE-03) |
+| **#1597** | P2 | Layer-boundary inversions evade import-linter (ROUTE-03 blocks→engine importlib, ROUTE-04 engine↔workflow cycle, ROUTE-05 ai→api) |
+| **#1598** | P2 | "core" previewers subsystem imports up into `api.runtime` — inverted dep, unguarded by layer test (#1577 F3) |
+| **#1599** | P2 | Stale `docs/audit/latest/facts-summary.json` contradicts the live audit (DRIFT-01) |
+
+**P3 findings remain documented in the per-lens / PR-review / diff-only reports
+and are not separately ticketed** (per the "all P0–P2" tracking scope). Notable
+P3s for later: ADR-044 phantom governed path (DRIFT-03), `doc_drift` not checking
+`governs.entry_points` (DRIFT-04), three shipped specs still `Planned` (DRIFT-02),
+PTY/PID leaks (BUG-PTYLEAK-04 / BUG-PIDLEAK-05), the R-harness `max_rows` clamp
+(#1580), and the CI-passing dead doc anchor (#1581).
 
 ## 7. Method and integrity notes
 
