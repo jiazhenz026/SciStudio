@@ -70,7 +70,7 @@ language_source: en
 - [x] Existing umbrella PRs recorded -> #1577, #1580, #1581
 - [x] Owner-directed umbrella-PR deviation recorded -> this checklist
 - [x] Smoke server PID 75468 stopped before dispatch -> `Stop-Process -Id 75468`
-- [ ] Dispatch checklist committed.
+- [x] Dispatch checklist committed -> commit `89e9ea7f`
 - [ ] Implementation agents dispatched.
 - [ ] Implementation outputs reviewed.
 - [ ] No-context audit agents dispatched after implementation commits are pushed.
