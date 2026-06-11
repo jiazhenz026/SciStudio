@@ -1,0 +1,54 @@
+{
+  "branch": "track/adr-048-spec3-docs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/block-development/**",
+      "docs/cli-integration.md",
+      "packages/scistudio-blocks-imaging/README.md",
+      "src/scistudio/_skills/scistudio/**",
+      "src/scistudio/cli/templates/block_package/**",
+      "tests/**",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "docs/planning/adr-048-dispatch-prompts/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1576,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-048 SPEC 3 (developer docs delete-and-rewrite) in full; deliver one [DO NOT MERGE] umbrella PR (stacked on SPEC 2) closing #1576; CI must pass.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1576-track-adr-048-spec3-docs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "5ff065c9-d1bc-4fba-ba55-01a46328f6a8",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}

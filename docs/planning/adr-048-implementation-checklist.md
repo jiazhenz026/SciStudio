@@ -121,10 +121,17 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| S2-impl | implementer | N/A | `dispatch-prompts/s2-impl.md` | 6 MCP plot tools + plot.yaml + Python/R templates + preview-side plot runtime + scistudio-write-plot skill + provisioning + count-test updates | `feat/adr-048-plot-tools` | `sci-wt/s2-impl` | `src/scistudio/ai/agent/mcp/tools_plot/**`, mcp `__init__`/`server`/`system_prompt`/`_context`, `_skills/scistudio/**`, `agent_provisioning/**`, `cli/install.py`, `docs/cli-integration.md`, related tests | `blocks/**` (import-only), `previewers/**`, `api/**`, `frontend/**`, `packages/**` | `#1575` | `[~]` dispatched |
-| S2-audit | audit_reviewer | with-context | `dispatch-prompts/s2-audit.md` (pending) | audit integrated SPEC 2 + Codex reconcile | `audit/adr-048-spec2` | `sci-wt/s2-audit` | `docs/audit/2026-06-10-adr-048-spec2.md` | implementation code | `#1575` | `[ ]` |
+| S2-impl | implementer | N/A | `dispatch-prompts/s2-impl.md` | 6 MCP plot tools + plot.yaml + Python/R templates + preview-side plot runtime + scistudio-write-plot skill + provisioning + count-test updates | `feat/adr-048-plot-tools` | `sci-wt/s2-impl` | `tools_plot/**`, mcp `__init__`/`system_prompt`, `_skills/**`, `agent_provisioning/**`, `cli/install.py`, `docs/cli-integration.md`, tests | `blocks/**` (import-only), `previewers/**`, `api/**`, `frontend/**`, `packages/**` | `#1575` | `[x]` commit `3f709bab`; merged `c19a32e9`; cycle fix; CI green |
+| S2-audit | audit_reviewer | with-context | `dispatch-prompts/s2-audit.md` | audit integrated SPEC 2 + Codex reconcile | `audit/adr-048-spec2` | `sci-wt/s2-audit` | `docs/audit/2026-06-10-adr-048-spec2.md` | implementation code | `#1575` | `[x]` report `1b7124be` merged `9ff390bd`; PASS, no P1 |
 
-(SPEC 3 dispatch rows appended when its umbrella is created.)
+**SPEC 2 CI on #1580: GREEN** — all 11 jobs pass (Test 3.11/3.13, Semantic-dup, Architecture, Frontend, Full Audit, Import Contracts, Lint, Type Check, Verify Workflow Compliance, Wheel Smoke). Integration fixes: tools_plot import-cycle break; matplotlib `[dev]` governance_touch (owner review pending). Audit PASS, no P1.
+
+### SPEC 3 dispatch (umbrella `track/adr-048-spec3-docs`, stacked on SPEC 2, gate `.workflow/records/1576-track-adr-048-spec3-docs.json`)
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| S3-docs | implementer | N/A | `dispatch-prompts/s3-docs.md` | recent-ADR impact matrix + delete-rewrite `docs/block-development/**` + previewers-and-plots guide + scaffold-template fixes + skills/imaging-README/cli-integration + docs tests | `feat/adr-048-docs` | `sci-wt/s3-docs` | `docs/block-development/**`, `docs/cli-integration.md`, `packages/scistudio-blocks-imaging/README.md`, `_skills/scistudio/{scistudio-inspect-data,scistudio-write-block}/`, `cli/templates/block_package/**`, related tests | `docs/ai-developer/**`, `blocks/_templates/**` (protected), historical ADRs/specs, SPEC 1/2 source | `#1576` | `[~]` dispatched |
+| S3-audit | audit_reviewer | with-context | `dispatch-prompts/s3-audit.md` (pending) | audit SPEC 3 docs vs current contracts + Codex reconcile | `audit/adr-048-spec3` | `sci-wt/s3-audit` | `docs/audit/2026-06-10-adr-048-spec3.md` | implementation/docs code | `#1576` | `[ ]` |
 
 ## 7. Tracks
 
