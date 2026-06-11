@@ -147,6 +147,27 @@ def test_collection_falls_back_to_core_collection() -> None:
     assert spec.previewer_id == "core.collection.basic"
 
 
+def test_collection_with_item_previewer_still_falls_back_to_core_collection() -> None:
+    """Regression (ADR-048 FR-003 / US4 scenario 2): a single-item previewer must
+    NOT capture a collection target. Collection[Image] with an Image *item*
+    previewer present (e.g. the imaging package's single-image viewer) but no
+    collection-capable previewer must resolve to the core collection fallback,
+    not the single-image viewer."""
+    item = _spec("pkg.image", OwnerKind.PACKAGE, "Image", collection=False)
+    router = PreviewRouter(_registry(item))
+    spec = router.resolve(_collection_target("Image", ("DataObject", "Array", "Image")))
+    assert spec.previewer_id == "core.collection.basic"
+
+
+def test_collection_with_item_previewer_and_no_core_raises() -> None:
+    """A collection that has only a single-item previewer and no core collection
+    fallback must raise UnknownTargetError rather than mis-render as a single item."""
+    item = _spec("pkg.image", OwnerKind.PACKAGE, "Image", collection=False)
+    router = PreviewRouter(_registry(item, with_core=False))
+    with pytest.raises(UnknownTargetError):
+        router.resolve(_collection_target("Image", ("DataObject", "Array", "Image")))
+
+
 def test_unknown_target_with_no_core_raises() -> None:
     router = PreviewRouter(_registry(with_core=False))
     with pytest.raises(UnknownTargetError):

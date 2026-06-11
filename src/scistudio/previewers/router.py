@@ -62,31 +62,38 @@ class PreviewRouter:
         # Tiers in precedence order. Each entry is (owner_kind, require_collection,
         # match_mode, type_to_match_resolver). We evaluate them top to bottom and
         # return the first non-empty winner.
+        # A collection target must only resolve to collection-capable previewers
+        # before reaching the core collection fallback (ADR-048 FR-003 / US4):
+        # never select a want_collection=False (single-item / base) previewer for
+        # a collection, otherwise e.g. Collection[Image] with the imaging package
+        # installed would mis-route to the single-image viewer at tier 2/4/8
+        # before the tier-7 core collection fallback.
         # ---- 1 & 2: project exact (collection then item) ----
         if is_collection:
             winner = self._pick(specs, OwnerKind.PROJECT, most_specific, want_collection=True, target=target)
             if winner is not None:
                 return winner
-        winner = self._pick(specs, OwnerKind.PROJECT, most_specific, want_collection=False, target=target)
-        if winner is not None:
-            return winner
+        else:
+            winner = self._pick(specs, OwnerKind.PROJECT, most_specific, want_collection=False, target=target)
+            if winner is not None:
+                return winner
 
         # ---- 3 & 4: package exact (collection then item) ----
         if is_collection:
             winner = self._pick(specs, OwnerKind.PACKAGE, most_specific, want_collection=True, target=target)
             if winner is not None:
                 return winner
-        winner = self._pick(specs, OwnerKind.PACKAGE, most_specific, want_collection=False, target=target)
-        if winner is not None:
-            return winner
+        else:
+            winner = self._pick(specs, OwnerKind.PACKAGE, most_specific, want_collection=False, target=target)
+            if winner is not None:
+                return winner
 
         # ---- 5: project parent (closest ancestor first) ----
         for parent in chain[1:]:
             if is_collection:
                 winner = self._pick(specs, OwnerKind.PROJECT, parent, want_collection=True, target=target)
-                if winner is not None:
-                    return winner
-            winner = self._pick(specs, OwnerKind.PROJECT, parent, want_collection=False, target=target)
+            else:
+                winner = self._pick(specs, OwnerKind.PROJECT, parent, want_collection=False, target=target)
             if winner is not None:
                 return winner
 
@@ -94,9 +101,8 @@ class PreviewRouter:
         for parent in chain[1:]:
             if is_collection:
                 winner = self._pick(specs, OwnerKind.PACKAGE, parent, want_collection=True, target=target)
-                if winner is not None:
-                    return winner
-            winner = self._pick(specs, OwnerKind.PACKAGE, parent, want_collection=False, target=target)
+            else:
+                winner = self._pick(specs, OwnerKind.PACKAGE, parent, want_collection=False, target=target)
             if winner is not None:
                 return winner
 
@@ -106,14 +112,15 @@ class PreviewRouter:
             if winner is not None:
                 return winner
 
-        # ---- 8: core base fallback (closest matching base in chain) ----
-        for type_name in chain:
-            winner = self._pick(specs, OwnerKind.CORE, type_name, want_collection=False, target=target)
+        # ---- 8: core base fallback (closest matching base in chain) — items only ----
+        if not is_collection:
+            for type_name in chain:
+                winner = self._pick(specs, OwnerKind.CORE, type_name, want_collection=False, target=target)
+                if winner is not None:
+                    return winner
+            winner = self._pick_core_fallback(specs, want_collection=False, target=target)
             if winner is not None:
                 return winner
-        winner = self._pick_core_fallback(specs, want_collection=False, target=target)
-        if winner is not None:
-            return winner
 
         # ---- 9: unknown / error ----
         raise UnknownTargetError(
