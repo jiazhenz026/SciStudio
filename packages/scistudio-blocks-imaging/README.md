@@ -25,6 +25,38 @@ Phase 12 deferrals remain unchanged: `Deconvolve` and `TrackObjects`.
 Entry points:
 - `scistudio.blocks = scistudio_blocks_imaging:get_block_package`
 - `scistudio.types = scistudio_blocks_imaging:get_types`
+- `scistudio.previewers = scistudio_blocks_imaging.previewers:get_previewers`
+
+## Package-owned Image/Label previewers (ADR-048 SPEC 1)
+
+Per ADR-048 §4/§6, the rich image-domain preview behaviour lives in this
+package, not in core. Core keeps only the generic numeric Array fallback
+(`core.array.basic`); this package owns the `Image` and `Label` target types.
+
+`scistudio_blocks_imaging.previewers:get_previewers()` returns two
+`PreviewerSpec` declarations (`owner_kind=PACKAGE`):
+
+| Previewer id | Target type | Envelope kind | Capabilities |
+|---|---|---|---|
+| `imaging.image.viewer` | `Image` | `array` | slice, lut, range, zoom, metadata, export |
+| `imaging.label.viewer` | `Label` | `composite` | slots, raster, metadata, export |
+
+Each spec ships a same-origin `FrontendManifest` whose `module_url` is
+`/api/previews/assets/<previewer_id>/viewer.js`. The packaged viewer
+(`previewers/assets/viewer.js`) is a self-contained, dependency-free vanilla
+ES module implementing the host-module contract
+(`export default { apiVersion, mount(container, host) }`). It ports the legacy
+`ImageViewer.tsx` behaviour — 9-colormap LUT, display min/max range,
+single-axis slice slider, zoom/pan, and an OME/channel metadata panel — and
+reads all data through the constrained host API
+(`host.envelope.payload`, `host.session.patchQuery`/`getResource`,
+`host.exportArtifact`). No remote code, no workflow mutation.
+
+The backend providers read bounded data via `request.data_access` (never
+materialising a full array) and embed the wire `FrontendManifest`
+(`metadata.extra["frontend_manifest"]`) so the frontend host can locate the
+module. The `Image` envelope uses `kind=array` so a failed dynamic-module load
+degrades cleanly to the core Array viewer (FR-026).
 
 ## ADR-043 IO format capabilities
 
