@@ -24,6 +24,7 @@ import logging
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -250,6 +251,12 @@ class PreviewSessionManager:
                 f"provider {spec.previewer_id!r} raised: {exc}",
                 previewer_id=spec.previewer_id,
             )
+        # Stamp the resolved spec's frontend manifest onto the envelope so the
+        # frontend host reads it first-class (#1579). Precedence: a
+        # provider-set manifest wins; providers that set none inherit the spec
+        # default. Core fallbacks have no spec manifest, so this is a no-op.
+        if envelope.frontend_manifest is None and spec.frontend_manifest is not None:
+            envelope = replace(envelope, frontend_manifest=spec.frontend_manifest)
         return envelope.with_session(session_id)
 
     def _resolve_provider(self, spec: PreviewerSpec) -> PreviewProvider | None:

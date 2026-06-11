@@ -374,6 +374,12 @@ class PreviewEnvelope:
         metadata: :class:`PreviewMetadata`.
         diagnostics: Non-fatal warnings / repair hints.
         error: Typed error when the preview failed (kind == ``error``).
+        frontend_manifest: Optional same-origin manifest descriptor the host
+            mounts for this envelope. Framework-stamped by
+            :class:`~scistudio.previewers.session.PreviewSessionManager` from the
+            resolved :class:`PreviewerSpec` when a provider does not set its own
+            (ADR-048 §4 / #1579); ``None`` for core fallbacks. The wire shape
+            omits the backend-only ``asset_root``.
     """
 
     previewer_id: str
@@ -385,6 +391,7 @@ class PreviewEnvelope:
     metadata: PreviewMetadata = field(default_factory=PreviewMetadata)
     diagnostics: tuple[str, ...] = ()
     error: PreviewErrorInfo | None = None
+    frontend_manifest: FrontendManifest | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -397,6 +404,7 @@ class PreviewEnvelope:
             "metadata": self.metadata.to_dict(),
             "diagnostics": list(self.diagnostics),
             "error": self.error.to_dict() if self.error is not None else None,
+            "frontend_manifest": (self.frontend_manifest.to_dict() if self.frontend_manifest is not None else None),
         }
 
     def with_session(self, session_id: str | None) -> PreviewEnvelope:
@@ -411,6 +419,7 @@ class PreviewEnvelope:
             metadata=self.metadata,
             diagnostics=self.diagnostics,
             error=self.error,
+            frontend_manifest=self.frontend_manifest,
         )
 
 

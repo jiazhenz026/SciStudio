@@ -1,0 +1,185 @@
+{
+  "branch": "track/issue-1579-frontend-manifest",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-11T05:31:59.690765Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T05:31:59.690771Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T05:31:59.690778Z",
+      "class": "block_development",
+      "kind": "na",
+      "path": null,
+      "rationale": "no old-channel manifest mentions in docs/block-development/** (grep clean)",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1579,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix issue #1579: promote frontend_manifest from envelope.metadata.extra to a first-class, framework-stamped PreviewEnvelope/session-envelope field; session manager auto-injects the resolved PreviewerSpec.frontend_manifest; frontend reads the first-class field; drop the imaging provider's manual embed; update spec/ADR docs.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1579-issue-1579-frontend-manifest",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690625Z",
+      "pattern": "src/scistudio/previewers/models.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690650Z",
+      "pattern": "src/scistudio/previewers/session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690653Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690655Z",
+      "pattern": "frontend/src/types/api.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690657Z",
+      "pattern": "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690658Z",
+      "pattern": "frontend/src/components/DataPreview.parts/previewerHostApi.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690660Z",
+      "pattern": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690662Z",
+      "pattern": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690663Z",
+      "pattern": "tests/api/test_previewers.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690665Z",
+      "pattern": "tests/previewers/test_preview_session_manifest.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690667Z",
+      "pattern": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690668Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690670Z",
+      "pattern": "docs/adr/ADR-048.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690671Z",
+      "pattern": "docs/planning/issue-1579-impact-scope.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T05:31:59.690672Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "b28c63c7-9e1f-47f1-b8d1-14a58981d76b",
+  "strictness_tier": null,
+  "task_kind": "refactor",
+  "test_events": [
+    {
+      "at": "2026-06-11T05:31:59.690783Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_session_manifest.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T05:31:59.690787Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T05:31:59.690789Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

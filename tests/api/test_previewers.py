@@ -41,6 +41,8 @@ def test_create_session_for_dataframe(client: TestClient, opened_project: Path) 
     # FR-011: metadata carries the mandatory display flags.
     for flag in ("sampled", "truncated", "cached", "derived", "complete", "failed"):
         assert flag in body["metadata"]
+    # #1579: a core fallback has no frontend manifest → first-class field is null.
+    assert body["frontend_manifest"] is None
 
 
 def test_read_and_patch_session_repaginate(client: TestClient, opened_project: Path) -> None:
@@ -136,6 +138,66 @@ def test_array_session_resource_tile(
     res = client.get(f"/api/previews/sessions/{sid}/resources/tile")
     assert res.status_code == 200
     assert "matrix" in res.json()["data"]
+
+
+def test_image_session_serializes_first_class_frontend_manifest(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch,
+) -> None:
+    """#1579: an imaging-routed session JSON carries the manifest first-class.
+
+    Enables monorepo previewer discovery (SCISTUDIO_DEV=1, the CI default) so an
+    ``Image`` target routes to ``imaging.image.viewer``; the session manager then
+    stamps that spec's manifest onto the top-level ``frontend_manifest`` field.
+    """
+    import sys
+    import types
+
+    import numpy as np
+
+    monkeypatch.setenv("SCISTUDIO_DEV", "1")
+    # Rebuild the preview service so monorepo imaging previewers are registered.
+    runtime.refresh_preview_service()
+
+    matrix = np.arange(16 * 16, dtype=np.uint16).reshape(16, 16)
+
+    class _FakeArray:
+        shape = (3, 16, 16)
+        dtype = "uint16"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return matrix
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = opened_project / "data" / "zarr" / "img.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={"type_chain": ["DataObject", "Array", "Image"], "axes": ["z", "y", "x"]},
+        ),
+        type_name="Image",
+    )
+    created = _create_session(
+        client, ref=record.id, recorded_type="Image", type_chain=["DataObject", "Array", "Image"]
+    ).json()
+
+    assert created["previewer_id"] == "imaging.image.viewer"
+    # First-class manifest in the wire body (#1579).
+    assert created["frontend_manifest"]["previewer_id"] == "imaging.image.viewer"
+    assert created["frontend_manifest"]["module_url"] == "/api/previews/assets/imaging.image.viewer/viewer.js"
+    # The backend-only asset_root is never serialized.
+    assert "asset_root" not in created["frontend_manifest"]
+    # Old flattened metadata channel is no longer populated by the provider.
+    assert "frontend_manifest" not in created["metadata"]
 
 
 def test_resource_unknown_session_returns_404(client: TestClient, opened_project: Path) -> None:
