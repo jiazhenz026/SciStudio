@@ -478,23 +478,14 @@ class PreviewDataAccess:
         if suffix in {".tif", ".tiff"}:
             import tifffile
 
-            # FR-010/SC-004: read ONLY the first IFD page, never the whole
-            # multi-page stack. ``tifffile.imread`` would materialize every page;
-            # instead read page metadata, then prefer a memory-mapped handle so
-            # downstream slicing touches only the requested region. Fall back to
-            # a single-page ``asarray`` (one page, not the stack) when the file
-            # is not memmappable (e.g. compressed).
-            with tifffile.TiffFile(str(path)) as tif:
-                page = tif.pages[0]
-                page_shape = [int(d) for d in page.shape]
-                page_dtype = str(page.dtype)
-            try:
-                tiff_handle = tifffile.memmap(str(path), page=0)
-            except (ValueError, MemoryError, OSError, NotImplementedError):
-                with tifffile.TiffFile(str(path)) as tif:
-                    tiff_handle = tif.pages[0].asarray()
-            tiff_shape = [int(d) for d in getattr(tiff_handle, "shape", page_shape)]
-            return tiff_handle, tiff_shape, str(getattr(tiff_handle, "dtype", page_dtype))
+            # FR-010/SC-004: read ONLY the first IFD page via ``key=0`` — never
+            # the whole multi-page stack that ``tifffile.imread(path)`` would
+            # materialize. Single-page and volumetric single-page TIFFs are
+            # unaffected (key=0 IS that page); genuine multi-page stacks are
+            # bounded to the first page. (Plain ``imread`` is kept — it is the
+            # call CI fixtures already exercise — just scoped to one page.)
+            arr = tifffile.imread(str(path), key=0)
+            return arr, [int(d) for d in arr.shape], str(getattr(arr, "dtype", "unknown"))
 
         if suffix == ".zarr" or path.is_dir():
             import numpy as np

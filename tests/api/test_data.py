@@ -249,7 +249,7 @@ def test_preview_supports_image_series_composite_and_artifact_types(
 
     fake_matrix = np.array([[0.0, 1.0], [2.0, 3.0]])
     fake_tifffile = types.ModuleType("tifffile")
-    fake_tifffile.imread = lambda path: fake_matrix  # type: ignore[attr-defined]
+    fake_tifffile.imread = lambda path, key=None: fake_matrix  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "tifffile", fake_tifffile)
     image_record = runtime.register_data_ref(
         StorageReference(backend="filesystem", path=str(image_path), format="tiff"),
@@ -356,7 +356,7 @@ def test_preview_data_dispatches_plugin_image_type_via_type_chain(
 
     fake_matrix = np.array([[0.0, 1.0], [2.0, 3.0]])
     fake_tifffile = types.ModuleType("tifffile")
-    fake_tifffile.imread = lambda path: fake_matrix  # type: ignore[attr-defined]
+    fake_tifffile.imread = lambda path, key=None: fake_matrix  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "tifffile", fake_tifffile)
 
     image_path = opened_project / "data" / "raw" / "plugin_image.tiff"

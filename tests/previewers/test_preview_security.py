@@ -70,11 +70,14 @@ def test_tiff_handle_reads_only_first_page(tmp_path: Path) -> None:
     """FR-010/SC-004: a multi-page TIFF yields a single-page handle, not the stack."""
     tifffile = pytest.importorskip("tifffile")
     path = tmp_path / "multi.tif"
-    # 3 pages of 4x4 uint8 — written as a multi-page TIFF.
-    tifffile.imwrite(str(path), np.zeros((3, 4, 4), dtype=np.uint8))
+    # Genuine multi-page TIFF: two separate 4x4 IFD pages (TiffWriter appends
+    # each write() as its own page). `imread(key=0)` must return only page 0.
+    with tifffile.TiffWriter(str(path)) as tw:
+        tw.write(np.zeros((4, 4), dtype=np.uint8))
+        tw.write(np.ones((4, 4), dtype=np.uint8))
     ref = StorageReference(backend="filesystem", path=str(path), format="tiff")
     access = PreviewDataAccess()
     handle, shape, _dtype = access._open_array_handle(ref)
-    # Only the first IFD page is mapped: shape is (4, 4), not (3, 4, 4).
+    # Only the first page is read: shape is (4, 4), not a (2, 4, 4) stack.
     assert shape == [4, 4]
     assert tuple(getattr(handle, "shape", ())) == (4, 4)
