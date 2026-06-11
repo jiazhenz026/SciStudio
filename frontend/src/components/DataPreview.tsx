@@ -14,6 +14,26 @@ import { useSlicePreview } from "./DataPreview.parts/useSlicePreview";
 export { extractRefEntries } from "./DataPreview.parts/refEntries";
 export type { RefEntry } from "./DataPreview.parts/refEntries";
 
+// ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
+// This DataPreview component keeps the LEGACY one-shot `previewCache` rendering
+// path (FR-008 compatibility / US5) for its current callers; PreviewHost is the
+// new session-API surface that mounts validated dynamic previewers or core
+// fallbacks. New preview surfaces should mount PreviewHost directly.
+export { PreviewHost } from "./DataPreview.parts/PreviewHost";
+export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
+export {
+  PREVIEWER_HOST_API_VERSION,
+  isApiVersionCompatible,
+  isPreviewerModule,
+} from "./DataPreview.parts/previewerHostApi";
+export type {
+  PreviewHostApi,
+  PreviewProviderIdentity,
+  PreviewExportRequest,
+  PreviewerInstance,
+  PreviewerModule,
+} from "./DataPreview.parts/previewerHostApi";
+
 interface DataPreviewProps {
   selectedNodeId: string | null;
   selectedNodeLabel: string;
