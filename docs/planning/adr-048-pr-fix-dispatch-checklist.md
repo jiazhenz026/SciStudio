@@ -116,7 +116,7 @@ language_source: en
 - [x] Regression tests added for path traversal rejection -> `pytest tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py -q --no-cov` = 34 passed, 1 skipped.
 - [x] High-risk stale artifact / dynamic target issues fixed or tracked with repository TODO and issue reference -> fixed stale `current.*` cleanup in `runtime.py` and effective output-port discovery in `targets.py`; tests `test_run_failed_rerun_records_failure_state`, `test_failed_rerun_records_failure`, `test_list_targets_uses_effective_output_ports`.
 - [!] Gate record refreshed for #1580 -> `.workflow/records/1575-track-adr-048-spec2-plot-tools.json`; `gate_record check --mode pre-pr --base origin/track/adr-048-spec1-preview-system --head HEAD --pr-body-file .workflow/local/pr-body.md` failed on `checks.python_tests` after 12 broad full-suite failures outside SPEC2 focused tests.
-- [ ] Commit pushed to `track/adr-048-spec2-plot-tools`.
+- [x] Commit pushed to `track/adr-048-spec2-plot-tools` -> implementation commit `e7af1e16` pushed to `origin/track/adr-048-spec2-plot-tools`.
 
 ### SPEC 3
 
