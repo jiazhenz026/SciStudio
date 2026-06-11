@@ -8,10 +8,12 @@ one-shot adapter; the routed previewer *session* API
 
 from __future__ import annotations
 
+import json
+import math
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
@@ -130,6 +132,10 @@ async def preview_data(
 
 
 _TARGET_KINDS = {k.value: k for k in TargetKind}
+_RESOURCE_PARAMS_MAX_BYTES = 8 * 1024
+_RESOURCE_PARAMS_MAX_DEPTH = 8
+_RESOURCE_PARAMS_MAX_ITEMS = 256
+_RESOURCE_PARAM_STRING_MAX_BYTES = 4096
 
 
 def _build_target(payload: PreviewSessionCreate) -> PreviewTarget:
@@ -152,6 +158,67 @@ def _build_target(payload: PreviewSessionCreate) -> PreviewTarget:
         collection_item_type=model.collection_item_type,
         source=source,
     )
+
+
+def _parse_resource_params(raw: str | None) -> dict[str, Any]:
+    """Parse bounded JSON params for the session resource route.
+
+    Resource descriptors may carry nested JSON values such as collection item
+    descriptors. Keep the transport explicitly bounded before handing params to
+    provider/session code.
+    """
+    if not raw:
+        return {}
+    if len(raw.encode("utf-8")) > _RESOURCE_PARAMS_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="resource params exceed the 8 KiB limit")
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="resource params must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=422, detail="resource params must be a JSON object")
+    _validate_resource_param_value(parsed)
+    return parsed
+
+
+def _validate_resource_param_value(value: Any, *, depth: int = 0) -> int:
+    if depth > _RESOURCE_PARAMS_MAX_DEPTH:
+        raise HTTPException(status_code=422, detail="resource params are too deeply nested")
+    if isinstance(value, dict):
+        count = len(value)
+        if count > _RESOURCE_PARAMS_MAX_ITEMS:
+            raise HTTPException(status_code=422, detail="resource params contain too many entries")
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise HTTPException(status_code=422, detail="resource param keys must be strings")
+            if len(key.encode("utf-8")) > _RESOURCE_PARAM_STRING_MAX_BYTES:
+                raise HTTPException(status_code=422, detail="resource param key is too large")
+            count += _validate_resource_param_value(child, depth=depth + 1)
+            if count > _RESOURCE_PARAMS_MAX_ITEMS:
+                raise HTTPException(status_code=422, detail="resource params contain too many entries")
+        return count
+    if isinstance(value, list):
+        count = len(value)
+        if count > _RESOURCE_PARAMS_MAX_ITEMS:
+            raise HTTPException(status_code=422, detail="resource params contain too many entries")
+        for child in value:
+            count += _validate_resource_param_value(child, depth=depth + 1)
+            if count > _RESOURCE_PARAMS_MAX_ITEMS:
+                raise HTTPException(status_code=422, detail="resource params contain too many entries")
+        return count
+    if isinstance(value, str):
+        if len(value.encode("utf-8")) > _RESOURCE_PARAM_STRING_MAX_BYTES:
+            raise HTTPException(status_code=422, detail="resource param string is too large")
+        return 1
+    if value is None or isinstance(value, bool):
+        return 1
+    if isinstance(value, int):
+        return 1
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise HTTPException(status_code=422, detail="resource param numbers must be finite")
+        return 1
+    raise HTTPException(status_code=422, detail="resource params must be JSON-compatible")
 
 
 @previews_router.post("/sessions", response_model=PreviewEnvelopeModel)
@@ -193,11 +260,15 @@ async def read_preview_resource(
     session_id: str,
     resource_id: str,
     runtime: RuntimeDep,
+    params: Annotated[
+        str | None,
+        Query(description="JSON object copied from the selected PreviewResource.params descriptor."),
+    ] = None,
 ) -> PreviewResourceResponse:
     """Fetch a bounded provider resource (array tile or child preview)."""
     service = runtime.get_preview_service()
     try:
-        data = service.sessions.read_resource(session_id, resource_id)
+        data = service.sessions.read_resource(session_id, resource_id, _parse_resource_params(params))
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except (UnknownTargetError, PreviewError) as exc:

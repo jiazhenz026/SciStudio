@@ -78,7 +78,7 @@ def load_plot(plot_id: str | None = None, path: str | None = None) -> LoadedPlot
         raise ValueError(f"plot manifest is not a mapping: {manifest_path}")
     manifest = PlotManifest.model_validate(raw)
     plot_dir = manifest_path.parent
-    script_path = (plot_dir / manifest.script.path).resolve()
+    script_path = resolve_script_path(plot_dir, manifest.script.path)
     return LoadedPlot(
         plot_id=manifest.id,
         plot_dir=plot_dir,
@@ -86,6 +86,25 @@ def load_plot(plot_id: str | None = None, path: str | None = None) -> LoadedPlot
         manifest=manifest,
         script_path=script_path,
     )
+
+
+def resolve_script_path(plot_dir: Path, script_path: str, *, root: Path | None = None) -> Path:
+    """Resolve manifest ``script.path`` and reject escapes before reading/running."""
+    root = root or _resolve_project_root(get_context())
+    raw_path = Path(script_path)
+    resolved = raw_path.resolve() if raw_path.is_absolute() else (plot_dir / raw_path).resolve()
+    try:
+        resolved.relative_to(plot_dir.resolve())
+    except ValueError as exc:
+        raise PermissionError(
+            f"script.path {script_path!r} resolves outside the plot directory; "
+            "render scripts must live inside plots/<id>/."
+        ) from exc
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise PermissionError(f"script.path {script_path!r} resolves outside the project root.") from exc
+    return resolved
 
 
 def _rscript_available() -> bool:
@@ -145,7 +164,11 @@ def validate_plot(plot_id: str | None = None, path: str | None = None) -> Valida
 
     # Path confinement of the script (FR-004): the script must live inside the
     # plot directory and not escape the project root.
-    script_path = (plot_dir / manifest.script.path).resolve()
+    try:
+        script_path = resolve_script_path(plot_dir, manifest.script.path, root=root)
+    except PermissionError as exc:
+        errors.append(str(exc))
+        script_path = plot_dir.resolve()
     try:
         script_path.relative_to(plot_dir.resolve())
     except ValueError:
@@ -241,5 +264,6 @@ __all__ = [
     "ValidationOutcome",
     "load_plot",
     "resolve_manifest_path",
+    "resolve_script_path",
     "validate_plot",
 ]

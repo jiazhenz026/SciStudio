@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context
 from scistudio.ai.agent.mcp.tools_plot.models import PlotTarget
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def make_target_id(workflow_path: str, node_id: str, output_port: str) -> str:
 
 def _workflow_files(root: Path, workflow_path: str | None) -> list[Path]:
     if workflow_path:
-        candidate = (root / workflow_path).resolve()
+        candidate = _safe_under(root, Path(workflow_path))
         return [candidate] if candidate.is_file() else []
     wf_dir = root / "workflows"
     if not wf_dir.is_dir():
@@ -51,7 +51,7 @@ def _workflow_files(root: Path, workflow_path: str | None) -> list[Path]:
     )
 
 
-def _output_ports_for_block(ctx: Any, block_type: str) -> list[tuple[str, str]]:
+def _output_ports_for_block(ctx: Any, block_type: str, node_config: dict[str, Any]) -> list[tuple[str, str]]:
     """Return ``[(port_name, accepted_type_name)]`` for a registered block type.
 
     Best-effort: returns ``[]`` when the block type is not registered (e.g. a
@@ -67,8 +67,19 @@ def _output_ports_for_block(ctx: Any, block_type: str) -> list[tuple[str, str]]:
         spec = None
     if spec is None:
         return []
+    raw_ports: list[Any] | None = None
+    instantiate = getattr(registry, "instantiate", None)
+    if callable(instantiate):
+        try:
+            instance = instantiate(block_type, config=dict(node_config))
+            getter = getattr(instance, "get_effective_output_ports", None)
+            if callable(getter):
+                raw_ports = list(getter())
+        except Exception:
+            raw_ports = None
+    if raw_ports is None:
+        raw_ports = list(getattr(spec, "output_ports", None) or [])
     ports: list[tuple[str, str]] = []
-    raw_ports = getattr(spec, "output_ports", None) or []
     for port in raw_ports:
         name = getattr(port, "name", None)
         if not name:
@@ -143,7 +154,7 @@ def discover_targets(workflow_path: str | None = None, include_unavailable: bool
             continue
         workflow_id = definition.id or None
         for node in definition.nodes:
-            ports = _output_ports_for_block(ctx, node.block_type)
+            ports = _output_ports_for_block(ctx, node.block_type, node.config)
             node_label = str(node.config.get("label", "")) if isinstance(node.config, dict) else ""
             if not ports:
                 # Block type not registered here — emit a single diagnostic

@@ -89,6 +89,8 @@ export interface PreviewProviderIdentity {
 export interface PreviewExportRequest {
   /** Resource id to export (e.g. `export` for plots, `tile` for arrays). */
   resourceId?: string;
+  /** Resource params to merge with the advertised descriptor params. */
+  params?: Record<string, unknown>;
   /** Suggested download filename. */
   filename?: string;
   /** Declared format hint (`png`, `svg`, `pdf`, `csv`, ...). */
@@ -134,10 +136,16 @@ export interface PreviewHostApi {
     patchQuery: (query: Record<string, unknown>) => Promise<PreviewEnvelope>;
     /**
      * Fetch a bounded provider resource (array tile, child preview, ...) by id.
+     * Descriptor params are supplied automatically when the id matches an
+     * advertised resource; callers may pass explicit params for provider-owned
+     * resources that are not listed in the current envelope.
      * Resolves with the raw resource data dict. Rejects (or resolves `null`)
      * when there is no session.
      */
-    getResource: (resourceId: string) => Promise<Record<string, unknown> | null>;
+    getResource: (
+      resourceId: string,
+      params?: Record<string, unknown>,
+    ) => Promise<Record<string, unknown> | null>;
     /** Resource descriptors advertised by the current envelope. */
     readonly resources: readonly PreviewResource[];
   };

@@ -366,6 +366,12 @@ route:
 | `GET` | `/api/previews/sessions/{session_id}/resources/{resource_id}` | Fetch bounded provider resource data. |
 | `GET` | `/api/previews/assets/{asset_id}` | Serve validated same-origin frontend assets. |
 
+Session resource descriptors may include provider-defined `params`. Clients
+must copy those params into the resource request as a URL-encoded JSON object in
+the `params` query parameter. The backend must reject non-object, oversized, or
+deeply nested params before dispatching to provider/session code, and resource
+params must not override private runtime-enrichment query keys.
+
 Exact route names may change during implementation if the API module already
 has a stronger convention, but the semantics above are required.
 
