@@ -1,6 +1,148 @@
 {
   "branch": "track/adr-048-spec1-preview-system",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-11T02:05:38.073928Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:05:38.232133Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T02:05:42.681461Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:05:51.720203Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:05:52.156946Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:05:52.238652Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T02:07:43.236524Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:08:33.530405Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T02:08:44.612743Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f36856f0b075d8b9679cf5cff4128e8727a9d8808200aa848bf44e287b0fb303",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -21,9 +163,156 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-11T02:14:33.863158Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-11T02:08:44.655684Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.668111Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+              "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+              "frontend/src/components/DataPreview.parts/dynamicPreviewer.ts",
+              "frontend/src/components/DataPreview.parts/previewerHostApi.ts",
+              "frontend/src/components/DataPreview.tsx",
+              "frontend/src/lib/api/data.ts",
+              "frontend/src/store/previewSlice.ts",
+              "frontend/src/store/types.ts",
+              "frontend/src/types/api.ts",
+              "packages/scistudio-blocks-imaging/README.md",
+              "packages/scistudio-blocks-imaging/pyproject.toml",
+              "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+              "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+              "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/assets/viewer.js",
+              "src/scistudio/api/app.py",
+              "src/scistudio/api/routes/data.py",
+              "src/scistudio/api/runtime/__init__.py",
+              "src/scistudio/api/runtime/_data.py",
+              "src/scistudio/api/runtime/_projects.py",
+              "src/scistudio/api/schemas.py",
+              "src/scistudio/previewers/__init__.py",
+              "src/scistudio/previewers/assets.py",
+              "src/scistudio/previewers/data_access.py",
+              "src/scistudio/previewers/fallbacks.py",
+              "src/scistudio/previewers/models.py",
+              "src/scistudio/previewers/project.py",
+              "src/scistudio/previewers/registry.py",
+              "src/scistudio/previewers/router.py",
+              "src/scistudio/previewers/session.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T02:08:44.679952Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.691960Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.704122Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.716501Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.728945Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.741929Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.754789Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T02:08:44.786492Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -33,25 +322,169 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "cd370810",
+    "changed_files": [
+      ".workflow/records/1574-track-adr-048-spec1-preview-system.json",
+      "docs/planning/adr-048-dispatch-prompts/s1-backend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-frontend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-imaging.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+      "frontend/src/components/DataPreview.parts/dynamicPreviewer.ts",
+      "frontend/src/components/DataPreview.parts/previewerHostApi.ts",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/store/previewSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/types/api.ts",
+      "packages/scistudio-blocks-imaging/README.md",
+      "packages/scistudio-blocks-imaging/pyproject.toml",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/assets/viewer.js",
+      "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/data.py",
+      "src/scistudio/api/runtime/__init__.py",
+      "src/scistudio/api/runtime/_data.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/previewers/assets.py",
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/fallbacks.py",
+      "src/scistudio/previewers/models.py",
+      "src/scistudio/previewers/project.py",
+      "src/scistudio/previewers/registry.py",
+      "src/scistudio/previewers/router.py",
+      "src/scistudio/previewers/session.py",
+      "tests/api/test_previewers.py",
+      "tests/previewers/__init__.py",
+      "tests/previewers/test_preview_data_access.py",
+      "tests/previewers/test_preview_registry.py",
+      "tests/previewers/test_preview_routing.py"
+    ],
+    "diff_fingerprint": "sha256:b135d604d6fdab0b614f0e1794a5bb284a53d40b8e24d88eb482d0964e2c2a63",
+    "head": "HEAD",
+    "head_sha": "2d841cef",
+    "surfaces": {
+      "docs": 4,
+      "frontend": 10,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 30,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 36,
+      "test": 7,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement ADR-048 SPEC 1 (preview system) in full; coordinate implementer agents; deliver one [DO NOT MERGE] umbrella PR closing #1574; CI must pass.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-11T02:08:44.786523Z",
+      "diff_fingerprint": "sha256:b135d604d6fdab0b614f0e1794a5bb284a53d40b8e24d88eb482d0964e2c2a63",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.format_check",
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1574-track-adr-048-spec1-preview-system",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-11T02:14:33.863136Z",
+      "pattern": "docs/planning/adr-048-dispatch-prompts/**",
+      "reason": "manager integration: dispatch prompts are in-scope manager artifacts; record SPEC 1 test evidence and CHANGELOG docs landing"
+    }
+  ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-11T02:14:33.863164Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T02:14:33.863172Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_routing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T02:14:33.863174Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_data_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T02:14:33.863176Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
