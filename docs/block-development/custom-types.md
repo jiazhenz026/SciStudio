@@ -1,3 +1,17 @@
+---
+doc_type: block-development
+title: "Custom Types"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-06-10
+governed_by:
+  - ADR-042
+  - ADR-048
+related_specs:
+  - adr-048-developer-docs-refresh
+summary: "Creating domain-specific DataObject subclasses, registering them via the scistudio.types entry point, the types-vs-previewers boundary (ADR-048), and worker subprocess reconstruction."
+---
+
 # Custom Types
 
 This document covers how plugin developers create domain-specific data
@@ -9,14 +23,15 @@ metadata and serialization systems.
 ## Table of Contents
 
 1. [Where Domain Types Live](#where-domain-types-live)
-2. [Creating a Custom Array Subclass](#creating-a-custom-array-subclass)
-3. [Creating a Custom DataFrame Subclass](#creating-a-custom-dataframe-subclass)
-4. [Creating a Custom CompositeData Subclass](#creating-a-custom-compositedata-subclass)
-5. [Meta Model Requirements](#meta-model-requirements)
-6. [Physical Quantities and Units](#physical-quantities-and-units)
-7. [Plugin Type Registration](#plugin-type-registration)
-8. [Worker Subprocess Type Reconstruction](#worker-subprocess-type-reconstruction)
-9. [Immutable Metadata Updates](#immutable-metadata-updates)
+2. [Types vs Previewers](#types-vs-previewers)
+3. [Creating a Custom Array Subclass](#creating-a-custom-array-subclass)
+4. [Creating a Custom DataFrame Subclass](#creating-a-custom-dataframe-subclass)
+5. [Creating a Custom CompositeData Subclass](#creating-a-custom-compositedata-subclass)
+6. [Meta Model Requirements](#meta-model-requirements)
+7. [Physical Quantities and Units](#physical-quantities-and-units)
+8. [Plugin Type Registration](#plugin-type-registration)
+9. [Worker Subprocess Type Reconstruction](#worker-subprocess-type-reconstruction)
+10. [Immutable Metadata Updates](#immutable-metadata-updates)
 
 ---
 
@@ -33,6 +48,30 @@ Examples of where types live:
 | `Image`, `Label`, `Mask`, `Transform` | `scistudio-blocks-imaging` |
 | `PeakTable`, `MIDTable` | `scistudio-blocks-lcms` |
 | `RamanSpectrum` | `scistudio-blocks-srs` |
+
+---
+
+## Types vs Previewers
+
+A **type** and a **previewer** are two distinct extension surfaces with two
+distinct entry points (ADR-048):
+
+| | Registers | Entry point | Answers |
+|---|---|---|---|
+| **Type** | a semantic `DataObject` subclass | `scistudio.types` | "this data *is* an `Image`" |
+| **Previewer** | display behaviour for a type | `scistudio.previewers` | "here is how an `Image` is *shown*" |
+
+Registering a custom type does **not** give it rich display. A type with no
+matching previewer falls back to the generic core previewer for its base
+(`core.array.basic` for an `Array` subclass, `core.dataframe.basic` for a
+`DataFrame` subclass, and so on). To give your type a domain-specific viewer —
+LUT, slice slider, custom panels — ship a previewer for it through
+`scistudio.previewers`. See [Previewers and Plot Jobs](previewers-and-plots.md)
+and the [three entry-point groups](publishing.md#the-three-entry-point-groups).
+
+A practical corollary: because preview routing dispatches on a target's type
+chain, recording a concrete type (not bare `DataObject`) is what lets a target
+reach an `Image`-specific previewer at all.
 
 ---
 
@@ -227,6 +266,12 @@ and makes the types available for:
 - Port type matching
 - Worker subprocess reconstruction
 - Block palette type dropdowns
+- Preview routing (a target's recorded type chain selects a previewer)
+
+`scistudio.types` is one of three independent entry-point groups; the others are
+`scistudio.blocks` (workflow logic) and `scistudio.previewers` (display
+behaviour). They are wired separately in `pyproject.toml` — see
+[the three entry-point groups](publishing.md#the-three-entry-point-groups).
 
 ---
 

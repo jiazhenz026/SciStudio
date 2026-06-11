@@ -45,17 +45,28 @@ you don't know what a ref is.
 Use the returned fields verbatim when reporting to the user. Do not
 fabricate.
 
-## 3. `preview_data(ref, max_rows?, max_dim?)`
+## 3. `preview_data(ref, fmt)`
 
-Returns a thumbnail / first-N rows / first-N chars view of the ref:
+Returns a small, bounded view of the ref. The signature is
+`preview_data(ref, fmt)`: `ref` is the StorageReference wire dict and `fmt`
+is an advisory preferred format (`table` / `png_base64` / `chart` / `text` /
+`artifact`). Dispatch is **type-driven** — the tool inspects the ref's
+`type_chain` and picks the right view regardless of `fmt`:
 
-- For arrays: a downsampled thumbnail; pass `max_dim` to bound the
-  largest axis (e.g. `max_dim=128`).
-- For DataFrames: first N rows; pass `max_rows` (default ~10).
-- For text: first N characters.
+- DataFrame → first ~100 rows (Arrow slice).
+- Array / Image → a PNG thumbnail clamped to 256×256 (chunked read; no OOM).
+- Series / Spectrum → first ~200 entries.
+- Text → first ~4096 chars.
+- Artifact → size and, for small images, a base64 data URI under the 8 MiB cap.
 
-The preview is for the user's eye. Do NOT report a preview as the
-actual data — it is downsampled or truncated.
+There are no `max_rows` / `max_dim` arguments — bounds are fixed by the tool to
+keep previews cheap. The preview is for the user's eye. Do NOT report a preview
+as the actual data — it is downsampled or truncated.
+
+For a richer interactive view (slice slider, LUT, custom panels) the GUI's
+preview panel routes through the ADR-048 previewer system; as an agent you use
+`preview_data` for a quick bounded look. To draw a figure from a block output,
+use the `scistudio-write-plot` skill (preview-only plot jobs).
 
 ## 4. `get_lineage(ref)`
 
@@ -106,8 +117,8 @@ inspect_data(ref="rf-099")
 #    backend: "zarr", size_bytes: 262144}
 
 # Step 3: thumbnail (for the user to see)
-preview_data(ref="rf-099", max_dim=128)
-# → {format: "png", bytes: "<base64-thumbnail>"}
+preview_data(ref="rf-099", fmt="png_base64")
+# → {fmt: "png_base64", payload: {...}, truncated: true}  # clamped to 256×256
 
 # Step 4: report
 # "The threshold step's `mask` output is a 512×512 bool Mask (YX,

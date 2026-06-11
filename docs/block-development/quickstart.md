@@ -3,16 +3,25 @@ doc_type: block-development
 title: "Block Developer SDK Quickstart"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
   - ADR-043
-summary: "Five-minute block authoring guide with pointers to process blocks and simple local IO blocks."
+  - ADR-048
+related_specs:
+  - adr-048-developer-docs-refresh
+summary: "Five-minute block authoring guide built on the current package scaffold and concrete port types, with pointers to process blocks, simple local IO blocks, previewers, and plot jobs."
 ---
 
 # Block Developer SDK -- Quickstart
 
 Build your first SciStudio block in five minutes.
+
+> **Three extension surfaces.** A package can ship blocks
+> (`scistudio.blocks`), data types (`scistudio.types`), and — new in ADR-048 —
+> previewers (`scistudio.previewers`). This quickstart covers blocks; see
+> [Custom Types](custom-types.md) and
+> [Previewers and Plot Jobs](previewers-and-plots.md) for the others.
 
 ---
 
@@ -108,8 +117,13 @@ class InvertImage(ProcessBlock):
 **Tier 1 (drop-in file):** Place the `.py` file in your project's `blocks/`
 directory or `~/.scistudio/blocks/`. The runtime discovers it automatically.
 
-**Tier 2 (installable package):** Create a Python package with
-`pyproject.toml` and `scistudio.blocks` entry-points. See
+**Tier 2 (installable package):** Scaffold a package with
+`scistudio init-block-package my-blocks`, then add blocks. The scaffold wires a
+`pyproject.toml` `scistudio.blocks` entry point and a `get_blocks()` callable
+returning a `(PackageInfo, list[type])` tuple — the canonical primary pattern.
+Its example block uses concrete `Array` ports, not an empty `accepted_types`
+list, because concrete types drive connection checks and preview routing
+([Block Contract](block-contract.md#concrete-accepted-types-by-default)). See
 [Publishing](publishing.md).
 
 ---
@@ -200,5 +214,6 @@ For the full streaming patterns and worked examples, see
 | Working with Collections | [Collection Guide](collection-guide.md) |
 | Memory-safe processing for large data | [Memory Safety](memory-safety.md) |
 | Creating custom domain types | [Custom Types](custom-types.md) |
+| Previewers and preview-side plot jobs | [Previewers and Plot Jobs](previewers-and-plots.md) |
 | Testing with BlockTestHarness | [Testing](testing.md) |
 | Packaging and distributing blocks | [Publishing](publishing.md) |

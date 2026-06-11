@@ -1,3 +1,17 @@
+---
+doc_type: block-development
+title: "Collection Guide"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-06-10
+governed_by:
+  - ADR-042
+  - ADR-048
+related_specs:
+  - adr-048-developer-docs-refresh
+summary: "Patterns for working with the Collection transport wrapper: construction, iteration, single/empty collections, pack/unpack utilities, serialization, and how a collection's item type drives preview routing."
+---
+
 # Collection Guide
 
 This document covers patterns for working with Collections -- the
@@ -15,6 +29,7 @@ standard block-to-block transport wrapper in SciStudio.
 6. [Utilities: unpack, pack, unpack_single](#utilities-unpack-pack-unpack_single)
 7. [Storage and Serialization](#storage-and-serialization)
 8. [Collection in Block Signatures](#collection-in-block-signatures)
+9. [Collections and preview](#collections-and-preview)
 
 ---
 
@@ -254,3 +269,18 @@ Port type matching uses `collection.item_type`:
 # Collection[Image] matches because Image is a subclass of Array
 port_accepts_type(port, collection)  # True
 ```
+
+---
+
+## Collections and preview
+
+A collection ref is previewable as a `collection_ref` target. ADR-048 preview
+routing uses the collection's **item type** to choose a previewer: a
+`Collection[Image]` first tries an `Image` collection previewer
+(`supports_collection=True`), then an `Image` item previewer, then the generic
+core collection fallback (`core.collection.basic`, a bounded item sample). The
+core collection fallback only surfaces a bounded sample of item refs — it never
+materialises every item. As with single objects, a `Collection[DataObject]` can
+only reach the generic fallback, so a concrete `item_type` is what lets a
+collection reach a domain previewer. See
+[Previewers and Plot Jobs](previewers-and-plots.md#routing-precedence).

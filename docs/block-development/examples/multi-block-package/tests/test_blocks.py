@@ -14,10 +14,10 @@ class TestEntryPoint:
     """Validate the package entry-point callable."""
 
     def test_entry_point_validates(self):
-        from my_blocks import get_block_package
+        from my_blocks import get_blocks
 
         harness = BlockTestHarness(Block)
-        result = get_block_package()
+        result = get_blocks()  # (PackageInfo, list[type])
         errors = harness.validate_entry_point_callable(result)
         assert not errors, "\n".join(errors)
 

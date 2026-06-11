@@ -1,7 +1,24 @@
+---
+doc_type: block-development
+title: "Testing"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-06-10
+governed_by:
+  - ADR-042
+  - ADR-047
+  - ADR-048
+related_specs:
+  - adr-048-developer-docs-refresh
+summary: "Testing SciStudio blocks with BlockTestHarness, plus package registry, previewer-registration, template, skill-packaging, and plot validation checks."
+---
+
 # Testing
 
 This document covers how to test SciStudio blocks using the
-`BlockTestHarness` and common testing patterns.
+`BlockTestHarness` and common testing patterns, plus the extra checks an
+extension package should run: entry-point, previewer-registration, template,
+skill-packaging, and plot validation.
 
 ---
 
@@ -14,6 +31,7 @@ This document covers how to test SciStudio blocks using the
 5. [Test Patterns](#test-patterns)
 6. [What NOT to Test](#what-not-to-test)
 7. [Testing Tier 1 Drop-in Blocks vs Tier 2 Packages](#testing-tier-1-vs-tier-2)
+8. [Package, previewer, template, and plot checks](#package-previewer-template-and-plot-checks)
 
 ---
 
@@ -68,9 +86,9 @@ entry-point callable.
 
 ```python
 def test_package_entry_point():
-    from my_plugin import get_block_package
+    from my_plugin import get_blocks
     harness = BlockTestHarness(Block)  # any Block subclass for init
-    result = get_block_package()
+    result = get_blocks()              # (PackageInfo, list[type])
     errors = harness.validate_entry_point_callable(result)
     assert not errors, errors
 ```
@@ -289,9 +307,74 @@ For Tier 2 packages, also test the entry-point:
 
 ```python
 def test_entry_point():
-    from my_blocks import get_block_package
+    from my_blocks import get_blocks
     harness = BlockTestHarness(Block)
-    info, blocks = get_block_package()
+    info, blocks = get_blocks()
     errors = harness.validate_entry_point_callable((info, blocks))
     assert not errors, errors
 ```
+
+---
+
+## Package, previewer, template, and plot checks
+
+An extension package should test more than its block contracts. The checks
+below mirror what the SciStudio test suite itself runs.
+
+### Package registry layout (ADR-047)
+
+The registry is decomposed into private scan helpers (`registry/_scan.py`,
+`registry/_capability.py`, `registry/_spec.py`) and exposes a capability-aware
+lookup surface. Test that your `scistudio.blocks` entry-point callable returns
+an accepted shape — `(PackageInfo, list[type[Block]])` (primary) — and that your
+IO blocks expose `FormatCapability` records rather than the removed legacy IO
+finder API.
+
+### Previewer registration (ADR-048)
+
+If your package ships `scistudio.previewers`, assert the factory returns a
+non-empty `list[PreviewerSpec]`, each `owner_kind=OwnerKind.PACKAGE`, with a
+unique `previewer_id` and a resolvable `backend_provider`:
+
+```python
+def test_previewers_register():
+    from scistudio.previewers.models import OwnerKind, PreviewerSpec
+    from my_blocks.previewers import get_previewers
+
+    specs = get_previewers()
+    assert specs
+    ids = set()
+    for spec in specs:
+        assert isinstance(spec, PreviewerSpec)
+        assert spec.owner_kind is OwnerKind.PACKAGE
+        assert spec.previewer_id and spec.previewer_id not in ids
+        assert spec.target_type
+        ids.add(spec.previewer_id)
+```
+
+A backend provider must use `request.data_access` for all reads and must return
+a typed error envelope rather than raising for routine failures
+([Previewers and Plot Jobs](previewers-and-plots.md#the-backend-provider)).
+
+### Scaffold / template checks
+
+The package scaffold (`scistudio init-block-package`) is executable
+documentation. Its generated blocks must use valid `InputPort` / `OutputPort`
+fields (`accepted_types`, never a nonexistent `produced_type`) and a valid
+`get_blocks()` entry-point shape. The SciStudio suite asserts this in
+`tests/cli/test_new_block_package.py` and `tests/api/test_blocks_template.py`.
+
+### Skill packaging / provisioning
+
+AI skills ship in the wheel and cross-install to Claude and Codex. The suite
+checks the packaged skill tree in `tests/packaging/test_wheel_skills.py` and
+`tests/agent_provisioning/test_skills.py`.
+
+### Plot job validation (ADR-048)
+
+A plot job is preview-only; you validate and run it rather than asserting a
+block contract. `validate_plot` checks the manifest schema, target reachability,
+path traversal, allowed output formats, and the `render` entrypoint (R-runner
+unavailability is a warning, not an error). `run_plot_job` renders to the
+preview cache and reports a status. See
+[Previewers and Plot Jobs](previewers-and-plots.md#validate-and-run).
