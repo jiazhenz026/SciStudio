@@ -448,6 +448,12 @@
       "at": "2026-06-11T02:14:33.863136Z",
       "pattern": "docs/planning/adr-048-dispatch-prompts/**",
       "reason": "manager integration: dispatch prompts are in-scope manager artifacts; record SPEC 1 test evidence and CHANGELOG docs landing"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T02:28:52.486860Z",
+      "pattern": "docs/audit/baselines/semantic-dup-baseline.json",
+      "reason": "CI fix: imaging-agnostic collection test; re-ratchet semantic-dup baseline to absorb the previewers subsystem (pct improved 14.06->13.17; tracked by #1578)"
     }
   ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",

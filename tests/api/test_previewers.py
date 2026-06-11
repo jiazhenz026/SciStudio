@@ -148,21 +148,25 @@ def test_collection_session_lists_items(
     runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    items = [{"data_ref": f"d{i}", "type_name": "Image"} for i in range(10)]
+    # Use a base type (DataFrame) that no package previewer claims, so this test
+    # deterministically exercises the core collection fallback whether or not the
+    # imaging package is registered (SCISTUDIO_DEV=1 monorepo discovery in CI would
+    # otherwise route Collection[Image] to imaging.image.viewer, priority 100).
+    items = [{"data_ref": f"d{i}", "type_name": "DataFrame"} for i in range(10)]
     resp = client.post(
         "/api/previews/sessions",
         json={
             "target": {
                 "kind": "collection_ref",
                 "ref": "coll-1",
-                "recorded_type": "Image",
-                "type_chain": ["DataObject", "Array", "Image"],
-                "collection_item_type": "Image",
+                "recorded_type": "DataFrame",
+                "type_chain": ["DataObject", "DataFrame"],
+                "collection_item_type": "DataFrame",
             },
             "query": {
                 "_collection_items": items,
                 "_collection_count": 10,
-                "_collection_item_type": "Image",
+                "_collection_item_type": "DataFrame",
             },
         },
     )
@@ -171,7 +175,7 @@ def test_collection_session_lists_items(
     assert body["previewer_id"] == "core.collection.basic"
     assert body["kind"] == "collection"
     assert body["payload"]["count"] == 10
-    assert body["payload"]["item_type"] == "Image"
+    assert body["payload"]["item_type"] == "DataFrame"
     assert len(body["payload"]["items"]) == 10
 
 
