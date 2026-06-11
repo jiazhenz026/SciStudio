@@ -1,0 +1,166 @@
+---
+title: "ADR-048 Implementation Agent Dispatch Checklist"
+status: Approved
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 48
+language_source: en
+---
+
+# ADR-048 Implementation Agent Dispatch Checklist
+
+> Mandatory tracking file. Every agent edits only rows it owns.
+> Drift is a protocol violation.
+> Source template:
+> `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
+
+## 1. Change Summary
+
+- Owner request: `Implement ADR-048 and its three companion specs in full (no v1 scope reductions); one umbrella PR per spec; CI must pass; then run three browser smoke-test rounds.`
+- Task kind: `feature` (manager-coordinated)
+- Manager persona: `manager`
+- Issues: `#1574 (SPEC 1 preview-system)`, `#1575 (SPEC 2 ai-plot-tools)`, `#1576 (SPEC 3 developer-docs)`
+- Gate records:
+  - SPEC 1: `.workflow/records/1574-track-adr-048-spec1-preview-system.json`
+  - SPEC 2: `.workflow/records/1575-track-adr-048-spec2-plot-tools.json` (pending)
+  - SPEC 3: `.workflow/records/1576-track-adr-048-spec3-docs.json` (pending)
+- Branch/worktree plan: manager works in dedicated worktrees under
+  `C:/Users/jiazh/Desktop/workspace/sci-wt/`; each implementer agent uses its
+  own `feat/adr-048-*` branch + worktree off the umbrella branch.
+- Protected branch: `main`
+- Umbrella branches (stacked):
+  - SPEC 1: `track/adr-048-spec1-preview-system` (off `main`)
+  - SPEC 2: `track/adr-048-spec2-plot-tools` (off SPEC 1 tip) — pending
+  - SPEC 3: `track/adr-048-spec3-docs` (off SPEC 2 tip) — pending
+- Umbrella PRs:
+  - SPEC 1: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 1: extensible preview system`
+  - SPEC 2: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 2: AI plot tools + preview-side plot jobs`
+  - SPEC 3: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 3: developer docs refresh`
+- Final PR target: `main` (each umbrella; owner removes `[DO NOT MERGE]` to authorize merge)
+- Dispatch prompt templates:
+  - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+  - Audit with context:
+    `docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md`
+
+## 2. Scope
+
+- In scope:
+  - SPEC 1: `src/scistudio/previewers/**`, `src/scistudio/api/**`,
+    `src/scistudio/ai/agent/mcp/tools_inspection/**`, `frontend/src/**`,
+    `packages/scistudio-blocks-imaging/**`, related tests.
+  - SPEC 2: `src/scistudio/ai/agent/mcp/tools_plot/**`,
+    `src/scistudio/ai/agent/mcp/__init__.py`, `src/scistudio/_skills/scistudio/**`,
+    `src/scistudio/agent_provisioning/**`, `src/scistudio/cli/install.py`,
+    `docs/cli-integration.md`, related tests.
+  - SPEC 3: `docs/block-development/**`, `src/scistudio/cli/templates/block_package/**`,
+    skills, imaging README, `docs/cli-integration.md`, related tests.
+- Out of scope:
+  - Editing protected paths `src/scistudio/{core,engine,blocks,workflow,utils}/**`
+    and `src/scistudio/qa/{governance,audit,schemas}/**` (no owner core-change label).
+  - Historical ADRs/specs delete/rewrite; `docs/ai-developer/**`; generated docs/facts.
+  - Turning previewers/plot jobs into workflow DAG nodes or lineage producers.
+- Protected paths:
+  - `src/scistudio/blocks/code/**` (SPEC 2 reuses by import only, never edits).
+  - `src/scistudio/blocks/_templates/block_base_template.py` (SPEC 3 avoids editing;
+    documents deliberate generic ports in prose instead).
+- Deferred work:
+  - `<none yet — record TODO(#NNN) here if any slice is deferred>`
+
+## 3. Conventions
+
+- `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
+- Every completed row MUST include an artifact (PR link, commit, test command,
+  report path, or gate-record entry). Chat messages are not evidence.
+- Agents edit only their own rows. Scope changes require gate-record amendment.
+
+## 4. Manager Preflight (SPEC 1)
+
+- [x] Dedicated manager branch and worktree created (`track/adr-048-spec1-preview-system`, `sci-wt/spec1-mgr`).
+- [x] Existing issue linked / new issues created (`#1574`, `#1575`, `#1576`; #1570 docs closed).
+- [x] Gate record started (`.workflow/records/1574-track-adr-048-spec1-preview-system.json`).
+- [x] Scope include/exclude recorded in the gate record.
+- [x] Umbrella branch created.
+- [ ] Umbrella PR opened.
+- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella branch recorded in this checklist.
+- [x] No `pip install -e .` environment pollution found.
+- [x] Dispatch checklist copied from the template and committed.
+- [ ] Dispatch prompts created from the correct prompt template and linked below.
+- [~] Sentrux baseline: Sentrux MCP availability to be confirmed at first `gate_record check`;
+      CLI fallback recorded if unavailable.
+
+## 5. Local Gate Hook Bypass Evidence
+
+- Authorized bypass label: `N/A` (no bypass authorized by owner; standard gate validation).
+- Owner authorization source: `N/A`
+- Reason: `N/A`
+
+| Hook | Command | Bypass label | Status | Evidence |
+|---|---|---|---|---|
+| Pre-PR reconcile | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | `<ledger reconcile event>` |
+
+## 5.1 Docs Impact Check
+
+- Wrapper/hook/gate-record/CI/runtime behavior changed: `no` (SPEC 1/2/3 do not change the gate CLI/CI/wrapper).
+- AI docs checked: `docs/ai-developer/rules.md`, `gated-workflow.md`, `agent-dispatch.md`, `*dispatch*.md`.
+- Updated docs or N/A rationale: `N/A — no AI-developer governance surface changes in this work.`
+
+## 6. Dispatch Matrix
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| S1-backend | implementer | N/A | §7.1 below | previewers core + API + runtime + MCP sharing + backend tests | `feat/adr-048-preview-backend` | `sci-wt/s1-backend` | `src/scistudio/previewers/**`, `src/scistudio/api/**`, `src/scistudio/ai/agent/mcp/tools_inspection/**`, `tests/previewers/**`, `tests/api/**`, `tests/ai/test_mcp_tools_inspection.py` | frontend, imaging, blocks/** | `#1574` | `[ ]` |
+| S1-frontend | implementer | N/A | §7.2 below | PreviewHost + manifest loader + fallback viewers + store + FE tests | `feat/adr-048-preview-frontend` | `sci-wt/s1-frontend` | `frontend/src/**`, `frontend/package.json` | backend, imaging | `#1574` | `[ ]` |
+| S1-imaging | implementer | N/A | §7.3 below | imaging Image/Label previewers (backend provider + FE assets + entry point + tests) | `feat/adr-048-preview-imaging` | `sci-wt/s1-imaging` | `packages/scistudio-blocks-imaging/**` | core, frontend host | `#1574` | `[ ]` |
+| S1-audit | audit_reviewer | with-context | audit template | audit integrated SPEC 1 + Codex review reconcile | `audit/adr-048-spec1` | `sci-wt/s1-audit` | `docs/audit/<date>-adr-048-spec1.md` | implementation code | `#1574` | `[ ]` |
+
+(SPEC 2 and SPEC 3 dispatch rows appended when their umbrellas are created.)
+
+## 7. Tracks
+
+### 7.1 S1-backend — previewer core + API
+- In scope: `src/scistudio/previewers/**`, `src/scistudio/api/**`,
+  `src/scistudio/ai/agent/mcp/tools_inspection/**`, `tests/previewers/**`, `tests/api/**`.
+- Required tests: `tests/previewers/test_preview_registry.py`,
+  `test_preview_routing.py`, `test_preview_data_access.py`, `tests/api/test_previewers.py`,
+  `tests/api/test_data.py`, `tests/ai/test_mcp_tools_inspection.py`.
+- [ ] Implementation -> `<commit>`
+- [ ] Tests -> `<commit>`
+- [ ] Local gate check green -> `<reconcile>`
+
+### 7.2 S1-frontend — PreviewHost + fallback viewers
+- In scope: `frontend/src/**`, `frontend/package.json`.
+- Required tests: `frontend/src/components/DataPreview.test.tsx`,
+  `frontend/src/components/DataPreview.parts/PreviewHost.test.tsx`.
+- [ ] Implementation -> `<commit>`
+- [ ] Tests + tsc/eslint/prettier/vitest green -> `<commit>`
+
+### 7.3 S1-imaging — package-owned Image/Label previewers
+- In scope: `packages/scistudio-blocks-imaging/**`.
+- Required tests: `packages/scistudio-blocks-imaging/tests/test_previewer_registration.py`.
+- [ ] Implementation -> `<commit>`
+- [ ] Tests green + core fallback verified -> `<commit>`
+
+## 8. Verification Evidence
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Gate ledger check (local) | `gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | `<reconcile>` |
+| Pre-PR gate check | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<reconcile>` |
+| Gate finalize | `gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` | `[ ]` | `<ledger>` |
+
+## 9. Drift Log
+
+Append only.
+
+| Date | Agent | Drift | Action | Follow-up |
+|---|---|---|---|---|
+| 2026-06-10 | manager | — | baseline created | — |
+
+## 10. Final Readiness (per spec)
+
+- [ ] SPEC 1: agents done · manager reviewed all files · gate complete · umbrella PR closes #1574 · CI green.
+- [ ] SPEC 2: agents done · manager reviewed all files · gate complete · umbrella PR closes #1575 · CI green.
+- [ ] SPEC 3: agents done · manager reviewed all files · gate complete · umbrella PR closes #1576 · CI green.
+- [ ] Browser smoke tests (3 rounds) complete with evidence.

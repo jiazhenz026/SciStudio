@@ -1,0 +1,57 @@
+{
+  "branch": "track/adr-048-spec1-preview-system",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/**",
+      "src/scistudio/api/**",
+      "src/scistudio/ai/agent/mcp/tools_inspection/**",
+      "frontend/src/**",
+      "frontend/package.json",
+      "packages/scistudio-blocks-imaging/**",
+      "tests/**",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "docs/adr/ADR-048.md",
+      "docs/specs/adr-048-preview-system.md",
+      "CHANGELOG.md",
+      "pyproject.toml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1574,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-048 SPEC 1 (preview system) in full; coordinate implementer agents; deliver one [DO NOT MERGE] umbrella PR closing #1574; CI must pass.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1574-track-adr-048-spec1-preview-system",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}
