@@ -1,6 +1,22 @@
 {
   "branch": "audit/2026-06-11-codebase-no-context",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-11T07:51:43.820120Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:837df1be597368d7143e5128d0d92a06b71871b344581783bfa0f0966784511d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -15,6 +31,11 @@
       "at": "2026-06-11T07:48:59.052854Z",
       "owner_directive": "Plan: write manager dispatch checklist under docs/planning/, dispatch 3 no-context audit agents, then land 3 per-lens audit reports + 1 consolidated index under docs/audit/. No implementation code changes.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-11T08:03:55.664437Z",
+      "owner_directive": "Add ADR-048 PR-review track: 3 with-context audit agents review PR #1577 (SPEC1 preview-system), #1580 (SPEC2 plot-tools), #1581 (SPEC3 docs) against ADR-048 + corresponding specs + code; manager lands a separate report docs/audit/2026-06-11-adr048-pr-review.md in PR #1590.",
+      "reason": "Owner clarified the primary audit target after dispatch: review ADR-048 implementation PRs #1577/#1580/#1581 against ADR-048 and its specs. Add a second WITH-CONTEXT PR-review track (3 agents, one per PR) and land a separate consolidated report. The full-repo no-context sweep is retained as a prevention pass per owner."
     }
   ],
   "docs_events": [
@@ -33,10 +54,79 @@
       "path": null,
       "rationale": "Audit-evidence-only PR (reports under docs/audit/ + dispatch checklist); no user-facing or behavioral change to record.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T08:03:55.664456Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-11-adr048-pr-review.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-11T07:51:43.853632Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.869459Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.885252Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.900512Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.916248Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.932242Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.950411Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.969401Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:43.985987Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:51:44.004129Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -46,25 +136,69 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "cd370810",
+    "changed_files": [
+      ".workflow/records/1589-audit-2026-06-11-codebase-no-context.json",
+      "docs/planning/codebase-no-context-audit-checklist.md"
+    ],
+    "diff_fingerprint": "sha256:d46bd6709287d0692a58909d6b043089aa7dbd0ba2b2eac7c6a7b4b50fc55f50",
+    "head": "HEAD",
+    "head_sha": "f14c6eae",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Manager dispatches 3 no-context audit_reviewer agents (may read only ADRs/specs/docs/code/tests; not issues, gate records, PR claims, or manager summaries) to find doc/contract drift, layer & module routing/boundary problems, and serious code bugs; land severity-ordered audit reports under docs/audit/ in a new PR.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-11T07:51:44.004165Z",
+      "diff_fingerprint": "sha256:d46bd6709287d0692a58909d6b043089aa7dbd0ba2b2eac7c6a7b4b50fc55f50",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1589-audit-2026-06-11-codebase-no-context",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code:claude-fable-5",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "42c39819-fe08-44d3-99cc-33a683d59bd5",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "manager",
   "test_events": [
     {
