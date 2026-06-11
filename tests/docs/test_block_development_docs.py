@@ -32,9 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 BLOCK_DEV = REPO_ROOT / "docs" / "block-development"
 PREVIEWERS_AND_PLOTS = BLOCK_DEV / "previewers-and-plots.md"
 IMPACT_MATRIX = REPO_ROOT / "docs" / "planning" / "adr-048-impact-matrix.md"
-INSPECT_SKILL = (
-    REPO_ROOT / "src" / "scistudio" / "_skills" / "scistudio" / "scistudio-inspect-data" / "SKILL.md"
-)
+INSPECT_SKILL = REPO_ROOT / "src" / "scistudio" / "_skills" / "scistudio" / "scistudio-inspect-data" / "SKILL.md"
 SCAFFOLD_TEMPLATES = REPO_ROOT / "src" / "scistudio" / "cli" / "templates" / "block_package"
 
 

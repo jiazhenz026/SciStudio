@@ -1,6 +1,86 @@
 {
   "branch": "track/adr-048-spec3-docs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-11T04:08:08.615813Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:07fcda03a245b9e77fe40b34f8540bd172bb874e0443097d6a6e7d8eed703c15",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T04:08:18.136506Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:07fcda03a245b9e77fe40b34f8540bd172bb874e0443097d6a6e7d8eed703c15",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T04:08:18.219436Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:07fcda03a245b9e77fe40b34f8540bd172bb874e0443097d6a6e7d8eed703c15",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T04:10:17.140336Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:07fcda03a245b9e77fe40b34f8540bd172bb874e0443097d6a6e7d8eed703c15",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T04:11:08.668291Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:07fcda03a245b9e77fe40b34f8540bd172bb874e0443097d6a6e7d8eed703c15",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -18,9 +98,146 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-11T04:11:48.515249Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T04:11:48.515267Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/previewers-and-plots.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T04:11:48.515269Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-impact-matrix.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-11T04:11:08.711990Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.724498Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "packages/scistudio-blocks-imaging/README.md",
+              "src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+              "src/scistudio/cli/templates/block_package/blocks.py.tpl"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T04:11:08.736673Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.749612Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.762698Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.776879Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.790225Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.804007Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.818145Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T04:11:08.836509Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -30,25 +247,111 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/track/adr-048-spec2-plot-tools",
+    "base_sha": "9ff390bd",
+    "changed_files": [
+      ".workflow/records/1576-track-adr-048-spec3-docs.json",
+      "CHANGELOG.md",
+      "docs/block-development/architecture-for-block-devs.md",
+      "docs/block-development/block-contract.md",
+      "docs/block-development/collection-guide.md",
+      "docs/block-development/custom-types.md",
+      "docs/block-development/data-types.md",
+      "docs/block-development/examples/multi-block-package/pyproject.toml",
+      "docs/block-development/examples/multi-block-package/src/my_blocks/__init__.py",
+      "docs/block-development/examples/multi-block-package/tests/test_blocks.py",
+      "docs/block-development/memory-safety.md",
+      "docs/block-development/previewers-and-plots.md",
+      "docs/block-development/publishing.md",
+      "docs/block-development/quickstart.md",
+      "docs/block-development/testing.md",
+      "docs/planning/adr-048-dispatch-prompts/s3-docs.md",
+      "docs/planning/adr-048-impact-matrix.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "packages/scistudio-blocks-imaging/README.md",
+      "src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/cli/templates/block_package/blocks.py.tpl",
+      "tests/docs/__init__.py",
+      "tests/docs/test_block_development_docs.py"
+    ],
+    "diff_fingerprint": "sha256:2a69d1186640a2f4e3cdc0ada749ea21ac0075c647b26733f0349584bb9d6ec0",
+    "head": "HEAD",
+    "head_sha": "50c37926",
+    "surfaces": {
+      "docs": 16,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 6,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement ADR-048 SPEC 3 (developer docs delete-and-rewrite) in full; deliver one [DO NOT MERGE] umbrella PR (stacked on SPEC 2) closing #1576; CI must pass.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-11T04:11:08.836537Z",
+      "diff_fingerprint": "sha256:2a69d1186640a2f4e3cdc0ada749ea21ac0075c647b26733f0349584bb9d6ec0",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing"
+      ]
+    }
+  ],
   "record_id": "1576-track-adr-048-spec3-docs",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format",
+      "python_tests",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "5ff065c9-d1bc-4fba-ba55-01a46328f6a8",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "docs",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-11T04:11:48.515273Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_block_development_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
