@@ -141,6 +141,147 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-11T07:20:45.397503Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:20:45.494550Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T07:20:54.690874Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:21:18.313232Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:21:18.729233Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:21:18.771636Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T07:25:02.029163Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:25:55.602417Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:26:00.957101Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f99af0dd3d822150cfb1b8306ae6f421974a83c424b3a4b18e0a33dcd501e980",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -162,13 +303,35 @@
       "pyproject.toml"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-06-11T07:06:14.840346Z",
+      "owner_directive": "SPEC1-FIX bugfix for #1574/#1577: propagate bounded preview resource params from frontend/API to PreviewSessionManager, implement plot export resource, add focused regressions, update SPEC1 checklist evidence",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-06-11T02:14:33.863158Z",
       "class": null,
       "kind": "path",
       "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:06:14.840388Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:28:13.822501Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -311,6 +474,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.042611Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.069321Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.097651Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.129100Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.160812Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.189526Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.217700Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.246679Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.276643Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:26:01.336837Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.472110Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.500214Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.528450Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.556845Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.584631Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.613754Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.642468Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.671501Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.698683Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:27:17.749405Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -327,10 +654,16 @@
     "base_sha": "cd370810",
     "changed_files": [
       ".workflow/records/1574-track-adr-048-spec1-preview-system.json",
+      "CHANGELOG.md",
+      "docs/audit/2026-06-10-adr-048-spec1.md",
+      "docs/audit/baselines/semantic-dup-baseline.json",
+      "docs/planning/adr-048-dispatch-prompts/s1-audit.md",
       "docs/planning/adr-048-dispatch-prompts/s1-backend.md",
       "docs/planning/adr-048-dispatch-prompts/s1-frontend.md",
       "docs/planning/adr-048-dispatch-prompts/s1-imaging.md",
       "docs/planning/adr-048-implementation-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
       "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
       "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
       "frontend/src/components/DataPreview.parts/coreViewers.tsx",
@@ -362,25 +695,28 @@
       "src/scistudio/previewers/registry.py",
       "src/scistudio/previewers/router.py",
       "src/scistudio/previewers/session.py",
+      "tests/api/test_data.py",
       "tests/api/test_previewers.py",
+      "tests/architecture/test_placement.py",
       "tests/previewers/__init__.py",
       "tests/previewers/test_preview_data_access.py",
       "tests/previewers/test_preview_registry.py",
-      "tests/previewers/test_preview_routing.py"
+      "tests/previewers/test_preview_routing.py",
+      "tests/previewers/test_preview_security.py"
     ],
-    "diff_fingerprint": "sha256:b135d604d6fdab0b614f0e1794a5bb284a53d40b8e24d88eb482d0964e2c2a63",
+    "diff_fingerprint": "sha256:d3e7934e1c02d0b3bd78e2131de4fd6e88bc4bd5af0b8546a834417f29f8938a",
     "head": "HEAD",
-    "head_sha": "2d841cef",
+    "head_sha": "547f9f8d",
     "surfaces": {
-      "docs": 4,
+      "docs": 9,
       "frontend": 10,
       "governance": 0,
       "governed_docs": 0,
       "implementation": 30,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 36,
-      "test": 7,
+      "sentrux": 39,
+      "test": 10,
       "workflow_ci": 0
     }
   },
@@ -404,6 +740,25 @@
         "scope.out-of-scope",
         "tests.changed_test_required"
       ]
+    },
+    {
+      "at": "2026-06-11T07:26:01.336877Z",
+      "diff_fingerprint": "sha256:d3e7934e1c02d0b3bd78e2131de4fd6e88bc4bd5af0b8546a834417f29f8938a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-06-11T07:27:17.749439Z",
+      "diff_fingerprint": "sha256:d3e7934e1c02d0b3bd78e2131de4fd6e88bc4bd5af0b8546a834417f29f8938a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1574-track-adr-048-spec1-preview-system",
@@ -454,6 +809,78 @@
       "at": "2026-06-11T02:28:52.486860Z",
       "pattern": "docs/audit/baselines/semantic-dup-baseline.json",
       "reason": "CI fix: imaging-agnostic collection test; re-ratchet semantic-dup baseline to absorb the previewers subsystem (pct improved 14.06->13.17; tracked by #1578)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840363Z",
+      "pattern": "src/scistudio/previewers/**",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840369Z",
+      "pattern": "src/scistudio/api/routes/**",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840371Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840373Z",
+      "pattern": "frontend/src/components/DataPreview.parts/**",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840374Z",
+      "pattern": "frontend/src/types/api.ts",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840375Z",
+      "pattern": "tests/previewers/**",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840377Z",
+      "pattern": "tests/api/**",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840378Z",
+      "pattern": "frontend/src/components/DataPreview.parts/*.test.tsx",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840380Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840381Z",
+      "pattern": ".workflow/records/1574-track-adr-048-spec1-preview-system.json",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:06:14.840382Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "reason": "SPEC1-FIX dispatch plan: repair preview child-resource params and plot export behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:27:01.741837Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
+      "reason": "SPEC1-FIX gate reconciliation: existing manager dispatch prompt record is part of the #1577 PR diff and was required reading for this dispatched fix"
     }
   ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
@@ -497,6 +924,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/previewers/test_preview_security.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:06:14.840393Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:06:14.840396Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

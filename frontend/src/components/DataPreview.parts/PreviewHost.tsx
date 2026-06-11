@@ -28,6 +28,7 @@ import { api } from "../../lib/api";
 import type {
   PreviewEnvelope,
   PreviewResource,
+  PreviewResourceResponse,
   PreviewTarget,
   PreviewerManifest,
 } from "../../types/api";
@@ -60,6 +61,7 @@ export interface PreviewHostProps {
 }
 
 type Status = "idle" | "loading" | "ready" | "error";
+const RESOURCE_PARAMS_MAX_CHARS = 8192;
 
 function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | undefined {
   if (!envelope) return undefined;
@@ -156,7 +158,11 @@ export function PreviewHost({
       const active = childStack[childStack.length - 1] ?? envelope;
       if (!active?.session_id) return;
       try {
-        const result = await api.getPreviewResource(active.session_id, resource.resource_id);
+        const result = await fetchPreviewResource(
+          active.session_id,
+          resource.resource_id,
+          resource.params,
+        );
         // A child resource resolves to a full child envelope.
         const childEnvelope = result.data as unknown as PreviewEnvelope;
         if (childEnvelope && typeof childEnvelope.kind === "string") {
@@ -187,7 +193,15 @@ export function PreviewHost({
       }
       if (active.session_id) {
         try {
-          await api.getPreviewResource(active.session_id, resource.resource_id);
+          const result = await fetchPreviewResource(
+            active.session_id,
+            resource.resource_id,
+            resource.params,
+          );
+          triggerResourceDownload(
+            result.data,
+            `${active.previewer_id}.${resource.params?.format ?? "bin"}`,
+          );
         } catch (err) {
           setHostDiagnostics((d) => [
             ...d,
@@ -228,19 +242,39 @@ export function PreviewHost({
           activeEnvelope.session_id
             ? api.patchPreviewSession(activeEnvelope.session_id, q)
             : activeEnvelope,
-        getResource: async (resourceId) =>
-          activeEnvelope.session_id
-            ? (await api.getPreviewResource(activeEnvelope.session_id, resourceId)).data
-            : null,
+        getResource: async (resourceId, params) => {
+          if (!activeEnvelope.session_id) return null;
+          const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+          return (
+            await fetchPreviewResource(
+              activeEnvelope.session_id,
+              resourceId,
+              mergeResourceParams(resource, params),
+            )
+          ).data;
+        },
         resources: activeEnvelope.resources,
       },
       assetUrl: (assetPath: string) =>
         `/api/previews/assets/${encodeURIComponent(activeEnvelope.previewer_id)}/${assetPath.replace(/^\/+/, "")}`,
-      exportArtifact: async () => {
+      exportArtifact: async (request) => {
         const src = activeEnvelope.payload?.src;
         if (typeof src === "string" && src.startsWith("data:")) {
-          triggerDownload(src, `${activeEnvelope.previewer_id}.bin`);
+          triggerDownload(src, request?.filename ?? `${activeEnvelope.previewer_id}.bin`);
+          return;
         }
+        if (!activeEnvelope.session_id) return;
+        const resourceId = request?.resourceId ?? "export";
+        const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+        const params = mergeResourceParams(resource, {
+          ...(request?.params ?? {}),
+          ...(request?.format ? { format: request.format } : {}),
+        });
+        const result = await fetchPreviewResource(activeEnvelope.session_id, resourceId, params);
+        triggerResourceDownload(
+          result.data,
+          request?.filename ?? `${activeEnvelope.previewer_id}.${request?.format ?? "bin"}`,
+        );
       },
       saveArtifact: async () => {
         // No host-mediated save target wired in SPEC 1; modules must tolerate
@@ -377,4 +411,62 @@ function triggerDownload(href: string, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+async function fetchPreviewResource(
+  sessionId: string,
+  resourceId: string,
+  params?: Record<string, unknown>,
+): Promise<PreviewResourceResponse> {
+  const response = await fetch(buildPreviewResourceUrl(sessionId, resourceId, params));
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
+      detail?: string | { message?: string };
+    };
+    const detail = payload.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : typeof detail?.message === "string"
+          ? detail.message
+          : `Request failed with ${response.status}`;
+    throw new Error(message);
+  }
+  return (await response.json()) as PreviewResourceResponse;
+}
+
+function buildPreviewResourceUrl(
+  sessionId: string,
+  resourceId: string,
+  params?: Record<string, unknown>,
+): string {
+  const base = `/api/previews/sessions/${encodeURIComponent(sessionId)}/resources/${encodeURIComponent(
+    resourceId,
+  )}`;
+  if (!params || Object.keys(params).length === 0) return base;
+  const encodedParams = JSON.stringify(params);
+  if (encodedParams.length > RESOURCE_PARAMS_MAX_CHARS) {
+    throw new Error("resource params exceed the 8 KiB limit");
+  }
+  const search = new URLSearchParams({ params: encodedParams });
+  return `${base}?${search.toString()}`;
+}
+
+function mergeResourceParams(
+  resource: PreviewResource | undefined,
+  params?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const merged = { ...(resource?.params ?? {}), ...(params ?? {}) };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function triggerResourceDownload(data: Record<string, unknown>, fallbackFilename: string): void {
+  const href =
+    typeof data.data_uri === "string"
+      ? data.data_uri
+      : typeof data.src === "string" && data.src.startsWith("data:")
+        ? data.src
+        : null;
+  if (!href) return;
+  triggerDownload(href, typeof data.filename === "string" ? data.filename : fallbackFilename);
 }

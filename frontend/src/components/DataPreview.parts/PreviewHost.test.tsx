@@ -23,6 +23,8 @@ const patchPreviewSession = vi.fn();
 const getPreviewResource = vi.fn();
 const getPreviewSession = vi.fn();
 const getDataPreview = vi.fn();
+const fetchMock = vi.fn();
+let anchorClickSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 vi.mock("../../lib/api", () => ({
   api: {
@@ -62,15 +64,31 @@ function envelope(partial: Partial<PreviewEnvelope>): PreviewEnvelope {
 
 const TARGET: PreviewTarget = { kind: "data_ref", ref: "data-1", recorded_type: "DataFrame" };
 
+function okJson(body: unknown): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: vi.fn(async () => body),
+  } as unknown as Response;
+}
+
 beforeEach(() => {
   createPreviewSession.mockReset();
   patchPreviewSession.mockReset();
   getPreviewResource.mockReset();
   getPreviewSession.mockReset();
   getDataPreview.mockReset();
+  fetchMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+  anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  anchorClickSpy?.mockRestore();
+  anchorClickSpy = null;
+  vi.unstubAllGlobals();
+});
 
 describe("PreviewHost — session creation + core fallback", () => {
   it("creates a session for the target and mounts the dataframe core viewer", async () => {
@@ -232,19 +250,29 @@ describe("PreviewHost — collection + child routing (US4)", () => {
           ],
         },
         resources: [
-          { resource_id: "item:0", kind: "child", params: { index: 0 } },
-          { resource_id: "item:1", kind: "child", params: { index: 1 } },
+          {
+            resource_id: "item:0",
+            kind: "child",
+            params: { index: 0, item: { data_ref: "img-0", type_name: "Image" } },
+          },
+          {
+            resource_id: "item:1",
+            kind: "child",
+            params: { index: 1, item: { data_ref: "img-1", type_name: "Image" } },
+          },
         ],
       }),
     );
-    getPreviewResource.mockResolvedValue({
-      resource_id: "item:0",
-      data: envelope({
-        previewer_id: "core.array.basic",
-        kind: "array",
-        payload: { shape: [8, 8], dtype: "uint8", ndim: 2, src: "" },
-      }) as unknown as Record<string, unknown>,
-    });
+    fetchMock.mockResolvedValue(
+      okJson({
+        resource_id: "item:0",
+        data: envelope({
+          previewer_id: "core.array.basic",
+          kind: "array",
+          payload: { shape: [8, 8], dtype: "uint8", ndim: 2, src: "" },
+        }) as unknown as Record<string, unknown>,
+      }),
+    );
 
     render(
       <PreviewHost target={{ ...TARGET, kind: "collection_ref", collection_item_type: "Image" }} />,
@@ -255,7 +283,13 @@ describe("PreviewHost — collection + child routing (US4)", () => {
 
     fireEvent.click(screen.getByTestId("collection-item-0"));
 
-    await waitFor(() => expect(getPreviewResource).toHaveBeenCalledWith("pv-1", "item:0"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+    expect(url.pathname).toBe("/api/previews/sessions/pv-1/resources/item%3A0");
+    expect(JSON.parse(url.searchParams.get("params") ?? "{}")).toEqual({
+      index: 0,
+      item: { data_ref: "img-0", type_name: "Image" },
+    });
     // Child envelope is the generic array viewer; back button appears.
     expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("preview-host-back")).toBeInTheDocument();
@@ -283,6 +317,23 @@ describe("PreviewHost — plot viewer (FR-018 / FR-019)", () => {
     expect(frame.getAttribute("sandbox")).toBe("");
     expect(screen.getByTestId("plot-export-button")).toBeEnabled();
     expect(screen.getByTestId("preview-diagnostics")).toHaveTextContent(/sanitized SVG/);
+
+    fetchMock.mockResolvedValue(
+      okJson({
+        resource_id: "export",
+        data: {
+          format: "svg",
+          mime_type: "image/svg+xml",
+          filename: "plot.svg",
+          data_uri: "data:image/svg+xml;base64,PHN2Zy8+",
+        },
+      }),
+    );
+    fireEvent.click(screen.getByTestId("plot-export-button"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+    expect(url.pathname).toBe("/api/previews/sessions/pv-1/resources/export");
+    expect(JSON.parse(url.searchParams.get("params") ?? "{}")).toEqual({ format: "svg" });
   });
 
   it("renders a PDF artifact in a frame with an export control", async () => {

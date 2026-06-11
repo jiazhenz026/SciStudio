@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -177,6 +179,134 @@ def test_collection_session_lists_items(
     assert body["payload"]["count"] == 10
     assert body["payload"]["item_type"] == "DataFrame"
     assert len(body["payload"]["items"]) == 10
+
+
+def test_collection_resource_uses_descriptor_params(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    items = [{"data_ref": "child-0", "type_name": "DataFrame"}]
+    resp = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "collection_ref",
+                "ref": "coll-params",
+                "recorded_type": "DataFrame",
+                "type_chain": ["DataObject", "DataFrame"],
+                "collection_item_type": "DataFrame",
+            },
+            "query": {
+                "_collection_items": items,
+                "_collection_count": 1,
+                "_collection_item_type": "DataFrame",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    sid = body["session_id"]
+    resource = body["resources"][0]
+
+    res = client.get(
+        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
+        params={"params": json.dumps(resource["params"])},
+    )
+
+    assert res.status_code == 200
+    child = res.json()["data"]
+    assert child["target"]["ref"] == "child-0"
+    assert child["target"]["recorded_type"] == "DataFrame"
+
+
+def test_composite_resource_uses_descriptor_params(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    resp = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "data_ref",
+                "ref": "comp-params",
+                "recorded_type": "CompositeData",
+                "type_chain": ["DataObject", "CompositeData"],
+            },
+            "query": {"_record_metadata": {"slots": {"raster": "Array"}}},
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    sid = body["session_id"]
+    resource = body["resources"][0]
+
+    res = client.get(
+        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
+        params={"params": json.dumps(resource["params"])},
+    )
+
+    assert res.status_code == 200
+    child = res.json()["data"]
+    assert child["target"]["ref"] == "comp-params#raster"
+    assert child["target"]["recorded_type"] == "Array"
+
+
+def test_resource_params_reject_non_object_and_oversized_payload(client: TestClient, opened_project: Path) -> None:
+    non_object = client.get(
+        "/api/previews/sessions/pv-any/resources/item:0",
+        params={"params": json.dumps(["not", "an", "object"])},
+    )
+    assert non_object.status_code == 422
+
+    oversized = client.get(
+        "/api/previews/sessions/pv-any/resources/item:0",
+        params={"params": json.dumps({"item": "x" * 9000})},
+    )
+    assert oversized.status_code == 413
+
+
+def test_plot_export_resource_returns_bounded_sanitized_svg(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    plot_path = opened_project / "plot.svg"
+    plot_path.write_text("<svg><script>alert(1)</script><rect width='1' height='1'/></svg>", encoding="utf-8")
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="filesystem",
+            path=str(plot_path),
+            format="svg",
+            metadata={"plot_artifact": True, "type_chain": ["DataObject", "PlotArtifact"]},
+        ),
+        type_name="PlotArtifact",
+    )
+    created = _create_session(
+        client,
+        ref=record.id,
+        recorded_type="PlotArtifact",
+        type_chain=["DataObject", "PlotArtifact"],
+        kind="plot_artifact",
+    ).json()
+    sid = created["session_id"]
+    export_resource = next(r for r in created["resources"] if r["resource_id"] == "export")
+
+    res = client.get(
+        f"/api/previews/sessions/{sid}/resources/export",
+        params={"params": json.dumps(export_resource["params"])},
+    )
+
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["format"] == "svg"
+    assert data["mime_type"] == "image/svg+xml"
+    assert data["filename"] == "plot.svg"
+    assert data["data_uri"].startswith("data:image/svg+xml;base64,")
+    decoded = base64.b64decode(data["data_uri"].split(",", 1)[1]).decode("utf-8")
+    assert "<script" not in decoded
+    assert "alert(1)" not in decoded
+    assert "<rect" in decoded
+    assert data["sanitized"] is True
 
 
 def test_legacy_preview_route_still_works(client: TestClient, opened_project: Path) -> None:

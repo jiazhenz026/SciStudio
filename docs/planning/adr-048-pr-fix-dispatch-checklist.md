@@ -92,7 +92,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| SPEC1-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec1-fix` | Preview resource params, plot export, focused regressions | `track/adr-048-spec1-preview-system` | `sci-wt/spec1-mgr` | Preview session/API/frontend/tests/docs as needed | SPEC2/SPEC3/gate governance | #1574/#1577 | `[ ]` |
+| SPEC1-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec1-fix` | Preview resource params, plot export, focused regressions | `track/adr-048-spec1-preview-system` | `sci-wt/spec1-mgr` | Preview session/API/frontend/tests/docs as needed | SPEC2/SPEC3/gate governance | #1574/#1577 | `[!]` |
 | SPEC2-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec2-fix` | Plot path confinement, workflow_path traversal, stale artifact/dynamic targets as feasible | `track/adr-048-spec2-plot-tools` | `sci-wt/spec2-mgr` | Plot MCP/runtime/tests/docs as needed | SPEC1/SPEC3/gate governance | #1575/#1580 | `[ ]` |
 | SPEC3-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec3-fix` | Active skill/template drift, docs contract tests | `track/adr-048-spec3-docs` | `sci-wt/spec3-mgr` | Packaged skills/templates/docs tests | SPEC1/SPEC2 runtime/gate governance | #1576/#1581 | `[ ]` |
 | SPEC1-AUDIT | audit_reviewer | no-context | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec1-audit-no-context` | No-context preview-system audit | TBD | TBD | Audit report only | Manager context/PR claims | #1574/#1577 | `[ ]` |
@@ -103,10 +103,10 @@ language_source: en
 
 ### SPEC 1
 
-- [ ] Child resource params propagated from frontend/API to session manager.
-- [ ] Plot `export` resource either implemented end-to-end or removed from advertised resources with docs/tests aligned.
-- [ ] Regression tests added for child resources and plot export behavior.
-- [ ] Gate record refreshed for #1577.
+- [x] Child resource params propagated from frontend/API to session manager. Evidence: `tests/api/test_previewers.py::test_collection_resource_uses_descriptor_params`, `tests/api/test_previewers.py::test_composite_resource_uses_descriptor_params`, `frontend/src/components/DataPreview.parts/PreviewHost.test.tsx` collection child routing case.
+- [x] Plot `export` resource either implemented end-to-end or removed from advertised resources with docs/tests aligned. Evidence: `tests/api/test_previewers.py::test_plot_export_resource_returns_bounded_sanitized_svg`, `frontend/src/components/DataPreview.parts/PreviewHost.test.tsx` SVG export case, `docs/specs/adr-048-preview-system.md`.
+- [x] Regression tests added for child resources and plot export behavior. Evidence: `python -m pytest tests/api/test_previewers.py --no-cov` -> 13 passed; `npm run test -- src/components/DataPreview.parts/PreviewHost.test.tsx` -> 13 passed.
+- [!] Gate record refreshed for #1577. Evidence: `.workflow/records/1574-track-adr-048-spec1-preview-system.json` amended with SPEC1-FIX plan, focused test/docs evidence, and pre-PR check events. `gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` failed on broad `python_tests` (15 unrelated failures outside SPEC1 preview-resource scope).
 - [ ] Commit pushed to `track/adr-048-spec1-preview-system`.
 
 ### SPEC 2
@@ -132,7 +132,8 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| SPEC 1 targeted tests | TBD by SPEC1-FIX | `[ ]` | Pending |
+| SPEC 1 targeted tests | `python -m pytest tests/api/test_previewers.py --no-cov`; `npm run test -- src/components/DataPreview.parts/PreviewHost.test.tsx`; `npm run typecheck`; targeted ruff/lint | `[x]` | Backend previewer API: 13 passed. Frontend PreviewHost: 13 passed. Typecheck passed. Targeted ruff passed. Frontend lint passed with existing repo warnings only. |
+| SPEC 1 gate pre-PR | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[!]` | Gate record updated; failed on required broad `python_tests` after 4197 passed / 15 failed, plus scope was amended for existing dispatch prompt diff. No bypass used. |
 | SPEC 2 targeted tests | TBD by SPEC2-FIX | `[ ]` | Pending |
 | SPEC 3 targeted tests | TBD by SPEC3-FIX | `[ ]` | Pending |
 | SPEC 1 no-context audit | TBD | `[ ]` | Pending |
