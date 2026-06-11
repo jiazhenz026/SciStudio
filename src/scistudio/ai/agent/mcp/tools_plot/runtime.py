@@ -138,11 +138,18 @@ def _flatten_to_refs(value: Any) -> tuple[list[dict[str, Any]], list[str]]:
                     collection_ids.append(str(fmw["object_id"]))
 
     if isinstance(value, dict):
-        # A collection wire-form may carry items under "_collection_items" or
-        # be a single ref dict itself.
-        items = value.get("_collection_items")
-        if isinstance(items, list):
-            for it in items:
+        # Canonical Collection wire-form produced by the worker/scheduler/
+        # checkpoint layers is {"_collection": True, "items": [...],
+        # "item_type": "..."} (see engine/runners/worker.py::serialise_outputs
+        # and engine/checkpoint.py). Read the items from "items"; keep
+        # "_collection_items" as a defensive alias; otherwise treat the dict as
+        # a single ref. FR-016: the plot script must receive the actual
+        # selected block-output collection, not an empty one.
+        if value.get("_collection") and isinstance(value.get("items"), list):
+            for it in value["items"]:
+                _one(it)
+        elif isinstance(value.get("_collection_items"), list):
+            for it in value["_collection_items"]:
                 _one(it)
         else:
             _one(value)
