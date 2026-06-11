@@ -2,8 +2,9 @@
 
 Asserts the FastMCP-backed MCP server matches the ADR-040 contract:
 
-* 27 tools discoverable via ``await mcp.list_tools()``
-  (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488).
+* 33 tools discoverable via ``await mcp.list_tools()``
+  (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488 + 6 plot tools
+  from ADR-048 SPEC 2).
 * Every write-class tool's result model has ``next_step: str``.
 * ``scaffold_block`` has the widened §3.2a signature with
   ``input_ports`` + ``output_ports`` dict args and a ``warnings`` field.
@@ -63,6 +64,13 @@ _EXPECTED_TOOL_NAMES = {
     "get_doc",
     "list_data",
     "get_project_info",
+    # category (e) plot (ADR-048 SPEC 2)
+    "list_plot_targets",
+    "scaffold_plot",
+    "list_plot_examples",
+    "read_plot_source",
+    "validate_plot",
+    "run_plot_job",
 }
 
 
@@ -75,10 +83,10 @@ def _run(coro):
 # ---------------------------------------------------------------------------
 
 
-def test_fastmcp_lists_27_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5: 27 tools discoverable via mcp.list_tools()."""
+def test_fastmcp_lists_33_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2: 33 tools (27 + 6 plot)."""
     tools = _run(mcp.list_tools())
-    assert len(tools) == 27
+    assert len(tools) == 33
     names = {t.name for t in tools}
     assert names == _EXPECTED_TOOL_NAMES, (
         f"missing: {_EXPECTED_TOOL_NAMES - names}; extra: {names - _EXPECTED_TOOL_NAMES}"
@@ -96,6 +104,9 @@ def test_write_class_tools_have_next_step() -> None:
         "reload_blocks",
         "run_block_tests",
         "update_block_config",
+        # ADR-048 SPEC 2 plot write/run-class.
+        "scaffold_plot",
+        "run_plot_job",
     }
     tools = _run(mcp.list_tools())
     by_name = {t.name: t for t in tools}
