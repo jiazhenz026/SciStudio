@@ -252,6 +252,8 @@ def create_app() -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(blocks.router)
     app.include_router(data.router)
+    # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
+    app.include_router(data.previews_router)
     # filesystem router must be registered BEFORE projects router because
     # the projects router uses {project_id:path} which would greedily
     # match /api/projects/{id}/tree as a project-id lookup.
