@@ -57,8 +57,8 @@ Your base branch already contains all of SPEC 1 + SPEC 2 (previewers + plot tool
 ## Required checks (run from worktree; green) — SCISTUDIO_DEV=1 + PYTHONPATH
 ```bash
 WT="C:/Users/jiazh/Desktop/workspace/sci-wt/s3-docs"
-SCISTUDIO_DEV=1 PYTHONPATH="$WT/src" python -m pytest tests/cli/test_new_block_package.py tests/api/test_blocks_template.py tests/blocks/test_registry_package_layout.py tests/packaging/test_wheel_skills.py tests/agent_provisioning/test_skills.py tests/cli/test_install.py tests/docs/test_block_development_docs.py -q --no-cov -p no:cacheprovider
-ruff check src/scistudio/cli/templates tests/docs/test_block_development_docs.py 2>/dev/null || true
+SCISTUDIO_DEV=1 PYTHONPATH="$WT/src" python -m pytest tests/cli/test_new_block_package.py tests/api/test_blocks_template.py tests/blocks/test_registry_package_layout.py tests/integration/test_block_sdk_e2e.py tests/packaging/test_wheel_skills.py tests/agent_provisioning/test_skills.py tests/cli/test_install.py tests/docs/test_block_development_docs.py -q --no-cov -p no:cacheprovider
+ruff check src/scistudio/cli/templates tests/docs/test_block_development_docs.py   # do NOT mask failures (no `|| true`); fix any lint error
 python scripts/audit/generate_facts.py --check 2>&1 | tail -3   # if generated facts reference these docs
 ```
 Also do a markdown self-check that every new ADR-048 link (specs/skills/READMEs/templates) resolves. Fix until green.
