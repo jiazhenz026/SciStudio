@@ -491,6 +491,14 @@
       "path": "tests/api/test_previewers.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T02:49:03.309121Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_security.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

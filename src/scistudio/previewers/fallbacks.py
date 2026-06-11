@@ -42,11 +42,20 @@ from scistudio.previewers.models import (
 logger = logging.getLogger(__name__)
 
 # SVG sanitization: strip <script> blocks and event handler / external-resource
-# attributes so a malicious plot SVG cannot execute in the app context (FR-019).
-_SVG_SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+# attributes (FR-019, defense-in-depth). NOTE: the authoritative security
+# boundary is the frontend's `<iframe sandbox="" srcDoc=...>` (no allow-scripts /
+# allow-same-origin) — this best-effort regex pass is a second layer, not the
+# sole guarantee, since regex HTML filtering cannot be fully robust. The closing
+# tag is matched as `</script[^>]*>` (handles malformed closers like
+# `</script\t\nbar>`) and an unterminated `<script>` is stripped to end-of-text.
+_SVG_SCRIPT_RE = re.compile(r"<script\b[^>]*>[\s\S]*?(?:</script[^>]*>|\Z)", re.IGNORECASE)
 _SVG_EVENT_ATTR_RE = re.compile(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", re.IGNORECASE)
+# Strip remote (http/https/protocol-relative) and active-scheme
+# (javascript:/vbscript:) href / xlink:href values; data: URIs (embedded
+# images) are left intact and are inert under the iframe sandbox.
 _SVG_EXTERNAL_HREF_RE = re.compile(
-    r"\s(?:xlink:href|href)\s*=\s*(\"\s*(?:https?:|//)[^\"]*\"|'\s*(?:https?:|//)[^']*')",
+    r"\s(?:xlink:href|href)\s*=\s*"
+    r"(\"\s*(?:https?:|//|javascript:|vbscript:)[^\"]*\"|'\s*(?:https?:|//|javascript:|vbscript:)[^']*')",
     re.IGNORECASE,
 )
 _PLOT_MIME = {
