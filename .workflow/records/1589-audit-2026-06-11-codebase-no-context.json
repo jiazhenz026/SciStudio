@@ -72,6 +72,11 @@
       "at": "2026-06-11T08:03:55.664437Z",
       "owner_directive": "Add ADR-048 PR-review track: 3 with-context audit agents review PR #1577 (SPEC1 preview-system), #1580 (SPEC2 plot-tools), #1581 (SPEC3 docs) against ADR-048 + corresponding specs + code; manager lands a separate report docs/audit/2026-06-11-adr048-pr-review.md in PR #1590.",
       "reason": "Owner clarified the primary audit target after dispatch: review ADR-048 implementation PRs #1577/#1580/#1581 against ADR-048 and its specs. Add a second WITH-CONTEXT PR-review track (3 agents, one per PR) and land a separate consolidated report. The full-repo no-context sweep is retained as a prevention pass per owner."
+    },
+    {
+      "at": "2026-06-11T08:26:25.886183Z",
+      "owner_directive": "Open Track C: 3 no-context diff-only agents. Each may read ONLY the incremental git diff of PR #1577 (vs main) / #1580 (vs spec1) / #1581 (vs spec2), docs/adr/ADR-048.md, and the corresponding spec. Judge diff-vs-contract conformance. Manager lands report docs/audit/2026-06-11-adr048-diff-only-no-context.md in PR #1590.",
+      "reason": "Owner added Track C: a no-context, DIFF-ONLY conformance review of the ADR-048 PRs. Agents may read ONLY the incremental diff plus ADR-048 and the corresponding spec (no PR description/comments/CI/ledger/full-source-at-head)."
     }
   ],
   "docs_events": [
@@ -96,6 +101,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-06-11-adr048-pr-review.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T08:26:25.886203Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-11-adr048-diff-only-no-context.md",
       "rationale": null,
       "verified_in_diff": null
     }

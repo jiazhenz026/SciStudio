@@ -57,6 +57,7 @@ language_source: en
   - `docs/audit/2026-06-11-code-bugs-no-context.md`
   - `docs/audit/2026-06-11-codebase-no-context-INDEX.md`
   - `docs/audit/2026-06-11-adr048-pr-review.md` (Track B — owner's primary target)
+  - `docs/audit/2026-06-11-adr048-diff-only-no-context.md` (Track C — no-context diff-only)
   - `docs/planning/codebase-no-context-audit-checklist.md`
   - `.workflow/records/1589-audit-2026-06-11-codebase-no-context.json` (gate ledger)
 - Out of scope:
@@ -127,6 +128,9 @@ language_source: en
 | `PR-1 #1577` | `audit_reviewer` | `with-context` | audit-with-context template (composed verbatim) | review PR #1577 (SPEC1 preview-system) vs ADR-048 + spec | n/a (read-only) | n/a (read-only) | report returned to manager | edit/merge any PR; fix code | `#1589` | `[x] done (1×P1 / 2×P2 / 2×P3)` |
 | `PR-2 #1580` | `audit_reviewer` | `with-context` | audit-with-context template (composed verbatim) | review PR #1580 (SPEC2 plot-tools) vs ADR-048 + spec | n/a (read-only) | n/a (read-only) | report returned to manager | edit/merge any PR; fix code | `#1589` | `[x] done (4×P3)` |
 | `PR-3 #1581` | `audit_reviewer` | `with-context` | audit-with-context template (composed verbatim) | review PR #1581 (SPEC3 docs) vs ADR-048 + spec | n/a (read-only) | n/a (read-only) | report returned to manager | edit/merge any PR; fix code | `#1589` | `[x] done (3×P3, pass)` |
+| `C-1 #1577` | `audit_reviewer` | `no-context / diff-only` | audit-no-context (diff-only variant) | judge PR #1577 diff vs ADR-048 + spec1 (diff+ADR+spec ONLY) | n/a (read-only) | n/a (read-only) | report returned to manager | read anything but diff+ADR-048+spec; PR meta; full source; ledger | `#1589` | `[x] done (4×P3; router→P1 via reconciliation)` |
+| `C-2 #1580` | `audit_reviewer` | `no-context / diff-only` | audit-no-context (diff-only variant) | judge PR #1580 diff vs ADR-048 + spec2 (diff+ADR+spec ONLY) | n/a (read-only) | n/a (read-only) | report returned to manager | read anything but diff+ADR-048+spec; PR meta; full source; ledger | `#1589` | `[x] done (4×P3)` |
+| `C-3 #1581` | `audit_reviewer` | `no-context / diff-only` | audit-no-context (diff-only variant) | judge PR #1581 diff vs ADR-048 + spec3 (diff+ADR+spec ONLY) | n/a (read-only) | n/a (read-only) | report returned to manager | read anything but diff+ADR-048+spec; PR meta; full source; ledger | `#1589` | `[x] done (4×P3)` |
 
 ## 7. Track: No-Context Codebase Audit
 
@@ -168,6 +172,15 @@ language_source: en
 - [x] PR #1581 (SPEC3) reviewed -> pass (3×P3).
 - [x] Report: `docs/audit/2026-06-11-adr048-pr-review.md`.
 
+### 7.7 Track C — ADR-048 diff-only (no-context)
+
+- Allowed inputs per agent: ONLY the incremental `git diff <base>..<head>`, `docs/adr/ADR-048.md`, and the corresponding spec. No PR metadata, no full source at head, no ledger, no CI, no other tracks.
+- [x] C-1 PR #1577 diff vs ADR-048 + adr-048-preview-system.md -> diff-only "pass" (4×P3); manager reconciliation escalates the collection-routing item to **P1** (corroborates Track B F1).
+- [x] C-2 PR #1580 diff vs ADR-048 + adr-048-ai-plot-tools.md -> pass-with-fixes (4×P3, incl. NEW R `max_rows` clamp gap not seen by Track B).
+- [x] C-3 PR #1581 diff vs ADR-048 + adr-048-developer-docs-refresh.md -> pass-with-fixes (4×P3, incl. NEW dead doc anchor that passes CI).
+- [x] Manager verified the #1577 router P1 in code (`_pick` has no `is_collection` guard; tier-4 PACKAGE-item precedes tier-7 core-collection).
+- [x] Report: `docs/audit/2026-06-11-adr048-diff-only-no-context.md`.
+
 ### 7.5 Integration
 
 - [ ] Manager reviewed every persisted report.
@@ -192,13 +205,14 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | `2026-06-11` | `manager` | Owner clarified after dispatch that the PRIMARY target is reviewing ADR-048 PRs #1577/#1580/#1581 (not a full-repo audit); full-repo sweep retained as prevention. | Recorded via `gate_record amend` (owner-directive); added Track B (3 with-context PR-review agents, wf wl21wy5or) + report `docs/audit/2026-06-11-adr048-pr-review.md`. | Track B landed; #1577 F1 (P1) flagged to owner. |
+| `2026-06-11` | `manager` | Owner added Track C: a no-context DIFF-ONLY conformance review (agents read ONLY the diff + ADR-048 + the corresponding spec). | Recorded via `gate_record amend` (owner-directive); dispatched Track C (3 diff-only no-context agents, wf wrvasbqwq) + report `docs/audit/2026-06-11-adr048-diff-only-no-context.md`. | Pending Track C return. |
 
 ## 10. Final Readiness
 
-- [x] All 6 audit agents (3 Track A + 3 Track B) have final outputs.
-- [x] Manager reviewed every persisted report and verified all P1/blocking findings.
+- [x] All 9 audit agents (3 Track A + 3 Track B + 3 Track C) have final outputs.
+- [x] Manager reviewed every persisted report and verified all P1/blocking findings (incl. the Track B↔C reconciliation on the #1577 router P1).
 - [x] Gate record includes issue, scope, plan, docs, checks, commit, and pre-PR finalize (PR-ready) evidence.
 - [x] PR #1590 body closes issue #1589 (`Closes #1589`).
-- [x] CI passed — 15/15 SUCCESS on commit `ca68ffc5` incl. Verify Workflow Compliance + Full Audit; `mergeStateStatus=CLEAN`.
+- [x] CI passed green through commit `ca68ffc5` (15/15 incl. Verify Workflow Compliance + Full Audit); Track C report commit re-runs the same docs-only check set.
 - [x] Checklist final state matches PR and gate record.
 - [ ] Owner review + merge authorization (PR intentionally held `[DO NOT MERGE]`).
