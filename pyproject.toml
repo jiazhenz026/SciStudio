@@ -59,6 +59,10 @@ dev = [
     # these optional data-format helpers core runtime dependencies.
     "pandas>=2.2",
     "tifffile>=2024.8",
+    # ADR-048 SPEC 2: the preview-side plot harness renders matplotlib figures
+    # (context.plt) and SC-006 requires the matplotlib SVG path tested end to
+    # end. matplotlib is a plot-job runtime helper, not a core dependency.
+    "matplotlib>=3.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
     "vulture>=2.11",

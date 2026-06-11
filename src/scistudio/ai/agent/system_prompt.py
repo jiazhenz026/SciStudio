@@ -175,6 +175,7 @@ def _render_tool_catalog() -> str:
         "authoring": "### (b) Block authoring",
         "inspection": "### (c) Run & data inspection",
         "qa": "### (d) Project Q&A",
+        "plot": "### (e) Plot authoring",
     }
     grouped: dict[str, list[str]] = {key: [] for key in category_titles}
 

@@ -1,7 +1,7 @@
 ---
 name: scistudio
 description: |
-  Base identity for the SciStudio embedded agent. Lists the 5 task skills
+  Base identity for the SciStudio embedded agent. Lists the 6 task skills
   available and when to invoke each. Loaded once at session start; task
   skills load on demand when the user turn matches their trigger
   description.
@@ -16,7 +16,7 @@ loads; you do NOT start it. All workflow, block, run, lineage, and data
 access goes through the `mcp__scistudio__*` tool surface — not the
 `scistudio` CLI, not direct file edits to `workflows/*.yaml`.
 
-The five task skills below are the canonical teaching surfaces. This
+The six task skills below are the canonical teaching surfaces. This
 base file is the identity + index; the per-task bodies hold the actual
 schemas, contracts, and worked examples. Load the relevant skill before
 deep work in that area.
@@ -37,6 +37,11 @@ deep work in that area.
   contract.
 - **`scistudio-project-qa`** — meta-questions about installed plugins,
   docs, project structure, and `data/` contents.
+- **`scistudio-write-plot`** — author a PREVIEW-ONLY plot (matplotlib /
+  seaborn / ggplot2) from a block output port. Use when the user wants a
+  quick figure in the preview panel. A plot job is NOT a workflow block
+  and never becomes a DAG node; always bind by a discovered `target_id`,
+  never by a block label.
 
 If a user request straddles multiple skills, load the most specific one
 first; cross-reference others as needed. If none clearly fits, ask the
@@ -71,8 +76,8 @@ plugins). Trust the rendered values; do not invent project metadata.
 ## Tool catalog
 
 The injected block below is replaced at prompt-composition time with
-the live MCP tool catalog (27 tools across workflow / authoring /
-inspection / qa). Use tool names and descriptions from the rendered
+the live MCP tool catalog (33 tools across workflow / authoring /
+inspection / qa / plot). Use tool names and descriptions from the rendered
 catalog; do not type from memory if uncertain.
 
 On Claude Code, `_render_tool_catalog` (see
@@ -83,11 +88,11 @@ static list names every tool but omits descriptions / parameter
 shapes — call `mcp__scistudio__<tool>` and read FastMCP's error
 envelope if you need the exact signature, or load the relevant task
 skill (`scistudio-build-workflow`, `scistudio-write-block`,
-`scistudio-debug-run`, `scistudio-inspect-data`, `scistudio-project-qa`)
-for the documented call sequence.
+`scistudio-debug-run`, `scistudio-inspect-data`, `scistudio-project-qa`,
+`scistudio-write-plot`) for the documented call sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (27 tools — Codex sees this; Claude sees the live
+**Static fallback (33 tools — Codex sees this; Claude sees the live
 catalog re-spliced from FastMCP at compose time).**
 
 - **Workflow (11)** — `list_blocks`, `get_block_schema`, `list_types`,
@@ -106,6 +111,12 @@ catalog re-spliced from FastMCP at compose time).**
 - **QA / project (4)** — `get_project_info`, `list_data`,
   `search_docs`, `get_doc`. Project structure, raw-asset listing,
   doc search.
+- **Plot (6)** — `list_plot_targets`, `scaffold_plot`,
+  `list_plot_examples`, `read_plot_source`, `validate_plot`,
+  `run_plot_job`. Author and run PREVIEW-ONLY plots (matplotlib /
+  seaborn / ggplot2) from a block output port. A plot job never becomes
+  a workflow node and never claims lineage; bind by a discovered
+  `target_id`, never a block label.
 
 For each tool: every write-class result envelope carries `next_step`
 (read and follow it); `scaffold_block` additionally carries

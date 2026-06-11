@@ -77,6 +77,10 @@ def test_compose_injects_full_tool_catalog(tmp_path: Path) -> None:
         "preview_data",
         "search_docs",
         "get_project_info",
+        # ADR-048 SPEC 2 plot category (e).
+        "list_plot_targets",
+        "scaffold_plot",
+        "run_plot_job",
     ):
         assert f"`{name}`" in prompt, f"tool {name!r} missing from rendered prompt"
 
