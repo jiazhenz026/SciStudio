@@ -34,7 +34,7 @@ language_source: en
   - SPEC 2: `track/adr-048-spec2-plot-tools` (off SPEC 1 tip) — pending
   - SPEC 3: `track/adr-048-spec3-docs` (off SPEC 2 tip) — pending
 - Umbrella PRs:
-  - SPEC 1: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 1: extensible preview system`
+  - SPEC 1: `#1577` — `[DO NOT MERGE] ADR-048 SPEC 1: extensible preview system`
   - SPEC 2: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 2: AI plot tools + preview-side plot jobs`
   - SPEC 3: `#<pending>` — `[DO NOT MERGE] ADR-048 SPEC 3: developer docs refresh`
 - Final PR target: `main` (each umbrella; owner removes `[DO NOT MERGE]` to authorize merge)
@@ -81,12 +81,12 @@ language_source: en
 - [x] Gate record started (`.workflow/records/1574-track-adr-048-spec1-preview-system.json`).
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Umbrella PR opened (`#1577`).
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
 - [x] Protected branch and umbrella branch recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found.
 - [x] Dispatch checklist copied from the template and committed.
-- [ ] Dispatch prompts created from the correct prompt template and linked below.
+- [x] Dispatch prompts created from the work template and committed under `docs/planning/adr-048-dispatch-prompts/`.
 - [~] Sentrux baseline: Sentrux MCP availability to be confirmed at first `gate_record check`;
       CLI fallback recorded if unavailable.
 
@@ -157,6 +157,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-10 | manager | — | baseline created | — |
+| 2026-06-10 | manager | PR wrapper mis-resolves repo-root from a linked worktree ("no gate ledger found") | Manager integrates + creates/finalizes PRs from the MAIN checkout on the umbrella branch (where the editable install + node_modules + wrapper all resolve correctly); dispatched implementer agents still use dedicated worktrees off the umbrella branch with `PYTHONPATH=<wt>/src` to self-verify. No concurrent writable-worktree sharing (agents run sequentially under manager sequencing). | tracked here |
+| 2026-06-10 | manager | Umbrella `#1577` opened with `SCISTUDIO_SKIP_PREFLIGHT=1` (intentionally pre-dispatch scaffold; not yet implemented) | Acceptable for a `[DO NOT MERGE]` protection PR; CI `gate_record check --mode ci` remains the authoritative gate and must be green before the spec is reported complete. | tracked here |
+| 2026-06-10 | manager | Untracked legacy `docs/specs/adr-048-preview-providers.md` present (non-governing per planning docs) | Moved out of the repo tree to `../adr-048-preview-providers.legacy.md` to avoid gate/frontmatter noise; preserved for the owner. | tracked here |
 
 ## 10. Final Readiness (per spec)
 
