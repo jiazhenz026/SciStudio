@@ -24,6 +24,7 @@ from scistudio_blocks_imaging.preprocess.denoise import Denoise
 from scistudio_blocks_imaging.preprocess.flat_field_correct import FlatFieldCorrect
 from scistudio_blocks_imaging.preprocess.geometry import Crop, Flip, Pad, Resize, Rotate
 from scistudio_blocks_imaging.preprocess.normalize import Normalize
+from scistudio_blocks_imaging.previewers import get_previewers
 from scistudio_blocks_imaging.projection.projection import AxisProjection, SelectSlice
 from scistudio_blocks_imaging.registration.apply_transform import ApplyTransform
 from scistudio_blocks_imaging.registration.compute_registration import ComputeRegistration
@@ -188,5 +189,6 @@ __all__ = [
     "get_block_package",
     "get_blocks",
     "get_package_info",
+    "get_previewers",
     "get_types",
 ]
