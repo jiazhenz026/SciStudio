@@ -1,16 +1,42 @@
-"""Data upload, metadata, and preview endpoints."""
+"""Data upload, metadata, and preview endpoints.
+
+ADR-048 SPEC 1: ``GET /api/data/{data_ref}/preview`` is the backward-compatible
+one-shot adapter; the routed previewer *session* API
+(``/api/previews/...``) is additive (FR-007). Both delegate to the
+``scistudio.previewers`` subsystem owned by the runtime.
+"""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
-from scistudio.api.schemas import DataMetadataResponse, DataPreviewResponse, DataUploadResponse
+from scistudio.api.schemas import (
+    DataMetadataResponse,
+    DataPreviewResponse,
+    DataUploadResponse,
+    PreviewEnvelopeModel,
+    PreviewResourceResponse,
+    PreviewSessionCreate,
+    PreviewSessionPatch,
+)
+from scistudio.previewers import (
+    PreviewSource,
+    PreviewTarget,
+    TargetKind,
+    UnknownPreviewerError,
+    UnknownTargetError,
+)
+from scistudio.previewers.assets import resolve_asset, validate_manifest
+from scistudio.previewers.models import MissingBundleError, PreviewError
 
 router = APIRouter(prefix="/api/data", tags=["data"])
+previews_router = APIRouter(prefix="/api/previews", tags=["previews"])
 UploadFileParam = Annotated[UploadFile, File(...)]
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
@@ -96,3 +122,106 @@ async def preview_data(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DataPreviewResponse(ref=record.id, type_name=record.type_name, preview=preview)
+
+
+# ---------------------------------------------------------------------------
+# ADR-048 SPEC 1: routed previewer session API (additive).
+# ---------------------------------------------------------------------------
+
+
+_TARGET_KINDS = {k.value: k for k in TargetKind}
+
+
+def _build_target(payload: PreviewSessionCreate) -> PreviewTarget:
+    model = payload.target
+    kind = _TARGET_KINDS.get(model.kind)
+    if kind is None:
+        raise HTTPException(status_code=422, detail=f"invalid target kind: {model.kind}")
+    source = None
+    if model.source:
+        source = PreviewSource(
+            workflow_id=model.source.get("workflow_id"),
+            node_id=model.source.get("node_id"),
+            output_port=model.source.get("output_port"),
+        )
+    return PreviewTarget(
+        kind=kind,
+        ref=model.ref,
+        recorded_type=model.recorded_type,
+        type_chain=tuple(model.type_chain),
+        collection_item_type=model.collection_item_type,
+        source=source,
+    )
+
+
+@previews_router.post("/sessions", response_model=PreviewEnvelopeModel)
+async def create_preview_session(payload: PreviewSessionCreate, runtime: RuntimeDep) -> PreviewEnvelopeModel:
+    """Create a routed preview session for a target and return the first envelope."""
+    target = _build_target(payload)
+    service = runtime.get_preview_service()
+    query = runtime.enrich_preview_query(target.ref, payload.query)
+    envelope = service.sessions.create_session(target, query)
+    return PreviewEnvelopeModel(**envelope.to_dict())
+
+
+@previews_router.get("/sessions/{session_id}", response_model=PreviewEnvelopeModel)
+async def read_preview_session(session_id: str, runtime: RuntimeDep) -> PreviewEnvelopeModel:
+    """Read the current envelope + provider metadata for a session."""
+    service = runtime.get_preview_service()
+    try:
+        envelope = service.sessions.read_session(session_id)
+    except UnknownPreviewerError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return PreviewEnvelopeModel(**envelope.to_dict())
+
+
+@previews_router.patch("/sessions/{session_id}", response_model=PreviewEnvelopeModel)
+async def patch_preview_session(
+    session_id: str, payload: PreviewSessionPatch, runtime: RuntimeDep
+) -> PreviewEnvelopeModel:
+    """Update query state (slice/page/sort/slot/item) and re-render the envelope."""
+    service = runtime.get_preview_service()
+    try:
+        envelope = service.sessions.patch_session(session_id, payload.query)
+    except UnknownPreviewerError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return PreviewEnvelopeModel(**envelope.to_dict())
+
+
+@previews_router.get("/sessions/{session_id}/resources/{resource_id}", response_model=PreviewResourceResponse)
+async def read_preview_resource(
+    session_id: str,
+    resource_id: str,
+    runtime: RuntimeDep,
+) -> PreviewResourceResponse:
+    """Fetch a bounded provider resource (array tile or child preview)."""
+    service = runtime.get_preview_service()
+    try:
+        data = service.sessions.read_resource(session_id, resource_id)
+    except UnknownPreviewerError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    except (UnknownTargetError, PreviewError) as exc:
+        raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
+    return PreviewResourceResponse(resource_id=resource_id, data=data)
+
+
+@previews_router.get("/assets/{previewer_id}/{asset_path:path}")
+async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: RuntimeDep) -> FileResponse:
+    """Serve a validated, path-confined same-origin previewer asset (FR-022/FR-024).
+
+    Only previewers with a validated frontend manifest and a declared
+    ``asset_root`` may serve assets; remote URLs and out-of-root paths are
+    rejected with a 404 so the server never leaks arbitrary filesystem reads.
+    """
+    service = runtime.get_preview_service()
+    spec = service.registry.get(previewer_id)
+    if spec is None or spec.frontend_manifest is None:
+        raise HTTPException(status_code=404, detail=f"no servable manifest for previewer {previewer_id!r}")
+    validation = validate_manifest(spec.frontend_manifest)
+    if not validation.valid:
+        raise HTTPException(status_code=404, detail="; ".join(validation.diagnostics) or "invalid manifest")
+    try:
+        served = resolve_asset(spec.frontend_manifest, asset_path)
+    except MissingBundleError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return FileResponse(path=Path(served.path), media_type=served.media_type)

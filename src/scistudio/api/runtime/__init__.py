@@ -734,6 +734,11 @@ class ApiRuntime:
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
     preview_data = _data.preview_data
+    # ADR-048 SPEC 1: previewer subsystem accessors.
+    get_preview_service = _data.get_preview_service
+    refresh_preview_service = _data.refresh_preview_service
+    enrich_preview_query = _data.enrich_preview_query
+    _build_preview_target = _data._build_preview_target
 
     # Workflow execution + lineage (_runs)
     _ancestors_of = _runs._ancestors_of

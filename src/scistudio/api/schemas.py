@@ -236,6 +236,86 @@ class DataPreviewResponse(BaseModel):
     preview: dict[str, Any] = Field(default_factory=dict)
 
 
+# ---------------------------------------------------------------------------
+# ADR-048 SPEC 1: routed previewer session API schemas.
+#
+# These mirror the canonical ``scistudio.previewers`` models on the wire. The
+# legacy ``DataPreviewResponse`` above is unchanged; the session API is purely
+# additive (FR-007).
+# ---------------------------------------------------------------------------
+
+
+class PreviewTargetModel(BaseModel):
+    """Wire shape of a previewer :class:`PreviewTarget`."""
+
+    kind: str = Field(description="data_ref / collection_ref / artifact / plot_artifact.")
+    ref: str = Field(description="Data, collection, or artifact reference (catalog id or path).")
+    recorded_type: str = Field(default="", description="Most-specific recorded type name.")
+    type_chain: list[str] = Field(default_factory=list, description="Ordered general -> specific type chain.")
+    collection_item_type: str | None = Field(default=None)
+    source: dict[str, Any] | None = Field(default=None, description="Optional workflow/node/output display identity.")
+
+
+class PreviewSessionCreate(BaseModel):
+    """Request body for ``POST /api/previews/sessions``."""
+
+    target: PreviewTargetModel
+    query: dict[str, Any] = Field(default_factory=dict, description="Initial normalized query state.")
+
+
+class PreviewSessionPatch(BaseModel):
+    """Request body for ``PATCH /api/previews/sessions/{session_id}``."""
+
+    query: dict[str, Any] = Field(default_factory=dict, description="Query state to merge (slice/page/sort/slot/item).")
+
+
+class PreviewEnvelopeModel(BaseModel):
+    """Wire shape of a canonical :class:`PreviewEnvelope`."""
+
+    session_id: str | None = None
+    previewer_id: str
+    target: dict[str, Any] = Field(default_factory=dict)
+    kind: str = Field(description="dataframe/array/series/text/artifact/composite/collection/plot/error.")
+    payload: dict[str, Any] = Field(default_factory=dict)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    diagnostics: list[str] = Field(default_factory=list)
+    error: dict[str, Any] | None = None
+
+
+class PreviewFrontendManifestModel(BaseModel):
+    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
+
+    previewer_id: str
+    module_url: str
+    export_name: str = "default"
+    css: list[str] = Field(default_factory=list)
+    version: str = "0"
+    api_version: str = "1"
+
+
+class PreviewerSpecModel(BaseModel):
+    """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
+
+    previewer_id: str
+    owner_kind: str
+    owner_name: str
+    target_type: str
+    supports_collection: bool = False
+    priority: int = 0
+    capabilities: list[str] = Field(default_factory=list)
+    backend_provider: str | None = None
+    frontend_manifest: PreviewFrontendManifestModel | None = None
+    api_version: str = "1"
+
+
+class PreviewResourceResponse(BaseModel):
+    """Response body for a bounded session resource read."""
+
+    resource_id: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProjectCreate(BaseModel):
     """Request body for creating a project workspace."""
 
