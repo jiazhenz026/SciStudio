@@ -15,10 +15,46 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T08:15:41.279554Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:837df1be597368d7143e5128d0d92a06b71871b344581783bfa0f0966784511d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T08:16:25.421397Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5969123a2ac38e820d2e53051f512befabaa7afe061c5273595a26f7dca53d7d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "a037c7c0",
+    "shas": [
+      "a037c7c0"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -125,6 +161,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.312040Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.325791Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.339804Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.353449Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.367562Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.381667Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.397119Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.412860Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.428475Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:15:41.444388Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.453857Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.467594Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.481746Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.494934Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.507589Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.521172Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.534286Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.547841Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.560369Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T08:16:25.577138Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -141,13 +297,18 @@
     "base_sha": "cd370810",
     "changed_files": [
       ".workflow/records/1589-audit-2026-06-11-codebase-no-context.json",
+      "docs/audit/2026-06-11-adr048-pr-review.md",
+      "docs/audit/2026-06-11-code-bugs-no-context.md",
+      "docs/audit/2026-06-11-codebase-no-context-INDEX.md",
+      "docs/audit/2026-06-11-doc-contract-drift-no-context.md",
+      "docs/audit/2026-06-11-layer-module-routing-no-context.md",
       "docs/planning/codebase-no-context-audit-checklist.md"
     ],
-    "diff_fingerprint": "sha256:d46bd6709287d0692a58909d6b043089aa7dbd0ba2b2eac7c6a7b4b50fc55f50",
+    "diff_fingerprint": "sha256:42c44b6f20314a1ca9e0c9d4778bf115ca271c2556db6d0be7aa6bb1d0f087c3",
     "head": "HEAD",
-    "head_sha": "f14c6eae",
+    "head_sha": "a037c7c0",
     "surfaces": {
-      "docs": 1,
+      "docs": 6,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -161,11 +322,34 @@
   },
   "owner_directive": "Manager dispatches 3 no-context audit_reviewer agents (may read only ADRs/specs/docs/code/tests; not issues, gate records, PR claims, or manager summaries) to find doc/contract drift, layer & module routing/boundary problems, and serious code bugs; land severity-ordered audit reports under docs/audit/ in a new PR.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1589
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-11T07:51:44.004165Z",
       "diff_fingerprint": "sha256:d46bd6709287d0692a58909d6b043089aa7dbd0ba2b2eac7c6a7b4b50fc55f50",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-11T08:15:41.444426Z",
+      "diff_fingerprint": "sha256:d46bd6709287d0692a58909d6b043089aa7dbd0ba2b2eac7c6a7b4b50fc55f50",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-11T08:16:25.577178Z",
+      "diff_fingerprint": "sha256:42c44b6f20314a1ca9e0c9d4778bf115ca271c2556db6d0be7aa6bb1d0f087c3",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 3,
