@@ -127,9 +127,7 @@ def test_array_session_resource_tile(
         ),
         type_name="Array",
     )
-    created = _create_session(
-        client, ref=record.id, recorded_type="Array", type_chain=["DataObject", "Array"]
-    ).json()
+    created = _create_session(client, ref=record.id, recorded_type="Array", type_chain=["DataObject", "Array"]).json()
     sid = created["session_id"]
     assert created["kind"] == "array"
 
