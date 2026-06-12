@@ -226,6 +226,47 @@ def test_discovery_ignores_finalized_and_old_format_records(git_repo: Path) -> N
     assert io.load_ledger(discovery.path).record_id != "done"
 
 
+def test_discovery_can_include_specific_finalized_record(git_repo: Path) -> None:
+    finalized = GateLedger.model_validate(
+        {
+            "record_id": "done",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "already shipped",
+            "pull_request": {"url": "https://github.com/o/r/pull/1", "number": 1},
+        }
+    )
+    record_path = git_repo / RECORDS_DIR / "1-done.json"
+    io.write_ledger(record_path, finalized, repo_root=git_repo)
+
+    default_discovery = io.discover_ledger(git_repo)
+    assert not default_discovery.found
+
+    included = io.discover_ledger(git_repo, include_finalized_paths=[record_path])
+    assert included.found
+    assert included.path == record_path
+
+
+def test_discovery_reports_temporarily_unreadable_ledger(git_repo: Path) -> None:
+    records_dir = git_repo / RECORDS_DIR
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1586-partial.json"
+    record_path.write_text("{", encoding="utf-8")
+
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.has_unreadable
+    assert discovery.unreadable == [record_path]
+
+    resolved, err = workflow._resolve_ledger_path(git_repo, None)
+    assert resolved is None
+    assert err is not None
+    assert err.exit_code == workflow.EXIT_SCHEMA
+    assert "temporarily unreadable" in "\n".join(err.lines)
+
+
 def test_discovery_ignores_stale_v1_record_alongside_v2(git_repo: Path) -> None:
     # Codex P1 #1 (#1509): the deleted 1509-adr042-add6-guards.json was a
     # throwaway schema-v1 scope record on a sub-branch, superseded by the v2

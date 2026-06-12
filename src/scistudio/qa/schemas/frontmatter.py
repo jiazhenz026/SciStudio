@@ -84,6 +84,7 @@ class ADRFrontmatter(BaseModel):
     tracking_issue: int | None
     is_code_implementation: bool
     governs: GovernedSurfaces
+    planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
@@ -190,6 +191,7 @@ class SpecFrontmatter(BaseModel):
     related_specs: list[str]
     scope: SpecScope
     governs: GovernedSurfaces
+    planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
     tests: list[str]
     acceptance_source: Literal["speckit", "issue", "adr", "manual"]
     language_source: Literal["en"] = "en"

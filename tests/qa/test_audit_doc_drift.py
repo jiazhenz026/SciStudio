@@ -4,7 +4,7 @@ from pathlib import Path
 
 from scistudio.qa.audit.doc_drift import classify_repo
 from scistudio.qa.schemas.facts import Fact, FactsRegistry
-from scistudio.qa.schemas.report import AuditStatus
+from scistudio.qa.schemas.report import AuditStatus, Severity
 
 
 def _write_adr(path: Path, *, module: str, phase: str = "implementation", adr: int = 42) -> None:
@@ -80,6 +80,88 @@ language_source: en
 # Example Spec
 
 ## 1. Change Summary
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_planned_file_spec(path: Path, *, status: str, planned_file: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"""---
+spec_id: example
+title: "Example Spec"
+status: {status}
+feature_branch: feat/example
+created: 2026-05-19
+input: "manual"
+owners: ["@owner"]
+related_adrs: []
+related_specs: []
+scope:
+  in: ["x"]
+  out: []
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: ["{planned_file}"]
+  excludes: []
+tests: []
+acceptance_source: manual
+language_source: en
+---
+
+# Example Spec
+
+## 1. Change Summary
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_refactor_adr_for_file(path: Path, *, governed_file: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"""---
+adr: 42
+title: "Refactor Existing Module"
+status: Proposed
+date_created: 2026-05-19
+date_accepted: null
+date_superseded: null
+supersedes: []
+superseded_by: null
+related: []
+closes_issues: []
+tracking_issue: null
+is_code_implementation: false
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: ["{governed_file}"]
+  excludes: []
+tests: []
+agent_editable: false
+assisted_by: ["Codex:gpt-5"]
+phase: planning
+tags: ["qa"]
+owner: "@owner"
+co_authors: []
+language_source: en
+translations: []
+---
+
+# ADR-042: Refactor Existing Module
+
+## 1. Decision Summary
 """,
         encoding="utf-8",
     )
@@ -173,6 +255,52 @@ def test_doc_drift_skips_draft_future_governance(tmp_path: Path) -> None:
     report = classify_repo(tmp_path, FactsRegistry(source_sha="abc123"))
 
     assert report.status == AuditStatus.PASS
+
+
+def test_doc_drift_allows_unresolved_planned_file_for_planning_spec(tmp_path: Path) -> None:
+    _write_planned_file_spec(
+        tmp_path / "docs" / "specs" / "example.md",
+        status="Planned",
+        planned_file="src/sample/future.py",
+    )
+
+    report = classify_repo(tmp_path, FactsRegistry(source_sha="abc123"))
+
+    assert report.status == AuditStatus.PASS
+    assert [(finding.rule_id, finding.severity) for finding in report.findings] == [
+        ("doc-drift.planned-file", Severity.INFO)
+    ]
+
+
+def test_doc_drift_reports_planned_file_that_now_exists_even_for_draft_spec(tmp_path: Path) -> None:
+    planned_file = tmp_path / "src" / "sample" / "future.py"
+    planned_file.parent.mkdir(parents=True)
+    planned_file.write_text("VALUE = 1\n", encoding="utf-8")
+    _write_planned_file_spec(
+        tmp_path / "docs" / "specs" / "example.md",
+        status="Draft",
+        planned_file="src/sample/future.py",
+    )
+
+    report = classify_repo(tmp_path, FactsRegistry(source_sha="abc123"))
+
+    assert report.status == AuditStatus.FAIL
+    assert {finding.rule_id for finding in report.findings} == {"doc-drift.planned-file-is-resolved"}
+
+
+def test_doc_drift_accepts_proposed_refactor_adr_for_existing_file(tmp_path: Path) -> None:
+    existing_file = tmp_path / "src" / "sample" / "legacy.py"
+    existing_file.parent.mkdir(parents=True)
+    existing_file.write_text("VALUE = 1\n", encoding="utf-8")
+    _write_refactor_adr_for_file(
+        tmp_path / "docs" / "adr" / "ADR-042.md",
+        governed_file="src/sample/legacy.py",
+    )
+
+    report = classify_repo(tmp_path, FactsRegistry(source_sha="abc123"))
+
+    assert report.status == AuditStatus.PASS
+    assert report.findings == []
 
 
 def test_doc_drift_reports_adr_module_missing_from_active_spec(tmp_path: Path) -> None:

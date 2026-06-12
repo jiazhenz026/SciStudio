@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Custom Types"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Developer guide for domain-specific data types, metadata models, and type entry-point registration."
+---
+
 # Custom Types
 
 This document covers how plugin developers create domain-specific data
