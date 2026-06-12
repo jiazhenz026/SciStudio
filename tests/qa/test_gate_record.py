@@ -966,3 +966,26 @@ def test_check_no_record_does_not_modify_the_ledger(git_repo: Path) -> None:
     rc = _run(git_repo, "check", "--mode", "pre-commit", "--no-record", "--skip-execution")
     assert record.read_bytes() == baseline
     assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # After post-PR finalize records the PR URL the ledger is "finalized"; the
+    # commit-msg git hook still runs on the provenance commit and must discover
+    # it, not fail "no gate ledger found" (#1609).
+    record = _init_for_no_record(git_repo)
+    data = json.loads(record.read_text(encoding="utf-8"))
+    data["pull_request"] = {
+        "url": "https://example.com/pr/1",
+        "number": 1,
+        "closes": [],
+        "body_closes_issues": [],
+    }
+    record.write_text(json.dumps(data), encoding="utf-8")
+    assert io.load_ledger(record).pull_request is not None  # valid + finalized
+
+    msg = git_repo / "COMMIT_EDITMSG"
+    msg.write_text("chore: follow-up\n", encoding="utf-8")
+    capsys.readouterr()
+    _run(git_repo, "commit-msg", str(msg), "--no-record")
+    out = capsys.readouterr()
+    assert "no gate ledger found" not in (out.out + out.err)

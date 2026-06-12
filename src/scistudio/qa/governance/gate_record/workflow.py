@@ -414,7 +414,13 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     path, err = _resolve_ledger_path(
         repo_root,
         args.record,
-        include_finalized=effective_mode == "ci",
+        # A finalized ledger (PR created, not yet merged) is still the active
+        # ledger for its branch until merge, so every git-hook mode that may run
+        # on a post-finalize follow-up commit must still discover it. Without
+        # commit-msg here, the commit-msg hook fails "no gate ledger found" on the
+        # very commit that records the PR provenance, right after post-PR finalize
+        # marks the ledger finalized (#1609).
+        include_finalized=effective_mode in ("ci", "pre-commit", "pre-push", "commit-msg"),
         include_finalized_paths=changed_record_paths,
     )
     if err:
