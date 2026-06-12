@@ -443,9 +443,15 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         only=getattr(args, "only", None) or None,
     )
 
-    save_err = _save(repo_root, path, ledger)
-    if save_err:
-        return _print_outcome(save_err)
+    # --no-record (git-hook use): run checks/guards and report pass/fail, but do
+    # NOT persist the ledger. Under the pre-commit framework a hook that modifies
+    # a tracked file (the ledger) fails the commit, and the gate's always-append
+    # evidence never converges (issue #1609). Recording stays with explicit
+    # ``check`` runs and CI.
+    if not getattr(args, "no_record", False):
+        save_err = _save(repo_root, path, ledger)
+        if save_err:
+            return _print_outcome(save_err)
 
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",

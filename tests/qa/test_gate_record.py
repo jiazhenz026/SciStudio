@@ -922,3 +922,47 @@ def test_finalize_pre_pr_records_commit_and_closes(git_repo: Path, tmp_path: Pat
     # rc may be 0 or non-zero depending on check execution; the recording is the
     # contract under test here. Assert it is a defined workflow exit code.
     assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+# ---------------------------------------------------------------------------
+# --no-record: the git-hook form gates without persisting the ledger (#1609).
+# ---------------------------------------------------------------------------
+
+
+def _init_for_no_record(repo: Path) -> Path:
+    _run(
+        repo,
+        "init",
+        "--task-kind",
+        "bugfix",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "fix the thing",
+        "--print-instructions",
+        "false",
+    )
+    return next((repo / RECORDS_DIR).glob("*.json"))
+
+
+def test_no_record_flag_parses_on_check_and_commit_msg() -> None:
+    parser = cli.build_parser()
+    assert parser.parse_args(["check", "--mode", "pre-commit", "--no-record"]).no_record is True
+    assert parser.parse_args(["commit-msg", "MSG", "--no-record"]).no_record is True
+
+
+def test_check_no_record_does_not_modify_the_ledger(git_repo: Path) -> None:
+    record = _init_for_no_record(git_repo)
+    # A normal check persists evidence/obligations -> establish a baseline.
+    _run(git_repo, "check", "--mode", "pre-commit", "--skip-execution")
+    baseline = record.read_bytes()
+    # The git-hook form (--no-record) must NOT touch the ledger. Under the
+    # pre-commit framework a hook that modifies a tracked file fails the commit,
+    # and the gate's always-append evidence never converges (#1609 deadlock).
+    rc = _run(git_repo, "check", "--mode", "pre-commit", "--no-record", "--skip-execution")
+    assert record.read_bytes() == baseline
+    assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
