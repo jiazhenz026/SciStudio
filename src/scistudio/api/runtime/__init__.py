@@ -55,21 +55,12 @@ from scistudio.utils.event_logger import install_event_logger
 
 from . import _data, _projects, _runs, _workflows
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
-from ._preview_cache import (
-    _TABLE_CACHE_MAX,
-    MAX_TABLE_PAGE_SIZE,
-    _get_preview_table,
-    _read_preview_table_from_disk,
-    _table_cache,
-    _table_cache_lock,
-    _trim_table_cache_locked,
-)
-from ._preview_image import (
-    _downsample_matrix,
-    _image_data_uri_from_matrix,
-    _infer_type_name_from_ref,
-    _load_preview_matrix,
-)
+
+# ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
+# moved down into ``scistudio.previewers`` (``_table_cache`` / ``_raster``) so the
+# previewer subsystem no longer imports up into the API layer. Only the
+# API-specific ``_infer_type_name_from_ref`` remains here.
+from ._preview_image import _infer_type_name_from_ref
 
 logger = logging.getLogger("scistudio.api.runtime")
 WORKFLOW_ENTITY_CLASS = "workflow"
@@ -755,9 +746,7 @@ class ApiRuntime:
 # Sorted to satisfy ruff RUF022.
 __all__ = [
     "FILE_ENTITY_CLASS",
-    "MAX_TABLE_PAGE_SIZE",
     "WORKFLOW_ENTITY_CLASS",
-    "_TABLE_CACHE_MAX",
     "ApiRuntime",
     "DataRecord",
     "FirstPartyEntityWrite",
@@ -765,18 +754,10 @@ __all__ = [
     "LogBroadcaster",
     "Path",
     "WorkflowRun",
-    "_downsample_matrix",
-    "_get_preview_table",
-    "_image_data_uri_from_matrix",
     "_infer_type_name_from_ref",
-    "_load_preview_matrix",
     "_now_iso",
-    "_read_preview_table_from_disk",
     "_rmtree_force",
     "_safe_parent_dir",
     "_slugify",
-    "_table_cache",
-    "_table_cache_lock",
-    "_trim_table_cache_locked",
     "logger",
 ]

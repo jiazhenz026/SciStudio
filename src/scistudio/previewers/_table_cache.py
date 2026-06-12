@@ -1,12 +1,20 @@
-"""DataFrame preview paging + caching.
+"""DataFrame preview paging + LRU cache (previewers-owned).
 
-Issue #1430 / umbrella #1427: extracted verbatim from the original
-``api/runtime.py`` god-file. Behavior is unchanged. The module-level
-symbols (``MAX_TABLE_PAGE_SIZE``, ``_TABLE_CACHE_MAX``, ``_table_cache``,
-``_table_cache_lock``, ``_read_preview_table_from_disk``,
-``_get_preview_table``, ``_trim_table_cache_locked``) are re-exported by
-``runtime/__init__.py`` so existing tests that reach in via
-``runtime_mod._table_cache_lock`` keep working.
+ADR-048 / issue #1598: this table-paging cache is consumed only by the
+previewer subsystem (``previewers.data_access``). It previously lived under
+``scistudio.api.runtime._preview_cache``, which forced the lower previewer
+layer to import *up* into the API layer (an inverted dependency, unguarded by
+the layer-dependency test). It now lives here so ``previewers`` is
+self-contained and ``api.runtime`` imports *down* from it where the legacy
+preview route still needs it.
+
+Behavior is unchanged from the pre-move implementation. Tests that pin the
+monkeypatch contract (``_read_preview_table_from_disk`` is observed by
+``_get_preview_table``) target this module directly; because both functions are
+co-located here, ``_get_preview_table`` resolves the disk reader via this
+module's own namespace, so ``monkeypatch.setattr(_table_cache,
+"_read_preview_table_from_disk", ...)`` is seen without any cross-package
+indirection.
 """
 
 from __future__ import annotations
@@ -59,15 +67,12 @@ def _get_preview_table(path: Path, sort_by: str | None, sort_dir: str) -> Any:
     Cached by (path, mtime, sort_by, sort_dir). On sort-variant cache miss
     we look up the unsorted base in the same cache to avoid re-reading the
     file, sort that, then cache the sorted variant.
-    """
-    # Resolve ``_read_preview_table_from_disk`` via the package module so the
-    # public ``runtime._read_preview_table_from_disk`` symbol is the
-    # single source of truth — the pre-split tests
-    # (``test_data.test_preview_dataframe_paging_sort_lru_cache``) patch
-    # the function on the public ``scistudio.api.runtime`` module via
-    # ``monkeypatch.setattr``; this indirection keeps that patch live.
-    from scistudio.api import runtime as _runtime_pkg
 
+    ``_read_preview_table_from_disk`` is referenced by its module-global name so
+    a ``monkeypatch.setattr`` on this module (the LRU-cache test in
+    ``test_data.py`` and the indirection test under ``tests/previewers/``)
+    rebinds the disk reader that this getter actually calls.
+    """
     try:
         mtime = path.stat().st_mtime_ns
     except OSError:
@@ -91,7 +96,7 @@ def _get_preview_table(path: Path, sort_by: str | None, sort_dir: str) -> Any:
             if base is not None:
                 _table_cache.move_to_end(base_key)
     if base is None:
-        base = _runtime_pkg._read_preview_table_from_disk(path)
+        base = _read_preview_table_from_disk(path)
         if sort_key:
             # Persist the unsorted base too so the next sort change skips IO.
             base_key = (str(path), mtime, "", "")
@@ -109,3 +114,14 @@ def _get_preview_table(path: Path, sort_by: str | None, sort_dir: str) -> Any:
         _table_cache[key] = table
         _trim_table_cache_locked()
     return table
+
+
+__all__ = [
+    "MAX_TABLE_PAGE_SIZE",
+    "_TABLE_CACHE_MAX",
+    "_get_preview_table",
+    "_read_preview_table_from_disk",
+    "_table_cache",
+    "_table_cache_lock",
+    "_trim_table_cache_locked",
+]

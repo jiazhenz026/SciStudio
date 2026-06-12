@@ -705,7 +705,10 @@ def test_preview_data_dataframe_cache_skips_repeat_disk_reads(
     reuse the unsorted base, so flipping sort columns / directions never
     re-reads the file. Touching the file (mtime change) invalidates.
     """
-    from scistudio.api import runtime as runtime_mod
+    # ADR-048 / #1598: the table cache moved down into previewers; the
+    # ``_get_preview_table`` getter resolves the disk reader from this module's
+    # own namespace, so patching it here is observed by the preview route.
+    from scistudio.previewers import _table_cache as table_cache_mod
 
     # Build a small csv. The cache behavior we care about is invariant to size.
     rows = "".join(f"{i},{i * 2}\n" for i in range(80))
@@ -716,18 +719,18 @@ def test_preview_data_dataframe_cache_skips_repeat_disk_reads(
     ref = upload.json()["ref"]
 
     # Clear the cache so this test owns its lifecycle.
-    with runtime_mod._table_cache_lock:
-        runtime_mod._table_cache.clear()
+    with table_cache_mod._table_cache_lock:
+        table_cache_mod._table_cache.clear()
 
     # Wrap the disk reader to count parses.
     reads: list[Path] = []
-    real_read = runtime_mod._read_preview_table_from_disk
+    real_read = table_cache_mod._read_preview_table_from_disk
 
     def counting_read(path: Path) -> Any:  # type: ignore[no-untyped-def]
         reads.append(path)
         return real_read(path)
 
-    monkeypatch.setattr(runtime_mod, "_read_preview_table_from_disk", counting_read)
+    monkeypatch.setattr(table_cache_mod, "_read_preview_table_from_disk", counting_read)
 
     # 1. First request seeds the unsorted cache (1 read).
     client.get(f"/api/data/{ref}/preview").raise_for_status()

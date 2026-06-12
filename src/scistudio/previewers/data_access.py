@@ -5,14 +5,15 @@ to read payload bytes. Every method enforces a row / byte / item / tile /
 dimension budget so a preview of a multi-GB Zarr/TIFF/Parquet never
 materializes the whole object (FR-010, SC-004).
 
-The implementation reuses the proven streaming logic from two existing
-modules:
+The implementation reuses the proven streaming logic from two
+previewer-owned helper modules (ADR-048 / #1598 — these were moved down out of
+``scistudio.api.runtime`` so the previewer subsystem no longer imports up into
+the API layer):
 
-* table paging + LRU cache from ``scistudio.api.runtime._preview_cache`` (the
-  monkeypatchable ``_get_preview_table`` / ``_read_preview_table_from_disk``
-  re-exports stay live there for the compatibility tests);
+* table paging + LRU cache from ``scistudio.previewers._table_cache`` (the
+  monkeypatchable ``_get_preview_table`` / ``_read_preview_table_from_disk``);
 * raster slab loading + PNG data-URI encoding from
-  ``scistudio.api.runtime._preview_image``.
+  ``scistudio.previewers._raster``.
 
 Array access here is bounded directly against the storage handle: a Zarr
 array is indexed with explicit slices (``arr[plane_index, y0:y1, x0:x1]``)
@@ -172,7 +173,7 @@ class PreviewDataAccess:
         reader contract stays intact (``tests/api/test_runtime_import_surface``).
         ``page_size`` is capped at ``max_rows``.
         """
-        from scistudio.api.runtime._preview_cache import _get_preview_table
+        from scistudio.previewers._table_cache import _get_preview_table
 
         path = Path(ref.path)
         effective_page_size = max(1, min(int(page_size), self.max_rows))
@@ -462,7 +463,7 @@ class PreviewDataAccess:
 
     def png_data_uri(self, matrix: list[list[float]]) -> str:
         """Encode a 2-D matrix as a grayscale PNG data URI."""
-        from scistudio.api.runtime._preview_image import _image_data_uri_from_matrix
+        from scistudio.previewers._raster import _image_data_uri_from_matrix
 
         return _image_data_uri_from_matrix(matrix)
 
@@ -555,7 +556,7 @@ class PreviewDataAccess:
     def _downsample(self, matrix: Any) -> list[list[float]]:
         import numpy as np
 
-        from scistudio.api.runtime._preview_image import _downsample_matrix
+        from scistudio.previewers._raster import _downsample_matrix
 
         arr = np.asarray(matrix)
         if arr.ndim < 2:

@@ -31,13 +31,13 @@ from scistudio.previewers import (
     TargetKind,
     build_preview_service,
 )
-
-from ._preview_image import (
+from scistudio.previewers._raster import (
     _downsample_matrix,
     _image_data_uri_from_matrix,
-    _infer_type_name_from_ref,
     _load_preview_matrix,
 )
+
+from ._preview_image import _infer_type_name_from_ref
 
 if TYPE_CHECKING:
     from . import ApiRuntime, DataRecord

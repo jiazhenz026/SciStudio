@@ -1560,6 +1560,12 @@
       "followup_rationale": null,
       "number": 1593,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1598,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -1912,6 +1918,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/previewers/test_preview_routing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T01:53:54.749105Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_table_cache_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T01:53:54.749118Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T01:53:54.749120Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_import_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T01:53:54.749122Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_data.py",
       "rationale": null,
       "verified_in_diff": null
     }
