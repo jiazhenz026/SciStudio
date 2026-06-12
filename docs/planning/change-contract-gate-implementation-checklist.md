@@ -29,7 +29,7 @@ language_source: en
   `C:\Users\jiazh\Desktop\workspace\sci-wt\ccg-<track>`
 - Protected branch: `main`
 - Umbrella branch: `track/change-contract-gate-implementation`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1622`
 - Umbrella PR title: `[DO NOT MERGE] implement ADR-042 change contract gate (#1617)`
 - Final PR target: `main` after `#1615` lands or this branch is rebased.
 - Dispatch prompt templates:
@@ -79,14 +79,15 @@ language_source: en
 - [x] Gate record started:
   `.workflow/records/1617-change-contract-gate-manager.json`.
 - [x] Scope include/exclude recorded in the gate record.
-- [~] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella branch created.
+- [x] Umbrella PR opened: `#1622`.
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found by manager command use.
-- [~] Dispatch checklist copied from the template and committed.
-- [~] Dispatch prompts created from the correct prompt template and linked below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Dispatch checklist copied from the template and committed.
+- [x] Dispatch prompts created from the correct prompt template and linked below.
+- [x] Sentrux baseline recorded, or N/A reason recorded: manager-only docs
+  dispatch setup; no Sentrux evidence required.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -96,10 +97,10 @@ language_source: en
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | pending |
-| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | pending |
-| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | pending |
-| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `N/A` | `[ ]` | pending |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[x]` | Git hook passed on manager commits. |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[x]` | Git hook passed on manager commits. |
+| Pre-push | `git push -u origin track/change-contract-gate-implementation` | `N/A` | `[x]` | Push succeeded. |
+| Pre-PR reconcile | `python scripts/scistudio_pr_create.py --draft --base main --head track/change-contract-gate-implementation --title "[DO NOT MERGE] implement ADR-042 change contract gate (#1617)" --body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `N/A` | `[x]` | Wrapper preflight passed; PR `#1622` created. |
 
 ## 5.1 Docs Impact Check
 
@@ -226,12 +227,12 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/docs/change-contract-gate-spec --head HEAD` | `[ ]` | pending |
-| Targeted tests | manager-only docs/checklist N/A | `[ ]` | pending |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/docs/change-contract-gate-spec --head HEAD` | `[ ]` | pending |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `[ ]` | pending |
-| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/change-contract-gate-umbrella-pr.md --closes "#1617"` | `[ ]` | pending |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "[DO NOT MERGE] implement ADR-042 change contract gate (#1617)" --body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `[ ]` | pending |
+| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1617-change-contract-gate-manager.json --base origin/docs/change-contract-gate-spec --head HEAD --mode local` | `[x]` | `reconciliation passed` |
+| Targeted tests | manager-only docs/checklist N/A | `[x]` | `--test-na "manager:dispatch checklist and prompts only; implementation agents will own code tests."` |
+| Pre-push gate check | Git push hook | `[x]` | `git push -u origin track/change-contract-gate-implementation` succeeded. |
+| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1617-change-contract-gate-manager.json --base origin/docs/change-contract-gate-spec --head HEAD --mode pre-pr --pr-body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `[x]` | `reconciliation passed` |
+| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit b1c00c608b0477464a07267928ff764d693ddbe7 --pr-body-file .workflow/local/change-contract-gate-umbrella-pr.md --closes "#1617"` | `[x]` | `ledger is PR-ready` |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py --draft --base main --head track/change-contract-gate-implementation --title "[DO NOT MERGE] implement ADR-042 change contract gate (#1617)" --body-file .workflow/local/change-contract-gate-umbrella-pr.md` | `[x]` | `reconciliation passed`; PR `#1622`. |
 
 ## 13. Drift Log
 
