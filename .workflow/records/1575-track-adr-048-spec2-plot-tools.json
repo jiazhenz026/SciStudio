@@ -946,6 +946,12 @@
       "at": "2026-06-12T03:22:04.168258Z",
       "pattern": "tests/architecture/test_packaging.py",
       "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:30:55.327196Z",
+      "pattern": "tests/ai/test_mcp_tools_workflow.py",
+      "reason": "Fix #1591 CI: _VersionedStubRuntime in test_mcp_tools_workflow.py needs the new mark_workflow_self_write method the MCP write tool now calls through the injected runtime"
     }
   ],
   "session_id": "0751a377-5241-4095-b615-1db13d027693",
@@ -1005,6 +1011,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/architecture/test_packaging.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:30:55.327416Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
       "rationale": null,
       "verified_in_diff": null
     }

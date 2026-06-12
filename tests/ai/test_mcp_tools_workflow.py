@@ -66,6 +66,7 @@ class _VersionedStubRuntime(_StubRuntime):
         self._versions: dict[str, int] = {}
         self.first_party_writes: list[dict[str, Any]] = []
         self.pending_first_party_writes: list[dict[str, Any]] = []
+        self.self_writes: list[Path] = []
 
     def bump_workflow_version(self, workflow_id: str) -> int:
         version = self._versions.get(workflow_id, 0) + 1
@@ -88,6 +89,11 @@ class _VersionedStubRuntime(_StubRuntime):
                 "kind": kind,
             }
         )
+
+    def mark_workflow_self_write(self, path: Path) -> None:
+        # #1591: the MCP write tool now routes the FS-watcher self-write through
+        # the injected runtime instead of importing api.routes.workflow_watcher.
+        self.self_writes.append(path)
 
     def mark_entity_first_party_write(
         self,
