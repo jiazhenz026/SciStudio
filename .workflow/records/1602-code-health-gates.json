@@ -1,0 +1,98 @@
+{
+  "branch": "feat/code-health-gates",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1602,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add code-health gates to CI + gate pre-PR checks: ruff complexity ceiling (C901 max-complexity 30) and TODO/deferral discipline (ruff TD/FIX + deferral_scan.py whole-repo baseline ratchet + diff-scoped new-deferral block + new-TODO count), plus a hypothesis property test. Single PR. Calibrate baselines so CI does not break on merge.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1602-code-health-gates",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732483Z",
+      "pattern": "pyproject.toml",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732507Z",
+      "pattern": "scripts/deferral_scan.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732511Z",
+      "pattern": "docs/audit/baselines/deferral-baseline.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732513Z",
+      "pattern": ".github/workflows/deferral-scan.yml",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732515Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/checks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:57:28.732517Z",
+      "pattern": "src/scistudio/workflow/validator.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "90be24d3-ad1f-47de-a4eb-000dc7117566",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-12T02:57:28.732525Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_deferral_scan.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T02:57:28.732531Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_serializer_property.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

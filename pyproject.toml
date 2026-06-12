@@ -43,6 +43,7 @@ dev = [
     "pytest-cov>=6.0",
     "pytest-xdist>=3.5",
     "pytest-timeout>=2.3",  # ADR-040 preflight: hard wall-clock kill for hung tests (Windows subprocess/asyncio edge cases)
+    "hypothesis>=6.0",  # #1602: property-based tests (e.g. serializer path round-trip)
     "ruff>=0.11",
     "mypy>=1.15",
     "types-PyYAML>=6.0",
@@ -155,10 +156,29 @@ select = [
   "B",   # flake8-bugbear
   "SIM", # flake8-simplify
   "RUF", # ruff-specific
+  "C901", # mccabe complexity ceiling (#1602)
+  "TD",  # flake8-todos: keep TODO markers well-formed + issue-linked (#1602)
+  "FIX", # flake8-fixme: flag leftover FIXME/XXX/HACK markers (#1602)
 ]
 ignore = [
   "E501", # line too long (handled by formatter)
+  # flake8-todos rules we deliberately do NOT enforce, to fit the repo's
+  # ``TODO(#NNN):`` convention (issue link lives in the author slot, not a
+  # trailing URL) — issue-link enforcement is owned by scripts/deferral_scan.py
+  # (#1602), which understands ``TODO(#NNN)`` exactly:
+  "TD002", # missing author — our convention puts ``#NNN`` here, not a name
+  "TD003", # missing issue link — deferral_scan owns the ``(#NNN)`` check
+  # flake8-fixme FIX002 flags *every* TODO line; we allow tracked TODOs, so
+  # bare-TODO blocking is owned by deferral_scan, not ruff:
+  "FIX002", # line contains TODO
 ]
+
+[tool.ruff.lint.mccabe]
+# Grandfathered ceiling (#1602): current worst is ``validate_workflow`` at 60,
+# carried with an explicit ``# noqa: C901``. 30 blocks any *new* function from
+# exceeding it while leaving the existing single offender visible. Ratchet down
+# as complex functions are refactored.
+max-complexity = 30
 
 [tool.ruff.lint.isort]
 known-first-party = ["scistudio"]
