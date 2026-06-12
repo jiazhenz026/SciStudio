@@ -48,7 +48,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel  # noqa: F401
+    from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +302,8 @@ class TypeRegistry:
 
         try:
             dumped = instance.model_dump(mode="json")
-            meta.model_validate(dumped)
+            meta_model: type[BaseModel] = meta
+            meta_model.model_validate(dumped)
         except Exception as exc:
             raise ValueError(
                 f"{cls.__name__}.Meta failed JSON round-trip: {exc}. "
