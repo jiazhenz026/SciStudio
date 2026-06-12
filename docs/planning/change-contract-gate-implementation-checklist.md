@@ -118,9 +118,9 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A1-schema.md` | Schema and frontmatter contract declarations | `feat/change-contract-gate-schema` | `...\sci-wt\ccg-schema` | `src/scistudio/qa/schemas/change_contracts.py`, schema exports, schema tests | Audit checking, gate wiring | `#1618` | `[ ]` |
+| A1 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A1-schema.md` | Schema and frontmatter contract declarations | `feat/change-contract-gate-schema` | `...\sci-wt\ccg-schema` | `src/scistudio/qa/schemas/change_contracts.py`, schema exports, schema tests | Audit checking, gate wiring | `#1618`; agent `019ebdf2-5ac8-74a1-8812-81c748044f53` | `[~]` |
 | A2 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A2-audit-core.md` | Contract discovery, governance coverage, forbidden references, baseline reconciliation | `feat/change-contract-gate-audit-core` | `...\sci-wt\ccg-audit-core` | `src/scistudio/qa/audit/change_contracts.py`, `docs/audit/baselines/change-contract-baseline.json`, audit tests | Gate wiring, docs standards | `#1619` | `[ ]` |
-| A3 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A3-reachability.md` | Conservative reachability helpers for Python, frontend, entry points, canaries | `feat/change-contract-gate-reachability` | `...\sci-wt\ccg-reachability` | `src/scistudio/qa/audit/change_contract_reachability.py`, reachability tests | Core schema ownership, full audit wiring | `#1620` | `[ ]` |
+| A3 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A3-reachability.md` | Conservative reachability helpers for Python, frontend, entry points, canaries | `feat/change-contract-gate-reachability` | `...\sci-wt\ccg-reachability` | `src/scistudio/qa/audit/change_contract_reachability.py`, reachability tests | Core schema ownership, full audit wiring | `#1620`; agent `019ebdf2-973b-72c2-8245-1a8637189abe` | `[~]` |
 | A4 | implementer | N/A | `docs/planning/change-contract-gate-prompts/A4-gate-wiring-docs.md` | Full audit integration, gate-record check catalog/routing, authoring docs | `feat/change-contract-gate-wiring` | `...\sci-wt\ccg-wiring` | `src/scistudio/qa/audit/full_audit.py`, `src/scistudio/qa/governance/gate_record/checks.py`, `docs/ai-developer/specific_rules/document-standards.md`, integration tests | Schema and checker internals | `#1621` | `[ ]` |
 | V1 | audit_reviewer | with context | `docs/planning/change-contract-gate-prompts/V1-audit.md` | Audit integrated implementation after A1-A4 land | `audit/change-contract-gate` | `...\sci-wt\ccg-audit` | `docs/audit/change-contract-gate-implementation-audit.md` | Production edits unless assigned by manager | `#1617` | `[ ]` |
 
@@ -241,6 +241,7 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-12 | manager | Implementation manager branch is based on draft spec PR `#1615` so agents can see the spec before it merges. | Final implementation branch must rebase or retarget after `#1615` lands. | `#1617` |
+| 2026-06-12 | manager | A1 and A3 dispatched first; A2/A4 wait for schema/reachability interfaces to reduce conflicts. | Spawned A1 `019ebdf2-5ac8-74a1-8812-81c748044f53` and A3 `019ebdf2-973b-72c2-8245-1a8637189abe`. | `#1618`, `#1620` |
 
 ## 14. Final Readiness
 
