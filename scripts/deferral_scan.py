@@ -284,9 +284,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=DEFAULT_ROOT, type=Path)
     parser.add_argument("--out", default=None, type=Path, help="Write markdown report here")
-    parser.add_argument("--write-baseline", default=None, type=Path, help="Write ratchet baseline JSON here and exit 0.")
-    parser.add_argument("--check", default=None, type=Path, help="Compare whole repo against baseline; exit 1 on growth.")
-    parser.add_argument("--diff", default=None, help="Base ref; scan only added lines, exit 1 on new untracked deferral.")
+    parser.add_argument(
+        "--write-baseline", default=None, type=Path, help="Write ratchet baseline JSON here and exit 0."
+    )
+    parser.add_argument(
+        "--check", default=None, type=Path, help="Compare whole repo against baseline; exit 1 on growth."
+    )
+    parser.add_argument(
+        "--diff", default=None, help="Base ref; scan only added lines, exit 1 on new untracked deferral."
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent

@@ -99,6 +99,14 @@
       "path": "tests/workflow/test_serializer_property.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:21:37.846643Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_deferral_scan.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
