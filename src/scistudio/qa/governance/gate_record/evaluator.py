@@ -72,6 +72,7 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
         "frontend",
         "wheel_release_smoke",
         "semantic_dup",
+        "deferral_discipline",
     }
 )
 

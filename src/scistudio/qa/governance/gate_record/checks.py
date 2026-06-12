@@ -136,6 +136,17 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         covered_surface="python",
         ci_job="semantic-dup-scan.yml/Semantic duplication ratchet",
     ),
+    "deferral_discipline": CheckSpec(
+        name="deferral_discipline",
+        command=(
+            "python",
+            "scripts/deferral_scan.py",
+            "--check",
+            "docs/audit/baselines/deferral-baseline.json",
+        ),
+        covered_surface="python",
+        ci_job="deferral-scan.yml/Deferral discipline ratchet",
+    ),
     "codex_review": CheckSpec(
         name="codex_review",
         command=(),
@@ -166,6 +177,7 @@ _BASELINE_BY_TIER: dict[int, tuple[str, ...]] = {
         "python_tests",
         "import_contracts",
         "semantic_dup",
+        "deferral_discipline",
     ),
     2: ("lint_format", "format_check", "full_audit"),
     3: ("full_audit",),

@@ -1,0 +1,60 @@
+name: Deferral Discipline Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'track/**'
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly whole-repo ratchet check covers source-touching changes that
+    # slipped through (e.g. via a later untouched commit on a PR branch).
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deferral-discipline:
+    name: Deferral discipline ratchet
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 0 so the PR diff gate can resolve the merge-base of the
+      # target branch (origin/<base>) for ``--diff``.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      # Whole-repo ratchet: untracked deferral counts may shrink, never grow.
+      # Runs on every trigger (no AGENTS.md §3.6 dependency on the diff).
+      - name: Whole-repo deferral ratchet (--check)
+        run: |
+          python scripts/deferral_scan.py \
+            --check docs/audit/baselines/deferral-baseline.json \
+            --out deferral-report.md
+
+      # Diff gate: block any *new* untracked deferral introduced by this PR,
+      # and report the count of new tracked TODO(#NNN). PR events only.
+      - name: PR diff deferral gate (--diff)
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/deferral_scan.py --diff "origin/${{ github.base_ref }}"
+
+      - name: Upload deferral report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: deferral-report
+          path: deferral-report.md
+          retention-days: 30

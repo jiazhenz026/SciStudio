@@ -72,6 +72,12 @@
       "at": "2026-06-12T02:57:28.732517Z",
       "pattern": "src/scistudio/workflow/validator.py",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:18:41.000046Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "reason": "ci-mode must exclude deferral_discipline like other CI-owned quality checks (#1602)"
     }
   ],
   "session_id": "90be24d3-ad1f-47de-a4eb-000dc7117566",
