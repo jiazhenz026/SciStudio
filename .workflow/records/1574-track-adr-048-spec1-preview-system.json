@@ -1566,6 +1566,12 @@
       "followup_rationale": null,
       "number": 1598,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1592,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -1947,6 +1953,22 @@
     },
     {
       "at": "2026-06-12T01:53:54.749122Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_data.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T02:13:16.363265Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T02:13:16.363279Z",
       "class": null,
       "kind": "path",
       "path": "tests/api/test_data.py",

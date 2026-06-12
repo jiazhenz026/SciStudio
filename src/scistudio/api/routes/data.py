@@ -224,7 +224,10 @@ def _validate_resource_param_value(value: Any, *, depth: int = 0) -> int:
 @previews_router.post("/sessions", response_model=PreviewEnvelopeModel)
 async def create_preview_session(payload: PreviewSessionCreate, runtime: RuntimeDep) -> PreviewEnvelopeModel:
     """Create a routed preview session for a target and return the first envelope."""
-    target = _build_target(payload)
+    # ADR-048 / #1592: the frontend PreviewHost sends a minimal ``{kind, ref}``
+    # target; the backend is the source of truth for its routed kind + type
+    # chain, so rebuild it from the catalog when the ref is known.
+    target = runtime.resolve_session_target(_build_target(payload))
     service = runtime.get_preview_service()
     query = runtime.enrich_preview_query(target.ref, payload.query)
     envelope = service.sessions.create_session(target, query)

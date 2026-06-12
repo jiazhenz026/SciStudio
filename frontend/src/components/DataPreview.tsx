@@ -1,13 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import type { BlockPortResponse, BlockSchemaResponse, DataPreviewResponse } from "../types/api";
+import { useAppStore } from "../store";
+import { buildPreviewCacheKey } from "../store/previewSlice";
+import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
 
-import { OMEMetadataPanel } from "./OutputPreview/OMEMetadataPanel";
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
-import { PreviewRenderer } from "./DataPreview.parts/PreviewRenderer";
+import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
-import { useOmeMetadata } from "./DataPreview.parts/useOmeMetadata";
-import { useSlicePreview } from "./DataPreview.parts/useSlicePreview";
 
 // Re-exports preserve the public surface of DataPreview.tsx for existing
 // consumers (LossySaveWarning.tsx mirrors `extractRefEntries`).
@@ -15,10 +14,11 @@ export { extractRefEntries } from "./DataPreview.parts/refEntries";
 export type { RefEntry } from "./DataPreview.parts/refEntries";
 
 // ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
-// This DataPreview component keeps the LEGACY one-shot `previewCache` rendering
-// path (FR-008 compatibility / US5) for its current callers; PreviewHost is the
-// new session-API surface that mounts validated dynamic previewers or core
-// fallbacks. New preview surfaces should mount PreviewHost directly.
+// As of #1592 the live DataPreview mounts PreviewHost directly: every selected
+// output ref creates a routed preview session (POST /api/previews/sessions) and
+// renders either a validated dynamic previewer (package/project) or the core
+// fallback viewer for the envelope kind. The legacy one-shot `previewCache`
+// path is gone.
 export { PreviewHost } from "./DataPreview.parts/PreviewHost";
 export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
 export {
@@ -38,9 +38,6 @@ interface DataPreviewProps {
   selectedNodeId: string | null;
   selectedNodeLabel: string;
   blockOutputs: Record<string, Record<string, unknown>>;
-  previewCache: Record<string, DataPreviewResponse>;
-  previewLoading: Record<string, boolean>;
-  onLoadPreview: (dataRef: string) => Promise<void>;
   /** Effective per-instance input ports of the selected node (after
    *  resolveVariadicPorts + computeEffectivePorts). Empty / undefined
    *  when no node is selected or the block has no input ports.
@@ -52,15 +49,19 @@ interface DataPreviewProps {
    *  type-hierarchy → color lookup and the declared-port-name set that
    *  distinguishes static vs user-added variadic rows (#1326 §3). */
   selectedSchema?: BlockSchemaResponse;
+  /** Legacy one-shot preview plumbing (previewCache/onLoadPreview). No longer
+   *  consumed now that the routed PreviewHost owns loading (#1592); accepted as
+   *  optional so the ProjectWorkspace call site stays valid until the legacy
+   *  cache plumbing is removed in the #1594 delete pass. */
+  previewCache?: Record<string, unknown>;
+  previewLoading?: Record<string, boolean>;
+  onLoadPreview?: (dataRef: string) => Promise<void> | void;
 }
 
 export function DataPreview({
   selectedNodeId,
   selectedNodeLabel,
   blockOutputs,
-  previewCache,
-  previewLoading,
-  onLoadPreview,
   selectedInputPorts,
   selectedOutputPorts,
   selectedSchema,
@@ -72,23 +73,27 @@ export function DataPreview({
   }, [blockOutputs, selectedNodeId]);
   const outputRefs = useMemo(() => refEntries.map((e) => e.ref), [refEntries]);
 
-  const { activeRef, setActiveRef, activeSlice, handleSliceChange, preview, isLoadingActive } =
-    useSlicePreview({ outputRefs, previewCache, previewLoading, onLoadPreview });
+  // Local active-ref selection. The effective ref defaults to the first output
+  // and stays valid as the selected node's outputs change (no effect needed).
+  const [pickedRef, setPickedRef] = useState<string | null>(null);
+  const activeRef =
+    pickedRef && outputRefs.includes(pickedRef) ? pickedRef : (outputRefs[0] ?? null);
 
-  const { omeOpen, setOmeOpen, activeOme, omeAvailable, handleOpenOme } = useOmeMetadata({
-    activeRef,
-    preview,
-  });
+  // ADR-048 FR-021 — the routed-preview envelope cache lives in the Zustand
+  // preview slice; the host reads/writes it through these callbacks.
+  const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
+  const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
+
+  // The frontend has no authoritative type chain; it sends a minimal data_ref
+  // target and the backend rebuilds the routed target from its catalog (#1592).
+  const target: PreviewTarget | null = activeRef ? { kind: "data_ref", ref: activeRef } : null;
 
   // Hotfix 2026-05-23 — split the preview region from the port-description
   // panel so the panel no longer steals vertical space from the active
-  // preview. The panel reserves ~38% of the right column (matches the
-  // center column's BottomPanel initial visual ratio) with its own
+  // preview. The panel reserves ~38% of the right column with its own
   // internal scroll. ``shrink-0`` keeps the panel from collapsing when
   // the preview content is tall. The single divider above the panel is
-  // owned by PortInfoPanel's own ``border-t``; we deliberately do NOT
-  // add another ``border-t`` here so the user does not see two parallel
-  // lines with dead space between them.
+  // owned by PortInfoPanel's own ``border-t``.
   const portPanel =
     selectedNodeId &&
     ((selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0) ? (
@@ -127,7 +132,7 @@ export function DataPreview({
               <button
                 className={`rounded-full px-3 py-1 text-xs ${activeRef === entry.ref ? "bg-ink text-white" : "bg-white text-stone-600"}`}
                 key={entry.ref}
-                onClick={() => setActiveRef(entry.ref)}
+                onClick={() => setPickedRef(entry.ref)}
                 title={entry.ref}
                 type="button"
               >
@@ -136,44 +141,12 @@ export function DataPreview({
             ))}
           </div>
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-            {isLoadingActive ? (
-              <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">
-                Loading preview…
-              </div>
-            ) : preview && activeRef ? (
-              <>
-                <PreviewRenderer
-                  preview={preview.preview}
-                  dataRef={activeRef}
-                  currentSlice={activeSlice}
-                  onSliceChange={handleSliceChange}
-                />
-                {/* ADR-043 FR-013 — OME metadata browser. Always render the
-                    button when a ref is active; the panel itself surfaces
-                    a "No OME metadata" message when the underlying object
-                    has none. */}
-                {omeAvailable ? (
-                  <div className="mt-3">
-                    {!omeOpen ? (
-                      <button
-                        type="button"
-                        className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs text-stone-600 hover:bg-stone-50"
-                        onClick={handleOpenOme}
-                        data-testid="open-ome-metadata"
-                      >
-                        OME metadata
-                      </button>
-                    ) : (
-                      <OMEMetadataPanel ome={activeOme} onClose={() => setOmeOpen(false)} />
-                    )}
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">
-                Preview not loaded yet.
-              </div>
-            )}
+            <PreviewHost
+              target={target}
+              getCachedEnvelope={(key) => previewEnvelopeCache[key]}
+              cacheEnvelope={cachePreviewEnvelope}
+              buildCacheKey={(t, q) => buildPreviewCacheKey(t, q)}
+            />
           </div>
         </>
       )}

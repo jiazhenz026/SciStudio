@@ -729,6 +729,7 @@ class ApiRuntime:
     get_preview_service = _data.get_preview_service
     refresh_preview_service = _data.refresh_preview_service
     enrich_preview_query = _data.enrich_preview_query
+    resolve_session_target = _data.resolve_session_target
     _build_preview_target = _data._build_preview_target
 
     # Workflow execution + lineage (_runs)

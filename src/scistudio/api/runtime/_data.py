@@ -265,6 +265,26 @@ def enrich_preview_query(self: ApiRuntime, ref: str, query: dict[str, Any]) -> d
     return enriched
 
 
+def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTarget:
+    """Rebuild a routed preview target from the catalog (ADR-048 / #1592).
+
+    The routed session API (``POST /api/previews/sessions``) accepts a client
+    target that may carry only ``{kind, ref}`` — the frontend ``PreviewHost``
+    has no authoritative type chain. For a ref the runtime knows, the backend
+    is the source of truth for the target's kind + type chain, so rebuild it
+    from the catalog record (the same path :func:`preview_data` uses) to
+    guarantee correct routing regardless of what the frontend supplied. Unknown
+    refs (e.g. a collection-only target whose items carry their own storage) are
+    returned unchanged so the provider can degrade.
+    """
+    try:
+        record = self.get_data_record(target.ref)
+    except KeyError:
+        return target
+    resolved_cls = self._resolve_record_class(record)
+    return self._build_preview_target(record, resolved_cls)
+
+
 def preview_data(
     self: ApiRuntime,
     data_ref: str,

@@ -1,152 +1,131 @@
 import { render, waitFor, screen, fireEvent, cleanup } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { PreviewEnvelope } from "../types/api";
+
+// Mock only PreviewHost's session methods; keep every other lib/api export
+// intact (the Zustand store imports named helpers from this module at init).
+const createPreviewSession = vi.fn();
+const patchPreviewSession = vi.fn();
+const getPreviewSession = vi.fn();
+vi.mock("../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const actualApi = (actual.api ?? {}) as Record<string, unknown>;
+  return {
+    ...actual,
+    api: {
+      ...actualApi,
+      createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
+      patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
+      getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
+    },
+  };
+});
+
+import { useAppStore } from "../store";
+
+import { DataPreview } from "./DataPreview";
+
+function textEnvelope(ref: string, text: string): PreviewEnvelope {
+  return {
+    session_id: `session-${ref}`,
+    previewer_id: "core.text.basic",
+    target: { kind: "data_ref", ref },
+    kind: "text",
+    payload: { text },
+    resources: [],
+    metadata: { complete: true },
+    diagnostics: [],
+    error: null,
+  };
+}
+
+beforeEach(() => {
+  createPreviewSession.mockReset();
+  createPreviewSession.mockImplementation(async (target: { ref: string }) =>
+    textEnvelope(target.ref, `preview of ${target.ref}`),
+  );
+  // Each test owns a clean envelope cache (the store is a global singleton).
+  useAppStore.getState().clearPreviewEnvelopeCache();
+});
 
 afterEach(() => {
   cleanup();
 });
 
-import { DataPreview } from "./DataPreview";
-
 describe("DataPreview", () => {
-  it("requests previews lazily for selected output refs", async () => {
-    const onLoadPreview = vi.fn(async () => {});
+  it("prompts to pick a block when nothing is selected", () => {
+    render(<DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />);
+    expect(screen.getByText(/Pick a block/i)).toBeInTheDocument();
+  });
 
+  it("shows an empty state when the selected block has no previewable outputs", () => {
     render(
       <DataPreview
-        blockOutputs={{
-          "node-1": {
-            output: {
-              data_ref: "data-123",
-            },
-          },
-        }}
-        onLoadPreview={onLoadPreview}
-        previewCache={{}}
-        previewLoading={{}}
+        blockOutputs={{ "node-1": {} }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Empty Block"
+      />,
+    );
+    expect(screen.getByText(/no previewable outputs/i)).toBeInTheDocument();
+  });
+
+  it("mounts the routed PreviewHost for the active output ref (#1592)", async () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
         selectedNodeId="node-1"
         selectedNodeLabel="Process Block"
       />,
     );
 
+    // The routed session is created for the first output ref.
     await waitFor(() => {
-      expect(onLoadPreview).toHaveBeenCalledWith("data-123");
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "data_ref", ref: "data-123" }),
+        expect.anything(),
+      );
+    });
+    // The PreviewHost container renders once the envelope resolves.
+    await waitFor(() => {
+      expect(screen.getByTestId("preview-host")).toBeInTheDocument();
     });
   });
 
-  it("renders image preview with zoom controls and LUT swatches", () => {
+  it("switches the routed session when a different output pill is picked", async () => {
     render(
       <DataPreview
         blockOutputs={{
-          "node-1": {
-            output: { data_ref: "img-ref" },
+          "load-1": {
+            images: {
+              kind: "collection",
+              items: [{ data_ref: "data-a" }, { data_ref: "data-b" }],
+            },
           },
         }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "img-ref": {
-            preview: {
-              kind: "image",
-              src: "data:image/png;base64,abc",
-              shape: [100, 200, 3],
-            },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="Image Block"
+        selectedNodeId="load-1"
+        selectedNodeLabel="Load Image"
       />,
     );
 
-    // Zoom controls
-    expect(screen.getByRole("button", { name: /zoom in/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /zoom out/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /reset/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({ ref: "data-a" }),
+        expect.anything(),
+      );
+    });
 
-    // Min/Max display range sliders
-    expect(screen.getByRole("slider", { name: /display minimum/i })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: /display maximum/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "data-b" }));
 
-    // LUT gradient swatches (at least gray and fire)
-    expect(screen.getByRole("button", { name: /LUT gray/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /LUT fire/i })).toBeInTheDocument();
-
-    // Info badge showing shape and zoom
-    const badge = screen.getByTestId("image-info-badge");
-    expect(badge).toHaveTextContent(/100 × 200 × 3/);
-    expect(badge).toHaveTextContent(/100%/);
+    await waitFor(() => {
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({ ref: "data-b" }),
+        expect.anything(),
+      );
+    });
   });
 
-  it("zoom in button increases scale display", () => {
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "img-ref": {
-            preview: { kind: "image", src: "data:image/png;base64,abc" },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="Image Block"
-      />,
-    );
-
-    // Default zoom is 100% (shown in controls text)
-    const zoomTexts = screen.getAllByText("100%");
-    expect(zoomTexts.length).toBeGreaterThanOrEqual(1);
-
-    // Click zoom in
-    fireEvent.click(screen.getByRole("button", { name: /zoom in/i }));
-
-    // Scale should have increased (125% in controls)
-    const updatedTexts = screen.getAllByText("125%");
-    expect(updatedTexts.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders table preview with compact formatting and row/column count", () => {
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "tbl-ref": {
-            preview: {
-              kind: "table",
-              columns: ["A", "B", "C"],
-              rows: [
-                { A: 1, B: 2.12345, C: 3 },
-                { A: 4, B: 5, C: 6.789012 },
-              ],
-            },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="Table Block"
-      />,
-    );
-
-    // Row/column count
-    expect(screen.getByText(/2 rows × 3 columns/)).toBeInTheDocument();
-
-    // Column headers
-    expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getByText("B")).toBeInTheDocument();
-    expect(screen.getByText("C")).toBeInTheDocument();
-
-    // Integer cells remain integers
-    expect(screen.getByText("1")).toBeInTheDocument();
-
-    // Floating-point cells formatted to 4 decimals
-    expect(screen.getByText("2.1235")).toBeInTheDocument();
-    expect(screen.getByText("6.7890")).toBeInTheDocument();
-  });
-
-  // ---------------------------------------------------------------------
-  // #898 — pill labels show source filename
-  // ---------------------------------------------------------------------
-
+  // #898 — pill labels show source filename (independent of the renderer).
   it("pill label shows source filename when framework.source is set (#898)", () => {
     render(
       <DataPreview
@@ -157,28 +136,17 @@ describe("DataPreview", () => {
               items: [
                 {
                   data_ref: "data-abcdef",
-                  metadata: {
-                    framework: { source: "C:/data/beads.tif" },
-                  },
+                  metadata: { framework: { source: "C:/data/beads.tif" } },
                 },
                 {
                   data_ref: "data-123456",
-                  metadata: {
-                    meta: { source_file: "/home/u/sample_002.tif" },
-                  },
+                  metadata: { meta: { source_file: "/home/u/sample_002.tif" } },
                 },
-                {
-                  data_ref: "data-xyz789",
-                  // No source / source_file / file_path → fall back to slice(0,10).
-                  metadata: { framework: { source: "" } },
-                },
+                { data_ref: "data-xyz789", metadata: { framework: { source: "" } } },
               ],
             },
           },
         }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{}}
-        previewLoading={{}}
         selectedNodeId="load-1"
         selectedNodeLabel="Load Image"
       />,
@@ -186,116 +154,7 @@ describe("DataPreview", () => {
 
     expect(screen.getByRole("button", { name: "beads.tif" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "sample_002.tif" })).toBeInTheDocument();
-    // Fallback when no metadata source: truncated ref (today's behavior).
+    // Fallback when no metadata source: truncated ref.
     expect(screen.getByRole("button", { name: "data-xyz78" })).toBeInTheDocument();
-  });
-
-  // ---------------------------------------------------------------------
-  // #899 — single-slider 3D viewer
-  // ---------------------------------------------------------------------
-
-  it("renders slice slider when slice_axis_size > 1 (#899)", () => {
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "img-ref": {
-            preview: {
-              kind: "image",
-              src: "data:image/png;base64,abc",
-              shape: [643, 1285, 3],
-              axes: ["y", "x", "c"],
-              slice_axis_name: "c",
-              slice_axis_size: 3,
-              slice_index: 0,
-            },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="plot_cal"
-      />,
-    );
-
-    const slider = screen.getByTestId("image-slice-slider") as HTMLInputElement;
-    expect(slider).toBeInTheDocument();
-    expect(slider.max).toBe("2");
-    expect(slider.value).toBe("0");
-    expect(screen.getByTestId("image-slice-slider-row")).toHaveTextContent(/c \(3\)/);
-    expect(screen.getByTestId("image-slice-slider-row")).toHaveTextContent(/1\/3/);
-  });
-
-  it("does NOT render slice slider for ndim=2 image (#899)", () => {
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "img-ref": {
-            preview: {
-              kind: "image",
-              src: "data:image/png;base64,abc",
-              shape: [256, 256],
-              axes: ["y", "x"],
-              slice_axis_name: null,
-              slice_axis_size: null,
-              slice_index: null,
-            },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="2D Image"
-      />,
-    );
-
-    expect(screen.queryByTestId("image-slice-slider")).toBeNull();
-  });
-
-  it("renders paginated DataFrame with sortable headers, page input, and total row count", () => {
-    const manyRows = Array.from({ length: 50 }, (_, i) => ({ A: i, B: i * 2 }));
-
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onLoadPreview={vi.fn(async () => {})}
-        previewCache={{
-          "tbl-ref": {
-            preview: {
-              kind: "table",
-              columns: ["A", "B"],
-              rows: manyRows,
-              total_rows: 523,
-              row_count: 523,
-              page: 1,
-              page_size: 50,
-              total_pages: 11,
-              sort_by: null,
-              sort_dir: null,
-            },
-          } as never,
-        }}
-        previewLoading={{}}
-        selectedNodeId="node-1"
-        selectedNodeLabel="Table Block"
-      />,
-    );
-
-    // Footer shows the true total (not the page size).
-    expect(screen.getByText(/523 rows/)).toBeInTheDocument();
-    // Page input + total pages.
-    const pageInput = screen.getByLabelText("Jump to page") as HTMLInputElement;
-    expect(pageInput.value).toBe("1");
-    expect(screen.getByText(/\/ 11/)).toBeInTheDocument();
-    // Pagination buttons present.
-    expect(screen.getByLabelText("First page")).toBeInTheDocument();
-    expect(screen.getByLabelText("Previous page")).toBeInTheDocument();
-    expect(screen.getByLabelText("Next page")).toBeInTheDocument();
-    expect(screen.getByLabelText("Last page")).toBeInTheDocument();
-    // Headers are clickable for sort.
-    const headerA = screen.getByText("A").closest("th");
-    expect(headerA?.getAttribute("aria-sort")).toBe("none");
-    expect(headerA?.style.cursor).toBe("pointer");
   });
 });
