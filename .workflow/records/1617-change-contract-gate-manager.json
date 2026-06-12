@@ -30,10 +30,46 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T22:23:21.538655Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:64e398f15cee27b7a7fe2db78e463c6a2e96c6ce42b6baf533c94dc13cf8e41e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T22:23:38.618193Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:64e398f15cee27b7a7fe2db78e463c6a2e96c6ce42b6baf533c94dc13cf8e41e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "b1c00c608b0477464a07267928ff764d693ddbe7",
+    "shas": [
+      "b1c00c608b0477464a07267928ff764d693ddbe7"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -214,6 +250,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.628428Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.670498Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.715350Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.759754Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.804783Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.847629Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.889798Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.937792Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:21.980927Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:22.024888Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.709262Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.750810Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.792960Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.835133Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.877817Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.920907Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:38.963303Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:39.004667Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:39.048458Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T22:23:39.093747Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -228,12 +384,20 @@
   "observed_diff": {
     "base": "origin/docs/change-contract-gate-spec",
     "base_sha": "d88939d3",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1617-change-contract-gate-manager.json",
+      "docs/planning/change-contract-gate-implementation-checklist.md",
+      "docs/planning/change-contract-gate-prompts/A1-schema.md",
+      "docs/planning/change-contract-gate-prompts/A2-audit-core.md",
+      "docs/planning/change-contract-gate-prompts/A3-reachability.md",
+      "docs/planning/change-contract-gate-prompts/A4-gate-wiring-docs.md",
+      "docs/planning/change-contract-gate-prompts/V1-audit.md"
+    ],
+    "diff_fingerprint": "sha256:274581a2ceb087084f53dea2413516b8d2ddafb725575820c6dfe23328db7dd8",
     "head": "HEAD",
-    "head_sha": "d88939d3",
+    "head_sha": "b1c00c60",
     "surfaces": {
-      "docs": 0,
+      "docs": 6,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -247,7 +411,14 @@
   },
   "owner_directive": "Arrange agents to implement the ADR-042 change contract gate spec and track the umbrella workflow.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1617
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-12T22:19:38.128114Z",
@@ -261,6 +432,22 @@
       "at": "2026-06-12T22:20:53.619565Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-12T22:23:22.024927Z",
+      "diff_fingerprint": "sha256:274581a2ceb087084f53dea2413516b8d2ddafb725575820c6dfe23328db7dd8",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-12T22:23:39.093787Z",
+      "diff_fingerprint": "sha256:274581a2ceb087084f53dea2413516b8d2ddafb725575820c6dfe23328db7dd8",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
