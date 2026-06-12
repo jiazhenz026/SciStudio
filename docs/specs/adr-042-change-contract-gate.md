@@ -31,8 +31,12 @@ governs:
   modules:
     - scistudio.qa.audit
     - scistudio.qa.schemas
+    - scistudio.qa.schemas.change_contracts
     - scistudio.qa.governance.gate_record
-  contracts: []
+  contracts:
+    - scistudio.qa.schemas.change_contracts.ChangeContract
+    - scistudio.qa.schemas.change_contracts.ChangeSurface
+    - scistudio.qa.schemas.change_contracts.ChangeContractBaseline
   entry_points: []
   files:
     - docs/ai-developer/specific_rules/document-standards.md
@@ -44,11 +48,7 @@ governs:
 planned_governs:
   modules:
     - scistudio.qa.audit.change_contracts
-    - scistudio.qa.schemas.change_contracts
-  contracts:
-    - scistudio.qa.schemas.change_contracts.ChangeContract
-    - scistudio.qa.schemas.change_contracts.ChangeSurface
-    - scistudio.qa.schemas.change_contracts.ChangeContractBaseline
+  contracts: []
   entry_points: []
   files:
     - docs/change-contracts/**
@@ -56,6 +56,7 @@ planned_governs:
     - tests/qa/test_change_contracts.py
   excludes: []
 tests:
+  - tests/qa/test_change_contract_schemas.py
   - tests/qa/test_change_contracts.py
 acceptance_source: manual
 language_source: en
