@@ -523,16 +523,19 @@ def reconcile(
     # 2. Classify surfaces.
     grouped = classify_surfaces(observed_files)
 
-    # Record observed diff on the ledger (append: latest wins).
-    ledger.observed_diff = ObservedDiff(
-        base=base,
-        head=head,
-        base_sha=io.resolve_sha(repo_root, base),
-        head_sha=io.resolve_sha(repo_root, head),
-        diff_fingerprint=fingerprint,
-        changed_files=list(observed_files),
-        surfaces={name: len(paths) for name, paths in grouped.items()},
-    )
+    # Record the authoritative branch/PR observation on the ledger. pre-commit
+    # mode observes the transient staged index for hook decisions, so it must
+    # not clobber the durable pre-pr/ci observation with an empty index diff.
+    if mode != "pre-commit":
+        ledger.observed_diff = ObservedDiff(
+            base=base,
+            head=head,
+            base_sha=io.resolve_sha(repo_root, base),
+            head_sha=io.resolve_sha(repo_root, head),
+            diff_fingerprint=fingerprint,
+            changed_files=list(observed_files),
+            surfaces={name: len(paths) for name, paths in grouped.items()},
+        )
 
     # 6. Derive tier (escalate, never lower). Done before check inference.
     tier = derive_tier(ledger.task_kind, grouped)
@@ -808,11 +811,13 @@ def reconcile(
         for _gap in parity_gaps:
             unsatisfied.append("parity.environment-not-ci-equivalent")
 
-    result_status = AuditStatus.FAIL if (findings or unsatisfied) else AuditStatus.PASS
+    has_error_finding = any(finding.severity == Severity.ERROR for finding in findings)
+    result_status = AuditStatus.FAIL if (has_error_finding or unsatisfied) else AuditStatus.PASS
+    source_sha = ledger.observed_diff.head_sha if ledger.observed_diff is not None else io.resolve_sha(repo_root, head)
     report = AuditReport(
         tool="gate_record.evaluator",
         status=result_status,
-        source_sha=ledger.observed_diff.head_sha or "unknown",
+        source_sha=source_sha or "unknown",
         findings=findings,
         summary={
             "mode": mode,

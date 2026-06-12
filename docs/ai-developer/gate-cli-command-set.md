@@ -243,6 +243,14 @@ Ledger discovery is deterministic: exactly one current-branch ledger is
 accepted; zero ledgers reports "run init"; multiple ledgers reports the
 candidate paths and asks for `--record`.
 
+Finalized post-PR ledgers are excluded from normal local discovery so a
+completed record is not reused as active work. `check --mode ci` may include
+finalized records because CI validates the submitted PR record. Local hook
+modes may include only finalized ledger paths that are actually staged or in the
+pre-push changed-file set, so the final provenance commit can pass without
+reopening unrelated completed records. A temporarily unreadable ledger is a
+schema/retry error, not "no ledger found".
+
 ### 2.5 `finalize`
 
 Record commit and PR provenance and perform final reconciliation. `finalize`
@@ -400,11 +408,12 @@ The tier-selected check baselines the evaluator actually runs are:
 Surface-specific additions (all tiers) per the CI graph: Python source under
 `src/**` adds lint/format/type/python-tests/import-contracts; Python tests add
 lint/format/python-tests; QA/governance source under `src/scistudio/qa/**` adds
-those plus `full_audit`; ADR/spec/architecture/governed-docs add `full_audit`;
-frontend surfaces add `frontend`; workflow/CI files add `full_audit`; packaging
-surfaces add `wheel_release_smoke`; Sentrux-applicable changes add
-`semantic_dup`. The `codex_review` check is PR-only review automation and is
-never a local `check` failure.
+those plus `full_audit`; ADR/spec/architecture/governed-docs and
+`docs/block-development/**` developer docs add `full_audit`; frontend surfaces
+add `frontend`; workflow/CI files add `full_audit`; packaging surfaces add
+`wheel_release_smoke`; Sentrux-applicable changes add `semantic_dup`. The
+`codex_review` check is PR-only review automation and is never a local `check`
+failure.
 
 ## 6. Per-Task-Kind Profiles
 
@@ -651,6 +660,8 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
   cross-platform (`Scripts/` on Windows, `bin/` on POSIX). The first cold provision
   takes a minute or two (downloads); after that it is effectively free. Each
   worktree has its own venv, so parallel worktrees never share a writable env.
+  The `python_tests` check also mirrors CI's `SCISTUDIO_DEV=1` environment so
+  plugin/dev-only tests behave the same locally and in GitHub Actions.
 
 - **CRITICAL — `--mode ci` never provisions.** `ci.yml` owns the quality matrix
   and runs in its own environment; `check --mode ci` validates governance and

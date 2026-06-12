@@ -70,6 +70,7 @@ def _resolve_ledger_path(
     record: str | None,
     *,
     include_finalized: bool = False,
+    include_finalized_paths: list[Path] | None = None,
 ) -> tuple[Path | None, CommandOutcome | None]:
     if record is not None:
         path = Path(record)
@@ -77,7 +78,11 @@ def _resolve_ledger_path(
         if not path.exists():
             return None, CommandOutcome(EXIT_USAGE, [f"ledger not found: {record}"])
         return path, None
-    discovery = io.discover_ledger(repo_root, include_finalized=include_finalized)
+    discovery = io.discover_ledger(
+        repo_root,
+        include_finalized=include_finalized,
+        include_finalized_paths=include_finalized_paths,
+    )
     if discovery.found:
         return discovery.path, None
     if discovery.ambiguous:
@@ -85,6 +90,12 @@ def _resolve_ledger_path(
         return None, CommandOutcome(
             EXIT_USAGE,
             ["multiple active ledgers match this branch; pass --record:", candidates],
+        )
+    if discovery.has_unreadable:
+        candidates = "\n".join(f"  {p}" for p in discovery.unreadable)
+        return None, CommandOutcome(
+            EXIT_SCHEMA,
+            ["gate ledger exists but is temporarily unreadable; retry the command:", candidates],
         )
     return None, CommandOutcome(EXIT_USAGE, ["no gate ledger found; run init first"])
 
@@ -341,6 +352,20 @@ def _resolve_base(repo_root: Path, base: str | None, head: str) -> str:
     return io.resolve_default_base(repo_root, head=head)
 
 
+def _changed_record_paths(repo_root: Path, *, base: str, head: str, mode: str) -> list[Path]:
+    """Return changed gate-record paths that may be finalized provenance commits."""
+
+    if mode not in {"pre-commit", "pre-push"}:
+        return []
+    changed = io.changed_files(repo_root, base, head, staged=mode == "pre-commit")
+    paths: list[Path] = []
+    for rel in changed:
+        normalized = rel.replace("\\", "/")
+        if normalized.startswith(".workflow/records/") and normalized.endswith(".json"):
+            paths.append((repo_root / normalized).resolve())
+    return paths
+
+
 def _read_pr_body(repo_root: Path, pr_body_file: str | None) -> str | None:
     if not pr_body_file:
         return None
@@ -383,7 +408,21 @@ def _read_pr_context(repo_root: Path, pr_context_file: str | None) -> dict[str, 
 
 def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     effective_mode = mode or getattr(args, "mode", "local") or "local"
-    path, err = _resolve_ledger_path(repo_root, args.record, include_finalized=effective_mode == "ci")
+    head = getattr(args, "head", "HEAD") or "HEAD"
+    base = _resolve_base(repo_root, getattr(args, "base", None), head)
+    changed_record_paths = _changed_record_paths(repo_root, base=base, head=head, mode=effective_mode)
+    path, err = _resolve_ledger_path(
+        repo_root,
+        args.record,
+        # A finalized ledger (PR created, not yet merged) is still the active
+        # ledger for its branch until merge, so every git-hook mode that may run
+        # on a post-finalize follow-up commit must still discover it. Without
+        # commit-msg here, the commit-msg hook fails "no gate ledger found" on the
+        # very commit that records the PR provenance, right after post-PR finalize
+        # marks the ledger finalized (#1609).
+        include_finalized=effective_mode in ("ci", "pre-commit", "pre-push", "commit-msg"),
+        include_finalized_paths=changed_record_paths,
+    )
     if err:
         return _print_outcome(err)
     assert path is not None
@@ -398,8 +437,6 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
 
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
     pr_context = _read_pr_context(repo_root, getattr(args, "pr_context_file", None))
-    head = getattr(args, "head", "HEAD") or "HEAD"
-    base = _resolve_base(repo_root, getattr(args, "base", None), head)
     result = evaluator.reconcile(
         ledger=ledger,
         repo_root=repo_root,
@@ -412,9 +449,15 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         only=getattr(args, "only", None) or None,
     )
 
-    save_err = _save(repo_root, path, ledger)
-    if save_err:
-        return _print_outcome(save_err)
+    # --no-record (git-hook use): run checks/guards and report pass/fail, but do
+    # NOT persist the ledger. Under the pre-commit framework a hook that modifies
+    # a tracked file (the ledger) fails the commit, and the gate's always-append
+    # evidence never converges (issue #1609). Recording stays with explicit
+    # ``check`` runs and CI.
+    if not getattr(args, "no_record", False):
+        save_err = _save(repo_root, path, ledger)
+        if save_err:
+            return _print_outcome(save_err)
 
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",

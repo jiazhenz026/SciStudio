@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Memory Safety"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Developer guide for bounded-memory block patterns, Collection mapping tiers, and streaming IO."
+---
+
 # Memory Safety
 
 This document covers patterns for processing large scientific datasets
@@ -270,7 +282,7 @@ for chunk in item.iter_chunks(chunk_size=1024*1024):
 
 ---
 
-## Streaming Writes with persist_array / persist_table
+## Streaming Writes with persist_array / persist_table {#ioblock-streaming-writes}
 
 Available on **all block types** (defined on the `Block` base class).
 These helpers persist data directly to project-local storage without
