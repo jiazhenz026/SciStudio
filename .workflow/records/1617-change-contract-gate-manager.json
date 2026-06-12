@@ -157,9 +157,17 @@
       "path": "docs/planning/change-contract-gate-prompts/V1-audit.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T23:42:26.119527Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-change-contract-gate.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-06-12T22:19:37.712328Z",
@@ -572,6 +580,30 @@
       "followup_rationale": null,
       "number": 1617,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1618,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1619,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1620,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1621,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -606,7 +638,7 @@
     }
   },
   "owner_directive": "Arrange agents to implement the ADR-042 change contract gate spec and track the umbrella workflow.",
-  "persona": "manager",
+  "persona": "implementer",
   "pull_request": {
     "body_closes_issues": [],
     "closes": [
@@ -666,7 +698,14 @@
     }
   ],
   "record_id": "1617-change-contract-gate-manager",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [],
@@ -687,10 +726,59 @@
   },
   "runtime": "codex",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119439Z",
+      "pattern": "src/scistudio/qa/schemas/**",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119456Z",
+      "pattern": "src/scistudio/qa/audit/**",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119458Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/**",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119460Z",
+      "pattern": "tests/qa/**",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119461Z",
+      "pattern": "docs/specs/adr-042-change-contract-gate.md",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119463Z",
+      "pattern": "docs/audit/baselines/change-contract-baseline.json",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119464Z",
+      "pattern": "docs/ai-developer/specific_rules/document-standards.md",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T23:42:26.119466Z",
+      "pattern": "docs/change-contracts/**",
+      "reason": "Umbrella now integrates A1/A3 implementation tracks and will carry final change-contract gate implementation."
+    }
+  ],
   "session_id": "b3ea0a90-51da-4b25-90bc-a23b25d146cb",
   "strictness_tier": 3,
-  "task_kind": "manager",
+  "task_kind": "feature",
   "test_events": [
     {
       "at": "2026-06-12T22:18:06.150070Z",
@@ -698,6 +786,22 @@
       "kind": "na",
       "path": null,
       "rationale": "dispatch checklist and prompts only; implementation agents will own code tests.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T23:42:26.119531Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contract_schemas.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T23:42:26.119534Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contract_reachability.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]
