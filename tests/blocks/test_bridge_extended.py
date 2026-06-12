@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,7 +45,7 @@ class TestBridgeLaunchArgvOverride:
 
         with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
             mock_popen.return_value.pid = 12345
-            bridge.launch(["echo"], tmp_path, argv_override=file_paths)
+            bridge.launch([sys.executable, "-c", "pass"], tmp_path, argv_override=file_paths)
 
         cmd = mock_popen.call_args[0][0]
         # The command should end with the file paths, not the exchange dir
@@ -57,7 +58,7 @@ class TestBridgeLaunchArgvOverride:
 
         with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
             mock_popen.return_value.pid = 12345
-            bridge.launch(["echo"], tmp_path)
+            bridge.launch([sys.executable, "-c", "pass"], tmp_path)
 
         cmd = mock_popen.call_args[0][0]
         assert cmd[-1] == str(tmp_path)

@@ -24,6 +24,7 @@ def test_full_audit_renders_human_readable_facts_summary() -> None:
     assert "frontmatter_lint" in markdown
     assert "fact_drift" in markdown
     assert "doc_drift" in markdown
+    assert "developer_docs" in markdown
     assert "closure" in markdown
     assert "signature_drift" in markdown
     assert "architecture_drift" in markdown

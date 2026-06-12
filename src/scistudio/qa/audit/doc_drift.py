@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scistudio.qa.audit.governed import GovernedDocument, display_path, governed_file_matches, load_governed_documents
+from scistudio.qa.audit.planned_governance import planned_surface_findings
 from scistudio.qa.schemas.facts import FactsRegistry
 from scistudio.qa.schemas.frontmatter import ADRFrontmatter, GovernedSurfaces, SpecFrontmatter
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
@@ -204,55 +205,65 @@ def classify_repo(
     checked_contracts = 0
     checked_files = 0
     for document in governed_docs:
-        if not _active_governance(document.frontmatter):
-            continue
-        governs = _governs(document.frontmatter)
         doc_path = display_path(document.path, root)
-        for module in governs.modules:
-            checked_modules += 1
-            if not _module_exists(module, symbols):
-                findings.append(
-                    Finding(
-                        rule_id="doc-drift.phantom-module",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed module does not resolve to generated symbol facts: {module}",
-                        symbol=module,
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+        if _active_governance(document.frontmatter):
+            governs = _governs(document.frontmatter)
+            for module in governs.modules:
+                checked_modules += 1
+                if not _module_exists(module, symbols):
+                    findings.append(
+                        Finding(
+                            rule_id="doc-drift.phantom-module",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed module does not resolve to generated symbol facts: {module}",
+                            symbol=module,
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
-        for contract in governs.contracts:
-            checked_contracts += 1
-            if not _contract_exists(contract, symbols):
-                findings.append(
-                    Finding(
-                        rule_id="doc-drift.phantom-contract",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed contract does not resolve to generated symbol facts: {contract}",
-                        symbol=contract,
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+            for contract in governs.contracts:
+                checked_contracts += 1
+                if not _contract_exists(contract, symbols):
+                    findings.append(
+                        Finding(
+                            rule_id="doc-drift.phantom-contract",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed contract does not resolve to generated symbol facts: {contract}",
+                            symbol=contract,
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
-        for pattern in governs.files:
-            checked_files += 1
-            if not governed_file_matches(root, pattern):
-                findings.append(
-                    Finding(
-                        rule_id="doc-drift.phantom-file",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed file path or glob does not resolve: {pattern}",
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+            for pattern in governs.files:
+                checked_files += 1
+                if not governed_file_matches(root, pattern):
+                    findings.append(
+                        Finding(
+                            rule_id="doc-drift.phantom-file",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed file path or glob does not resolve: {pattern}",
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
+
+        findings.extend(
+            planned_surface_findings(
+                document.frontmatter,
+                doc_path=doc_path,
+                rule_prefix="doc-drift",
+                module_exists=lambda claim: _module_exists(claim, symbols),
+                contract_exists=lambda claim: _contract_exists(claim, symbols),
+                file_exists=lambda claim: bool(governed_file_matches(root, claim)),
+            )
+        )
 
     alignment_findings, alignment_summary = _check_adr_spec_alignment(governed_docs, root)
     findings.extend(alignment_findings)
 
     return AuditReport(
         tool="doc_drift",
-        status=AuditStatus.FAIL if findings else AuditStatus.PASS,
+        status=AuditStatus.FAIL if any(f.severity == Severity.ERROR for f in findings) else AuditStatus.PASS,
         source_sha=facts.source_sha,
         findings=findings,
         summary={

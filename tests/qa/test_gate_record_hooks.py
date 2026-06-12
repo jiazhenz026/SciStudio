@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -184,13 +185,16 @@ def _git(repo: Path, *args: str) -> None:
 
 def _run_write_guard_hook(payload: dict, *, cwd: Path) -> subprocess.CompletedProcess[str]:
     """Execute the hook shell script with a JSON PreToolUse payload on stdin."""
+    shell = shutil.which("sh")
+    if shell is None:
+        pytest.skip("POSIX sh is required to execute the worktree write guard hook script")
     env = dict(os.environ)
     # Ensure the guard's ``python -m scistudio...`` import resolves regardless
     # of how the test runner set PYTHONPATH.
     src = str(REPO_ROOT / "src")
     env["PYTHONPATH"] = src + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     return subprocess.run(
-        ["sh", str(WRITE_GUARD_HOOK)],
+        [shell, str(WRITE_GUARD_HOOK)],
         input=json.dumps(payload),
         cwd=cwd,
         env=env,
