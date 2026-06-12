@@ -1,0 +1,472 @@
+{
+  "branch": "feat/adr-048-array-viewer",
+  "check_events": [
+    {
+      "at": "2026-06-12T03:20:15.715516Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:20:15.817717Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-12T03:20:16.103287Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "frontend",
+      "parity_detail": "tool/interpreter not found",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "parity gap: tool/interpreter not found",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:20:25.878597Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:20:26.555388Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:20:26.638469Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-12T03:22:03.615938Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:23:00.704417Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T03:23:09.694255Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abbef92665396d79329264cf1d0fde5ba7f3f7cb832e98df3f07f050b951bee1",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/fallbacks.py",
+      "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+      "tests/previewers/test_preview_data_access.py",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-12T02:59:25.260184Z",
+      "owner_directive": "Backend: array_plane returns numeric matrix + vmin/vmax + per-axis slice descriptors + per-axis index support; array_previewer emits numeric heatmap payload (drop misleading grayscale PNG for generic path). Frontend: ArrayViewer renders numeric heatmap table + legend + per-axis slice selectors (real diverging/sequential colormap, no fake saturate filter, no negative clipping). Tests: backend tests/previewers/test_preview_data_access.py + new frontend coreViewers.test.tsx. CHANGELOG entry. ADR-048 spec array-preview note (FR-013/FR-014 already cover the behavior; no contract change). SpecKit N/A, ADR N/A (no architectural/contract change \u2014 fulfills existing FR-013/FR-014).",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-12T02:59:25.260218Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T02:59:25.260225Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:09:24.775484Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:09:24.775503Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-12T03:23:09.753283Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.767474Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.782612Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.796342Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.811111Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.824747Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.840191Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.854827Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.869207Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T03:23:09.911541Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1603,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "1b6372d4",
+    "changed_files": [
+      ".workflow/records/1574-track-adr-048-spec1-preview-system.json",
+      "CHANGELOG.md",
+      "docs/audit/2026-06-10-adr-048-spec1.md",
+      "docs/audit/baselines/semantic-dup-baseline.json",
+      "docs/planning/adr-048-dispatch-prompts/s1-audit.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-backend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-frontend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-imaging.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
+      "docs/specs/adr-048-preview-system.md",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+      "frontend/src/components/DataPreview.parts/dynamicPreviewer.ts",
+      "frontend/src/components/DataPreview.parts/previewerHostApi.ts",
+      "frontend/src/components/DataPreview.test.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/store/previewSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/types/api.ts",
+      "packages/scistudio-blocks-imaging/README.md",
+      "packages/scistudio-blocks-imaging/pyproject.toml",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/assets/viewer.js",
+      "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/data.py",
+      "src/scistudio/api/runtime/__init__.py",
+      "src/scistudio/api/runtime/_data.py",
+      "src/scistudio/api/runtime/_preview_image.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/previewers/_raster.py",
+      "src/scistudio/previewers/_table_cache.py",
+      "src/scistudio/previewers/assets.py",
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/fallbacks.py",
+      "src/scistudio/previewers/models.py",
+      "src/scistudio/previewers/project.py",
+      "src/scistudio/previewers/registry.py",
+      "src/scistudio/previewers/router.py",
+      "src/scistudio/previewers/session.py",
+      "tests/api/test_data.py",
+      "tests/api/test_previewers.py",
+      "tests/api/test_runtime_import_surface.py",
+      "tests/architecture/test_layer_deps.py",
+      "tests/architecture/test_placement.py",
+      "tests/previewers/__init__.py",
+      "tests/previewers/test_preview_data_access.py",
+      "tests/previewers/test_preview_registry.py",
+      "tests/previewers/test_preview_routing.py",
+      "tests/previewers/test_preview_security.py",
+      "tests/previewers/test_table_cache_surface.py"
+    ],
+    "diff_fingerprint": "sha256:a74421587158e19d5a36318a05f70d0bc1020606f4e96717c3c9b92999a7b8f3",
+    "head": "HEAD",
+    "head_sha": "adcc446a",
+    "surfaces": {
+      "docs": 10,
+      "frontend": 11,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 34,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 47,
+      "test": 14,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement #1603: PyCharm-style slice-selectable numeric heatmap array viewer for core.array.basic (ADR-048 SPEC1 FR-013/FR-014). Replace image-only grayscale PNG with numeric table + heatmap + per-axis slice selectors + legend.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-12T03:23:09.911603Z",
+      "diff_fingerprint": "sha256:a74421587158e19d5a36318a05f70d0bc1020606f4e96717c3c9b92999a7b8f3",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
+  "record_id": "1603-feat-adr-048-array-viewer",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:59:25.260202Z",
+      "pattern": "frontend/src/components/DataPreview.parts/coreViewers.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T02:59:25.260210Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:04:11.668678Z",
+      "pattern": "tests/previewers/test_fallback_array.py",
+      "reason": "Add focused provider-level test for array_previewer payload + axis_indices reading"
+    }
+  ],
+  "session_id": "0cdc7d37-67f1-4620-884d-0ca3a433e9e0",
+  "strictness_tier": 1,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-12T02:59:25.260229Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_data_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T02:59:25.260234Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/coreViewers.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:04:11.668702Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_fallback_array.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

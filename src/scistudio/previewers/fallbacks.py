@@ -156,17 +156,30 @@ def dataframe_previewer(request: PreviewRequest) -> PreviewEnvelope:
 def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
     """Generic numeric array preview: shape/dtype/axes + one bounded 2-D plane.
 
+    The displayed plane is surfaced as the actual numeric ``matrix`` plus its
+    finite ``vmin`` / ``vmax`` so the frontend renders a value-readable numeric
+    heatmap table with a diverging/sequential colormap and a min..max legend
+    (PyCharm-style) — no lossy grayscale PNG and no negative clipping. Every
+    non-displayed axis is independently navigable via ``slice_axes`` and the
+    per-axis ``axis_indices`` query field.
+
     Strictly generic per FR-013/FR-014: no image-domain LUT/OME/channel/label
     semantics. Rich image controls belong to ``scistudio-blocks-imaging``.
     """
     ref = _ref_for(request)
     slice_index = _coerce_int(request.query.get("slice_index"), 0)
+    axis_indices = _coerce_axis_indices(request.query.get("axis_indices"))
     try:
-        plane = request.data_access.array_plane(ref, slice_index=slice_index)
+        plane = request.data_access.array_plane(ref, slice_index=slice_index, axis_indices=axis_indices)
     except Exception as exc:
         logger.debug("array preview failed for %s; degrading to artifact", ref.path, exc_info=True)
         return _degrade_to_artifact(request, ref, reason=f"array decode failed: {exc}")
 
+    slice_axes = [{"axis": ax.axis, "name": ax.name, "size": ax.size, "index": ax.index} for ax in plane.slice_axes]
+    # The numeric heatmap table (matrix + vmin/vmax) is the primary view. The
+    # grayscale PNG ``src`` is retained ONLY for the legacy REST compatibility
+    # adapter (``GET /api/data/{ref}/preview`` still returns an ``image`` kind
+    # with a data URI per FR-008); the new core ArrayViewer ignores it.
     src = request.data_access.png_data_uri(plane.matrix)
     resources = (
         PreviewResource(
@@ -189,7 +202,14 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
             "slice_axis_name": plane.slice_axis_name,
             "slice_axis_size": plane.slice_axis_size,
             "slice_index": plane.slice_index,
+            "slice_axes": slice_axes,
+            "matrix": plane.matrix,
+            # ``thumbnail`` kept as an alias of the numeric matrix so the
+            # scalar/1-D code paths and any older readers keep working.
             "thumbnail": plane.matrix,
+            "vmin": plane.vmin,
+            "vmax": plane.vmax,
+            # Legacy-compat raster (FR-008); NOT used by the new numeric viewer.
             "src": src,
         },
         resources=resources,
@@ -200,6 +220,24 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
             extra={"shape": plane.shape, "dtype": plane.dtype, "axes": plane.axes},
         ),
     )
+
+
+def _coerce_axis_indices(value: object) -> dict[int, int]:
+    """Coerce a JSON-ish ``{axis: index}`` mapping to ``dict[int, int]``.
+
+    The session query carries per-axis selections as a plain dict (string or
+    int keys after a JSON round-trip). Non-numeric / malformed entries are
+    dropped rather than raising so a bad client patch degrades to slice 0.
+    """
+    if not isinstance(value, dict):
+        return {}
+    result: dict[int, int] = {}
+    for key, idx in value.items():
+        try:
+            result[int(key)] = int(idx)
+        except (TypeError, ValueError):
+            continue
+    return result
 
 
 def _degrade_to_artifact(request: PreviewRequest, ref: StorageReference, *, reason: str) -> PreviewEnvelope:

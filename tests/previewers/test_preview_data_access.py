@@ -115,6 +115,15 @@ def test_array_plane_does_not_materialize_full_zarr(monkeypatch, tmp_path: Path)
     assert plane.slice_axis_name == "z"
     assert plane.slice_axis_size == 50
     assert plane.slice_index == 3
+    # The single non-displayed (z) axis is echoed as a per-axis descriptor.
+    assert [a.name for a in plane.slice_axes] == ["z"]
+    assert plane.slice_axes[0].axis == 0
+    assert plane.slice_axes[0].size == 50
+    assert plane.slice_axes[0].index == 3
+    # The numeric matrix is the actual (downsampled) plane data, with a finite
+    # value extent for the legend (the fake handle returns all-zeros).
+    assert plane.vmin == 0.0
+    assert plane.vmax == 0.0
     # The single read selector picked plane index 3 along axis 0 — NOT a full
     # ``Ellipsis`` / ``slice(None)`` materialization of all 50 planes.
     assert accesses, "expected exactly one bounded plane read"
@@ -125,6 +134,111 @@ def test_array_plane_does_not_materialize_full_zarr(monkeypatch, tmp_path: Path)
     # Downsampled to <= max_dim on the longest side.
     assert len(plane.matrix) <= 256
     assert all(len(row) <= 256 for row in plane.matrix)
+
+
+def test_array_plane_per_axis_indices_select_every_extra_axis(monkeypatch, tmp_path: Path) -> None:
+    """A 4-D array is fully navigable: each non-(y,x) axis is independently picked.
+
+    The fake handle records the selector so we can prove the bounded read used
+    the requested index on EVERY extra axis (not just the first), and that the
+    returned ``slice_axes`` echo the clamped selection.
+    """
+    import sys
+    import types
+
+    accesses: list[object] = []
+
+    class _FakeZarrArray:
+        shape = (4, 6, 32, 32)  # axes t, z, y, x
+        dtype = "float64"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            accesses.append(key)
+            return np.zeros((32, 32), dtype=np.float64)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "nd.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(
+        backend="zarr",
+        path=str(zarr_path),
+        format="zarr",
+        metadata={"axes": ["t", "z", "y", "x"], "shape": [4, 6, 32, 32]},
+    )
+    access = PreviewDataAccess(max_dim=256)
+    # Select t=2, z=5 (the latter clamps below its size of 6).
+    plane = access.array_plane(ref, axis_indices={0: 2, 1: 5})
+
+    # Both extra axes are surfaced as independently navigable descriptors.
+    assert [(a.name, a.size, a.index) for a in plane.slice_axes] == [("t", 4, 2), ("z", 6, 5)]
+    selector = accesses[0]
+    assert isinstance(selector, tuple)
+    assert selector[0] == 2  # t
+    assert selector[1] == 5  # z
+    # y, x stay full-span slices.
+    assert selector[2] == slice(None)
+    assert selector[3] == slice(None)
+
+
+def test_array_plane_signed_extent_not_clipped(monkeypatch, tmp_path: Path) -> None:
+    """Signed data keeps its true min/max (negatives are NOT clipped to 0)."""
+    import sys
+    import types
+
+    signed = np.linspace(-5.0, 5.0, 16, dtype=np.float32).reshape(4, 4)
+
+    class _FakeZarrArray:
+        shape = (4, 4)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return signed
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "signed.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    access = PreviewDataAccess()
+    plane = access.array_plane(ref)
+
+    assert plane.slice_axes == []  # 2-D: nothing to slice
+    assert plane.vmin is not None and plane.vmin < 0  # negative preserved
+    assert plane.vmax is not None and plane.vmax > 0
+    # The matrix itself still carries the negative values.
+    assert min(v for row in plane.matrix for v in row) < 0
+
+
+def test_array_plane_all_nan_extent_is_none(monkeypatch, tmp_path: Path) -> None:
+    """An all-NaN plane yields ``vmin``/``vmax`` of None (no misleading legend)."""
+    import sys
+    import types
+
+    class _FakeZarrArray:
+        shape = (3, 3)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return np.full((3, 3), np.nan, dtype=np.float32)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "nan.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    plane = PreviewDataAccess().array_plane(ref)
+    assert plane.vmin is None
+    assert plane.vmax is None
 
 
 def test_array_tile_bounds_dimensions(monkeypatch, tmp_path: Path) -> None:
