@@ -826,10 +826,142 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-12T11:35:24.554386Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T11:35:24.592644Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-12T11:35:32.634325Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T11:35:32.850072Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T11:35:32.884489Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-12T11:37:35.339545Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T11:38:23.535704Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-12T11:38:24.758262Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ede1d49fb8dfd78571108ce39ef8fc8ce6d3cd58fe19c86493cffdc1f875f99",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "3b3edd2a1ffc74d598e5a9de0af69405fecc6f32",
+    "shas": [
+      "3b3edd2a1ffc74d598e5a9de0af69405fecc6f32"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": []
@@ -1780,6 +1912,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:24.854147Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:24.904912Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:24.950121Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:24.996766Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.042417Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.096250Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.144782Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.191882Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.235115Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-12T11:38:25.278909Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1794,26 +2008,45 @@
   "observed_diff": {
     "base": "main",
     "base_sha": "1b6372d4",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".pre-commit-config.yaml",
+      ".workflow/records/1609-fix-git-env-leak-and-gate-hooks-1609.json",
+      "CHANGELOG.md",
+      "docs/specs/adr-042-gate-ledger-runtime.md",
+      "scripts/hooks/run_python_module.py",
+      "src/scistudio/qa/governance/gate_record/cli.py",
+      "src/scistudio/qa/governance/gate_record/workflow.py",
+      "tests/qa/test_commit_msg_hook_wiring.py",
+      "tests/qa/test_gate_record.py",
+      "tests/qa/test_gate_record_hooks.py",
+      "tests/scripts/test_run_python_module.py"
+    ],
+    "diff_fingerprint": "sha256:53a9ac771920a6ea74bc232564737e300f3d314cfa1bc012470f1fe4c76e68d8",
     "head": "HEAD",
-    "head_sha": "1b6372d4",
+    "head_sha": "3b3edd2a",
     "surfaces": {
-      "docs": 0,
+      "docs": 1,
       "frontend": 0,
-      "governance": 0,
+      "governance": 3,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 4,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
-      "workflow_ci": 0
+      "sentrux": 9,
+      "test": 4,
+      "workflow_ci": 2
     }
   },
   "owner_directive": "Fix all four defects tracked in issue #1609: (1) P0 scrub git env (GIT_DIR/--local-env-vars + GIT_AUTHOR_*/GIT_COMMITTER_*) in the hook launcher so gate/pytest children cannot corrupt the shared .git; (2) weakened_ci_check pre-commit base-vs-staged false positive; (3) pre-push ledger discovery branch/finalized filter + --record injection; (4) commit-msg hook wiring so git commit succeeds.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1609
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-12T09:31:47.708657Z",
@@ -1911,6 +2144,14 @@
       "at": "2026-06-12T10:33:39.705383Z",
       "diff_fingerprint": "sha256:9e9f543c5cf49edd7712eabae57c4386de103545e7a81de78d47ebddd0c2b8cc",
       "mode": "pre-commit",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-12T11:38:25.278943Z",
+      "diff_fingerprint": "sha256:53a9ac771920a6ea74bc232564737e300f3d314cfa1bc012470f1fe4c76e68d8",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
