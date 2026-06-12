@@ -266,13 +266,13 @@ def _run_diff_gate(base_ref: str, repo_root: Path, root_prefix: str) -> int:
             print(f"  - {h.path}:{h.lineno} [{h.phrase}] {h.text}", file=sys.stderr)
         print(
             "\nFAIL: this PR adds untracked deferral language. For each line above, pick one:\n"
-            "  • Real deferral  -> implement the full functionality now instead of deferring;\n"
-            "                      or, if it genuinely must wait, file an issue and cite it as\n"
-            "                      `# TODO(#NNN): <what is deferred and why>`.\n"
-            "  • False positive -> it is not really a deferral; add `# TODO(#NNN): <why this\n"
-            "                      phrasing is fine>` citing an issue so it is tracked and the\n"
-            "                      central EXCLUSIONS list can be refined to stop flagging it.\n"
-            "  There is no silent bypass: either path leaves a tracked, reviewable trail.",
+            "  [1] Real deferral  -> implement the full functionality now instead of deferring;\n"
+            "                        or, if it genuinely must wait, file an issue and cite it as\n"
+            "                        `# TODO(#NNN): <what is deferred and why>`.\n"
+            "  [2] False positive -> it is not really a deferral; add `# TODO(#NNN): <why this\n"
+            "                        phrasing is fine>` citing an issue so it is tracked and the\n"
+            "                        central EXCLUSIONS list can be refined to stop flagging it.\n"
+            "  There is no silent bypass: every path leaves a tracked, reviewable trail.",
             file=sys.stderr,
         )
         return 1
