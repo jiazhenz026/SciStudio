@@ -283,8 +283,16 @@ forbidden_modules = ["scistudio.engine", "scistudio.api", "scistudio.ai"]
 # Core ↔ Blocks per the first contract above). Both ignore entries
 # below are lazy function-body imports executed only inside the per-run
 # AppBlock dispatch path.
+#
+# ADR-035 §3.8 (#1591): AIBlock.run() drives the agent runtime, lazily
+# importing `ai.agent.terminal` helpers (`_ensure_mcp_config`,
+# `_write_system_prompt_tempfile`) inside the per-run dispatch path. This
+# edge only became visible to grimp once `ai/agent/` gained its
+# `__init__.py` (#1591); the crossing is intentional and lazy, so it is
+# carved out here rather than restructured.
 ignore_imports = [
     "scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control",
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
 ]
 
 [[tool.importlinter.contracts]]
@@ -292,6 +300,17 @@ name = "Engine must not depend on api or ai services"
 type = "forbidden"
 source_modules = ["scistudio.engine"]
 forbidden_modules = ["scistudio.api", "scistudio.ai"]
+# ADR-035 §3.8 (#1591): the only engine->ai path is transitive through the
+# block-registry scan — `engine.scheduler -> blocks.registry -> _spec ->
+# blocks.ai.ai_block -> ai.agent.terminal`. The terminating edge is the same
+# accepted lazy AIBlock->agent import carved out in the Blocks contract above
+# (it became graph-visible once `ai/agent/` gained its `__init__.py`). Engine
+# does not depend on ai services directly; it scans every block (incl. the AI
+# block) via the registry. Carve out the same leaf edge here so the registry
+# scan does not transitively trip this contract.
+ignore_imports = [
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+]
 
 [tool.commitizen]
 name = "cz_conventional_commits"

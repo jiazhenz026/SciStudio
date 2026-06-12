@@ -716,6 +716,7 @@ class ApiRuntime:
     # Workflow I/O + upload (_workflows)
     workflow_path = _workflows.workflow_path
     save_workflow = _workflows.save_workflow
+    mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
     _config_schema_for_block = _workflows._config_schema_for_block
     _relativify_node_config = _workflows._relativify_node_config
