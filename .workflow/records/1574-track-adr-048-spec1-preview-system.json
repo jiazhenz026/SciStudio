@@ -1572,6 +1572,12 @@
       "followup_rationale": null,
       "number": 1592,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1594,
+      "url": null
     }
   ],
   "observed_admin_labels": [],

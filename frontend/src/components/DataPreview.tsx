@@ -49,13 +49,6 @@ interface DataPreviewProps {
    *  type-hierarchy → color lookup and the declared-port-name set that
    *  distinguishes static vs user-added variadic rows (#1326 §3). */
   selectedSchema?: BlockSchemaResponse;
-  /** Legacy one-shot preview plumbing (previewCache/onLoadPreview). No longer
-   *  consumed now that the routed PreviewHost owns loading (#1592); accepted as
-   *  optional so the ProjectWorkspace call site stays valid until the legacy
-   *  cache plumbing is removed in the #1594 delete pass. */
-  previewCache?: Record<string, unknown>;
-  previewLoading?: Record<string, boolean>;
-  onLoadPreview?: (dataRef: string) => Promise<void> | void;
 }
 
 export function DataPreview({
