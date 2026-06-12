@@ -60,10 +60,15 @@ def test_pre_commit_config_exposes_thin_evaluator_hooks() -> None:
     hooks = {hook["id"]: hook for hook in local_repo["hooks"]}
 
     assert hooks["scistudio-gate-record-pre-commit"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit"
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check "
+        "--mode pre-commit --no-record"
     )
+    # The commit-msg hook must call the `commit-msg <message-file>` alias, not
+    # `check --mode commit-msg`: on the commit-msg stage pre-commit appends the
+    # message-file path, which the `check` subparser rejects with exit 2 (issue
+    # #1609 Defect 4 -- it failed every `git commit`).
     assert hooks["scistudio-gate-record-commit-msg"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode commit-msg"
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg --no-record"
     )
     assert hooks["scistudio-gate-record-commit-msg"]["stages"] == ["commit-msg"]
 

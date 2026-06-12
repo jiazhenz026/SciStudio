@@ -414,7 +414,13 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     path, err = _resolve_ledger_path(
         repo_root,
         args.record,
-        include_finalized=effective_mode == "ci",
+        # A finalized ledger (PR created, not yet merged) is still the active
+        # ledger for its branch until merge, so every git-hook mode that may run
+        # on a post-finalize follow-up commit must still discover it. Without
+        # commit-msg here, the commit-msg hook fails "no gate ledger found" on the
+        # very commit that records the PR provenance, right after post-PR finalize
+        # marks the ledger finalized (#1609).
+        include_finalized=effective_mode in ("ci", "pre-commit", "pre-push", "commit-msg"),
         include_finalized_paths=changed_record_paths,
     )
     if err:
@@ -443,9 +449,15 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         only=getattr(args, "only", None) or None,
     )
 
-    save_err = _save(repo_root, path, ledger)
-    if save_err:
-        return _print_outcome(save_err)
+    # --no-record (git-hook use): run checks/guards and report pass/fail, but do
+    # NOT persist the ledger. Under the pre-commit framework a hook that modifies
+    # a tracked file (the ledger) fails the commit, and the gate's always-append
+    # evidence never converges (issue #1609). Recording stays with explicit
+    # ``check`` runs and CI.
+    if not getattr(args, "no_record", False):
+        save_err = _save(repo_root, path, ledger)
+        if save_err:
+            return _print_outcome(save_err)
 
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",
