@@ -93,6 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--pr-context-file")
     check.add_argument("--only", action="append", default=[])
     check.add_argument("--skip-execution", action="store_true")
+    # Run checks/guards and report pass/fail WITHOUT persisting the ledger. Used
+    # by the pre-commit/commit-msg git hooks: under the pre-commit framework a
+    # hook that modifies a tracked file (the ledger) fails the commit with "files
+    # were modified", and the gate's always-append evidence never converges
+    # (issue #1609). With --no-record the hook only gates the commit; evidence is
+    # recorded by an explicit ``gate_record check`` run and by CI.
+    check.add_argument("--no-record", action="store_true")
     _add_field_flags(check)
 
     # finalize -------------------------------------------------------------
@@ -160,6 +167,9 @@ def _add_commit_msg_alias(sub: argparse._SubParsersAction) -> None:
     alias.add_argument("--record")
     alias.add_argument("--base", default=None)
     alias.add_argument("--head", default="HEAD")
+    # See ``check --no-record``: lets the commit-msg git hook gate without writing
+    # the ledger (issue #1609).
+    alias.add_argument("--no-record", action="store_true")
     _add_field_flags(alias)
     alias.set_defaults(_alias_to="check", _alias_mode="commit-msg")
 

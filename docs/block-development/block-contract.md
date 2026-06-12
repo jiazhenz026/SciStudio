@@ -318,7 +318,7 @@ directly via `persist_array()` or `persist_table()`. Do NOT use
 `obj._data = ...` and rely on auto-flush in IOBlock loaders. Auto-flush
 is a safety net for ProcessBlocks only.
 
-### Persist helpers (Block base class)
+### Persist helpers (Block base class) {#ioblock-persist-helpers}
 
 Available on **all block types** (defined on `Block`, not just `IOBlock`).
 

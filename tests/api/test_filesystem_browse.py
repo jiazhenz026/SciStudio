@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -89,7 +90,8 @@ class TestBrowseFilesystem:
     def test_path_traversal_outside_allowlist_is_rejected(self, client: TestClient, browse_dir: Path) -> None:
         # A ``..`` escape that canonicalises outside the allowlist is rejected
         # by the realpath+commonpath guard, not silently followed.
-        escape = browse_dir / ".." / ".." / ".." / ".." / ".." / "etc"
+        escaped_dir = "Windows" if os.name == "nt" else "etc"
+        escape = browse_dir.joinpath(*([".."] * (len(browse_dir.resolve().parts) - 1)), escaped_dir)
         resp = client.get(
             "/api/filesystem/browse",
             params={"path": str(escape)},

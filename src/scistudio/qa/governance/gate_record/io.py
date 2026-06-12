@@ -16,6 +16,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -23,6 +24,7 @@ from typing import Any, cast
 
 from scistudio.qa.governance.gate_record.ledger import GateLedger
 from scistudio.qa.governance.gate_record.surfaces import SLUG_RE, normalize_path
+from scistudio.utils.atomic_io import atomic_write_text
 
 RECORDS_DIR = ".workflow/records"
 LOCAL_LOGS_DIR = ".workflow/local/logs"
@@ -58,7 +60,7 @@ def write_ledger(path: Path, ledger: GateLedger, *, repo_root: Path | None = Non
     sanitize_ledger(ledger, repo_root=repo_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = ledger.model_dump(mode="json", by_alias=True, exclude_none=False)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return path
 
 
@@ -120,7 +122,7 @@ def write_session_state(repo_root: Path, session_id: str, state: Mapping[str, An
     directory = session_state_dir(repo_root)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{session_id}.json"
-    path.write_text(json.dumps(dict(state), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_text(path, json.dumps(dict(state), indent=2, sort_keys=True) + "\n")
     return path
 
 
@@ -306,9 +308,10 @@ def fingerprint_paths(paths: Sequence[str]) -> str:
 class DiscoveryResult:
     """Outcome of branch-based ledger discovery."""
 
-    def __init__(self, path: Path | None, candidates: list[Path]):
+    def __init__(self, path: Path | None, candidates: list[Path], unreadable: list[Path] | None = None):
         self.path = path
         self.candidates = candidates
+        self.unreadable = unreadable or []
 
     @property
     def found(self) -> bool:
@@ -318,9 +321,28 @@ class DiscoveryResult:
     def ambiguous(self) -> bool:
         return self.path is None and len(self.candidates) > 1
 
+    @property
+    def has_unreadable(self) -> bool:
+        return self.path is None and bool(self.unreadable)
 
-def _ledger_meta(path: Path) -> tuple[str | None, bool, bool]:
-    """Return ``(branch, is_v2_ledger, is_finalized)`` for a record file.
+
+def _read_json_with_retry(path: Path, *, attempts: int = 4, delay_seconds: float = 0.025) -> object:
+    """Read JSON, retrying transient concurrent-write/read races."""
+
+    last_error: OSError | json.JSONDecodeError | None = None
+    for attempt in range(attempts):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                time.sleep(delay_seconds * (attempt + 1))
+    assert last_error is not None
+    raise last_error
+
+
+def _ledger_meta(path: Path) -> tuple[str | None, bool, bool, bool]:
+    """Return ``(branch, is_v2_ledger, is_finalized, unreadable)`` for a record file.
 
     ``is_v2_ledger`` is False for any non-dict / old-format / non-v2 record
     (those must never be discovered as an active current-branch ledger).
@@ -330,17 +352,17 @@ def _ledger_meta(path: Path) -> tuple[str | None, bool, bool]:
     """
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = _read_json_with_retry(path)
     except (OSError, json.JSONDecodeError):
-        return None, False, False
+        return None, False, False, True
     if not isinstance(data, dict):
-        return None, False, False
+        return None, False, False, False
     branch = data.get("branch")
     branch = branch if isinstance(branch, str) else None
     is_v2 = data.get("schema_version") == 2
     pr = data.get("pull_request")
     is_finalized = bool(isinstance(pr, dict) and (pr.get("url") or pr.get("number")))
-    return branch, is_v2, is_finalized
+    return branch, is_v2, is_finalized, False
 
 
 def current_branch(repo_root: Path) -> str | None:
@@ -375,6 +397,7 @@ def discover_ledger(
     *,
     branch: str | None = None,
     include_finalized: bool = False,
+    include_finalized_paths: Sequence[Path | str] | None = None,
 ) -> DiscoveryResult:
     """Discover the active ledger for the CURRENT branch (§5.1 / §10.2).
 
@@ -398,7 +421,15 @@ def discover_ledger(
     if not records:
         return DiscoveryResult(None, [])
 
+    allowed_finalized = {
+        (path if isinstance(path, Path) else Path(path)).resolve() for path in include_finalized_paths or []
+    }
+
+    def _finalized_allowed(path: Path, is_finalized: bool) -> bool:
+        return include_finalized or not is_finalized or path.resolve() in allowed_finalized
+
     target_branch = branch if branch is not None else current_branch(repo_root)
+    unreadable: list[Path] = []
     if target_branch is None:
         # No resolvable branch (e.g. CI detached HEAD with no GITHUB_*_REF set).
         # Last resort: if exactly one non-finalized schema-v2 ledger exists, use
@@ -406,22 +437,32 @@ def discover_ledger(
         # off so the caller reports the clear ambiguous/"pass --record" path.
         active = []
         for path in records:
-            _record_branch, is_v2, is_finalized = _ledger_meta(path)
-            if is_v2 and (include_finalized or not is_finalized):
+            _record_branch, is_v2, is_finalized, is_unreadable = _ledger_meta(path)
+            if is_unreadable:
+                unreadable.append(path)
+                continue
+            if is_v2 and _finalized_allowed(path, is_finalized):
                 active.append(path)
         if len(active) == 1:
             return DiscoveryResult(active[0], active)
+        if not active and unreadable:
+            return DiscoveryResult(None, [], unreadable)
         return DiscoveryResult(None, active if len(active) > 1 else [])
 
     matches = []
     for path in records:
-        record_branch, is_v2, is_finalized = _ledger_meta(path)
-        if record_branch == target_branch and is_v2 and (include_finalized or not is_finalized):
+        record_branch, is_v2, is_finalized, is_unreadable = _ledger_meta(path)
+        if is_unreadable:
+            unreadable.append(path)
+            continue
+        if record_branch == target_branch and is_v2 and _finalized_allowed(path, is_finalized):
             matches.append(path)
     if len(matches) == 1:
         return DiscoveryResult(matches[0], matches)
     if len(matches) > 1:
         return DiscoveryResult(None, matches)
+    if unreadable:
+        return DiscoveryResult(None, [], unreadable)
     return DiscoveryResult(None, [])
 
 
