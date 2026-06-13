@@ -139,6 +139,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             def start_workflow(self, workflow_id: str) -> object:
                 return self._rt.start_workflow(workflow_id)
 
+            def register_plot_artifact(
+                self,
+                artifact_path: str | Path,
+                *,
+                cache_key: str | None = None,
+                workflow_id: str | None = None,
+                node_id: str | None = None,
+                output_port: str | None = None,
+                plot_id: str | None = None,
+            ) -> object:
+                return self._rt.register_plot_artifact(
+                    artifact_path,
+                    cache_key=cache_key,
+                    workflow_id=workflow_id,
+                    node_id=node_id,
+                    output_port=output_port,
+                    plot_id=plot_id,
+                )
+
         _mcp_context.set_context(_RuntimeAdapter(runtime))  # type: ignore[arg-type]
         # Pick a per-process socket path. Without an active project we
         # fall back to a temp-dir sentinel so the server still starts

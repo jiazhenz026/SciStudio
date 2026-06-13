@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { api } from "../lib/api";
+import { plotTargetFromRunResponse } from "../lib/api/data";
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
 import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
@@ -80,6 +82,42 @@ export function DataPreview({
   // The frontend has no authoritative type chain; it sends a minimal data_ref
   // target and the backend rebuilds the routed target from its catalog (#1592).
   const target: PreviewTarget | null = activeRef ? { kind: "data_ref", ref: activeRef } : null;
+  const [plotId, setPlotId] = useState("");
+  const [plotTarget, setPlotTarget] = useState<PreviewTarget | null>(null);
+  const [plotRunError, setPlotRunError] = useState<string | null>(null);
+  const [plotRunning, setPlotRunning] = useState(false);
+
+  useEffect(() => {
+    setPlotTarget(null);
+    setPlotRunError(null);
+    setPlotRunning(false);
+  }, [selectedNodeId]);
+
+  async function handlePlotRun(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const requestedPlotId = plotId.trim();
+    if (!requestedPlotId) {
+      setPlotRunError("Enter a plot id.");
+      return;
+    }
+    setPlotRunning(true);
+    setPlotRunError(null);
+    try {
+      const result = await api.runPlotJob({ plot_id: requestedPlotId });
+      const nextTarget = plotTargetFromRunResponse(result);
+      if (!nextTarget) {
+        setPlotTarget(null);
+        setPlotRunError(result.errors[0] ?? `Plot run ${result.status}.`);
+        return;
+      }
+      setPlotTarget(nextTarget);
+    } catch (error) {
+      setPlotTarget(null);
+      setPlotRunError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPlotRunning(false);
+    }
+  }
 
   // Hotfix 2026-05-23 — split the preview region from the port-description
   // panel so the panel no longer steals vertical space from the active
@@ -123,19 +161,62 @@ export function DataPreview({
           <div className="mt-5 flex flex-wrap gap-2">
             {refEntries.map((entry) => (
               <button
-                className={`rounded-full px-3 py-1 text-xs ${activeRef === entry.ref ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                className={`rounded-full px-3 py-1 text-xs ${!plotTarget && activeRef === entry.ref ? "bg-ink text-white" : "bg-white text-stone-600"}`}
                 key={entry.ref}
-                onClick={() => setPickedRef(entry.ref)}
+                onClick={() => {
+                  setPickedRef(entry.ref);
+                  setPlotTarget(null);
+                  setPlotRunError(null);
+                }}
                 title={entry.ref}
                 type="button"
               >
                 {entry.displayName}
               </button>
             ))}
+            {plotTarget ? (
+              <button
+                className="rounded-full bg-ink px-3 py-1 text-xs text-white"
+                onClick={() => setPlotTarget(plotTarget)}
+                title={plotTarget.ref}
+                type="button"
+              >
+                Plot artifact
+              </button>
+            ) : null}
           </div>
+          <form className="mt-3 flex items-center gap-2" onSubmit={handlePlotRun}>
+            <label className="sr-only" htmlFor="data-preview-plot-id">
+              Plot id
+            </label>
+            <input
+              className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 outline-none focus:border-ink"
+              disabled={plotRunning}
+              id="data-preview-plot-id"
+              onChange={(event) => setPlotId(event.target.value)}
+              placeholder="plot_id"
+              value={plotId}
+            />
+            <button
+              aria-label="Run plot"
+              className="rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
+              disabled={plotRunning}
+              type="submit"
+            >
+              {plotRunning ? "Running" : "Run"}
+            </button>
+          </form>
+          {plotRunError ? (
+            <div
+              className="mt-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
+              role="alert"
+            >
+              {plotRunError}
+            </div>
+          ) : null}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             <PreviewHost
-              target={target}
+              target={plotTarget ?? target}
               getCachedEnvelope={(key) => previewEnvelopeCache[key]}
               cacheEnvelope={cachePreviewEnvelope}
               buildCacheKey={(t, q) => buildPreviewCacheKey(t, q)}

@@ -2,9 +2,6 @@
 
 Tools: ``get_block_output``, ``inspect_data``, ``preview_data``,
 ``get_lineage``, ``get_block_config``, ``get_block_logs``.
-
-Extracted from the original single-file ``tools_inspection.py`` (#1431,
-umbrella #1427). No behavior change.
 """
 
 from __future__ import annotations
@@ -179,26 +176,26 @@ async def preview_data(
         ),
     ),
 ) -> PreviewDataResult:
-    """Compute a small preview of stored data without OOM risk.
+    """Compute a canonical bounded MCP preview of stored data.
 
     Use when:
       - You need to see actual data (rows, thumbnail, samples) for
         diagnosis or QA.
 
     Do NOT use to:
-      - Read full datasets — this tool is capped at 8 MiB per response
+      - Read full datasets: this tool is capped at 8 MiB per response
         and uses chunked reads (zarr iter_chunks, tifffile memmap) to
         avoid OOM on multi-GB inputs.
-      - Inspect metadata only — use ``inspect_data``.
+      - Inspect metadata only: use ``inspect_data``.
 
     Dispatch:
-      - DataFrame → first 100 rows via Arrow slice.
-      - Array → PIL-free PNG thumbnail clamped to 256x256; chunked read.
-      - Series → first 200 entries.
-      - Text → first 4096 chars.
-      - Artifact → size + (for images) base64 data URI under the cap.
+      - DataFrame: first 100 rows via streaming Arrow batches.
+      - Array: PNG thumbnail clamped to 256x256 via bounded array reads.
+      - Series: first 200 entries.
+      - Text: first 4096 chars.
+      - Artifact: size plus inline image data only when under the cap.
     """
-    del fmt  # advisory — dispatch is type-driven below
+    del fmt  # advisory; dispatch is type-driven below
     sref = _ref_from_dict(ref)
     if not sref.path:
         return PreviewDataResult(fmt="empty", payload={}, truncated=False)

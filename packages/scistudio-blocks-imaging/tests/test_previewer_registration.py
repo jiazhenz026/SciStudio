@@ -24,7 +24,10 @@ monorepo discovery) and never require the package to be pip-installed.
 
 from __future__ import annotations
 
+import importlib.metadata
+import tomllib
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -132,11 +135,11 @@ def _image_request(spec: PreviewerSpec, path: Path, record_md: dict | None = Non
 
 
 def _image_spec() -> PreviewerSpec:
-    return next(s for s in get_previewers() if s.previewer_id == IMAGE_PREVIEWER_ID)
+    return cast(PreviewerSpec, next(s for s in get_previewers() if s.previewer_id == IMAGE_PREVIEWER_ID))
 
 
 def _label_spec() -> PreviewerSpec:
-    return next(s for s in get_previewers() if s.previewer_id == LABEL_PREVIEWER_ID)
+    return cast(PreviewerSpec, next(s for s in get_previewers() if s.previewer_id == LABEL_PREVIEWER_ID))
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +166,45 @@ def test_get_previewers_returns_image_and_label_package_specs() -> None:
 def test_top_level_reexport_matches_module_factory() -> None:
     """The package top-level re-export (monorepo discovery seam) is the same factory."""
     assert {s.previewer_id for s in pkg_get_previewers()} == {IMAGE_PREVIEWER_ID, LABEL_PREVIEWER_ID}
+
+
+def test_pyproject_declares_installed_previewer_entry_point() -> None:
+    """Installed package metadata must expose Image/Label previewers via entry points."""
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+
+    previewers = data["project"]["entry-points"]["scistudio.previewers"]
+    assert previewers == {
+        "imaging": "scistudio_blocks_imaging.previewers:get_previewers",
+    }
+
+
+def test_installed_entry_point_registers_imaging_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The registry discovers imaging previewers from entry points without monorepo fallback."""
+    entry_point = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging.previewers:get_previewers",
+        group="scistudio.previewers",
+    )
+
+    def _entry_points(*, group: str | None = None) -> tuple[importlib.metadata.EntryPoint, ...]:
+        return (entry_point,) if group == "scistudio.previewers" else ()
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+
+    reg = PreviewerRegistry()
+    reg.load_core()
+    reg.load_packages(include_monorepo=False)
+
+    ids = {s.previewer_id for s in reg.all_specs()}
+    assert {IMAGE_PREVIEWER_ID, LABEL_PREVIEWER_ID} <= ids
+    image_spec = reg.get(IMAGE_PREVIEWER_ID)
+    label_spec = reg.get(LABEL_PREVIEWER_ID)
+    assert image_spec is not None
+    assert label_spec is not None
+    assert image_spec.owner_kind is OwnerKind.PACKAGE
+    assert label_spec.owner_kind is OwnerKind.PACKAGE
+    assert reg.diagnostics == []
 
 
 def test_manifests_pass_asset_validation_and_resolve_to_a_real_file() -> None:

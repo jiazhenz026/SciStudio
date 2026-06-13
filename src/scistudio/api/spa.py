@@ -8,6 +8,7 @@ file.  Required for client-side routing: deep URLs like
 from __future__ import annotations
 
 import os
+from typing import cast
 
 from starlette.staticfiles import StaticFiles
 
@@ -24,5 +25,5 @@ class SPAStaticFiles(StaticFiles):
         """Return the real file if it exists, otherwise ``index.html``."""
         full_path, stat_result = super().lookup_path(path)
         if stat_result is None:
-            return super().lookup_path("index.html")
+            return cast(tuple[str, os.stat_result | None], super().lookup_path("index.html"))
         return full_path, stat_result

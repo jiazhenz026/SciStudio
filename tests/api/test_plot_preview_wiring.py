@@ -153,6 +153,7 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     """
     _seed_block_output(runtime, opened_project)
     _write_workflow_and_plot(client, opened_project)
+    catalog_count_before = len(runtime.data_catalog)
 
     # 1. Producer: run the plot job through the NEW route.
     run = client.post("/api/plots/run", json={"plot_id": "p1"})
@@ -165,6 +166,8 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     assert body["recorded_type"] == "PlotArtifact"
     assert body["source"]["node_id"] == "node_a"
     assert body["source"]["output_port"] == "measurements"
+    assert data_ref in runtime.data_catalog
+    assert len(runtime.data_catalog) == catalog_count_before + 1
 
     # The artifact really exists on disk at the FR-026 cache layout.
     cache_dir = preview_cache_dir(opened_project, "main", "node_a", "measurements", "p1")

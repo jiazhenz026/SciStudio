@@ -33,6 +33,7 @@ from scistudio.ai.agent.mcp.tools_plot.models import (
     LOG_TRUNCATE_BYTES,
     PlotArtifact,
     PlotManifest,
+    PlotPreviewTarget,
     PlotRunResult,
     PlotStatus,
 )
@@ -81,6 +82,14 @@ class _ResolvedInput:
     run_id: str | None
     refs: list[dict[str, Any]]
     collection_ids: list[str]
+
+
+@dataclass
+class _PreviewRegistration:
+    data_ref: str | None = None
+    recorded_type: str = "PlotArtifact"
+    type_chain: list[str] | None = None
+    preview_target: PlotPreviewTarget | None = None
 
 
 def _resolve_input(ctx: Any, manifest: PlotManifest, run_id: str | None) -> _ResolvedInput:
@@ -159,8 +168,70 @@ def _flatten_to_refs(value: Any) -> tuple[list[dict[str, Any]], list[str]]:
     return refs, collection_ids
 
 
+def _preview_registrar(ctx: Any) -> Any | None:
+    """Return a callable plot-artifact registrar from the live MCP context.
+
+    In the FastAPI process the MCP context is a thin adapter around
+    ``ApiRuntime``. The adapter keeps the API layer out of ``ai`` imports, so
+    this function duck-types the adapter method without importing from
+    ``scistudio.api``.
+    """
+    registrar = getattr(ctx, "register_plot_artifact", None)
+    return registrar if callable(registrar) else None
+
+
+def _register_preview_artifact(
+    ctx: Any,
+    artifact_path: str,
+    *,
+    cache_key: str | None,
+    manifest: PlotManifest,
+    workflow_id: str,
+) -> _PreviewRegistration:
+    """Register the first produced artifact so MCP callers get a preview target."""
+    registrar = _preview_registrar(ctx)
+    if registrar is None:
+        return _PreviewRegistration(type_chain=[])
+
+    try:
+        record = registrar(
+            artifact_path,
+            cache_key=cache_key,
+            workflow_id=workflow_id,
+            node_id=manifest.target.node_id,
+            output_port=manifest.target.output_port,
+            plot_id=manifest.id,
+        )
+    except Exception:
+        logger.warning("plot artifact registration failed", exc_info=True)
+        return _PreviewRegistration(type_chain=[])
+    data_ref = str(getattr(record, "id", "") or "")
+    if not data_ref:
+        return _PreviewRegistration(type_chain=[])
+    recorded_type = str(getattr(record, "type_name", "") or "PlotArtifact")
+    raw_chain = getattr(record, "type_chain", None)
+    type_chain = [str(name) for name in raw_chain] if raw_chain else ["DataObject", "PlotArtifact"]
+    source: dict[str, str | None] = {
+        "workflow_id": workflow_id,
+        "node_id": manifest.target.node_id,
+        "output_port": manifest.target.output_port,
+    }
+    preview_target = PlotPreviewTarget(
+        ref=data_ref,
+        recorded_type=recorded_type,
+        type_chain=type_chain,
+        source=source,
+    )
+    return _PreviewRegistration(
+        data_ref=data_ref,
+        recorded_type=recorded_type,
+        type_chain=type_chain,
+        preview_target=preview_target,
+    )
+
+
 # ---------------------------------------------------------------------------
-# Execution (FR-024) — CodeBlock subprocess primitive, confined cwd.
+# Execution (FR-024) - CodeBlock subprocess primitive, confined cwd.
 # ---------------------------------------------------------------------------
 
 
@@ -332,6 +403,18 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
         warnings=warnings,
         errors=errors,
     )
+    if status == "succeeded" and result.artifact_paths:
+        registration = _register_preview_artifact(
+            ctx,
+            result.artifact_paths[0],
+            cache_key=cache_key,
+            manifest=manifest,
+            workflow_id=workflow_id,
+        )
+        result.data_ref = registration.data_ref
+        result.recorded_type = registration.recorded_type
+        result.type_chain = registration.type_chain or []
+        result.preview_target = registration.preview_target
     metadata_path = _write_metadata(cache_dir, loaded, resolved, result, run_id, workflow_id, artifacts=artifacts)
     result.metadata_path = str(metadata_path)
     return result

@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+from collections.abc import Coroutine, Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
 
@@ -31,6 +32,8 @@ from scistudio.ai.agent.mcp.tools_plot import (
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
+
+_T = TypeVar("_T")
 
 
 # ---------------------------------------------------------------------------
@@ -90,15 +93,53 @@ class _StubRun:
 
 
 @dataclass
+class _PlotRecord:
+    id: str
+    type_name: str
+    type_chain: list[str]
+    metadata: dict[str, Any]
+
+
+@dataclass
 class _StubRuntime:
     _project_dir: Path
     block_registry: Any = None
+    type_registry: Any = None
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     active_workflow_id: str | None = None
+    data_catalog: dict[str, _PlotRecord] = field(default_factory=dict)
 
     @property
     def project_dir(self) -> Path | None:
         return self._project_dir
+
+    def register_plot_artifact(
+        self,
+        artifact_path: str | Path,
+        *,
+        cache_key: str | None = None,
+        workflow_id: str | None = None,
+        node_id: str | None = None,
+        output_port: str | None = None,
+        plot_id: str | None = None,
+    ) -> _PlotRecord:
+        record = _PlotRecord(
+            id=f"data-plot-{len(self.data_catalog) + 1}",
+            type_name="PlotArtifact",
+            type_chain=["DataObject", "PlotArtifact"],
+            metadata={
+                "path": str(artifact_path),
+                "cache_key": cache_key,
+                "plot_id": plot_id,
+                "source": {
+                    "workflow_id": workflow_id,
+                    "node_id": node_id,
+                    "output_port": output_port,
+                },
+            },
+        )
+        self.data_catalog[record.id] = record
+        return record
 
 
 class _Measurements:  # pragma: no cover - used only as an accepted-type name
@@ -155,16 +196,16 @@ def csv_output(tmp_path: Path) -> Path:
     return csv
 
 
-def _set_ctx(runtime: _StubRuntime):
+def _set_ctx(runtime: _StubRuntime) -> None:
     _context.set_context(runtime)
 
 
-def _run(coro):
+def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     return asyncio.run(coro)
 
 
 @pytest.fixture(autouse=True)
-def _teardown_ctx():
+def _teardown_ctx() -> Generator[None, None, None]:
     yield
     _context.set_context(None)
 
@@ -245,7 +286,7 @@ def test_list_targets_uses_effective_output_ports(project: Path) -> None:
 
 def _target_id(project: Path) -> str:
     result = _run(list_plot_targets())
-    return result.targets[0].target_id
+    return str(result.targets[0].target_id)
 
 
 def test_scaffold_creates_python_plot(project: Path) -> None:
@@ -431,6 +472,15 @@ def test_run_python_svg_success(project: Path, csv_output: Path) -> None:
     svg = Path(res.artifact_paths[0])
     assert svg.name == "current.svg"
     assert svg.is_file()
+    assert res.data_ref == "data-plot-1"
+    assert res.preview_target is not None
+    assert res.preview_target.kind == "plot_artifact"
+    assert res.preview_target.ref == res.data_ref
+    assert res.preview_target.source == {
+        "workflow_id": "main",
+        "node_id": "node_a",
+        "output_port": "measurements",
+    }
     # current.json written.
     assert res.metadata_path and Path(res.metadata_path).is_file()
 
@@ -534,6 +584,7 @@ def test_run_failed_rerun_records_failure_state(project: Path, csv_output: Path)
     _write_render(project, "flip", "def render(collection, context):\n    raise ValueError('nope')\n")
     bad = _run(run_plot_job(plot_id="flip"))
     assert bad.status == "failed"
+    assert bad.metadata_path is not None
     record = json.loads(Path(bad.metadata_path).read_text(encoding="utf-8"))
     assert record["status"] == "failed"
     assert record["error"]

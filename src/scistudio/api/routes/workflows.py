@@ -109,11 +109,13 @@ def _request_source_id(request: Request, body: Any | None = None) -> str | None:
     body_source_id = getattr(body, "source_id", None)
     if isinstance(body_source_id, str):
         return body_source_id
-    return request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
+    header_source_id = request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
+    return header_source_id if isinstance(header_source_id, str) else None
 
 
 def _request_source(request: Request, *, changed_by: str | None = None, default: str = "canvas") -> str:
-    explicit = request.headers.get("X-Workflow-Source") or request.headers.get("X-Source")
+    header_source = request.headers.get("X-Workflow-Source") or request.headers.get("X-Source")
+    explicit = header_source if isinstance(header_source, str) else None
     if explicit in _API_SOURCES:
         return explicit
     if changed_by and changed_by not in {"api", "canvas"}:

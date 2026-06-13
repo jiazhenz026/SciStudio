@@ -14,13 +14,13 @@ related_specs:
   - adr-048-developer-docs-refresh
 scope:
   in:
-    - Core previewer registry, router, sessions, bounded data access, API schemas, and compatibility adapters.
+    - Core previewer registry, router, sessions, bounded data access, API schemas, and session route wiring.
     - Core fallback previewers for DataFrame, Array, Series, Text, Artifact, CompositeData, Collection, and Plot artifacts.
     - Frontend PreviewHost, previewer manifest loading, routed fallback rendering, and preview cache state changes.
     - Package-owned previewer discovery through `scistudio.previewers`.
     - Project-local previewer discovery and explicit project default previewer selection.
     - Migration of rich Image and Label preview behavior from core/frontend hardcoding into `scistudio-blocks-imaging`.
-    - Compatibility coverage for the existing `/api/data/{data_ref}/preview` behavior during migration.
+    - Session API coverage for current preview behavior after the removed `/api/data/{data_ref}/preview` route.
   out:
     - Plot job authoring tools, plot manifest scaffolding, and plot execution. Those are governed by `adr-048-ai-plot-tools`.
     - Full package and block developer documentation rewrite. That is governed by `adr-048-developer-docs-refresh`.
@@ -83,13 +83,13 @@ The implementation must introduce a routed preview subsystem with these
 properties:
 
 - core owns routing, session lifecycle, safety limits, data access helpers, API
-  compatibility, and generic fallback viewers;
+  route contracts, and generic fallback viewers;
 - installed packages register previewers through a dedicated
   `scistudio.previewers` entry point;
 - projects may register project-local previewers and project defaults;
 - rich image and label viewing moves to `scistudio-blocks-imaging`;
-- current REST and frontend preview behavior remains covered by compatibility
-  tests while the new PreviewHost takes over;
+- current frontend preview behavior remains covered by routed session API tests
+  while the new PreviewHost takes over;
 - previewers inspect existing data references and collections without becoming
   workflow truth.
 
@@ -187,22 +187,20 @@ Acceptance Scenarios:
    a child preview, then item-level routing uses the same project/package/core
    precedence rules.
 
-### User Story 5 - Existing API clients do not break during migration (Priority: P1)
+### User Story 5 - Preview clients use the routed session API (Priority: P1)
 
-As a maintainer, I need current REST preview callers and tests to keep working
-until they intentionally move to the session API.
+As a maintainer, I need preview callers and tests to use the routed session API
+directly after removal of the old one-shot route.
 
-Independent Test: Run the existing data preview API tests after routing through
-the new previewer core; verify current `DataPreviewResponse` behavior is either
-preserved or explicitly versioned with compatibility assertions.
+Independent Test: Run the preview session API tests through the previewer core;
+verify routed `PreviewEnvelope` behavior for current preview shapes.
 
 Acceptance Scenarios:
 
 1. Given a `POST /api/previews/sessions` for a table, text, series, composite,
    array, or artifact target, when the session is created, then the response is
    a typed `PreviewEnvelope` the routed core/package viewer renders directly
-   (the legacy one-shot `GET /api/data/{data_ref}/preview` adapter was removed,
-   #1604).
+   (the one-shot `GET /api/data/{data_ref}/preview` route was removed, #1604).
 2. Given a table preview session, when the client `PATCH`es the session with
    `page` / `page_size` / `sort_by` / `sort_dir`, then the re-rendered envelope
    carries the requested page and sort, and page/sort semantics remain stable
@@ -233,7 +231,7 @@ Acceptance Scenarios:
 
 - FR-001: The implementation must create a core `scistudio.previewers` package
   containing registry, routing, model, session, data-access, fallback previewer,
-  and API adapter modules.
+  and API route modules.
 - FR-002: The preview registry must load core previewers unconditionally,
   package previewers from `scistudio.previewers` entry points, and project
   previewers from the active project configuration.
@@ -251,17 +249,14 @@ Acceptance Scenarios:
   frontend manifest.
 - FR-007: The backend must expose a typed preview session API for routed
   previewers. The migration is complete: the legacy one-shot
-  `GET /api/data/{data_ref}/preview` compatibility adapter has been removed
-  (#1604, no-compat per #1594); all preview reads — including table
-  pagination/sort and array slice selection — flow through the session API
+  `GET /api/data/{data_ref}/preview` route has been removed (#1604, no-compat
+  per #1594); all preview reads, including table pagination/sort and array
+  slice selection, flow through the session API
   (`POST`/`GET`/`PATCH /api/previews/sessions`).
-- FR-008: ~~The compatibility adapter must continue to support current table
-  pagination, sorting, slice index, and basic preview payload behavior until
-  the frontend no longer depends on the old contract.~~ **Superseded (#1604):**
-  the frontend no longer depends on the legacy contract — the core
-  `TableViewer` paginates/sorts through the session `PATCH` (like the
-  `ArrayViewer` slice selector), so the adapter, `api.getDataPreview`, and the
-  `_envelope_to_legacy_preview` runtime path were deleted with no compat shim.
+- FR-008: The frontend must not depend on the removed one-shot preview route.
+  Table pagination/sort and array slice selection must flow through session
+  `PATCH` (`TableViewer` and `ArrayViewer` share this routed path), and
+  `api.getDataPreview` plus `_envelope_to_legacy_preview` remain deleted.
 - FR-009: `PreviewDataAccess` must provide bounded helpers for DataFrame,
   Array, Series, Text, Artifact, CompositeData, and Collection targets.
 - FR-010: Previewers must not call eager materialization helpers on large data
@@ -309,9 +304,10 @@ Acceptance Scenarios:
   `Image` and `Label`, including frontend assets and backend provider code.
 - FR-026: Removing or disabling `scistudio-blocks-imaging` must leave base Array
   previews functional through core fallback behavior.
-- FR-027: The MCP inspection `preview_data` tool must either wrap the same
-  bounded data-access helpers or explicitly retain a compatibility adapter with
-  tests proving its 8 MiB response cap remains intact.
+- FR-027: The MCP inspection `preview_data` tool is the canonical bounded
+  AI-agent data preview read surface. It must use type-driven bounded reads and
+  tests must prove its advisory `fmt` handling and 8 MiB response cap remain
+  intact.
 - FR-028: Preview failures must not mutate workflow definitions, data objects,
   lineage records, or downstream outputs.
 - FR-029: The implementation must add deterministic diagnostic payloads for
@@ -345,13 +341,13 @@ Acceptance Scenarios:
 | `capabilities` | Feature strings such as `slice`, `table`, `lut`, `export`. |
 | `backend_provider` | Import path or callable reference for backend provider. |
 | `frontend_manifest` | Optional same-origin manifest descriptor. |
-| `api_version` | Previewer API compatibility version. |
+| `api_version` | Previewer API contract version. |
 
 `PreviewEnvelope` is the canonical backend response:
 
 | Field | Meaning |
 |---|---|
-| `session_id` | Preview session ID or null for one-shot compatibility previews. |
+| `session_id` | Preview session ID. |
 | `previewer_id` | Selected previewer ID. |
 | `target` | Normalized `PreviewTarget`. |
 | `kind` | Canonical fallback kind: `dataframe`, `array`, `series`, `text`, `artifact`, `composite`, `collection`, `plot`, or `error`. |
@@ -382,8 +378,8 @@ code.
 
 ### API Shape
 
-The preview API is session-oriented. The legacy one-shot
-`GET /api/data/{data_ref}/preview` adapter was removed (#1604, no-compat); only
+The preview API is session-oriented. The one-shot
+`GET /api/data/{data_ref}/preview` route was removed (#1604, no-compat); only
 the session routes remain:
 
 | Method | Path | Purpose |
@@ -415,8 +411,7 @@ frontend and imaging package onto the new contract. The target architecture is:
    error.
 3. `PreviewSessionManager` creates backend sessions and calls providers.
 4. `PreviewDataAccess` performs bounded reads and returns typed helper results.
-5. REST compatibility adapts canonical `PreviewEnvelope` objects to the current
-   `DataPreviewResponse` shape where needed.
+5. The session API returns canonical `PreviewEnvelope` objects directly.
 6. Frontend `PreviewHost` mounts routed previewers or local fallback viewers.
 7. The imaging package registers rich previewers and owns image-specific UI.
 
@@ -441,11 +436,11 @@ Backend core:
   preview subsystem.
 - Update `src/scistudio/api/runtime/_preview_cache.py` and
   `src/scistudio/api/runtime/_preview_image.py` by moving reusable bounded
-  helpers behind `PreviewDataAccess` or keeping them as compatibility wrappers.
+  helpers behind `PreviewDataAccess`.
 - Update `src/scistudio/api/routes/data.py` and `src/scistudio/api/schemas.py`
   for session APIs and typed schemas.
-- Update `src/scistudio/ai/agent/mcp/tools_inspection/**` only to share bounded
-  preview data access or preserve tested compatibility.
+- Update `src/scistudio/ai/agent/mcp/tools_inspection/**` only to expose
+  canonical bounded MCP preview access and tests.
 
 Frontend:
 
@@ -481,8 +476,8 @@ Package migration:
    fallback, priority, project override, and ambiguity.
 4. Add `PreviewDataAccess` and migrate table, text, array, series, composite,
    artifact, and collection reads behind bounded helpers.
-5. Route `ApiRuntime.preview_data` through the new subsystem while preserving
-   the existing REST response shape.
+5. Remove the old `ApiRuntime.preview_data` / one-shot REST preview surface and
+   keep preview callers on the routed session API.
 6. Add session API schemas and routes.
 7. Introduce frontend `PreviewHost` with core fallback components and session
    API usage.
@@ -492,7 +487,7 @@ Package migration:
    `Image`/`Label` previewers.
 10. Remove core image-specific behavior once imaging package coverage and core
     array fallback coverage are both green.
-11. Update MCP inspection sharing or compatibility tests.
+11. Update MCP inspection bounded-preview tests.
 12. Run backend, frontend, package, and packaging verification before PR
     readiness.
 
@@ -515,8 +510,7 @@ Backend unit tests:
 
 API tests:
 
-- old `/api/data/{ref}/preview` route remains compatible for current test
-  fixtures;
+- removed `/api/data/{ref}/preview` route remains absent;
 - new session routes create, read, patch, and fetch resources;
 - provider exceptions return preview errors without API crashes;
 - missing refs and stale sessions return stable errors.
@@ -557,9 +551,9 @@ manifests while keeping core fallback previewers.
 
 Risk: Moving image behavior out of core can break existing workflows.
 
-Mitigation: Land compatibility adapters and imaging package tests before
-removing old image-specific code. Rollback by keeping the legacy viewer mounted
-as an internal package-style provider until imaging assets stabilize.
+Mitigation: Land routed session coverage and imaging package tests before
+removing old image-specific code. Rollback by disabling package manifests and
+using the core array fallback until imaging assets stabilize.
 
 Risk: Preview data access can accidentally materialize large arrays.
 
@@ -583,8 +577,8 @@ with validation, not as implicit arbitrary script loading.
   routing, parent fallback, priority, explicit defaults, and ambiguity errors.
 - SC-003: Core fallback viewers exist for DataFrame, Array, Series, Text,
   Artifact, CompositeData, Collection, and Plot artifacts.
-- SC-004: Large-array tests prove the REST preview path no longer reads entire
-  large Zarr or TIFF payloads for a bounded preview.
+- SC-004: Large-array tests prove the routed preview and MCP inspection paths no
+  longer read entire large Zarr or TIFF payloads for a bounded preview.
 - SC-005: `scistudio-blocks-imaging` registers image and label previewers
   through `scistudio.previewers`.
 - SC-006: Frontend tests prove PreviewHost can mount core fallbacks and can
@@ -605,8 +599,7 @@ with validation, not as implicit arbitrary script loading.
   type fallback for registered types.
 - Preview frontend assets can be packaged with wheels and served same-origin by
   the SciStudio API.
-- The first implementation may keep compatibility adapters while new session
-  APIs are introduced, as long as the adapters are tested and scheduled for
-  removal or retention by follow-up issue.
+- No retained preview API shims are allowed under #1594; any temporary
+  migration surface must be tracked and removed before PR readiness.
 - Rerendering plot artifacts is governed by `adr-048-ai-plot-tools`; this spec
   only displays already-created plot artifacts.
