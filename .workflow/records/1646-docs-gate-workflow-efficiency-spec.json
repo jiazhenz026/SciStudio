@@ -45,10 +45,46 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T17:50:19.649583Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6b87bd605392e3b7c4093d9486c6fa3792505022ec54bbb2a9717ee5ccb27720",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T17:51:10.807543Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6b87bd605392e3b7c4093d9486c6fa3792505022ec54bbb2a9717ee5ccb27720",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "191ce14ac9b42bc52753b0d7ddef2e3aec5ef0c7",
+    "shas": [
+      "191ce14ac9b42bc52753b0d7ddef2e3aec5ef0c7"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -285,6 +321,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:10.912682Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:10.961254Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.018442Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.066391Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.120039Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.169573Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.218362Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.268703Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.322212Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:51:11.373102Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -303,9 +421,9 @@
       ".workflow/records/1646-docs-gate-workflow-efficiency-spec.json",
       "docs/specs/gate-workflow-efficiency-optimizations.md"
     ],
-    "diff_fingerprint": "sha256:707a0c37e93dd6848302b01634d6959bb69118096ab94342c9de7d3fc0731fc6",
+    "diff_fingerprint": "sha256:d005c5b165a340a8ee87ada8c7065fbe3791705413766b8386236b6f84abb542",
     "head": "HEAD",
-    "head_sha": "06776965",
+    "head_sha": "191ce14a",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -321,7 +439,14 @@
   },
   "owner_directive": "Write a planning spec for gate workflow efficiency optimizations without weakening governance.",
   "persona": "adr_author",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1646
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-13T17:47:15.115545Z",
@@ -342,6 +467,14 @@
     {
       "at": "2026-06-13T17:49:30.458321Z",
       "diff_fingerprint": "sha256:707a0c37e93dd6848302b01634d6959bb69118096ab94342c9de7d3fc0731fc6",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T17:51:11.373146Z",
+      "diff_fingerprint": "sha256:d005c5b165a340a8ee87ada8c7065fbe3791705413766b8386236b6f84abb542",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
