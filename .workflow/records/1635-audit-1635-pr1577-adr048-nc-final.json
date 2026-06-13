@@ -120,13 +120,43 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T22:10:59.265539Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1e0ca67aef28936eca7b28b7ffcccb4b76ab7dd0577c849499d6dd1ecf87ebd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T22:11:28.260578Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1e0ca67aef28936eca7b28b7ffcccb4b76ab7dd0577c849499d6dd1ecf87ebd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "9ba4eb46339c774fef5923778f18f37a46fc4846",
+    "sha": "7387ac3b11c28b9dbc31e829c8917036bc7194b5",
     "shas": [
-      "9ba4eb46339c774fef5923778f18f37a46fc4846"
+      "7387ac3b11c28b9dbc31e829c8917036bc7194b5"
     ],
     "trailers": []
   },
@@ -181,6 +211,22 @@
     },
     {
       "at": "2026-06-13T22:09:19.631533Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:11:58.738216Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:12:51.640455Z",
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
@@ -669,6 +715,306 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.383779Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.436797Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.491557Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.562593Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.628942Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.693418Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.767981Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.841480Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.919597Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:10:59.975643Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.389817Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.445391Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.501779Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.558428Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.613583Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.678455Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.741991Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.798199Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.857195Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:28.916441Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.447567Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.508966Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.563894Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.618985Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.674671Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.730659Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.806135Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.862676Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.918606Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:11:59.977771Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.597596Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.653667Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.713594Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.767056Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.839736Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.894820Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:18.948733Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:19.002745Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:19.073670Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:19.127977Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.326808Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.380638Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.436026Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.493763Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.579846Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.636658Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.691792Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.748192Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.806067Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:12:52.862344Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -687,9 +1033,9 @@
       ".workflow/records/1635-audit-1635-pr1577-adr048-nc-final.json",
       "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md"
     ],
-    "diff_fingerprint": "sha256:91d3db8a689b667bde216ce33e007e04f0656d1ccfc4a3cc5cc5c40bd1d4b931",
+    "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
     "head": "HEAD",
-    "head_sha": "9ba4eb46",
+    "head_sha": "7387ac3b",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -710,7 +1056,7 @@
     "closes": [
       1635
     ],
-    "number": null,
+    "number": 1652,
     "url": null
   },
   "reconcile_events": [
@@ -777,15 +1123,53 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:10:59.975682Z",
+      "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:11:28.916482Z",
+      "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:11:59.977802Z",
+      "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:12:19.128017Z",
+      "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:12:52.862379Z",
+      "diff_fingerprint": "sha256:2dc65359b2240b72aef2ddfc5cd79c4571418f68f34ff39e5b0365781a6ed942",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1635-audit-1635-pr1577-adr048-nc-final",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
@@ -881,6 +1265,22 @@
     },
     {
       "at": "2026-06-13T22:09:19.631561Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:11:58.738244Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:12:51.640480Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
