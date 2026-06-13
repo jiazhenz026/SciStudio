@@ -49,10 +49,9 @@ export interface PreviewHostProps {
   /** Optional initial query state (slice/page/sort). */
   initialQuery?: Record<string, unknown>;
   /**
-   * Optional session-keyed cache hooks (FR-021). When provided, the host reads
-   * a cached envelope before creating a session and writes the rendered
-   * envelope back. The cache key already encodes target + previewer + query +
-   * data version (see `previewSlice`); the host passes the rendered envelope.
+   * Optional session-keyed cache hooks (FR-021). The host writes rendered
+   * envelopes only after the backend has resolved preview identity, so cache
+   * keys include target + previewer + session + query + data version.
    */
   getCachedEnvelope?: (key: string) => PreviewEnvelope | undefined;
   cacheEnvelope?: (key: string, envelope: PreviewEnvelope) => void;
@@ -111,19 +110,14 @@ function cacheEnvelopeForQuery(
   target: PreviewTarget,
   query: Record<string, unknown>,
   envelope: PreviewEnvelope,
-  unresolvedKey?: string,
 ) {
   if (!cacheEnvelope || !buildCacheKey) return;
-  const keys = new Set<string>();
-  if (unresolvedKey) keys.add(unresolvedKey);
-  keys.add(buildCacheKey(target, query, cacheIdentityFromEnvelope(envelope)));
-  keys.forEach((key) => cacheEnvelope(key, envelope));
+  cacheEnvelope(buildCacheKey(target, query, cacheIdentityFromEnvelope(envelope)), envelope);
 }
 
 export function PreviewHost({
   target,
   initialQuery,
-  getCachedEnvelope,
   cacheEnvelope,
   buildCacheKey,
   importer,
@@ -151,14 +145,6 @@ export function PreviewHost({
     const query = { ...(initialQuery ?? {}) };
     queryRef.current = query;
 
-    const cacheKey = buildCacheKey?.(target, query);
-    const cached = cacheKey ? getCachedEnvelope?.(cacheKey) : undefined;
-    if (cached) {
-      setEnvelope(cached);
-      setStatus("ready");
-      return;
-    }
-
     setStatus("loading");
     setRequestError(null);
     api
@@ -167,7 +153,7 @@ export function PreviewHost({
         if (cancelled) return;
         setEnvelope(env);
         setStatus("ready");
-        cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, query, env, cacheKey);
+        cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, query, env);
       })
       .catch((err: unknown) => {
         if (cancelled) return;

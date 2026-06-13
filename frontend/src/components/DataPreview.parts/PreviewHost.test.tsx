@@ -483,27 +483,41 @@ describe("FR-021 cache key + FR-022 same-origin validation", () => {
 });
 
 describe("PreviewHost — session-envelope cache (FR-021)", () => {
-  it("reads from the cache before creating a session", async () => {
-    const cached = envelope({
+  it("does not reuse unresolved cache aliases before creating a session", async () => {
+    const stale = envelope({
+      session_id: "pv-stale",
       previewer_id: "core.text.basic",
       kind: "text",
-      payload: { content: "cached body", truncated: false },
+      payload: { content: "stale body", truncated: false },
     });
-    const getCachedEnvelope = vi.fn(() => cached);
-    const buildCacheKey = vi.fn(() => "the-key");
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "core.text.basic",
+        kind: "text",
+        payload: { content: "fresh body", truncated: false },
+      }),
+    );
+    const getCachedEnvelope = vi.fn(() => stale);
+    const cacheEnvelope = vi.fn();
 
     render(
       <PreviewHost
         target={TARGET}
+        cacheEnvelope={cacheEnvelope}
         getCachedEnvelope={getCachedEnvelope}
-        buildCacheKey={buildCacheKey}
+        buildCacheKey={buildPreviewCacheKey}
       />,
     );
 
     expect(await screen.findByTestId("core-text-viewer")).toBeInTheDocument();
-    expect(screen.getByText("cached body")).toBeInTheDocument();
-    expect(createPreviewSession).not.toHaveBeenCalled();
-    expect(getCachedEnvelope).toHaveBeenCalledWith("the-key");
+    expect(screen.getByText("fresh body")).toBeInTheDocument();
+    expect(screen.queryByText("stale body")).toBeNull();
+    expect(createPreviewSession).toHaveBeenCalledWith(TARGET, {});
+    expect(getCachedEnvelope).not.toHaveBeenCalled();
+    expect(cacheEnvelope).toHaveBeenCalledTimes(1);
+    const [key] = cacheEnvelope.mock.calls[0];
+    expect(String(key)).toContain("previewer=core.text.basic");
+    expect(String(key)).toContain("session=pv-1");
   });
 
   it("caches patched array envelopes with resolved identity and axis_indices", async () => {
@@ -557,6 +571,12 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     );
 
     expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
+    let keys = cacheEnvelope.mock.calls.map(([key]) => String(key));
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toContain("previewer=core.array.basic");
+    expect(keys[0]).toContain("session=pv-1");
+    expect(keys[0]).toContain("version=v7");
+    expect(keys[0]).not.toBe(buildPreviewCacheKey({ ...TARGET, recorded_type: "Array" }, {}));
     cacheEnvelope.mockClear();
 
     fireEvent.change(screen.getByTestId("array-slice-slider-1"), { target: { value: "4" } });
@@ -565,7 +585,8 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     const [, patch] = patchPreviewSession.mock.calls[0];
     expect(patch).toMatchObject({ axis_indices: { "0": 1, "1": 4 } });
     await waitFor(() => expect(cacheEnvelope).toHaveBeenCalled());
-    const keys = cacheEnvelope.mock.calls.map(([key]) => String(key));
+    keys = cacheEnvelope.mock.calls.map(([key]) => String(key));
+    expect(keys).toHaveLength(1);
     expect(
       keys.some(
         (key) =>
