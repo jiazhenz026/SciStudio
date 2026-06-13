@@ -215,7 +215,7 @@ python -m scistudio.qa.governance.gate_record check \
 
 | Argument | Required | Repeatable | Meaning |
 |---|---:|---:|---|
-| `--base` | no | no | Base ref for diff; default `git merge-base origin/main HEAD`, falling back to `origin/main`. Deeply-stacked branches may need an explicit `--base` |
+| `--base` | no | no | Base ref for diff; default `git merge-base <upstream> HEAD` falling back to the raw upstream. When `--base` is omitted, `<upstream>` is the `SCISTUDIO_GATE_BASE` env var if set, else `origin/main`. Set `SCISTUDIO_GATE_BASE=origin/track/<name>` so the commit-msg / pre-commit framework hooks of a **track-stacked sub-PR** diff against their track (not `origin/main`, which would misread the whole track delta as authored here) — the same var the push/PR wrappers already honor (#1627). An explicit `--base` still wins. Deeply-stacked branches may need an explicit `--base` |
 | `--head` | no | no | Head ref for diff; default `HEAD` |
 | `--mode` | no | no | One of `local` (default), `pre-commit`, `commit-msg`, `pre-push`, `pre-pr`, `ci` |
 | `--pr-body-file` | no | no | Intended PR body file for pre-PR issue-closure checks |
