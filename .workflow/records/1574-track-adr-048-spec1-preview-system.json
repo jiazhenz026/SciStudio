@@ -878,7 +878,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-06-11T02:08:44.655684Z",
@@ -1744,7 +1744,14 @@
     }
   ],
   "record_id": "1574-track-adr-048-spec1-preview-system",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [
@@ -1863,6 +1870,108 @@
       "at": "2026-06-11T07:27:01.741837Z",
       "pattern": "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
       "reason": "SPEC1-FIX gate reconciliation: existing manager dispatch prompt record is part of the #1577 PR diff and was required reading for this dispatched fix"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056682Z",
+      "pattern": ".github/workflows/deferral-scan.yml",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056699Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056702Z",
+      "pattern": "docs/audit/baselines/deferral-baseline.json",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056703Z",
+      "pattern": "pyproject.toml",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056705Z",
+      "pattern": "scripts/deferral_scan.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056706Z",
+      "pattern": "src/scistudio/core/meta/_with_meta.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056707Z",
+      "pattern": "src/scistudio/core/meta/framework.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056709Z",
+      "pattern": "src/scistudio/core/types/registry.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056710Z",
+      "pattern": "src/scistudio/previewers/registry.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056711Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/checks.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056713Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056714Z",
+      "pattern": "src/scistudio/workflow/validator.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056715Z",
+      "pattern": "tests/core/test_meta_type_preservation_1607.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056717Z",
+      "pattern": "tests/qa/governance/test_gate_record_package.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056718Z",
+      "pattern": "tests/qa/test_gate_record.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056719Z",
+      "pattern": "tests/scripts/test_deferral_scan.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T03:39:49.056721Z",
+      "pattern": "tests/workflow/test_serializer_property.py",
+      "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
     }
   ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
@@ -1978,6 +2087,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_data.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T03:34:58.841836Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_meta_type_preservation_1607.py",
       "rationale": null,
       "verified_in_diff": null
     }

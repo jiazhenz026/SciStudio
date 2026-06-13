@@ -13,7 +13,7 @@ Loads :class:`PreviewerSpec` declarations from three tiers:
    :mod:`scistudio.previewers.project`.
 
 Duplicate ``previewer_id`` across the loaded set is recorded as a diagnostic
-and the later registration is rejected (FR-006); a broken entry point is
+and the subsequent registration is rejected (FR-006); a broken entry point is
 logged and skipped, never crashing the registry (mirrors the block/type
 registries).
 """

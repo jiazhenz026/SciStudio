@@ -72,8 +72,15 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
         "frontend",
         "wheel_release_smoke",
         "semantic_dup",
+        "deferral_discipline",
     }
 )
+
+# The two slowest checks (~3min combined: full pytest + src-wide embeddings).
+# pre-commit is a fast local gate, so it skips these — they still run in
+# pre-pr / CI, and the governance guards + fast checks still run at commit time
+# (#1628).
+_PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests", "semantic_dup"})
 
 # Surface classes the evaluator records on the observed diff.
 _SURFACE_CLASSIFIERS = {
@@ -494,6 +501,33 @@ def _guard_repair_hint(guard_name: str, report: AuditReport) -> str:
     return "\n".join(lines)
 
 
+def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int = 50, max_chars: int = 6000) -> str:
+    """Return an indented tail excerpt of a failed check's raw log, or "".
+
+    The committed ledger keeps only a one-line ``summary`` + ``raw_log_ref``; this
+    surfaces the actual findings inline in the repair hint so a failing check is
+    actionable without opening the log file (#1628). Tail-biased because most
+    tools (pytest/ruff/mypy) put their error summary last, and full_audit's
+    per-child status table also lands at the tail.
+    """
+
+    ref = event.raw_log_ref
+    if not ref:
+        return ""
+    try:
+        text = (repo_root / ref).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    tail = text.splitlines()[-max_lines:]
+    excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
+    if len(excerpt) > max_chars:
+        excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
+    # Keep it printable on ANY console: a Windows GBK/cp1252 stdout cannot encode
+    # the U+FFFD replacement char that ``errors="replace"`` emits for non-UTF-8
+    # log bytes, which would crash ``_print_outcome``'s ``print``. ASCII-clean it.
+    return excerpt.encode("ascii", "replace").decode("ascii")
+
+
 def reconcile(
     *,
     ledger: GateLedger,
@@ -618,6 +652,13 @@ def reconcile(
     if mode == "ci":
         selection.required = [name for name in selection.required if name not in _CI_OWNED_QUALITY_CHECKS]
 
+    # pre-commit is a fast local gate: drop the two slowest checks (#1628). This
+    # removes them from BOTH the required obligations and the executed set below,
+    # so a commit is neither required to prove nor runs them; pre-pr / CI keep the
+    # full selection. Governance guards and the fast checks still run at commit.
+    if mode == "pre-commit":
+        selection.required = [name for name in selection.required if name not in _PRE_COMMIT_SKIP_CHECKS]
+
     # 5. Infer obligations.
     obligations = _infer_obligations(
         task_kind=ledger.task_kind,
@@ -700,7 +741,11 @@ def reconcile(
                 parity_gaps.append(gap)
             else:
                 unsatisfied.append(f"checks.{name}")
-                repair_hints.append(f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}")
+                hint = f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}"
+                excerpt = _failed_check_excerpt(repo_root, event)
+                if excerpt:
+                    hint += f"\n  --- {name} output (tail) ---\n{excerpt}"
+                repair_hints.append(hint)
 
     # Docs/test obligations unsatisfied when no verified evidence and no N/A.
     # These are PR-readiness obligations: local and pre-pr/ci enforce them, but
