@@ -28,6 +28,7 @@ language_source: en
 - Protected branch: `main`
 - Integration target branch: `track/adr-048-spec1-preview-system` (PR #1577)
 - Final PR target: `track/adr-048-spec1-preview-system`
+- Final PR: https://github.com/zjzcpj/SciStudio/pull/1645
 - Dispatch prompt templates:
   - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
   - Audit with context:
@@ -167,7 +168,7 @@ language_source: en
 | Targeted tests | task-specific pytest/vitest/e2e commands | `[x]` | `$env:PYTHONPATH='src;packages/scistudio-blocks-imaging/src'; python -m pytest tests/api/test_previewers.py tests/api/test_plot_preview_wiring.py tests/ai/test_mcp_tools_plot.py tests/ai/test_mcp_tools_inspection.py -q --no-cov --timeout=60` -> passed (`1 skipped`: Rscript not on PATH). `$env:PYTHONPATH='src;packages/scistudio-blocks-imaging/src'; python -m pytest packages/scistudio-blocks-imaging/tests/test_previewer_registration.py -q --no-cov --timeout=60` -> `16 passed`. `npm --prefix frontend test -- src/components/DataPreview.test.tsx src/lib/api/__tests__/plotPreview.test.ts src/lib/api/__tests__/api-surface.test.ts` -> `17 passed` with existing active-context stderr. `npm --prefix frontend run typecheck` -> passed. `python -m ruff check ...` -> passed. `git diff --check` -> passed. |
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-048-spec1-preview-system --head HEAD --pr-body-file .workflow/local/pr-body-1644.md` | `[x]` | passed; mode=pre-pr tier=1 checks=`architecture_tests`, `deferral_discipline`, `format_check`, `frontend`, `full_audit`, `import_contracts`, `lint_format`, `python_tests`, `semantic_dup`, `type_check`; reconciliation passed |
 | Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --base origin/track/adr-048-spec1-preview-system --head HEAD --commit <sha> --pr-body-file .workflow/local/pr-body-1644.md --closes "#1644"` | `[x]` | passed; finalize mode=pre-PR tier=1; ledger is PR-ready |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --base track/adr-048-spec1-preview-system --title "<title>" --body-file .workflow/local/pr-body-1644.md` | `[ ]` | pending |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py --base track/adr-048-spec1-preview-system --head fix/pr1577-adr048-final-blockers --title "fix(#1644): wire ADR-048 final blockers" --body-file .workflow/local/pr-body-1644.md` | `[x]` | passed; wrapper pre-flight clean and created PR #1645 |
 
 ## 11. Drift Log
 
@@ -180,8 +181,9 @@ Append only.
 
 - [x] All dispatched agents have final outputs.
 - [x] Manager reviewed every changed file.
-- [~] Gate record includes issue, scope, plan, docs, tests, checks, commit, and
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, commit, and
       PR evidence.
-- [ ] PR closes every issue fixed by the dispatch.
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] PR closes every issue fixed by the dispatch. -> PR #1645 body closes
+      #1644, #1623, and #1594.
+- [~] CI passed. -> PR #1645 checks started; waiting for GitHub Actions.
+- [x] Checklist final state matches PR and gate record.
