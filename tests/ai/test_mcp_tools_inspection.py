@@ -14,26 +14,30 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Coroutine, Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
 
 import pytest
 
 from scistudio.ai.agent.mcp import _context, tools_inspection
 
+_T = TypeVar("_T")
 
-def _run(coro):
+
+def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     """Run a coroutine synchronously (mirrors test_mcp_fastmcp.py helper)."""
     return asyncio.run(coro)
 
 
 @dataclass
 class _StubRuntime:
-    block_registry: object = field(default_factory=object)
-    type_registry: object = field(default_factory=object)
+    block_registry: Any = field(default_factory=object)
+    type_registry: Any = field(default_factory=object)
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     _project_dir: Path | None = None
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:
@@ -41,7 +45,7 @@ class _StubRuntime:
 
 
 @pytest.fixture
-def ctx(tmp_path: Path) -> _StubRuntime:
+def ctx(tmp_path: Path) -> Generator[_StubRuntime, None, None]:
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
     yield runtime
@@ -122,6 +126,14 @@ def test_preview_data_dataframe_csv(ctx: _StubRuntime, tmp_path: Path) -> None:
     assert "a" in out.payload["columns"]
 
 
+def test_preview_data_dispatches_by_canonical_type_not_requested_fmt(ctx: _StubRuntime, tmp_path: Path) -> None:
+    p = tmp_path / "table.csv"
+    p.write_text("a,b\n1,2\n", encoding="utf-8")
+    out = _run(tools_inspection.preview_data(ref={"backend": "filesystem", "path": str(p)}, fmt="png_base64"))
+    assert out.fmt == "table"
+    assert out.payload["rows"] == [{"a": 1, "b": 2}]
+
+
 def test_preview_data_array_thumbnail(ctx: _StubRuntime, tmp_path: Path) -> None:
     pytest.importorskip("zarr")
     import numpy as np
@@ -183,6 +195,21 @@ def test_preview_data_missing_path_raises(ctx: _StubRuntime, tmp_path: Path) -> 
                 ref={"backend": "filesystem", "path": str(tmp_path / "nope.csv")}, fmt="table"
             )
         )
+
+
+def test_preview_data_artifact_respects_canonical_mcp_cap(
+    ctx: _StubRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    p = tmp_path / "too_large.png"
+    p.write_bytes(b"\x89PNG\r\n\x1a\n" + (b"x" * 64))
+    monkeypatch.setattr(tools_inspection, "_MAX_PREVIEW_BYTES", 16)
+
+    out = _run(tools_inspection.preview_data(ref={"backend": "filesystem", "path": str(p)}, fmt="artifact"))
+
+    assert out.fmt == "artifact"
+    assert out.payload["path"] == str(p)
+    assert out.payload["size_bytes"] == p.stat().st_size
+    assert "data_uri" not in out.payload
 
 
 # --- get_lineage -----------------------------------------------------------

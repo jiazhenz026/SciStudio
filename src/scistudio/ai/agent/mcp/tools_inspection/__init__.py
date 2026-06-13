@@ -22,11 +22,8 @@ Sub-package layout (#1431, umbrella #1427 — pure structural refactor):
 * :mod:`.read` — 6 read-class tools.
 * :mod:`.write` — ``update_block_config`` (the lone write-class tool).
 
-The package preserves the legacy ``tools_inspection`` import surface:
-every public name (tool functions, Pydantic models, internal helpers
-referenced by other modules or tests) is re-exported below so that
-``from scistudio.ai.agent.mcp.tools_inspection import X`` continues to
-work for any X that was reachable before the refactor.
+The package-level API re-exports the canonical tool functions, Pydantic
+models, and test-visible helper constants used by the MCP server.
 """
 
 from __future__ import annotations
@@ -86,7 +83,7 @@ from scistudio.ai.agent.mcp.tools_inspection.read import (
 from scistudio.ai.agent.mcp.tools_inspection.write import update_block_config
 
 __all__ = [  # noqa: RUF022 — grouped by role (constants / helpers / models / tools)
-    # ---- internal constants + helpers preserved for cross-module + test use ----
+    # ---- package-level constants + helpers for cross-module + test use ----
     "_BLOCK_LOG_TRUNCATE_BYTES",
     "_DATAFRAME_PREVIEW_ROWS",
     "_LOCK_TIMEOUT_SECONDS",

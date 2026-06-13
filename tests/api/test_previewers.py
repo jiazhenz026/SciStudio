@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import importlib.metadata
 import json
 from pathlib import Path
+from typing import cast
 
 import httpx
 import pytest
@@ -12,6 +14,27 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.storage.ref import StorageReference
+
+
+def _install_fake_zarr(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    import types
+
+    import numpy as np
+
+    matrix = np.arange(3 * 16 * 16, dtype=np.uint16).reshape(3, 16, 16)
+
+    class _FakeArray:
+        shape = (3, 16, 16)
+        dtype = "uint16"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return cast(np.ndarray, matrix[0])
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
 
 
 def _create_session(
@@ -29,6 +52,190 @@ def _create_session(
             "query": {},
         },
     )
+
+
+def test_adr048_viewer_category_sweep(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every ADR-048 viewer category reaches the routed session API.
+
+    This is a compact e2e-style sweep for the PR-readiness question: each row
+    goes through ``POST /api/previews/sessions`` and asserts the selected viewer
+    ID/kind, including Image/Label discovered through an installed-mode
+    ``scistudio.previewers`` entry point rather than the monorepo fallback.
+    """
+    _install_fake_zarr(monkeypatch)
+    monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
+    imaging_ep = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging.previewers:get_previewers",
+        group="scistudio.previewers",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        if kwargs.get("group") == "scistudio.previewers":
+            return (imaging_ep,)
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    runtime.refresh_preview_service()
+
+    def _record(
+        name: str,
+        *,
+        type_name: str,
+        content: bytes | str | None = None,
+        backend: str = "filesystem",
+        fmt: str | None = None,
+        metadata: dict[str, object] | None = None,
+        suffix: str = "",
+    ) -> str:
+        path = opened_project / f"{name}{suffix}"
+        if backend == "zarr":
+            path.mkdir(parents=True, exist_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                path.write_bytes(content)
+            else:
+                path.write_text(content or "", encoding="utf-8")
+        record = runtime.register_data_ref(
+            StorageReference(backend=backend, path=str(path), format=fmt, metadata=metadata),
+            type_name=type_name,
+        )
+        return record.id
+
+    refs = {
+        "dataframe": _record(
+            "sweep/table.csv",
+            type_name="DataFrame",
+            content="a,b\n1,2\n3,4\n",
+            fmt="csv",
+            metadata={"type_chain": ["DataObject", "DataFrame"]},
+        ),
+        "array": _record(
+            "sweep/array.zarr",
+            type_name="Array",
+            backend="zarr",
+            fmt="zarr",
+            metadata={"type_chain": ["DataObject", "Array"], "axes": ["z", "y", "x"]},
+        ),
+        "series": _record(
+            "sweep/series.json",
+            type_name="Series",
+            content="{}",
+            fmt="json",
+            metadata={"type_chain": ["DataObject", "Series"], "values": [0, 1, 4, 9, 16]},
+        ),
+        "text": _record(
+            "sweep/notes.txt",
+            type_name="Text",
+            content="hello from adr048 viewer sweep\n",
+            fmt="txt",
+            metadata={"type_chain": ["DataObject", "Text"]},
+        ),
+        "artifact": _record(
+            "sweep/artifact.bin",
+            type_name="Artifact",
+            content=b"opaque artifact bytes",
+            fmt="bin",
+            metadata={"type_chain": ["DataObject", "Artifact"]},
+        ),
+        "composite": _record(
+            "sweep/composite.json",
+            type_name="CompositeData",
+            content="{}",
+            fmt="json",
+            metadata={"type_chain": ["DataObject", "CompositeData"], "slots": {"raster": "Array"}},
+        ),
+        "image": _record(
+            "sweep/image.zarr",
+            type_name="Image",
+            backend="zarr",
+            fmt="zarr",
+            metadata={"type_chain": ["DataObject", "Array", "Image"], "axes": ["z", "y", "x"]},
+        ),
+        "label": _record(
+            "sweep/label.json",
+            type_name="Label",
+            content="{}",
+            fmt="json",
+            metadata={
+                "type_chain": ["DataObject", "CompositeData", "Label"],
+                "slots": {"polygons": "Artifact"},
+                "n_objects": 7,
+            },
+        ),
+        "plot": _record(
+            "sweep/plot.svg",
+            type_name="PlotArtifact",
+            content="<svg><script>alert(1)</script><rect width='1' height='1'/></svg>",
+            fmt="svg",
+            metadata={"plot_artifact": True, "type_chain": ["DataObject", "PlotArtifact"]},
+        ),
+    }
+
+    cases = [
+        ("dataframe", "data_ref", "DataFrame", ["DataObject", "DataFrame"], "core.dataframe.basic", "dataframe"),
+        ("array", "data_ref", "Array", ["DataObject", "Array"], "core.array.basic", "array"),
+        ("series", "data_ref", "Series", ["DataObject", "Series"], "core.series.basic", "series"),
+        ("text", "data_ref", "Text", ["DataObject", "Text"], "core.text.basic", "text"),
+        ("artifact", "artifact", "Artifact", ["DataObject", "Artifact"], "core.artifact.basic", "artifact"),
+        (
+            "composite",
+            "data_ref",
+            "CompositeData",
+            ["DataObject", "CompositeData"],
+            "core.composite.basic",
+            "composite",
+        ),
+        ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "imaging.image.viewer", "array"),
+        (
+            "label",
+            "data_ref",
+            "Label",
+            ["DataObject", "CompositeData", "Label"],
+            "imaging.label.viewer",
+            "composite",
+        ),
+        ("plot", "plot_artifact", "PlotArtifact", ["DataObject", "PlotArtifact"], "core.plot.basic", "plot"),
+    ]
+
+    observed: dict[str, tuple[str, str]] = {}
+    for name, kind, recorded_type, type_chain, previewer_id, envelope_kind in cases:
+        response = _create_session(
+            client,
+            ref=refs[name],
+            recorded_type=recorded_type,
+            type_chain=type_chain,
+            kind=kind,
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        observed[name] = (body["previewer_id"], body["kind"])
+        assert body["previewer_id"] == previewer_id
+        assert body["kind"] == envelope_kind
+        assert body["session_id"]
+        if name in {"image", "label"}:
+            assert body["frontend_manifest"]["module_url"] == f"/api/previews/assets/{previewer_id}/viewer.js"
+        if name == "plot":
+            assert "<script" not in body["payload"]["svg"]
+
+    assert observed == {
+        "dataframe": ("core.dataframe.basic", "dataframe"),
+        "array": ("core.array.basic", "array"),
+        "series": ("core.series.basic", "series"),
+        "text": ("core.text.basic", "text"),
+        "artifact": ("core.artifact.basic", "artifact"),
+        "composite": ("core.composite.basic", "composite"),
+        "image": ("imaging.image.viewer", "array"),
+        "label": ("imaging.label.viewer", "composite"),
+        "plot": ("core.plot.basic", "plot"),
+    }
 
 
 def test_create_session_for_dataframe(client: TestClient, opened_project: Path) -> None:
@@ -184,7 +391,7 @@ def test_image_session_serializes_first_class_frontend_manifest(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """#1579: an imaging-routed session JSON carries the manifest first-class.
 

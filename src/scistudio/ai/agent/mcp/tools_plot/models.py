@@ -275,6 +275,24 @@ class PlotArtifact(BaseModel):
     size_bytes: int
 
 
+class PlotPreviewTarget(BaseModel):
+    """Routed preview target for a registered plot artifact.
+
+    The MCP tool layer cannot import the API preview models because ``ai`` sits
+    below ``api`` in the dependency graph. This local wire model mirrors the
+    frontend/backend ``PreviewTarget`` shape closely enough for an agent to hand
+    it directly to the preview-session API or report it back to the UI.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["plot_artifact"] = "plot_artifact"
+    ref: str = Field(description="Catalog data_ref for the registered plot artifact.")
+    recorded_type: str = Field(default="PlotArtifact")
+    type_chain: list[str] = Field(default_factory=lambda: ["DataObject", "PlotArtifact"])
+    source: dict[str, str | None] | None = Field(default=None)
+
+
 class PlotRunResult(BaseModel):
     """Result envelope for ``run_plot_job`` (write/run-class, FR-030)."""
 
@@ -285,6 +303,16 @@ class PlotRunResult(BaseModel):
     artifact_paths: list[str] = Field(
         default_factory=list,
         description="Absolute preview-cache paths of the written display artifacts.",
+    )
+    data_ref: str | None = Field(
+        default=None,
+        description="Catalog id for the first artifact when a live preview catalog is available.",
+    )
+    recorded_type: str = Field(default="PlotArtifact", description="Recorded type of the catalog artifact.")
+    type_chain: list[str] = Field(default_factory=list, description="Ordered general -> specific type chain.")
+    preview_target: PlotPreviewTarget | None = Field(
+        default=None,
+        description="PreviewHost-ready plot_artifact target when the artifact was registered.",
     )
     metadata_path: str | None = Field(default=None, description="Absolute path to current.json.")
     cache_key: str | None = Field(default=None, description="Preview cache key for UI refresh.")
@@ -323,6 +351,7 @@ __all__ = [
     "PlotManifestRuntime",
     "PlotManifestScript",
     "PlotManifestTarget",
+    "PlotPreviewTarget",
     "PlotRunResult",
     "PlotStatus",
     "PlotTarget",

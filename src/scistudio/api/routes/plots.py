@@ -103,17 +103,22 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
     recorded_type = "PlotArtifact"
     type_chain: list[str] = []
     if result.status == "succeeded" and result.artifact_paths:
-        record = runtime.register_plot_artifact(
-            result.artifact_paths[0],
-            cache_key=result.cache_key,
-            workflow_id=manifest_target.workflow_id,
-            node_id=manifest_target.node_id,
-            output_port=manifest_target.output_port,
-            plot_id=payload.plot_id,
-        )
-        data_ref = record.id
-        recorded_type = record.type_name
-        type_chain = list(record.type_chain) if record.type_chain else [record.type_name]
+        if result.data_ref:
+            data_ref = result.data_ref
+            recorded_type = result.recorded_type or "PlotArtifact"
+            type_chain = list(result.type_chain) if result.type_chain else [recorded_type]
+        else:
+            record = runtime.register_plot_artifact(
+                result.artifact_paths[0],
+                cache_key=result.cache_key,
+                workflow_id=manifest_target.workflow_id,
+                node_id=manifest_target.node_id,
+                output_port=manifest_target.output_port,
+                plot_id=payload.plot_id,
+            )
+            data_ref = record.id
+            recorded_type = record.type_name
+            type_chain = list(record.type_chain) if record.type_chain else [record.type_name]
 
     return PlotRunResponse(
         status=result.status,

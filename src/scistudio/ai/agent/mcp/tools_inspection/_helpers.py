@@ -1,11 +1,7 @@
-"""Shared constants + helpers for the ``tools_inspection`` sub-package.
+"""Shared constants and reference helpers for ``tools_inspection``.
 
-ADR-040 §3.1 FastMCP migration. Extracted from the original single-file
-``tools_inspection.py`` (#1431, umbrella #1427) so each sub-module stays
-below the 750 LOC god-file threshold. No behavior change.
-
-Public surface preserved at ``scistudio.ai.agent.mcp.tools_inspection``
-via the package ``__init__`` re-exports.
+The constants define the canonical MCP inspection budgets for preview payloads,
+text reads, thumbnails, and log tails.
 """
 
 from __future__ import annotations

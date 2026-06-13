@@ -32,12 +32,6 @@ import { JSON_HEADERS, apiFetch } from "./core";
  * Returns `null` when the run did not produce a previewable artifact (failed /
  * cancelled / timed-out, or no `data_ref`) so callers render the failure state
  * instead of an empty preview.
- *
- * TODO(#1623): mount the plot preview pane in the app shell and call this
- *   builder from that pane's "run plot" affordance. The host element
- *   ({@link PreviewHost}) is itself not yet mounted in production (tracked by
- *   #1592 / #1623); this helper + {@link dataApi.runPlotJob} are the wiring that
- *   pane will consume. Out of scope per #1606 (runtime reachability only).
  */
 export function plotTargetFromRunResponse(result: PlotRunResponse): PreviewTarget | null {
   if (result.status !== "succeeded" || !result.data_ref) return null;

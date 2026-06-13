@@ -353,6 +353,10 @@ render <- function(collection, context) {
 | `status` | `succeeded`, `failed`, `cancelled`, or `timed_out`. |
 | `returncode` | Process return code when available. |
 | `artifact_paths` | Project-relative or preview-cache-relative artifact paths. |
+| `data_ref` | Catalog reference for the first produced artifact when a live preview catalog is available. |
+| `recorded_type` | Recorded catalog type for the artifact, normally `PlotArtifact`. |
+| `type_chain` | Ordered type chain for routed preview resolution. |
+| `preview_target` | PreviewHost-ready `plot_artifact` target when the artifact was registered. |
 | `metadata_path` | Path to `current.json`. |
 | `cache_key` | Preview cache key for UI refresh. |
 | `stdout` | Truncated stdout. |

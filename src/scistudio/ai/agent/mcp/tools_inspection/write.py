@@ -1,8 +1,7 @@
-"""Write-class inspection tool — ``update_block_config`` (ruamel round-trip).
+"""Write-class inspection tool: ``update_block_config`` (ruamel round-trip).
 
 Patch one block's configuration in a workflow YAML while preserving
-comments and key order. Extracted from the original single-file
-``tools_inspection.py`` (#1431, umbrella #1427). No behavior change.
+comments and key order.
 """
 
 from __future__ import annotations

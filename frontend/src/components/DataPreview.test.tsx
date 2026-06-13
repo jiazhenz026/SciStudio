@@ -1,13 +1,14 @@
 import { render, waitFor, screen, fireEvent, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PreviewEnvelope } from "../types/api";
+import type { PlotRunResponse, PreviewEnvelope } from "../types/api";
 
-// Mock only PreviewHost's session methods; keep every other lib/api export
-// intact (the Zustand store imports named helpers from this module at init).
+// Mock only PreviewHost's session methods plus the plot-run trigger; keep every
+// other lib/api export intact (the Zustand store imports named helpers at init).
 const createPreviewSession = vi.fn();
 const patchPreviewSession = vi.fn();
 const getPreviewSession = vi.fn();
+const runPlotJob = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   const actualApi = (actual.api ?? {}) as Record<string, unknown>;
@@ -18,6 +19,7 @@ vi.mock("../lib/api", async (importOriginal) => {
       createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
       patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
       getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
+      runPlotJob: (...a: unknown[]) => runPlotJob(...a),
     },
   };
 });
@@ -40,11 +42,27 @@ function textEnvelope(ref: string, text: string): PreviewEnvelope {
   };
 }
 
+function plotRunResponse(overrides: Partial<PlotRunResponse> = {}): PlotRunResponse {
+  return {
+    status: "succeeded",
+    data_ref: "data-plot-1",
+    recorded_type: "PlotArtifact",
+    type_chain: ["DataObject", "PlotArtifact"],
+    cache_key: "plot_deadbeef",
+    artifact_paths: ["/project/.scistudio/previews/main/node-1/output/p1/current.svg"],
+    source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
+    warnings: [],
+    errors: [],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   createPreviewSession.mockReset();
   createPreviewSession.mockImplementation(async (target: { ref: string }) =>
     textEnvelope(target.ref, `preview of ${target.ref}`),
   );
+  runPlotJob.mockReset();
   // Each test owns a clean envelope cache (the store is a global singleton).
   useAppStore.getState().clearPreviewEnvelopeCache();
 });
@@ -125,7 +143,44 @@ describe("DataPreview", () => {
     });
   });
 
-  // #898 — pill labels show source filename (independent of the renderer).
+  it("runs a plot job and mounts PreviewHost for the returned plot artifact (#1623)", async () => {
+    runPlotJob.mockResolvedValue(plotRunResponse());
+
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Process Block"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "data_ref", ref: "data-123" }),
+        expect.anything(),
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText("Plot id"), { target: { value: "p1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run plot" }));
+
+    await waitFor(() => expect(runPlotJob).toHaveBeenCalledWith({ plot_id: "p1" }));
+    await waitFor(() => {
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "plot_artifact",
+          ref: "data-plot-1",
+          recorded_type: "PlotArtifact",
+          type_chain: ["DataObject", "PlotArtifact"],
+          source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
+        }),
+        expect.anything(),
+      );
+    });
+    expect(screen.getByRole("button", { name: "Plot artifact" })).toBeInTheDocument();
+  });
+
+  // #898 - pill labels show source filename (independent of the renderer).
   it("pill label shows source filename when framework.source is set (#898)", () => {
     render(
       <DataPreview
