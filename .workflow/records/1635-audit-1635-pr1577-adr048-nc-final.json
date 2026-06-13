@@ -1,0 +1,527 @@
+{
+  "branch": "audit/1635-pr1577-adr048-nc-final",
+  "check_events": [
+    {
+      "at": "2026-06-13T22:04:23.322245Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T22:05:47.754995Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1e0ca67aef28936eca7b28b7ffcccb4b76ab7dd0577c849499d6dd1ecf87ebd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T22:06:48.952982Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1e0ca67aef28936eca7b28b7ffcccb4b76ab7dd0577c849499d6dd1ecf87ebd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T22:07:27.444910Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1e0ca67aef28936eca7b28b7ffcccb4b76ab7dd0577c849499d6dd1ecf87ebd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "671340c24a79036cd5d6a977edb3ecf24bbbbe21",
+    "shas": [
+      "671340c24a79036cd5d6a977edb3ecf24bbbbe21"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      ".workflow/records/1635-audit-1635-pr1577-adr048-nc-final.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-13T22:01:55.911279Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:03:26.949219Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:05:37.678516Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:06:38.845733Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-13T22:04:23.453100Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.527029Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.597431Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.658908Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.725446Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.783882Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.845637Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.908082Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:23.989020Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:04:24.050807Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:47.871608Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:47.932224Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:47.987467Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.040711Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.095090Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.149097Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.202569Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.257487Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.314020Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:05:48.373453Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.060446Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.117888Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.181885Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.246094Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.324925Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.378508Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.435653Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.489125Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.548628Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:06:49.604133Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.558957Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.616033Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.680680Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.733172Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.785432Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.838961Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.892410Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:27.944836Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:28.004631Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T22:07:28.061252Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1635,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "5adce472a5c5787564463a381ce07a6c0ebde5ee",
+    "base_sha": "5adce472",
+    "changed_files": [
+      ".workflow/records/1635-audit-1635-pr1577-adr048-nc-final.json",
+      "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md"
+    ],
+    "diff_fingerprint": "sha256:c3cf666311cd9970ba12af1d5cb738fb04991a33d63d8d9df0c7ac90e0abc6a2",
+    "head": "HEAD",
+    "head_sha": "671340c2",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "No-context audit PR 1577 against ADR-048 and SPEC 1/2/3; land findings-first report under docs/audit; do not implement target fixes.",
+  "persona": "audit_reviewer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1635
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-13T22:04:24.050862Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:05:48.373499Z",
+      "diff_fingerprint": "sha256:c3cf666311cd9970ba12af1d5cb738fb04991a33d63d8d9df0c7ac90e0abc6a2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:06:49.604182Z",
+      "diff_fingerprint": "sha256:c3cf666311cd9970ba12af1d5cb738fb04991a33d63d8d9df0c7ac90e0abc6a2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T22:07:28.061300Z",
+      "diff_fingerprint": "sha256:c3cf666311cd9970ba12af1d5cb738fb04991a33d63d8d9df0c7ac90e0abc6a2",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1635-audit-1635-pr1577-adr048-nc-final",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-13T21:42:56.833289Z",
+      "pattern": ".workflow/records/1635-audit-1635-pr1577-adr048-nc-final.json",
+      "reason": "Correct ledger include path generated by init"
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-06-13T21:42:56.833318Z",
+      "pattern": ".workflow/records/1635-pr1577-adr048-no-context-audit.json",
+      "reason": "Correct ledger include path generated by init"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T22:01:45.690287Z",
+      "pattern": ".workflow/records/1635-audit-1635-pr1577-adr048-nc-final.json",
+      "reason": "Normalize audit report scope to the actual report and ledger paths"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T22:01:45.690306Z",
+      "pattern": "docs/audit/2026-06-13-adr-048-pr1577-consolidated-no-context-audit.md",
+      "reason": "Normalize audit report scope to the actual report and ledger paths"
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-06-13T22:01:45.690309Z",
+      "pattern": ".workflow/records/1635-pr1577-adr048-no-context-audit.json",
+      "reason": "Normalize audit report scope to the actual report and ledger paths"
+    }
+  ],
+  "session_id": "f295d9cf-d047-4db7-b67c-ad1254ff8003",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-06-13T22:01:55.911305Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:03:26.949248Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:05:37.678541Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T22:06:38.845760Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only audit report; product implementation was not changed",
+      "verified_in_diff": null
+    }
+  ]
+}
