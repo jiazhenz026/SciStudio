@@ -977,6 +977,12 @@
       "at": "2026-06-13T00:24:39.179591Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T02:14:47.283675Z",
+      "pattern": "tests/qa/governance/test_gate_record_package.py",
+      "reason": "Include the self-hosting smoke test file in scope for the timeout(180) flake fix (#1628 gate-DX)."
     }
   ],
   "session_id": "adcc3df1-cf0e-488d-ba9c-6fb0c3a3842c",
@@ -988,6 +994,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/qa/test_gate_record.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T02:14:14.372939Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/governance/test_gate_record_package.py",
       "rationale": null,
       "verified_in_diff": null
     }

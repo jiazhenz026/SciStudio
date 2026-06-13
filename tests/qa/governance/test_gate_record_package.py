@@ -192,6 +192,11 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
 
 
+# Spawns several `python -m scistudio.qa.governance.gate_record` subprocesses,
+# each cold-importing the heavy gate module; on a loaded host the default
+# `--timeout=60` (gate python_tests command) is too tight and the test flakes.
+# CI runs it well under budget; the wider per-test budget only covers host load.
+@pytest.mark.timeout(180)
 def test_self_hosting_init_plan_check_finalize(tmp_path: Path) -> None:
     """Drive the new CLI end to end and re-validate the schema-v2 ledger.
 
