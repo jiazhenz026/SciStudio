@@ -1018,7 +1018,9 @@ def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
 def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
     log = tmp_path / ".workflow" / "local" / "logs" / "full_audit.log"
     log.parent.mkdir(parents=True)
-    log.write_text("noise line\nERROR: thing A\nFAILED test_b\n", encoding="utf-8")
+    # An invalid-UTF-8 byte -> errors="replace" yields U+FFFD; the excerpt MUST
+    # ASCII-clean it so printing can't crash on a GBK/cp1252 console (#1628).
+    log.write_bytes(b"noise line\nERROR: thing A \xff byte\nFAILED test_b\n")
     event = CheckEvent(
         name="full_audit",
         command="cmd",
@@ -1030,6 +1032,8 @@ def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
     assert "ERROR: thing A" in out
     assert "FAILED test_b" in out
     assert out.lstrip().startswith("|")  # indented excerpt lines
+    assert "�" not in out
+    out.encode("ascii")  # printable on any console; raises if not ASCII-clean
 
 
 def test_failed_check_excerpt_empty_without_log(tmp_path: Path) -> None:

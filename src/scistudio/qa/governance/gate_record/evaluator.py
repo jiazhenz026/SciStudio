@@ -521,7 +521,10 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
     excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
     if len(excerpt) > max_chars:
         excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
-    return excerpt
+    # Keep it printable on ANY console: a Windows GBK/cp1252 stdout cannot encode
+    # the U+FFFD replacement char that ``errors="replace"`` emits for non-UTF-8
+    # log bytes, which would crash ``_print_outcome``'s ``print``. ASCII-clean it.
+    return excerpt.encode("ascii", "replace").decode("ascii")
 
 
 def reconcile(
