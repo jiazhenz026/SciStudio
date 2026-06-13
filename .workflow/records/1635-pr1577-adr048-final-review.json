@@ -45,13 +45,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T05:18:52.264925Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e758c999126a8e2a6047461450fcbf1e628e5472680b6cb2bd84cd16a1dc0816",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "da0ddbbbe156469ed954140983729190a6cc8130",
+    "sha": "2884d356f6f3df31e4cd166fc53c8cde2c63858c",
     "shas": [
-      "da0ddbbbe156469ed954140983729190a6cc8130"
+      "2884d356f6f3df31e4cd166fc53c8cde2c63858c"
     ],
     "trailers": []
   },
@@ -81,6 +96,14 @@
     },
     {
       "at": "2026-06-13T05:16:46.570550Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:19:13.713375Z",
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
@@ -269,6 +292,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.367274Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.420226Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.475717Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.536250Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.585443Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.637425Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.688950Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.739485Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.791697Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:18:52.851796Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.441170Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.492570Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.559943Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.614091Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.663657Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.712713Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.762351Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.815916Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.865836Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:19:14.916688Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -281,15 +424,15 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "5adce472a5c5787564463a381ce07a6c0ebde5ee",
     "base_sha": "5adce472",
     "changed_files": [
       ".workflow/records/1635-pr1577-adr048-final-review.json",
       "docs/audit/2026-06-13-adr048-pr1577-final-review.md"
     ],
-    "diff_fingerprint": "sha256:80b4f75f531c2265f48a4e94eecd54d8d209e65b75042534c04276a0904783f8",
+    "diff_fingerprint": "sha256:b93a2c567843e90cdc29a67b863aaa26ce2031ef39cd854a6671eef4c36bef0b",
     "head": "HEAD",
-    "head_sha": "f2737486",
+    "head_sha": "2884d356",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -310,8 +453,8 @@
     "closes": [
       1635
     ],
-    "number": null,
-    "url": null
+    "number": 1641,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1641"
   },
   "reconcile_events": [
     {
@@ -337,15 +480,29 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T05:18:52.851836Z",
+      "diff_fingerprint": "sha256:b93a2c567843e90cdc29a67b863aaa26ce2031ef39cd854a6671eef4c36bef0b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T05:19:14.916723Z",
+      "diff_fingerprint": "sha256:b93a2c567843e90cdc29a67b863aaa26ce2031ef39cd854a6671eef4c36bef0b",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1635-pr1577-adr048-final-review",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
@@ -386,6 +543,14 @@
     },
     {
       "at": "2026-06-13T05:16:46.570578Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; implementation behavior evaluated through PR #1577 tests and e2e evidence audit, no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:19:13.713403Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
