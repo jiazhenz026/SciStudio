@@ -989,3 +989,55 @@ def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pyt
     _run(git_repo, "commit-msg", str(msg), "--no-record")
     out = capsys.readouterr()
     assert "no gate ledger found" not in (out.out + out.err)
+
+
+# ---------------------------------------------------------------------------
+# #1628: pre-commit drops the two slowest checks; failed checks inline findings.
+# ---------------------------------------------------------------------------
+
+
+def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
+    git_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _init(git_repo)
+    # A python-src change selects both python_tests (has_python_src) and
+    # semantic_dup (sentrux-applicable).
+    _commit(git_repo, "src/scistudio/x.py", "y = 1\n")
+    capsys.readouterr()
+    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-commit", "--skip-execution")
+    pre_commit = capsys.readouterr().out
+    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution")
+    pre_pr = capsys.readouterr().out
+    # pre-commit drops the two slow checks; pre-pr keeps the full selection.
+    assert "python_tests" not in pre_commit
+    assert "semantic_dup" not in pre_commit
+    assert "python_tests" in pre_pr
+    assert "semantic_dup" in pre_pr
+
+
+def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
+    log = tmp_path / ".workflow" / "local" / "logs" / "full_audit.log"
+    log.parent.mkdir(parents=True)
+    # An invalid-UTF-8 byte -> errors="replace" yields U+FFFD; the excerpt MUST
+    # ASCII-clean it so printing can't crash on a GBK/cp1252 console (#1628).
+    log.write_bytes(b"noise line\nERROR: thing A \xff byte\nFAILED test_b\n")
+    event = CheckEvent(
+        name="full_audit",
+        command="cmd",
+        covered_surface="governance",
+        status="fail",
+        raw_log_ref=".workflow/local/logs/full_audit.log",
+    )
+    out = evaluator._failed_check_excerpt(tmp_path, event)
+    assert "ERROR: thing A" in out
+    assert "FAILED test_b" in out
+    assert out.lstrip().startswith("|")  # indented excerpt lines
+    assert "�" not in out
+    out.encode("ascii")  # printable on any console; raises if not ASCII-clean
+
+
+def test_failed_check_excerpt_empty_without_log(tmp_path: Path) -> None:
+    no_ref = CheckEvent(name="x", command="c", covered_surface="python", status="fail", raw_log_ref=None)
+    missing = CheckEvent(name="x", command="c", covered_surface="python", status="fail", raw_log_ref="nope.log")
+    assert evaluator._failed_check_excerpt(tmp_path, no_ref) == ""
+    assert evaluator._failed_check_excerpt(tmp_path, missing) == ""
