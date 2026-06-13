@@ -67,6 +67,7 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
         "type_check",
         "architecture_tests",
         "full_audit",
+        "change_contracts",
         "python_tests",
         "import_contracts",
         "frontend",

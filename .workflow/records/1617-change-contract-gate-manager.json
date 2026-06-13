@@ -2352,6 +2352,12 @@
       "at": "2026-06-13T00:10:09.228161Z",
       "pattern": "docs/planning/change-contract-gate-implementation-checklist.md",
       "reason": "Final umbrella implementation adds A2/A4 audit core, wiring, contracts, baseline, and integration audit evidence."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T01:30:10.687252Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "reason": "CI fix: classify change_contracts as CI-owned Full Audit quality check in workflow-gate evaluator"
     }
   ],
   "session_id": "b3ea0a90-51da-4b25-90bc-a23b25d146cb",
@@ -2411,6 +2417,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/qa/test_audit_full_audit.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T01:30:10.687272Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
       "rationale": null,
       "verified_in_diff": null
     }
