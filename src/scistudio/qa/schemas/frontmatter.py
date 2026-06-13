@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from scistudio.qa.schemas.change_contracts import ChangeContractFrontmatterDeclaration
+
 
 class Translation(BaseModel):
     """Translation record embedded in ADR/spec frontmatter."""
@@ -85,6 +87,7 @@ class ADRFrontmatter(BaseModel):
     is_code_implementation: bool
     governs: GovernedSurfaces
     planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
+    change_contract: ChangeContractFrontmatterDeclaration | None = None
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
@@ -192,6 +195,7 @@ class SpecFrontmatter(BaseModel):
     scope: SpecScope
     governs: GovernedSurfaces
     planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
+    change_contract: ChangeContractFrontmatterDeclaration | None = None
     tests: list[str]
     acceptance_source: Literal["speckit", "issue", "adr", "manual"]
     language_source: Literal["en"] = "en"

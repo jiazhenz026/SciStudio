@@ -97,6 +97,23 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         ci_job="ci.yml/Full Audit",
         needs_src_import=True,
     ),
+    "change_contracts": CheckSpec(
+        name="change_contracts",
+        command=(
+            "python",
+            "-m",
+            "scistudio.qa.audit.change_contracts",
+            "--repo-root",
+            ".",
+            "--format",
+            "json",
+            "--output",
+            ".audit/change-contracts.json",
+        ),
+        covered_surface="governance",
+        ci_job="ci.yml/Full Audit",
+        needs_src_import=True,
+    ),
     "python_tests": CheckSpec(
         name="python_tests",
         command=("pytest", "-n", "auto", "--timeout=60", "--timeout-method=thread"),
@@ -163,6 +180,7 @@ _BASELINE_BY_TIER: dict[int, tuple[str, ...]] = {
         "type_check",
         "architecture_tests",
         "full_audit",
+        "change_contracts",
         "python_tests",
         "import_contracts",
         "semantic_dup",
@@ -181,6 +199,7 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
     has_qa_governance = any(surfaces.normalize_path(p).startswith("src/scistudio/qa/") for p in changed_files)
     has_arch_or_spec = any(surfaces.is_architecture_doc_path(p) for p in changed_files)
     has_governed_docs = any(surfaces.is_governed_doc_path(p) for p in changed_files)
+    has_change_contract = any(surfaces.normalize_path(p).startswith("docs/change-contracts/") for p in changed_files)
     has_frontend = any(surfaces.is_frontend_path(p) for p in changed_files)
     has_workflow_ci = any(surfaces.is_workflow_ci_path(p) for p in changed_files)
     has_packaging = any(surfaces.is_packaging_path(p) for p in changed_files)
@@ -191,9 +210,11 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
     if has_python_tests:
         selected.update({"lint_format", "format_check", "python_tests"})
     if has_qa_governance:
-        selected.update({"lint_format", "format_check", "type_check", "python_tests", "full_audit"})
+        selected.update({"lint_format", "format_check", "type_check", "python_tests", "full_audit", "change_contracts"})
     if has_arch_or_spec or has_governed_docs:
-        selected.add("full_audit")
+        selected.update({"full_audit", "change_contracts"})
+    if has_change_contract:
+        selected.update({"full_audit", "change_contracts"})
     if has_frontend:
         selected.add("frontend")
     if has_workflow_ci:

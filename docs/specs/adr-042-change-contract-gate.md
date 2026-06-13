@@ -39,6 +39,8 @@ governs:
     - scistudio.qa.schemas.change_contracts.ChangeContractBaseline
   entry_points: []
   files:
+    - docs/change-contracts/**
+    - docs/audit/baselines/change-contract-baseline.json
     - docs/ai-developer/specific_rules/document-standards.md
     - src/scistudio/qa/audit/**
     - src/scistudio/qa/schemas/**
@@ -46,18 +48,17 @@ governs:
     - tests/qa/**
   excludes: []
 planned_governs:
-  modules:
-    - scistudio.qa.audit.change_contracts
+  modules: []
   contracts: []
   entry_points: []
-  files:
-    - docs/change-contracts/**
-    - docs/audit/baselines/change-contract-baseline.json
-    - tests/qa/test_change_contracts.py
+  files: []
   excludes: []
 tests:
   - tests/qa/test_change_contract_schemas.py
+  - tests/qa/test_change_contract_reachability.py
   - tests/qa/test_change_contracts.py
+change_contract:
+  path: docs/change-contracts/adr-042-change-contract-gate.yml
 acceptance_source: manual
 language_source: en
 ---

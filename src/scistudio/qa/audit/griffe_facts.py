@@ -2,27 +2,13 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
 import griffe
 
+from scistudio.qa.audit._util import source_sha as current_source_sha
 from scistudio.qa.schemas.facts import Fact, FactsRegistry
-
-
-def _current_sha(repo_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return ""
-    return result.stdout.strip()
 
 
 def _stringify(value: object) -> str | None:
@@ -107,7 +93,7 @@ def extract_symbol_facts(
 
     root = Path(repo_root or Path.cwd()).resolve()
     paths = search_paths or [root / "src"]
-    sha = source_sha if source_sha is not None else _current_sha(root)
+    sha = source_sha if source_sha is not None else current_source_sha(root)
     package_obj = griffe.load(
         package,
         search_paths=[str(path) for path in paths],
@@ -146,7 +132,7 @@ def generate_registry(
     """Generate a facts registry containing griffe-backed symbol facts."""
 
     root = Path(repo_root or Path.cwd()).resolve()
-    sha = source_sha if source_sha is not None else _current_sha(root)
+    sha = source_sha if source_sha is not None else current_source_sha(root)
     return FactsRegistry(
         source_sha=sha,
         facts=extract_symbol_facts(

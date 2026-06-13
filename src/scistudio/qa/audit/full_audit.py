@@ -14,6 +14,7 @@ from yaml import YAMLError
 
 from scistudio.qa.audit._util import normalise_path
 from scistudio.qa.audit.architecture_drift import check as check_architecture_drift
+from scistudio.qa.audit.change_contracts import check_report as check_change_contracts
 from scistudio.qa.audit.closure import check_bidirectional
 from scistudio.qa.audit.developer_docs import check_report as check_developer_docs
 from scistudio.qa.audit.doc_drift import classify_repo
@@ -199,6 +200,7 @@ def run(
             child_reports.append(check_architecture_drift(root, registry))
         else:
             deferred_children.append("architecture_drift")
+        child_reports.append(check_change_contracts(root))
         if include_vulture:
             child_reports.append(check_vulture(root))
         else:

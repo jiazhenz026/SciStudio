@@ -44,6 +44,22 @@ def git_tracked_relative_paths(repo_root: Path) -> set[str] | None:
     return {item.decode("utf-8").replace("\\", "/") for item in result.stdout.split(b"\0") if item}
 
 
+def source_sha(repo_root: Path) -> str:
+    """Return best-effort HEAD SHA for audit report provenance."""
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    return result.stdout.strip()
+
+
 def is_tracked_path(path: Path, repo_root: Path, tracked_paths: set[str] | None) -> bool:
     """Return true when ``path`` should participate in committed-state audits."""
 

@@ -102,6 +102,8 @@ tests:
   - tests/qa/test_audit_closure.py
   - tests/qa/test_audit_signature_drift.py
   - tests/qa/test_audit_full_audit.py
+change_contract:
+  path: docs/change-contracts/adr-042-consistency-tools-full-audit-change-contract.yml
 acceptance_source: adr
 language_source: en
 ---

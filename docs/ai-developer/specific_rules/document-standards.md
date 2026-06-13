@@ -52,6 +52,7 @@ but the accepted field set and validation rules are normative.
 | `governs.files` | list[repo-path-or-glob] | yes | Repo-relative paths or globs |
 | `governs.excludes` | list[repo-path-or-glob] | yes | Exclusions from governed files |
 | `planned_governs` | GovernedSurfaces | no | Future surfaces only; same subfields as `governs` |
+| `change_contract` | ChangeContractLink or ChangeContractNotApplicable | no | Required for new or modified implementation-affecting ADRs |
 | `tests` | list[repo-path] | yes | Required when `is_code_implementation=true`; otherwise may be empty |
 | `agent_editable` | bool or enum | yes | `false` for governance ADRs unless owner explicitly allows edits |
 | `assisted_by` | list[string] | yes | AI/runtime assistance lines or empty list |
@@ -80,6 +81,27 @@ exist or are not yet governed by the document. Audit reports unresolved
 but fails when a planned surface already resolves while the document remains
 `Proposed` or `phase=planning`, or when a non-planning document still declares
 planned surfaces.
+
+Implementation-affecting ADR changes MUST declare `change_contract` when the
+ADR/spec change is new or modified in a PR. The declaration is either:
+
+```yaml
+change_contract:
+  path: docs/change-contracts/<change-id>.yml
+```
+
+or, for docs-only changes:
+
+```yaml
+change_contract:
+  kind: not_applicable
+  rationale: "Documentation-only change with no implementation surface."
+```
+
+The linked contract records per-change added, changed, removed, retained,
+forbidden, reachable, and canary surfaces. It does not replace `governs` or
+`planned_governs`; every declared contract surface must stay covered by the
+parent ADR/spec governance metadata.
 
 ADR body structure is also normative. Every ADR MUST follow this outline:
 
@@ -125,6 +147,7 @@ Every normalized spec MUST have YAML frontmatter with this schema:
 | `governs.files` | list[repo-path-or-glob] | yes | Affected files or globs |
 | `governs.excludes` | list[repo-path-or-glob] | yes | Exclusions from governed files |
 | `planned_governs` | GovernedSurfaces | no | Future surfaces only; same subfields as `governs` |
+| `change_contract` | ChangeContractLink or ChangeContractNotApplicable | no | Required for new or modified implementation-affecting specs |
 | `tests` | list[repo-path] | yes | Expected test files or empty list when unknown |
 | `acceptance_source` | enum | yes | `speckit`, `issue`, `adr`, or `manual` |
 | `language_source` | enum | yes | `en` by default |

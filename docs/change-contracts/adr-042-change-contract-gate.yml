@@ -1,0 +1,49 @@
+id: adr-042-change-contract-gate
+parent: docs/specs/adr-042-change-contract-gate.md
+change_kind: additive
+surfaces:
+  added:
+    - kind: module
+      target: scistudio.qa.audit.change_contracts
+      scope: production
+    - kind: file
+      target: docs/change-contracts/adr-042-change-contract-gate.yml
+      scope: docs
+    - kind: file
+      target: docs/audit/baselines/change-contract-baseline.json
+      scope: docs
+    - kind: file
+      target: tests/qa/test_change_contracts.py
+      scope: test
+  changed:
+    - kind: module
+      target: scistudio.qa.audit.full_audit
+      scope: production
+    - kind: module
+      target: scistudio.qa.schemas.frontmatter
+      scope: production
+    - kind: module
+      target: scistudio.qa.governance.gate_record.checks
+      scope: production
+    - kind: file
+      target: docs/ai-developer/specific_rules/document-standards.md
+      scope: docs
+required_reachability:
+  - surface:
+      kind: module
+      target: scistudio.qa.audit.change_contracts
+      scope: production
+    production_roots:
+      - scistudio.qa.audit.full_audit
+    canaries:
+      - tests/qa/test_change_contracts.py::test_full_audit_includes_change_contract_child
+required_canaries:
+  - kind: public_api
+    surface:
+      kind: module
+      target: scistudio.qa.audit.change_contracts
+      scope: production
+    test_path: tests/qa/test_change_contracts.py
+baseline_policy:
+  mode: no_new_violations
+  baseline: docs/audit/baselines/change-contract-baseline.json

@@ -1,0 +1,18 @@
+id: adr-042-consistency-tools-full-audit-change-contract
+parent: docs/specs/adr-042-consistency-tools.md
+change_kind: compatibility
+surfaces:
+  changed:
+    - kind: symbol
+      target: scistudio.qa.audit.full_audit.run
+      scope: production
+required_canaries:
+  - kind: public_api
+    surface:
+      kind: symbol
+      target: scistudio.qa.audit.full_audit.run
+      scope: production
+    test_path: tests/qa/test_audit_full_audit.py
+baseline_policy:
+  mode: no_new_violations
+  baseline: docs/audit/baselines/change-contract-baseline.json
