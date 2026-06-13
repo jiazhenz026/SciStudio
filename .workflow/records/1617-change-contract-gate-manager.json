@@ -477,13 +477,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T01:14:21.626934Z",
+      "command": "python -m scistudio.qa.audit.change_contracts --repo-root . --format json --output .audit/change-contracts.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:97eb06ac7c20bb5ff8d8e9eacca57ba4117cf3a81d0d84ea87210be6b8436650",
+      "name": "change_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/change_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "e4ec3d30",
+    "sha": "4ef25f51",
     "shas": [
-      "e4ec3d30"
+      "4ef25f51"
     ],
     "trailers": []
   },
@@ -1729,6 +1744,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:22.576466Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:23.091021Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:23.595613Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:23.950530Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:24.334390Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:24.741401Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:25.195147Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:25.834141Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:26.268403Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:14:26.681546Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1765,13 +1862,18 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "2c9501a278f9f27d279472d1eef78bef2bc30ca6",
     "base_sha": "2c9501a2",
     "changed_files": [
       ".workflow/records/1617-change-contract-gate-manager.json",
       ".workflow/records/1618-feat-change-contract-gate-schema.json",
       ".workflow/records/1620-feat-change-contract-gate-reachability.json",
       ".workflow/records/docs-change-contract-gate-spec-docs-change-contract-gate-spec.json",
+      "docs/ai-developer/specific_rules/document-standards.md",
+      "docs/audit/baselines/change-contract-baseline.json",
+      "docs/audit/change-contract-gate-implementation-audit.md",
+      "docs/change-contracts/adr-042-change-contract-gate.yml",
+      "docs/change-contracts/adr-042-consistency-tools-full-audit-change-contract.yml",
       "docs/planning/change-contract-gate-implementation-checklist.md",
       "docs/planning/change-contract-gate-prompts/A1-schema.md",
       "docs/planning/change-contract-gate-prompts/A2-audit-core.md",
@@ -1779,25 +1881,33 @@
       "docs/planning/change-contract-gate-prompts/A4-gate-wiring-docs.md",
       "docs/planning/change-contract-gate-prompts/V1-audit.md",
       "docs/specs/adr-042-change-contract-gate.md",
+      "docs/specs/adr-042-consistency-tools.md",
+      "src/scistudio/qa/audit/_util.py",
       "src/scistudio/qa/audit/change_contract_reachability.py",
+      "src/scistudio/qa/audit/change_contracts.py",
+      "src/scistudio/qa/audit/full_audit.py",
+      "src/scistudio/qa/audit/griffe_facts.py",
+      "src/scistudio/qa/governance/gate_record/checks.py",
       "src/scistudio/qa/schemas/__init__.py",
       "src/scistudio/qa/schemas/change_contracts.py",
+      "src/scistudio/qa/schemas/frontmatter.py",
       "tests/qa/test_change_contract_reachability.py",
-      "tests/qa/test_change_contract_schemas.py"
+      "tests/qa/test_change_contract_schemas.py",
+      "tests/qa/test_change_contracts.py"
     ],
-    "diff_fingerprint": "sha256:fbe80040bef7c4ed0058710cd62948a6423454630d0938e8aef3d559f58a5c92",
+    "diff_fingerprint": "sha256:4bc63f01f7b035f7ece998a8bc3075985281554563936f60777f88bf0ca6bf86",
     "head": "HEAD",
-    "head_sha": "a31c1f89",
+    "head_sha": "4ef25f51",
     "surfaces": {
-      "docs": 7,
+      "docs": 13,
       "frontend": 0,
-      "governance": 3,
-      "governed_docs": 0,
-      "implementation": 3,
+      "governance": 10,
+      "governed_docs": 1,
+      "implementation": 9,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 6,
-      "test": 2,
+      "sentrux": 14,
+      "test": 3,
       "workflow_ci": 0
     }
   },
@@ -1809,7 +1919,7 @@
       1617
     ],
     "number": 1622,
-    "url": "https://github.com/zjzcpj/SciStudio/pull/1622"
+    "url": null
   },
   "reconcile_events": [
     {
@@ -1942,6 +2052,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T01:14:26.681600Z",
+      "diff_fingerprint": "sha256:4bc63f01f7b035f7ece998a8bc3075985281554563936f60777f88bf0ca6bf86",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1617-change-contract-gate-manager",
@@ -1956,15 +2074,7 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
-      "architecture_tests",
-      "change_contracts",
-      "format_check",
-      "full_audit",
-      "import_contracts",
-      "lint_format",
-      "python_tests",
-      "semantic_dup",
-      "type_check"
+      "change_contracts"
     ],
     "docs": [
       "docs_required_or_na"
