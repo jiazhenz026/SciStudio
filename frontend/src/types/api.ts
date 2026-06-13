@@ -383,6 +383,37 @@ export interface PreviewResourceResponse {
   data: Record<string, unknown>;
 }
 
+// ---------------------------------------------------------------------------
+// ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
+// ---------------------------------------------------------------------------
+
+/** Request body for `POST /api/plots/run` (backend `PlotRunRequest`). */
+export interface PlotRunRequest {
+  plot_id: string;
+  /** Optional run id to source the target output from; defaults to latest. */
+  run_id?: string | null;
+  /** Optional manifest-timeout override (re-clamped to the absolute ceiling). */
+  timeout_seconds?: number | null;
+}
+
+/** Response body for `POST /api/plots/run` (backend `PlotRunResponse`).
+ *
+ *  On success, `data_ref` is the catalog id passed to
+ *  {@link PreviewTarget.ref} (with `kind: "plot_artifact"`) to render the
+ *  produced figure through the core PlotPreviewer. It is `null` when the run
+ *  failed / produced no artifact — `status` + `errors` then explain why. */
+export interface PlotRunResponse {
+  status: "succeeded" | "failed" | "cancelled" | "timed_out";
+  data_ref: string | null;
+  recorded_type: string;
+  type_chain: string[];
+  cache_key: string | null;
+  artifact_paths: string[];
+  source: PreviewSource | null;
+  warnings: string[];
+  errors: string[];
+}
+
 export interface CancelPropagationResponse {
   cancelled_blocks: string[];
   skipped_blocks: string[];

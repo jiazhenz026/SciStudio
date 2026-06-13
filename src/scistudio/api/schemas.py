@@ -316,6 +316,57 @@ class PreviewResourceResponse(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
 
+# ---------------------------------------------------------------------------
+# ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
+#
+# These wire the producer (run_plot_job) to the consumer (PlotPreviewer): the
+# run route executes the plot job and, on success, registers the produced
+# artifact as a previewable catalog record so the frontend can open a routed
+# ``plot_artifact`` preview session through the existing previews API.
+# ---------------------------------------------------------------------------
+
+
+class PlotRunRequest(BaseModel):
+    """Request body for ``POST /api/plots/run``."""
+
+    plot_id: str = Field(description="Plot id under plots/ to execute.")
+    run_id: str | None = Field(
+        default=None,
+        description="Optional run id to source the target output from; defaults to latest.",
+    )
+    timeout_seconds: float | None = Field(
+        default=None,
+        description="Optional override of the manifest timeout (re-clamped to the absolute ceiling).",
+    )
+
+
+class PlotRunResponse(BaseModel):
+    """Response body for ``POST /api/plots/run``.
+
+    On success ``data_ref`` is the catalog id the frontend passes to
+    ``POST /api/previews/sessions`` (with ``target.kind="plot_artifact"``) to
+    render the produced artifact through the core ``PlotPreviewer``. It is
+    ``None`` when the plot run failed / produced no artifact, in which case
+    ``status`` plus ``errors`` explain why.
+    """
+
+    status: str = Field(description="succeeded / failed / cancelled / timed_out.")
+    data_ref: str | None = Field(
+        default=None,
+        description="Catalog id of the registered plot artifact; open a preview session with this ref.",
+    )
+    recorded_type: str = Field(default="PlotArtifact", description="Recorded type of the artifact record.")
+    type_chain: list[str] = Field(default_factory=list, description="Ordered general -> specific type chain.")
+    cache_key: str | None = Field(default=None, description="Preview cache key for UI refresh (FR-030).")
+    artifact_paths: list[str] = Field(default_factory=list, description="Absolute preview-cache artifact paths.")
+    source: dict[str, Any] | None = Field(
+        default=None,
+        description="Display-only workflow/node/output identity for the preview panel label.",
+    )
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
 class ProjectCreate(BaseModel):
     """Request body for creating a project workspace."""
 

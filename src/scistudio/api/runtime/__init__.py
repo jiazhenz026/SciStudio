@@ -730,6 +730,9 @@ class ApiRuntime:
 
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
+    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
+    # PreviewService can reach the core PlotPreviewer at runtime.
+    register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref

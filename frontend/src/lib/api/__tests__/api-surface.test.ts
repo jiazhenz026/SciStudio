@@ -42,6 +42,8 @@ const EXPECTED_API_KEYS = [
   "uploadData",
   "getDataMetadata",
   "getDataPreview",
+  // data — ADR-048 SPEC 2 / #1606 plot-job run + preview wiring
+  "runPlotJob",
   // filesystem
   "browseFilesystem",
   "revealInExplorer",
