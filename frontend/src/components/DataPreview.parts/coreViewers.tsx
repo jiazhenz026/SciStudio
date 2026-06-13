@@ -9,9 +9,11 @@
  * envelope (and, where interactive, the session helpers passed in). They are
  * deliberately generic:
  *   - `ArrayViewer` is GENERIC numeric inspection only — shape/dtype/axes,
- *     scalar / 1-D chart / 2-D raster, bounded N-D slice selector, and a
- *     generic colormap + display range. It has NO image-domain LUT/OME/channel/
- *     label semantics (FR-013/FR-014); those belong to the imaging package.
+ *     scalar / 1-D chart / 2-D numeric heatmap table (PyCharm-style: actual
+ *     values + per-cell heatmap color + min..max legend), and a per-axis slice
+ *     selector for every non-displayed dimension. It has NO image-domain
+ *     LUT/OME/channel/label semantics (FR-013/FR-014); those belong to the
+ *     imaging package.
  *
  * Each viewer renders the FR-011 metadata flags (sampled/truncated/...) so the
  * user always knows whether the displayed data is bounded.
@@ -118,30 +120,80 @@ export function DataFrameViewer({ envelope }: { envelope: PreviewEnvelope }) {
 
 // ---------------------------------------------------------------------------
 // Array (FR-013 / FR-014) — GENERIC numeric only
+//
+// PyCharm-style numeric inspection: the displayed 2-D plane is rendered as a
+// table of the ACTUAL numeric values, each cell heatmap-colored by a real
+// colormap (diverging for signed data — negatives are NOT clipped), with a
+// value-scale legend (min..max). Every non-displayed axis gets its own index
+// picker so an N-D array is fully navigable. NO image-domain LUT/OME/channel/
+// label semantics (those belong to the imaging package).
 // ---------------------------------------------------------------------------
 
-const GENERIC_COLORMAPS = ["gray", "viridis", "magma", "plasma"] as const;
+/** One non-displayed axis descriptor echoed by the backend. */
+interface ArraySliceAxis {
+  axis: number;
+  name: string;
+  size: number;
+  index: number;
+}
 
-function useArraySlice(
+function readSliceAxes(payload: Record<string, unknown>): ArraySliceAxis[] {
+  const raw = payload.slice_axes;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      const r = asRecord(entry);
+      return {
+        axis: asNumber(r.axis, -1),
+        name: asString(r.name, "axis"),
+        size: asNumber(r.size, 0),
+        index: asNumber(r.index, 0),
+      };
+    })
+    .filter((a) => a.axis >= 0 && a.size > 0);
+}
+
+/**
+ * Per-axis slice state. Each non-displayed axis is independently selectable;
+ * changes are pushed to the session query as ``axis_indices`` (a map keyed by
+ * axis position) plus a legacy ``slice_index`` for the first extra axis, and
+ * the backend echoes the clamped selection back through ``slice_axes``.
+ */
+function useArraySlices(
   envelope: PreviewEnvelope,
   onPatchQuery?: (q: Record<string, unknown>) => void,
 ) {
-  const payload = envelope.payload;
-  const sliceAxisSize = payload.slice_axis_size as number | null | undefined;
-  const echoedIndex = asNumber(payload.slice_index, 0);
-  const [sliceIndex, setSliceIndex] = useState(echoedIndex);
+  const sliceAxes = useMemo(() => readSliceAxes(envelope.payload), [envelope.payload]);
+  const echoed = useMemo(() => {
+    const m: Record<number, number> = {};
+    for (const a of sliceAxes) m[a.axis] = a.index;
+    return m;
+  }, [sliceAxes]);
+  const [indices, setIndices] = useState<Record<number, number>>(echoed);
   useEffect(() => {
-    setSliceIndex(echoedIndex);
-  }, [echoedIndex]);
+    setIndices(echoed);
+  }, [echoed]);
+
   const change = useCallback(
-    (idx: number) => {
-      setSliceIndex(idx);
-      onPatchQuery?.({ slice_index: idx });
+    (axis: number, idx: number) => {
+      setIndices((prev) => {
+        const next = { ...prev, [axis]: idx };
+        const axisIndices: Record<string, number> = {};
+        for (const [k, v] of Object.entries(next)) axisIndices[k] = v;
+        const patch: Record<string, unknown> = { axis_indices: axisIndices };
+        // Legacy single-axis control: keep ``slice_index`` in sync with the
+        // first extra axis so the compatibility path stays consistent.
+        if (sliceAxes.length > 0 && axis === sliceAxes[0].axis) {
+          patch.slice_index = idx;
+        }
+        onPatchQuery?.(patch);
+        return next;
+      });
     },
-    [onPatchQuery],
+    [onPatchQuery, sliceAxes],
   );
-  const showSlider = typeof sliceAxisSize === "number" && sliceAxisSize > 1;
-  return { sliceIndex, change, showSlider, sliceAxisSize: sliceAxisSize ?? 0 };
+
+  return { sliceAxes, indices, change };
 }
 
 export function ArrayViewer({
@@ -156,16 +208,15 @@ export function ArrayViewer({
   const dtype = asString(payload.dtype, "?");
   const axes = (payload.axes as string[] | undefined) ?? [];
   const ndim = asNumber(payload.ndim, shape.length);
-  const src = asString(payload.src);
-  const sliceAxisName = asString(payload.slice_axis_name, "axis");
-  const { sliceIndex, change, showSlider, sliceAxisSize } = useArraySlice(envelope, onPatchQuery);
-  const [colormap, setColormap] = useState<(typeof GENERIC_COLORMAPS)[number]>("gray");
+  const { sliceAxes, indices, change } = useArraySlices(envelope, onPatchQuery);
 
   // Scalar (0-D) display — no raster, just the value.
   const isScalar = ndim === 0 || shape.length === 0;
-  // 1-D — a generic line chart of the thumbnail row.
-  const thumbnail = payload.thumbnail as number[][] | number[] | undefined;
+  // 1-D — a generic line chart of the matrix row.
+  const matrix = (payload.matrix ?? payload.thumbnail) as Cell[][] | Cell[] | undefined;
   const is1D = ndim === 1;
+  const matrix2d = useMemo(() => to2D(matrix), [matrix]);
+  const { vmin, vmax } = useMemo(() => resolveExtent(payload, matrix2d), [payload, matrix2d]);
 
   return (
     <div data-testid="core-array-viewer" className="space-y-2">
@@ -184,58 +235,57 @@ export function ArrayViewer({
           className="rounded-[1rem] border border-stone-200 bg-white p-4 text-sm"
           data-testid="array-scalar"
         >
-          {String((thumbnail as unknown) ?? "")}
+          {String(scalarValue(matrix) ?? "")}
         </div>
       ) : is1D ? (
-        <Array1DChart values={flatten1D(thumbnail)} />
+        <Array1DChart values={flatten1D(matrix)} />
       ) : (
-        <Array2DRaster src={src} colormap={colormap} shape={shape} />
+        <>
+          <ArrayHeatmapTable matrix={matrix2d} vmin={vmin} vmax={vmax} shape={shape} />
+          <ArrayLegend vmin={vmin} vmax={vmax} />
+        </>
       )}
 
-      {/* Bounded N-D slice selector. */}
-      {showSlider ? (
-        <div
-          className="flex items-center gap-2 text-xs text-stone-600"
-          data-testid="array-slice-row"
-        >
-          <span className="w-20">
-            {sliceAxisName} ({sliceAxisSize})
-          </span>
-          <input
-            aria-label={`Slice along ${sliceAxisName}`}
-            data-testid="array-slice-slider"
-            type="range"
-            min={0}
-            max={sliceAxisSize - 1}
-            value={sliceIndex}
-            onChange={(e) => change(Number(e.target.value))}
-            className="flex-1"
-          />
-          <span className="w-12 text-right">
-            {sliceIndex + 1}/{sliceAxisSize}
-          </span>
-        </div>
-      ) : null}
-
-      {/* Generic colormap selector (NOT imaging LUT semantics). */}
-      {!isScalar && !is1D ? (
-        <div
-          className="flex items-center gap-2 text-xs text-stone-600"
-          data-testid="array-colormap-row"
-        >
-          <span className="w-20">Colormap</span>
-          <select
-            aria-label="Array colormap"
-            value={colormap}
-            onChange={(e) => setColormap(e.target.value as (typeof GENERIC_COLORMAPS)[number])}
-            className="rounded border border-stone-300 bg-white px-2 py-0.5"
-          >
-            {GENERIC_COLORMAPS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+      {/* Per-axis slice selectors — one index picker per non-displayed axis. */}
+      {sliceAxes.length > 0 ? (
+        <div className="space-y-1" data-testid="array-slice-selectors">
+          {sliceAxes.map((ax) => {
+            const value = indices[ax.axis] ?? ax.index;
+            return (
+              <div
+                key={ax.axis}
+                className="flex items-center gap-2 text-xs text-stone-600"
+                data-testid={`array-slice-row-${ax.axis}`}
+              >
+                <span className="w-24 truncate">
+                  {ax.name} ({ax.size})
+                </span>
+                <input
+                  aria-label={`Slice along ${ax.name}`}
+                  data-testid={`array-slice-slider-${ax.axis}`}
+                  type="range"
+                  min={0}
+                  max={ax.size - 1}
+                  value={value}
+                  onChange={(e) => change(ax.axis, Number(e.target.value))}
+                  className="flex-1"
+                />
+                <input
+                  aria-label={`Index along ${ax.name}`}
+                  data-testid={`array-slice-input-${ax.axis}`}
+                  type="number"
+                  min={0}
+                  max={ax.size - 1}
+                  value={value}
+                  onChange={(e) => change(ax.axis, clampIndex(Number(e.target.value), ax.size))}
+                  className="w-16 rounded border border-stone-300 bg-white px-1 py-0.5 text-right"
+                />
+                <span className="w-12 text-right">
+                  {value + 1}/{ax.size}
+                </span>
+              </div>
+            );
+          })}
         </div>
       ) : null}
 
@@ -244,12 +294,112 @@ export function ArrayViewer({
   );
 }
 
-function flatten1D(thumbnail: number[][] | number[] | undefined): number[] {
-  if (!Array.isArray(thumbnail)) return [];
-  if (thumbnail.length > 0 && Array.isArray(thumbnail[0])) {
-    return (thumbnail as number[][])[0] ?? [];
+function clampIndex(value: number, size: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(Math.trunc(value), size - 1));
+}
+
+function scalarValue(matrix: Cell[][] | Cell[] | undefined): Cell | undefined {
+  if (!Array.isArray(matrix)) return undefined;
+  const first = matrix[0];
+  if (Array.isArray(first)) return first[0];
+  return first as Cell | undefined;
+}
+
+/** A numeric cell; the backend encodes non-finite values as ``null``. */
+type Cell = number | null;
+
+function flatten1D(matrix: Cell[][] | Cell[] | undefined): number[] {
+  if (!Array.isArray(matrix)) return [];
+  const row =
+    matrix.length > 0 && Array.isArray(matrix[0])
+      ? ((matrix as Cell[][])[0] ?? [])
+      : (matrix as Cell[]);
+  // Plotly tolerates nulls as gaps; coerce to NaN so the line breaks cleanly.
+  return row.map((v) => (typeof v === "number" ? v : NaN));
+}
+
+/** Normalize a 1-D or 2-D payload matrix to a 2-D row-major array. */
+function to2D(matrix: Cell[][] | Cell[] | undefined): Cell[][] {
+  if (!Array.isArray(matrix)) return [];
+  if (matrix.length === 0) return [];
+  if (Array.isArray(matrix[0])) return matrix as Cell[][];
+  return [matrix as Cell[]];
+}
+
+/** Resolve the value extent from the backend echo, falling back to the data. */
+function resolveExtent(
+  payload: Record<string, unknown>,
+  matrix2d: Cell[][],
+): { vmin: number; vmax: number } {
+  const pMin = payload.vmin;
+  const pMax = payload.vmax;
+  if (
+    typeof pMin === "number" &&
+    typeof pMax === "number" &&
+    Number.isFinite(pMin) &&
+    Number.isFinite(pMax)
+  ) {
+    return { vmin: pMin, vmax: pMax };
   }
-  return thumbnail as number[];
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const row of matrix2d) {
+    for (const v of row) {
+      if (v !== null && Number.isFinite(v)) {
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return { vmin: 0, vmax: 1 };
+  return { vmin: lo, vmax: hi };
+}
+
+/**
+ * Map a value to an rgb() heatmap color. Signed extents use a diverging blue→
+ * white→red scale centered at 0 (negatives stay distinct, never clipped to
+ * black); all-nonnegative (or all-nonpositive) extents use a sequential
+ * light→dark scale. NaN/inf render transparent.
+ */
+export function heatmapColor(value: Cell, vmin: number, vmax: number): string {
+  if (value === null || !Number.isFinite(value)) return "transparent";
+  const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
+  if (vmin < 0 && vmax > 0) {
+    // Diverging, centered at 0 with a symmetric magnitude so 0 is white.
+    const mag = Math.max(Math.abs(vmin), Math.abs(vmax)) || 1;
+    const t = Math.max(-1, Math.min(1, value / mag));
+    if (t < 0) {
+      const k = -t; // 0..1 toward blue
+      return `rgb(${lerp(247, 33, k)}, ${lerp(247, 102, k)}, ${lerp(247, 172, k)})`;
+    }
+    const k = t; // 0..1 toward red
+    return `rgb(${lerp(247, 178, k)}, ${lerp(247, 24, k)}, ${lerp(247, 43, k)})`;
+  }
+  // Sequential light→dark teal over [vmin, vmax].
+  const span = vmax - vmin || 1;
+  const t = Math.max(0, Math.min(1, (value - vmin) / span));
+  return `rgb(${lerp(247, 8, t)}, ${lerp(252, 64, t)}, ${lerp(253, 129, t)})`;
+}
+
+/** Pick readable text color for a heatmap cell given its intensity. */
+function cellTextColor(value: Cell, vmin: number, vmax: number): string {
+  if (value === null || !Number.isFinite(value)) return "#94a3b8";
+  const mag =
+    vmin < 0 && vmax > 0 ? Math.max(Math.abs(vmin), Math.abs(vmax)) || 1 : vmax - vmin || 1;
+  const intensity = vmin < 0 && vmax > 0 ? Math.abs(value) / mag : (value - vmin) / mag;
+  return intensity > 0.6 ? "#f8fafc" : "#0f172a";
+}
+
+/** Format a numeric cell compactly but readably. ``null`` = non-finite cell. */
+export function formatCell(value: Cell): string {
+  if (value === null) return "—";
+  if (!Number.isFinite(value)) return Number.isNaN(value) ? "NaN" : value > 0 ? "∞" : "-∞";
+  if (value === 0) return "0";
+  const abs = Math.abs(value);
+  if (Number.isInteger(value) && abs < 1e6) return String(value);
+  if (abs >= 1e5 || abs < 1e-3) return value.toExponential(2);
+  return value.toFixed(3);
 }
 
 function Array1DChart({ values }: { values: number[] }) {
@@ -269,77 +419,86 @@ function Array1DChart({ values }: { values: number[] }) {
   );
 }
 
-function Array2DRaster({
-  src,
-  colormap,
+/** PyCharm-style numeric heatmap: actual values + per-cell heatmap background. */
+export function ArrayHeatmapTable({
+  matrix,
+  vmin,
+  vmax,
   shape,
 }: {
-  src: string;
-  colormap: string;
+  matrix: Cell[][];
+  vmin: number;
+  vmax: number;
   shape: number[];
 }) {
-  // Generic raster with pan/zoom. The colormap is a generic CSS filter hint;
-  // image-domain pixel-accurate LUT mapping is the imaging package's job.
-  const [scale, setScale] = useState(1);
+  const rows = matrix.length;
+  const cols = matrix[0]?.length ?? 0;
   return (
-    <div data-testid="array-2d-raster" className="space-y-1">
+    <div data-testid="array-2d-heatmap" className="space-y-1">
+      <div className="max-h-80 overflow-auto rounded-[0.8rem] border border-stone-200 bg-white">
+        <table className="border-collapse text-[10px] tabular-nums">
+          <thead>
+            <tr>
+              <th className="sticky left-0 top-0 z-10 bg-stone-100 px-1 py-0.5 text-stone-400" />
+              {Array.from({ length: cols }, (_, c) => (
+                <th
+                  key={c}
+                  className="sticky top-0 bg-stone-100 px-1 py-0.5 font-normal text-stone-400"
+                >
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.map((row, r) => (
+              <tr key={r}>
+                <th className="sticky left-0 z-10 bg-stone-100 px-1 py-0.5 font-normal text-stone-400">
+                  {r}
+                </th>
+                {row.map((value, c) => (
+                  <td
+                    key={c}
+                    data-testid={`array-cell-${r}-${c}`}
+                    title={value === null ? "non-finite" : String(value)}
+                    className="whitespace-nowrap px-1 py-0.5 text-right"
+                    style={{
+                      backgroundColor: heatmapColor(value, vmin, vmax),
+                      color: cellTextColor(value, vmin, vmax),
+                    }}
+                  >
+                    {formatCell(value)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="text-[10px] text-stone-400" data-testid="array-grid-info">
+        {shape.length ? `${shape.join(" × ")} | ` : ""}
+        displaying {rows} × {cols}
+      </div>
+    </div>
+  );
+}
+
+/** Min..max value-scale legend matching the heatmap colormap. */
+export function ArrayLegend({ vmin, vmax }: { vmin: number; vmax: number }) {
+  const stops = Array.from({ length: 9 }, (_, i) => {
+    const v = vmin + ((vmax - vmin) * i) / 8;
+    return heatmapColor(v, vmin, vmax);
+  });
+  const mid = vmin < 0 && vmax > 0 ? 0 : (vmin + vmax) / 2;
+  return (
+    <div className="flex items-center gap-2 text-[10px] text-stone-500" data-testid="array-legend">
+      <span data-testid="array-legend-min">{formatCell(vmin)}</span>
       <div
-        className="relative overflow-hidden rounded-t-[0.8rem]"
-        style={{ background: "#1e293b", height: 280 }}
-      >
-        {src ? (
-          <img
-            alt="Array preview"
-            src={src}
-            draggable={false}
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              transform: `translate(-50%, -50%) scale(${scale})`,
-              imageRendering: scale > 2 ? "pixelated" : "auto",
-              filter: colormap === "gray" ? undefined : "saturate(1.4)",
-            }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-stone-400">
-            no raster
-          </div>
-        )}
-        <div
-          data-testid="array-info-badge"
-          className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/50 px-2 py-0.5 text-[10px] text-slate-300"
-        >
-          {shape.length ? `${shape.join(" × ")} | ` : ""}
-          {Math.round(scale * 100)}%
-        </div>
-      </div>
-      <div className="flex items-center gap-1 text-xs text-stone-600">
-        <button
-          type="button"
-          aria-label="Zoom in"
-          onClick={() => setScale((s) => Math.min(20, s * 1.25))}
-          className="rounded border border-stone-300 bg-white px-2"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          aria-label="Zoom out"
-          onClick={() => setScale((s) => Math.max(0.1, s * 0.8))}
-          className="rounded border border-stone-300 bg-white px-2"
-        >
-          −
-        </button>
-        <button
-          type="button"
-          aria-label="Reset zoom"
-          onClick={() => setScale(1)}
-          className="ml-auto rounded border border-stone-300 bg-white px-2"
-        >
-          Reset
-        </button>
-      </div>
+        className="h-2 flex-1 rounded"
+        style={{ background: `linear-gradient(to right, ${stops.join(", ")})` }}
+      />
+      <span data-testid="array-legend-mid">{formatCell(mid)}</span>
+      <span data-testid="array-legend-max">{formatCell(vmax)}</span>
     </div>
   );
 }
