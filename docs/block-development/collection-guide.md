@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Collection Guide"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Developer guide for Collection transport, iteration, storage, and block signature patterns."
+---
+
 # Collection Guide
 
 This document covers patterns for working with Collections -- the

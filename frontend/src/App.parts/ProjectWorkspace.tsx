@@ -91,10 +91,7 @@ export interface ProjectWorkspaceProps {
   selectedNode: WorkflowNode | null;
   selectedSchema?: BlockSchemaResponse;
   // Data preview
-  previewCache: ReturnType<typeof useAppStore.getState>["previewCache"];
-  previewLoading: ReturnType<typeof useAppStore.getState>["previewLoading"];
   selectedNodeLabel: string;
-  onLoadPreview: (dataRef: string) => Promise<void>;
   // Layout persistence
   setPanelSize: (key: "palette" | "preview" | "bottom", size: number) => void;
 }
@@ -256,11 +253,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     selectedNodeId,
     onUpdateNodeConfig,
     setPanelSize,
-    previewCache,
-    previewLoading,
     blockOutputs,
     selectedNodeLabel,
-    onLoadPreview,
   } = props;
 
   return (
@@ -350,9 +344,6 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       <ResizablePanel defaultSize="22%" minSize="15%" maxSize="42%" collapsible collapsedSize="0%">
         <DataPreview
           blockOutputs={blockOutputs}
-          onLoadPreview={onLoadPreview}
-          previewCache={previewCache}
-          previewLoading={previewLoading}
           selectedNodeId={selectedNodeId}
           selectedNodeLabel={selectedNodeLabel}
           // #1326 port-info panel: resolve effective per-instance ports for

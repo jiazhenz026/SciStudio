@@ -1,7 +1,6 @@
 import type {
   BlockSchemaResponse,
   BlockSummary,
-  DataPreviewResponse,
   PreviewEnvelope,
   GitBranch,
   GitCommit,
@@ -178,11 +177,6 @@ export interface UISlice {
 }
 
 export interface PreviewSlice {
-  // Legacy one-shot preview cache (FR-008 compatibility, keyed by data ref).
-  previewCache: Record<string, DataPreviewResponse>;
-  previewLoading: Record<string, boolean>;
-  cachePreview: (payload: DataPreviewResponse) => void;
-  setPreviewLoading: (ref: string, loading: boolean) => void;
   // ADR-048 SPEC 1 — routed session-envelope cache (FR-021). Keyed by the
   // composite key built from data/collection ref + previewer id + session id +
   // query (slice/page/sort/slot/item) + data version when available. Values

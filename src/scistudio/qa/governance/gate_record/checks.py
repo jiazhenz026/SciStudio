@@ -361,6 +361,16 @@ def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | No
     return [ambient, *rest], env
 
 
+def _with_check_env(name: str, env: dict[str, str] | None) -> dict[str, str] | None:
+    """Mirror CI-only environment knobs for local check execution."""
+
+    if name != "python_tests":
+        return env
+    merged = dict(os.environ) if env is None else dict(env)
+    merged["SCISTUDIO_DEV"] = "1"
+    return merged
+
+
 def run_check(
     repo_root: Path,
     name: str,
@@ -383,6 +393,7 @@ def run_check(
     input_fp = fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint
 
     argv, env = _resolve_execution(repo_root, spec)
+    env = _with_check_env(name, env)
 
     if argv is None:
         return CheckEvent(

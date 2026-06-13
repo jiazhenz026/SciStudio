@@ -16,11 +16,13 @@ import pytest
 from scistudio.qa.governance.gate_record import checks, evaluator, io, surfaces, workflow
 from scistudio.qa.governance.gate_record.io import SanitizationError
 from scistudio.qa.governance.gate_record.ledger import (
+    AdminLabel,
     CheckEvent,
     DeclaredScope,
     DocsEvent,
     GateLedger,
     IssueRef,
+    ObservedDiff,
     PullRequestEvidence,
     RequiredObligations,
     TestEvent,
@@ -140,6 +142,57 @@ def test_ci_mode_check_resolves_finalized_ledger(
     assert "reconciliation passed" in output
 
 
+def test_pre_commit_check_resolves_staged_finalized_ledger(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _git(git_repo, "checkout", "-q", "-b", "track/x")
+    records_dir = git_repo / ".workflow" / "records"
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1584-finalized-ledger-local.json"
+    ledger = _ledger(branch="track/x")
+    ledger.pull_request = PullRequestEvidence(url="https://github.com/zjzcpj/SciStudio/pull/1584", number=1584)
+    io.write_ledger(record_path, ledger, repo_root=git_repo)
+    _git(git_repo, "add", ".workflow/records/1584-finalized-ledger-local.json")
+
+    def _fake_reconcile(**kwargs: object) -> evaluator.ReconcileResult:
+        resolved = kwargs["ledger"]
+        assert isinstance(resolved, GateLedger)
+        assert resolved.pull_request is not None
+        return evaluator.ReconcileResult(
+            report=AuditReport(tool="gate_record", status=AuditStatus.PASS, source_sha="test"),
+            strictness_tier=2,
+            required_obligations=RequiredObligations(),
+        )
+
+    monkeypatch.setattr(workflow.evaluator, "reconcile", _fake_reconcile)
+    args = SimpleNamespace(
+        record=None,
+        mode="pre-commit",
+        owner_directive=[],
+        include=[],
+        exclude=[],
+        issue=[],
+        docs_updated=[],
+        docs_na=[],
+        test_path=[],
+        test_na=[],
+        check=[],
+        check_na=[],
+        admin_label=[],
+        skip_execution=True,
+        only=[],
+        pr_body_file=None,
+        pr_context_file=None,
+        head="HEAD",
+        base="HEAD",
+    )
+
+    assert workflow.run_check(git_repo, args) == workflow.EXIT_OK
+    output = capsys.readouterr().out
+    assert "no gate ledger found" not in output
+    assert "reconciliation passed" in output
+
+
 # ---------------------------------------------------------------------------
 # Observed diff over declarations.
 # ---------------------------------------------------------------------------
@@ -166,6 +219,33 @@ def test_observed_diff_comes_from_git_not_declarations(git_repo: Path) -> None:
 # ---------------------------------------------------------------------------
 # Tier derivation + escalation (§7.6).
 # ---------------------------------------------------------------------------
+
+
+def test_pre_commit_reconcile_does_not_clobber_existing_observed_diff(git_repo: Path) -> None:
+    ledger = _ledger(
+        observed_diff=ObservedDiff(
+            base="origin/main",
+            head="HEAD",
+            base_sha="base-sha",
+            head_sha="head-sha",
+            diff_fingerprint="sha256:durable",
+            changed_files=["src/scistudio/x.py"],
+            surfaces={"implementation": 1},
+        )
+    )
+
+    evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD",
+        head="HEAD",
+        mode="pre-commit",
+        run_checks=False,
+    )
+
+    assert ledger.observed_diff is not None
+    assert ledger.observed_diff.diff_fingerprint == "sha256:durable"
+    assert ledger.observed_diff.changed_files == ["src/scistudio/x.py"]
 
 
 def test_baseline_tier_from_task_kind() -> None:
@@ -204,6 +284,26 @@ def test_claimed_docs_path_not_in_diff_is_unverified(git_repo: Path) -> None:
         ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
     )
     assert any(f.rule_id == "docs.claimed-but-unverified" for f in result.report.findings)
+
+
+def test_warning_only_reconcile_records_pass(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(evaluator, "GUARD_REGISTRY", {}, raising=True)
+    ledger = _ledger()
+    ledger.docs_events.append(DocsEvent(kind="path", path="docs/not-changed.md"))
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD",
+        head="HEAD",
+        mode="local",
+        run_checks=False,
+    )
+
+    assert any(f.rule_id == "docs.claimed-but-unverified" for f in result.report.findings)
+    assert result.report.status == AuditStatus.PASS
+    assert result.reconcile_event is not None
+    assert result.reconcile_event.result == "pass"
 
 
 def test_claimed_test_path_not_in_diff_is_unverified(git_repo: Path) -> None:
@@ -763,6 +863,38 @@ def test_required_skipped_check_waived_by_na(git_repo: Path, monkeypatch: pytest
     assert "checks.my_custom_task_check" not in result.unsatisfied
 
 
+def test_python_tests_check_sets_ci_dev_environment(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen_env: list[str | None] = []
+
+    def _fake_run(
+        argv: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str] | None,
+        capture_output: bool,
+        text: bool,
+        encoding: str,
+        errors: str,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        seen_env.append(None if env is None else env.get("SCISTUDIO_DEV"))
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(checks.parity, "resolve_venv_executable", lambda _repo, _tool: None)
+    monkeypatch.setattr(checks.shutil, "which", lambda tool: tool if tool == "pytest" else None)
+    monkeypatch.setattr(checks.subprocess, "run", _fake_run)
+
+    event = checks.run_check(
+        git_repo,
+        "python_tests",
+        changed_files=["tests/qa/test_x.py"],
+        diff_fingerprint=None,
+    )
+
+    assert event.status == "pass"
+    assert seen_env == ["1"]
+
+
 def test_frontend_check_runs_in_frontend_working_directory(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[list[str], Path]] = []
 
@@ -845,6 +977,48 @@ def test_core_change_label_by_non_admin_actor_does_not_authorize(git_repo: Path)
     )
     # A non-admin actor's label carries insufficient provenance -> still blocks.
     assert "guard.core_change_guard" in result.unsatisfied
+
+
+def test_requested_bypass_requires_observed_pr_label_provenance_in_ci(git_repo: Path) -> None:
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(runtime="codex", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    ledger.requested_admin_labels.append(AdminLabel(name="admin-approved:bypass"))
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={"labels": []},
+    )
+
+    assert "guard.human_bypass_guard" in result.unsatisfied
+    human_reports = [event for event in result.guard_events if event.guard == "human_bypass_guard"]
+    assert human_reports
+    rule_ids = {str(finding.get("rule_id")) for finding in human_reports[-1].findings if isinstance(finding, dict)}
+    assert "human_bypass_guard.requested-bypass-needs-provenance" in rule_ids
+
+
+def test_requested_bypass_is_authorized_by_observed_pr_label_provenance_in_ci(git_repo: Path) -> None:
+    _add_change(git_repo, "src/scistudio/x.py")
+    ledger = _ledger(runtime="codex", declared_scope=DeclaredScope(include=["src/scistudio/**"]))
+    ledger.requested_admin_labels.append(AdminLabel(name="admin-approved:bypass"))
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="ci",
+        run_checks=False,
+        pr_context={
+            "labels": [{"name": "admin-approved:bypass", "actor": "owner", "permission": "admin"}],
+        },
+    )
+
+    assert "guard.human_bypass_guard" not in result.unsatisfied
 
 
 def test_human_bypass_authorized_by_admin_provenance_label_in_ci(git_repo: Path) -> None:

@@ -7,13 +7,25 @@ repos:
       # evaluator's mod_guard / weakened_ci_check calculators own those.
       - id: scistudio-gate-record-pre-commit
         name: SciStudio ADR-042 gate record pre-commit
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit
+        # --no-record: gate the commit without persisting the ledger. The gate
+        # records check evidence into the ledger (a tracked file); under the
+        # pre-commit framework a hook that modifies a tracked file fails the
+        # commit ("files were modified"), and the always-append evidence never
+        # converges (issue #1609). The hook still runs every check/guard and
+        # blocks a failing commit; evidence is recorded by explicit `gate_record
+        # check` runs and by CI.
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit --no-record
         language: system
         pass_filenames: false
         files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml|AGENTS\.md|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|scripts/hooks/)
       - id: scistudio-gate-record-commit-msg
         name: SciStudio ADR-042 gate record commit message
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode commit-msg
+        # On the commit-msg stage pre-commit appends the commit-message file
+        # path. The `check` subparser has no positional for it, so `check --mode
+        # commit-msg <FILE>` exits 2 (`unrecognized arguments`) and fails every
+        # commit (issue #1609 Defect 4). The `commit-msg <message-file>` alias
+        # subcommand is purpose-built to receive that path -> call it instead.
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg --no-record
         language: system
         stages: [commit-msg]
 
@@ -31,8 +43,7 @@ repos:
 
   # ADR-042 Addendum 6 §6.2/§7.10: pin ruff/mypy to the CI-resolved versions so
   # local pre-commit matches CI. CI installs unpinned `ruff` and `.[dev]` mypy,
-  # which currently resolve ruff 0.15.15 and mypy 2.1.0. mypy additional
-  # dependencies mirror the CI `.[dev]` stub packages (types-PyYAML).
+  # which currently resolve ruff 0.15.15 and mypy 2.1.0.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.15
     hooks:
@@ -44,7 +55,12 @@ repos:
     rev: v2.1.0
     hooks:
       - id: mypy
-        additional_dependencies: ["types-PyYAML>=6.0"]
+        # CI runs mypy with the project's `.[dev]` env installed, so pydantic
+        # (and pytest in tests) types resolve. The mirrors-mypy isolated env must
+        # mirror that, or every pydantic return type resolves to ``Any`` and
+        # trips ``no-any-return`` on any pydantic-importing file -- a false fail
+        # that has nothing to do with the staged change (issue #1609).
+        additional_dependencies: ["types-PyYAML>=6.0", "pydantic>=2.0", "pytest>=8.0", "xxhash>=3.0"]
         args: ["--ignore-missing-imports"]
 
   - repo: https://github.com/commitizen-tools/commitizen

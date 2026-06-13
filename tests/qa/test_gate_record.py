@@ -226,6 +226,47 @@ def test_discovery_ignores_finalized_and_old_format_records(git_repo: Path) -> N
     assert io.load_ledger(discovery.path).record_id != "done"
 
 
+def test_discovery_can_include_specific_finalized_record(git_repo: Path) -> None:
+    finalized = GateLedger.model_validate(
+        {
+            "record_id": "done",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "already shipped",
+            "pull_request": {"url": "https://github.com/o/r/pull/1", "number": 1},
+        }
+    )
+    record_path = git_repo / RECORDS_DIR / "1-done.json"
+    io.write_ledger(record_path, finalized, repo_root=git_repo)
+
+    default_discovery = io.discover_ledger(git_repo)
+    assert not default_discovery.found
+
+    included = io.discover_ledger(git_repo, include_finalized_paths=[record_path])
+    assert included.found
+    assert included.path == record_path
+
+
+def test_discovery_reports_temporarily_unreadable_ledger(git_repo: Path) -> None:
+    records_dir = git_repo / RECORDS_DIR
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1586-partial.json"
+    record_path.write_text("{", encoding="utf-8")
+
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.has_unreadable
+    assert discovery.unreadable == [record_path]
+
+    resolved, err = workflow._resolve_ledger_path(git_repo, None)
+    assert resolved is None
+    assert err is not None
+    assert err.exit_code == workflow.EXIT_SCHEMA
+    assert "temporarily unreadable" in "\n".join(err.lines)
+
+
 def test_discovery_ignores_stale_v1_record_alongside_v2(git_repo: Path) -> None:
     # Codex P1 #1 (#1509): the deleted 1509-adr042-add6-guards.json was a
     # throwaway schema-v1 scope record on a sub-branch, superseded by the v2
@@ -881,3 +922,70 @@ def test_finalize_pre_pr_records_commit_and_closes(git_repo: Path, tmp_path: Pat
     # rc may be 0 or non-zero depending on check execution; the recording is the
     # contract under test here. Assert it is a defined workflow exit code.
     assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+# ---------------------------------------------------------------------------
+# --no-record: the git-hook form gates without persisting the ledger (#1609).
+# ---------------------------------------------------------------------------
+
+
+def _init_for_no_record(repo: Path) -> Path:
+    _run(
+        repo,
+        "init",
+        "--task-kind",
+        "bugfix",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "fix the thing",
+        "--print-instructions",
+        "false",
+    )
+    return next((repo / RECORDS_DIR).glob("*.json"))
+
+
+def test_no_record_flag_parses_on_check_and_commit_msg() -> None:
+    parser = cli.build_parser()
+    assert parser.parse_args(["check", "--mode", "pre-commit", "--no-record"]).no_record is True
+    assert parser.parse_args(["commit-msg", "MSG", "--no-record"]).no_record is True
+
+
+def test_check_no_record_does_not_modify_the_ledger(git_repo: Path) -> None:
+    record = _init_for_no_record(git_repo)
+    # A normal check persists evidence/obligations -> establish a baseline.
+    _run(git_repo, "check", "--mode", "pre-commit", "--skip-execution")
+    baseline = record.read_bytes()
+    # The git-hook form (--no-record) must NOT touch the ledger. Under the
+    # pre-commit framework a hook that modifies a tracked file fails the commit,
+    # and the gate's always-append evidence never converges (#1609 deadlock).
+    rc = _run(git_repo, "check", "--mode", "pre-commit", "--no-record", "--skip-execution")
+    assert record.read_bytes() == baseline
+    assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # After post-PR finalize records the PR URL the ledger is "finalized"; the
+    # commit-msg git hook still runs on the provenance commit and must discover
+    # it, not fail "no gate ledger found" (#1609).
+    record = _init_for_no_record(git_repo)
+    data = json.loads(record.read_text(encoding="utf-8"))
+    data["pull_request"] = {
+        "url": "https://example.com/pr/1",
+        "number": 1,
+        "closes": [],
+        "body_closes_issues": [],
+    }
+    record.write_text(json.dumps(data), encoding="utf-8")
+    assert io.load_ledger(record).pull_request is not None  # valid + finalized
+
+    msg = git_repo / "COMMIT_EDITMSG"
+    msg.write_text("chore: follow-up\n", encoding="utf-8")
+    capsys.readouterr()
+    _run(git_repo, "commit-msg", str(msg), "--no-record")
+    out = capsys.readouterr()
+    assert "no gate ledger found" not in (out.out + out.err)

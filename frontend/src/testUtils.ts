@@ -28,8 +28,6 @@ export function resetAppStore() {
     panelSizes: { palette: 15, preview: 22, bottom: 30 },
     minimapVisible: true,
     lastError: null,
-    previewCache: {},
-    previewLoading: {},
     blocks: [],
     blockSchemas: {},
     paletteSearch: "",

@@ -95,6 +95,11 @@ function useTablePageFetch(
       requestedRef.current = { page, sortBy, sortDir };
       const ticket = ++inflightRef.current;
       setLoading(true);
+      // TODO(#1604): migrate this paging to the routed session resource/patchQuery
+      //   API so the legacy GET /api/data/{ref}/preview + _envelope_to_legacy_preview
+      //   compat adapter can be deleted (ADR-048 no-compat, #1594).
+      //   Out of scope this pass: overlaps the #1603 array-viewer coreViewers work.
+      //   Followup: https://github.com/zjzcpj/SciStudio/issues/1604
       api
         .getDataPreview(dataRef, {
           page,

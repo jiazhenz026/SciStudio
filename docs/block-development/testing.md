@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Testing"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Developer guide for BlockTestHarness validation, package tests, smoke tests, and test boundaries."
+---
+
 # Testing
 
 This document covers how to test SciStudio blocks using the
