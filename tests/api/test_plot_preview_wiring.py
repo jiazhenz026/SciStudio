@@ -262,3 +262,42 @@ def test_failed_plot_run_returns_status_without_data_ref(
     assert body["status"] == "failed"
     assert body["data_ref"] is None
     assert body["errors"]
+
+
+def test_plot_run_offloads_blocking_job_off_the_event_loop(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The route runs the blocking plot job in a worker thread, not the loop.
+
+    Regression guard for the Codex review on #1606: ``run_plot_job`` launches a
+    render subprocess and blocks for up to the absolute timeout, so the async
+    handler offloads it via ``starlette.concurrency.run_in_threadpool``. If a
+    future edit calls ``run_plot_job`` directly on the event loop again, this
+    test fails because the job would execute on the main thread.
+    """
+    import threading
+
+    from scistudio.ai.agent.mcp.tools_plot import runtime as plot_runtime
+
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    main_thread_id = threading.get_ident()
+    seen: dict[str, int] = {}
+    real_run_plot_job = plot_runtime.run_plot_job
+
+    def _spy(*args: Any, **kwargs: Any) -> Any:
+        seen["thread_id"] = threading.get_ident()
+        return real_run_plot_job(*args, **kwargs)
+
+    monkeypatch.setattr(plot_runtime, "run_plot_job", _spy)
+
+    run = client.post("/api/plots/run", json={"plot_id": "p1"})
+    assert run.status_code == 200, run.text
+    assert run.json()["status"] == "succeeded"
+    # The blocking job ran on a worker thread, not the event-loop thread.
+    assert "thread_id" in seen, "run_plot_job was not invoked"
+    assert seen["thread_id"] != main_thread_id

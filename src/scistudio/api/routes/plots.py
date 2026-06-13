@@ -30,9 +30,11 @@ and writes under ``.scistudio/previews/``.
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
@@ -72,10 +74,17 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     try:
-        result = run_plot_job(
-            plot_id=payload.plot_id,
-            run_id=payload.run_id,
-            timeout_seconds=payload.timeout_seconds,
+        # ``run_plot_job`` launches a render subprocess and blocks for up to the
+        # manifest/absolute timeout. Offload it to a worker thread so a long
+        # render or timeout does not stall the event loop and starve other
+        # async API / SSE / WebSocket requests served by this worker.
+        result = await run_in_threadpool(
+            partial(
+                run_plot_job,
+                plot_id=payload.plot_id,
+                run_id=payload.run_id,
+                timeout_seconds=payload.timeout_seconds,
+            )
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
