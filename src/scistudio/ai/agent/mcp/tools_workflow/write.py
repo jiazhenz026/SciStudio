@@ -157,12 +157,10 @@ async def _emit_agent_workflow_changed(
     if version is None:
         version = runtime.bump_workflow_version(workflow_id)
     runtime.mark_workflow_first_party_write(workflow_id, version, path=resolved, kind=kind)
-    try:
-        from scistudio.api.routes.workflow_watcher import mark_self_write
-
-        mark_self_write(resolved)
-    except Exception:
-        logger.debug("workflow_watcher: mark_self_write failed for %s", resolved, exc_info=True)
+    # #1591/#1597: route the FS-watcher self-write through the injected runtime
+    # rather than importing api.routes.workflow_watcher here (this MCP tool is in
+    # the ``ai`` layer; the direct import inverts the ai->api boundary).
+    runtime.mark_workflow_self_write(resolved)
 
     project_dir = getattr(runtime, "project_dir", None)
     relative_path = str(resolved).replace("\\", "/")

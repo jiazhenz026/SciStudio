@@ -222,23 +222,218 @@ export interface DataMetadataResponse {
   metadata: Record<string, unknown>;
 }
 
-export interface DataPreviewResponse {
-  ref: string;
-  type_name: string;
-  preview: Record<string, unknown>;
+// ---------------------------------------------------------------------------
+// ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
+//
+// These mirror `scistudio.api.schemas` Pydantic models / the canonical
+// `scistudio.previewers.models` dataclasses on the wire. The legacy
+// `DataPreviewResponse` / `DataPreviewQuery` REST-preview wire types and the
+// `GET /api/data/{ref}/preview` adapter were removed under ADR-048 no-compat
+// (#1604); pagination/sort now flows through the routed session API below.
+// ---------------------------------------------------------------------------
+
+/** Canonical fallback kinds carried by a {@link PreviewEnvelope} (backend
+ *  `EnvelopeKind`). The frontend routes core fallback viewers by this value
+ *  when no validated previewer manifest is present. */
+export type EnvelopeKind =
+  | "dataframe"
+  | "array"
+  | "series"
+  | "text"
+  | "artifact"
+  | "composite"
+  | "collection"
+  | "plot"
+  | "error";
+
+/** What a {@link PreviewTarget} points at (backend `TargetKind`). */
+export type PreviewTargetKind = "data_ref" | "collection_ref" | "artifact" | "plot_artifact";
+
+/** Optional workflow/node/output identity for UI display only — carries no
+ *  workflow truth (backend `PreviewSource`). */
+export interface PreviewSource {
+  workflow_id?: string | null;
+  node_id?: string | null;
+  output_port?: string | null;
 }
 
-export interface DataPreviewQuery {
-  /** 3-D image slider position (#899). */
-  slice?: number;
-  /** DataFrame page, 1-based. Clamped server-side. */
-  page?: number;
-  /** Rows per page. Capped server-side at 200. */
-  pageSize?: number;
-  /** Column name to sort by. Missing column → no sort applied. */
-  sortBy?: string;
-  /** Sort direction. Default ``asc``. */
-  sortDir?: "asc" | "desc";
+/** Identifies what is being previewed (backend `PreviewTarget`). */
+export interface PreviewTarget {
+  kind: PreviewTargetKind;
+  ref: string;
+  recorded_type?: string;
+  type_chain?: string[];
+  collection_item_type?: string | null;
+  source?: PreviewSource | null;
+}
+
+/** Same-origin descriptor for a dynamically loaded previewer ESM module
+ *  (backend `FrontendManifest.to_dict()` — note: NO `asset_root`). A package
+ *  or project previewer surfaces this in `envelope.metadata.frontend_manifest`
+ *  so {@link PreviewHost} can validate + import + mount it (FR-022/FR-024). */
+export interface PreviewerManifest {
+  previewer_id: string;
+  /** Backend-relative URL the host imports the ESM module from, e.g.
+   *  `/api/previews/assets/<previewer_id>/<path>`. Remote (http/https/`//`)
+   *  URLs are rejected by the frontend same-origin validator (FR-022). */
+  module_url: string;
+  /** Named export inside the module to mount. */
+  export_name: string;
+  /** Optional backend-relative CSS asset URLs. */
+  css?: string[];
+  /** Previewer bundle version (fingerprint or semver). */
+  version?: string;
+  /** Previewer API compatibility version; must match the host
+   *  {@link PREVIEWER_HOST_API_VERSION} to mount without a diagnostic. */
+  api_version?: string;
+}
+
+/** Descriptor for a bounded follow-up resource read (backend `PreviewResource`). */
+export interface PreviewResource {
+  resource_id: string;
+  kind: string;
+  media_type?: string | null;
+  description?: string;
+  params?: Record<string, unknown>;
+}
+
+/** Display + state metadata on every envelope (backend `PreviewMetadata`).
+ *  The six boolean flags are mandatory (FR-011); previewer-owned shape/type/
+ *  axis metadata and the optional `frontend_manifest` ride alongside them
+ *  (the backend spreads `extra` into this object on the wire). */
+export interface PreviewMetadata {
+  sampled?: boolean;
+  truncated?: boolean;
+  cached?: boolean;
+  derived?: boolean;
+  complete?: boolean;
+  failed?: boolean;
+  /** Same-origin manifest a package/project previewer asks the host to mount.
+   *  Absent for core fallbacks → the host renders the core viewer for `kind`. */
+  frontend_manifest?: PreviewerManifest;
+  /** Previewer-owned extra metadata (shape, dtype, axes, total_rows, ...). */
+  [key: string]: unknown;
+}
+
+/** Deterministic preview error codes (backend `PreviewErrorCode`). */
+export type PreviewErrorCode =
+  | "routing_ambiguity"
+  | "unknown_previewer"
+  | "unknown_target"
+  | "missing_bundle"
+  | "provider_exception"
+  | "invalid_spec"
+  | "duplicate_previewer_id"
+  | "budget_exceeded";
+
+/** Typed error payload embedded in a failed envelope (backend `PreviewErrorInfo`). */
+export interface PreviewErrorInfo {
+  code: PreviewErrorCode | string;
+  message: string;
+  detail?: Record<string, unknown>;
+}
+
+/** Canonical backend preview response (backend `PreviewEnvelope` /
+ *  `PreviewEnvelopeModel`). */
+export interface PreviewEnvelope {
+  session_id: string | null;
+  previewer_id: string;
+  target: PreviewTarget;
+  kind: EnvelopeKind;
+  payload: Record<string, unknown>;
+  resources: PreviewResource[];
+  metadata: PreviewMetadata;
+  diagnostics: string[];
+  error: PreviewErrorInfo | null;
+  /** First-class same-origin previewer manifest, framework-stamped by the
+   *  session manager from the resolved PreviewerSpec (ADR-048 §4 / #1579).
+   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
+  frontend_manifest?: PreviewerManifest | null;
+}
+
+/** Request body for `POST /api/previews/sessions`. */
+export interface PreviewSessionCreate {
+  target: PreviewTarget;
+  query?: Record<string, unknown>;
+}
+
+/** Request body for `PATCH /api/previews/sessions/{session_id}`. */
+export interface PreviewSessionPatch {
+  query: Record<string, unknown>;
+}
+
+/** Response body for a bounded session resource read
+ *  (`GET /api/previews/sessions/{id}/resources/{resource_id}`). The `data`
+ *  field is either a child {@link PreviewEnvelope} or a bounded tile payload. */
+export interface PreviewResourceResponse {
+  resource_id: string;
+  data: Record<string, unknown>;
+}
+
+/** Request body for saving a bounded session resource to a user-selected path. */
+export interface PreviewResourceSaveRequest {
+  destination_path: string;
+  params?: Record<string, unknown>;
+}
+
+/** Response body after a session resource save. */
+export interface PreviewResourceSaveResponse {
+  path: string;
+  filename: string;
+  size_bytes: number;
+  mime_type?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
+// ---------------------------------------------------------------------------
+
+/** Request body for `POST /api/plots/run` (backend `PlotRunRequest`). */
+export interface PlotRunRequest {
+  plot_id: string;
+  /** Optional run id to source the target output from; defaults to latest. */
+  run_id?: string | null;
+  /** Optional manifest-timeout override (re-clamped to the absolute ceiling). */
+  timeout_seconds?: number | null;
+}
+
+/** Response body for `POST /api/plots/run` (backend `PlotRunResponse`).
+ *
+ *  On success, `data_ref` is the catalog id passed to
+ *  {@link PreviewTarget.ref} (with `kind: "plot_artifact"`) to render the
+ *  produced figure through the core PlotPreviewer. It is `null` when the run
+ *  failed / produced no artifact — `status` + `errors` then explain why. */
+export interface PlotRunResponse {
+  status: "succeeded" | "failed" | "cancelled" | "timed_out";
+  data_ref: string | null;
+  recorded_type: string;
+  type_chain: string[];
+  cache_key: string | null;
+  artifact_paths: string[];
+  source: PreviewSource | null;
+  warnings: string[];
+  errors: string[];
+}
+
+/** One project-local plot manifest returned by `GET /api/plots`. */
+export interface PlotListItem {
+  plot_id: string;
+  title: string;
+  workflow_id?: string | null;
+  node_id: string;
+  output_port: string;
+  display_label: string;
+  language: string;
+  preferred_format: string;
+  manifest_path: string;
+  script_path: string;
+}
+
+/** Response body for `GET /api/plots`. */
+export interface PlotListResponse {
+  plots: PlotListItem[];
+  count: number;
+  warnings: string[];
 }
 
 export interface CancelPropagationResponse {

@@ -1,0 +1,1026 @@
+{
+  "branch": "track/adr-048-spec2-plot-tools",
+  "check_events": [
+    {
+      "at": "2026-06-11T03:24:51.108798Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:24:51.281004Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T03:25:00.540234Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:25:00.984257Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:25:01.066182Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T03:26:54.144612Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:27:46.814341Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T03:27:55.714163Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-11T03:28:07.782622Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1f09742af20a0b8f795e1200af5762a5d46c4de64c1efedfa9b772234406909",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:15:03.827814Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:15:03.877783Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T07:15:14.789826Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:15:15.013792Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:15:15.052758Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-11T07:20:16.384284Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:21:13.911447Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-11T07:21:18.887922Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-11T07:21:33.333236Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a43bb348e205fc77e151302e84f06e5866bf68710fdb27cf425734b1f8857d7",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_plot/**",
+      "tests/**",
+      "docs/specs/adr-048-ai-plot-tools.md",
+      ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      "docs/planning/adr-048-pr-fix-dispatch-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-11T07:02:36.387013Z",
+      "owner_directive": "SPEC2-FIX owns path confinement, workflow_path traversal, stale-current handling, dynamic target discovery as feasible, gate refresh, and SPEC2 checklist rows.",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "at": "2026-06-11T07:02:50.143859Z",
+      "owner_directive": "Plan: add negative regressions for escaping plot script paths and workflow_path traversal; centralize script/workflow confinement in plot runtime/read/list paths; fix failed rerun current metadata/artifact behavior and dynamic/effective output targets if locally scoped.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-11T03:35:35.144561Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T03:35:35.144579Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/cli-integration.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:36.387057Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:36.387071Z",
+      "class": "spec-contract",
+      "kind": "na",
+      "path": null,
+      "rationale": "path confinement, failed-current metadata, and target discovery fixes enforce existing ADR-048 SPEC2 requirements; no spec text change expected unless implementation reveals a contract delta.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:50.143893Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:50.143904Z",
+      "class": "spec-contract",
+      "kind": "na",
+      "path": null,
+      "rationale": "fixes enforce existing ADR-048 SPEC2 FR-004/FR-020/FR-021/FR-027/FR-028; no spec text update planned.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:24:41.297929Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:26:33.540754Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-11T03:28:07.817370Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.830683Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/_skills/scistudio/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+              "src/scistudio/agent_provisioning/_orchestrate.py",
+              "src/scistudio/agent_provisioning/skills.py",
+              "src/scistudio/ai/agent/mcp/__init__.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/__init__.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/examples.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/scaffold.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+              "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+              "src/scistudio/ai/agent/system_prompt.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T03:28:07.843310Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.856234Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.871114Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-11T03:28:07.884374Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.896955Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.909757Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:07.922323Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T03:28:08.064633Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:33.904526Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:33.944521Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:33.974663Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.006915Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.040565Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.071531Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.100307Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.128874Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.296165Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:21:34.326396Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:28.604668Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:28.789295Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:29.596306Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:30.042579Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:30.096335Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:30.267697Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:31.258089Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:31.728389Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:31.774273Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-11T07:23:31.949227Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1575,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1591,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/track/adr-048-spec1-preview-system",
+    "base_sha": "547f9f8d",
+    "changed_files": [
+      ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      "CHANGELOG.md",
+      "docs/audit/2026-06-10-adr-048-spec2.md",
+      "docs/cli-integration.md",
+      "docs/planning/adr-048-dispatch-prompts/s2-audit.md",
+      "docs/planning/adr-048-dispatch-prompts/s2-impl.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "pyproject.toml",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/skills.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/__init__.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/examples.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/scaffold.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+      "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+      "src/scistudio/ai/agent/system_prompt.py",
+      "tests/agent_provisioning/test_orchestrate.py",
+      "tests/agent_provisioning/test_skills.py",
+      "tests/ai/test_finish_ai_block_skeleton.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_mcp_tools_plot.py",
+      "tests/ai/test_system_prompt.py",
+      "tests/api/test_preview_plot_jobs.py",
+      "tests/cli/test_install.py",
+      "tests/cli/test_mcp_bridge.py",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py",
+      "tests/packaging/test_wheel_skills.py"
+    ],
+    "diff_fingerprint": "sha256:366aec6b36947d0f0f8be9efb8c350ced811a8ec23cdf5082b96536e572865d7",
+    "head": "HEAD",
+    "head_sha": "f89a42a0",
+    "surfaces": {
+      "docs": 5,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 16,
+      "packaging": 1,
+      "protected_core": 0,
+      "sentrux": 27,
+      "test": 12,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement ADR-048 SPEC 2 (AI plot tools + preview-side plot jobs) in full; deliver one [DO NOT MERGE] umbrella PR (stacked on SPEC 1) closing #1575; CI must pass.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-11T03:28:08.064665Z",
+      "diff_fingerprint": "sha256:c86d40f2d144ae7ad3801087617a9bcfc0d23d10903a713627849976786219a2",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-11T07:21:34.326438Z",
+      "diff_fingerprint": "sha256:366aec6b36947d0f0f8be9efb8c350ced811a8ec23cdf5082b96536e572865d7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-06-11T07:23:31.949272Z",
+      "diff_fingerprint": "sha256:366aec6b36947d0f0f8be9efb8c350ced811a8ec23cdf5082b96536e572865d7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1575-track-adr-048-spec2-plot-tools",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:36.387035Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/**",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:36.387044Z",
+      "pattern": "tests/**",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:36.387046Z",
+      "pattern": "docs/specs/adr-048-ai-plot-tools.md",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:36.387048Z",
+      "pattern": ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:36.387050Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "reason": "SPEC2-FIX dispatch correction: current repair pass is bugfix implementer work on existing SPEC2 PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:50.143877Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:50.143883Z",
+      "pattern": "tests/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:50.143885Z",
+      "pattern": ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:02:50.143887Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:23:13.429082Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Pre-PR reconciliation evaluates the full existing #1580 SPEC2 umbrella diff against the SPEC1 base; these documentation files predate SPEC2-FIX but must remain declared for the branch-level gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:23:13.429101Z",
+      "pattern": "docs/planning/adr-048-dispatch-prompts/s2-audit.md",
+      "reason": "Pre-PR reconciliation evaluates the full existing #1580 SPEC2 umbrella diff against the SPEC1 base; these documentation files predate SPEC2-FIX but must remain declared for the branch-level gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:23:13.429103Z",
+      "pattern": "docs/planning/adr-048-dispatch-prompts/s2-impl.md",
+      "reason": "Pre-PR reconciliation evaluates the full existing #1580 SPEC2 umbrella diff against the SPEC1 base; these documentation files predate SPEC2-FIX but must remain declared for the branch-level gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-11T07:23:13.429105Z",
+      "pattern": "docs/planning/adr-048-implementation-checklist.md",
+      "reason": "Pre-PR reconciliation evaluates the full existing #1580 SPEC2 umbrella diff against the SPEC1 base; these documentation files predate SPEC2-FIX but must remain declared for the branch-level gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168230Z",
+      "pattern": "src/scistudio/ai/agent/__init__.py",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168250Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/write.py",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168253Z",
+      "pattern": "src/scistudio/api/runtime/_workflows.py",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168255Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168256Z",
+      "pattern": "pyproject.toml",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:22:04.168258Z",
+      "pattern": "tests/architecture/test_packaging.py",
+      "reason": "Fix #1591: add src/scistudio/ai/agent/__init__.py so the agent runtime ships in the wheel and is visible to import-linter/grimp. Real-fix the exposed ai->api inversion (#1597): route the MCP workflow-write tool's FS-watcher self-write through the injected runtime (new ApiRuntime.mark_workflow_self_write) instead of importing api.routes.workflow_watcher. Carve out the accepted ADR-035 lazy AIBlock->agent edge in the engine+blocks import-linter contracts. Add a packaging/grimp guard test."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-12T03:30:55.327196Z",
+      "pattern": "tests/ai/test_mcp_tools_workflow.py",
+      "reason": "Fix #1591 CI: _VersionedStubRuntime in test_mcp_tools_workflow.py needs the new mark_workflow_self_write method the MCP write tool now calls through the injected runtime"
+    }
+  ],
+  "session_id": "0751a377-5241-4095-b615-1db13d027693",
+  "strictness_tier": 1,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-06-11T03:35:35.144584Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T03:35:35.144587Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:36.387076Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:36.387079Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:50.143908Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-11T07:02:50.143911Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:22:04.168353Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_packaging.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-12T03:30:55.327416Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

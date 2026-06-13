@@ -41,7 +41,10 @@ const EXPECTED_API_KEYS = [
   // data
   "uploadData",
   "getDataMetadata",
-  "getDataPreview",
+  // data — ADR-048 SPEC 2 / #1606 plot-job run + preview wiring.
+  // The legacy one-shot `getDataPreview` was removed under #1604; the catalog
+  // is previewed exclusively through the routed previewer session API.
+  "runPlotJob",
   // filesystem
   "browseFilesystem",
   "revealInExplorer",

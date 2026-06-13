@@ -1,8 +1,4 @@
-"""Pydantic result-model envelopes for the ``tools_inspection`` tools.
-
-Extracted from the original single-file ``tools_inspection.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Pydantic result-model envelopes for the ``tools_inspection`` tools."""
 
 from __future__ import annotations
 
@@ -43,7 +39,7 @@ class InspectDataResult(BaseModel):
 
 
 class PreviewDataResult(BaseModel):
-    """Result envelope for ``preview_data``."""
+    """Canonical bounded-result envelope for ``preview_data``."""
 
     fmt: str = Field(description="Preview shape identifier.")
     payload: Any = Field(description="Shape-specific payload dict.")

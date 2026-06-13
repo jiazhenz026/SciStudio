@@ -3,11 +3,11 @@ doc_type: block-development
 title: "Memory Safety"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
-  - ADR-043
-summary: "Developer guide for bounded-memory block patterns, Collection mapping tiers, and streaming IO."
+  - ADR-048
+summary: "Bounded-access and large-data guidance: the three-tier processing model, auto-flush, streaming reads/writes, resource hints, and the bounded-read budgets previewers must honor."
 ---
 
 # Memory Safety
@@ -27,9 +27,10 @@ bounded.
 4. [Tier 3: Manual run with pack/unpack](#tier-3-manual-run-with-packunpack)
 5. [Auto-Flush Mechanism](#auto-flush-mechanism)
 6. [Streaming Data Access](#streaming-data-access)
-7. [IOBlock Streaming Writes](#ioblock-streaming-writes)
+7. [Streaming Writes with persist_array / persist_table](#streaming-writes-with-persist_array-persist_table)
 8. [Memory Hints and Resource Declarations](#memory-hints-and-resource-declarations)
 9. [Decision Guide](#decision-guide)
+10. [Bounded reads in previewers](#bounded-reads-in-previewers)
 
 ---
 
@@ -282,7 +283,7 @@ for chunk in item.iter_chunks(chunk_size=1024*1024):
 
 ---
 
-## Streaming Writes with persist_array / persist_table {#ioblock-streaming-writes}
+## Streaming Writes with persist_array / persist_table
 
 Available on **all block types** (defined on the `Block` base class).
 These helpers persist data directly to project-local storage without
@@ -374,3 +375,22 @@ ARCHITECTURE.md §6.7 + the "Resource Hints" section in
 | Large file loading | All blocks: `persist_array` streaming |
 | Table loading | All blocks: `persist_table` |
 | Selective data access | `sel()`, `iter_over()`, `iter_chunks()` |
+| Previewing large data | Previewer: `PreviewDataAccess` bounded reads |
+
+---
+
+## Bounded reads in previewers
+
+The same bounded-access discipline applies to ADR-048 previewers. A previewer
+backend provider reads **only** through `request.data_access` (a
+`PreviewDataAccess`), which enforces a row / byte / item / tile / dimension
+budget so a preview of a multi-GB Zarr / TIFF / Parquet never materialises the
+whole object. A Zarr array, for example, is sliced with explicit indices
+(`arr[plane_index, y0:y1, x0:x1]`) rather than `arr[...]`, so only the requested
+plane or tile is read into RAM.
+
+Default preview budgets mirror the block-side bounds: 200 rows, 8 MiB, 100
+collection items, 256-pixel tiles, 256-pixel max dimension. A provider that
+bypasses `PreviewDataAccess` and reads storage directly breaks this contract and
+can OOM the backend. See
+[Previewers and Plot Jobs](previewers-and-plots.md#previewdataaccess-bounded-reads).

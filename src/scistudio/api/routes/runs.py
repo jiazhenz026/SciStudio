@@ -87,6 +87,7 @@ def runs_health(store: Any = _LineageStoreDep) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/", include_in_schema=False)
 @router.get("")
 def list_runs(
     workflow_id: str | None = Query(default=None, description="Filter by workflow_id."),

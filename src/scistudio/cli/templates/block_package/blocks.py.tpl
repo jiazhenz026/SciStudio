@@ -22,12 +22,20 @@ from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
 
 class ExampleBlock(ProcessBlock):
     """Example processing block that passes data through unchanged.
 
     Replace this with your own transformation logic.
+
+    The ports below use the concrete ``Array`` type. Concrete accepted
+    types drive edge-time connection checks, preview routing, and canvas
+    semantics -- prefer the most specific applicable ``DataObject`` subclass
+    for every port. An empty ``accepted_types=[]`` list is runtime-valid but
+    means "accept anything"; use it deliberately, only for genuinely generic
+    blocks. See docs/block-development/block-contract.md.
     """
 
     name: ClassVar[str] = "{display_name} Example"
@@ -35,10 +43,10 @@ class ExampleBlock(ProcessBlock):
     version: ClassVar[str] = "0.1.0"
 
     input_ports: ClassVar[list[InputPort]] = [
-        InputPort(name="input", accepted_types=[], required=True),
+        InputPort(name="input", accepted_types=[Array], required=True),
     ]
     output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="output", produced_type=None),
+        OutputPort(name="output", accepted_types=[Array]),
     ]
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.AUTO

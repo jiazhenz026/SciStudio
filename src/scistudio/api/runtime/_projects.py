@@ -313,6 +313,9 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     self.data_catalog = {}
     self.refresh_type_registry()
     self.refresh_block_registry()
+    # ADR-048 SPEC 1: rebuild the previewer service so project-local
+    # previewers and default declarations track the active project (FR-002).
+    self.refresh_preview_service()
     self._init_metadata_store(Path(candidate.path))
     self._init_lineage_store(Path(candidate.path))
     self.reset_version_state_for_project(Path(candidate.path))

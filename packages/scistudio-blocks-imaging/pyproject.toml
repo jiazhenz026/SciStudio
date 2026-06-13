@@ -52,8 +52,26 @@ imaging = "scistudio_blocks_imaging:get_block_package"
 [project.entry-points."scistudio.types"]
 imaging = "scistudio_blocks_imaging:get_types"
 
+# ADR-048 SPEC 1 (FR-002/FR-025): installed-mode discovery of the package-owned
+# Image/Label previewers. The monorepo dev fallback uses the module-level
+# ``get_previewers`` re-exported from the package top-level ``__init__``.
+[project.entry-points."scistudio.previewers"]
+imaging = "scistudio_blocks_imaging.previewers:get_previewers"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/scistudio_blocks_imaging"]
+# ADR-048 SPEC 1 (FR-024): the packaged previewer ships a self-contained vanilla
+# ESM viewer served same-origin under ``/api/previews/assets/...``. Ensure the
+# JS/CSS/SVG assets land in the wheel even though they are non-Python files.
+artifacts = [
+    "src/scistudio_blocks_imaging/previewers/assets/*.js",
+    "src/scistudio_blocks_imaging/previewers/assets/*.mjs",
+    "src/scistudio_blocks_imaging/previewers/assets/*.css",
+    "src/scistudio_blocks_imaging/previewers/assets/*.svg",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/scistudio_blocks_imaging/previewers/assets" = "scistudio_blocks_imaging/previewers/assets"
 
 [tool.pytest.ini_options]
 markers = [

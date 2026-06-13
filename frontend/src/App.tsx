@@ -22,9 +22,8 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { api } from "./lib/api";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
@@ -122,11 +121,6 @@ export default function App() {
   const setBlocks = useAppStore((state) => state.setBlocks);
   const setBlockSchema = useAppStore((state) => state.setBlockSchema);
   const setPaletteSearch = useAppStore((state) => state.setPaletteSearch);
-
-  const previewCache = useAppStore((state) => state.previewCache);
-  const previewLoading = useAppStore((state) => state.previewLoading);
-  const cachePreview = useAppStore((state) => state.cachePreview);
-  const setPreviewLoading = useAppStore((state) => state.setPreviewLoading);
 
   const tabs = useAppStore((state) => state.tabs);
   const activeTabId = useAppStore((state) => state.activeTabId);
@@ -239,20 +233,6 @@ export default function App() {
     createNewNote,
     importWorkflow,
   } = projectActions;
-
-  const loadPreview = useCallback(
-    async (dataRef: string) => {
-      try {
-        setPreviewLoading(dataRef, true);
-        const payload = await api.getDataPreview(dataRef);
-        cachePreview(payload);
-      } catch (error) {
-        setPreviewLoading(dataRef, false);
-        setLastError((error as Error).message);
-      }
-    },
-    [cachePreview, setLastError, setPreviewLoading],
-  );
 
   // Workflow execution callbacks (run / pause / resume / cancel / per-block).
   const {
@@ -451,10 +431,7 @@ export default function App() {
               unreadLogsCount={unreadLogsCount}
               selectedNode={selectedNode}
               selectedSchema={selectedSchema}
-              previewCache={previewCache}
-              previewLoading={previewLoading}
               selectedNodeLabel={selectedNodeLabel}
-              onLoadPreview={loadPreview}
               setPanelSize={setPanelSize}
             />
           ) : (

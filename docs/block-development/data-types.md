@@ -3,11 +3,11 @@ doc_type: block-development
 title: "Data Types"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
-  - ADR-043
-summary: "Developer guide for core data objects, Collection transport, metadata slots, and port matching."
+  - ADR-048
+summary: "Core data type hierarchy, Collection transport, Array axes, metadata slots, lazy loading, type-inheritance port matching, and the preview-routing implications of a type's recorded type chain."
 ---
 
 # Data Types
@@ -31,6 +31,7 @@ Array axes, metadata slots, and lazy loading.
 10. [Metadata Slots](#metadata-slots)
 11. [Lazy Loading and Data Access](#lazy-loading-and-data-access)
 12. [Type Inheritance and Port Matching](#type-inheritance-and-port-matching)
+13. [Preview implications](#preview-implications)
 
 ---
 
@@ -389,3 +390,28 @@ CompositeData
 When a Collection is checked against a port, the Collection's
 `item_type` is used for the isinstance check. A
 `Collection[FluorImage]` matches a port accepting `[Array]`.
+
+---
+
+## Preview implications
+
+A data ref carries a recorded **type chain** (ordered general → specific, e.g.
+`["DataObject", "Array", "Image"]`). ADR-048 preview routing dispatches on that
+chain: it finds the most specific previewer for the recorded type, then walks
+toward more general ancestors, then falls back to the generic core previewer for
+the base type.
+
+Two consequences for type and block authors:
+
+- **Record concrete types.** A `Collection[Image]` routes to an `Image`
+  previewer; a `Collection[DataObject]` can only reach the generic core base
+  fallback. This is the same reason ports should use concrete `accepted_types`
+  ([Block Contract](block-contract.md#concrete-accepted-types-by-default)).
+- **Core owns only generic fallbacks.** Core ships generic previewers
+  (`core.dataframe.basic`, `core.array.basic`, `core.series.basic`,
+  `core.text.basic`, `core.artifact.basic`, `core.composite.basic`,
+  `core.collection.basic`, `core.plot.basic`, `core.base.fallback`). Rich
+  domain display — for example the imaging `Image` / `Label` viewers — is
+  package-owned. To give your custom type a domain viewer, ship a previewer for
+  it. See [Previewers and Plot Jobs](previewers-and-plots.md) and
+  [Types vs Previewers](custom-types.md#types-vs-previewers).

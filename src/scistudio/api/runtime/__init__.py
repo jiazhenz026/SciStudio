@@ -55,21 +55,12 @@ from scistudio.utils.event_logger import install_event_logger
 
 from . import _data, _projects, _runs, _workflows
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
-from ._preview_cache import (
-    _TABLE_CACHE_MAX,
-    MAX_TABLE_PAGE_SIZE,
-    _get_preview_table,
-    _read_preview_table_from_disk,
-    _table_cache,
-    _table_cache_lock,
-    _trim_table_cache_locked,
-)
-from ._preview_image import (
-    _downsample_matrix,
-    _image_data_uri_from_matrix,
-    _infer_type_name_from_ref,
-    _load_preview_matrix,
-)
+
+# ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
+# moved down into ``scistudio.previewers`` (``_table_cache`` / ``_raster``) so the
+# previewer subsystem no longer imports up into the API layer. Only the
+# API-specific ``_infer_type_name_from_ref`` remains here.
+from ._preview_image import _infer_type_name_from_ref
 
 logger = logging.getLogger("scistudio.api.runtime")
 WORKFLOW_ENTITY_CLASS = "workflow"
@@ -208,8 +199,9 @@ class DataRecord:
     type_name: str
     metadata: dict[str, Any] = field(default_factory=dict)
     # ADR-027 D2 / #407: full type chain from the worker subprocess wire format,
-    # e.g. ["DataObject", "Array", "Image"]. Used by preview_data() to resolve
-    # plugin types via TypeRegistry instead of relying on class name equality.
+    # e.g. ["DataObject", "Array", "Image"]. Used by the routed previewer target
+    # resolution to resolve plugin types via TypeRegistry instead of relying on
+    # class name equality.
     type_chain: list[str] = field(default_factory=list)
 
 
@@ -716,6 +708,7 @@ class ApiRuntime:
     # Workflow I/O + upload (_workflows)
     workflow_path = _workflows.workflow_path
     save_workflow = _workflows.save_workflow
+    mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
     _config_schema_for_block = _workflows._config_schema_for_block
     _relativify_node_config = _workflows._relativify_node_config
@@ -729,11 +722,19 @@ class ApiRuntime:
 
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
+    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
+    # PreviewService can reach the core PlotPreviewer at runtime.
+    register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    preview_data = _data.preview_data
+    # ADR-048 SPEC 1: previewer subsystem accessors.
+    get_preview_service = _data.get_preview_service
+    refresh_preview_service = _data.refresh_preview_service
+    enrich_preview_query = _data.enrich_preview_query
+    resolve_session_target = _data.resolve_session_target
+    _build_preview_target = _data._build_preview_target
 
     # Workflow execution + lineage (_runs)
     _ancestors_of = _runs._ancestors_of
@@ -750,9 +751,7 @@ class ApiRuntime:
 # Sorted to satisfy ruff RUF022.
 __all__ = [
     "FILE_ENTITY_CLASS",
-    "MAX_TABLE_PAGE_SIZE",
     "WORKFLOW_ENTITY_CLASS",
-    "_TABLE_CACHE_MAX",
     "ApiRuntime",
     "DataRecord",
     "FirstPartyEntityWrite",
@@ -760,18 +759,10 @@ __all__ = [
     "LogBroadcaster",
     "Path",
     "WorkflowRun",
-    "_downsample_matrix",
-    "_get_preview_table",
-    "_image_data_uri_from_matrix",
     "_infer_type_name_from_ref",
-    "_load_preview_matrix",
     "_now_iso",
-    "_read_preview_table_from_disk",
     "_rmtree_force",
     "_safe_parent_dir",
     "_slugify",
-    "_table_cache",
-    "_table_cache_lock",
-    "_trim_table_cache_locked",
     "logger",
 ]

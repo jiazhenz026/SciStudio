@@ -148,7 +148,11 @@ def install_project_agent_assets(
 
 
 def _expected_skill_paths() -> list[str]:
-    """Return the 12 skill-file paths the skills sub-step is expected to write."""
+    """Return the 14 skill-file paths the skills sub-step is expected to write.
+
+    1 base + 6 task skills (including ADR-048 ``scistudio-write-plot``) across
+    2 provider trees = 14.
+    """
     names = [
         "scistudio",
         "scistudio-build-workflow",
@@ -156,6 +160,7 @@ def _expected_skill_paths() -> list[str]:
         "scistudio-debug-run",
         "scistudio-inspect-data",
         "scistudio-project-qa",
+        "scistudio-write-plot",
     ]
     paths: list[str] = []
     for tree in (".claude/skills", ".agents/skills"):

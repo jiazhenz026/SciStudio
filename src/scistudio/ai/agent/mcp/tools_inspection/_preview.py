@@ -1,17 +1,16 @@
-"""Preview helpers for the ``tools_inspection`` sub-package.
+"""Canonical bounded preview helpers for the ``tools_inspection`` package.
 
-DataFrame / array / series / text / artifact preview implementations,
-preserved verbatim from the pre-FastMCP impl. Honours the Phase 2 audit
-8 MiB cap via chunked reads (zarr iter_chunks, tifffile memmap, parquet
-batch iteration) — never load the full payload.
-
-Extracted from the original single-file ``tools_inspection.py`` (#1431,
-umbrella #1427). No behavior change.
+The public ``preview_data`` MCP tool is SciStudio's AI-agent data-inspection
+read surface. The removed REST preview APIs are unrelated to this MCP contract.
+These helpers return small ``PreviewDataResult``-shaped payloads and enforce the MCP
+response budget via bounded reads (Zarr slicing, TIFF memmap/skip guards,
+Parquet/CSV batch iteration) so previews never intentionally load a whole large
+payload.
 
 The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
 parent ``tools_inspection`` package at call time so tests that
 monkeypatch the package-level binding (see
-``test_mcp_tools_inspection.test_preview_data_tiff_cap``) reach the real
+``test_mcp_tools_inspection.test_preview_data_tiff_oversize_does_not_load_full_page``) reach the real
 call sites.
 """
 
@@ -69,9 +68,9 @@ def _grayscale_png(matrix: Any) -> bytes:
 def _preview_dataframe(path: Path) -> dict[str, Any]:
     """Read at most ``_DATAFRAME_PREVIEW_ROWS`` via streaming, never the full table.
 
-    Codex P1 (PR #1053): the previous ``pq.read_table().slice(...)`` /
-    ``pcsv.read_csv().slice(...)`` materialised the entire file before
-    slicing, defeating the 8 MiB preview cap for large datasets.
+    Regression guard (PR #1053): do not use ``pq.read_table().slice(...)`` or
+    ``pcsv.read_csv().slice(...)`` here; those patterns materialize the entire
+    file before slicing and defeat the MCP preview cap for large datasets.
     """
     import pyarrow as pa
     import pyarrow.parquet as pq

@@ -1,6 +1,19 @@
-"""Data catalog + preview method implementations.
+"""Data catalog + routed-preview helper implementations.
 
-Issue #1430 / umbrella #1427: behavior unchanged.
+ADR-048 SPEC 1 (no-compat, #1594/#1604): the catalog is previewed exclusively
+through the routed previewer session API (``POST/GET/PATCH
+/api/previews/sessions`` -> registry -> router -> selected provider ->
+:class:`PreviewEnvelope`). The legacy one-shot ``GET /api/data/{ref}/preview``
+REST adapter (``preview_data`` + ``_envelope_to_legacy_preview``) was deleted
+under #1604; callers now use the session API. The runtime contributes only the
+catalog-resolution helpers the session manager needs: :func:`enrich_preview_query`
+(injects the resolved storage ref + record metadata under the private
+``_storage`` / ``_record_metadata`` query keys) and :func:`resolve_session_target`
+(rebuilds the authoritative target kind + type chain from the catalog record).
+
+The data-catalog helpers (``register_data_ref``, ``register_output_payload``,
+``get_data_record``, ``describe_ref``, ``_resolve_record_class``) are unchanged
+from the pre-split implementation (issue #1430 / umbrella #1427).
 """
 
 from __future__ import annotations
@@ -13,20 +26,15 @@ from uuid import uuid4
 import pyarrow.parquet as pq
 
 from scistudio.core.storage.ref import StorageReference
-from scistudio.core.types.array import Array
-from scistudio.core.types.artifact import Artifact
-from scistudio.core.types.composite import CompositeData
-from scistudio.core.types.dataframe import DataFrame
-from scistudio.core.types.series import Series
-from scistudio.core.types.text import Text
-
-from ._preview_cache import MAX_TABLE_PAGE_SIZE, _get_preview_table
-from ._preview_image import (
-    _downsample_matrix,
-    _image_data_uri_from_matrix,
-    _infer_type_name_from_ref,
-    _load_preview_matrix,
+from scistudio.previewers import (
+    PreviewService,
+    PreviewSource,
+    PreviewTarget,
+    TargetKind,
+    build_preview_service,
 )
+
+from ._preview_image import _infer_type_name_from_ref
 
 if TYPE_CHECKING:
     from . import ApiRuntime, DataRecord
@@ -58,6 +66,76 @@ def register_data_ref(
     )
     self.data_catalog[record.id] = record
     return record
+
+
+def register_plot_artifact(
+    self: ApiRuntime,
+    artifact_path: str | Path,
+    *,
+    cache_key: str | None = None,
+    workflow_id: str | None = None,
+    node_id: str | None = None,
+    output_port: str | None = None,
+    plot_id: str | None = None,
+) -> DataRecord:
+    """Register a produced plot artifact as a previewable catalog record (ADR-048 SPEC 2 FR-031).
+
+    This is the producer -> consumer link the original SPEC 2 implementation
+    left dead-wired (#1606): ``run_plot_job`` writes a display artifact to the
+    preview cache but nothing registered it so the routed
+    :class:`~scistudio.previewers.PreviewService` could reach the core
+    ``PlotPreviewer`` (``core.plot.basic``) at runtime.
+
+    The record is stamped with ``metadata["plot_artifact"]`` and
+    ``type_name="PlotArtifact"`` so :func:`_target_kind_for_record` classifies
+    the routed target as :attr:`TargetKind.PLOT_ARTIFACT` and
+    :func:`enrich_preview_query` supplies the ``_storage`` ref the
+    ``PlotPreviewer`` reads. The optional workflow/node/output identity is
+    stored as display-only :class:`~scistudio.previewers.PreviewSource`
+    metadata (it carries no workflow truth — a plot job never registers a DAG
+    node or lineage, FR-025).
+
+    Returns the catalog :class:`DataRecord`; ``record.id`` is the ``ref`` the
+    frontend passes to ``POST /api/previews/sessions`` to open the plot
+    preview.
+    """
+    path = Path(artifact_path)
+    suffix = path.suffix.lower().lstrip(".")
+    source: dict[str, Any] = {
+        "workflow_id": workflow_id,
+        "node_id": node_id,
+        "output_port": output_port,
+    }
+    ref_metadata: dict[str, Any] = {
+        "plot_artifact": True,
+        "type_chain": ["DataObject", "PlotArtifact"],
+        "format": suffix or None,
+        "source": source,
+    }
+    if cache_key is not None:
+        ref_metadata["cache_key"] = cache_key
+    if plot_id is not None:
+        ref_metadata["plot_id"] = plot_id
+    ref = StorageReference(
+        backend="filesystem",
+        path=str(path),
+        format=suffix or None,
+        metadata=ref_metadata,
+    )
+    record_metadata = self.describe_ref(ref)
+    # describe_ref folds ref.metadata in, but be explicit so the previewer
+    # routing flags survive even if a backend strips ref metadata.
+    record_metadata["plot_artifact"] = True
+    record_metadata["source"] = source
+    if cache_key is not None:
+        record_metadata["cache_key"] = cache_key
+    if plot_id is not None:
+        record_metadata["plot_id"] = plot_id
+    return self.register_data_ref(
+        ref,
+        type_name="PlotArtifact",
+        metadata=record_metadata,
+    )
 
 
 def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
@@ -131,205 +209,112 @@ def _resolve_record_class(self: ApiRuntime, record: DataRecord) -> type | None:
         return None
 
 
-def preview_data(
-    self: ApiRuntime,
-    data_ref: str,
-    slice_index: int = 0,
-    page: int = 1,
-    page_size: int = 50,
-    sort_by: str | None = None,
-    sort_dir: str = "asc",
-) -> dict[str, Any]:
-    """Return a lightweight preview for a stored data object.
+def get_preview_service(self: ApiRuntime) -> PreviewService:
+    """Return (building on first use) this runtime's :class:`PreviewService`.
 
-    Parameters
-    ----------
-    data_ref:
-        Catalog identifier returned by ``register_data_ref``.
-    slice_index:
-        Index into the slider axis (3D viewer, #899). Clamped to
-        ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
-        previews.
-    page, page_size, sort_by, sort_dir:
-        DataFrame paging + sort. Page is 1-based and clamped server-side;
-        ``page_size`` is capped at ``MAX_TABLE_PAGE_SIZE``. ``sort_by`` is
-        ignored when the column is missing. Non-table previews ignore
-        these.
+    ADR-048 SPEC 1: the runtime owns a per-process preview service loaded with
+    core + package + project previewers. It is built lazily and rebuilt on
+    project switch via :meth:`refresh_preview_service` so project-local
+    previewers and defaults track the active project.
     """
-    record = self.get_data_record(data_ref)
-    ref = record.ref
-    path = Path(ref.path)
-    suffix = path.suffix.lower()
+    service = getattr(self, "_preview_service", None)
+    if service is None:
+        project_dir = Path(self.active_project.path) if self.active_project else None
+        service = build_preview_service(project_dir=project_dir)
+        self._preview_service = service  # type: ignore[attr-defined]
+    return service
 
+
+def refresh_preview_service(self: ApiRuntime) -> PreviewService:
+    """Rebuild the runtime preview service for the active project (FR-002)."""
+    project_dir = Path(self.active_project.path) if self.active_project else None
+    service = build_preview_service(project_dir=project_dir)
+    self._preview_service = service  # type: ignore[attr-defined]
+    return service
+
+
+def _target_kind_for_record(record: DataRecord, resolved_cls: type | None) -> TargetKind:
+    """Classify a DataRecord into a previewer :class:`TargetKind`.
+
+    Plot artifacts are detected by a ``plot_artifact`` metadata flag or a
+    plot-style suffix; everything non-collection is a ``data_ref``.
+    """
+    suffix = Path(record.ref.path).suffix.lower()
+    is_plot = bool(record.metadata.get("plot_artifact")) or (
+        record.type_name == "PlotArtifact" and suffix in {".png", ".jpg", ".jpeg", ".svg", ".pdf"}
+    )
+    if is_plot:
+        return TargetKind.PLOT_ARTIFACT
+    return TargetKind.DATA_REF
+
+
+def _build_preview_target(self: ApiRuntime, record: DataRecord, resolved_cls: type | None) -> PreviewTarget:
+    """Build a normalized :class:`PreviewTarget` from a catalog record."""
+    type_chain = tuple(record.type_chain) if record.type_chain else (record.type_name,)
+    source = None
+    src_meta = record.metadata.get("source") if isinstance(record.metadata, dict) else None
+    if isinstance(src_meta, dict):
+        source = PreviewSource(
+            workflow_id=src_meta.get("workflow_id"),
+            node_id=src_meta.get("node_id"),
+            output_port=src_meta.get("output_port"),
+        )
+    return PreviewTarget(
+        kind=_target_kind_for_record(record, resolved_cls),
+        ref=record.id,
+        recorded_type=record.type_name,
+        type_chain=type_chain,
+        source=source,
+    )
+
+
+def enrich_preview_query(self: ApiRuntime, ref: str, query: dict[str, Any]) -> dict[str, Any]:
+    """Inject the resolved storage ref + record metadata into a session query.
+
+    The routed session API receives a bare ``ref`` (catalog id). Providers read
+    only through ``PreviewDataAccess`` and never touch the catalog, so the
+    runtime resolves the ``StorageReference`` here and places it under the
+    private ``_storage`` / ``_record_metadata`` query keys. Unknown refs (e.g. a
+    collection-only target whose items carry their own storage) leave the query
+    untouched so the provider can degrade to an error/collection envelope.
+    """
+    enriched = dict(query)
+    try:
+        record = self.get_data_record(ref)
+    except KeyError:
+        return enriched
+    record_ref = record.ref
+    enriched.setdefault(
+        "_storage",
+        {
+            "backend": record_ref.backend,
+            "path": record_ref.path,
+            "format": record_ref.format,
+            "metadata": record_ref.metadata,
+        },
+    )
+    enriched.setdefault(
+        "_record_metadata",
+        dict(record.metadata) if isinstance(record.metadata, dict) else {},
+    )
+    return enriched
+
+
+def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTarget:
+    """Rebuild a routed preview target from the catalog (ADR-048 / #1592).
+
+    The routed session API (``POST /api/previews/sessions``) accepts a client
+    target that may carry only ``{kind, ref}`` — the frontend ``PreviewHost``
+    has no authoritative type chain. For a ref the runtime knows, the backend
+    is the source of truth for the target's kind + type chain, so rebuild it
+    from the catalog record (the same path :func:`preview_data` uses) to
+    guarantee correct routing regardless of what the frontend supplied. Unknown
+    refs (e.g. a collection-only target whose items carry their own storage) are
+    returned unchanged so the provider can degrade.
+    """
+    try:
+        record = self.get_data_record(target.ref)
+    except KeyError:
+        return target
     resolved_cls = self._resolve_record_class(record)
-
-    # ------------------------------------------------------------------
-    # DataFrame / tabular
-    # ------------------------------------------------------------------
-    is_dataframe = record.type_name == DataFrame.__name__ or (
-        resolved_cls is not None and issubclass(resolved_cls, DataFrame)
-    )
-    if is_dataframe or suffix in {".csv", ".parquet"}:
-        effective_page_size = max(1, min(int(page_size), MAX_TABLE_PAGE_SIZE))
-
-        base = _get_preview_table(path, sort_by=None, sort_dir="asc")
-        columns = list(base.column_names)
-        total_rows = base.num_rows
-
-        effective_sort_dir = sort_dir if sort_dir in {"asc", "desc"} else "asc"
-        effective_sort_by: str | None = None
-        if sort_by and sort_by in columns:
-            try:
-                table = _get_preview_table(path, sort_by=sort_by, sort_dir=effective_sort_dir)
-                effective_sort_by = sort_by
-            except Exception:
-                logger.debug("Sort failed on column %s; returning unsorted", sort_by, exc_info=True)
-                table = base
-        else:
-            table = base
-
-        total_pages = max(1, (total_rows + effective_page_size - 1) // effective_page_size)
-        effective_page = max(1, min(int(page), total_pages))
-        offset = (effective_page - 1) * effective_page_size
-        page_table = table.slice(offset, effective_page_size)
-        rows = page_table.to_pylist()
-        return {
-            "kind": "table",
-            "columns": columns,
-            "rows": rows,
-            "total_rows": total_rows,
-            "row_count": total_rows,  # backward-compat alias
-            "page": effective_page,
-            "page_size": effective_page_size,
-            "total_pages": total_pages,
-            "sort_by": effective_sort_by,
-            "sort_dir": effective_sort_dir if effective_sort_by else None,
-        }
-
-    # ------------------------------------------------------------------
-    # Text / artifact (text-based formats only)
-    # ------------------------------------------------------------------
-    is_text = record.type_name in {Text.__name__, Artifact.__name__} or (
-        resolved_cls is not None and (issubclass(resolved_cls, Text) or issubclass(resolved_cls, Artifact))
-    )
-    if is_text and suffix in {
-        ".txt",
-        ".json",
-        ".yaml",
-        ".yml",
-        ".md",
-    }:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        return {
-            "kind": "text",
-            "content": text[:5000],
-            "language": suffix.lstrip(".") or "text",
-        }
-
-    # ------------------------------------------------------------------
-    # Array / image (raster data)
-    # ------------------------------------------------------------------
-    is_array = record.type_name == Array.__name__ or (resolved_cls is not None and issubclass(resolved_cls, Array))
-    if is_array or suffix in {".tif", ".tiff", ".zarr"}:
-        try:
-            matrix = _load_preview_matrix(ref)
-            full_shape = list(matrix.shape)
-            axes_raw = ref.metadata.get("axes") if ref.metadata else None
-            axes: list[str] = [str(a) for a in axes_raw] if isinstance(axes_raw, list) else []
-            ndim = matrix.ndim
-            if axes and "y" in axes and "x" in axes:
-                y_idx = axes.index("y")
-                x_idx = axes.index("x")
-            else:
-                y_idx = max(0, ndim - 2)
-                x_idx = max(0, ndim - 1)
-            extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
-            slice_axis_idx: int | None = extra_dims[0] if extra_dims else None
-            slice_axis_size: int | None = full_shape[slice_axis_idx] if slice_axis_idx is not None else None
-            slice_axis_name: str | None
-            if slice_axis_idx is None:
-                slice_axis_name = None
-            elif axes and slice_axis_idx < len(axes):
-                slice_axis_name = axes[slice_axis_idx]
-            else:
-                slice_axis_name = f"axis {slice_axis_idx}"
-            clamped_slice: int | None
-            if slice_axis_size is not None and slice_axis_size > 0:
-                clamped_slice = max(0, min(int(slice_index), slice_axis_size - 1))
-            else:
-                clamped_slice = None
-            slab = matrix
-            if slice_axis_idx is not None and clamped_slice is not None:
-                sel: list[Any] = [slice(None)] * slab.ndim
-                sel[slice_axis_idx] = clamped_slice
-                slab = slab[tuple(sel)]
-            while getattr(slab, "ndim", 0) > 2:
-                slab = slab[0]
-            if axes and "y" in axes and "x" in axes and axes.index("y") > axes.index("x"):
-                slab = slab.T
-            thumbnail = _downsample_matrix(slab)
-            return {
-                "kind": "image",
-                "shape": full_shape,
-                "axes": axes,
-                "slice_axis_name": slice_axis_name,
-                "slice_axis_size": slice_axis_size,
-                "slice_index": clamped_slice,
-                "thumbnail": thumbnail,
-                "src": _image_data_uri_from_matrix(thumbnail),
-            }
-        except Exception:
-            logger.debug("Failed to read raster preview for %s", ref.path, exc_info=True)
-        return {
-            "kind": "artifact",
-            "path": ref.path,
-            "mime_type": "image/tiff" if suffix in {".tif", ".tiff"} else "application/zarr",
-        }
-
-    # ------------------------------------------------------------------
-    # Series / spectral (chart preview)
-    # ------------------------------------------------------------------
-    is_series = record.type_name == Series.__name__ or (resolved_cls is not None and issubclass(resolved_cls, Series))
-    if is_series:
-        values = record.metadata.get("values", [])
-        return {
-            "kind": "chart",
-            "points": [{"x": index, "y": value} for index, value in enumerate(values[:256])],
-        }
-
-    # ------------------------------------------------------------------
-    # CompositeData
-    # ------------------------------------------------------------------
-    is_composite = record.type_name == CompositeData.__name__ or (
-        resolved_cls is not None and issubclass(resolved_cls, CompositeData)
-    )
-    if is_composite:
-        composite_path = Path(ref.path)
-        for slot_name in ("raster",):
-            slot_path = composite_path / slot_name
-            if slot_path.exists():
-                try:
-                    slot_ref = StorageReference(backend="zarr", path=str(slot_path))
-                    raster_matrix = _load_preview_matrix(slot_ref)
-                    while getattr(raster_matrix, "ndim", 0) > 2:
-                        raster_matrix = raster_matrix[0]
-                    full_shape = list(raster_matrix.shape)
-                    thumbnail = _downsample_matrix(raster_matrix)
-                    return {
-                        "kind": "image",
-                        "shape": full_shape,
-                        "thumbnail": thumbnail,
-                        "src": _image_data_uri_from_matrix(thumbnail),
-                    }
-                except Exception:
-                    logger.debug("Failed to read raster slot '%s' for composite preview", slot_name, exc_info=True)
-        return {
-            "kind": "composite",
-            "slots": record.metadata.get("slots", {}),
-        }
-
-    return {
-        "kind": "artifact",
-        "path": ref.path,
-        "mime_type": path.suffix.lower().lstrip(".") or "application/octet-stream",
-    }
+    return self._build_preview_target(record, resolved_cls)
