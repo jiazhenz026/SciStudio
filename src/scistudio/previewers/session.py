@@ -9,8 +9,8 @@ Ties the registry, router, and bounded data access together (ADR-048 FR-007):
   re-renders.
 * :meth:`read_resource` performs a bounded follow-up resource read for a
   session (e.g. an array tile or a child preview).
-* :meth:`render_target` renders a one-shot envelope WITHOUT a session — used by
-  the legacy REST compatibility adapter.
+* :meth:`render_target` renders a one-shot envelope WITHOUT a session for
+  routed child-resource previews and direct provider tests.
 
 Provider calls are wrapped defensively: a routing/typed error becomes an error
 envelope; an unexpected provider exception becomes a
@@ -21,6 +21,7 @@ API (FR-028/FR-029). Sessions never mutate workflow/data/lineage state.
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import threading
 from collections import OrderedDict
@@ -103,13 +104,14 @@ class PreviewSessionManager:
         except PreviewError as exc:
             return self._error_envelope(target, exc.code, exc.message, previewer_id="", detail=exc.detail)
 
+        session_id = f"pv-{uuid4().hex}"
         session = PreviewSession(
-            session_id=f"pv-{uuid4().hex}",
+            session_id=session_id,
             previewer_id=spec.previewer_id,
             target=target,
             created_at=_now_iso(),
             query=query,
-            cache_key=self._cache_key(spec, target, query),
+            cache_key=self._cache_key(spec, target, query, session_id=session_id),
             limits=PreviewLimits(),
         )
         with self._lock:
@@ -143,6 +145,7 @@ class PreviewSessionManager:
                 self._registry.get(session.previewer_id) or _missing_spec(session.previewer_id),
                 session.target,
                 session.query,
+                session_id=session_id,
             )
             self._sessions.move_to_end(session_id)
             target = session.target
@@ -211,10 +214,10 @@ class PreviewSessionManager:
         """Return the session record (no re-render)."""
         return self._get_session(session_id)
 
-    # -- one-shot (compatibility) ------------------------------------------
+    # -- one-shot rendering -------------------------------------------------
 
     def render_target(self, target: PreviewTarget, query: dict[str, Any] | None = None) -> PreviewEnvelope:
-        """Render a one-shot envelope without creating a session (compat adapter)."""
+        """Render a one-shot envelope without creating a session."""
         query = dict(query or {})
         try:
             spec = self._router.resolve(target)
@@ -323,21 +326,30 @@ class PreviewSessionManager:
             self._sessions.popitem(last=False)
 
     @staticmethod
-    def _cache_key(spec: PreviewerSpec, target: PreviewTarget, query: dict[str, Any]) -> str:
-        relevant = {
-            k: v
-            for k, v in query.items()
-            if not k.startswith("_")
-            and k in {"slice_index", "page", "page_size", "sort_by", "sort_dir", "slot", "item"}
-        }
+    def _cache_key(
+        spec: PreviewerSpec,
+        target: PreviewTarget,
+        query: dict[str, Any],
+        *,
+        session_id: str | None = None,
+    ) -> str:
+        relevant = {k: v for k, v in query.items() if not k.startswith("_") and v is not None}
         version = ""
         storage = query.get("_storage")
         if isinstance(storage, dict):
             md = storage.get("metadata")
             if isinstance(md, dict):
                 version = str(md.get("data_version", ""))
-        parts = [spec.previewer_id, target.ref, version]
-        parts.extend(f"{k}={relevant[k]}" for k in sorted(relevant))
+        parts = [
+            f"previewer={spec.previewer_id}",
+            f"kind={target.kind.value}",
+            f"ref={target.ref}",
+        ]
+        if session_id:
+            parts.append(f"session={session_id}")
+        if version:
+            parts.append(f"version={version}")
+        parts.extend(f"{k}={_stable_cache_value(relevant[k])}" for k in sorted(relevant))
         return "|".join(parts)
 
     @staticmethod
@@ -487,6 +499,19 @@ def _storage_ref_from_query(query: dict[str, Any], fallback_ref: str) -> Any:
 def _public_resource_params(params: dict[str, Any]) -> dict[str, Any]:
     """Return resource params without private session-enrichment keys."""
     return {str(key): value for key, value in params.items() if not str(key).startswith("_")}
+
+
+def _stable_cache_value(value: Any) -> str:
+    if isinstance(value, dict):
+        parts = [
+            f"{json.dumps(str(key), separators=(',', ':'))}:{_stable_cache_value(value[key])}"
+            for key in sorted(value, key=lambda item: str(item))
+            if value[key] is not None
+        ]
+        return "{" + ",".join(parts) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_stable_cache_value(item) for item in value) + "]"
+    return json.dumps(value, separators=(",", ":"), default=str)
 
 
 def _data_uri(mime_type: str, payload: bytes) -> str:

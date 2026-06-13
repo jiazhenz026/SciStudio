@@ -179,9 +179,7 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
     # The numeric heatmap table (matrix + vmin/vmax) is the primary view; the
     # core ArrayViewer ignores ``src``. The grayscale PNG ``src`` is retained as
     # the raster fallback that the imaging package's Image previewer reuses when
-    # its packaged viewer module fails to load (FR-026). (The legacy one-shot
-    # ``GET /api/data/{ref}/preview`` adapter that also consumed it was removed
-    # under ADR-048 no-compat, #1604.)
+    # its packaged viewer module fails to load (FR-026).
     src = request.data_access.png_data_uri(plane.matrix)
     resources = (
         PreviewResource(
@@ -211,7 +209,7 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
             "thumbnail": plane.matrix,
             "vmin": plane.vmin,
             "vmax": plane.vmax,
-            # Legacy-compat raster (FR-008); NOT used by the new numeric viewer.
+            # Raster fallback for package viewers; NOT used by the numeric viewer.
             "src": src,
         },
         resources=resources,

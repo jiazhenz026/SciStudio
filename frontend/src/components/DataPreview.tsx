@@ -219,7 +219,7 @@ export function DataPreview({
               target={plotTarget ?? target}
               getCachedEnvelope={(key) => previewEnvelopeCache[key]}
               cacheEnvelope={cachePreviewEnvelope}
-              buildCacheKey={(t, q) => buildPreviewCacheKey(t, q)}
+              buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
             />
           </div>
         </>

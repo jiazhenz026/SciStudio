@@ -393,7 +393,7 @@ describe("PreviewHost — DataFrame pagination/sort through the routed session (
     // #1604: the core DataFrameViewer reuses TableViewer, which now paginates
     // through the routed session PATCH (api.patchPreviewSession) — the same
     // path the ArrayViewer uses for slice selection — NOT the deleted legacy
-    // GET /api/data/{ref}/preview adapter. The patched envelope carries the
+    // deleted one-shot data-preview route. The patched envelope carries the
     // next page's payload, which flows back into the table.
     const page1 = Array.from({ length: 50 }, (_, i) => ({ A: i, B: i * 2 }));
     const page2 = Array.from({ length: 50 }, (_, i) => ({ A: 50 + i, B: (50 + i) * 2 }));
@@ -456,7 +456,7 @@ describe("FR-021 cache key + FR-022 same-origin validation", () => {
   it("buildPreviewCacheKey includes ref, kind, previewer, session, query, version", () => {
     const key = buildPreviewCacheKey(
       { kind: "data_ref", ref: "data-1" },
-      { slice_index: 3, page: 2, _storage: { x: 1 } },
+      { slice_index: 3, page: 2, axis_indices: { "0": 1, "1": 4 }, _storage: { x: 1 } },
       { previewerId: "core.array.basic", sessionId: "pv-9", dataVersion: "v7" },
     );
     expect(key).toContain("data-1");
@@ -466,6 +466,8 @@ describe("FR-021 cache key + FR-022 same-origin validation", () => {
     expect(key).toContain("v7");
     expect(key).toContain("slice_index=3");
     expect(key).toContain("page=2");
+    expect(key).toContain('axis_indices={"0":1,"1":4}');
+    expect(key).not.toContain("[object Object]");
     // private enrichment keys never widen the key
     expect(key).not.toContain("_storage");
   });
@@ -502,5 +504,77 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     expect(screen.getByText("cached body")).toBeInTheDocument();
     expect(createPreviewSession).not.toHaveBeenCalled();
     expect(getCachedEnvelope).toHaveBeenCalledWith("the-key");
+  });
+
+  it("caches patched array envelopes with resolved identity and axis_indices", async () => {
+    const initialPayload = {
+      shape: [4, 6, 2, 3],
+      dtype: "float64",
+      axes: ["t", "z", "y", "x"],
+      ndim: 4,
+      matrix: [
+        [-1, 0, 2],
+        [3, -4, 5],
+      ],
+      vmin: -4,
+      vmax: 5,
+      slice_axes: [
+        { axis: 0, name: "t", size: 4, index: 1 },
+        { axis: 1, name: "z", size: 6, index: 2 },
+      ],
+    };
+    const patchedPayload = {
+      ...initialPayload,
+      slice_axes: [
+        { axis: 0, name: "t", size: 4, index: 1 },
+        { axis: 1, name: "z", size: 6, index: 4 },
+      ],
+    };
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "core.array.basic",
+        kind: "array",
+        payload: initialPayload,
+        metadata: { complete: true, data_version: "v7" },
+      }),
+    );
+    patchPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "core.array.basic",
+        kind: "array",
+        payload: patchedPayload,
+        metadata: { complete: true, data_version: "v7" },
+      }),
+    );
+    const cacheEnvelope = vi.fn();
+
+    render(
+      <PreviewHost
+        target={{ ...TARGET, recorded_type: "Array" }}
+        cacheEnvelope={cacheEnvelope}
+        buildCacheKey={buildPreviewCacheKey}
+      />,
+    );
+
+    expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
+    cacheEnvelope.mockClear();
+
+    fireEvent.change(screen.getByTestId("array-slice-slider-1"), { target: { value: "4" } });
+
+    await waitFor(() => expect(patchPreviewSession).toHaveBeenCalledTimes(1));
+    const [, patch] = patchPreviewSession.mock.calls[0];
+    expect(patch).toMatchObject({ axis_indices: { "0": 1, "1": 4 } });
+    await waitFor(() => expect(cacheEnvelope).toHaveBeenCalled());
+    const keys = cacheEnvelope.mock.calls.map(([key]) => String(key));
+    expect(
+      keys.some(
+        (key) =>
+          key.includes("previewer=core.array.basic") &&
+          key.includes("session=pv-1") &&
+          key.includes("version=v7") &&
+          key.includes('axis_indices={"0":1,"1":4}'),
+      ),
+    ).toBe(true);
+    expect(keys.every((key) => !key.includes("_storage"))).toBe(true);
   });
 });
