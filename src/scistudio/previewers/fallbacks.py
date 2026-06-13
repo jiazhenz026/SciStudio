@@ -176,10 +176,12 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
         return _degrade_to_artifact(request, ref, reason=f"array decode failed: {exc}")
 
     slice_axes = [{"axis": ax.axis, "name": ax.name, "size": ax.size, "index": ax.index} for ax in plane.slice_axes]
-    # The numeric heatmap table (matrix + vmin/vmax) is the primary view. The
-    # grayscale PNG ``src`` is retained ONLY for the legacy REST compatibility
-    # adapter (``GET /api/data/{ref}/preview`` still returns an ``image`` kind
-    # with a data URI per FR-008); the new core ArrayViewer ignores it.
+    # The numeric heatmap table (matrix + vmin/vmax) is the primary view; the
+    # core ArrayViewer ignores ``src``. The grayscale PNG ``src`` is retained as
+    # the raster fallback that the imaging package's Image previewer reuses when
+    # its packaged viewer module fails to load (FR-026). (The legacy one-shot
+    # ``GET /api/data/{ref}/preview`` adapter that also consumed it was removed
+    # under ADR-048 no-compat, #1604.)
     src = request.data_access.png_data_uri(plane.matrix)
     resources = (
         PreviewResource(

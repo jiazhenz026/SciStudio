@@ -1,9 +1,11 @@
 """Data upload, metadata, and preview endpoints.
 
-ADR-048 SPEC 1: ``GET /api/data/{data_ref}/preview`` is the backward-compatible
-one-shot adapter; the routed previewer *session* API
-(``/api/previews/...``) is additive (FR-007). Both delegate to the
-``scistudio.previewers`` subsystem owned by the runtime.
+ADR-048 SPEC 1 (no-compat, #1604): previews are served exclusively through the
+routed previewer *session* API (``/api/previews/...``), delegating to the
+``scistudio.previewers`` subsystem owned by the runtime. The legacy one-shot
+``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604;
+the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
+``ArrayViewer`` slice selector.
 """
 
 from __future__ import annotations
@@ -20,7 +22,6 @@ from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
     DataMetadataResponse,
-    DataPreviewResponse,
     DataUploadResponse,
     PreviewEnvelopeModel,
     PreviewResourceResponse,
@@ -88,42 +89,6 @@ async def get_data_metadata(data_ref: str, runtime: RuntimeDep) -> DataMetadataR
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DataMetadataResponse(ref=record.id, type_name=record.type_name, metadata=record.metadata)
-
-
-@router.get("/{data_ref}/preview", response_model=DataPreviewResponse)
-async def preview_data(
-    data_ref: str,
-    runtime: RuntimeDep,
-    slice: int = 0,
-    page: int = 1,
-    page_size: int = 50,
-    sort_by: str | None = None,
-    sort_dir: str = "asc",
-) -> DataPreviewResponse:
-    """Return a lightweight preview of a stored data object.
-
-    #899 — ``slice`` query param selects an index along the
-    auto-detected slider axis (the first non-(y, x) dim) for 3-D
-    images. Out-of-range values are clamped server-side.
-
-    DataFrame paging: ``page`` (1-based), ``page_size`` (capped at 200),
-    ``sort_by`` (column name), ``sort_dir`` (``asc``/``desc``). Page is
-    clamped to [1, ceil(total_rows / page_size)] server-side. Sort is
-    ignored when the column is missing. Non-table previews ignore these.
-    """
-    try:
-        record = runtime.get_data_record(data_ref)
-        preview = runtime.preview_data(
-            data_ref,
-            slice_index=slice,
-            page=page,
-            page_size=page_size,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return DataPreviewResponse(ref=record.id, type_name=record.type_name, preview=preview)
 
 
 # ---------------------------------------------------------------------------

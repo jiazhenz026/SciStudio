@@ -199,8 +199,9 @@ class DataRecord:
     type_name: str
     metadata: dict[str, Any] = field(default_factory=dict)
     # ADR-027 D2 / #407: full type chain from the worker subprocess wire format,
-    # e.g. ["DataObject", "Array", "Image"]. Used by preview_data() to resolve
-    # plugin types via TypeRegistry instead of relying on class name equality.
+    # e.g. ["DataObject", "Array", "Image"]. Used by the routed previewer target
+    # resolution to resolve plugin types via TypeRegistry instead of relying on
+    # class name equality.
     type_chain: list[str] = field(default_factory=list)
 
 
@@ -724,7 +725,6 @@ class ApiRuntime:
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    preview_data = _data.preview_data
     # ADR-048 SPEC 1: previewer subsystem accessors.
     get_preview_service = _data.get_preview_service
     refresh_preview_service = _data.refresh_preview_service

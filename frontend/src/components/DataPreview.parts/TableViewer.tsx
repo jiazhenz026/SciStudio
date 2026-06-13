@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { api } from "../../lib/api";
-
 export interface TableViewerInitial {
   columns: string[];
   rows: Array<Record<string, unknown>>;
@@ -14,8 +12,15 @@ export interface TableViewerInitial {
 }
 
 interface TableViewerProps {
-  dataRef: string;
   initial: TableViewerInitial;
+  /**
+   * Merge pagination/sort state into the routed preview session and re-render
+   * the envelope (ADR-048 routed session API). The refreshed table payload
+   * flows back in through ``initial`` on the next render — the same pattern the
+   * ArrayViewer uses for slice selection. When absent (e.g. a static/test
+   * mount) the table is read-only.
+   */
+  onPatchQuery?: (query: Record<string, unknown>) => void;
 }
 
 function formatCell(value: unknown): string {
@@ -71,56 +76,52 @@ function paginationButtonStyle(disabled: boolean): React.CSSProperties {
   };
 }
 
-function useTablePageFetch(
-  dataRef: string,
+/**
+ * Drive pagination/sort through the routed preview session.
+ *
+ * The table state is whatever the backend last echoed back in ``initial``
+ * (the session envelope payload). A page/sort change is pushed through
+ * ``onPatchQuery`` — the host PATCHes the session, the backend re-renders the
+ * DataFrame plane, and the new payload arrives as a fresh ``initial`` prop.
+ * We only keep a transient ``loading`` flag locally so the UI dims while the
+ * patched envelope is in flight; the authoritative data lives in the session.
+ */
+function useTablePaging(
   initial: TableViewerInitial,
+  onPatchQuery?: (query: Record<string, unknown>) => void,
 ): {
-  data: TableViewerInitial;
   loading: boolean;
   requestPage: (page: number, sortBy: string | null, sortDir: "asc" | "desc" | null) => void;
 } {
-  const [data, setData] = useState<TableViewerInitial>(initial);
   const [loading, setLoading] = useState(false);
-  const requestedRef = useRef({
-    page: initial.page,
-    sortBy: initial.sortBy,
-    sortDir: initial.sortDir,
-  });
-  // Track in-flight requests so a slow earlier response doesn't overwrite
-  // a faster later one.
-  const inflightRef = useRef(0);
+  // The page/sort we last asked the session for. When ``initial`` catches up
+  // to it, the patched envelope has landed and we can clear ``loading``.
+  const pendingRef = useRef<{ page: number; sortBy: string | null } | null>(null);
+
+  useEffect(() => {
+    const pending = pendingRef.current;
+    if (pending && pending.page === initial.page && pending.sortBy === initial.sortBy) {
+      pendingRef.current = null;
+      setLoading(false);
+    }
+  }, [initial.page, initial.sortBy]);
 
   const requestPage = useCallback(
     (page: number, sortBy: string | null, sortDir: "asc" | "desc" | null) => {
-      requestedRef.current = { page, sortBy, sortDir };
-      const ticket = ++inflightRef.current;
+      if (!onPatchQuery) return;
+      pendingRef.current = { page, sortBy };
       setLoading(true);
-      // TODO(#1604): migrate this paging to the routed session resource/patchQuery
-      //   API so the legacy GET /api/data/{ref}/preview + _envelope_to_legacy_preview
-      //   compat adapter can be deleted (ADR-048 no-compat, #1594).
-      //   Out of scope this pass: overlaps the #1603 array-viewer coreViewers work.
-      //   Followup: https://github.com/zjzcpj/SciStudio/issues/1604
-      api
-        .getDataPreview(dataRef, {
-          page,
-          sortBy: sortBy ?? undefined,
-          sortDir: sortDir ?? undefined,
-        })
-        .then((resp) => {
-          if (ticket !== inflightRef.current) return; // a newer request superseded us
-          setData(readTablePayload(resp.preview));
-        })
-        .catch((err) => {
-          console.warn(`getDataPreview(${dataRef}) page=${page} sort=${sortBy} failed:`, err);
-        })
-        .finally(() => {
-          if (ticket === inflightRef.current) setLoading(false);
-        });
+      onPatchQuery({
+        page,
+        page_size: initial.pageSize,
+        sort_by: sortBy ?? undefined,
+        sort_dir: sortDir ?? undefined,
+      });
     },
-    [dataRef],
+    [onPatchQuery, initial.pageSize],
   );
 
-  return { data, loading, requestPage };
+  return { loading, requestPage };
 }
 
 function TableHeader({
@@ -281,31 +282,31 @@ function PaginationControls({
   );
 }
 
-export function TableViewer({ dataRef, initial }: TableViewerProps) {
-  const { data, loading, requestPage } = useTablePageFetch(dataRef, initial);
+export function TableViewer({ initial, onPatchQuery }: TableViewerProps) {
+  const { loading, requestPage } = useTablePaging(initial, onPatchQuery);
   const [pageInput, setPageInput] = useState(String(initial.page));
 
   useEffect(() => {
-    setPageInput(String(data.page));
-  }, [data.page]);
+    setPageInput(String(initial.page));
+  }, [initial.page]);
 
   const goToPage = useCallback(
     (target: number) => {
-      const clamped = Math.max(1, Math.min(target, data.totalPages));
-      if (clamped === data.page) return;
-      requestPage(clamped, data.sortBy, data.sortDir);
+      const clamped = Math.max(1, Math.min(target, initial.totalPages));
+      if (clamped === initial.page) return;
+      requestPage(clamped, initial.sortBy, initial.sortDir);
     },
-    [data.page, data.sortBy, data.sortDir, data.totalPages, requestPage],
+    [initial.page, initial.sortBy, initial.sortDir, initial.totalPages, requestPage],
   );
 
   const toggleSort = useCallback(
     (column: string) => {
       let nextSortBy: string | null;
       let nextSortDir: "asc" | "desc" | null;
-      if (data.sortBy !== column) {
+      if (initial.sortBy !== column) {
         nextSortBy = column;
         nextSortDir = "asc";
-      } else if (data.sortDir === "asc") {
+      } else if (initial.sortDir === "asc") {
         nextSortBy = column;
         nextSortDir = "desc";
       } else {
@@ -314,19 +315,19 @@ export function TableViewer({ dataRef, initial }: TableViewerProps) {
       }
       requestPage(1, nextSortBy, nextSortDir);
     },
-    [data.sortBy, data.sortDir, requestPage],
+    [initial.sortBy, initial.sortDir, requestPage],
   );
 
   const commitPageInput = useCallback(() => {
     const n = Number.parseInt(pageInput, 10);
     if (Number.isNaN(n)) {
-      setPageInput(String(data.page));
+      setPageInput(String(initial.page));
       return;
     }
     goToPage(n);
-  }, [data.page, goToPage, pageInput]);
+  }, [initial.page, goToPage, pageInput]);
 
-  const { columns, rows, totalRows, page, totalPages, sortBy, sortDir } = data;
+  const { columns, rows, totalRows, page, totalPages, sortBy, sortDir } = initial;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>

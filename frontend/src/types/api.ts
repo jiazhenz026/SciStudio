@@ -222,31 +222,14 @@ export interface DataMetadataResponse {
   metadata: Record<string, unknown>;
 }
 
-export interface DataPreviewResponse {
-  ref: string;
-  type_name: string;
-  preview: Record<string, unknown>;
-}
-
-export interface DataPreviewQuery {
-  /** 3-D image slider position (#899). */
-  slice?: number;
-  /** DataFrame page, 1-based. Clamped server-side. */
-  page?: number;
-  /** Rows per page. Capped server-side at 200. */
-  pageSize?: number;
-  /** Column name to sort by. Missing column → no sort applied. */
-  sortBy?: string;
-  /** Sort direction. Default ``asc``. */
-  sortDir?: "asc" | "desc";
-}
-
 // ---------------------------------------------------------------------------
 // ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
 //
 // These mirror `scistudio.api.schemas` Pydantic models / the canonical
 // `scistudio.previewers.models` dataclasses on the wire. The legacy
-// `DataPreviewResponse` above is unchanged (FR-008 compatibility).
+// `DataPreviewResponse` / `DataPreviewQuery` REST-preview wire types and the
+// `GET /api/data/{ref}/preview` adapter were removed under ADR-048 no-compat
+// (#1604); pagination/sort now flows through the routed session API below.
 // ---------------------------------------------------------------------------
 
 /** Canonical fallback kinds carried by a {@link PreviewEnvelope} (backend

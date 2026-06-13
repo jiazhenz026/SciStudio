@@ -33,8 +33,10 @@ governs:
     - scistudio.api.routes.data
     - scistudio.api.schemas
   contracts:
-    - scistudio.api.runtime.ApiRuntime.preview_data
-    - scistudio.api.schemas.DataPreviewResponse
+    # ApiRuntime.preview_data and DataPreviewResponse were removed under ADR-048
+    # no-compat (#1604). The routed session API is the live contract surface.
+    - scistudio.api.routes.data.create_preview_session
+    - scistudio.api.schemas.PreviewEnvelopeModel
   entry_points:
     - scistudio.previewers
   files:
@@ -196,14 +198,19 @@ preserved or explicitly versioned with compatibility assertions.
 
 Acceptance Scenarios:
 
-1. Given a request to `GET /api/data/{data_ref}/preview`, when the target is a
-   table, text, series, composite, array, or artifact, then the route returns a
-   shape compatible with current frontend callers.
-2. Given a request with table pagination or sort parameters, when routed through
-   the new previewer, then page and sort semantics remain stable.
-3. Given a request with image slice parameters during the migration window, when
-   the imaging previewer is unavailable, then the compatibility route still
-   returns a bounded fallback rather than crashing.
+1. Given a `POST /api/previews/sessions` for a table, text, series, composite,
+   array, or artifact target, when the session is created, then the response is
+   a typed `PreviewEnvelope` the routed core/package viewer renders directly
+   (the legacy one-shot `GET /api/data/{data_ref}/preview` adapter was removed,
+   #1604).
+2. Given a table preview session, when the client `PATCH`es the session with
+   `page` / `page_size` / `sort_by` / `sort_dir`, then the re-rendered envelope
+   carries the requested page and sort, and page/sort semantics remain stable
+   across patches (the core `TableViewer` drives this, #1604).
+3. Given an image target whose packaged viewer module fails to load, when the
+   array envelope is rendered, then the core `ArrayViewer` degrades to a bounded
+   numeric view (the retained grayscale `src` raster fallback) rather than
+   crashing (FR-026).
 
 ### Edge Cases
 
@@ -243,11 +250,18 @@ Acceptance Scenarios:
   collection support, priority, capabilities, backend provider, and optional
   frontend manifest.
 - FR-007: The backend must expose a typed preview session API for routed
-  previewers and keep `GET /api/data/{data_ref}/preview` as a compatibility
-  adapter during migration.
-- FR-008: The compatibility adapter must continue to support current table
+  previewers. The migration is complete: the legacy one-shot
+  `GET /api/data/{data_ref}/preview` compatibility adapter has been removed
+  (#1604, no-compat per #1594); all preview reads — including table
+  pagination/sort and array slice selection — flow through the session API
+  (`POST`/`GET`/`PATCH /api/previews/sessions`).
+- FR-008: ~~The compatibility adapter must continue to support current table
   pagination, sorting, slice index, and basic preview payload behavior until
-  the frontend no longer depends on the old contract.
+  the frontend no longer depends on the old contract.~~ **Superseded (#1604):**
+  the frontend no longer depends on the legacy contract — the core
+  `TableViewer` paginates/sorts through the session `PATCH` (like the
+  `ArrayViewer` slice selector), so the adapter, `api.getDataPreview`, and the
+  `_envelope_to_legacy_preview` runtime path were deleted with no compat shim.
 - FR-009: `PreviewDataAccess` must provide bounded helpers for DataFrame,
   Array, Series, Text, Artifact, CompositeData, and Collection targets.
 - FR-010: Previewers must not call eager materialization helpers on large data
@@ -364,12 +378,12 @@ code.
 
 ### API Shape
 
-The implementation should add a session-oriented API while retaining the old
-route:
+The preview API is session-oriented. The legacy one-shot
+`GET /api/data/{data_ref}/preview` adapter was removed (#1604, no-compat); only
+the session routes remain:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/api/data/{data_ref}/preview` | Backward-compatible one-shot preview adapter. |
 | `POST` | `/api/previews/sessions` | Create a routed preview session for a target. |
 | `GET` | `/api/previews/sessions/{session_id}` | Read current envelope and provider metadata. |
 | `PATCH` | `/api/previews/sessions/{session_id}` | Update query state such as slice, page, sort, slot, or item. |

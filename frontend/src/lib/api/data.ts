@@ -1,13 +1,13 @@
 /**
- * Data-artifact REST endpoints (uploads, metadata, preview slices).
+ * Data-artifact REST endpoints (uploads, metadata) and the routed previewer
+ * session API. The legacy one-shot `getDataPreview` was removed under ADR-048
+ * no-compat (#1604); previews flow through the session helpers below.
  *
  * Extracted from `frontend/src/lib/api.ts` (#1422).
  */
 
 import type {
   DataMetadataResponse,
-  DataPreviewQuery,
-  DataPreviewResponse,
   DataUploadResponse,
   PreviewEnvelope,
   PreviewResourceResponse,
@@ -34,20 +34,6 @@ export const dataApi = {
   },
   getDataMetadata: (dataRef: string) =>
     apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
-  getDataPreview: (dataRef: string, opts?: number | DataPreviewQuery) => {
-    // Backwards-compat: a bare number is interpreted as ``slice`` (image flow).
-    // Object form covers slice + DataFrame paging (page/page_size/sort_by/sort_dir).
-    const o: DataPreviewQuery = typeof opts === "number" ? { slice: opts } : (opts ?? {});
-    const params = new URLSearchParams();
-    if (o.slice !== undefined) params.set("slice", String(o.slice));
-    if (o.page !== undefined) params.set("page", String(o.page));
-    if (o.pageSize !== undefined) params.set("page_size", String(o.pageSize));
-    if (o.sortBy) params.set("sort_by", o.sortBy);
-    if (o.sortDir) params.set("sort_dir", o.sortDir);
-    const qs = params.toString();
-    const url = `/api/data/${encodeURIComponent(dataRef)}/preview${qs ? `?${qs}` : ""}`;
-    return apiFetch<DataPreviewResponse>(url);
-  },
 
   // -- ADR-048 SPEC 1: routed previewer session API (additive, FR-007) ------
 

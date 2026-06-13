@@ -1,11 +1,15 @@
-"""Data catalog + preview method implementations.
+"""Data catalog + routed-preview helper implementations.
 
-ADR-048 SPEC 1: ``preview_data`` now routes through the
-:mod:`scistudio.previewers` subsystem (registry -> router -> selected provider
--> :class:`PreviewEnvelope`) and adapts the canonical envelope back to the
-LEGACY REST ``preview`` dict shapes so existing callers and tests keep working
-(FR-007/FR-008). The legacy payload shapes (table/text/image/chart/composite/
-artifact) are produced verbatim by :func:`_envelope_to_legacy_preview`.
+ADR-048 SPEC 1 (no-compat, #1594/#1604): the catalog is previewed exclusively
+through the routed previewer session API (``POST/GET/PATCH
+/api/previews/sessions`` -> registry -> router -> selected provider ->
+:class:`PreviewEnvelope`). The legacy one-shot ``GET /api/data/{ref}/preview``
+REST adapter (``preview_data`` + ``_envelope_to_legacy_preview``) was deleted
+under #1604; callers now use the session API. The runtime contributes only the
+catalog-resolution helpers the session manager needs: :func:`enrich_preview_query`
+(injects the resolved storage ref + record metadata under the private
+``_storage`` / ``_record_metadata`` query keys) and :func:`resolve_session_target`
+(rebuilds the authoritative target kind + type chain from the catalog record).
 
 The data-catalog helpers (``register_data_ref``, ``register_output_payload``,
 ``get_data_record``, ``describe_ref``, ``_resolve_record_class``) are unchanged
@@ -23,18 +27,11 @@ import pyarrow.parquet as pq
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers import (
-    EnvelopeKind,
-    PreviewEnvelope,
     PreviewService,
     PreviewSource,
     PreviewTarget,
     TargetKind,
     build_preview_service,
-)
-from scistudio.previewers._raster import (
-    _downsample_matrix,
-    _image_data_uri_from_matrix,
-    _load_preview_matrix,
 )
 
 from ._preview_image import _infer_type_name_from_ref
@@ -201,38 +198,6 @@ def _build_preview_target(self: ApiRuntime, record: DataRecord, resolved_cls: ty
     )
 
 
-def _preview_query_for_record(
-    record: DataRecord,
-    *,
-    slice_index: int,
-    page: int,
-    page_size: int,
-    sort_by: str | None,
-    sort_dir: str,
-) -> dict[str, Any]:
-    """Build the provider query, injecting the resolved storage ref + metadata.
-
-    Providers read only through ``PreviewDataAccess`` and never touch the
-    catalog, so the runtime hands them the resolved ``StorageReference`` data
-    under the ``_storage`` / ``_record_metadata`` private query keys.
-    """
-    ref = record.ref
-    return {
-        "slice_index": slice_index,
-        "page": page,
-        "page_size": page_size,
-        "sort_by": sort_by,
-        "sort_dir": sort_dir,
-        "_storage": {
-            "backend": ref.backend,
-            "path": ref.path,
-            "format": ref.format,
-            "metadata": ref.metadata,
-        },
-        "_record_metadata": dict(record.metadata) if isinstance(record.metadata, dict) else {},
-    }
-
-
 def enrich_preview_query(self: ApiRuntime, ref: str, query: dict[str, Any]) -> dict[str, Any]:
     """Inject the resolved storage ref + record metadata into a session query.
 
@@ -283,156 +248,3 @@ def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTa
         return target
     resolved_cls = self._resolve_record_class(record)
     return self._build_preview_target(record, resolved_cls)
-
-
-def preview_data(
-    self: ApiRuntime,
-    data_ref: str,
-    slice_index: int = 0,
-    page: int = 1,
-    page_size: int = 50,
-    sort_by: str | None = None,
-    sort_dir: str = "asc",
-) -> dict[str, Any]:
-    """Return a lightweight preview for a stored data object.
-
-    ADR-048 SPEC 1: routes through the previewer subsystem (router -> selected
-    provider -> :class:`PreviewEnvelope`) and adapts the envelope back to the
-    LEGACY REST ``preview`` dict shape via :func:`_envelope_to_legacy_preview`
-    so existing frontend callers and tests keep working during migration.
-
-    Parameters
-    ----------
-    data_ref:
-        Catalog identifier returned by ``register_data_ref``.
-    slice_index:
-        Index into the slider axis (3D viewer, #899). Clamped to
-        ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
-        previews.
-    page, page_size, sort_by, sort_dir:
-        DataFrame paging + sort. Page is 1-based and clamped server-side;
-        ``page_size`` is capped at ``MAX_TABLE_PAGE_SIZE``. ``sort_by`` is
-        ignored when the column is missing. Non-table previews ignore
-        these.
-    """
-    record = self.get_data_record(data_ref)
-    resolved_cls = self._resolve_record_class(record)
-
-    target = self._build_preview_target(record, resolved_cls)
-    query = _preview_query_for_record(
-        record,
-        slice_index=slice_index,
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-    )
-    service = self.get_preview_service()
-    envelope = service.sessions.render_target(target, query)
-    return _envelope_to_legacy_preview(envelope, record, suffix=Path(record.ref.path).suffix.lower())
-
-
-def _envelope_to_legacy_preview(
-    envelope: PreviewEnvelope,
-    record: DataRecord,
-    *,
-    suffix: str,
-) -> dict[str, Any]:
-    """Adapt a canonical :class:`PreviewEnvelope` to the legacy REST preview dict.
-
-    The legacy ``preview.kind`` shapes are preserved EXACTLY (FR-008):
-    ``table`` / ``text`` / ``image`` / ``chart`` / ``composite`` / ``artifact``.
-    """
-    payload = envelope.payload
-    kind = envelope.kind
-
-    if kind is EnvelopeKind.DATAFRAME:
-        return {
-            "kind": "table",
-            "columns": payload.get("columns", []),
-            "rows": payload.get("rows", []),
-            "total_rows": payload.get("total_rows", 0),
-            "row_count": payload.get("total_rows", 0),  # backward-compat alias
-            "page": payload.get("page", 1),
-            "page_size": payload.get("page_size", 50),
-            "total_pages": payload.get("total_pages", 1),
-            "sort_by": payload.get("sort_by"),
-            "sort_dir": payload.get("sort_dir"),
-        }
-
-    if kind is EnvelopeKind.TEXT:
-        return {
-            "kind": "text",
-            "content": payload.get("content", ""),
-            "language": payload.get("language", "text"),
-        }
-
-    if kind is EnvelopeKind.ARRAY:
-        return {
-            "kind": "image",
-            "shape": payload.get("shape", []),
-            "axes": payload.get("axes", []),
-            "slice_axis_name": payload.get("slice_axis_name"),
-            "slice_axis_size": payload.get("slice_axis_size"),
-            "slice_index": payload.get("slice_index"),
-            "thumbnail": payload.get("thumbnail", []),
-            "src": payload.get("src", ""),
-        }
-
-    if kind is EnvelopeKind.SERIES:
-        return {"kind": "chart", "points": payload.get("points", [])}
-
-    if kind is EnvelopeKind.COMPOSITE:
-        # Legacy compat: a composite with a raster slot returns an image; the
-        # envelope's composite payload otherwise lists slots.
-        raster = _composite_raster_legacy(record)
-        if raster is not None:
-            return raster
-        return {"kind": "composite", "slots": payload.get("slots", {})}
-
-    if kind is EnvelopeKind.PLOT:
-        # Plot artifacts surface through the compat route as artifacts with the
-        # plot mime type so older frontend code can still download them.
-        return {
-            "kind": "artifact",
-            "path": payload.get("path", record.ref.path),
-            "mime_type": payload.get("mime_type", "application/octet-stream"),
-        }
-
-    # ARTIFACT, ERROR, COLLECTION, and any future kind degrade to the legacy
-    # artifact shape so the one-shot route never crashes (FR-008 edge cases).
-    mime = payload.get("mime_type") or (suffix.lstrip(".") or "application/octet-stream")
-    return {
-        "kind": "artifact",
-        "path": payload.get("path", record.ref.path),
-        "mime_type": mime,
-    }
-
-
-def _composite_raster_legacy(record: DataRecord) -> dict[str, Any] | None:
-    """Legacy composite raster-slot rendering, preserved bit-for-bit.
-
-    The compat REST contract returns a raster ``image`` payload when a
-    composite has a ``raster`` slot directory on disk. This mirrors the
-    pre-ADR-048 behavior exactly so ``tests/api/test_data`` stays green.
-    """
-    composite_path = Path(record.ref.path)
-    for slot_name in ("raster",):
-        slot_path = composite_path / slot_name
-        if slot_path.exists():
-            try:
-                slot_ref = StorageReference(backend="zarr", path=str(slot_path))
-                raster_matrix = _load_preview_matrix(slot_ref)
-                while getattr(raster_matrix, "ndim", 0) > 2:
-                    raster_matrix = raster_matrix[0]
-                full_shape = list(raster_matrix.shape)
-                thumbnail = _downsample_matrix(raster_matrix)
-                return {
-                    "kind": "image",
-                    "shape": full_shape,
-                    "thumbnail": thumbnail,
-                    "src": _image_data_uri_from_matrix(thumbnail),
-                }
-            except Exception:
-                logger.debug("Failed to read raster slot '%s' for composite preview", slot_name, exc_info=True)
-    return None

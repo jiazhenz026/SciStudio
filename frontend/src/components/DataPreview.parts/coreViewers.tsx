@@ -108,11 +108,17 @@ function readTableInitial(payload: Record<string, unknown>): TableViewerInitial 
   };
 }
 
-export function DataFrameViewer({ envelope }: { envelope: PreviewEnvelope }) {
+export function DataFrameViewer({
+  envelope,
+  onPatchQuery,
+}: {
+  envelope: PreviewEnvelope;
+  onPatchQuery?: (query: Record<string, unknown>) => void;
+}) {
   const initial = useMemo(() => readTableInitial(envelope.payload), [envelope.payload]);
   return (
     <div data-testid="core-dataframe-viewer">
-      <TableViewer dataRef={envelope.target.ref} initial={initial} />
+      <TableViewer initial={initial} onPatchQuery={onPatchQuery} />
       <MetadataBadges envelope={envelope} />
     </div>
   );
@@ -851,7 +857,7 @@ export function CoreFallbackRenderer({
   const kind: EnvelopeKind = envelope.kind;
   switch (kind) {
     case "dataframe":
-      return <DataFrameViewer envelope={envelope} />;
+      return <DataFrameViewer envelope={envelope} onPatchQuery={onPatchQuery} />;
     case "array":
       return <ArrayViewer envelope={envelope} onPatchQuery={onPatchQuery} />;
     case "series":
