@@ -37,7 +37,9 @@ DEFAULT_BASELINE_PATH = Path("docs/audit/baselines/change-contract-baseline.json
 CONTRACT_TOOL = "change_contracts"
 CHANGE_CONTRACT_RULE_PREFIX = "change-contract"
 PRODUCTION_EXTENSIONS = frozenset({".py", ".ts", ".tsx", ".js", ".jsx", ".toml", ".json"})
-IGNORED_SCAN_PARTS = frozenset({".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "node_modules"})
+IGNORED_SCAN_PARTS = frozenset(
+    {".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", ".workflow", "node_modules"}
+)
 
 
 def _git_changed_paths(repo_root: Path, *, base_ref: str | None, head_ref: str | None) -> set[str]:
@@ -346,6 +348,8 @@ def _scope_for_path(path: str) -> ChangeSurfaceScope:
     normalized = normalise_path(path)
     parts = set(Path(normalized).parts)
     basename = Path(normalized).name
+    if normalized.startswith(".workflow/"):
+        return ChangeSurfaceScope.GENERATED
     if normalized.startswith("docs/"):
         return ChangeSurfaceScope.DOCS
     if (
@@ -505,20 +509,52 @@ def _check_reachability(repo_root: Path, contract: ChangeContract, contract_path
     return findings, len(result.evidence)
 
 
+def _canary_test_file(canary: str) -> str:
+    return normalise_path(canary.split("::", 1)[0])
+
+
+def _missing_canary_finding(
+    *,
+    repo_root: Path,
+    contract_path: str,
+    canary: str,
+    evidence: Mapping[str, Any] | None = None,
+) -> Finding | None:
+    test_file = _canary_test_file(canary)
+    if (repo_root / test_file).exists():
+        return None
+    return _finding(
+        "change-contract.canary-missing",
+        file=contract_path,
+        message=f"required canary test path does not exist: {test_file}",
+        subject=test_file,
+        evidence=evidence,
+    )
+
+
 def _check_canaries(repo_root: Path, contract: ChangeContract, contract_path: str) -> list[Finding]:
     findings: list[Finding] = []
     for canary in contract.required_canaries:
         if canary.test_path is None:
             continue
-        test_file = canary.test_path.split("::", 1)[0]
-        if (repo_root / test_file).exists():
-            continue
-        findings.append(
-            _finding(
-                "change-contract.canary-missing",
-                file=contract_path,
-                message=f"required canary test path does not exist: {test_file}",
-                subject=test_file,
+        if finding := _missing_canary_finding(
+            repo_root=repo_root,
+            contract_path=contract_path,
+            canary=canary.test_path,
+            evidence={"source": "required_canaries", "surface": canary.surface.target},
+        ):
+            findings.append(finding)
+    for declared in contract.required_reachability:
+        findings.extend(
+            finding
+            for canary in declared.canaries
+            if (
+                finding := _missing_canary_finding(
+                    repo_root=repo_root,
+                    contract_path=contract_path,
+                    canary=canary,
+                    evidence={"source": "required_reachability", "surface": declared.surface.target},
+                )
             )
         )
     return findings

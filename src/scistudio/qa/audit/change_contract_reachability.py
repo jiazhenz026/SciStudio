@@ -501,8 +501,15 @@ def _matching_entry_point(
     return None
 
 
-def _canary_evidence(requirement: ReachabilityRequirement) -> ReachabilityEvidence | None:
+def _canary_path_exists(repo_root: Path, canary: str) -> bool:
+    canary_path = normalise_path(canary.split("::", 1)[0])
+    return (repo_root / canary_path).is_file()
+
+
+def _canary_evidence(repo_root: Path, requirement: ReachabilityRequirement) -> ReachabilityEvidence | None:
     if not requirement.canaries:
+        return None
+    if not all(_canary_path_exists(repo_root, canary) for canary in requirement.canaries):
         return None
     return ReachabilityEvidence(
         kind=requirement.kind,
@@ -591,7 +598,7 @@ def evaluate_reachability(
                     )
                 )
                 continue
-            if canary := _canary_evidence(requirement):
+            if canary := _canary_evidence(repo_root, requirement):
                 evidence.append(canary)
                 continue
             if entry_point := _entry_point_evidence(requirement, records):
@@ -624,7 +631,7 @@ def evaluate_reachability(
                     )
                 )
                 continue
-            if canary := _canary_evidence(requirement):
+            if canary := _canary_evidence(repo_root, requirement):
                 evidence.append(canary)
                 continue
             findings.append(
@@ -639,7 +646,7 @@ def evaluate_reachability(
             if entry_point := _entry_point_evidence(requirement, records):
                 evidence.append(entry_point)
                 continue
-            if canary := _canary_evidence(requirement):
+            if canary := _canary_evidence(repo_root, requirement):
                 evidence.append(canary)
                 continue
             group, name = _requirement_entry_point(requirement)

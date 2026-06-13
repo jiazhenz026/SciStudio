@@ -210,6 +210,7 @@ def test_forbidden_prod_reference_blocks_only_production_scopes(tmp_path: Path) 
         """,
     )
     _write(tmp_path / "tests" / "test_legacy.py", "import app.legacy")
+    _write(tmp_path / ".workflow" / "records" / "gate.json", '{"summary": "import app.legacy"}')
     allowed = check_report(tmp_path, baseline_path=None, changed_paths=["docs/specs/feature.md"])
     assert "change-contract.forbidden-prod-reference" not in _rule_ids(allowed)
 
@@ -323,6 +324,51 @@ def test_required_reachability_blocks_test_only_module(tmp_path: Path) -> None:
     report = check_report(tmp_path, baseline_path=None, changed_paths=["docs/specs/feature.md"])
 
     assert "change-contract.reachability.python-module-unreachable" in _rule_ids(report)
+
+
+def test_required_reachability_canaries_must_exist(tmp_path: Path) -> None:
+    _write_spec(
+        tmp_path,
+        change_contract="""
+        change_contract:
+          path: docs/change-contracts/fixture.yml
+        """,
+    )
+    _write_contract(
+        tmp_path,
+        """
+        id: fixture-feature
+        parent: docs/specs/feature.md
+        change_kind: additive
+        surfaces:
+          added:
+            - kind: module
+              target: app.dynamic
+              scope: production
+        required_reachability:
+          - surface:
+              kind: module
+              target: app.dynamic
+              scope: production
+            production_roots:
+              - app.main
+            canaries:
+              - tests/canaries/test_dynamic.py::test_dynamic_contract
+        """,
+    )
+    _write(tmp_path / "src" / "app" / "__init__.py", "")
+    _write(tmp_path / "src" / "app" / "main.py", "VALUE = 1")
+    _write(tmp_path / "src" / "app" / "dynamic.py", "VALUE = 2")
+
+    missing = check_report(tmp_path, baseline_path=None, changed_paths=["docs/specs/feature.md"])
+    assert "change-contract.canary-missing" in _rule_ids(missing)
+    assert "change-contract.reachability.python-module-unreachable" in _rule_ids(missing)
+    assert missing.status == AuditStatus.FAIL
+
+    _write(tmp_path / "tests" / "canaries" / "test_dynamic.py", "def test_dynamic_contract():\n    pass")
+    satisfied = check_report(tmp_path, baseline_path=None, changed_paths=["docs/specs/feature.md"])
+    assert "change-contract.canary-missing" not in _rule_ids(satisfied)
+    assert "change-contract.reachability.python-module-unreachable" not in _rule_ids(satisfied)
 
 
 def test_full_audit_includes_change_contract_child(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

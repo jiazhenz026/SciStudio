@@ -176,6 +176,7 @@ def test_explicit_canary_override_satisfies_dynamic_surface(tmp_path: Path) -> N
     _write(tmp_path / "src" / "app" / "__init__.py")
     _write(tmp_path / "src" / "app" / "main.py", "VALUE = 1")
     _write(tmp_path / "src" / "app" / "dynamic_feature.py", "VALUE = 2")
+    _write(tmp_path / "tests" / "canaries" / "test_dynamic_feature.py", "def test_loads_runtime_plugin():\n    pass")
 
     result = evaluate_reachability(
         tmp_path,
@@ -192,3 +193,26 @@ def test_explicit_canary_override_satisfies_dynamic_surface(tmp_path: Path) -> N
     assert result.findings == ()
     assert result.evidence[0].status == "declared_canary"
     assert result.evidence[0].canaries == ("tests/canaries/test_dynamic_feature.py::test_loads_runtime_plugin",)
+
+
+def test_missing_canary_does_not_satisfy_dynamic_surface(tmp_path: Path) -> None:
+    _write(tmp_path / "src" / "app" / "__init__.py")
+    _write(tmp_path / "src" / "app" / "main.py", "VALUE = 1")
+    _write(tmp_path / "src" / "app" / "dynamic_feature.py", "VALUE = 2")
+
+    result = evaluate_reachability(
+        tmp_path,
+        [
+            ReachabilityRequirement(
+                kind="python_module",
+                target="app.dynamic_feature",
+                roots=("app.main",),
+                canaries=("tests/canaries/missing.py::test_loads_runtime_plugin",),
+            )
+        ],
+    )
+
+    assert [finding.rule_id for finding in result.findings] == [
+        "change-contract.reachability.python-module-unreachable"
+    ]
+    assert result.evidence == ()

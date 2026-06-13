@@ -525,7 +525,13 @@
       ".workflow/records/1617-change-contract-gate-manager.json"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-06-13T01:42:13.787766Z",
+      "owner_directive": "Continue until final PR; address actionable PR review feedback before final readiness.",
+      "reason": "Address PR review feedback for change-contract canary validation and audit-record scan scope."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-06-12T22:18:06.150032Z",
@@ -2447,6 +2453,30 @@
       "at": "2026-06-13T01:30:10.687252Z",
       "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
       "reason": "CI fix: classify change_contracts as CI-owned Full Audit quality check in workflow-gate evaluator"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T01:42:12.910354Z",
+      "pattern": "src/scistudio/qa/audit/change_contract_reachability.py",
+      "reason": "Finalize canary validation: required reachability canaries must reference existing test files and workflow ledgers are excluded from production-reference scanning"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T01:42:12.910371Z",
+      "pattern": "src/scistudio/qa/audit/change_contracts.py",
+      "reason": "Finalize canary validation: required reachability canaries must reference existing test files and workflow ledgers are excluded from production-reference scanning"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T01:42:12.910374Z",
+      "pattern": "tests/qa/test_change_contract_reachability.py",
+      "reason": "Finalize canary validation: required reachability canaries must reference existing test files and workflow ledgers are excluded from production-reference scanning"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T01:42:12.910375Z",
+      "pattern": "tests/qa/test_change_contracts.py",
+      "reason": "Finalize canary validation: required reachability canaries must reference existing test files and workflow ledgers are excluded from production-reference scanning"
     }
   ],
   "session_id": "b3ea0a90-51da-4b25-90bc-a23b25d146cb",
@@ -2514,6 +2544,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T01:42:12.910381Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contract_reachability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T01:42:12.910386Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contracts.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T01:42:13.787788Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contracts.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T01:42:13.787796Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_change_contract_reachability.py",
       "rationale": null,
       "verified_in_diff": null
     }
