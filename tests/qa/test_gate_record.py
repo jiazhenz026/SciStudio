@@ -607,6 +607,40 @@ def test_resolve_default_base_falls_back_when_no_merge_base(git_repo: Path) -> N
     assert resolved == "origin/main"
 
 
+# ---------------------------------------------------------------------------
+# #1627: SCISTUDIO_GATE_BASE overrides the default base so the commit-msg /
+# pre-commit hooks of a track-stacked sub-PR diff against their track, not the
+# hardcoded origin/main (which would misread the whole track delta as authored
+# here). Env only fills the default; an explicit upstream still wins.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_default_base_honors_gate_base_env(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    track_tip = io.resolve_sha(git_repo, "HEAD")  # the track/x tip
+    _git(git_repo, "checkout", "-q", "-b", "sub-pr")
+    _commit(git_repo, "feature.py", "f\n")  # the sub-PR's own commit on top of the track
+    monkeypatch.setenv("SCISTUDIO_GATE_BASE", "track/x")
+    resolved = io.resolve_default_base(git_repo)  # no explicit upstream -> resolve from env
+    # merge-base(track/x, HEAD) is the track tip; the sub-PR delta is just its own commit.
+    assert io.resolve_sha(git_repo, resolved) == track_tip
+
+
+def test_resolve_default_base_default_is_origin_main_without_env(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SCISTUDIO_GATE_BASE", raising=False)
+    # No env override + no explicit upstream -> origin/main (unresolvable here -> raw ref).
+    assert io.resolve_default_base(git_repo) == "origin/main"
+
+
+def test_resolve_default_base_explicit_upstream_not_env_overridden(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_GATE_BASE", "track/x")
+    # An explicit upstream wins over the env override (env only fills the default).
+    assert io.resolve_default_base(git_repo, upstream="origin/main") == "origin/main"
+
+
 def test_explicit_base_is_honored_verbatim(git_repo: Path) -> None:
     base = workflow._resolve_base(git_repo, "HEAD~0", "HEAD")
     assert base == "HEAD~0"
