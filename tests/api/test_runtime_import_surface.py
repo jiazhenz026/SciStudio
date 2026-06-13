@@ -111,7 +111,6 @@ def test_apiruntime_is_single_class_with_all_methods() -> None:
         "get_data_record",
         "describe_ref",
         "_resolve_record_class",
-        "preview_data",
         # Workflow execution + lineage (_runs)
         "_ancestors_of",
         "checkpoint_dir_for",

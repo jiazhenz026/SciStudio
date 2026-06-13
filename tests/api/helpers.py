@@ -5,18 +5,20 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from scistudio.api.runtime import ApiRuntime, WorkflowRun
 from scistudio.blocks.base.state import BlockState
 
+_T = TypeVar("_T")
+
 
 def wait_for_condition(
-    predicate: Callable[[], Any],
+    predicate: Callable[[], _T | None],
     *,
     timeout: float = 5.0,
     interval: float = 0.05,
-) -> Any:
+) -> _T:
     """Poll until *predicate* returns a truthy value, then return it."""
     deadline = time.time() + timeout
     while time.time() < deadline:

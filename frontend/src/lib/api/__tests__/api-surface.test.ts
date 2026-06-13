@@ -41,7 +41,6 @@ const EXPECTED_API_KEYS = [
   // data
   "uploadData",
   "getDataMetadata",
-  "getDataPreview",
   // filesystem
   "browseFilesystem",
   "revealInExplorer",

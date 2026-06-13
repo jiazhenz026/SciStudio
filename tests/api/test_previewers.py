@@ -6,13 +6,17 @@ import base64
 import json
 from pathlib import Path
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.storage.ref import StorageReference
 
 
-def _create_session(client: TestClient, *, ref: str, recorded_type: str, type_chain: list[str], kind: str = "data_ref"):
+def _create_session(
+    client: TestClient, *, ref: str, recorded_type: str, type_chain: list[str], kind: str = "data_ref"
+) -> httpx.Response:
     return client.post(
         "/api/previews/sessions",
         json={
@@ -63,6 +67,40 @@ def test_read_and_patch_session_repaginate(client: TestClient, opened_project: P
     assert len(patched.json()["payload"]["rows"]) == 37
 
 
+def test_patch_session_sorts_dataframe(client: TestClient, opened_project: Path) -> None:
+    """#1604: sort flows through the routed session PATCH (was the legacy GET
+    /api/data/{ref}/preview ?sort_by/sort_dir adapter, now removed)."""
+    csv = "score\n3\n1\n2\n"
+    upload = client.post("/api/data/upload", files={"file": ("s.csv", csv.encode(), "text/csv")})
+    ref = upload.json()["ref"]
+    sid = _create_session(client, ref=ref, recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"]).json()[
+        "session_id"
+    ]
+
+    desc = client.patch(
+        f"/api/previews/sessions/{sid}",
+        json={"query": {"sort_by": "score", "sort_dir": "desc"}},
+    )
+    assert desc.status_code == 200, desc.text
+    desc_payload = desc.json()["payload"]
+    assert desc_payload["sort_by"] == "score"
+    assert desc_payload["sort_dir"] == "desc"
+    assert [row["score"] for row in desc_payload["rows"]] == [3, 2, 1]
+
+    asc = client.patch(
+        f"/api/previews/sessions/{sid}",
+        json={"query": {"sort_by": "score", "sort_dir": "asc"}},
+    )
+    assert [row["score"] for row in asc.json()["payload"]["rows"]] == [1, 2, 3]
+
+    # A missing sort column is ignored (no crash, original order preserved).
+    bogus = client.patch(
+        f"/api/previews/sessions/{sid}",
+        json={"query": {"sort_by": "does_not_exist"}},
+    )
+    assert bogus.status_code == 200, bogus.text
+
+
 def test_read_unknown_session_returns_404(client: TestClient, opened_project: Path) -> None:
     resp = client.get("/api/previews/sessions/pv-does-not-exist")
     assert resp.status_code == 404
@@ -97,7 +135,7 @@ def test_array_session_resource_tile(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sys
     import types
@@ -307,12 +345,3 @@ def test_plot_export_resource_returns_bounded_sanitized_svg(
     assert "alert(1)" not in decoded
     assert "<rect" in decoded
     assert data["sanitized"] is True
-
-
-def test_legacy_preview_route_still_works(client: TestClient, opened_project: Path) -> None:
-    """FR-008: the old one-shot route is preserved verbatim alongside the session API."""
-    upload = client.post("/api/data/upload", files={"file": ("legacy.csv", b"a\n1\n2\n", "text/csv")})
-    ref = upload.json()["ref"]
-    preview = client.get(f"/api/data/{ref}/preview")
-    assert preview.status_code == 200
-    assert preview.json()["preview"]["kind"] == "table"

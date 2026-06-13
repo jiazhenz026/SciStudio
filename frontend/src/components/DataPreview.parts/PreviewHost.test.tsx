@@ -22,7 +22,6 @@ const createPreviewSession = vi.fn();
 const patchPreviewSession = vi.fn();
 const getPreviewResource = vi.fn();
 const getPreviewSession = vi.fn();
-const getDataPreview = vi.fn();
 const fetchMock = vi.fn();
 let anchorClickSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -32,7 +31,6 @@ vi.mock("../../lib/api", () => ({
     patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
     getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
     getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
-    getDataPreview: (...a: unknown[]) => getDataPreview(...a),
   },
 }));
 
@@ -77,7 +75,6 @@ beforeEach(() => {
   patchPreviewSession.mockReset();
   getPreviewResource.mockReset();
   getPreviewSession.mockReset();
-  getDataPreview.mockReset();
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   anchorClickSpy = vi
@@ -358,19 +355,22 @@ describe("PreviewHost — plot viewer (FR-018 / FR-019)", () => {
   });
 });
 
-describe("PreviewHost — DataFrame pagination/sort still works", () => {
-  it("requests the next page through patchPreviewSession is independent; table uses legacy fetch", async () => {
-    // The core DataFrameViewer reuses TableViewer, which paginates via the
-    // legacy getDataPreview endpoint. Confirm sortable headers + pagination
-    // controls render so the migrated table keeps its behavior.
-    const manyRows = Array.from({ length: 50 }, (_, i) => ({ A: i, B: i * 2 }));
+describe("PreviewHost — DataFrame pagination/sort through the routed session (#1604)", () => {
+  it("paginates and sorts through patchPreviewSession, never the legacy preview route", async () => {
+    // #1604: the core DataFrameViewer reuses TableViewer, which now paginates
+    // through the routed session PATCH (api.patchPreviewSession) — the same
+    // path the ArrayViewer uses for slice selection — NOT the deleted legacy
+    // GET /api/data/{ref}/preview adapter. The patched envelope carries the
+    // next page's payload, which flows back into the table.
+    const page1 = Array.from({ length: 50 }, (_, i) => ({ A: i, B: i * 2 }));
+    const page2 = Array.from({ length: 50 }, (_, i) => ({ A: 50 + i, B: (50 + i) * 2 }));
     createPreviewSession.mockResolvedValue(
       envelope({
         previewer_id: "core.dataframe.basic",
         kind: "dataframe",
         payload: {
           columns: ["A", "B"],
-          rows: manyRows,
+          rows: page1,
           total_rows: 523,
           page: 1,
           page_size: 50,
@@ -380,19 +380,22 @@ describe("PreviewHost — DataFrame pagination/sort still works", () => {
         },
       }),
     );
-    getDataPreview.mockResolvedValue({
-      ref: "data-1",
-      type_name: "DataFrame",
-      preview: {
-        kind: "table",
-        columns: ["A", "B"],
-        rows: manyRows,
-        total_rows: 523,
-        page: 2,
-        page_size: 50,
-        total_pages: 11,
-      },
-    });
+    patchPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "core.dataframe.basic",
+        kind: "dataframe",
+        payload: {
+          columns: ["A", "B"],
+          rows: page2,
+          total_rows: 523,
+          page: 2,
+          page_size: 50,
+          total_pages: 11,
+          sort_by: null,
+          sort_dir: null,
+        },
+      }),
+    );
 
     render(<PreviewHost target={TARGET} />);
 
@@ -400,8 +403,19 @@ describe("PreviewHost — DataFrame pagination/sort still works", () => {
     expect(screen.getByText(/523 rows/)).toBeInTheDocument();
     expect(screen.getByLabelText("Next page")).toBeInTheDocument();
 
+    // Next page → routed PATCH with page=2, never the legacy adapter.
     fireEvent.click(screen.getByLabelText("Next page"));
-    await waitFor(() => expect(getDataPreview).toHaveBeenCalled());
+    await waitFor(() => expect(patchPreviewSession).toHaveBeenCalled());
+    const [, patchQuery] = patchPreviewSession.mock.calls[0];
+    expect(patchQuery).toMatchObject({ page: 2 });
+    // The next page's rows land in the table from the patched envelope.
+    expect(await screen.findByText("99")).toBeInTheDocument();
+
+    // Sort by column A → routed PATCH carrying sort_by/sort_dir.
+    fireEvent.click(screen.getByText("A"));
+    await waitFor(() => expect(patchPreviewSession).toHaveBeenCalledTimes(2));
+    const [, sortQuery] = patchPreviewSession.mock.calls[1];
+    expect(sortQuery).toMatchObject({ page: 1, sort_by: "A", sort_dir: "asc" });
   });
 });
 

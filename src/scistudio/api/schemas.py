@@ -228,20 +228,13 @@ class DataMetadataResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class DataPreviewResponse(BaseModel):
-    """Response body for a lightweight data preview."""
-
-    ref: str
-    type_name: str
-    preview: dict[str, Any] = Field(default_factory=dict)
-
-
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 1: routed previewer session API schemas.
 #
 # These mirror the canonical ``scistudio.previewers`` models on the wire. The
-# legacy ``DataPreviewResponse`` above is unchanged; the session API is purely
-# additive (FR-007).
+# legacy one-shot ``DataPreviewResponse`` REST-preview body and its
+# ``GET /api/data/{ref}/preview`` route were removed under ADR-048 no-compat
+# (#1604); previews now flow exclusively through the session API below.
 # ---------------------------------------------------------------------------
 
 

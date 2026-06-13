@@ -99,8 +99,7 @@ export function LossySaveWarning({
  * a pre-computed field list.
  *
  * Arrays are indexed numerically — e.g. `channels[0].emission_wavelength`
- * becomes `channels.0.emission_wavelength` — matching the format already
- * used by `OMEMetadataPanel.pathLabel`.
+ * becomes `channels.0.emission_wavelength`.
  *
  * Empty / undefined trees return `[]`.
  */
