@@ -168,7 +168,7 @@ def _is_boundary_block(spec: BlockSpec) -> bool:
     return "app block" in name or "code block" in name or class_name in {"appblock", "codeblock"}
 
 
-def validate_workflow(
+def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; refactor to split per-node checks then drop this
     workflow: WorkflowDefinition,
     registry: BlockRegistry | None = None,
 ) -> list[str]:
