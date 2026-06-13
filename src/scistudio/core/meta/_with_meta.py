@@ -8,7 +8,7 @@ code without forcing a dependency on ``DataObject``.
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -52,4 +52,4 @@ def with_meta_changes(meta: T, **changes: Any) -> T:
         >>> a.x, a.y  # original unchanged
         (1, 2)
     """
-    return meta.model_copy(update=changes)
+    return cast(T, meta.model_copy(update=changes))
