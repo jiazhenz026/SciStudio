@@ -9,6 +9,7 @@ const createPreviewSession = vi.fn();
 const patchPreviewSession = vi.fn();
 const getPreviewSession = vi.fn();
 const runPlotJob = vi.fn();
+const listPlots = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   const actualApi = (actual.api ?? {}) as Record<string, unknown>;
@@ -20,6 +21,7 @@ vi.mock("../lib/api", async (importOriginal) => {
       patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
       getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
       runPlotJob: (...a: unknown[]) => runPlotJob(...a),
+      listPlots: (...a: unknown[]) => listPlots(...a),
     },
   };
 });
@@ -63,6 +65,8 @@ beforeEach(() => {
     textEnvelope(target.ref, `preview of ${target.ref}`),
   );
   runPlotJob.mockReset();
+  listPlots.mockReset();
+  listPlots.mockResolvedValue({ plots: [], count: 0, warnings: [] });
   // Each test owns a clean envelope cache (the store is a global singleton).
   useAppStore.getState().clearPreviewEnvelopeCache();
 });
@@ -115,10 +119,8 @@ describe("DataPreview", () => {
       <DataPreview
         blockOutputs={{
           "load-1": {
-            images: {
-              kind: "collection",
-              items: [{ data_ref: "data-a" }, { data_ref: "data-b" }],
-            },
+            output_a: { data_ref: "data-a" },
+            output_b: { data_ref: "data-b" },
           },
         }}
         selectedNodeId="load-1"
@@ -143,7 +145,64 @@ describe("DataPreview", () => {
     });
   });
 
+  it("opens collection outputs as collection-level sessions", async () => {
+    render(
+      <DataPreview
+        blockOutputs={{
+          "load-1": {
+            images: {
+              kind: "collection",
+              item_type: "DataFrame",
+              items: [{ data_ref: "data-a", type_name: "DataFrame" }, { data_ref: "data-b" }],
+            },
+          },
+        }}
+        selectedNodeId="load-1"
+        selectedNodeLabel="Load Table"
+      />,
+    );
+
+    expect(await screen.findByRole("button", { name: "images (2)" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(createPreviewSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "collection_ref",
+          ref: "collection:images",
+          recorded_type: "DataFrame",
+          collection_item_type: "DataFrame",
+          source: expect.objectContaining({ node_id: "load-1", output_port: "images" }),
+        }),
+        expect.objectContaining({
+          _collection_count: 2,
+          _collection_item_type: "DataFrame",
+          _collection_items: [
+            { data_ref: "data-a", type_name: "DataFrame" },
+            { data_ref: "data-b" },
+          ],
+        }),
+      );
+    });
+  });
+
   it("runs a plot job and mounts PreviewHost for the returned plot artifact (#1623)", async () => {
+    listPlots.mockResolvedValue({
+      plots: [
+        {
+          plot_id: "p1",
+          title: "P1",
+          workflow_id: "main",
+          node_id: "node-1",
+          output_port: "output",
+          display_label: "Process Block / output",
+          language: "python",
+          preferred_format: "svg",
+          manifest_path: "plots/p1/plot.yaml",
+          script_path: "plots/p1/render.py",
+        },
+      ],
+      count: 1,
+      warnings: [],
+    });
     runPlotJob.mockResolvedValue(plotRunResponse());
 
     render(
@@ -161,8 +220,7 @@ describe("DataPreview", () => {
       );
     });
 
-    fireEvent.change(screen.getByLabelText("Plot id"), { target: { value: "p1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run plot" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot P1" }));
 
     await waitFor(() => expect(runPlotJob).toHaveBeenCalledWith({ plot_id: "p1" }));
     await waitFor(() => {
@@ -186,20 +244,15 @@ describe("DataPreview", () => {
       <DataPreview
         blockOutputs={{
           "load-1": {
-            images: {
-              kind: "collection",
-              items: [
-                {
-                  data_ref: "data-abcdef",
-                  metadata: { framework: { source: "C:/data/beads.tif" } },
-                },
-                {
-                  data_ref: "data-123456",
-                  metadata: { meta: { source_file: "/home/u/sample_002.tif" } },
-                },
-                { data_ref: "data-xyz789", metadata: { framework: { source: "" } } },
-              ],
+            image_a: {
+              data_ref: "data-abcdef",
+              metadata: { framework: { source: "C:/data/beads.tif" } },
             },
+            image_b: {
+              data_ref: "data-123456",
+              metadata: { meta: { source_file: "/home/u/sample_002.tif" } },
+            },
+            image_c: { data_ref: "data-xyz789", metadata: { framework: { source: "" } } },
           },
         }}
         selectedNodeId="load-1"

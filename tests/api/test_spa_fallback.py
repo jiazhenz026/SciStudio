@@ -71,3 +71,11 @@ class TestSPAStaticFiles:
         response = client.get("/api/test")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+    def test_unknown_api_path_not_rewritten_to_spa_index(self, tmp_path: Path) -> None:
+        """Deleted legacy API routes must stay 404s, not return index.html."""
+        static_dir = _setup_static_dir(tmp_path)
+        client = TestClient(_make_spa_app(static_dir))
+        response = client.get("/api/data/obj-1/preview")
+        assert response.status_code == 404
+        assert "SPA" not in response.text

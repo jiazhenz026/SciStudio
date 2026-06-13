@@ -22,6 +22,8 @@ const createPreviewSession = vi.fn();
 const patchPreviewSession = vi.fn();
 const getPreviewResource = vi.fn();
 const getPreviewSession = vi.fn();
+const openNativeSaveDialog = vi.fn();
+const savePreviewResource = vi.fn();
 const fetchMock = vi.fn();
 let anchorClickSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -31,12 +33,15 @@ vi.mock("../../lib/api", () => ({
     patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
     getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
     getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
+    openNativeSaveDialog: (...a: unknown[]) => openNativeSaveDialog(...a),
+    savePreviewResource: (...a: unknown[]) => savePreviewResource(...a),
   },
 }));
 
 import { PreviewHost } from "./PreviewHost";
 import { buildPreviewCacheKey } from "../../store/previewSlice";
 import { isSameOriginModuleUrl } from "./dynamicPreviewer";
+import type { PreviewHostApi } from "./previewerHostApi";
 
 function envelope(partial: Partial<PreviewEnvelope>): PreviewEnvelope {
   return {
@@ -75,6 +80,15 @@ beforeEach(() => {
   patchPreviewSession.mockReset();
   getPreviewResource.mockReset();
   getPreviewSession.mockReset();
+  openNativeSaveDialog.mockReset();
+  openNativeSaveDialog.mockResolvedValue({ paths: ["C:/Users/test/plot.svg"] });
+  savePreviewResource.mockReset();
+  savePreviewResource.mockResolvedValue({
+    path: "C:/Users/test/plot.svg",
+    filename: "plot.svg",
+    size_bytes: 7,
+    mime_type: "image/svg+xml",
+  });
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   anchorClickSpy = vi
@@ -265,6 +279,46 @@ describe("PreviewHost — dynamic manifest fallback (US2.3 / FR-022 / FR-029)", 
       "MOUNTED FIRST-CLASS VIEWER",
     );
   });
+
+  it("exposes saveArtifact through the native save dialog and session save endpoint", async () => {
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "imaging.image.viewer",
+        kind: "array",
+        payload: { shape: [4, 4], dtype: "uint8", ndim: 2, src: "" },
+        resources: [{ resource_id: "export", kind: "asset", params: { format: "svg" } }],
+        metadata: { complete: true },
+        frontend_manifest: {
+          previewer_id: "imaging.image.viewer",
+          module_url: "/api/previews/assets/imaging.image.viewer/viewer.js",
+          export_name: "ImageViewer",
+          api_version: "1",
+        },
+      }),
+    );
+
+    const capturedHost: { current: PreviewHostApi | null } = { current: null };
+    const mount = vi.fn((_container: HTMLElement, host: PreviewHostApi) => {
+      capturedHost.current = host;
+      return { unmount: vi.fn() };
+    });
+    const fakeImporter = vi.fn(async () => ({ ImageViewer: { apiVersion: "1", mount } }));
+
+    render(<PreviewHost target={{ ...TARGET, recorded_type: "Image" }} importer={fakeImporter} />);
+
+    await waitFor(() => expect(mount).toHaveBeenCalled());
+    if (!capturedHost.current) throw new Error("host API was not captured");
+    await capturedHost.current.saveArtifact({ resourceId: "export", filename: "figure.svg" });
+
+    expect(openNativeSaveDialog).toHaveBeenCalledWith({
+      defaultFilename: "figure.svg",
+      fileFilter: "SVG (*.svg)|*.svg|All files (*.*)|*.*",
+    });
+    expect(savePreviewResource).toHaveBeenCalledWith("pv-1", "export", {
+      destination_path: "C:/Users/test/plot.svg",
+      params: { format: "svg" },
+    });
+  });
 });
 
 describe("PreviewHost — collection + child routing (US4)", () => {
@@ -350,22 +404,16 @@ describe("PreviewHost — plot viewer (FR-018 / FR-019)", () => {
     expect(screen.getByTestId("plot-export-button")).toBeEnabled();
     expect(screen.getByTestId("preview-diagnostics")).toHaveTextContent(/sanitized SVG/);
 
-    fetchMock.mockResolvedValue(
-      okJson({
-        resource_id: "export",
-        data: {
-          format: "svg",
-          mime_type: "image/svg+xml",
-          filename: "plot.svg",
-          data_uri: "data:image/svg+xml;base64,PHN2Zy8+",
-        },
-      }),
-    );
     fireEvent.click(screen.getByTestId("plot-export-button"));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
-    expect(url.pathname).toBe("/api/previews/sessions/pv-1/resources/export");
-    expect(JSON.parse(url.searchParams.get("params") ?? "{}")).toEqual({ format: "svg" });
+    await waitFor(() => expect(openNativeSaveDialog).toHaveBeenCalledTimes(1));
+    expect(openNativeSaveDialog).toHaveBeenCalledWith({
+      defaultFilename: "core.plot.basic.svg",
+      fileFilter: "SVG (*.svg)|*.svg|All files (*.*)|*.*",
+    });
+    expect(savePreviewResource).toHaveBeenCalledWith("pv-1", "export", {
+      destination_path: "C:/Users/test/plot.svg",
+      params: { format: "svg" },
+    });
   });
 
   it("renders a PDF artifact in a frame with an export control", async () => {

@@ -30,6 +30,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote_to_bytes
 from uuid import uuid4
 
 from scistudio.previewers.data_access import PreviewDataAccess
@@ -209,6 +210,34 @@ class PreviewSessionManager:
             f"unknown resource id {resource_id!r} for session {session_id}",
             detail={"resource_id": resource_id},
         )
+
+    def save_resource(
+        self,
+        session_id: str,
+        resource_id: str,
+        destination_path: Path,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save a bounded resource payload to a user-selected destination."""
+        data = self.read_resource(session_id, resource_id, params)
+        payload, mime_type = _payload_from_data_uri(data)
+        if len(payload) > self._get_session(session_id).limits.max_bytes:
+            raise ProviderError(
+                "preview resource exceeds save byte budget",
+                detail={"resource_id": resource_id, "size_bytes": len(payload)},
+            )
+        if not destination_path.parent.is_dir():
+            raise ProviderError(
+                "save destination parent directory does not exist",
+                detail={"resource_id": resource_id, "path": str(destination_path)},
+            )
+        destination_path.write_bytes(payload)
+        return {
+            "path": str(destination_path),
+            "filename": destination_path.name,
+            "size_bytes": len(payload),
+            "mime_type": str(data.get("mime_type") or mime_type or ""),
+        }
 
     def get_session(self, session_id: str) -> PreviewSession:
         """Return the session record (no re-render)."""
@@ -516,6 +545,22 @@ def _stable_cache_value(value: Any) -> str:
 
 def _data_uri(mime_type: str, payload: bytes) -> str:
     return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
+
+
+def _payload_from_data_uri(data: dict[str, Any]) -> tuple[bytes, str | None]:
+    data_uri = data.get("data_uri") or data.get("src")
+    if not isinstance(data_uri, str) or not data_uri.startswith("data:"):
+        raise ProviderError("preview resource is not a saveable data URI", detail={"resource": data})
+    header, sep, payload = data_uri.partition(",")
+    if sep == "":
+        raise ProviderError("preview resource data URI is malformed", detail={"header": header})
+    mime_type = header[5:].split(";", 1)[0] or None
+    if ";base64" in header.lower():
+        try:
+            return base64.b64decode(payload.encode("ascii"), validate=True), mime_type
+        except Exception as exc:
+            raise ProviderError("preview resource data URI payload is invalid", detail={"header": header}) from exc
+    return unquote_to_bytes(payload), mime_type
 
 
 def _missing_spec(previewer_id: str) -> PreviewerSpec:
