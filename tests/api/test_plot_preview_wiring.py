@@ -202,6 +202,91 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     assert any(r["resource_id"] == "export" for r in env["resources"])
 
 
+def test_plot_list_route_filters_manifests_to_selected_block(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """The App Shell can discover plots bound to the selected block."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    plot_dir = opened_project / "plots" / "p2"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    (plot_dir / "plot.yaml").write_text(
+        "schema_version: 1\n"
+        "id: p2\n"
+        "title: P2\n"
+        "target:\n"
+        "  workflow_path: workflows/main.yaml\n"
+        "  workflow_id: main\n"
+        "  node_id: node_b\n"
+        "  output_port: other\n"
+        "  display_label: Other / other\n"
+        "script:\n"
+        "  language: python\n"
+        "  path: render.py\n"
+        "  entrypoint: render\n",
+        encoding="utf-8",
+    )
+    (plot_dir / "render.py").write_text("def render(collection, context):\n    return None\n", encoding="utf-8")
+
+    resp = client.get("/api/plots", params={"workflow_id": "main", "node_id": "node_a"})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["plots"][0]["plot_id"] == "p1"
+    assert body["plots"][0]["node_id"] == "node_a"
+    assert body["plots"][0]["output_port"] == "measurements"
+
+
+def test_plot_preview_resource_save_writes_export_to_user_selected_path(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Save/export uses the session resource path and writes the selected file."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    run = client.post("/api/plots/run", json={"plot_id": "p1"})
+    assert run.status_code == 200, run.text
+    body = run.json()
+    session = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "plot_artifact",
+                "ref": body["data_ref"],
+                "recorded_type": body["recorded_type"],
+                "type_chain": body["type_chain"],
+                "source": body["source"],
+            },
+            "query": {},
+        },
+    )
+    assert session.status_code == 200, session.text
+    env = session.json()
+    sid = env["session_id"]
+    export_dir = opened_project / "exports"
+    export_dir.mkdir()
+    destination = export_dir / "chosen-name.svg"
+
+    save = client.post(
+        f"/api/previews/sessions/{sid}/resources/export/save",
+        json={"destination_path": str(destination), "params": {"format": "svg"}},
+    )
+
+    assert save.status_code == 200, save.text
+    payload = save.json()
+    assert payload["path"] == str(destination.resolve())
+    assert payload["filename"] == "chosen-name.svg"
+    assert payload["mime_type"] == "image/svg+xml"
+    assert destination.is_file()
+    assert "<svg" in destination.read_text(encoding="utf-8")
+
+
 def test_registered_plot_artifact_classifies_as_plot_target(
     client: TestClient,
     runtime: ApiRuntime,

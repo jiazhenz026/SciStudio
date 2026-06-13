@@ -9,10 +9,13 @@
 import type {
   DataMetadataResponse,
   DataUploadResponse,
+  PlotListResponse,
   PlotRunRequest,
   PlotRunResponse,
   PreviewEnvelope,
   PreviewResourceResponse,
+  PreviewResourceSaveRequest,
+  PreviewResourceSaveResponse,
   PreviewTarget,
 } from "../../types/api";
 import { JSON_HEADERS, apiFetch } from "./core";
@@ -98,6 +101,24 @@ export const dataApi = {
       )}`,
     ),
 
+  /** Save a bounded provider resource to a user-selected absolute file path
+   *  (`POST /api/previews/sessions/{id}/resources/{resource_id}/save`). */
+  savePreviewResource: (
+    sessionId: string,
+    resourceId: string,
+    request: PreviewResourceSaveRequest,
+  ) =>
+    apiFetch<PreviewResourceSaveResponse>(
+      `/api/previews/sessions/${encodeURIComponent(sessionId)}/resources/${encodeURIComponent(
+        resourceId,
+      )}/save`,
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(request),
+      },
+    ),
+
   // -- ADR-048 SPEC 2 / #1606: plot-job run + preview wiring ----------------
 
   /** Run a plot job and register its artifact for routed preview
@@ -111,4 +132,18 @@ export const dataApi = {
       headers: JSON_HEADERS,
       body: JSON.stringify(request),
     }),
+
+  /** List project-local plot manifests, optionally scoped to a workflow block. */
+  listPlots: (params?: {
+    workflowId?: string | null;
+    nodeId?: string | null;
+    outputPort?: string | null;
+  }) => {
+    const search = new URLSearchParams();
+    if (params?.workflowId) search.set("workflow_id", params.workflowId);
+    if (params?.nodeId) search.set("node_id", params.nodeId);
+    if (params?.outputPort) search.set("output_port", params.outputPort);
+    const suffix = search.toString();
+    return apiFetch<PlotListResponse>(`/api/plots${suffix ? `?${suffix}` : ""}`);
+  },
 };

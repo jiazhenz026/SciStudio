@@ -31,19 +31,73 @@ from __future__ import annotations
 
 import logging
 from functools import partial
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
-from scistudio.api.schemas import PlotRunRequest, PlotRunResponse
+from scistudio.api.schemas import PlotListItem, PlotListResponse, PlotRunRequest, PlotRunResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/plots", tags=["plots"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+
+
+@router.get("", response_model=PlotListResponse)
+async def list_plots(
+    runtime: RuntimeDep,
+    workflow_id: Annotated[str | None, Query()] = None,
+    node_id: Annotated[str | None, Query()] = None,
+    output_port: Annotated[str | None, Query()] = None,
+) -> PlotListResponse:
+    """List project-local plot manifests, optionally filtered to a block output."""
+    from scistudio.ai.agent.mcp.tools_plot.validation import load_plot
+
+    try:
+        project = runtime.require_active_project()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    project_root = Path(project.path).resolve()
+    plots_dir = project_root / "plots"
+    if not plots_dir.is_dir():
+        return PlotListResponse(plots=[], count=0)
+
+    items: list[PlotListItem] = []
+    warnings: list[str] = []
+    for manifest_path in sorted(plots_dir.glob("*/plot.yaml")):
+        try:
+            loaded = load_plot(plot_id=manifest_path.parent.name)
+        except Exception as exc:
+            warnings.append(f"{_project_relative(project_root, manifest_path)}: {exc}")
+            continue
+        target = loaded.manifest.target
+        if workflow_id is not None and target.workflow_id != workflow_id:
+            continue
+        if node_id is not None and target.node_id != node_id:
+            continue
+        if output_port is not None and target.output_port != output_port:
+            continue
+        items.append(
+            PlotListItem(
+                plot_id=loaded.plot_id,
+                title=loaded.manifest.title,
+                workflow_id=target.workflow_id,
+                node_id=target.node_id,
+                output_port=target.output_port,
+                display_label=target.display_label,
+                language=loaded.manifest.script.language,
+                preferred_format=loaded.manifest.outputs.preferred_format,
+                manifest_path=_project_relative(project_root, loaded.manifest_path),
+                script_path=_project_relative(project_root, loaded.script_path),
+            )
+        )
+    items.sort(key=lambda item: (item.title.lower() or item.plot_id.lower(), item.plot_id.lower()))
+    return PlotListResponse(plots=items, count=len(items), warnings=warnings)
 
 
 @router.post("/run", response_model=PlotRunResponse)
@@ -131,3 +185,10 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
         warnings=list(result.warnings),
         errors=list(result.errors),
     )
+
+
+def _project_relative(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root).as_posix()
+    except ValueError:
+        return str(path)

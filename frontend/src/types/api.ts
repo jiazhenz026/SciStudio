@@ -370,6 +370,20 @@ export interface PreviewResourceResponse {
   data: Record<string, unknown>;
 }
 
+/** Request body for saving a bounded session resource to a user-selected path. */
+export interface PreviewResourceSaveRequest {
+  destination_path: string;
+  params?: Record<string, unknown>;
+}
+
+/** Response body after a session resource save. */
+export interface PreviewResourceSaveResponse {
+  path: string;
+  filename: string;
+  size_bytes: number;
+  mime_type?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
 // ---------------------------------------------------------------------------
@@ -399,6 +413,27 @@ export interface PlotRunResponse {
   source: PreviewSource | null;
   warnings: string[];
   errors: string[];
+}
+
+/** One project-local plot manifest returned by `GET /api/plots`. */
+export interface PlotListItem {
+  plot_id: string;
+  title: string;
+  workflow_id?: string | null;
+  node_id: string;
+  output_port: string;
+  display_label: string;
+  language: string;
+  preferred_format: string;
+  manifest_path: string;
+  script_path: string;
+}
+
+/** Response body for `GET /api/plots`. */
+export interface PlotListResponse {
+  plots: PlotListItem[];
+  count: number;
+  warnings: string[];
 }
 
 export interface CancelPropagationResponse {

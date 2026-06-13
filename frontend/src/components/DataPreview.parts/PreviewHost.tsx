@@ -131,6 +131,7 @@ export function PreviewHost({
   const [childStack, setChildStack] = useState<PreviewEnvelope[]>([]);
 
   const queryRef = useRef<Record<string, unknown>>(initialQuery ?? {});
+  const initialQueryKey = useMemo(() => JSON.stringify(initialQuery ?? {}), [initialQuery]);
 
   // -- session creation ----------------------------------------------------
   useEffect(() => {
@@ -166,7 +167,7 @@ export function PreviewHost({
     // initialQuery is captured intentionally on target change only; later
     // query updates go through patchQuery below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind]);
+  }, [target?.ref, target?.kind, initialQueryKey]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
@@ -214,36 +215,50 @@ export function PreviewHost({
   const popChild = useCallback(() => setChildStack((stack) => stack.slice(0, -1)), []);
 
   // -- export / save -------------------------------------------------------
+  const saveEnvelopeResource = useCallback(
+    async (
+      active: PreviewEnvelope,
+      resourceId: string,
+      params?: Record<string, unknown>,
+      filename?: string,
+    ) => {
+      if (!active.session_id) {
+        throw new Error("no preview session");
+      }
+      const defaultFilename = filename ?? defaultResourceFilename(active, params);
+      const dialog = await api.openNativeSaveDialog({
+        defaultFilename,
+        fileFilter: fileFilterForFilename(defaultFilename),
+      });
+      const destinationPath = dialog.paths[0];
+      if (!destinationPath) return;
+      await api.savePreviewResource(active.session_id, resourceId, {
+        destination_path: destinationPath,
+        params: params ?? {},
+      });
+    },
+    [],
+  );
+
   const exportResource = useCallback(
     async (resource: PreviewResource) => {
       const active = childStack[childStack.length - 1] ?? envelope;
       if (!active) return;
-      // Plot export: a same-origin asset download for the displayed artifact.
-      const src = active.payload?.src;
-      if (typeof src === "string" && src.startsWith("data:")) {
-        triggerDownload(src, `${active.previewer_id}.${resource.params?.format ?? "bin"}`);
-        return;
-      }
-      if (active.session_id) {
-        try {
-          const result = await fetchPreviewResource(
-            active.session_id,
-            resource.resource_id,
-            resource.params,
-          );
-          triggerResourceDownload(
-            result.data,
-            `${active.previewer_id}.${resource.params?.format ?? "bin"}`,
-          );
-        } catch (err) {
-          setHostDiagnostics((d) => [
-            ...d,
-            `export failed: ${err instanceof Error ? err.message : String(err)}`,
-          ]);
-        }
+      try {
+        await saveEnvelopeResource(
+          active,
+          resource.resource_id,
+          resource.params,
+          defaultResourceFilename(active, resource.params),
+        );
+      } catch (err) {
+        setHostDiagnostics((d) => [
+          ...d,
+          `export failed: ${err instanceof Error ? err.message : String(err)}`,
+        ]);
       }
     },
-    [childStack, envelope],
+    [childStack, envelope, saveEnvelopeResource],
   );
 
   // The envelope currently in focus (top of the drill-down stack, else root).
@@ -292,38 +307,38 @@ export function PreviewHost({
       assetUrl: (assetPath: string) =>
         `/api/previews/assets/${encodeURIComponent(activeEnvelope.previewer_id)}/${assetPath.replace(/^\/+/, "")}`,
       exportArtifact: async (request) => {
-        const src = activeEnvelope.payload?.src;
-        if (typeof src === "string" && src.startsWith("data:")) {
-          triggerDownload(src, request?.filename ?? `${activeEnvelope.previewer_id}.bin`);
-          return;
-        }
-        if (!activeEnvelope.session_id) return;
         const resourceId = request?.resourceId ?? "export";
         const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
         const params = mergeResourceParams(resource, {
           ...(request?.params ?? {}),
           ...(request?.format ? { format: request.format } : {}),
         });
-        const result = await fetchPreviewResource(activeEnvelope.session_id, resourceId, params);
-        triggerResourceDownload(
-          result.data,
-          request?.filename ?? `${activeEnvelope.previewer_id}.${request?.format ?? "bin"}`,
+        await saveEnvelopeResource(
+          activeEnvelope,
+          resourceId,
+          params,
+          request?.filename ?? defaultResourceFilename(activeEnvelope, params),
         );
       },
-      saveArtifact: async () => {
-        // No host-mediated save target wired yet; modules must tolerate a
-        // rejection. The plot-job run + routed preview path is wired (#1606,
-        // api.runPlotJob -> plotTargetFromRunResponse -> PreviewHost); the
-        // explicit save-to-project flow is a separate destination contract.
-        // TODO(#1626): wire saveArtifact to the backend plot-artifact save flow.
-        //   Out of scope per #1606 (preview wiring only); follow-up: issue #1626.
-        return Promise.reject(new Error("save not available"));
+      saveArtifact: async (request) => {
+        const resourceId = request?.resourceId ?? "export";
+        const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+        const params = mergeResourceParams(resource, {
+          ...(request?.params ?? {}),
+          ...(request?.format ? { format: request.format } : {}),
+        });
+        await saveEnvelopeResource(
+          activeEnvelope,
+          resourceId,
+          params,
+          request?.filename ?? defaultResourceFilename(activeEnvelope, params),
+        );
       },
       reportError: (message: string) => {
         setHostDiagnostics((d) => [...d, message]);
       },
     };
-  }, [activeEnvelope, envelope?.session_id, manifest, patchQuery]);
+  }, [activeEnvelope, envelope?.session_id, manifest, patchQuery, saveEnvelopeResource]);
 
   useEffect(() => {
     // Tear down any prior instance whenever the focus changes.
@@ -441,15 +456,6 @@ export function PreviewHost({
   );
 }
 
-function triggerDownload(href: string, filename: string): void {
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
 async function fetchPreviewResource(
   sessionId: string,
   resourceId: string,
@@ -497,13 +503,24 @@ function mergeResourceParams(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function triggerResourceDownload(data: Record<string, unknown>, fallbackFilename: string): void {
-  const href =
-    typeof data.data_uri === "string"
-      ? data.data_uri
-      : typeof data.src === "string" && data.src.startsWith("data:")
-        ? data.src
-        : null;
-  if (!href) return;
-  triggerDownload(href, typeof data.filename === "string" ? data.filename : fallbackFilename);
+function defaultResourceFilename(
+  envelope: PreviewEnvelope,
+  params?: Record<string, unknown>,
+): string {
+  const payloadPath = envelope.payload?.path;
+  if (typeof payloadPath === "string" && payloadPath) {
+    const normalized = payloadPath.replace(/[\\/]+$/, "");
+    const parts = normalized.split(/[\\/]/);
+    const name = parts[parts.length - 1];
+    if (name) return name;
+  }
+  const format = typeof params?.format === "string" && params.format ? params.format : "bin";
+  return `${envelope.previewer_id}.${format}`;
+}
+
+function fileFilterForFilename(filename: string): string {
+  const match = /\.([A-Za-z0-9]+)$/.exec(filename);
+  if (!match) return "All files (*.*)|*.*";
+  const extension = match[1].toLowerCase();
+  return `${extension.toUpperCase()} (*.${extension})|*.${extension}|All files (*.*)|*.*`;
 }

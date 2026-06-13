@@ -90,3 +90,69 @@ describe("dataApi.runPlotJob (#1606 run route)", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("dataApi plot list + preview resource save", () => {
+  it("GETs /api/plots with block filters", async () => {
+    const body = {
+      plots: [
+        {
+          plot_id: "p1",
+          title: "P1",
+          workflow_id: "main",
+          node_id: "node_a",
+          output_port: "measurements",
+          display_label: "Seg / measurements",
+          language: "python",
+          preferred_format: "svg",
+          manifest_path: "plots/p1/plot.yaml",
+          script_path: "plots/p1/render.py",
+        },
+      ],
+      count: 1,
+      warnings: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await dataApi.listPlots({ workflowId: "main", nodeId: "node_a" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/plots?workflow_id=main&node_id=node_a");
+    expect(out).toEqual(body);
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs preview resource saves to the selected destination path", async () => {
+    const body = {
+      path: "C:/Users/test/plot.svg",
+      filename: "plot.svg",
+      size_bytes: 7,
+      mime_type: "image/svg+xml",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await dataApi.savePreviewResource("pv-1", "export", {
+      destination_path: "C:/Users/test/plot.svg",
+      params: { format: "svg" },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/previews/sessions/pv-1/resources/export/save");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      destination_path: "C:/Users/test/plot.svg",
+      params: { format: "svg" },
+    });
+    expect(out).toEqual(body);
+    vi.unstubAllGlobals();
+  });
+});

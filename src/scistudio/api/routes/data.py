@@ -19,12 +19,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
+from scistudio.api.routes.filesystem import _resolve_safe_path
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
     DataMetadataResponse,
     DataUploadResponse,
     PreviewEnvelopeModel,
     PreviewResourceResponse,
+    PreviewResourceSaveRequest,
+    PreviewResourceSaveResponse,
     PreviewSessionCreate,
     PreviewSessionPatch,
 )
@@ -242,6 +245,37 @@ async def read_preview_resource(
     except (UnknownTargetError, PreviewError) as exc:
         raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
     return PreviewResourceResponse(resource_id=resource_id, data=data)
+
+
+@previews_router.post(
+    "/sessions/{session_id}/resources/{resource_id}/save",
+    response_model=PreviewResourceSaveResponse,
+)
+async def save_preview_resource(
+    session_id: str,
+    resource_id: str,
+    payload: PreviewResourceSaveRequest,
+    runtime: RuntimeDep,
+) -> PreviewResourceSaveResponse:
+    """Save a bounded provider resource to a path selected by the native dialog."""
+    _validate_resource_param_value(payload.params)
+    try:
+        destination = _resolve_safe_path(payload.destination_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if destination.exists() and destination.is_dir():
+        raise HTTPException(status_code=400, detail="save destination must be a file path")
+    if not destination.parent.is_dir():
+        raise HTTPException(status_code=400, detail="save destination parent directory does not exist")
+
+    service = runtime.get_preview_service()
+    try:
+        result = service.sessions.save_resource(session_id, resource_id, destination, payload.params)
+    except UnknownPreviewerError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    except (UnknownTargetError, PreviewError) as exc:
+        raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
+    return PreviewResourceSaveResponse(**result)
 
 
 @previews_router.get("/assets/{previewer_id}/{asset_path:path}")

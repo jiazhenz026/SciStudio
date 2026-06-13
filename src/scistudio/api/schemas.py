@@ -310,6 +310,22 @@ class PreviewResourceResponse(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
 
+class PreviewResourceSaveRequest(BaseModel):
+    """Request body for saving a bounded preview resource to a user path."""
+
+    destination_path: str = Field(description="Absolute path selected by the native save dialog.")
+    params: dict[str, Any] = Field(default_factory=dict, description="Resource params copied from the descriptor.")
+
+
+class PreviewResourceSaveResponse(BaseModel):
+    """Response body after a preview resource is saved to disk."""
+
+    path: str
+    filename: str
+    size_bytes: int
+    mime_type: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
 #
@@ -359,6 +375,29 @@ class PlotRunResponse(BaseModel):
     )
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+
+
+class PlotListItem(BaseModel):
+    """One project-local plot manifest summary for the app shell."""
+
+    plot_id: str
+    title: str = ""
+    workflow_id: str | None = None
+    node_id: str
+    output_port: str
+    display_label: str = ""
+    language: str
+    preferred_format: str
+    manifest_path: str
+    script_path: str
+
+
+class PlotListResponse(BaseModel):
+    """Response body for ``GET /api/plots``."""
+
+    plots: list[PlotListItem] = Field(default_factory=list)
+    count: int
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ProjectCreate(BaseModel):

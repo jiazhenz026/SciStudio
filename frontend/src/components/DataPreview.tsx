@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { api } from "../lib/api";
 import { plotTargetFromRunResponse } from "../lib/api/data";
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  PlotListItem,
+  PreviewTarget,
+} from "../types/api";
 
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
@@ -66,44 +71,78 @@ export function DataPreview({
     if (!selectedNodeId) return [];
     return extractRefEntries(blockOutputs[selectedNodeId] ?? {});
   }, [blockOutputs, selectedNodeId]);
-  const outputRefs = useMemo(() => refEntries.map((e) => e.ref), [refEntries]);
+  const outputEntryIds = useMemo(() => refEntries.map((e) => e.id), [refEntries]);
 
-  // Local active-ref selection. The effective ref defaults to the first output
-  // and stays valid as the selected node's outputs change (no effect needed).
-  const [pickedRef, setPickedRef] = useState<string | null>(null);
-  const activeRef =
-    pickedRef && outputRefs.includes(pickedRef) ? pickedRef : (outputRefs[0] ?? null);
+  // Local active-output selection. It defaults to the first output and stays
+  // valid as the selected node's outputs change (no effect needed).
+  const [pickedEntryId, setPickedEntryId] = useState<string | null>(null);
+  const activeEntry =
+    (pickedEntryId ? refEntries.find((entry) => entry.id === pickedEntryId) : null) ??
+    refEntries[0] ??
+    null;
 
   // ADR-048 FR-021 — the routed-preview envelope cache lives in the Zustand
   // preview slice; the host reads/writes it through these callbacks.
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
+  const workflowId = useAppStore((s) => s.workflowId);
 
-  // The frontend has no authoritative type chain; it sends a minimal data_ref
-  // target and the backend rebuilds the routed target from its catalog (#1592).
-  const target: PreviewTarget | null = activeRef ? { kind: "data_ref", ref: activeRef } : null;
-  const [plotId, setPlotId] = useState("");
+  const target: PreviewTarget | null = activeEntry
+    ? {
+        ...activeEntry.target,
+        source: activeEntry.target.source ?? {
+          workflow_id: workflowId,
+          node_id: selectedNodeId,
+          output_port: activeEntry.outputPort ?? null,
+        },
+      }
+    : null;
+  const [availablePlots, setAvailablePlots] = useState<PlotListItem[]>([]);
   const [plotTarget, setPlotTarget] = useState<PreviewTarget | null>(null);
   const [plotRunError, setPlotRunError] = useState<string | null>(null);
-  const [plotRunning, setPlotRunning] = useState(false);
+  const [plotListError, setPlotListError] = useState<string | null>(null);
+  const [plotLoading, setPlotLoading] = useState(false);
+  const [plotRunningId, setPlotRunningId] = useState<string | null>(null);
 
   useEffect(() => {
+    setPickedEntryId(null);
     setPlotTarget(null);
     setPlotRunError(null);
-    setPlotRunning(false);
+    setPlotRunningId(null);
   }, [selectedNodeId]);
 
-  async function handlePlotRun(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const requestedPlotId = plotId.trim();
-    if (!requestedPlotId) {
-      setPlotRunError("Enter a plot id.");
+  useEffect(() => {
+    let cancelled = false;
+    setAvailablePlots([]);
+    setPlotListError(null);
+    if (!selectedNodeId) {
+      setPlotLoading(false);
       return;
     }
-    setPlotRunning(true);
+    setPlotLoading(true);
+    api
+      .listPlots({ workflowId, nodeId: selectedNodeId })
+      .then((result) => {
+        if (cancelled) return;
+        setAvailablePlots(result.plots);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setPlotListError(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (!cancelled) setPlotLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedNodeId, workflowId]);
+
+  async function handlePlotRun(plot: PlotListItem) {
+    setPlotRunningId(plot.plot_id);
     setPlotRunError(null);
     try {
-      const result = await api.runPlotJob({ plot_id: requestedPlotId });
+      const result = await api.runPlotJob({ plot_id: plot.plot_id });
       const nextTarget = plotTargetFromRunResponse(result);
       if (!nextTarget) {
         setPlotTarget(null);
@@ -115,7 +154,7 @@ export function DataPreview({
       setPlotTarget(null);
       setPlotRunError(error instanceof Error ? error.message : String(error));
     } finally {
-      setPlotRunning(false);
+      setPlotRunningId(null);
     }
   }
 
@@ -152,60 +191,81 @@ export function DataPreview({
         <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
           Pick a block to inspect its latest outputs and cached previews.
         </div>
-      ) : outputRefs.length === 0 ? (
-        <div className="mt-6 min-h-0 flex-1 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-          This block has no previewable outputs yet.
-        </div>
       ) : (
         <>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {refEntries.map((entry) => (
-              <button
-                className={`rounded-full px-3 py-1 text-xs ${!plotTarget && activeRef === entry.ref ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-                key={entry.ref}
-                onClick={() => {
-                  setPickedRef(entry.ref);
-                  setPlotTarget(null);
-                  setPlotRunError(null);
-                }}
-                title={entry.ref}
-                type="button"
-              >
-                {entry.displayName}
-              </button>
-            ))}
-            {plotTarget ? (
-              <button
-                className="rounded-full bg-ink px-3 py-1 text-xs text-white"
-                onClick={() => setPlotTarget(plotTarget)}
-                title={plotTarget.ref}
-                type="button"
-              >
-                Plot artifact
-              </button>
-            ) : null}
-          </div>
-          <form className="mt-3 flex items-center gap-2" onSubmit={handlePlotRun}>
-            <label className="sr-only" htmlFor="data-preview-plot-id">
-              Plot id
-            </label>
-            <input
-              className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 outline-none focus:border-ink"
-              disabled={plotRunning}
-              id="data-preview-plot-id"
-              onChange={(event) => setPlotId(event.target.value)}
-              placeholder="plot_id"
-              value={plotId}
-            />
-            <button
-              aria-label="Run plot"
-              className="rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
-              disabled={plotRunning}
-              type="submit"
+          {outputEntryIds.length === 0 ? (
+            <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+              This block has no previewable outputs yet.
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {refEntries.map((entry) => (
+                <button
+                  className={`rounded-full px-3 py-1 text-xs ${!plotTarget && activeEntry?.id === entry.id ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                  key={entry.id}
+                  onClick={() => {
+                    setPickedEntryId(entry.id);
+                    setPlotTarget(null);
+                    setPlotRunError(null);
+                  }}
+                  title={entry.ref}
+                  type="button"
+                >
+                  {entry.displayName}
+                </button>
+              ))}
+              {plotTarget ? (
+                <button
+                  className="rounded-full bg-ink px-3 py-1 text-xs text-white"
+                  onClick={() => setPlotTarget(plotTarget)}
+                  title={plotTarget.ref}
+                  type="button"
+                >
+                  Plot artifact
+                </button>
+              ) : null}
+            </div>
+          )}
+          {availablePlots.length > 0 || plotLoading || plotListError ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {plotLoading ? (
+                <span className="text-xs text-stone-500">Loading plots...</span>
+              ) : null}
+              {availablePlots.map((plot) => (
+                <button
+                  aria-label={`Run plot ${plot.title || plot.plot_id}`}
+                  className="rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
+                  disabled={plotRunningId !== null}
+                  key={plot.plot_id}
+                  onClick={() => void handlePlotRun(plot)}
+                  title={plot.display_label || plot.plot_id}
+                  type="button"
+                >
+                  {plotRunningId === plot.plot_id
+                    ? "Running"
+                    : `Plot: ${plot.title || plot.plot_id}`}
+                </button>
+              ))}
+              {plotTarget && outputEntryIds.length === 0 ? (
+                <button
+                  className="rounded-full bg-ink px-3 py-1 text-xs text-white"
+                  onClick={() => setPlotTarget(plotTarget)}
+                  title={plotTarget.ref}
+                  type="button"
+                >
+                  Plot artifact
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {plotListError ? (
+            <div
+              className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              role="status"
             >
-              {plotRunning ? "Running" : "Run"}
-            </button>
-          </form>
+              {plotListError}
+            </div>
+          ) : null}
           {plotRunError ? (
             <div
               className="mt-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
@@ -217,6 +277,7 @@ export function DataPreview({
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             <PreviewHost
               target={plotTarget ?? target}
+              initialQuery={plotTarget ? undefined : activeEntry?.initialQuery}
               getCachedEnvelope={(key) => previewEnvelopeCache[key]}
               cacheEnvelope={cachePreviewEnvelope}
               buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
