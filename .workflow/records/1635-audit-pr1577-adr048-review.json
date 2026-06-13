@@ -1,0 +1,69 @@
+{
+  "branch": "audit/pr1577-adr048-review",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-13T06:21:24.326857Z",
+      "class": "audit",
+      "kind": "na",
+      "path": null,
+      "rationale": "review-only report, no contract changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1635,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Review PR1577 ADR-048 implementation quality",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1635-audit-pr1577-adr048-review",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-13T06:21:24.326824Z",
+      "pattern": "docs/audit/2026-06-13-pr1577-adr-048-consolidated-review.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f1ab5119-39b9-4fb7-bbd7-58416c69f371",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-06-13T06:21:24.326866Z",
+      "class": "audit",
+      "kind": "na",
+      "path": null,
+      "rationale": "review-only report, no testable behavior",
+      "verified_in_diff": null
+    }
+  ]
+}
