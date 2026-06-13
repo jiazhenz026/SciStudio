@@ -345,6 +345,10 @@ export interface PreviewEnvelope {
   metadata: PreviewMetadata;
   diagnostics: string[];
   error: PreviewErrorInfo | null;
+  /** First-class same-origin previewer manifest, framework-stamped by the
+   *  session manager from the resolved PreviewerSpec (ADR-048 §4 / #1579).
+   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
+  frontend_manifest?: PreviewerManifest | null;
 }
 
 /** Request body for `POST /api/previews/sessions`. */

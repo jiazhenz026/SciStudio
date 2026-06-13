@@ -26,7 +26,10 @@
  *     versions are incompatible, surfacing a diagnostic instead.
  *
  * Mount flow (see {@link mountDynamicPreviewer} in `dynamicPreviewer.ts`):
- *   1. PreviewHost reads `envelope.metadata.frontend_manifest`.
+ *   1. PreviewHost reads the first-class `envelope.frontend_manifest` (stamped
+ *      by the session manager from the resolved PreviewerSpec, #1579; a legacy
+ *      `envelope.metadata.frontend_manifest` fallback remains for un-migrated
+ *      providers).
  *   2. It validates `module_url` is same-origin (rejects http/https/`//`/data:).
  *   3. It `import(module_url)` and reads `module[manifest.export_name]`.
  *   4. That export is a {@link PreviewerModule}; the host calls

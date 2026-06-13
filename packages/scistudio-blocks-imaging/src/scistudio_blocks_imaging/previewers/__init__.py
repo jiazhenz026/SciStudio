@@ -21,12 +21,15 @@ What this module provides:
   array — FR-010) and return a :class:`PreviewEnvelope`.
 
 Manifest-delivery seam (FR-022/FR-024 + the verified frontend host contract):
-the preview *session* envelope does not otherwise carry the spec's frontend
-manifest. The frontend ``PreviewHost`` reads it from
-``envelope.metadata.extra["frontend_manifest"]``. Therefore each provider here
-embeds its :meth:`FrontendManifest.to_dict` (the wire shape WITHOUT
-``asset_root``) into ``metadata.extra["frontend_manifest"]`` so the host can
-locate and same-origin-import the packaged viewer module.
+the frontend manifest is now framework-stamped onto the
+:class:`~scistudio.previewers.models.PreviewEnvelope` by
+:class:`~scistudio.previewers.session.PreviewSessionManager`, which reads it
+from the resolved :class:`PreviewerSpec` (#1579). This package therefore
+declares the manifest exactly once on each spec via :func:`get_previewers`
+(``frontend_manifest=...``); the providers below no longer re-embed it per
+envelope. The frontend ``PreviewHost`` reads it first-class from
+``envelope.frontend_manifest`` to locate and same-origin-import the packaged
+viewer module.
 
 Fallback design (FR-026): the Image envelope uses ``kind=ARRAY`` and carries a
 PNG ``src`` data-URI plus shape/axes/slice metadata in exactly the shape the
@@ -186,18 +189,6 @@ def _image_metadata_panel(record_md: dict[str, Any]) -> dict[str, Any]:
     return panel
 
 
-def _embed_manifest(metadata_extra: dict[str, Any], previewer_id: str) -> dict[str, Any]:
-    """Return ``metadata_extra`` with the wire frontend manifest embedded.
-
-    The verified seam: the frontend host reads the manifest from
-    ``envelope.metadata.extra['frontend_manifest']`` because the session
-    envelope does not otherwise carry it.
-    """
-    enriched = dict(metadata_extra)
-    enriched["frontend_manifest"] = _frontend_manifest(previewer_id).to_dict()
-    return enriched
-
-
 def _error_envelope(request: PreviewRequest, message: str) -> PreviewEnvelope:
     """Embed a typed error envelope (providers must not raise for routine
     failures — FR-028)."""
@@ -207,11 +198,7 @@ def _error_envelope(request: PreviewRequest, message: str) -> PreviewEnvelope:
         previewer_id=request.spec.previewer_id,
         target=request.target,
         kind=EnvelopeKind.ERROR,
-        metadata=PreviewMetadata(
-            complete=False,
-            failed=True,
-            extra=_embed_manifest({}, request.spec.previewer_id),
-        ),
+        metadata=PreviewMetadata(complete=False, failed=True),
         error=PreviewErrorInfo(code=PreviewErrorCode.PROVIDER_EXCEPTION, message=message),
     )
 
@@ -287,7 +274,7 @@ def image_provider(request: PreviewRequest) -> PreviewEnvelope:
             sampled=plane.truncated,
             truncated=plane.truncated,
             complete=not plane.truncated,
-            extra=_embed_manifest(extra, request.spec.previewer_id),
+            extra=extra,
         ),
     )
 
@@ -362,7 +349,7 @@ def label_provider(request: PreviewRequest) -> PreviewEnvelope:
             sampled=truncated,
             truncated=truncated,
             complete=not truncated,
-            extra=_embed_manifest(extra, request.spec.previewer_id),
+            extra=extra,
         ),
     )
 

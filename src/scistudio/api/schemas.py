@@ -262,6 +262,17 @@ class PreviewSessionPatch(BaseModel):
     query: dict[str, Any] = Field(default_factory=dict, description="Query state to merge (slice/page/sort/slot/item).")
 
 
+class PreviewFrontendManifestModel(BaseModel):
+    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
+
+    previewer_id: str
+    module_url: str
+    export_name: str = "default"
+    css: list[str] = Field(default_factory=list)
+    version: str = "0"
+    api_version: str = "1"
+
+
 class PreviewEnvelopeModel(BaseModel):
     """Wire shape of a canonical :class:`PreviewEnvelope`."""
 
@@ -274,17 +285,7 @@ class PreviewEnvelopeModel(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     diagnostics: list[str] = Field(default_factory=list)
     error: dict[str, Any] | None = None
-
-
-class PreviewFrontendManifestModel(BaseModel):
-    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
-
-    previewer_id: str
-    module_url: str
-    export_name: str = "default"
-    css: list[str] = Field(default_factory=list)
-    version: str = "0"
-    api_version: str = "1"
+    frontend_manifest: PreviewFrontendManifestModel | None = None
 
 
 class PreviewerSpecModel(BaseModel):

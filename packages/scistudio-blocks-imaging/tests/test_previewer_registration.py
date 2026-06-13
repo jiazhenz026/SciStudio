@@ -12,8 +12,11 @@ Covers (per the SPEC 1 acceptance items):
 * Removing imaging -> ``Image`` falls back to ``core.array.basic`` via
   parent-type resolution (FR-026).
 * The Image provider returns a valid ``PreviewEnvelope`` with the 6 metadata
-  flags set and a same-origin ``frontend_manifest`` embedded in
-  ``metadata.extra`` (the verified manifest-delivery seam).
+  flags set, and the same-origin ``frontend_manifest`` reaches the *session*
+  envelope first-class — framework-stamped by
+  :class:`~scistudio.previewers.session.PreviewSessionManager` from the resolved
+  :class:`PreviewerSpec` (#1579) — while the provider called directly no longer
+  embeds it into ``metadata.extra``.
 
 These are pure-unit tests: they register the imaging specs explicitly (or run
 monorepo discovery) and never require the package to be pip-installed.
@@ -47,6 +50,7 @@ from scistudio.previewers.models import (
 )
 from scistudio.previewers.registry import PreviewerRegistry
 from scistudio.previewers.router import PreviewRouter
+from scistudio.previewers.session import PreviewSessionManager
 
 # Recorded type chains (general -> specific) the router walks. Image extends
 # Array; Label extends CompositeData.
@@ -224,13 +228,14 @@ def test_monorepo_discovery_registers_imaging_previewers() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Image provider envelope + embedded manifest seam
+# Image provider envelope + framework-stamped manifest seam (#1579)
 # ---------------------------------------------------------------------------
 
 
-def test_image_provider_returns_valid_envelope_with_embedded_manifest(
+def test_image_provider_returns_valid_envelope_without_self_embedding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The provider alone returns a valid envelope but no longer embeds the manifest."""
     _install_fake_zarr(monkeypatch)
     spec = _image_spec()
     record_md = {
@@ -258,17 +263,42 @@ def test_image_provider_returns_valid_envelope_with_embedded_manifest(
     for flag in ("sampled", "truncated", "cached", "derived", "complete", "failed"):
         assert flag in md and isinstance(md[flag], bool)
 
-    # Manifest-delivery seam: embedded same-origin manifest in metadata.extra.
-    fm = envelope.metadata.extra["frontend_manifest"]
-    assert fm["previewer_id"] == IMAGE_PREVIEWER_ID
-    assert fm["module_url"] == f"/api/previews/assets/{IMAGE_PREVIEWER_ID}/viewer.js"
-    assert fm["export_name"] == "default"
-    assert not fm["module_url"].startswith(("http", "//", "data:"))
-    assert "asset_root" not in fm  # never serialised
+    # #1579: the provider no longer embeds the manifest into metadata.extra; it
+    # is framework-stamped by the session manager (see the session-driven test).
+    assert "frontend_manifest" not in envelope.metadata.extra
+    assert envelope.frontend_manifest is None
 
 
-def test_image_provider_embeds_manifest_even_on_error() -> None:
-    """A routine read failure embeds a typed error envelope (FR-028) + the manifest."""
+def test_session_manager_stamps_image_manifest_first_class(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Driven through PreviewSessionManager, the Image envelope carries the
+    resolved spec's manifest first-class on ``envelope.frontend_manifest``."""
+    _install_fake_zarr(monkeypatch)
+    manager = PreviewSessionManager(_registry())
+    target = _data_target("Image", _IMAGE_CHAIN)
+    query = {
+        "_storage": {
+            "backend": "zarr",
+            "path": str(_image_zarr_ref(tmp_path)),
+            "format": "zarr",
+            "metadata": {"axes": ["z", "y", "x"], "shape": [3, 16, 16]},
+        },
+    }
+    envelope = manager.render_target(target, query)
+
+    assert envelope.previewer_id == IMAGE_PREVIEWER_ID
+    # First-class manifest is stamped from the resolved spec.
+    fm = envelope.frontend_manifest
+    assert fm is not None
+    assert fm.previewer_id == IMAGE_PREVIEWER_ID
+    assert fm.module_url == f"/api/previews/assets/{IMAGE_PREVIEWER_ID}/viewer.js"
+    # Wire shape omits the backend-only asset_root.
+    assert "asset_root" not in fm.to_dict()
+    # And it is gone from the old metadata.extra channel.
+    assert "frontend_manifest" not in envelope.metadata.extra
+
+
+def test_image_provider_error_envelope_has_no_embedded_manifest() -> None:
+    """A routine read failure yields a typed error envelope (FR-028) with no embed."""
     from scistudio.previewers.data_access import PreviewDataAccess
 
     spec = _image_spec()
@@ -284,10 +314,11 @@ def test_image_provider_embeds_manifest_even_on_error() -> None:
     assert envelope.kind is EnvelopeKind.ERROR
     assert envelope.metadata.failed is True
     assert envelope.metadata.complete is False
-    assert envelope.metadata.extra["frontend_manifest"]["previewer_id"] == IMAGE_PREVIEWER_ID
+    assert "frontend_manifest" not in envelope.metadata.extra
+    assert envelope.frontend_manifest is None
 
 
-def test_label_provider_returns_composite_envelope_with_manifest() -> None:
+def test_label_provider_returns_composite_envelope_without_self_embedding() -> None:
     from scistudio.previewers.data_access import PreviewDataAccess
 
     spec = _label_spec()
@@ -314,8 +345,26 @@ def test_label_provider_returns_composite_envelope_with_manifest() -> None:
     # Each slot advertises a child-routing resource.
     resource_ids = {r.resource_id for r in envelope.resources}
     assert resource_ids == {"slot:raster", "slot:polygons"}
-    # Manifest embedded.
-    assert envelope.metadata.extra["frontend_manifest"]["previewer_id"] == LABEL_PREVIEWER_ID
+    # #1579: no per-envelope embed; the session manager stamps it first-class.
+    assert "frontend_manifest" not in envelope.metadata.extra
+    assert envelope.frontend_manifest is None
+
+
+def test_session_manager_stamps_label_manifest_first_class() -> None:
+    """The Label session envelope also carries the resolved spec's manifest."""
+    manager = PreviewSessionManager(_registry())
+    target = _data_target("Label", _LABEL_CHAIN)
+    query = {
+        "_storage": {"backend": "filesystem", "path": "/labels", "format": "zarr"},
+        "_record_metadata": {"slots": {"raster": "Array", "polygons": "DataFrame"}, "n_objects": 7},
+    }
+    envelope = manager.render_target(target, query)
+
+    assert envelope.previewer_id == LABEL_PREVIEWER_ID
+    fm = envelope.frontend_manifest
+    assert fm is not None
+    assert fm.previewer_id == LABEL_PREVIEWER_ID
+    assert "frontend_manifest" not in envelope.metadata.extra
 
 
 def test_provider_specs_have_distinct_ids_from_core() -> None:

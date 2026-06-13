@@ -291,7 +291,10 @@ Acceptance Scenarios:
 - FR-019: SVG rendering must be sanitized or sandboxed so script execution and
   external resource loading do not run in the app context.
 - FR-020: Frontend `PreviewHost` must mount previewers by validated manifest and
-  otherwise render core fallback components.
+  otherwise render core fallback components. The manifest is delivered
+  first-class on `PreviewEnvelope.frontend_manifest`, framework-stamped by the
+  session manager from the resolved `PreviewerSpec` (#1579); the host reads it
+  from there and retains a legacy `metadata.frontend_manifest` fallback.
 - FR-021: Frontend preview state must key caches by data reference or collection
   reference, previewer ID, session ID, query parameters, slice/page/sort state,
   and data version when available.
@@ -357,6 +360,7 @@ Acceptance Scenarios:
 | `metadata` | Shape, type, sampling, truncation, and display metadata. |
 | `diagnostics` | Non-fatal warnings and repair hints. |
 | `error` | Typed error when preview failed. |
+| `frontend_manifest` | Optional same-origin manifest, framework-stamped by the session manager from the resolved `PreviewerSpec`. Null for core fallbacks. |
 
 `PreviewSession` is backend-owned:
 

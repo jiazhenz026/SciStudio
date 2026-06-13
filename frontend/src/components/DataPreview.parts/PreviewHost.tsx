@@ -4,8 +4,9 @@
  * The routed preview container. For a selected {@link PreviewTarget} it:
  *   1. Creates a session via `POST /api/previews/sessions` and reads the
  *      {@link PreviewEnvelope}.
- *   2. If the resolved previewer surfaces a `frontend_manifest` (in
- *      `envelope.metadata.frontend_manifest`) → validates it (same-origin only,
+ *   2. If the resolved previewer surfaces a `frontend_manifest` (first-class on
+ *      `envelope.frontend_manifest`, with a legacy `envelope.metadata.frontend_manifest`
+ *      fallback) → validates it (same-origin only,
  *      FR-022), dynamically `import()`s it, and mounts the named export with a
  *      constrained {@link PreviewHostApi} (FR-023). On ANY validation / import /
  *      mount failure → renders diagnostics AND the core fallback viewer for
@@ -65,7 +66,9 @@ const RESOURCE_PARAMS_MAX_CHARS = 8192;
 
 function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | undefined {
   if (!envelope) return undefined;
-  const manifest = envelope.metadata?.frontend_manifest;
+  // Prefer the first-class field the session manager stamps (#1579); fall back
+  // to the legacy flattened `metadata.frontend_manifest` for un-migrated providers.
+  const manifest = envelope.frontend_manifest ?? envelope.metadata?.frontend_manifest;
   if (manifest && typeof manifest === "object" && typeof manifest.module_url === "string") {
     return manifest;
   }

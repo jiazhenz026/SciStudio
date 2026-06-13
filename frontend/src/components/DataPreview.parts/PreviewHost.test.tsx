@@ -232,6 +232,39 @@ describe("PreviewHost — dynamic manifest fallback (US2.3 / FR-022 / FR-029)", 
       "MOUNTED IMAGING VIEWER",
     );
   });
+
+  it("mounts from the first-class envelope.frontend_manifest field (#1579)", async () => {
+    // The session manager now stamps the manifest first-class on the envelope;
+    // the host must read it from there (no metadata.frontend_manifest present).
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        previewer_id: "imaging.image.viewer",
+        kind: "array",
+        payload: { shape: [4, 4], dtype: "uint8", ndim: 2, src: "" },
+        metadata: { complete: true },
+        frontend_manifest: {
+          previewer_id: "imaging.image.viewer",
+          module_url: "/api/previews/assets/imaging.image.viewer/viewer.js",
+          export_name: "ImageViewer",
+          api_version: "1",
+        },
+      }),
+    );
+
+    const mount = vi.fn((container: HTMLElement) => {
+      container.textContent = "MOUNTED FIRST-CLASS VIEWER";
+      return { unmount: vi.fn() };
+    });
+    const fakeImporter = vi.fn(async () => ({ ImageViewer: { apiVersion: "1", mount } }));
+
+    render(<PreviewHost target={{ ...TARGET, recorded_type: "Image" }} importer={fakeImporter} />);
+
+    await waitFor(() => expect(mount).toHaveBeenCalled());
+    expect(screen.queryByTestId("core-array-viewer")).toBeNull();
+    expect(screen.getByTestId("preview-host-dynamic-mount")).toHaveTextContent(
+      "MOUNTED FIRST-CLASS VIEWER",
+    );
+  });
 });
 
 describe("PreviewHost — collection + child routing (US4)", () => {
