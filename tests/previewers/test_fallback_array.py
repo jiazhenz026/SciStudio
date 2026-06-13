@@ -99,7 +99,7 @@ def test_array_previewer_emits_numeric_heatmap_payload() -> None:
     ]
     # ``thumbnail`` remains an alias of the matrix for the scalar/1-D paths.
     assert payload["thumbnail"] == payload["matrix"]
-    # Legacy-compat raster src kept for the REST adapter (FR-008).
+    # Raster src remains available for package-viewer fallback paths.
     assert isinstance(payload["src"], str)
 
 

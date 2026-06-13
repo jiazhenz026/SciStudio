@@ -120,9 +120,9 @@ const commits = [
   },
 ];
 
-async function fulfill(route: Route, body: JsonBody): Promise<void> {
+async function fulfill(route: Route, body: JsonBody, status = 200): Promise<void> {
   await route.fulfill({
-    status: 200,
+    status,
     contentType: "application/json",
     body: JSON.stringify(body),
   });
@@ -202,11 +202,7 @@ export async function installSystemMocks(page: Page): Promise<void> {
     if (path === "/api/runs") return fulfill(route, { runs: [runSummary] });
     if (path === "/api/runs/run-1") return fulfill(route, runDetail);
     if (path === "/api/data/obj-1/preview") {
-      return fulfill(route, {
-        ref: "obj-1",
-        type_name: "table",
-        preview: { columns: ["a"], rows: [{ a: 1 }] },
-      });
+      return fulfill(route, { detail: "ADR-048 removed the one-shot preview route" }, 404);
     }
     if (path === "/api/git/status") {
       return fulfill(route, {

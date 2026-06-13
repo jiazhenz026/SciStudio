@@ -56,12 +56,21 @@ export interface PreviewHostProps {
    */
   getCachedEnvelope?: (key: string) => PreviewEnvelope | undefined;
   cacheEnvelope?: (key: string, envelope: PreviewEnvelope) => void;
-  buildCacheKey?: (target: PreviewTarget, query: Record<string, unknown>) => string;
+  buildCacheKey?: (
+    target: PreviewTarget,
+    query: Record<string, unknown>,
+    opts?: PreviewCacheKeyOptions,
+  ) => string;
   /** Test seam: inject a fake dynamic-module importer. */
   importer?: Parameters<typeof mountDynamicPreviewer>[3];
 }
 
 type Status = "idle" | "loading" | "ready" | "error";
+type PreviewCacheKeyOptions = {
+  previewerId?: string | null;
+  sessionId?: string | null;
+  dataVersion?: string | number | null;
+};
 const RESOURCE_PARAMS_MAX_CHARS = 8192;
 
 function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | undefined {
@@ -73,6 +82,42 @@ function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | und
     return manifest;
   }
   return undefined;
+}
+
+function cacheDataVersionFromEnvelope(envelope: PreviewEnvelope): string | number | null {
+  const candidates = [
+    envelope.metadata?.data_version,
+    envelope.metadata?.dataVersion,
+    envelope.payload?.data_version,
+    envelope.payload?.dataVersion,
+  ];
+  const value = candidates.find(
+    (candidate) => typeof candidate === "string" || typeof candidate === "number",
+  );
+  return typeof value === "string" || typeof value === "number" ? value : null;
+}
+
+function cacheIdentityFromEnvelope(envelope: PreviewEnvelope): PreviewCacheKeyOptions {
+  return {
+    previewerId: envelope.previewer_id,
+    sessionId: envelope.session_id,
+    dataVersion: cacheDataVersionFromEnvelope(envelope),
+  };
+}
+
+function cacheEnvelopeForQuery(
+  cacheEnvelope: PreviewHostProps["cacheEnvelope"],
+  buildCacheKey: PreviewHostProps["buildCacheKey"],
+  target: PreviewTarget,
+  query: Record<string, unknown>,
+  envelope: PreviewEnvelope,
+  unresolvedKey?: string,
+) {
+  if (!cacheEnvelope || !buildCacheKey) return;
+  const keys = new Set<string>();
+  if (unresolvedKey) keys.add(unresolvedKey);
+  keys.add(buildCacheKey(target, query, cacheIdentityFromEnvelope(envelope)));
+  keys.forEach((key) => cacheEnvelope(key, envelope));
 }
 
 export function PreviewHost({
@@ -122,7 +167,7 @@ export function PreviewHost({
         if (cancelled) return;
         setEnvelope(env);
         setStatus("ready");
-        if (cacheKey && cacheEnvelope) cacheEnvelope(cacheKey, env);
+        cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, query, env, cacheKey);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -147,9 +192,8 @@ export function PreviewHost({
       queryRef.current = { ...queryRef.current, ...patch };
       const next = await api.patchPreviewSession(current.session_id, patch);
       setEnvelope(next);
-      if (buildCacheKey && cacheEnvelope && target) {
-        cacheEnvelope(buildCacheKey(target, queryRef.current), next);
-      }
+      if (target)
+        cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, queryRef.current, next);
       return next;
     },
     [envelope, buildCacheKey, cacheEnvelope, target],
@@ -241,10 +285,11 @@ export function PreviewHost({
       session: {
         refresh: async () =>
           activeEnvelope.session_id ? api.getPreviewSession(activeEnvelope.session_id) : null,
-        patchQuery: async (q) =>
-          activeEnvelope.session_id
-            ? api.patchPreviewSession(activeEnvelope.session_id, q)
-            : activeEnvelope,
+        patchQuery: async (q) => {
+          if (!activeEnvelope.session_id) return activeEnvelope;
+          if (activeEnvelope.session_id === envelope?.session_id) return patchQuery(q);
+          return api.patchPreviewSession(activeEnvelope.session_id, q);
+        },
         getResource: async (resourceId, params) => {
           if (!activeEnvelope.session_id) return null;
           const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
@@ -292,7 +337,7 @@ export function PreviewHost({
         setHostDiagnostics((d) => [...d, message]);
       },
     };
-  }, [activeEnvelope, manifest]);
+  }, [activeEnvelope, envelope?.session_id, manifest, patchQuery]);
 
   useEffect(() => {
     // Tear down any prior instance whenever the focus changes.
