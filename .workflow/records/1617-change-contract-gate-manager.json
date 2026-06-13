@@ -511,9 +511,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "27e094e2dd075fb6432eacd6c5fdb2f4aa7b8baa",
+    "sha": "0922153cf53f7340367a35bd25f3e898c6f93649",
     "shas": [
-      "27e094e2dd075fb6432eacd6c5fdb2f4aa7b8baa"
+      "0922153cf53f7340367a35bd25f3e898c6f93649"
     ],
     "trailers": []
   },
@@ -1923,6 +1923,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:27.690283Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:27.762285Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:27.838145Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:27.906322Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:27.969303Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:28.055429Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:28.143957Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:28.236786Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:28.308613Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:34:28.401936Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1985,6 +2067,7 @@
       "src/scistudio/qa/audit/full_audit.py",
       "src/scistudio/qa/audit/griffe_facts.py",
       "src/scistudio/qa/governance/gate_record/checks.py",
+      "src/scistudio/qa/governance/gate_record/evaluator.py",
       "src/scistudio/qa/schemas/__init__.py",
       "src/scistudio/qa/schemas/change_contracts.py",
       "src/scistudio/qa/schemas/frontmatter.py",
@@ -1992,18 +2075,18 @@
       "tests/qa/test_change_contract_schemas.py",
       "tests/qa/test_change_contracts.py"
     ],
-    "diff_fingerprint": "sha256:1e2193c06272c245470a90a50a42afda9e5cb22cfe74bed42b70120510c3df99",
+    "diff_fingerprint": "sha256:6dfd265ddf37e81ae2d37f206e400b406f5f7fa34f4834342b2ebd9c70f0146d",
     "head": "HEAD",
-    "head_sha": "27e094e2",
+    "head_sha": "0922153c",
     "surfaces": {
       "docs": 13,
       "frontend": 0,
-      "governance": 10,
+      "governance": 11,
       "governed_docs": 1,
-      "implementation": 9,
+      "implementation": 10,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 14,
+      "sentrux": 15,
       "test": 3,
       "workflow_ci": 0
     }
@@ -2165,6 +2248,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T01:34:28.401993Z",
+      "diff_fingerprint": "sha256:6dfd265ddf37e81ae2d37f206e400b406f5f7fa34f4834342b2ebd9c70f0146d",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1617-change-contract-gate-manager",
@@ -2178,9 +2269,7 @@
   ],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "change_contracts"
-    ],
+    "checks": [],
     "docs": [
       "docs_required_or_na"
     ],
