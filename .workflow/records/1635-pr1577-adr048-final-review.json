@@ -15,10 +15,31 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T05:16:55.532002Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e758c999126a8e2a6047461450fcbf1e628e5472680b6cb2bd84cd16a1dc0816",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "da0ddbbbe156469ed954140983729190a6cc8130",
+    "shas": [
+      "da0ddbbbe156469ed954140983729190a6cc8130"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -37,6 +58,14 @@
     },
     {
       "at": "2026-06-13T05:14:36.387864Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:16:46.570550Z",
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
@@ -105,6 +134,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.630496Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.688178Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.736138Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.783661Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.831590Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.878972Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.926893Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:55.973297Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:56.020435Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:16:56.069285Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -117,14 +206,17 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "5adce472a5c5787564463a381ce07a6c0ebde5ee",
     "base_sha": "5adce472",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1635-pr1577-adr048-final-review.json",
+      "docs/audit/2026-06-13-adr048-pr1577-final-review.md"
+    ],
+    "diff_fingerprint": "sha256:8b94b0879e8b1475d44d2dfe4f5e0bf03a587f6155be58e050176290235b82cd",
     "head": "HEAD",
-    "head_sha": "5adce472",
+    "head_sha": "da0ddbbb",
     "surfaces": {
-      "docs": 0,
+      "docs": 1,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -138,11 +230,26 @@
   },
   "owner_directive": "Audit PR #1577 against ADR-048 and consolidated SPEC 1/2/3; land findings-first report under docs/audit and submit as PR.",
   "persona": "audit_reviewer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1635
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-13T05:15:24.937174Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T05:16:56.069322Z",
+      "diff_fingerprint": "sha256:8b94b0879e8b1475d44d2dfe4f5e0bf03a587f6155be58e050176290235b82cd",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
@@ -188,6 +295,14 @@
     },
     {
       "at": "2026-06-13T05:14:36.387891Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; implementation behavior evaluated through PR #1577 tests and e2e evidence audit, no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:16:46.570578Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
