@@ -1,0 +1,55 @@
+{
+  "branch": "audit/pr-1577-independent-review",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-06-13-adr-048-pr1577-independent-audit.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-13T05:36:10.625129Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr-048-pr1577-independent-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1635,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "no-context auditor: review PR#1577 vs ADR-048 + companion specs; land the audit report and submit it as a PR",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1635-pr1577-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "91129d18-185b-4383-ae20-f6d5216d9e0f",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}
