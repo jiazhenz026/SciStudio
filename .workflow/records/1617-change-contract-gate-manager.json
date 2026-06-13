@@ -492,13 +492,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T01:20:11.471131Z",
+      "command": "python -m scistudio.qa.audit.change_contracts --repo-root . --format json --output .audit/change-contracts.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:97eb06ac7c20bb5ff8d8e9eacca57ba4117cf3a81d0d84ea87210be6b8436650",
+      "name": "change_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/change_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "4ef25f51",
+    "sha": "27e094e2dd075fb6432eacd6c5fdb2f4aa7b8baa",
     "shas": [
-      "4ef25f51"
+      "27e094e2dd075fb6432eacd6c5fdb2f4aa7b8baa"
     ],
     "trailers": []
   },
@@ -1826,6 +1841,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:12.012460Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:12.353363Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:12.757524Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:13.079950Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:13.406481Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:13.768028Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:14.059575Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:14.461547Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:14.782959Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T01:20:15.161891Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1895,9 +1992,9 @@
       "tests/qa/test_change_contract_schemas.py",
       "tests/qa/test_change_contracts.py"
     ],
-    "diff_fingerprint": "sha256:4bc63f01f7b035f7ece998a8bc3075985281554563936f60777f88bf0ca6bf86",
+    "diff_fingerprint": "sha256:1e2193c06272c245470a90a50a42afda9e5cb22cfe74bed42b70120510c3df99",
     "head": "HEAD",
-    "head_sha": "4ef25f51",
+    "head_sha": "27e094e2",
     "surfaces": {
       "docs": 13,
       "frontend": 0,
@@ -2056,6 +2153,14 @@
     {
       "at": "2026-06-13T01:14:26.681600Z",
       "diff_fingerprint": "sha256:4bc63f01f7b035f7ece998a8bc3075985281554563936f60777f88bf0ca6bf86",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T01:20:15.161949Z",
+      "diff_fingerprint": "sha256:1e2193c06272c245470a90a50a42afda9e5cb22cfe74bed42b70120510c3df99",
       "mode": "ci",
       "result": "pass",
       "tier": 1,
