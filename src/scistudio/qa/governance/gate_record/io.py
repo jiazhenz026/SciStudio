@@ -151,17 +151,32 @@ def git_lines(repo_root: Path, args: list[str]) -> list[str]:
 
 DEFAULT_BASE_REF = "origin/main"
 
+# Environment override honored when no explicit ``--base`` is given. The push /
+# PR shell wrappers (``check-gate-before-{push,pr}.sh``) already read this
+# variable; the gate CLI's base resolution honoring it too lets the commit-msg /
+# pre-commit framework hooks (which invoke the CLI with no ``--base``) diff a
+# track-stacked sub-PR against its track instead of the hardcoded ``origin/main``
+# — which otherwise misreads the whole track delta as authored here (#1627).
+GATE_BASE_ENV_VAR = "SCISTUDIO_GATE_BASE"
 
-def resolve_default_base(repo_root: Path, *, upstream: str = DEFAULT_BASE_REF, head: str = "HEAD") -> str:
+
+def resolve_default_base(repo_root: Path, *, upstream: str | None = None, head: str = "HEAD") -> str:
     """Resolve the default diff base to the merge-base of ``upstream`` and ``head``.
 
     A branch's delta is its own commits, so the correct default base is
-    ``git merge-base origin/main HEAD`` rather than raw ``origin/main`` (Fix D /
-    §7.5). This is correct for normal branches and better for stacked branches.
-    When the merge-base cannot be computed (no common ancestor, missing upstream,
-    git unavailable), fall back to the raw upstream ref. Deeply-stacked branches
-    may still need an explicit ``--base``.
+    ``git merge-base <upstream> HEAD`` rather than the raw ref (Fix D / §7.5).
+    When ``upstream`` is not given, it resolves from the ``SCISTUDIO_GATE_BASE``
+    environment variable (so the commit-msg / pre-commit framework hooks of a
+    track-stacked sub-PR diff against their track rather than the hardcoded
+    ``origin/main`` that misreads the whole track delta as authored here, #1627),
+    falling back to ``origin/main``. An explicit ``upstream`` (e.g. a resolved
+    ``--base``) is honored verbatim and never env-overridden. When the merge-base
+    cannot be computed (no common ancestor, missing upstream, git unavailable),
+    fall back to the raw upstream ref.
     """
+
+    if upstream is None:
+        upstream = os.environ.get(GATE_BASE_ENV_VAR, "").strip() or DEFAULT_BASE_REF
 
     try:
         out = _git_output(repo_root, ["merge-base", upstream, head]).strip()
