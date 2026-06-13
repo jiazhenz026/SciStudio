@@ -323,6 +323,7 @@ _EXPECTED_SUB_SKILLS = (
     "scistudio-debug-run",
     "scistudio-inspect-data",
     "scistudio-project-qa",
+    "scistudio-write-plot",
 )
 
 

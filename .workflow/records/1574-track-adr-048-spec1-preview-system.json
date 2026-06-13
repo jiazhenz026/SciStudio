@@ -1972,6 +1972,72 @@
       "at": "2026-06-13T03:39:49.056721Z",
       "pattern": "tests/workflow/test_serializer_property.py",
       "reason": "Integration merge of latest main into SPEC1 umbrella (#1577) brings these already-approved upstream files (#1607 core mypy, #1628 gate-lighten, #1602 code-health/deferral-scan); plus a 1-word docstring dedupe in previewers/registry.py to clear the new deferral-scan false-positive."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415104Z",
+      "pattern": "src/scistudio/ai/agent/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415122Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415124Z",
+      "pattern": "src/scistudio/_skills/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415126Z",
+      "pattern": "docs/cli-integration.md",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415127Z",
+      "pattern": "docs/audit/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415128Z",
+      "pattern": "docs/planning/adr-048-dispatch-prompts/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415130Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415131Z",
+      "pattern": "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415133Z",
+      "pattern": ".workflow/records/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415134Z",
+      "pattern": "docs/ai-developer/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:01:12.415135Z",
+      "pattern": "src/scistudio/qa/**",
+      "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
     }
   ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
@@ -2095,6 +2161,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/core/test_meta_type_preservation_1607.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T04:01:19.560784Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_plot_preview_wiring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T04:01:19.560802Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T04:01:19.560805Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T04:01:19.560806Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/plotPreview.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

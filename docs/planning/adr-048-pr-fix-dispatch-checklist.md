@@ -93,7 +93,7 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | SPEC1-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec1-fix` | Preview resource params, plot export, focused regressions | `track/adr-048-spec1-preview-system` | `sci-wt/spec1-mgr` | Preview session/API/frontend/tests/docs as needed | SPEC2/SPEC3/gate governance | #1574/#1577 | `[!]` |
-| SPEC2-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec2-fix` | Plot path confinement, workflow_path traversal, stale artifact/dynamic targets as feasible | `track/adr-048-spec2-plot-tools` | `sci-wt/spec2-mgr` | Plot MCP/runtime/tests/docs as needed | SPEC1/SPEC3/gate governance | #1575/#1580 | `[ ]` |
+| SPEC2-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec2-fix` | Plot path confinement, workflow_path traversal, stale artifact/dynamic targets as feasible | `track/adr-048-spec2-plot-tools` | `sci-wt/spec2-mgr` | Plot MCP/runtime/tests/docs as needed | SPEC1/SPEC3/gate governance | #1575/#1580 | `[!]` gate pre-PR blocked by `checks.python_tests`; focused SPEC2 tests pass |
 | SPEC3-FIX | implementer | N/A | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec3-fix` | Active skill/template drift, docs contract tests | `track/adr-048-spec3-docs` | `sci-wt/spec3-mgr` | Packaged skills/templates/docs tests | SPEC1/SPEC2 runtime/gate governance | #1576/#1581 | `[ ]` |
 | SPEC1-AUDIT | audit_reviewer | no-context | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec1-audit-no-context` | No-context preview-system audit | TBD | TBD | Audit report only | Manager context/PR claims | #1574/#1577 | `[ ]` |
 | SPEC2-AUDIT | audit_reviewer | no-context | `docs/planning/adr-048-pr-fix-dispatch-prompts.md#spec2-audit-no-context` | No-context plot-tools audit | TBD | TBD | Audit report only | Manager context/PR claims | #1575/#1580 | `[ ]` |
@@ -111,12 +111,12 @@ language_source: en
 
 ### SPEC 2
 
-- [ ] `read_plot_source` and `run_plot_job` enforce plot script confinement.
-- [ ] `list_plot_targets(workflow_path=...)` enforces project-root confinement.
-- [ ] Regression tests added for path traversal rejection.
-- [ ] High-risk stale artifact / dynamic target issues fixed or tracked with repository TODO and issue reference.
-- [ ] Gate record refreshed for #1580.
-- [ ] Commit pushed to `track/adr-048-spec2-plot-tools`.
+- [x] `read_plot_source` and `run_plot_job` enforce plot script confinement -> `src/scistudio/ai/agent/mcp/tools_plot/validation.py`; tests `test_read_rejects_manifest_script_path_traversal`, `test_run_rejects_manifest_script_path_traversal`.
+- [x] `list_plot_targets(workflow_path=...)` enforces project-root confinement -> `src/scistudio/ai/agent/mcp/tools_plot/targets.py`; test `test_list_targets_rejects_workflow_path_traversal`.
+- [x] Regression tests added for path traversal rejection -> `pytest tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py -q --no-cov` = 34 passed, 1 skipped.
+- [x] High-risk stale artifact / dynamic target issues fixed or tracked with repository TODO and issue reference -> fixed stale `current.*` cleanup in `runtime.py` and effective output-port discovery in `targets.py`; tests `test_run_failed_rerun_records_failure_state`, `test_failed_rerun_records_failure`, `test_list_targets_uses_effective_output_ports`.
+- [!] Gate record refreshed for #1580 -> `.workflow/records/1575-track-adr-048-spec2-plot-tools.json`; `gate_record check --mode pre-pr --base origin/track/adr-048-spec1-preview-system --head HEAD --pr-body-file .workflow/local/pr-body.md` failed on `checks.python_tests` after 12 broad full-suite failures outside SPEC2 focused tests.
+- [x] Commit pushed to `track/adr-048-spec2-plot-tools` -> implementation commit `e7af1e16` pushed to `origin/track/adr-048-spec2-plot-tools`.
 
 ### SPEC 3
 
@@ -134,7 +134,7 @@ language_source: en
 |---|---|---|---|
 | SPEC 1 targeted tests | `python -m pytest tests/api/test_previewers.py --no-cov`; `npm run test -- src/components/DataPreview.parts/PreviewHost.test.tsx`; `npm run typecheck`; targeted ruff/lint | `[x]` | Backend previewer API: 13 passed. Frontend PreviewHost: 13 passed. Typecheck passed. Targeted ruff passed. Frontend lint passed with existing repo warnings only. |
 | SPEC 1 gate pre-PR | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[!]` | Gate record updated; failed on required broad `python_tests` after 4197 passed / 15 failed, plus scope was amended for existing dispatch prompt diff. No bypass used. |
-| SPEC 2 targeted tests | TBD by SPEC2-FIX | `[ ]` | Pending |
+| SPEC 2 targeted tests | `pytest tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py -q --no-cov`; `ruff check src/scistudio/ai/agent/mcp/tools_plot tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py`; `mypy src/scistudio/ai/agent/mcp/tools_plot --ignore-missing-imports` | `[x]` | 34 passed, 1 skipped (Rscript unavailable); ruff clean; mypy clean |
 | SPEC 3 targeted tests | TBD by SPEC3-FIX | `[ ]` | Pending |
 | SPEC 1 no-context audit | TBD | `[ ]` | Pending |
 | SPEC 2 no-context audit | TBD | `[ ]` | Pending |

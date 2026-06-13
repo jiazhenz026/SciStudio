@@ -708,6 +708,7 @@ class ApiRuntime:
     # Workflow I/O + upload (_workflows)
     workflow_path = _workflows.workflow_path
     save_workflow = _workflows.save_workflow
+    mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
     _config_schema_for_block = _workflows._config_schema_for_block
     _relativify_node_config = _workflows._relativify_node_config
@@ -721,6 +722,9 @@ class ApiRuntime:
 
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
+    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
+    # PreviewService can reach the core PlotPreviewer at runtime.
+    register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref

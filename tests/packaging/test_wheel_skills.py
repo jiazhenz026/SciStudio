@@ -15,13 +15,15 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-# Per ADR-040 §3.4, these 5 task skills MUST exist alongside the base.
+# Per ADR-040 §3.4 + ADR-048 SPEC 2, these 6 task skills MUST exist alongside
+# the base ``scistudio`` skill.
 _TASK_SKILLS: tuple[str, ...] = (
     "scistudio-build-workflow",
     "scistudio-write-block",
     "scistudio-debug-run",
     "scistudio-inspect-data",
     "scistudio-project-qa",
+    "scistudio-write-plot",
 )
 
 

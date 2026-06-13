@@ -45,6 +45,7 @@ from __future__ import annotations
 from scistudio.ai.agent.mcp import (  # noqa: F401
     tools_authoring,
     tools_inspection,
+    tools_plot,
     tools_qa,
     tools_workflow,
 )

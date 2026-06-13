@@ -277,9 +277,12 @@ export function PreviewHost({
         );
       },
       saveArtifact: async () => {
-        // No host-mediated save target wired in SPEC 1; modules must tolerate
-        // a rejection. TODO(#1574): wire explicit backend save flow when the
-        // plot-job save API lands (adr-048-ai-plot-tools).
+        // No host-mediated save target wired yet; modules must tolerate a
+        // rejection. The plot-job run + routed preview path is wired (#1606,
+        // api.runPlotJob -> plotTargetFromRunResponse -> PreviewHost); the
+        // explicit save-to-project flow is a separate destination contract.
+        // TODO(#1626): wire saveArtifact to the backend plot-artifact save flow.
+        //   Out of scope per #1606 (preview wiring only); follow-up: issue #1626.
         return Promise.reject(new Error("save not available"));
       },
       reportError: (message: string) => {

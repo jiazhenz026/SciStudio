@@ -19,6 +19,7 @@ from scistudio.api.routes import (
     data,
     filesystem,
     lint,
+    plots,
     projects,
     runs,
     workflows,
@@ -254,6 +255,10 @@ def create_app() -> FastAPI:
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
     app.include_router(data.previews_router)
+    # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
+    # plot job and registers the produced artifact so the frontend can open a
+    # routed plot_artifact preview session (producer -> PlotPreviewer link).
+    app.include_router(plots.router)
     # filesystem router must be registered BEFORE projects router because
     # the projects router uses {project_id:path} which would greedily
     # match /api/projects/{id}/tree as a project-id lookup.

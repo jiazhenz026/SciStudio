@@ -7,7 +7,7 @@ does this internally; CLI integration exposes the same MCP surface plus
 a SciStudio-aware skill to any compatible client.
 
 The result: `pip install scistudio && scistudio install --all && claude`
-in a project dir, and your CLI immediately has 27 SciStudio tools plus a
+in a project dir, and your CLI immediately has 33 SciStudio tools plus a
 skill describing how to use them.
 
 ## Quick start
@@ -124,16 +124,17 @@ A packaged directory `src/scistudio/_skills/scistudio/` (per ADR-040 §3.4,
 bundled with the wheel and installed by `scistudio install --skill`)
 containing:
 
-- `SKILL.md` — base identity + thin pointer index to the 5 task-scoped
+- `SKILL.md` — base identity + thin pointer index to the 6 task-scoped
   sub-skills.
 - `scistudio-build-workflow/SKILL.md`, `scistudio-write-block/SKILL.md`,
   `scistudio-debug-run/SKILL.md`, `scistudio-inspect-data/SKILL.md`,
-  `scistudio-project-qa/SKILL.md` — JIT-loaded task skills with
-  progressive-disclosure semantics (frontmatter `description` triggers
-  body load on demand).
+  `scistudio-project-qa/SKILL.md`, `scistudio-write-plot/SKILL.md`
+  (ADR-048 SPEC 2 — preview-only plot authoring) — JIT-loaded task skills
+  with progressive-disclosure semantics (frontmatter `description`
+  triggers body load on demand).
 
 Per ADR-040 §3.9, `scistudio install --skill` **cross-installs** the
-entire 6-file tree to both providers:
+entire 7-file tree to both providers:
 
 - Claude Code reads `~/.claude/skills/scistudio/` (user) or
   `<project>/.claude/skills/scistudio/` (project).

@@ -1,8 +1,9 @@
 """Write multi-skill split to both provider trees (ADR-040 §3.4 + §3.5 + §3.8).
 
 Per ADR §3.4, the monolithic ``SKILL.md`` is split into 1 base index +
-5 task-scoped skills (6 total). Per ADR §3.8, all 6 are auto-installed
-under both:
+task-scoped skills. ADR-048 SPEC 2 adds ``scistudio-write-plot``, taking
+the bundle to 1 base + 6 task-scoped skills (7 total). Per ADR §3.8, all
+are auto-installed under both:
 
   - ``<project>/.claude/skills/<name>/SKILL.md`` (Claude Code)
   - ``<project>/.agents/skills/<name>/SKILL.md`` (Codex)
@@ -25,6 +26,7 @@ Skill names (per ADR §3.4):
   4. scistudio-debug-run        — diagnose a failed run
   5. scistudio-inspect-data     — explore data references / lineage
   6. scistudio-project-qa       — project structure / docs Q&A
+  7. scistudio-write-plot       — author a preview-only plot job (ADR-048 SPEC 2)
 
 Source resolution (I40c):
 
@@ -63,6 +65,7 @@ _SKILL_NAMES = (
     "scistudio-debug-run",
     "scistudio-inspect-data",
     "scistudio-project-qa",
+    "scistudio-write-plot",
 )
 
 _DEST_TREES = (
@@ -147,10 +150,15 @@ def write_skills(
     *,
     force: bool = False,
 ) -> list[str]:
-    """Cross-install 6 skill files to both provider trees.
+    """Cross-install the SciStudio skill bundle to both provider trees.
+
+    With 7 skill names (1 base + 6 task skills, including the ADR-048
+    ``scistudio-write-plot`` plot skill) cross-installed to both
+    ``.claude/skills`` and ``.agents/skills``, a fresh install writes 14
+    files.
 
     Returns:
-      List of project-relative paths actually written (max 12 entries).
+      List of project-relative paths actually written (max 14 entries).
     """
     project_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []

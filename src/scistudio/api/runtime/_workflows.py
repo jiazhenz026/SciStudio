@@ -75,13 +75,26 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
     save_yaml(definition, path)
     # ADR-034 Phase 2: tell the FS watcher this write came from us so it
     # does not echo a workflow.changed event back to the canvas.
+    self.mark_workflow_self_write(path)
+    return definition
+
+
+def mark_workflow_self_write(self: ApiRuntime, path: Path) -> None:
+    """Tell the FS watcher *path* was a first-party write; suppress its echo.
+
+    ADR-034 Phase 2. Centralised on the runtime so first-party writers — the
+    canvas save here and the agent MCP workflow-write tool — call it through the
+    injected runtime instead of importing ``api.routes.workflow_watcher``
+    directly. The latter inverts the ai->api layer boundary (the AI MCP tool
+    lives in the ``ai`` layer); routing through the runtime keeps the import
+    edge inside the ``api`` layer (#1591 / #1597).
+    """
     try:
         from scistudio.api.routes.workflow_watcher import mark_self_write
 
         mark_self_write(path)
     except Exception:
         logger.warning("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
-    return definition
 
 
 def load_workflow(self: ApiRuntime, workflow_id: str) -> WorkflowDefinition:

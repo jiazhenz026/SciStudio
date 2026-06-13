@@ -15,7 +15,8 @@ the other contract files in tests/contracts/:
    contract break.
 
 3. **MCP tool registry contract**: The MCP server must always expose
-   exactly 27 tools (ADR-040 §3.1 + Addendum 5). This is a separate
+   exactly 33 tools (ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 plot
+   tools). This is a separate
    invariant from the parity test in test_mcp_fastmcp.py — it ensures
    the contract is also enforced from the contracts test suite so that
    CI failure is clearly labelled as an architecture regression.
@@ -149,7 +150,7 @@ def test_api_ai_routes_are_registered(app_routes: set[str]) -> None:
 # 3. MCP tool registry contract.
 # ---------------------------------------------------------------------------
 
-# ADR-040 §3.1 + Addendum 5 (#1488): 27 tools total.
+# ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2: 33 tools total.
 _MCP_EXPECTED_TOOL_NAMES = {
     # category (a) workflow (10 + 1 addendum5)
     "list_blocks",
@@ -182,12 +183,19 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "get_doc",
     "list_data",
     "get_project_info",
+    # category (e) plot (6) — ADR-048 SPEC 2
+    "list_plot_targets",
+    "scaffold_plot",
+    "list_plot_examples",
+    "read_plot_source",
+    "validate_plot",
+    "run_plot_job",
 }
-_MCP_EXPECTED_COUNT = 27
+_MCP_EXPECTED_COUNT = 33
 
 
-def test_mcp_server_exposes_27_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5: MCP server must always expose 27 tools.
+def test_mcp_server_exposes_33_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2: MCP server must expose 33 tools.
 
     This contract test mirrors the parity check in test_mcp_fastmcp.py but
     lives in the contracts suite so a regression is flagged as an
