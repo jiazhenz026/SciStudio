@@ -64,9 +64,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "2884d356f6f3df31e4cd166fc53c8cde2c63858c",
+    "sha": "8d17ee4f26c627468cc7a8cae61018663e6ed7f0",
     "shas": [
-      "2884d356f6f3df31e4cd166fc53c8cde2c63858c"
+      "8d17ee4f26c627468cc7a8cae61018663e6ed7f0"
     ],
     "trailers": []
   },
@@ -104,6 +104,14 @@
     },
     {
       "at": "2026-06-13T05:19:13.713375Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:22:04.055302Z",
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-06-13-adr048-pr1577-final-review.md",
@@ -412,6 +420,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:04.801405Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:04.848875Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:04.903528Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:04.951249Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:04.999087Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:05.049925Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:05.097285Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:05.145049Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:05.193369Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:22:05.244948Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -430,9 +498,9 @@
       ".workflow/records/1635-pr1577-adr048-final-review.json",
       "docs/audit/2026-06-13-adr048-pr1577-final-review.md"
     ],
-    "diff_fingerprint": "sha256:b93a2c567843e90cdc29a67b863aaa26ce2031ef39cd854a6671eef4c36bef0b",
+    "diff_fingerprint": "sha256:d0baf6803ac60e9b46691ce0a00a96da0101b866cfb2c3ffcbf1aa006cffe8f6",
     "head": "HEAD",
-    "head_sha": "2884d356",
+    "head_sha": "8d17ee4f",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -496,6 +564,14 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T05:22:05.244981Z",
+      "diff_fingerprint": "sha256:d0baf6803ac60e9b46691ce0a00a96da0101b866cfb2c3ffcbf1aa006cffe8f6",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1635-pr1577-adr048-final-review",
@@ -551,6 +627,14 @@
     },
     {
       "at": "2026-06-13T05:19:13.713403Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; implementation behavior evaluated through PR #1577 tests and e2e evidence audit, no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T05:22:04.055330Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
