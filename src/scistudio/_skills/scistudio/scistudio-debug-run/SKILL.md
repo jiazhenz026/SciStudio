@@ -22,7 +22,7 @@ recurring categories; §5 maps each to the next tool call.
 
 ```
 get_run_status(run_id)                 # full envelope
-get_block_logs(run_id, failed_node)    # stdout/stderr for the failed block
+get_block_logs(run_id, failed_block)   # stdout/stderr for the failed block
 inspect_data(upstream_ref)             # confirm input type/shape
 get_lineage(failed_input_ref)          # walk backwards to producing block
 # Form hypothesis; propose fix to user; do NOT silently retry.
@@ -53,7 +53,7 @@ locate its matching `BlockErrorEntry` in `errors`.
 
 ## 3. `get_block_logs` patterns
 
-`get_block_logs(run_id, node_id)` returns `{stdout: str, stderr: str}`.
+`get_block_logs(run_id, block_id)` returns `{stdout: str, stderr: str}`.
 Read both. Common signatures:
 
 - **`Traceback (most recent call last):`** — Python exception. Find
@@ -85,9 +85,9 @@ block `A` was the real cause. `get_lineage(input_ref)` returns the
 ancestor chain:
 
 ```
-get_block_output(run_id, failed_node, failed_input_port)
-# Returns the input ref. If it's a list of refs (collection), pick one.
-get_lineage(ref)
+upstream_output = get_block_output(run_id=run_id, block_id=upstream_block, port=upstream_output_port)
+# Returns a GetBlockOutputResult envelope. Use upstream_output.ref for lineage.
+get_lineage(ref=upstream_output.ref)
 # Returns ancestors: [{producer_block: A, producer_port: out, ...}, ...]
 ```
 
@@ -116,7 +116,7 @@ ADR-038 lineage data lives in `.scistudio/lineage.db` (SQLite). Do NOT
 query that file directly. The MCP tools are the public surface:
 
 - `get_lineage(ref)` — ancestors of one ref
-- `get_block_output(run_id, node_id, port_name)` — ref by address
+- `get_block_output(run_id, block_id, port)` — `GetBlockOutputResult` by address
 - `get_run_status(run_id)` — top-level run envelope
 
 These tools enforce schema versioning and access semantics. Direct
@@ -169,14 +169,14 @@ get_run_status(run_id="r-abc123")
 #                             error="<full traceback>")])
 
 # Step 2: per-block logs
-get_block_logs(run_id="r-abc123", node_id="thr")
+get_block_logs(run_id="r-abc123", block_id="thr")
 # stderr → "TypeError: ThresholdSimple.process_item() expected
 #           Image, got DataFrame"
 
 # Step 3: confirm the upstream output type
-get_block_output(run_id="r-abc123", node_id="load", port_name="images")
-# → ref "rf-001"
-inspect_data(ref="rf-001")
+load_output = get_block_output(run_id="r-abc123", block_id="load", port="images")
+# -> {ref: {...}, type: {type_chain: [...], type_name: "DataFrame"}, produced_at: ""}
+inspect_data(ref=load_output.ref)
 # → {type: "DataFrame", shape: ..., axes: ...}
 
 # Diagnosis: the workflow YAML wired load's "tables" port (DataFrame)

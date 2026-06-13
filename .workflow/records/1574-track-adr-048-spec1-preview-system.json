@@ -2038,6 +2038,30 @@
       "at": "2026-06-13T04:01:12.415135Z",
       "pattern": "src/scistudio/qa/**",
       "reason": "consolidate SPEC2 (#1580/#1606 AI plot tools + plot preview wiring) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:07:01.248516Z",
+      "pattern": "docs/block-development/**",
+      "reason": "consolidate SPEC3 (#1581 developer-docs delete-and-rewrite) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:07:01.248534Z",
+      "pattern": "docs/planning/**",
+      "reason": "consolidate SPEC3 (#1581 developer-docs delete-and-rewrite) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:07:01.248536Z",
+      "pattern": "src/scistudio/cli/templates/**",
+      "reason": "consolidate SPEC3 (#1581 developer-docs delete-and-rewrite) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T04:07:01.248538Z",
+      "pattern": "tests/docs/**",
+      "reason": "consolidate SPEC3 (#1581 developer-docs delete-and-rewrite) into SPEC1 umbrella per owner directive: one consolidated ADR-048 review PR (#1577)"
     }
   ],
   "session_id": "eecdd546-31ec-47f4-80fe-2a23683e17d1",
@@ -2193,6 +2217,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/lib/api/__tests__/plotPreview.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T04:07:01.248544Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_block_development_docs.py",
       "rationale": null,
       "verified_in_diff": null
     }

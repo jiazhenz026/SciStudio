@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.entry-points."scistudio.blocks"]
-example = "my_blocks:get_block_package"
+example = "my_blocks:get_blocks"
 
 [project.entry-points."scistudio.types"]
 example = "my_blocks:get_types"

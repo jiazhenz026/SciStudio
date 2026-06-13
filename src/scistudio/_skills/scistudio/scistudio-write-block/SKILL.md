@@ -145,16 +145,25 @@ For shipping a block as a pip-installable plugin:
 ```toml
 # pyproject.toml of the plugin package
 [project.entry-points."scistudio.blocks"]
-mypkg = "mypkg"
+mypkg = "mypkg:get_blocks"
 
 [project.entry-points."scistudio.types"]
-mypkg = "mypkg.types"
+mypkg = "mypkg:get_types"
 ```
 
 For **most user blocks**, drop a `*.py` file into the project's
 `blocks/` directory — it is auto-discovered on `reload_blocks`. Use
 entry points only when shipping a reusable plugin across multiple
 projects.
+
+A package has a third, separate entry point — `scistudio.previewers`
+(ADR-048) — for *display* behaviour, distinct from `scistudio.blocks`
+(logic) and `scistudio.types` (data types). Authoring a block does not
+touch it. If the user wants a custom previewer for a type, or a quick
+preview figure from a block output, that is a different task: a previewer
+package or a preview-only plot job (see `scistudio-write-plot`). Block
+authoring never creates workflow plots and never edits the preview system.
+The human-facing guide is `docs/block-development/previewers-and-plots.md`.
 
 ## 6. Block category taxonomy
 

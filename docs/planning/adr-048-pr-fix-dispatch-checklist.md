@@ -120,22 +120,22 @@ language_source: en
 
 ### SPEC 3
 
-- [ ] Active skill docs updated for `preview_data` signature.
-- [ ] Active skill docs updated for `get_block_output` signature/return envelope.
-- [ ] Entry-point examples updated to callable factory contract.
-- [ ] Forbidden editable-install template guidance removed.
-- [ ] Contract regression tests added.
-- [ ] Gate record refreshed for #1581.
-- [ ] Commit pushed to `track/adr-048-spec3-docs`.
+- [x] Active skill docs updated for `preview_data` signature. -> `scistudio-inspect-data`, `scistudio-build-workflow`; `python -m pytest tests\docs\test_block_development_docs.py -q --no-cov`
+- [x] Active skill docs updated for `get_block_output` signature/return envelope. -> `scistudio-inspect-data`, `scistudio-debug-run`, `scistudio-build-workflow`; `python -m pytest tests\docs\test_block_development_docs.py -q --no-cov`
+- [x] Entry-point examples updated to callable factory contract. -> `scistudio-write-block`; `python -m pytest tests\docs\test_block_development_docs.py -q --no-cov`
+- [x] Forbidden editable-install template guidance removed. -> `src/scistudio/cli/templates/block_package/README.md.tpl`; `python -m pytest tests\cli\test_new_block_package.py -q --no-cov`
+- [x] Contract regression tests added. -> `tests/docs/test_block_development_docs.py`; `ruff check tests\docs\test_block_development_docs.py`
+- [!] Gate record refreshed for #1581. -> `.workflow/records/1576-track-adr-048-spec3-docs.json`; full `gate_record check --mode pre-pr --base origin/track/adr-048-spec2-plot-tools --head HEAD --pr-body-file .workflow/local/pr-body.md` ran and remains blocked by broad `python_tests` failures (12 failed, 4342 passed in latest completed log).
+- [x] Commit pushed to `track/adr-048-spec3-docs`. -> `a79c8532` pushed to origin.
 
 ## 8. Verification Evidence
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
+| SPEC 3 targeted tests | `ruff check tests\docs\test_block_development_docs.py`; `python -m pytest tests\docs\test_block_development_docs.py -q --no-cov`; `python -m pytest tests\cli\test_new_block_package.py -q --no-cov`; `python -m pytest tests\packaging\test_wheel_skills.py tests\agent_provisioning\test_skills.py -q --no-cov` | `[x]` | All focused SPEC3 checks passed locally. |
 | SPEC 1 targeted tests | `python -m pytest tests/api/test_previewers.py --no-cov`; `npm run test -- src/components/DataPreview.parts/PreviewHost.test.tsx`; `npm run typecheck`; targeted ruff/lint | `[x]` | Backend previewer API: 13 passed. Frontend PreviewHost: 13 passed. Typecheck passed. Targeted ruff passed. Frontend lint passed with existing repo warnings only. |
 | SPEC 1 gate pre-PR | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[!]` | Gate record updated; failed on required broad `python_tests` after 4197 passed / 15 failed, plus scope was amended for existing dispatch prompt diff. No bypass used. |
 | SPEC 2 targeted tests | `pytest tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py -q --no-cov`; `ruff check src/scistudio/ai/agent/mcp/tools_plot tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py`; `mypy src/scistudio/ai/agent/mcp/tools_plot --ignore-missing-imports` | `[x]` | 34 passed, 1 skipped (Rscript unavailable); ruff clean; mypy clean |
-| SPEC 3 targeted tests | TBD by SPEC3-FIX | `[ ]` | Pending |
 | SPEC 1 no-context audit | TBD | `[ ]` | Pending |
 | SPEC 2 no-context audit | TBD | `[ ]` | Pending |
 | SPEC 3 no-context audit | TBD | `[ ]` | Pending |

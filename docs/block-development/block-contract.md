@@ -3,11 +3,15 @@ doc_type: block-development
 title: "Block Contract"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
   - ADR-043
-summary: "Formal block authoring contract, including IO format capability declarations and boundary validation."
+  - ADR-041
+  - ADR-044
+  - ADR-047
+  - ADR-048
+summary: "Formal block authoring contract: Block ABC hierarchy, ports (concrete accepted types by default; no produced-type field), run contract, ProcessBlock/IOBlock hooks, CodeBlock and SubWorkflow, IO format capabilities, dynamic ports, and config schema."
 ---
 
 # Block Contract
@@ -21,16 +25,18 @@ block must satisfy these requirements to be valid in the SciStudio runtime.
 
 1. [Block ABC and Inheritance Hierarchy](#block-abc-and-inheritance-hierarchy)
 2. [Required ClassVar Declarations](#required-classvar-declarations)
-3. [Optional ClassVar Declarations](#optional-classvar-declarations)
-4. [The run() Contract](#the-run-contract)
-5. [Hooks: validate() and postprocess()](#hooks-validate-and-postprocess)
-6. [ProcessBlock Hooks](#processblock-hooks)
-7. [IOBlock Hooks](#ioblock-hooks)
-8. [IO Format Capabilities](#io-format-capabilities)
-9. [Variadic Ports](#variadic-ports)
-10. [Dynamic Ports](#dynamic-ports)
-11. [Config Schema](#config-schema)
-12. [Port Constraints](#port-constraints)
+3. [Concrete accepted types by default](#concrete-accepted-types-by-default)
+4. [Optional ClassVar Declarations](#optional-classvar-declarations)
+5. [The run() Contract](#the-run-contract)
+6. [Hooks: validate() and postprocess()](#hooks-validate-and-postprocess)
+7. [ProcessBlock Hooks](#processblock-hooks)
+8. [IOBlock Hooks](#ioblock-hooks)
+9. [CodeBlock and SubWorkflowBlock](#codeblock-and-subworkflowblock)
+10. [IO Format Capabilities](#io-format-capabilities)
+11. [Variadic Ports](#variadic-ports)
+12. [Dynamic Ports](#dynamic-ports)
+13. [Config Schema](#config-schema)
+14. [Port Constraints](#port-constraints)
 
 ---
 
@@ -41,15 +47,18 @@ framework provides six concrete base classes:
 
 ```
 Block (ABC)
-  +-- ProcessBlock    # Algorithm-driven data transformation
-  +-- IOBlock         # Data loading and saving
-  +-- CodeBlock       # User-written code execution
-  +-- AppBlock        # External application integration (Fiji, Napari, etc.)
-  +-- AIBlock         # AI-assisted operations
-  +-- SubWorkflowBlock  # Nested workflow execution
+  +-- ProcessBlock      # Algorithm-driven per-item data transformation
+  +-- IOBlock           # Data loading and saving (boundary file formats)
+  +-- CodeBlock         # User-written Python computation (ADR-041, no Collection iteration)
+  +-- AppBlock          # External application integration (Fiji, Napari, etc.)
+  +-- AIBlock           # AI-assisted operations
+  +-- SubWorkflowBlock  # Nested workflow, authoring-only (ADR-044)
 ```
 
-Most block developers will subclass `ProcessBlock` or `IOBlock`.
+Most block developers will subclass `ProcessBlock` or `IOBlock`. The base
+category (`process`, `io`, `code`, `app`, `ai`, `subworkflow`) is **inferred**
+from which base you extend — never set `base_category` as a ClassVar; the
+registry silently ignores it.
 
 ---
 
@@ -115,6 +124,60 @@ class OutputPort(Port):
 
 Type matching is `isinstance`-based: a port accepting `Array` will also
 accept `Image` (since `Image` is a subclass of `Array`).
+
+> **`OutputPort` has no produced-type field.** Both `InputPort` and
+> `OutputPort` declare types through `accepted_types: list[type]` only. Older
+> material that passed a produced-type keyword to `OutputPort` is invalid and
+> will raise `TypeError` — declare `accepted_types=[...]` instead.
+
+---
+
+## Concrete accepted types by default
+
+Declare the **most specific applicable** `DataObject` subclass for every port.
+
+An empty `accepted_types=[]` list is *runtime-valid* — it means "accept any
+`DataObject`" — but it is a deliberate generic choice, not a default. Reach for
+it only when the block legitimately handles any type (a `SubWorkflowBlock`
+input, a generic `save_data` / `load_data` block, a passthrough utility). For
+everything else, name a concrete type.
+
+Why concrete types matter:
+
+- **Edge-time connection checks** — the canvas validates a connection by
+  `accepted_types`. Empty lists make every connection "valid", so the canvas
+  cannot catch a wiring mistake.
+- **Preview routing (ADR-048)** — a target's recorded type chain selects a
+  previewer. An output that records only `DataObject` can never reach an
+  `Image`-specific previewer; it only ever hits the generic core fallback. See
+  [Previewers and Plot Jobs](previewers-and-plots.md#routing-precedence).
+- **Canvas semantics and AI suggestions** — downstream-candidate suggestion and
+  lineage navigation both dispatch on port types.
+
+```python
+# Prefer concrete types:
+input_ports: ClassVar[list[InputPort]] = [
+    InputPort(name="image", accepted_types=[Image], required=True),
+]
+output_ports: ClassVar[list[OutputPort]] = [
+    OutputPort(name="mask", accepted_types=[Mask]),
+]
+
+# Empty accepted_types is valid but generic — use deliberately:
+input_ports: ClassVar[list[InputPort]] = [
+    InputPort(name="any", accepted_types=[], required=True),  # SubWorkflow / generic only
+]
+```
+
+If no registered type fits, declare a new `DataObject` subclass in your
+package's `scistudio.types` entry point ([Custom Types](custom-types.md)) rather
+than widening to bare `DataObject`. The standalone "new block" editor template
+(`GET /api/blocks/template`) scaffolds an empty `accepted_types` as a generic
+starting point; replace it with your concrete types before the block is useful.
+Two enforcement layers back this rule: `scaffold_block` returns a
+`warnings: list[str]` field that fires on `DataObject` ports, and a PostToolUse
+hook AST-warns on directly-written `blocks/*.py` files (ADR-040 §3.2a). The
+`scistudio-write-block` skill documents both.
 
 ---
 
@@ -336,6 +399,31 @@ Writes a `pyarrow.Table` to parquet storage. Returns a StorageReference.
 
 Called when `direction == "output"`. Persist the object to the configured
 path. The base class wraps the path in a `Text` Collection as a receipt.
+
+---
+
+## CodeBlock and SubWorkflowBlock
+
+Two base classes have authoring semantics worth calling out explicitly.
+
+### CodeBlock (ADR-041)
+
+`CodeBlock` is the script-as-block model: arbitrary user Python computation that
+does **not** iterate a Collection the way `ProcessBlock` does. The user's script
+runs as a block (the ADR-041 "script-as-AppBlock" v2 model) with the same typed
+ports and `config_schema` contract as any other block. Use `CodeBlock` (the
+`code` category in `scaffold_block`) for one-off computation that does not fit
+the per-item `process_item` shape; use `ProcessBlock` when you genuinely map
+over each item in a Collection.
+
+### SubWorkflowBlock (ADR-044)
+
+`SubWorkflowBlock` embeds another workflow as a single block for **authoring**.
+At load time the sub-workflow is inline-flattened into the parent graph — the
+sub-workflow does not execute as an opaque nested runtime. Because a
+sub-workflow can wrap arbitrary inner blocks, generic `DataObject` ports are a
+legitimate, named exception to the concrete-types rule here (see
+[Concrete accepted types by default](#concrete-accepted-types-by-default)).
 
 ---
 
