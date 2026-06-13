@@ -92,7 +92,7 @@ language_source: en
 |---|---|---|---|---|
 | Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | N/A | `[x]` | passed; tier=1 checks=`architecture_tests`, `deferral_discipline`, `format_check`, `frontend`, `full_audit`, `import_contracts`, `lint_format`, `type_check`; reconciliation passed |
 | Commit message | `python -m scistudio.qa.governance.gate_record commit-msg .workflow/local/commit-msg-1644.txt` | N/A | `[x]` | passed; reconciliation passed |
-| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/track/adr-048-spec1-preview-system --head HEAD` | N/A | `[ ]` | pending |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/track/adr-048-spec1-preview-system --head HEAD` | N/A | `[x]` | passed; tier=1 checks=`architecture_tests`, `deferral_discipline`, `format_check`, `frontend`, `full_audit`, `import_contracts`, `lint_format`, `python_tests`, `semantic_dup`, `type_check`; reconciliation passed |
 | Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body-1644.md` | N/A | `[x]` | passed; tier=1 checks=`architecture_tests`, `deferral_discipline`, `format_check`, `frontend`, `full_audit`, `import_contracts`, `lint_format`, `python_tests`, `semantic_dup`, `type_check`; reconciliation passed |
 
 ## 5.1 Docs Impact Check
