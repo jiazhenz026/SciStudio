@@ -114,7 +114,12 @@ Acceptance Scenarios:
    truncation or sampling metadata.
 2. Given a 3-D Array reference, when the preview route is requested, then the
    result includes shape, dtype, axis selection metadata, and one bounded 2-D
-   plane without materializing the whole array.
+   plane without materializing the whole array. The plane is surfaced as the
+   actual numeric `matrix` plus its finite `vmin`/`vmax`, and every
+   non-displayed axis is returned as an independently selectable `slice_axes`
+   descriptor (driven by a per-axis `axis_indices` query field), so the
+   frontend renders a value-readable numeric heatmap table — not a lossy
+   grayscale image — and the full N-D array stays navigable (#1603).
 3. Given a CompositeData reference, when the preview route is requested, then
    the result lists slots, slot data types, and child preview actions without
    eagerly rendering every slot.
@@ -253,7 +258,12 @@ Acceptance Scenarios:
   Text, Artifact, CompositeData, Collection, and Plot artifacts.
 - FR-013: Core `ArrayPreviewer` must be generic numeric array inspection only:
   shape, dtype, axis metadata, scalar display, 1-D chart/table, 2-D matrix
-  display, bounded N-D slicing, and generic colormap/range controls.
+  display, bounded N-D slicing, and generic colormap/range controls. The 2-D
+  matrix display renders the actual numeric values as a heatmap table (each
+  cell shows its number, colored by a real diverging/sequential colormap with
+  a min..max value-scale legend; signed data is not clipped), and bounded N-D
+  slicing exposes one index selector per non-displayed axis so the whole array
+  is navigable (#1603).
 - FR-014: Core `ArrayPreviewer` must not implement image-domain controls such as
   OME metadata browsing, channel merge, label overlay, or imaging LUT semantics.
 - FR-015: Core `SeriesPreviewer` must provide both chart and table modes and

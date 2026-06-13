@@ -57,8 +57,36 @@ class DataFramePage:
 
 
 @dataclass(frozen=True)
+class SliceAxis:
+    """One non-displayed (sliced) axis of an N-D array.
+
+    Carries everything the frontend needs to render a per-axis index picker:
+    the axis position, a display name, its full size, and the currently
+    selected index along it.
+    """
+
+    axis: int
+    name: str
+    size: int
+    index: int
+
+
+@dataclass(frozen=True)
 class ArrayPlane:
-    """A bounded 2-D plane sliced out of an N-D array, plus axis metadata."""
+    """A bounded 2-D plane sliced out of an N-D array, plus axis metadata.
+
+    ``matrix`` holds the actual (downsampled) numeric values of the displayed
+    plane — the previewer renders these as a numeric heatmap table, not a
+    lossy grayscale image. ``vmin`` / ``vmax`` are the finite min/max of the
+    displayed plane so the frontend can build a value-scale legend and a
+    diverging/sequential colormap that does NOT clip signed data.
+
+    ``slice_axes`` lists every non-displayed axis with its current selected
+    index so an N-D array is fully navigable (one index picker per extra
+    axis), not just a single face. The legacy single ``slice_axis_*`` /
+    ``slice_index`` fields are kept (they mirror the first entry of
+    ``slice_axes``) for backward-compatible callers and the array-tile path.
+    """
 
     shape: list[int]
     axes: list[str]
@@ -66,7 +94,13 @@ class ArrayPlane:
     slice_axis_name: str | None
     slice_axis_size: int | None
     slice_index: int | None
-    matrix: list[list[float]]
+    slice_axes: list[SliceAxis]
+    # Non-finite cells (NaN / +-inf) are encoded as ``None`` (JSON ``null``) so
+    # the envelope stays JSON-safe; the frontend renders them as empty /
+    # transparent cells.
+    matrix: list[list[float | None]]
+    vmin: float | None
+    vmax: float | None
     truncated: bool
     ndim: int
 
@@ -217,14 +251,28 @@ class PreviewDataAccess:
         ref: StorageReference,
         *,
         slice_index: int = 0,
+        axis_indices: dict[int, int] | None = None,
     ) -> ArrayPlane:
         """Return shape/axes metadata + one bounded, downsampled 2-D plane.
 
+        The returned ``matrix`` is the actual numeric data of the displayed
+        plane (downsampled to ``max_dim`` per side); ``vmin`` / ``vmax`` are
+        its finite min/max so the previewer can render a numeric heatmap table
+        with a value-scale legend that does not clip signed data.
+
+        Every non-displayed axis is independently navigable: ``axis_indices``
+        maps an axis position to the selected index along it (PyCharm-style
+        per-axis pickers). ``slice_index`` is the legacy single-axis control
+        and is applied to the first extra axis when ``axis_indices`` omits it.
+        ``slice_axes`` echoes the clamped selection per extra axis.
+
         For Zarr the array handle is sliced with explicit indices so only the
-        requested plane (downsampled to ``max_dim``) is read — never the full
-        N-D payload (FR-010 / SC-004). For TIFF the first page is read via the
-        existing helper (a single IFD, already bounded for typical previews).
+        requested plane is read — never the full N-D payload (FR-010 / SC-004).
+        For TIFF the first page is read via the existing helper (a single IFD,
+        already bounded for typical previews).
         """
+        import numpy as np
+
         handle, full_shape, dtype = self._open_array_handle(ref)
         axes = self._axes_from_ref(ref, full_shape)
         ndim = len(full_shape)
@@ -238,33 +286,43 @@ class PreviewDataAccess:
             y_idx, x_idx = ndim - 2, ndim - 1
 
         extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
-        slice_axis_idx = extra_dims[0] if extra_dims else None
-        slice_axis_size = full_shape[slice_axis_idx] if slice_axis_idx is not None else None
-        if slice_axis_idx is None:
-            slice_axis_name: str | None = None
-        elif axes and slice_axis_idx < len(axes):
-            slice_axis_name = axes[slice_axis_idx]
-        else:
-            slice_axis_name = f"axis {slice_axis_idx}"
+        requested = dict(axis_indices or {})
+        # The legacy single ``slice_index`` control drives the first extra axis
+        # unless an explicit per-axis index was supplied for it.
+        if extra_dims and extra_dims[0] not in requested:
+            requested[extra_dims[0]] = int(slice_index)
 
-        clamped_slice: int | None
-        if slice_axis_size is not None and slice_axis_size > 0:
-            clamped_slice = max(0, min(int(slice_index), slice_axis_size - 1))
-        else:
-            clamped_slice = None
+        # Clamp every extra-axis index into range and build the per-axis
+        # selector that drives the bounded read.
+        selected: dict[int, int] = {}
+        slice_axes: list[SliceAxis] = []
+        for axis in extra_dims:
+            size = int(full_shape[axis])
+            raw = int(requested.get(axis, 0))
+            idx = max(0, min(raw, size - 1)) if size > 0 else 0
+            selected[axis] = idx
+            name = axes[axis] if axes and axis < len(axes) else f"axis {axis}"
+            slice_axes.append(SliceAxis(axis=axis, name=name, size=size, index=idx))
+
+        # Legacy single-axis fields mirror the first extra axis.
+        first = slice_axes[0] if slice_axes else None
+        slice_axis_name = first.name if first is not None else None
+        slice_axis_size = first.size if first is not None else None
+        legacy_slice_index = first.index if first is not None else None
 
         plane = self._read_bounded_plane(
             handle,
             full_shape=full_shape,
             y_idx=y_idx,
             x_idx=x_idx,
-            slice_axis_idx=slice_axis_idx,
-            slice_index=clamped_slice if clamped_slice is not None else 0,
+            axis_indices=selected,
         )
         # Transpose if y appears after x so the rendered plane matches axes.
         if axes and "y" in axes and "x" in axes and axes.index("y") > axes.index("x"):
             plane = plane.T
 
+        plane = np.asarray(plane)
+        vmin, vmax = self._finite_extent(plane)
         matrix = self._downsample(plane)
         truncated = max(int(plane.shape[0]), int(plane.shape[1])) > self.max_dim if plane.ndim >= 2 else False
         return ArrayPlane(
@@ -273,8 +331,11 @@ class PreviewDataAccess:
             dtype=dtype,
             slice_axis_name=slice_axis_name,
             slice_axis_size=int(slice_axis_size) if slice_axis_size is not None else None,
-            slice_index=clamped_slice,
+            slice_index=legacy_slice_index,
+            slice_axes=slice_axes,
             matrix=matrix,
+            vmin=vmin,
+            vmax=vmax,
             truncated=truncated,
             ndim=ndim,
         )
@@ -308,14 +369,14 @@ class PreviewDataAccess:
             y_idx, x_idx = ndim - 2, ndim - 1
         extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
         slice_axis_idx = extra_dims[0] if extra_dims else None
+        tile_axis_indices = {slice_axis_idx: int(slice_index)} if slice_axis_idx is not None else {}
 
         plane = self._read_bounded_plane(
             handle,
             full_shape=full_shape,
             y_idx=y_idx,
             x_idx=x_idx,
-            slice_axis_idx=slice_axis_idx,
-            slice_index=int(slice_index),
+            axis_indices=tile_axis_indices,
             no_downsample=True,
         )
         plane = np.asarray(plane)
@@ -461,11 +522,17 @@ class PreviewDataAccess:
 
     # -- PNG helper (re-export so providers do not import private modules) --
 
-    def png_data_uri(self, matrix: list[list[float]]) -> str:
-        """Encode a 2-D matrix as a grayscale PNG data URI."""
+    def png_data_uri(self, matrix: list[list[float | None]]) -> str:
+        """Encode a 2-D matrix as a grayscale PNG data URI (legacy-compat only).
+
+        Non-finite cells (encoded as ``None``) are coerced to ``0`` since the
+        legacy grayscale encoder only consumes finite floats; this path feeds
+        the REST compatibility adapter, not the new numeric viewer.
+        """
         from scistudio.previewers._raster import _image_data_uri_from_matrix
 
-        return _image_data_uri_from_matrix(matrix)
+        finite = [[(v if isinstance(v, (int, float)) else 0.0) for v in row] for row in matrix]
+        return _image_data_uri_from_matrix(finite)
 
     # -- internals ----------------------------------------------------------
 
@@ -524,28 +591,28 @@ class PreviewDataAccess:
         full_shape: list[int],
         y_idx: int,
         x_idx: int,
-        slice_axis_idx: int | None,
-        slice_index: int,
+        axis_indices: dict[int, int] | None = None,
         no_downsample: bool = False,
     ) -> Any:
         """Slice a bounded 2-D plane out of *handle* using explicit indices.
 
-        Only the requested plane is materialized — for a Zarr handle this is a
-        single chunked read, never ``handle[...]``.
+        ``axis_indices`` maps each non-(y, x) axis position to the selected
+        index along it. Only the requested plane is materialized — for a Zarr
+        handle this is a single chunked read, never ``handle[...]``.
         """
         import numpy as np
 
         ndim = len(full_shape)
+        picks = axis_indices or {}
         selector: list[Any] = [slice(None)] * ndim
-        if slice_axis_idx is not None and 0 <= slice_axis_idx < ndim:
-            size = full_shape[slice_axis_idx]
-            selector[slice_axis_idx] = max(0, min(int(slice_index), size - 1)) if size > 0 else 0
-        # Collapse any remaining non-(y,x) dims to index 0 so the read stays 2-D.
+        # Collapse every non-(y,x) dim to its selected index (default 0) so the
+        # read stays 2-D and touches exactly one plane.
         for i in range(ndim):
             if i in (y_idx, x_idx):
                 continue
-            if isinstance(selector[i], slice):
-                selector[i] = 0
+            size = full_shape[i]
+            raw = int(picks.get(i, 0))
+            selector[i] = max(0, min(raw, size - 1)) if size > 0 else 0
 
         plane = handle[tuple(selector)] if ndim > 0 else handle
         plane = np.asarray(plane)
@@ -553,7 +620,24 @@ class PreviewDataAccess:
             plane = plane[0]
         return plane
 
-    def _downsample(self, matrix: Any) -> list[list[float]]:
+    @staticmethod
+    def _finite_extent(plane: Any) -> tuple[float | None, float | None]:
+        """Return the (min, max) of the finite entries of *plane*.
+
+        NaN/inf are ignored so a diverging colormap legend stays meaningful;
+        an all-NaN / empty plane yields ``(None, None)``.
+        """
+        import numpy as np
+
+        arr = np.asarray(plane, dtype=float)
+        if arr.size == 0:
+            return None, None
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return None, None
+        return float(finite.min()), float(finite.max())
+
+    def _downsample(self, matrix: Any) -> list[list[float | None]]:
         import numpy as np
 
         from scistudio.previewers._raster import _downsample_matrix
@@ -562,7 +646,20 @@ class PreviewDataAccess:
         if arr.ndim < 2:
             arr = arr.reshape(1, -1) if arr.ndim == 1 else arr.reshape(1, 1)
         result = _downsample_matrix(arr, max_dim=self.max_dim)
-        return result  # type: ignore[no-any-return]
+        return self._json_safe_matrix(result)
+
+    @staticmethod
+    def _json_safe_matrix(rows: list[list[float]]) -> list[list[float | None]]:
+        """Replace non-finite cells (NaN / +-inf) with ``None`` (JSON ``null``).
+
+        The numeric matrix is the primary preview payload and must serialize as
+        strict JSON; ``NaN`` / ``Infinity`` are not valid JSON, so masked
+        scientific arrays would otherwise break the session response. The
+        frontend renders ``null`` cells as empty/transparent.
+        """
+        import math
+
+        return [[(v if isinstance(v, (int, float)) and math.isfinite(v) else None) for v in row] for row in rows]
 
     def _axes_from_ref(self, ref: StorageReference, full_shape: list[int]) -> list[str]:
         axes_raw = ref.metadata.get("axes") if ref.metadata else None
@@ -600,5 +697,6 @@ __all__ = [
     "DataFramePage",
     "PreviewDataAccess",
     "SeriesPoints",
+    "SliceAxis",
     "TextChunk",
 ]
