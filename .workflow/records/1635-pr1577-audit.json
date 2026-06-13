@@ -2,7 +2,13 @@
   "branch": "audit/pr-1577-independent-review",
   "check_events": [],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "737e2d27",
+    "shas": [
+      "737e2d27"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -21,7 +27,153 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-13T05:37:24.209493Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.267095Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.313328Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.361019Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "closed": [],
+            "issue_number": 1635
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing-closing-keyword",
+          "line": null,
+          "message": "PR body must close every delivered gate issue",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing-closing-keyword",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-13T05:37:24.405084Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.449364Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.494759Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.537899Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.592954Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:24.639869Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.391949Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.438338Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.484963Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.531180Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.578720Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.626153Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.672784Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.718854Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.765713Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:37:40.812029Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -31,25 +183,82 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "5adce472a5c5787564463a381ce07a6c0ebde5ee",
+    "base_sha": "5adce472",
+    "changed_files": [
+      ".workflow/records/1635-pr1577-audit.json",
+      "docs/audit/2026-06-13-adr-048-pr1577-independent-audit.md"
+    ],
+    "diff_fingerprint": "sha256:6a62645224af905541994ae7469bf4a9ffa3fd1497a9355ba411ed25c333ceb1",
+    "head": "HEAD",
+    "head_sha": "737e2d27",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "no-context auditor: review PR#1577 vs ADR-048 + companion specs; land the audit report and submit it as a PR",
   "persona": "audit_reviewer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1642,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1642"
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-13T05:37:24.639905Z",
+      "diff_fingerprint": "sha256:6a62645224af905541994ae7469bf4a9ffa3fd1497a9355ba411ed25c333ceb1",
+      "mode": "ci",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-06-13T05:37:40.812068Z",
+      "diff_fingerprint": "sha256:6a62645224af905541994ae7469bf4a9ffa3fd1497a9355ba411ed25c333ceb1",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1635-pr1577-audit",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
     "checks": [],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "91129d18-185b-4383-ae20-f6d5216d9e0f",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "docs",
   "test_events": []
 }
