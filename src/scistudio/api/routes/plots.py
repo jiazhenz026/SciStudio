@@ -1,0 +1,119 @@
+"""Plot-job run + preview-wiring endpoint (ADR-048 SPEC 2 FR-031 / SC-010).
+
+This route is the producer -> consumer link the original SPEC 2 implementation
+left dead-wired (#1606). ``run_plot_job`` writes a display-only artifact to the
+preview cache, but nothing registered that artifact so the routed
+:class:`~scistudio.previewers.PreviewService` could reach the core
+``PlotPreviewer`` (``core.plot.basic``) at runtime, and no API surface let the
+GUI trigger a plot run and open the preview.
+
+``POST /api/plots/run``:
+
+1. Executes the plot job via the SPEC 2 runtime ``run_plot_job`` (imported from
+   the ``ai`` layer — ``api`` sits *above* ``ai`` in the dependency graph, so
+   this import direction is allowed; the reverse is forbidden by the
+   import-linter contracts).
+2. On success, registers the produced ``current.*`` artifact as a previewable
+   catalog ``DataRecord`` stamped with ``plot_artifact`` metadata via
+   :meth:`ApiRuntime.register_plot_artifact`.
+3. Returns the catalog ``data_ref`` (+ cache key + display source) so the
+   frontend opens a routed ``plot_artifact`` preview session through the
+   existing ``POST /api/previews/sessions`` API — rendering the produced figure
+   in the preview panel through the core ``PlotPreviewer``.
+
+A plot job remains PREVIEW-ONLY: this route never registers a workflow node,
+edits workflow YAML, creates a downstream collection, or claims lineage
+(FR-025). It only reads the in-memory scheduler outputs (inside ``run_plot_job``)
+and writes under ``.scistudio/previews/``.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from scistudio.api.deps import get_runtime
+from scistudio.api.runtime import ApiRuntime
+from scistudio.api.schemas import PlotRunRequest, PlotRunResponse
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/plots", tags=["plots"])
+RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+
+
+@router.post("/run", response_model=PlotRunResponse)
+async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunResponse:
+    """Run a plot job and register its artifact for routed preview (FR-031 / SC-010).
+
+    The response's ``data_ref`` is the catalog id the frontend passes to
+    ``POST /api/previews/sessions`` with ``target.kind="plot_artifact"`` to
+    render the produced plot through the core ``PlotPreviewer``.
+    """
+    # Import inside the handler so the ``api`` import surface stays light and the
+    # allowed ``api -> ai`` dependency edge is exercised lazily.
+    from scistudio.ai.agent.mcp.tools_plot.runtime import run_plot_job
+    from scistudio.ai.agent.mcp.tools_plot.validation import (
+        LoadedPlot,
+        PlotNotFoundError,
+        load_plot,
+    )
+
+    try:
+        loaded: LoadedPlot = load_plot(plot_id=payload.plot_id)
+    except PlotNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        # No project open / no runtime context.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    try:
+        result = run_plot_job(
+            plot_id=payload.plot_id,
+            run_id=payload.run_id,
+            timeout_seconds=payload.timeout_seconds,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    manifest_target = loaded.manifest.target
+    source = {
+        "workflow_id": manifest_target.workflow_id,
+        "node_id": manifest_target.node_id,
+        "output_port": manifest_target.output_port,
+    }
+
+    # Register the produced artifact only on a successful run that actually wrote
+    # a display artifact. A failed / empty run returns status + errors with no
+    # data_ref so the frontend shows the failure instead of an empty preview.
+    data_ref: str | None = None
+    recorded_type = "PlotArtifact"
+    type_chain: list[str] = []
+    if result.status == "succeeded" and result.artifact_paths:
+        record = runtime.register_plot_artifact(
+            result.artifact_paths[0],
+            cache_key=result.cache_key,
+            workflow_id=manifest_target.workflow_id,
+            node_id=manifest_target.node_id,
+            output_port=manifest_target.output_port,
+            plot_id=payload.plot_id,
+        )
+        data_ref = record.id
+        recorded_type = record.type_name
+        type_chain = list(record.type_chain) if record.type_chain else [record.type_name]
+
+    return PlotRunResponse(
+        status=result.status,
+        data_ref=data_ref,
+        recorded_type=recorded_type,
+        type_chain=type_chain,
+        cache_key=result.cache_key,
+        artifact_paths=list(result.artifact_paths),
+        source=source,
+        warnings=list(result.warnings),
+        errors=list(result.errors),
+    )

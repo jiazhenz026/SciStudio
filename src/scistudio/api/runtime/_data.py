@@ -71,6 +71,76 @@ def register_data_ref(
     return record
 
 
+def register_plot_artifact(
+    self: ApiRuntime,
+    artifact_path: str | Path,
+    *,
+    cache_key: str | None = None,
+    workflow_id: str | None = None,
+    node_id: str | None = None,
+    output_port: str | None = None,
+    plot_id: str | None = None,
+) -> DataRecord:
+    """Register a produced plot artifact as a previewable catalog record (ADR-048 SPEC 2 FR-031).
+
+    This is the producer -> consumer link the original SPEC 2 implementation
+    left dead-wired (#1606): ``run_plot_job`` writes a display artifact to the
+    preview cache but nothing registered it so the routed
+    :class:`~scistudio.previewers.PreviewService` could reach the core
+    ``PlotPreviewer`` (``core.plot.basic``) at runtime.
+
+    The record is stamped with ``metadata["plot_artifact"]`` and
+    ``type_name="PlotArtifact"`` so :func:`_target_kind_for_record` classifies
+    the routed target as :attr:`TargetKind.PLOT_ARTIFACT` and
+    :func:`enrich_preview_query` supplies the ``_storage`` ref the
+    ``PlotPreviewer`` reads. The optional workflow/node/output identity is
+    stored as display-only :class:`~scistudio.previewers.PreviewSource`
+    metadata (it carries no workflow truth — a plot job never registers a DAG
+    node or lineage, FR-025).
+
+    Returns the catalog :class:`DataRecord`; ``record.id`` is the ``ref`` the
+    frontend passes to ``POST /api/previews/sessions`` to open the plot
+    preview.
+    """
+    path = Path(artifact_path)
+    suffix = path.suffix.lower().lstrip(".")
+    source: dict[str, Any] = {
+        "workflow_id": workflow_id,
+        "node_id": node_id,
+        "output_port": output_port,
+    }
+    ref_metadata: dict[str, Any] = {
+        "plot_artifact": True,
+        "type_chain": ["DataObject", "PlotArtifact"],
+        "format": suffix or None,
+        "source": source,
+    }
+    if cache_key is not None:
+        ref_metadata["cache_key"] = cache_key
+    if plot_id is not None:
+        ref_metadata["plot_id"] = plot_id
+    ref = StorageReference(
+        backend="filesystem",
+        path=str(path),
+        format=suffix or None,
+        metadata=ref_metadata,
+    )
+    record_metadata = self.describe_ref(ref)
+    # describe_ref folds ref.metadata in, but be explicit so the previewer
+    # routing flags survive even if a backend strips ref metadata.
+    record_metadata["plot_artifact"] = True
+    record_metadata["source"] = source
+    if cache_key is not None:
+        record_metadata["cache_key"] = cache_key
+    if plot_id is not None:
+        record_metadata["plot_id"] = plot_id
+    return self.register_data_ref(
+        ref,
+        type_name="PlotArtifact",
+        metadata=record_metadata,
+    )
+
+
 def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
     if isinstance(payload, dict) and {"backend", "path"}.issubset(payload.keys()):
         ref = StorageReference(
