@@ -15,6 +15,36 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T17:48:34.648894Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6b87bd605392e3b7c4093d9486c6fa3792505022ec54bbb2a9717ee5ccb27720",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T17:49:29.879871Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6b87bd605392e3b7c4093d9486c6fa3792505022ec54bbb2a9717ee5ccb27720",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -37,6 +67,14 @@
     },
     {
       "at": "2026-06-13T17:46:18.228677Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/gate-workflow-efficiency-optimizations.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T17:48:25.732453Z",
       "class": null,
       "kind": "path",
       "path": "docs/specs/gate-workflow-efficiency-optimizations.md",
@@ -105,6 +143,148 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:51.882044Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:51.933355Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:51.983124Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.033193Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.087035Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.137228Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.193877Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.242309Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.290951Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:47:52.340016Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:29.987353Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.038342Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.092612Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.141327Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.202729Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.251515Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.301514Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.349554Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.401525Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T17:49:30.458286Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -119,19 +299,22 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "5adce472",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1646-docs-gate-workflow-efficiency-spec.json",
+      "docs/specs/gate-workflow-efficiency-optimizations.md"
+    ],
+    "diff_fingerprint": "sha256:707a0c37e93dd6848302b01634d6959bb69118096ab94342c9de7d3fc0731fc6",
     "head": "HEAD",
-    "head_sha": "5adce472",
+    "head_sha": "06776965",
     "surfaces": {
-      "docs": 0,
+      "docs": 1,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
       "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
+      "sentrux": 1,
       "test": 0,
       "workflow_ci": 0
     }
@@ -147,6 +330,22 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T17:47:52.340064Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "commit-msg",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T17:49:30.458321Z",
+      "diff_fingerprint": "sha256:707a0c37e93dd6848302b01634d6959bb69118096ab94342c9de7d3fc0731fc6",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1646-docs-gate-workflow-efficiency-spec",
@@ -154,7 +353,8 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
-      "full_audit"
+      "full_audit",
+      "semantic_dup"
     ],
     "docs": [],
     "guards": [
@@ -188,6 +388,14 @@
     },
     {
       "at": "2026-06-13T17:46:18.228709Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only planning spec; implementation tests are defined for the future runtime change, not changed here",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T17:48:25.732481Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
