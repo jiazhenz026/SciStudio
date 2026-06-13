@@ -30,6 +30,21 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T05:17:49.130060Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e758c999126a8e2a6047461450fcbf1e628e5472680b6cb2bd84cd16a1dc0816",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -194,6 +209,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.237488Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.285566Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.334916Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.384124Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.432681Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.493652Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.543585Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.591918Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.644703Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T05:17:49.693901Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -206,15 +281,15 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "5adce472a5c5787564463a381ce07a6c0ebde5ee",
+    "base": "origin/main",
     "base_sha": "5adce472",
     "changed_files": [
       ".workflow/records/1635-pr1577-adr048-final-review.json",
       "docs/audit/2026-06-13-adr048-pr1577-final-review.md"
     ],
-    "diff_fingerprint": "sha256:8b94b0879e8b1475d44d2dfe4f5e0bf03a587f6155be58e050176290235b82cd",
+    "diff_fingerprint": "sha256:80b4f75f531c2265f48a4e94eecd54d8d209e65b75042534c04276a0904783f8",
     "head": "HEAD",
-    "head_sha": "da0ddbbb",
+    "head_sha": "f2737486",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -250,6 +325,14 @@
     {
       "at": "2026-06-13T05:16:56.069322Z",
       "diff_fingerprint": "sha256:8b94b0879e8b1475d44d2dfe4f5e0bf03a587f6155be58e050176290235b82cd",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T05:17:49.693942Z",
+      "diff_fingerprint": "sha256:80b4f75f531c2265f48a4e94eecd54d8d209e65b75042534c04276a0904783f8",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
