@@ -59,8 +59,8 @@ class FitPeak(ProcessBlock):
         InputPort(name="spectra", accepted_types=[Spectrum], is_collection=True),
     ]
     output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="fit_curves", accepted_types=[Spectrum]),
-        OutputPort(name="residuals", accepted_types=[Spectrum]),
+        OutputPort(name="fit_curves", accepted_types=[Spectrum], is_collection=True),
+        OutputPort(name="residuals", accepted_types=[Spectrum], is_collection=True),
         OutputPort(name="parameters", accepted_types=[DataFrame]),
     ]
     config_schema: ClassVar[dict[str, Any]] = {

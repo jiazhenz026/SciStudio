@@ -41,7 +41,7 @@ class SubtractReferenceSpectrum(ProcessBlock):
         InputPort(name="reference", accepted_types=[Spectrum]),
     ]
     output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="corrected", accepted_types=[Spectrum]),
+        OutputPort(name="corrected", accepted_types=[Spectrum], is_collection=True),
     ]
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -87,7 +87,7 @@ class DivideByReferenceSpectrum(ProcessBlock):
         InputPort(name="reference", accepted_types=[Spectrum]),
     ]
     output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="corrected", accepted_types=[Spectrum]),
+        OutputPort(name="corrected", accepted_types=[Spectrum], is_collection=True),
     ]
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",

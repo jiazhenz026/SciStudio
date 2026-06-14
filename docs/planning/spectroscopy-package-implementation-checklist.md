@@ -107,29 +107,35 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 - [x] `python -m ruff check packages/scistudio-blocks-spectroscopy`
 - [x] `python -m mypy packages/scistudio-blocks-spectroscopy/src packages/scistudio-blocks-spectroscopy/tests --ignore-missing-imports`
 - [x] `PYTHONPATH=src;packages/scistudio-blocks-spectroscopy/src python -m pytest packages/scistudio-blocks-spectroscopy/tests -q --no-cov --timeout=60`
+- [x] `packages/scistudio-blocks-spectroscopy/tests/test_contracts.py`
+  integrated from CONTRACT-TEST.
+- [x] `packages/scistudio-blocks-spectroscopy/tests/test_e2e_workflows.py`
+  integrated from E2E-TEST.
 
 ## Test Engineering Slices
 
 ### Contract Test Engineer
 
 - [x] Dispatched to Maxwell (`019ec556-caf5-7cc3-9c21-4d13d662087a`).
-- [ ] Assert public exports, exact block list, and no unstated public blocks.
-- [ ] Assert type metadata, required dataset slots, and required columns.
-- [ ] Assert IO format capability matrix, including load-only vendor formats.
-- [ ] Assert every block has formal contract inputs, outputs, and stable
+- [x] Assert public exports, exact block list, and no unstated public blocks.
+- [x] Assert type metadata, required dataset slots, and required columns.
+- [x] Assert IO format capability matrix, including load-only vendor formats.
+- [x] Assert every block has formal contract inputs, outputs, and stable
   parameters matching the spec.
-- [ ] Assert edge behavior for empty spectra, single-point spectra, unsorted
+- [x] Assert edge behavior for empty spectra, single-point spectra, unsorted
   axes, duplicated wavelengths, zero denominators, missing ids, and missing
   feature values where applicable.
+- [x] Contract test found and manager fixed output-port collection declarations
+  for `FitPeak`, `SubtractReferenceSpectrum`, and `DivideByReferenceSpectrum`.
 
 ### E2E Test Engineer
 
 - [x] Dispatched to Zeno (`019ec557-17d2-75f0-8e15-7081f29255d6`).
-- [ ] Generate deterministic pseudo-spectrum fixtures.
-- [ ] For each of the 26 public blocks, build a load-block-save workflow test.
-- [ ] For every workflow, assert saved output data and metadata match expected
+- [x] Generate deterministic pseudo-spectrum fixtures.
+- [x] For each of the 26 public blocks, build a load-block-save workflow test.
+- [x] For every workflow, assert saved output data and metadata match expected
   values.
-- [ ] Include boundary workflows for short spectra, negative intensities, flat
+- [x] Include boundary workflows for short spectra, negative intensities, flat
   baselines, non-overlapping ranges, unmatched references, and ill-conditioned
   unmixing inputs.
 

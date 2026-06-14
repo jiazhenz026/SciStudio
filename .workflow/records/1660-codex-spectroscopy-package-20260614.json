@@ -231,6 +231,22 @@
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_previewer_registration.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:18:57.556617Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_contracts.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:18:57.556641Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_e2e_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
