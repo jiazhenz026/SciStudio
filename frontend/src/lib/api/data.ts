@@ -9,9 +9,12 @@
 import type {
   DataMetadataResponse,
   DataUploadResponse,
+  PlotCreateRequest,
+  PlotCreateResponse,
   PlotListResponse,
   PlotRunRequest,
   PlotRunResponse,
+  PlotTargetListResponse,
   PreviewEnvelope,
   PreviewResourceResponse,
   PreviewResourceSaveRequest,
@@ -120,6 +123,32 @@ export const dataApi = {
     ),
 
   // -- ADR-048 SPEC 2 / #1606: plot-job run + preview wiring ----------------
+
+  /** List workflow output targets available for a new plot scaffold. */
+  listPlotTargets: (params?: {
+    workflowId?: string | null;
+    workflowPath?: string | null;
+    nodeId?: string | null;
+    outputPort?: string | null;
+    includeUnavailable?: boolean;
+  }) => {
+    const search = new URLSearchParams();
+    if (params?.workflowId) search.set("workflow_id", params.workflowId);
+    if (params?.workflowPath) search.set("workflow_path", params.workflowPath);
+    if (params?.nodeId) search.set("node_id", params.nodeId);
+    if (params?.outputPort) search.set("output_port", params.outputPort);
+    if (params?.includeUnavailable === false) search.set("include_unavailable", "false");
+    const suffix = search.toString();
+    return apiFetch<PlotTargetListResponse>(`/api/plots/targets${suffix ? `?${suffix}` : ""}`);
+  },
+
+  /** Create plots/<id>/plot.yaml plus a render script from the plot template. */
+  createPlot: (request: PlotCreateRequest) =>
+    apiFetch<PlotCreateResponse>("/api/plots", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(request),
+    }),
 
   /** Run a plot job and register its artifact for routed preview
    *  (`POST /api/plots/run`). On success the response's `data_ref` opens a

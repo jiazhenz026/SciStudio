@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
+import { registerPlotCompletions } from "./CodeEditor.parts/plotCompletions";
 import { defineSoftDarkTheme } from "./CodeEditor.parts/theme";
 import { useConflictDecorations } from "./CodeEditor.parts/useConflictDecorations";
 import { useLintMarkers } from "./CodeEditor.parts/useLintMarkers";
@@ -172,6 +173,12 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleBeforeMount(monaco: any) {
+    defineSoftDarkTheme(monaco);
+    registerPlotCompletions(monaco);
+  }
+
   // Editor onChange: forward content + schedule lint.
   function handleEditorChange(value: string | undefined) {
     const next = value ?? "";
@@ -215,7 +222,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
             insertSpaces: true,
             wordWrap: "off",
           }}
-          beforeMount={defineSoftDarkTheme}
+          beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
           onChange={handleEditorChange}
         />

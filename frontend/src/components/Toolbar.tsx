@@ -41,6 +41,7 @@ interface ToolbarProps {
   onNewCustomBlock?: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewNote?: () => void;
+  onNewPlot?: () => void;
   /** ADR-036 §3.4 — optional. Opens read-only YAML view of active workflow. */
   onViewSource?: () => void;
   onSave: () => void;
@@ -82,6 +83,7 @@ export function Toolbar(props: ToolbarProps) {
     onNewWorkflow,
     onNewCustomBlock,
     onNewNote,
+    onNewPlot,
     onViewSource,
     onSave,
     onSaveAs,
@@ -139,6 +141,7 @@ export function Toolbar(props: ToolbarProps) {
           onNewWorkflow={onNewWorkflow}
           onNewCustomBlock={onNewCustomBlock}
           onNewNote={onNewNote}
+          onNewPlot={onNewPlot}
           onImport={onImport}
           onSave={onSave}
           onSaveAs={onSaveAs}

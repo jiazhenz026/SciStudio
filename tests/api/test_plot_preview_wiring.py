@@ -241,6 +241,47 @@ def test_plot_list_route_filters_manifests_to_selected_block(
     assert body["plots"][0]["output_port"] == "measurements"
 
 
+def test_plot_create_route_scaffolds_manifest_and_render_script(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """The app shell can create a new plot from a selected workflow output target."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    targets = client.get("/api/plots/targets", params={"workflow_id": "main"})
+    assert targets.status_code == 200, targets.text
+    body = targets.json()
+    assert body["count"] >= 1
+    target_id = body["targets"][0]["target_id"]
+
+    created = client.post(
+        "/api/plots",
+        json={
+            "plot_id": "quick_plot",
+            "target_id": target_id,
+            "title": "Quick Plot",
+            "language": "python",
+        },
+    )
+
+    assert created.status_code == 200, created.text
+    payload = created.json()
+    assert payload["plot_id"] == "quick_plot"
+    assert payload["manifest_path"] == "plots/quick_plot/plot.yaml"
+    assert payload["script_path"] == "plots/quick_plot/render.py"
+    manifest = opened_project / "plots" / "quick_plot" / "plot.yaml"
+    script = opened_project / "plots" / "quick_plot" / "render.py"
+    assert manifest.is_file()
+    assert script.is_file()
+    manifest_text = manifest.read_text(encoding="utf-8")
+    assert "id: quick_plot" in manifest_text
+    assert "title: Quick Plot" in manifest_text
+    assert "node_id:" in manifest_text
+    assert "def render(collection, context):" in script.read_text(encoding="utf-8")
+
+
 def test_plot_preview_resource_save_writes_export_to_user_selected_path(
     client: TestClient,
     runtime: ApiRuntime,

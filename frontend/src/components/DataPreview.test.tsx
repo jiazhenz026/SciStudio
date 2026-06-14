@@ -89,7 +89,8 @@ describe("DataPreview", () => {
         selectedNodeLabel="Empty Block"
       />,
     );
-    expect(screen.getByText(/no previewable outputs/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no previewable outputs/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Nothing to preview yet")).toHaveLength(1);
   });
 
   it("mounts the routed PreviewHost for the active output ref (#1592)", async () => {

@@ -388,6 +388,49 @@ export interface PreviewResourceSaveResponse {
 // ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
 // ---------------------------------------------------------------------------
 
+export type PlotLanguage = "python" | "r";
+
+/** One workflow output target a new plot can bind to. */
+export interface PlotTargetItem {
+  target_id: string;
+  workflow_path: string;
+  workflow_id?: string | null;
+  node_id: string;
+  node_label: string;
+  block_type: string;
+  output_port: string;
+  output_type: string;
+  is_collection: boolean;
+  latest_run_id?: string | null;
+  latest_output_available: boolean;
+  diagnostics: string[];
+}
+
+/** Response body for `GET /api/plots/targets`. */
+export interface PlotTargetListResponse {
+  targets: PlotTargetItem[];
+  count: number;
+}
+
+/** Request body for `POST /api/plots`. */
+export interface PlotCreateRequest {
+  plot_id: string;
+  target_id: string;
+  title?: string | null;
+  language?: PlotLanguage;
+  overwrite?: boolean;
+}
+
+/** Response body for `POST /api/plots`. */
+export interface PlotCreateResponse {
+  plot_id: string;
+  manifest_path: string;
+  script_path: string;
+  bytes_written: number;
+  warnings: string[];
+  target: PlotTargetItem;
+}
+
 /** Request body for `POST /api/plots/run` (backend `PlotRunRequest`). */
 export interface PlotRunRequest {
   plot_id: string;

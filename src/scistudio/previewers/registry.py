@@ -24,6 +24,7 @@ import importlib
 import importlib.metadata
 import logging
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,35 @@ from scistudio.previewers.models import (
 logger = logging.getLogger(__name__)
 
 PREVIEWER_ENTRY_POINT_GROUP = "scistudio.previewers"
+COMPANION_ENTRY_POINT_GROUPS = ("scistudio.blocks", "scistudio.types")
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_PACKAGES_DIR = _REPO_ROOT / "packages"
+
+
+def _monorepo_package_module_names() -> list[str]:
+    if not _PACKAGES_DIR.is_dir():
+        return []
+    return [p.name.replace("-", "_") for p in sorted(_PACKAGES_DIR.glob("scistudio-blocks-*")) if (p / "src").is_dir()]
+
+
+def _prepend_monorepo_src(module_name: str) -> None:
+    src_dir = _PACKAGES_DIR / module_name.replace("_", "-") / "src"
+    if src_dir.is_dir() and str(src_dir) not in sys.path:
+        sys.path.insert(0, str(src_dir))
+
+
+def _import_monorepo_module(module_name: str) -> Any | None:
+    _prepend_monorepo_src(module_name)
+    with suppress(Exception):
+        return importlib.import_module(module_name)
+    logger.warning("Failed to import monorepo package '%s' for previewers", module_name)
+    return None
+
+
+def _previewer_factory_for(module_name: str) -> Any | None:
+    module = _import_monorepo_module(module_name)
+    factory = getattr(module, "get_previewers", None) if module else None
+    return factory if callable(factory) else None
 
 
 class PreviewerRegistry:
@@ -110,6 +140,7 @@ class PreviewerRegistry:
     def load_packages(self, *, include_monorepo: bool = False) -> None:
         """Load package previewers from entry points + monorepo fallback (FR-002/FR-030)."""
         self._scan_entry_points()
+        self._scan_companion_entry_point_packages()
         if include_monorepo:
             self._scan_monorepo_packages()
 
@@ -128,37 +159,66 @@ class PreviewerRegistry:
                 continue
             self._register_from_factory(ep.name, factory)
 
-    def _scan_monorepo_packages(self) -> None:
-        """Dev fallback: import ``packages/scistudio-blocks-*`` and call get_previewers().
+    def _scan_companion_entry_point_packages(self) -> None:
+        """Discover previewers re-exported by installed block/type packages.
 
-        Mirrors :meth:`TypeRegistry._scan_monorepo_types` and
-        :func:`blocks.registry._scan._scan_monorepo_packages`. ``__file__``
-        sits at ``src/scistudio/previewers/registry.py`` so the repo root is
-        ``parents[3]`` (previewers -> scistudio -> src -> root).
+        Some package installs can expose ``scistudio.blocks`` / ``scistudio.types``
+        entry points while their installed metadata is missing the newer
+        ``scistudio.previewers`` group. Treat an already-declared SciStudio
+        package as an authoritative companion source and call its conventional
+        ``get_previewers()`` factory when present. Explicit previewer entry
+        points remain authoritative because existing ids are skipped silently.
         """
-        repo_root = Path(__file__).resolve().parents[3]
-        packages_dir = repo_root / "packages"
-        if not packages_dir.is_dir():
-            return
-        for pkg_dir in sorted(packages_dir.glob("scistudio-blocks-*")):
-            src_dir = pkg_dir / "src"
-            if not src_dir.is_dir():
-                continue
-            src_dir_str = str(src_dir)
-            if src_dir_str not in sys.path:
-                sys.path.insert(0, src_dir_str)
-            module_name = pkg_dir.name.replace("-", "_")
+        seen_modules: set[str] = set()
+        for group in COMPANION_ENTRY_POINT_GROUPS:
             try:
-                module = importlib.import_module(module_name)
+                eps = importlib.metadata.entry_points(group=group)
             except Exception:
-                logger.warning("Failed to import monorepo package '%s' for previewers", module_name, exc_info=True)
+                logger.warning("Failed to enumerate '%s' entry points", group, exc_info=True)
                 continue
-            factory = getattr(module, "get_previewers", None)
-            if not callable(factory):
-                continue
-            self._register_from_factory(module_name, factory)
 
-    def _register_from_factory(self, source: str, factory: Any) -> None:
+            for ep in eps:
+                root_name = _entry_point_root_module(ep)
+                if not root_name:
+                    continue
+                for module_name in (root_name, f"{root_name}.previewers"):
+                    if module_name in seen_modules:
+                        continue
+                    seen_modules.add(module_name)
+                    try:
+                        module = importlib.import_module(module_name)
+                    except ModuleNotFoundError as exc:
+                        if exc.name != module_name:
+                            logger.debug(
+                                "Companion previewer import failed for '%s'",
+                                module_name,
+                                exc_info=True,
+                            )
+                        continue
+                    except Exception:
+                        logger.debug(
+                            "Companion previewer import failed for '%s'",
+                            module_name,
+                            exc_info=True,
+                        )
+                        continue
+
+                    factory = getattr(module, "get_previewers", None)
+                    if not callable(factory):
+                        continue
+                    self._register_from_factory(
+                        f"{group}:{ep.name}:{module_name}",
+                        factory,
+                        skip_existing=True,
+                    )
+                    break
+
+    def _scan_monorepo_packages(self) -> None:
+        for module_name in _monorepo_package_module_names():
+            if factory := _previewer_factory_for(module_name):
+                self._register_from_factory(module_name, factory)
+
+    def _register_from_factory(self, source: str, factory: Any, *, skip_existing: bool = False) -> None:
         """Invoke a previewer entry-point/monorepo factory and register results."""
         try:
             specs = factory()
@@ -175,7 +235,19 @@ class PreviewerRegistry:
             if not isinstance(spec, PreviewerSpec):
                 self._diagnostics.append(f"previewer factory '{source}' returned non-PreviewerSpec item; skipping")
                 continue
+            if skip_existing and spec.previewer_id in self._by_id:
+                continue
             self.register(spec)
 
 
-__all__ = ["PREVIEWER_ENTRY_POINT_GROUP", "PreviewerRegistry"]
+def _entry_point_root_module(ep: importlib.metadata.EntryPoint) -> str | None:
+    """Return the top-level module named by an entry point value."""
+    value = getattr(ep, "value", "")
+    module_name = str(value).split(":", 1)[0].strip()
+    module_name = module_name.split("[", 1)[0].strip()
+    if not module_name:
+        return None
+    return module_name.split(".", 1)[0]
+
+
+__all__ = ["COMPANION_ENTRY_POINT_GROUPS", "PREVIEWER_ENTRY_POINT_GROUP", "PreviewerRegistry"]

@@ -27,7 +27,7 @@ function basename(p: string): string {
   return parts[parts.length - 1] || trimmed;
 }
 
-function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
+export function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
   const md = dataItem.metadata;
   if (md && typeof md === "object") {
     const mdRec = md as Record<string, unknown>;

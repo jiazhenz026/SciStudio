@@ -21,7 +21,7 @@ def _open(client: TestClient, project_path: Path) -> str:
         json={"name": "T", "description": "", "path": str(project_path)},
     )
     assert response.status_code == 200, response.text
-    project_id = response.json()["id"]
+    project_id = str(response.json()["id"])
     # Trigger open so the runtime tracks active_project (matches GUI flow).
     client.get(f"/api/projects/{project_id}")
     return project_id
@@ -47,6 +47,20 @@ def test_read_file_happy_path(client: TestClient, project_parent: Path) -> None:
     assert body["encoding"] == "utf-8"
     assert body["size"] == 6
     assert body["mtime"] > 0
+
+
+def test_read_file_accepts_uppercase_r_plot_script(client: TestClient, project_parent: Path) -> None:
+    pid = _open(client, project_parent / "p1_r")
+    project_root = Path(client.app.state.runtime.known_projects[pid].path)
+    plot_dir = project_root / "plots" / "my_plot_R"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    target = plot_dir / "render.R"
+    target.write_text("render <- function(collection, context) {}\n", encoding="utf-8")
+
+    r = client.get(f"/api/projects/{pid}/file?path=plots/my_plot_R/render.R")
+
+    assert r.status_code == 200, r.text
+    assert "render <- function" in r.json()["content"]
 
 
 def test_read_file_404_missing(client: TestClient, project_parent: Path) -> None:

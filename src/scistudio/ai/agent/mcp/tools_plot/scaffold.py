@@ -26,11 +26,22 @@ from scistudio.ai.agent.mcp.tools_plot.targets import PlotTarget
 _PLOT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 _RESERVED_IDS = frozenset({"con", "prn", "aux", "nul", "current", "."})
 
-_PYTHON_TEMPLATE = '''"""Render script scaffolded by SciStudio scaffold_plot (ADR-048 plot job).
+_PYTHON_TEMPLATE = '''"""Render script created by SciStudio.
 
 This is a PREVIEW-ONLY plot job. It is NOT a workflow block and never becomes a
-DAG node. ``collection`` is the latest output of the bound block port; use the
-``context`` helpers to read it and to save a figure.
+DAG node.
+
+What ``collection`` means:
+  ``collection`` is the read-only data passed from the workflow output this plot
+  is bound to. If the block output is one table, the collection contains one
+  table-like item. If the block output is a collection of five arrays, it
+  contains five array items. Treat it as input data, not as workflow state.
+
+What ``context`` means:
+  ``context`` is the small plot-runtime helper object SciStudio gives this
+  script. It loads bounded input data, exposes matplotlib as ``context.plt``,
+  and saves the final artifact. It is not the workflow engine context and it
+  should not mutate blocks, nodes, files, or lineage records.
 """
 
 from __future__ import annotations
@@ -44,6 +55,28 @@ def render(collection, context):
       * context.items(collection, max_items=...)        -> bounded iterator
       * context.plt                                      -> matplotlib.pyplot
       * context.save_figure(fig, "figure.svg")           -> save PNG/JPEG/SVG/PDF
+
+    Minimal examples you can paste over the default plot:
+
+      # Example A: collection contains up to 5 NumPy .npy arrays; draw each
+      # flattened value distribution.
+      # import numpy as np
+      # fig, ax = context.plt.subplots()
+      # for index, item in enumerate(context.items(collection, max_items=5)):
+      #     path = item.get("path")
+      #     if not path:
+      #         continue
+      #     array = np.load(path)
+      #     ax.hist(np.asarray(array).ravel(), bins=64, alpha=0.35, label="array " + str(index + 1))
+      # ax.legend()
+      # return context.save_figure(fig, "figure.svg")
+
+      # Example B: collection contains one dataframe; draw a box plot from the
+      # 2nd and 3rd dataframe columns.
+      # df = context.to_dataframe(collection, max_rows=10000)
+      # fig, ax = context.plt.subplots()
+      # df.iloc[:, [1, 2]].plot(kind="box", ax=ax)
+      # return context.save_figure(fig, "figure.svg")
     """
     df = context.to_dataframe(collection, max_rows={max_rows})
     fig, ax = context.plt.subplots()
@@ -52,15 +85,54 @@ def render(collection, context):
     return context.save_figure(fig, "figure.{ext}")
 '''
 
-_R_TEMPLATE = """# Render script scaffolded by SciStudio scaffold_plot (ADR-048 plot job).
+_R_TEMPLATE = """# Render script created by SciStudio.
 #
 # This is a PREVIEW-ONLY plot job. It is NOT a workflow block and never becomes a
-# DAG node. `collection` is the latest output of the bound block port; use the
-# `context` helpers to read it and to save a plot.
+# DAG node.
+#
+# What `collection` means:
+#   `collection` is the read-only data passed from the workflow output this plot
+#   is bound to. If the block output is one table, the collection contains one
+#   table-like item. If the block output is a collection of five arrays, it
+#   contains five array items. In R it is a list of item references; each item
+#   usually has fields such as `path`, `format`, and metadata.
+#
+# What `context` means:
+#   `context` is the small plot-runtime helper object SciStudio gives this
+#   script. It loads bounded input data and saves the final artifact. It is not
+#   the workflow engine context and it should not mutate blocks, nodes, files,
+#   or lineage records.
 #
 # Available context helpers:
 #   * context$to_dataframe(collection, max_rows = ...) -> data.frame
 #   * context$save_plot(plot_or_grob, "figure.pdf")    -> save PNG/JPEG/SVG/PDF
+#
+# Minimal examples you can paste over the default plot:
+#
+#   # Example A: collection contains one dataframe; draw a box plot from the
+#   # 2nd and 3rd dataframe columns.
+#   # df <- context$to_dataframe(collection, max_rows = 10000)
+#   # value_cols <- names(df)[2:3]
+#   # long <- stack(df[value_cols])
+#   # p <- ggplot2::ggplot(long, ggplot2::aes(x = ind, y = values)) +
+#   #   ggplot2::geom_boxplot()
+#   # context$save_plot(p, "figure.pdf")
+#
+#   # Example B: collection contains several CSV tables; draw each first-column
+#   # distribution.
+#   # frames <- list()
+#   # for (item in collection) {{
+#   #   if (!is.null(item$path) && tools::file_ext(item$path) == "csv") {{
+#   #     frames[[length(frames) + 1]] <- utils::read.csv(item$path)
+#   #   }}
+#   # }}
+#   # values <- data.frame()
+#   # for (index in seq_along(frames)) {{
+#   #   values <- rbind(values, data.frame(value = frames[[index]][[1]], source = paste("table", index)))
+#   # }}
+#   # p <- ggplot2::ggplot(values, ggplot2::aes(x = value, fill = source)) +
+#   #   ggplot2::geom_histogram(bins = 40, alpha = 0.35, position = "identity")
+#   # context$save_plot(p, "figure.pdf")
 
 render <- function(collection, context) {{
   df <- context$to_dataframe(collection, max_rows = {max_rows})

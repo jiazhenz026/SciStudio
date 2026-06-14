@@ -28,7 +28,7 @@ VALID_METADATA_FIDELITY_LEVELS: frozenset[str] = frozenset({"pixel_only", "typed
 
 
 class CapabilityValidationError(ValueError):
-    """Base class for invalid ADR-043 capability declarations."""
+    """Base class for invalid IO capability declarations."""
 
 
 class InvalidExtensionError(CapabilityValidationError):
@@ -36,7 +36,7 @@ class InvalidExtensionError(CapabilityValidationError):
 
 
 class InvalidMetadataFidelityError(CapabilityValidationError):
-    """Raised when a metadata fidelity declaration violates ADR-043."""
+    """Raised when a metadata fidelity declaration is invalid."""
 
 
 class InvalidFormatCapabilityError(CapabilityValidationError):

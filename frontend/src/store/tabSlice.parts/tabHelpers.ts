@@ -68,6 +68,7 @@ export function restoreTab(tab: TabState): Partial<AppStore> {
 export function languageForPath(filePath: string): FileTab["language"] {
   const lower = filePath.toLowerCase();
   if (lower.endsWith(".py")) return "python";
+  if (lower.endsWith(".r")) return "r";
   if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".md")) return "markdown";

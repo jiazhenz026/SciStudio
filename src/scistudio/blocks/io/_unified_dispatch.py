@@ -71,9 +71,21 @@ def capability_owner_class(registry: Any, capability: FormatCapability) -> type[
     block_cls = registry._resolve_capability_class(capability)
     if block_cls is None:
         raise LookupError(
-            f"ADR-043 capability {capability.id!r} resolved but owner {capability.block_type!r} could not be imported."
+            f"IO capability {capability.id!r} resolved but owner {capability.block_type!r} could not be imported."
         )
     return cast(type[Any], block_cls)
+
+
+def _path_extension(params: dict[str, Any]) -> str | None:
+    """Infer the lookup extension from a single path or a multi-path list."""
+    raw_path = params.get("path")
+    paths = raw_path if isinstance(raw_path, list) else [raw_path]
+    for candidate in paths:
+        if isinstance(candidate, str) and candidate:
+            suffixes = Path(candidate).suffixes
+            if suffixes:
+                return "".join(suffixes)
+    return None
 
 
 def selected_capability(
@@ -91,11 +103,7 @@ def selected_capability(
 
     if data_type is None:
         return registry, None
-    raw_path = params.get("path")
-    extension = None
-    if isinstance(raw_path, str) and raw_path:
-        suffixes = Path(raw_path).suffixes
-        extension = "".join(suffixes) if suffixes else None
+    extension = _path_extension(params)
     finder = registry.find_loader_capability if direction == "load" else registry.find_saver_capability
     try:
         return registry, finder(data_type, extension)
@@ -191,7 +199,7 @@ def delegate_load(
     data_type = resolve_type_class(core_type)
     registry, capability = selected_capability(direction="load", params=dict(config.params), data_type=data_type)
     if capability is None:
-        raise ValueError(f"Load: no ADR-043 load capability is registered for type {core_type!r}.")
+        raise ValueError(f"Load: no load capability is registered for type {core_type!r}.")
     if capability.block_type == "LoadData":
         raise ValueError(f"Load: selected capability {capability.id!r} did not resolve to a package loader.")
     loader_cls = capability_owner_class(registry, capability)
@@ -210,7 +218,7 @@ def delegate_save(
     data_type = resolve_type_class(core_type) or type(obj)
     registry, capability = selected_capability(direction="save", params=dict(config.params), data_type=data_type)
     if capability is None:
-        raise ValueError(f"Save: no ADR-043 save capability is registered for type {core_type!r}.")
+        raise ValueError(f"Save: no save capability is registered for type {core_type!r}.")
     if capability.block_type == "SaveData":
         raise ValueError(f"Save: selected capability {capability.id!r} did not resolve to a package saver.")
     saver_cls = capability_owner_class(registry, capability)

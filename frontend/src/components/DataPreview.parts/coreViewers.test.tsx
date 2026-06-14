@@ -19,6 +19,7 @@ import {
   ArrayHeatmapTable,
   ArrayLegend,
   ArrayViewer,
+  CollectionViewer,
   formatCell,
   heatmapColor,
 } from "./coreViewers";
@@ -31,6 +32,20 @@ function arrayEnvelope(payload: Record<string, unknown>): PreviewEnvelope {
     previewer_id: "core.array.basic",
     target: { kind: "data_ref", ref: "data-1" },
     kind: "array",
+    payload,
+    resources: [],
+    metadata: { sampled: false, truncated: false, cached: false, derived: false, complete: true },
+    diagnostics: [],
+    error: null,
+  } as unknown as PreviewEnvelope;
+}
+
+function collectionEnvelope(payload: Record<string, unknown>): PreviewEnvelope {
+  return {
+    session_id: "pv-collection",
+    previewer_id: "core.collection.basic",
+    target: { kind: "collection_ref", ref: "collection:arrays" },
+    kind: "collection",
     payload,
     resources: [],
     metadata: { sampled: false, truncated: false, cached: false, derived: false, complete: true },
@@ -204,5 +219,35 @@ describe("ArrayViewer — numeric heatmap + per-axis slice selectors", () => {
       />,
     );
     expect(screen.getByTestId("array-scalar")).toHaveTextContent("42");
+  });
+});
+
+describe("CollectionViewer", () => {
+  it("shows the source filename for parent item cards instead of the data ref", () => {
+    render(
+      <CollectionViewer
+        envelope={collectionEnvelope({
+          count: 1,
+          item_type: "Array",
+          items: [
+            {
+              data_ref: "data-2330b123456789",
+              type_name: "Array",
+              metadata: {
+                framework: {
+                  source:
+                    "C:/Users/jiazh/Desktop/workspace/Example/array/random_10x30x30x30_float32.npy",
+                },
+              },
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("collection-item-0")).toHaveTextContent(
+      "random_10x30x30x30_float32.npy",
+    );
+    expect(screen.queryByText("data-2330b123456789")).toBeNull();
   });
 });

@@ -65,6 +65,7 @@ _PLOT_EXPORT_MIME = {
     ".svg": "image/svg+xml",
     ".pdf": "application/pdf",
 }
+ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
 
 
 class PreviewSessionManager:
@@ -76,6 +77,7 @@ class PreviewSessionManager:
         *,
         max_sessions: int = _DEFAULT_MAX_SESSIONS,
         data_access_factory: Callable[[PreviewLimits], PreviewDataAccess] | None = None,
+        child_context_resolver: ChildContextResolver | None = None,
     ) -> None:
         self._registry = registry
         self._router = PreviewRouter(registry)
@@ -83,6 +85,7 @@ class PreviewSessionManager:
         self._lock = threading.RLock()
         self._max_sessions = max(1, int(max_sessions))
         self._data_access_factory = data_access_factory or self._default_data_access
+        self._child_context_resolver = child_context_resolver
 
     @property
     def router(self) -> PreviewRouter:
@@ -201,7 +204,10 @@ class PreviewSessionManager:
                     f"resource {resource_id!r} could not resolve a child target",
                     detail={"resource_id": resource_id},
                 )
-            return self.render_target(child_target, merged).to_dict()
+            child_query = merged
+            if self._child_context_resolver is not None:
+                child_target, child_query = self._child_context_resolver(child_target, child_query)
+            return self.create_session(child_target, child_query).to_dict()
 
         if resource_id == "export":
             return self._export_plot_resource(session, merged)

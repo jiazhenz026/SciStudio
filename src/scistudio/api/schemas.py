@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -348,6 +348,51 @@ class PlotRunRequest(BaseModel):
         default=None,
         description="Optional override of the manifest timeout (re-clamped to the absolute ceiling).",
     )
+
+
+class PlotTargetItem(BaseModel):
+    """One selectable workflow output target for a new plot."""
+
+    target_id: str
+    workflow_path: str
+    workflow_id: str | None = None
+    node_id: str
+    node_label: str = ""
+    block_type: str
+    output_port: str
+    output_type: str = ""
+    is_collection: bool = False
+    latest_run_id: str | None = None
+    latest_output_available: bool = False
+    diagnostics: list[str] = Field(default_factory=list)
+
+
+class PlotTargetListResponse(BaseModel):
+    """Response body for ``GET /api/plots/targets``."""
+
+    targets: list[PlotTargetItem] = Field(default_factory=list)
+    count: int
+
+
+class PlotCreateRequest(BaseModel):
+    """Request body for ``POST /api/plots``."""
+
+    plot_id: str = Field(description="Plot id and plots/<id> directory name.")
+    target_id: str = Field(description="Target id selected from GET /api/plots/targets.")
+    title: str | None = Field(default=None, description="Human title written to plot.yaml.")
+    language: Literal["python", "r"] = Field(default="python")
+    overwrite: bool = Field(default=False)
+
+
+class PlotCreateResponse(BaseModel):
+    """Response body after creating a plot scaffold."""
+
+    plot_id: str
+    manifest_path: str
+    script_path: str
+    bytes_written: int
+    warnings: list[str] = Field(default_factory=list)
+    target: PlotTargetItem
 
 
 class PlotRunResponse(BaseModel):

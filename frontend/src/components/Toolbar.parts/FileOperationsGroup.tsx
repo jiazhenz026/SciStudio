@@ -3,6 +3,7 @@
  * Toolbar. Extracted in #1413.
  */
 import {
+  ChartLine,
   ChevronDown,
   FileCode2,
   FilePlus2,
@@ -30,6 +31,7 @@ export interface FileOperationsGroupProps {
   onNewWorkflow: () => void;
   onNewCustomBlock?: () => void;
   onNewNote?: () => void;
+  onNewPlot?: () => void;
   onImport: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -41,6 +43,7 @@ export function FileOperationsGroup({
   onNewWorkflow,
   onNewCustomBlock,
   onNewNote,
+  onNewPlot,
   onImport,
   onSave,
   onSaveAs,
@@ -48,8 +51,8 @@ export function FileOperationsGroup({
   return (
     <div className="flex items-center gap-1">
       {/*
-       * ADR-036 §3.7 / §3.12 (I36c) — "New" is a constrained three-item
-       * menu: workflow / custom block / note. No "New arbitrary file" entry.
+       * ADR-036 §3.7 / §3.12 (I36c) — "New" is a constrained project-authoring
+       * menu. No "New arbitrary file" entry.
        */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -74,6 +77,10 @@ export function FileOperationsGroup({
           <DropdownMenuItem onClick={onNewNote} disabled={!currentProject || !onNewNote}>
             <FileText className="size-4" />
             New note
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onNewPlot} disabled={!currentProject || !onNewPlot}>
+            <ChartLine className="size-4" />
+            New plot
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

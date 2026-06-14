@@ -193,11 +193,7 @@ export function DataPreview({
         </div>
       ) : (
         <>
-          {outputEntryIds.length === 0 ? (
-            <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-              This block has no previewable outputs yet.
-            </div>
-          ) : (
+          {outputEntryIds.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {refEntries.map((entry) => (
                 <button
@@ -225,7 +221,7 @@ export function DataPreview({
                 </button>
               ) : null}
             </div>
-          )}
+          ) : null}
           {availablePlots.length > 0 || plotLoading || plotListError ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {plotLoading ? (

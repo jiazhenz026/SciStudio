@@ -297,6 +297,8 @@ def test_scaffold_creates_python_plot(project: Path) -> None:
     assert res.next_step
     assert (project / "plots" / "cell_scatter" / "plot.yaml").is_file()
     assert (project / "plots" / "cell_scatter" / "render.py").is_file()
+    body = (project / "plots" / "cell_scatter" / "render.py").read_text(encoding="utf-8")
+    assert "ADR-048" not in body
 
 
 def test_scaffold_creates_r_plot(project: Path) -> None:
@@ -306,6 +308,10 @@ def test_scaffold_creates_r_plot(project: Path) -> None:
     assert (project / "plots" / "r_plot" / "render.R").is_file()
     body = (project / "plots" / "r_plot" / "render.R").read_text(encoding="utf-8")
     assert "render <- function(collection, context)" in body
+    assert "What `collection` means" in body
+    assert "What `context` means" in body
+    assert "Minimal examples" in body
+    assert "ADR-048" not in body
 
 
 def test_scaffold_refuses_overwrite_by_default(project: Path) -> None:
