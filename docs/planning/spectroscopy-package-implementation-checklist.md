@@ -59,6 +59,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### IO-UTIL Implementer
 
+- [x] Dispatched to Mencius (`019ec527-3ea9-7872-bebd-f8f80691d446`).
 - [ ] Package skeleton, README, exports, format capabilities, and previewers.
 - [ ] `LoadSpectrum`
 - [ ] `SaveSpectrum`
@@ -72,6 +73,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### PREPROC Implementer
 
+- [x] Dispatched to Carver (`019ec527-8553-7f22-963e-f410a74306c4`).
 - [ ] `CropSpectrumRange`
 - [ ] `ShiftSpectralAxis`
 - [ ] `BaselineCorrection`
@@ -82,6 +84,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### FEAT-FIT-REF Implementer
 
+- [x] Dispatched to Huygens (`019ec527-d286-7fa3-82ad-7e31564aacb4`).
 - [ ] `ExtractIntensity`
 - [ ] `CalculateAUC`
 - [ ] `CalculateCentroid`
@@ -93,6 +96,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### LIB-UNMIX Implementer
 
+- [x] Dispatched to Ramanujan (`019ec528-712a-7070-ac36-be844a659108`).
 - [ ] `MatchSpectralLibrary`
 - [ ] `SpectralUnmixing`
 
