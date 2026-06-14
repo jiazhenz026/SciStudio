@@ -146,10 +146,10 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 - [x] Initial draft PR was created with the gate-aware wrapper and
   `SCISTUDIO_SKIP_PREFLIGHT=1` because implementation was intentionally not
   complete yet.
-- [ ] All package tests pass locally.
-- [ ] Gate record `check --mode pre-pr` passes.
-- [ ] Gate record `finalize` records the PR URL.
-- [ ] Umbrella PR closes #1660.
+- [x] All package tests pass locally.
+- [x] Gate record `check --mode pre-pr` passes.
+- [x] Gate record `finalize` records PR #1663.
+- [x] Umbrella PR closes #1660.
 - [ ] CI passes before the work is considered complete.
 - [ ] After implementation, test design, gate checks, and CI complete, retitle
   PR #1663 from `[DO NOT MERGE]` to `[READY FOR REVIEW]`.
