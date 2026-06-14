@@ -10,7 +10,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from scistudio.workflow.serializer import absolutify_paths, relativify_paths
@@ -27,7 +27,7 @@ _segment = st.text(
 _rel_path = st.lists(_segment, min_size=1, max_size=4).map("/".join)
 
 
-@settings(max_examples=200)
+@settings(max_examples=200, suppress_health_check=[HealthCheck.too_slow])
 @given(rel=_rel_path)
 def test_relativify_inverts_absolutify(rel: str) -> None:
     with tempfile.TemporaryDirectory() as d:

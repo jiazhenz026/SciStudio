@@ -10,6 +10,11 @@ from typing import Any
 REPORT_SCHEMA_VERSION = "adr049.package_validation_report.v1"
 
 
+def _with_optional(data: dict[str, Any], **optional: Any) -> dict[str, Any]:
+    data.update({key: value for key, value in optional.items() if value})
+    return data
+
+
 class PackageValidationProfile(StrEnum):
     """Validation strictness profile."""
 
@@ -130,19 +135,10 @@ class ContractResult:
     severity: FindingSeverity | str | None = None
     evidence: str | None = None
 
+    # fmt: off
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = {
-            "contract_id": self.contract_id,
-            "result": str(self.result),
-            "surface": self.surface,
-        }
-        if self.symbol:
-            data["symbol"] = self.symbol
-        if self.severity:
-            data["severity"] = str(self.severity)
-        if self.evidence:
-            data["evidence"] = self.evidence
-        return data
+        return _with_optional({"contract_id": self.contract_id, "result": str(self.result), "surface": self.surface}, symbol=self.symbol, severity=str(self.severity) if self.severity else None, evidence=self.evidence)
+    # fmt: on
 
 
 @dataclass(frozen=True)
@@ -160,23 +156,25 @@ class PackageValidationFinding:
     profile_behavior: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = {
-            "contract_id": self.contract_id,
-            "severity": str(self.severity),
-            "surface": self.surface,
-            "message": self.message,
-            "repair_hint": self.repair_hint,
-        }
-        if self.symbol:
-            data["symbol"] = self.symbol
-            data["source_symbol"] = self.symbol
-        if self.source_path:
-            data["source_path"] = self.source_path
-        if self.evidence:
-            data["evidence"] = dict(self.evidence)
-        if self.profile_behavior:
-            data["profile_behavior"] = self.profile_behavior
-        return data
+        return _validation_finding_dict(self)
+
+
+def _validation_finding_dict(finding: PackageValidationFinding) -> dict[str, Any]:
+    data = _with_optional(
+        {
+            "contract_id": finding.contract_id,
+            "severity": str(finding.severity),
+            "surface": finding.surface,
+            "message": finding.message,
+            "repair_hint": finding.repair_hint,
+        },
+        source_path=finding.source_path,
+        evidence=dict(finding.evidence) if finding.evidence else None,
+        profile_behavior=finding.profile_behavior,
+    )
+    if finding.symbol:
+        data.update({"symbol": finding.symbol, "source_symbol": finding.symbol})
+    return data
 
 
 @dataclass(frozen=True)

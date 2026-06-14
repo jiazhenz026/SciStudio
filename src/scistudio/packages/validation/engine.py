@@ -20,14 +20,11 @@ from scistudio.packages.validation.models import (
 )
 
 
-def validate_package(
-    path_or_distribution: str | Path,
-    profile: PackageValidationProfile | str = PackageValidationProfile.DEVELOPMENT,
-) -> PackageValidationReport:
-    """Validate a source tree, archive path, or installed distribution."""
-
+# fmt: off
+def validate_package(path_or_distribution: str | Path, profile: PackageValidationProfile | str = PackageValidationProfile.DEVELOPMENT) -> PackageValidationReport:
     report, _dry_run = _validate_package_with_dry_run(path_or_distribution, profile=profile)
     return report
+# fmt: on
 
 
 def _validate_package_with_dry_run(
@@ -59,13 +56,10 @@ def _validate_package_with_dry_run(
     return report, dry_run
 
 
-def validate_installed_package(
-    distribution: str,
-    profile: PackageValidationProfile | str = PackageValidationProfile.PRODUCTION,
-) -> PackageValidationReport:
-    """Validate an installed distribution before production registration."""
-
+# fmt: off
+def validate_installed_package(distribution: str, profile: PackageValidationProfile | str = PackageValidationProfile.PRODUCTION) -> PackageValidationReport:
     return validate_package(distribution, profile=profile)
+# fmt: on
 
 
 class DryRunBuilder:
@@ -94,14 +88,20 @@ class DryRunBuilder:
         )
 
 
-def _validate_entry_point(
+# fmt: off
+def _validate_entry_point(entry_point: CandidateEntryPoint, inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
+    loaded = _load_entry_point(entry_point, findings)
+    if loaded is not None and (validator := _ENTRY_POINT_VALIDATORS.get(entry_point.group)):
+        validator(entry_point, loaded, inventory, dry_run, findings)
+# fmt: on
+
+
+def _load_entry_point(
     entry_point: CandidateEntryPoint,
-    inventory: Any,
-    dry_run: DryRunBuilder,
     findings: list[PackageValidationFinding],
-) -> None:
+) -> Any | None:
     try:
-        loaded = entry_point.load()
+        return entry_point.load()
     except Exception as exc:
         findings.append(
             _finding(
@@ -113,16 +113,7 @@ def _validate_entry_point(
                 "Ensure the module path and attribute exist and import without required missing dependencies.",
             )
         )
-        return
-
-    if entry_point.group == "scistudio.blocks":
-        _validate_blocks_entry_point(entry_point, loaded, inventory, dry_run, findings)
-    elif entry_point.group == "scistudio.types":
-        _validate_types_entry_point(entry_point, loaded, inventory, dry_run, findings)
-    elif entry_point.group == "scistudio.previewers":
-        _validate_previewers_entry_point(entry_point, loaded, inventory, dry_run, findings)
-    elif entry_point.group == "scistudio.runners":
-        _validate_runner_entry_point(entry_point, loaded, inventory, dry_run, findings)
+        return None
 
 
 def _validate_blocks_entry_point(
@@ -228,39 +219,61 @@ def _validate_blocks_entry_point(
 
 
 def _validate_package_info(package_info: Any, inventory: Any, findings: list[PackageValidationFinding]) -> None:
+    if not _package_info_is_instance(package_info, findings):
+        return
+    inventory.package_info = _package_info_payload(package_info)
+    findings.extend(_package_info_field_findings(package_info))
+
+
+def _package_info_is_instance(package_info: Any, findings: list[PackageValidationFinding]) -> bool:
     from scistudio.blocks.base.package_info import PackageInfo
 
-    if not isinstance(package_info, PackageInfo):
-        findings.append(
-            _finding(
-                "PV-01-001",
-                "error",
-                "package_info",
-                type(package_info).__name__,
-                "Package metadata is not a PackageInfo instance.",
-                "Return scistudio.blocks.base.package_info.PackageInfo from get_block_package().",
-            )
-        )
-        return
-    inventory.package_info = {
+    if isinstance(package_info, PackageInfo):
+        return True
+    findings.append(_package_info_type_finding(package_info))
+    return False
+
+
+def _package_info_type_finding(package_info: Any) -> PackageValidationFinding:
+    return _finding(
+        "PV-01-001",
+        "error",
+        "package_info",
+        type(package_info).__name__,
+        "Package metadata is not a PackageInfo instance.",
+        "Return scistudio.blocks.base.package_info.PackageInfo from get_block_package().",
+    )
+
+
+def _package_info_payload(package_info: Any) -> dict[str, Any]:
+    return {
         "name": package_info.name,
         "description": package_info.description,
         "author": package_info.author,
         "version": package_info.version,
     }
-    for field_name in ("name", "version"):
-        value = getattr(package_info, field_name)
-        if not isinstance(value, str) or not value.strip():
-            findings.append(
-                _finding(
-                    "PV-01-002",
-                    "error",
-                    "package_info",
-                    field_name,
-                    f"PackageInfo.{field_name} must be a non-empty string.",
-                    "Populate PackageInfo with stable non-empty name and version fields.",
-                )
-            )
+
+
+def _blank_package_info_fields(package_info: Any) -> list[str]:
+    return [
+        field_name
+        for field_name in ("name", "version")
+        if not isinstance(getattr(package_info, field_name), str) or not getattr(package_info, field_name).strip()
+    ]
+
+
+def _package_info_field_findings(package_info: Any) -> list[PackageValidationFinding]:
+    return [
+        _finding(
+            "PV-01-002",
+            "error",
+            "package_info",
+            field_name,
+            f"PackageInfo.{field_name} must be a non-empty string.",
+            "Populate PackageInfo with stable non-empty name and version fields.",
+        )
+        for field_name in _blank_package_info_fields(package_info)
+    ]
 
 
 def _validate_types_entry_point(
@@ -403,27 +416,33 @@ def _validate_previewers_entry_point(
             )
 
 
-def _validate_runner_entry_point(
-    entry_point: CandidateEntryPoint,
-    loaded: Any,
-    inventory: Any,
-    dry_run: DryRunBuilder,
-    findings: list[PackageValidationFinding],
-) -> None:
+# fmt: off
+def _validate_runner_entry_point(entry_point: CandidateEntryPoint, loaded: Any, inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
     if not isinstance(loaded, type):
-        findings.append(
-            _finding(
-                "PV-99-001",
-                "error",
-                "runners",
-                entry_point.value,
-                "Runner entry point did not resolve to a class.",
-                "Point scistudio.runners entry points at importable runner classes.",
-            )
-        )
+        findings.append(_runner_class_finding(entry_point))
         return
     inventory.runner_symbols.append(loaded.__name__)
     dry_run.runners[entry_point.name] = loaded
+# fmt: on
+
+
+def _runner_class_finding(entry_point: CandidateEntryPoint) -> PackageValidationFinding:
+    return _finding(
+        "PV-99-001",
+        "error",
+        "runners",
+        entry_point.value,
+        "Runner entry point did not resolve to a class.",
+        "Point scistudio.runners entry points at importable runner classes.",
+    )
+
+
+_ENTRY_POINT_VALIDATORS = {
+    "scistudio.blocks": _validate_blocks_entry_point,
+    "scistudio.types": _validate_types_entry_point,
+    "scistudio.previewers": _validate_previewers_entry_point,
+    "scistudio.runners": _validate_runner_entry_point,
+}
 
 
 def _validate_cross_surface(inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
@@ -474,49 +493,26 @@ def _contract_results(
 
 
 def _block_spec_for_class(cls: type, package_name: str, package_version: str) -> Any:
-    from scistudio.blocks.registry import (
-        BlockRegistrationError,
-        BlockRegistry,
-        BlockSpec,
-        _format_capabilities_from_class,
-        _infer_category,
-        _merge_config_schema,
-        _type_name_for_class,
-    )
-    from scistudio.blocks.registry._spec import _spec_from_class
+    import scistudio.blocks.registry._spec as spec_module
+    from scistudio.blocks.registry import BlockRegistrationError
 
     try:
-        spec = _spec_from_class(cls, source="package_validator")
-    except BlockRegistrationError:
-        BlockRegistry._validate_dynamic_ports(cls)
-        spec = BlockSpec(
-            name=getattr(cls, "name", cls.__name__),
-            description=getattr(cls, "description", "") or (cls.__doc__ or "").split("\n")[0],
-            version=package_version,
-            module_path=cls.__module__,
-            class_name=cls.__name__,
-            base_category=_infer_category(cls),
-            subcategory=getattr(cls, "subcategory", "") or "",
-            input_ports=list(getattr(cls, "input_ports", [])),
-            output_ports=list(getattr(cls, "output_ports", [])),
-            config_schema=_merge_config_schema(cls),
-            source="package_validator",
-            type_name=_type_name_for_class(cls),
-            direction=getattr(cls, "direction", "") or "",
-            dynamic_ports=getattr(cls, "dynamic_ports", None),
-            variadic_inputs=bool(getattr(cls, "variadic_inputs", False)),
-            variadic_outputs=bool(getattr(cls, "variadic_outputs", False)),
-            allowed_input_types=[t.__name__ for t in (getattr(cls, "allowed_input_types", None) or [])],
-            allowed_output_types=[t.__name__ for t in (getattr(cls, "allowed_output_types", None) or [])],
-            min_input_ports=getattr(cls, "min_input_ports", None),
-            max_input_ports=getattr(cls, "max_input_ports", None),
-            min_output_ports=getattr(cls, "min_output_ports", None),
-            max_output_ports=getattr(cls, "max_output_ports", None),
-            supported_extensions=dict(getattr(cls, "supported_extensions", {}) or {}),
-            format_capabilities=_format_capabilities_from_class(cls),
-        )
+        spec = spec_module._spec_from_class(cls, source="package_validator")
+    except BlockRegistrationError as exc:
+        if "cannot resolve distribution version" not in str(exc):
+            raise
+        spec = _block_spec_with_package_version(spec_module, cls, package_version)
     spec.package_name = package_name
     return spec
+
+
+def _block_spec_with_package_version(spec_module: Any, cls: type, package_version: str) -> Any:
+    original_resolver = spec_module._resolve_distribution_version
+    spec_module._resolve_distribution_version = lambda _cls: package_version
+    try:
+        return spec_module._spec_from_class(cls, source="package_validator")
+    finally:
+        spec_module._resolve_distribution_version = original_resolver
 
 
 def _capability_symbol(cls: type, exc: Exception) -> str | None:

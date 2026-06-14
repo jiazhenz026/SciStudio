@@ -46,6 +46,7 @@ language_source: en
   - `src/scistudio/cli/main.py`
   - `pyproject.toml`
   - `tests/packages/**`
+  - `tests/workflow/test_serializer_property.py`
   - `docs/block-development/package-validator.md`
   - `docs/planning/adr-049-package-validator-implementation-checklist.md`
   - `docs/planning/adr-049-package-validator-implementation/prompts/**`
@@ -106,7 +107,7 @@ language_source: en
 | Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | `pending` |
 | Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | `pending` |
 | Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | `pending` |
-| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[x]` | `Tier 3 full_audit reconciliation passed` |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-pr --base origin/design/package-validator-contract-survey --head HEAD --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[x]` | `Tier 1 reconciliation passed after full python_tests and semantic_dup recovery` |
 
 ## 5.1 Docs Impact Check
 
@@ -289,14 +290,17 @@ For `test_engineer` rows, production code is out of scope by default.
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
 | ADR-049 contract table checker | `python scripts/audit/check_package_contract_tables.py` | `[x]` | preflight: `summary: 0 error(s), 9 warning(s)` |
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/design/package-validator-contract-survey --head HEAD` | `[ ]` | `pending` |
+| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/design/package-validator-contract-survey --head HEAD` | `[x]` | superseded by final `pre-pr` mode gate check on the same candidate |
 | Targeted tests | `python -m pytest tests/packages --timeout=60` | `[x]` | `25 passed` |
+| Property test stability | `python -m pytest tests/workflow/test_serializer_property.py::test_relativify_inverts_absolutify --timeout=60` | `[x]` | `1 passed`; suppresses Hypothesis `too_slow` health check only |
 | Existing package sweep | package validator CLI/API over core, imaging, SRS, LCMS | `[x]` | `docs/audit/2026-06-14-adr-049-existing-package-sweep.md` |
+| Existing package sweep rerun | package validator API over core, imaging, SRS, LCMS after semantic-dup refactor | `[x]` | all four packages `status=pass`, `registration_decision=accept`, zero findings |
 | E2E | `docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md` | `[x]` | feature-sweep PASS |
+| Semantic duplication ratchet | `python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json` | `[x]` | `clusters=99`, `duplicate_loc=5680`, within ratchet |
 | Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/design/package-validator-contract-survey --head HEAD` | `[ ]` | `pending` |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md` | `[x]` | `Tier 3 full_audit reconciliation passed before initial umbrella PR` |
-| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --base origin/design/package-validator-contract-survey --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#1664"` | `[ ]` | `pending` |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --base design/package-validator-contract-survey --title "<title>" --body-file .workflow/local/pr-body.md` | `[ ]` | `pending` |
+| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-pr --base origin/design/package-validator-contract-survey --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[x]` | `mode=pre-pr tier=1 reconciliation passed` |
+| Gate finalize (post-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr 1665 --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `pending final commit SHA` |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --base design/package-validator-contract-survey --title "<title>" --body-file .workflow/local/pr-body.md` | `[x]` | N/A for final update; PR #1665 already exists and post-PR finalize is the required gate step |
 
 ## 11. Drift Log
 
@@ -310,12 +314,13 @@ Append only.
 | 2026-06-14 | PV-F1-R2 | Replacement foundation agent also produced no usable implementation changes. | Manager stopped replacement flow and implemented the foundation directly in the umbrella worktree. | #1664 |
 | 2026-06-14 | PV-T1 | Test agent produced staged tests/fixtures but did not create a clean PR/commit. | Manager reviewed and applied the staged `tests/packages/**` diff mechanically into the umbrella worktree. | `tests/packages` |
 | 2026-06-14 | manager | Package sweep initially failed SRS because source-tree validation did not expose its declared monorepo sibling dependency `scistudio-blocks-imaging`. | Inventory now exposes only declared sibling package `src` paths; added regression test. | `tests/packages/test_package_validator_inventory.py` |
+| 2026-06-14 | manager | Final Tier 1 gate exposed semantic-dup ratchet growth and a Windows Hypothesis `too_slow` health check in an existing serializer property test. | Refactored validator helpers to restore the semantic-dup ratchet and suppressed only the Hypothesis health check without changing serializer assertions. | `src/scistudio/packages/validation/**`, `tests/workflow/test_serializer_property.py` |
 
 ## 12. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
+- [x] All dispatched agents have final outputs.
+- [x] Manager reviewed every changed file.
 - [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
-- [ ] PR closes every issue fixed by the dispatch.
+- [x] PR closes every issue fixed by the dispatch.
 - [ ] CI passed.
 - [ ] Checklist final state matches PR and gate record.

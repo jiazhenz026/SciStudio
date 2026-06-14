@@ -127,23 +127,28 @@ def _validate_in_subprocess(candidate: str | Path) -> PackageValidationReport:
 
 
 def _subprocess_failure_report(candidate: str | Path, message: str) -> PackageValidationReport:
-    package = PackageIdentity(
-        name=Path(str(candidate)).name or str(candidate), version="unknown", source=str(candidate)
-    )
+    package = _candidate_identity(candidate)
     return PackageValidationReport(
         package=package,
         profile=PackageValidationProfile.PRODUCTION,
         inventory=PackageInventory(package=package, surfaces={"distribution_metadata"}),
-        findings=[
-            PackageValidationFinding(
-                contract_id="PV-12-004",
-                severity=FindingSeverity.BLOCKER,
-                surface="security_isolation",
-                symbol=str(candidate),
-                message=message,
-                repair_hint="Run production validation in a working isolated Python environment before registration.",
-            )
-        ],
+        findings=[_isolation_failure(candidate, message)],
+    )
+
+
+def _candidate_identity(candidate: str | Path) -> PackageIdentity:
+    value = str(candidate)
+    return PackageIdentity(name=Path(value).name or value, version="unknown", source=value)
+
+
+def _isolation_failure(candidate: str | Path, message: str) -> PackageValidationFinding:
+    return PackageValidationFinding(
+        contract_id="PV-12-004",
+        severity=FindingSeverity.BLOCKER,
+        surface="security_isolation",
+        symbol=str(candidate),
+        message=message,
+        repair_hint="Run production validation in a working isolated Python environment before registration.",
     )
 
 
