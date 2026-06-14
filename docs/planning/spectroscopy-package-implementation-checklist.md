@@ -29,30 +29,30 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ## Non-Negotiable Package Scope
 
-- [ ] Create package `packages/scistudio-blocks-spectroscopy`.
-- [ ] Do not depend on the SRS package.
-- [ ] Export exactly the public types required by the spec: `Spectrum` and
+- [x] Create package `packages/scistudio-blocks-spectroscopy`.
+- [x] Do not depend on the SRS package.
+- [x] Export exactly the public types required by the spec: `Spectrum` and
   `SpectralDataset`.
-- [ ] Export exactly the 26 required public blocks. Do not add calibration,
+- [x] Export exactly the 26 required public blocks. Do not add calibration,
   clustering, PCA, reporting, or unstated convenience blocks.
-- [ ] Use formal block contracts, typed inputs and outputs, deterministic
+- [x] Use formal block contracts, typed inputs and outputs, deterministic
   metadata behavior, and no frontend-state runtime truth.
-- [ ] Register previewers through `scistudio.previewers`; previewers remain
+- [x] Register previewers through `scistudio.previewers`; previewers remain
   display-only and perform no scientific processing.
-- [ ] Implement ADR-043 format capability declarations for spectroscopy IO.
+- [x] Implement ADR-043 format capability declarations for spectroscopy IO.
 
 ## Required Types
 
-- [ ] `Spectrum(Series)` uses canonical `index_name="lambda"` and
+- [x] `Spectrum(Series)` uses canonical `index_name="lambda"` and
   `value_name="intensity"`.
-- [ ] `Spectrum.Meta` records `lambda_unit`, `intensity_unit`, `lambda_kind`,
+- [x] `Spectrum.Meta` records `lambda_unit`, `intensity_unit`, `lambda_kind`,
   and `modality`.
-- [ ] `SpectralDataset(CompositeData)` has exactly slots `index: DataFrame`
+- [x] `SpectralDataset(CompositeData)` has exactly slots `index: DataFrame`
   and `spectra: DataFrame`.
-- [ ] Dataset `index` has required column `spectrum_id`.
-- [ ] Dataset `spectra` has required columns `spectrum_id`, `lambda`,
+- [x] Dataset `index` has required column `spectrum_id`.
+- [x] Dataset `spectra` has required columns `spectrum_id`, `lambda`,
   `intensity`.
-- [ ] `SpectralDataset.Meta` records `dataset_name`, `dataset_role`,
+- [x] `SpectralDataset.Meta` records `dataset_name`, `dataset_role`,
   `lambda_unit`, `intensity_unit`, `modality`, and `schema_version`.
 
 ## Agent Slices
@@ -60,45 +60,53 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 ### IO-UTIL Implementer
 
 - [x] Dispatched to Mencius (`019ec527-3ea9-7872-bebd-f8f80691d446`).
-- [ ] Package skeleton, README, exports, format capabilities, and previewers.
-- [ ] `LoadSpectrum`
-- [ ] `SaveSpectrum`
-- [ ] `LoadSpectralDataset`
-- [ ] `SaveSpectralDataset`
-- [ ] `SpectrumToSpectralDataset`
-- [ ] `SpectralDatasetToSpectrum`
-- [ ] `FilterSpectralDataset`
-- [ ] `MergeSpectralDataset`
-- [ ] `AttachFeaturesToSpectralDataset`
+- [x] Package skeleton, README, exports, format capabilities, and previewers.
+- [x] `LoadSpectrum`
+- [x] `SaveSpectrum`
+- [x] `LoadSpectralDataset`
+- [x] `SaveSpectralDataset`
+- [x] `SpectrumToSpectralDataset`
+- [x] `SpectralDatasetToSpectrum`
+- [x] `FilterSpectralDataset`
+- [x] `MergeSpectralDataset`
+- [x] `AttachFeaturesToSpectralDataset`
 
 ### PREPROC Implementer
 
 - [x] Dispatched to Carver (`019ec527-8553-7f22-963e-f410a74306c4`).
-- [ ] `CropSpectrumRange`
-- [ ] `ShiftSpectralAxis`
-- [ ] `BaselineCorrection`
-- [ ] `SmoothSpectrum`
-- [ ] `AlignAndResampleSpectra`
-- [ ] `NormalizeSpectrum`
-- [ ] `SubtractPeakComponent`
+- [x] `CropSpectrumRange`
+- [x] `ShiftSpectralAxis`
+- [x] `BaselineCorrection`
+- [x] `SmoothSpectrum`
+- [x] `AlignAndResampleSpectra`
+- [x] `NormalizeSpectrum`
+- [x] `SubtractPeakComponent`
 
 ### FEAT-FIT-REF Implementer
 
 - [x] Dispatched to Huygens (`019ec527-d286-7fa3-82ad-7e31564aacb4`).
-- [ ] `ExtractIntensity`
-- [ ] `CalculateAUC`
-- [ ] `CalculateCentroid`
-- [ ] `CalculateRatio`
-- [ ] `FindPeaks`
-- [ ] `FitPeak`
-- [ ] `SubtractReferenceSpectrum`
-- [ ] `DivideByReferenceSpectrum`
+- [x] `ExtractIntensity`
+- [x] `CalculateAUC`
+- [x] `CalculateCentroid`
+- [x] `CalculateRatio`
+- [x] `FindPeaks`
+- [x] `FitPeak`
+- [x] `SubtractReferenceSpectrum`
+- [x] `DivideByReferenceSpectrum`
 
 ### LIB-UNMIX Implementer
 
 - [x] Dispatched to Ramanujan (`019ec528-712a-7070-ac36-be844a659108`).
-- [ ] `MatchSpectralLibrary`
-- [ ] `SpectralUnmixing`
+- [x] `MatchSpectralLibrary`
+- [x] `SpectralUnmixing`
+
+## Implementation Evidence
+
+- [x] Integrated implementation slices from IO-UTIL, PREPROC, FEAT-FIT-REF,
+  and LIB-UNMIX into umbrella branch.
+- [x] `python -m ruff check packages/scistudio-blocks-spectroscopy`
+- [x] `python -m mypy packages/scistudio-blocks-spectroscopy/src packages/scistudio-blocks-spectroscopy/tests --ignore-missing-imports`
+- [x] `PYTHONPATH=src;packages/scistudio-blocks-spectroscopy/src python -m pytest packages/scistudio-blocks-spectroscopy/tests -q --no-cov --timeout=60`
 
 ## Test Engineering Slices
 

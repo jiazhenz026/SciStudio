@@ -47,6 +47,14 @@
       "path": "docs/planning/spectroscopy-package-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:51:38.657855Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/spectroscopy-package.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -100,6 +108,12 @@
       "at": "2026-06-14T07:49:49.942615Z",
       "pattern": "docs/audit/*spectroscopy*",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T08:51:38.657832Z",
+      "pattern": "docs/specs/spectroscopy-package.md",
+      "reason": "Implementation converts spectroscopy spec planned package surfaces into current package file governance."
     }
   ],
   "session_id": "8412dcbb-a049-4e90-b8d7-119a6d27f940",
@@ -111,6 +125,110 @@
       "class": null,
       "kind": "path",
       "path": "packages/scistudio-blocks-spectroscopy/tests",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:49:59.469187Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527566Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_types.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527587Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527590Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_spectrum_io.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527591Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_spectral_dataset_io.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527593Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_utility_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527595Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_preprocessing_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527596Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_feature_extraction_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527598Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_peak_fitting_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527599Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_reference_correction_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527600Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_library_matching_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527602Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_unmixing_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:53:15.527603Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_previewer_registration.py",
       "rationale": null,
       "verified_in_diff": null
     }

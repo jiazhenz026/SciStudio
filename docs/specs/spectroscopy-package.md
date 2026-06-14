@@ -38,53 +38,19 @@ scope:
 governs:
   modules: []
   contracts: []
-  entry_points: []
-  files:
-    - docs/specs/spectroscopy-package.md
-  excludes: []
-planned_governs:
-  modules:
-    - scistudio_blocks_spectroscopy
-  contracts:
-    - scistudio_blocks_spectroscopy.types.Spectrum
-    - scistudio_blocks_spectroscopy.types.SpectralDataset
-    - scistudio_blocks_spectroscopy.previewers.get_previewers
-    - scistudio_blocks_spectroscopy.blocks.utilities.LoadSpectrum
-    - scistudio_blocks_spectroscopy.blocks.utilities.LoadSpectrum.format_capabilities
-    - scistudio_blocks_spectroscopy.blocks.utilities.SaveSpectrum
-    - scistudio_blocks_spectroscopy.blocks.utilities.SaveSpectrum.format_capabilities
-    - scistudio_blocks_spectroscopy.blocks.utilities.LoadSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.utilities.LoadSpectralDataset.format_capabilities
-    - scistudio_blocks_spectroscopy.blocks.utilities.SaveSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.utilities.SaveSpectralDataset.format_capabilities
-    - scistudio_blocks_spectroscopy.blocks.utilities.SpectrumToSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.utilities.SpectralDatasetToSpectrum
-    - scistudio_blocks_spectroscopy.blocks.utilities.FilterSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.utilities.MergeSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.utilities.AttachFeaturesToSpectralDataset
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.CropSpectrumRange
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.ShiftSpectralAxis
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.BaselineCorrection
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.SmoothSpectrum
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.AlignAndResampleSpectra
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.NormalizeSpectrum
-    - scistudio_blocks_spectroscopy.blocks.preprocessing.SubtractPeakComponent
-    - scistudio_blocks_spectroscopy.blocks.feature_extraction.ExtractIntensity
-    - scistudio_blocks_spectroscopy.blocks.feature_extraction.CalculateAUC
-    - scistudio_blocks_spectroscopy.blocks.feature_extraction.FindPeaks
-    - scistudio_blocks_spectroscopy.blocks.feature_extraction.CalculateCentroid
-    - scistudio_blocks_spectroscopy.blocks.feature_extraction.CalculateRatio
-    - scistudio_blocks_spectroscopy.blocks.peak_fitting.FitPeak
-    - scistudio_blocks_spectroscopy.blocks.reference_correction.SubtractReferenceSpectrum
-    - scistudio_blocks_spectroscopy.blocks.reference_correction.DivideByReferenceSpectrum
-    - scistudio_blocks_spectroscopy.blocks.library_matching.MatchSpectralLibrary
-    - scistudio_blocks_spectroscopy.blocks.unmixing.SpectralUnmixing
   entry_points:
     - scistudio.blocks
     - scistudio.types
     - scistudio.previewers
   files:
+    - docs/specs/spectroscopy-package.md
     - packages/scistudio-blocks-spectroscopy/**
+  excludes: []
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
   excludes: []
 tests:
   - packages/scistudio-blocks-spectroscopy/tests/test_types.py
