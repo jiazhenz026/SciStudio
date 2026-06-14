@@ -1,5 +1,5 @@
 {
-  "branch": "claudecode/spectroscopy-package",
+  "branch": "claudecode/spectro/te-e2e",
   "check_events": [
     {
       "at": "2026-06-14T08:54:07.861400Z",
@@ -837,6 +837,14 @@
       "class": null,
       "kind": "path",
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_prev_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:45:45.905157Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/e2e/test_e2e_preprocessing.py",
       "rationale": null,
       "verified_in_diff": null
     }
