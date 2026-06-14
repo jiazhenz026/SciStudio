@@ -8,7 +8,7 @@
 - Issue: #1664
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1664
 - Owner request: Implement ADR-049 package validator runtime from PR #1662.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1665 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-049-package-validator-implementation
 - Audit branch: audit/1664-pv-with-context

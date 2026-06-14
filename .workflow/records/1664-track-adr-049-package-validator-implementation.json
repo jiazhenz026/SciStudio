@@ -201,13 +201,43 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:39:53.205326Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a0f468e94d5d239f20e291ddabf1686631e62895dec0d33a3ed6f16d851cd6ce",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:40:14.084729Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a0f468e94d5d239f20e291ddabf1686631e62895dec0d33a3ed6f16d851cd6ce",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "8973688efa72223cf71f803ae93cf75c0128ee45",
+    "sha": "fa0c75db62163e121023103bad12d3d1d6a4a6c7",
     "shas": [
-      "8973688efa72223cf71f803ae93cf75c0128ee45"
+      "fa0c75db62163e121023103bad12d3d1d6a4a6c7"
     ],
     "trailers": []
   },
@@ -632,6 +662,208 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.322571Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.381312Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.439759Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.491847Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.547924Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.621230Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.674491Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.729583Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.782753Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:53.839621Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.260988Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.320547Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.386848Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.442872Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.501373Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.562088Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.619470Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.679212Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.736811Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:40:14.798490Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.627510Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.690780Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.749955Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.822536Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.875187Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.928926Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:21.981628Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:22.034536Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:22.089918Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:41:22.151918Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -644,29 +876,46 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/design/package-validator-contract-survey",
-    "base_sha": "578a9d8b",
+    "base": "25c0176e2584d5bf8bc8ca48c95ca9145702c1c1",
+    "base_sha": "25c0176e",
     "changed_files": [
       ".workflow/records/1664-track-adr-049-package-validator-implementation.json",
+      ".workflow/records/design-package-validator-contract-survey-design-package-validator-contract-survey.json",
+      "docs/adr/ADR-049.md",
+      "docs/planning/adr-049-package-validator-checklist.md",
       "docs/planning/adr-049-package-validator-implementation-checklist.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-a1-with-context-audit.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-c1-cli-docs-evidence.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
-      "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md",
+      "docs/planning/adr-049-package-validator/contracts/contract-table.schema.json",
+      "docs/planning/adr-049-package-validator/contracts/pv-a1-sections-01-03.json",
+      "docs/planning/adr-049-package-validator/contracts/pv-a2-sections-04-06.json",
+      "docs/planning/adr-049-package-validator/contracts/pv-a3-sections-07-09.json",
+      "docs/planning/adr-049-package-validator/contracts/pv-a4-sections-10-12.json",
+      "docs/planning/adr-049-package-validator/contracts/pv-a5-section-13-omissions.json",
+      "docs/planning/adr-049-package-validator/prompts/pv-a1-sections-01-03.md",
+      "docs/planning/adr-049-package-validator/prompts/pv-a2-sections-04-06.md",
+      "docs/planning/adr-049-package-validator/prompts/pv-a3-sections-07-09.md",
+      "docs/planning/adr-049-package-validator/prompts/pv-a4-sections-10-12.md",
+      "docs/planning/adr-049-package-validator/prompts/pv-a5-section-13-omissions.md",
+      "docs/planning/package-validator-contract-survey-draft.md",
+      "docs/specs/adr-049-package-validator-implementation.md",
+      "scripts/audit/check_package_contract_tables.py"
     ],
-    "diff_fingerprint": "sha256:0dedbc29e6ff05083354b998c761442aa3b768bb8ece8592986a0303de625343",
+    "diff_fingerprint": "sha256:5b756392dce3b1eb48d72ab797061743116a35e7781c2abcd968694d1a2974d6",
     "head": "HEAD",
-    "head_sha": "8973688e",
+    "head_sha": "fa0c75db",
     "surfaces": {
-      "docs": 6,
+      "docs": 21,
       "frontend": 0,
-      "governance": 0,
+      "governance": 1,
       "governed_docs": 0,
       "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
+      "sentrux": 2,
       "test": 0,
       "workflow_ci": 0
     }
@@ -678,7 +927,7 @@
     "closes": [
       1664
     ],
-    "number": null,
+    "number": 1665,
     "url": null
   },
   "reconcile_events": [
@@ -733,16 +982,40 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T08:39:53.839675Z",
+      "diff_fingerprint": "sha256:5cf2cea63453de2a1e6ef95eb140a991cc5c5f277884bd08eec6aba8efe2fa1b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T08:40:14.798539Z",
+      "diff_fingerprint": "sha256:5cf2cea63453de2a1e6ef95eb140a991cc5c5f277884bd08eec6aba8efe2fa1b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T08:41:22.151978Z",
+      "diff_fingerprint": "sha256:5b756392dce3b1eb48d72ab797061743116a35e7781c2abcd968694d1a2974d6",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1664-track-adr-049-package-validator-implementation",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
+    "checks": [],
+    "docs": [
+      "docs_required_or_na"
     ],
-    "docs": [],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -786,7 +1059,7 @@
     }
   ],
   "session_id": "7db9fd2b-7db4-4b3f-a802-10f13adb7814",
-  "strictness_tier": 3,
+  "strictness_tier": 1,
   "task_kind": "manager",
   "test_events": [
     {

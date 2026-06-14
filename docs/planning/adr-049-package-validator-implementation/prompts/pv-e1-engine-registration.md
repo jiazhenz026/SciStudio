@@ -8,7 +8,7 @@
 - Persona: implementer
 - Issue: #1664
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1664
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1665 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-049-package-validator-implementation
 - Agent branch: feat/1664-pv-engine-registration
