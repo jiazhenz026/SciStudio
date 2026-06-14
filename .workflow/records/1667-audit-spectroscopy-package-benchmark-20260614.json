@@ -75,13 +75,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:58:09.562341Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "86b539c9c4a3d30e7157150e69678b3856b855f8",
+    "sha": "7a6e717fd5c33bda816ef2536eca96a8a055d308",
     "shas": [
-      "86b539c9c4a3d30e7157150e69678b3856b855f8"
+      "7a6e717fd5c33bda816ef2536eca96a8a055d308"
     ],
     "trailers": []
   },
@@ -565,6 +580,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.675750Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.725427Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.775188Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.825622Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.881616Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.938356Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:09.988563Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:10.040313Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:10.096472Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:58:10.154472Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -587,9 +662,9 @@
       "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
       "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md"
     ],
-    "diff_fingerprint": "sha256:326f13c7d4814920431cf4a746bc3b9c406efb2d7506ecd2597473fec8763009",
+    "diff_fingerprint": "sha256:38c1631f7d0645e13de5352f9a4a94f773e2d552b6165d34061270a30388af54",
     "head": "HEAD",
-    "head_sha": "86b539c9",
+    "head_sha": "7a6e717f",
     "surfaces": {
       "docs": 5,
       "frontend": 0,
@@ -649,6 +724,14 @@
     {
       "at": "2026-06-14T20:57:10.074026Z",
       "diff_fingerprint": "sha256:326f13c7d4814920431cf4a746bc3b9c406efb2d7506ecd2597473fec8763009",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:58:10.154510Z",
+      "diff_fingerprint": "sha256:38c1631f7d0645e13de5352f9a4a94f773e2d552b6165d34061270a30388af54",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
