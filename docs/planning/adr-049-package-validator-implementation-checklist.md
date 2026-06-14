@@ -104,9 +104,9 @@ language_source: en
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | `pending` |
-| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | `pending` |
-| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | `pending` |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[x]` | commit `dc5b795d` hook passed |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[x]` | commit `dc5b795d` hook passed |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-push --base origin/design/package-validator-contract-survey --head HEAD` | `N/A` | `[x]` | `mode=pre-push tier=1 reconciliation passed` |
 | Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-pr --base origin/design/package-validator-contract-survey --head HEAD --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[x]` | `Tier 1 reconciliation passed after full python_tests and semantic_dup recovery` |
 
 ## 5.1 Docs Impact Check
@@ -297,9 +297,9 @@ For `test_engineer` rows, production code is out of scope by default.
 | Existing package sweep rerun | package validator API over core, imaging, SRS, LCMS after semantic-dup refactor | `[x]` | all four packages `status=pass`, `registration_decision=accept`, zero findings |
 | E2E | `docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md` | `[x]` | feature-sweep PASS |
 | Semantic duplication ratchet | `python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json` | `[x]` | `clusters=99`, `duplicate_loc=5680`, within ratchet |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/design/package-validator-contract-survey --head HEAD` | `[ ]` | `pending` |
+| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-push --base origin/design/package-validator-contract-survey --head HEAD` | `[x]` | `mode=pre-push tier=1 reconciliation passed` |
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --record .workflow/records/1664-track-adr-049-package-validator-implementation.json --mode pre-pr --base origin/design/package-validator-contract-survey --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[x]` | `mode=pre-pr tier=1 reconciliation passed` |
-| Gate finalize (post-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr 1665 --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `pending final commit SHA` |
+| Gate finalize (post-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit dc5b795d --pr 1665 --pr-body-file .workflow/local/pr-body.md` | `[x]` | `finalize mode=post-PR tier=1; post-PR reconciliation passed` |
 | Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --base design/package-validator-contract-survey --title "<title>" --body-file .workflow/local/pr-body.md` | `[x]` | N/A for final update; PR #1665 already exists and post-PR finalize is the required gate step |
 
 ## 11. Drift Log
@@ -320,7 +320,7 @@ Append only.
 
 - [x] All dispatched agents have final outputs.
 - [x] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
 - [x] PR closes every issue fixed by the dispatch.
 - [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] Checklist final state matches PR and gate record.
