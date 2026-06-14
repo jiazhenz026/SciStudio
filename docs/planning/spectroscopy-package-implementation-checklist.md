@@ -3,7 +3,7 @@
 Issue: #1660
 Branch: `codex/spectroscopy-package-20260614`
 Protected base: `main`
-Umbrella PR: #1663 (`[DO NOT MERGE] [codex] Implement spectroscopy package`)
+Umbrella PR: #1663 (`[READY FOR REVIEW] [codex] Implement spectroscopy package`)
 Gate record: `.workflow/records/1660-codex-spectroscopy-package-20260614.json`
 
 This checklist is the manager-facing coordination artifact for the codex
@@ -150,6 +150,6 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 - [x] Gate record `check --mode pre-pr` passes.
 - [x] Gate record `finalize` records PR #1663.
 - [x] Umbrella PR closes #1660.
-- [ ] CI passes before the work is considered complete.
-- [ ] After implementation, test design, gate checks, and CI complete, retitle
+- [x] CI passes before the work is considered complete.
+- [x] After implementation, test design, gate checks, and CI complete, retitle
   PR #1663 from `[DO NOT MERGE]` to `[READY FOR REVIEW]`.
