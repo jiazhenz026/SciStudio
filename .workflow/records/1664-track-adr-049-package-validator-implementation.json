@@ -186,10 +186,31 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:39:04.489728Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a0f468e94d5d239f20e291ddabf1686631e62895dec0d33a3ed6f16d851cd6ce",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "8973688efa72223cf71f803ae93cf75c0128ee45",
+    "shas": [
+      "8973688efa72223cf71f803ae93cf75c0128ee45"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [
       "docs/ai-developer/**"
@@ -551,6 +572,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.601250Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.661158Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.713573Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.765755Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.819199Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.871279Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.923123Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:04.976568Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:05.029627Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:39:05.086216Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -565,12 +646,20 @@
   "observed_diff": {
     "base": "origin/design/package-validator-contract-survey",
     "base_sha": "578a9d8b",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1664-track-adr-049-package-validator-implementation.json",
+      "docs/planning/adr-049-package-validator-implementation-checklist.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-a1-with-context-audit.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-c1-cli-docs-evidence.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
+    ],
+    "diff_fingerprint": "sha256:0dedbc29e6ff05083354b998c761442aa3b768bb8ece8592986a0303de625343",
     "head": "HEAD",
-    "head_sha": "578a9d8b",
+    "head_sha": "8973688e",
     "surfaces": {
-      "docs": 0,
+      "docs": 6,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -584,7 +673,14 @@
   },
   "owner_directive": "Implement ADR-049 package validator runtime from PR #1662 with manager-dispatched agents; deliver one umbrella PR with e2e and all-package validation evidence.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1664
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-14T08:19:14.924803Z",
@@ -625,6 +721,14 @@
     {
       "at": "2026-06-14T08:37:37.103682Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T08:39:05.086269Z",
+      "diff_fingerprint": "sha256:0dedbc29e6ff05083354b998c761442aa3b768bb8ece8592986a0303de625343",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
