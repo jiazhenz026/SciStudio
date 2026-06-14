@@ -112,6 +112,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### Contract Test Engineer
 
+- [x] Dispatched to Maxwell (`019ec556-caf5-7cc3-9c21-4d13d662087a`).
 - [ ] Assert public exports, exact block list, and no unstated public blocks.
 - [ ] Assert type metadata, required dataset slots, and required columns.
 - [ ] Assert IO format capability matrix, including load-only vendor formats.
@@ -123,6 +124,7 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ### E2E Test Engineer
 
+- [x] Dispatched to Zeno (`019ec557-17d2-75f0-8e15-7081f29255d6`).
 - [ ] Generate deterministic pseudo-spectrum fixtures.
 - [ ] For each of the 26 public blocks, build a load-block-save workflow test.
 - [ ] For every workflow, assert saved output data and metadata match expected
