@@ -194,7 +194,9 @@ export function NewPlotDialog({
               value={targetId}
             >
               {loading ? <option value="">Loading...</option> : null}
-              {!loading && orderedTargets.length === 0 ? <option value="">No outputs</option> : null}
+              {!loading && orderedTargets.length === 0 ? (
+                <option value="">No outputs</option>
+              ) : null}
               {orderedTargets.map((target) => (
                 <option key={target.target_id} value={target.target_id}>
                   {describePlotTarget(target)}

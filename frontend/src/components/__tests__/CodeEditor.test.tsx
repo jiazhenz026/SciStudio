@@ -338,10 +338,7 @@ describe("CodeEditor", () => {
       />,
     );
     await waitFor(() => expect(editorState.lastProps).not.toBeNull());
-    expect(editorState.completionProviders.map((entry) => entry.language)).toEqual([
-      "python",
-      "r",
-    ]);
+    expect(editorState.completionProviders.map((entry) => entry.language)).toEqual(["python", "r"]);
 
     const pythonProvider = editorState.completionProviders.find(
       (entry) => entry.language === "python",
@@ -359,8 +356,9 @@ describe("CodeEditor", () => {
       expect.arrayContaining(["to_dataframe", "items", "plt", "save_figure", "save_plot"]),
     );
 
-    const rProvider = editorState.completionProviders.find((entry) => entry.language === "r")
-      ?.provider;
+    const rProvider = editorState.completionProviders.find(
+      (entry) => entry.language === "r",
+    )?.provider;
     const rResult = rProvider?.provideCompletionItems(
       {
         uri: { path: "/plots/qc/render.R" },

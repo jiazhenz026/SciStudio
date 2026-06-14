@@ -220,10 +220,7 @@ interface FileActionDeps {
   openFileTab: ProjectActionsDeps["openFileTab"];
 }
 
-function useFileActions({
-  currentProject,
-  openFileTab,
-}: FileActionDeps) {
+function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
   /** ADR-036 §3.7 / §3.12 (I36c) — "New custom block". */
   const createNewCustomBlock = useCallback(async () => {
     if (!currentProject) return;
@@ -307,14 +304,8 @@ function useFileActions({
 }
 
 export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
-  const {
-    currentProject,
-    openTab,
-    openFileTab,
-    resetExecution,
-    setCurrentProject,
-    setLastError,
-  } = deps;
+  const { currentProject, openTab, openFileTab, resetExecution, setCurrentProject, setLastError } =
+    deps;
 
   const { loadWorkflowForProject, loadWorkflowById } = useWorkflowLoaders({
     openTab,
