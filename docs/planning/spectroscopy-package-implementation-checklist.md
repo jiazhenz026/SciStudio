@@ -135,3 +135,5 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 - [ ] Gate record `finalize` records the PR URL.
 - [ ] Umbrella PR closes #1660.
 - [ ] CI passes before the work is considered complete.
+- [ ] After implementation, test design, gate checks, and CI complete, retitle
+  PR #1663 from `[DO NOT MERGE]` to `[READY FOR REVIEW]`.
