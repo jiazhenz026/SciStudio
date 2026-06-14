@@ -41,8 +41,11 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+from collections.abc import Callable, Iterable
+from typing import cast
 
 import pytest
+from fastapi import FastAPI
 
 # ---------------------------------------------------------------------------
 # 1. Runtime module import contract.
@@ -112,14 +115,60 @@ _REQUIRED_AI_ROUTES = {
     "/api/ai/status",
 }
 
+_API_ROUTE_MODULES = (
+    "scistudio.api.routes.workflows",
+    "scistudio.api.routes.blocks",
+    "scistudio.api.routes.data",
+    "scistudio.api.routes.plots",
+    "scistudio.api.routes.filesystem",
+    "scistudio.api.routes.projects",
+    "scistudio.api.routes.ai",
+    "scistudio.api.routes.ai_pty",
+    "scistudio.api.routes.lint",
+    "scistudio.api.routes.runs",
+    "scistudio.api.routes.git",
+)
+
+
+def _fresh_create_app() -> Callable[[], FastAPI]:
+    """Return a create_app function backed by freshly loaded API routers."""
+    routes_package = importlib.import_module("scistudio.api.routes")
+    for module_path in _API_ROUTE_MODULES:
+        module = importlib.reload(importlib.import_module(module_path))
+        setattr(routes_package, module_path.rsplit(".", 1)[-1], module)
+
+    app_module = importlib.reload(importlib.import_module("scistudio.api.app"))
+    return cast(Callable[[], FastAPI], app_module.create_app)
+
+
+def _has_contract_field(spec: object, field_name: str) -> bool:
+    if hasattr(spec, field_name):
+        return True
+    return isinstance(spec, dict) and field_name in spec
+
+
+def _route_paths(routes: Iterable[object]) -> set[str]:
+    """Collect route paths across eager and lazy FastAPI router inclusion."""
+    paths: set[str] = set()
+    for route in routes:
+        path = getattr(route, "path", None)
+        if isinstance(path, str):
+            paths.add(path)
+
+        original_router = getattr(route, "original_router", None)
+        nested_routes = getattr(original_router, "routes", None)
+        if nested_routes is not None:
+            paths.update(_route_paths(cast(Iterable[object], nested_routes)))
+
+    return paths
+
 
 @pytest.fixture(scope="module")
 def app_routes() -> set[str]:
     """Collect all registered route paths from the FastAPI app."""
-    from scistudio.api.app import create_app
-
+    create_app = _fresh_create_app()
     app = create_app()
-    return {r.path for r in app.routes if hasattr(r, "path")}
+    return _route_paths(cast(Iterable[object], app.routes))
 
 
 def test_api_workflow_routes_are_registered(app_routes: set[str]) -> None:
@@ -258,12 +307,10 @@ def test_block_spec_has_required_contract_fields() -> None:
     reg.scan()
     for type_name, spec in reg.all_specs().items():
         # spec must have a type_name that matches the key.
-        assert hasattr(spec, "type_name") or "type_name" in spec, f"Block spec for {type_name!r} has no type_name"
+        assert _has_contract_field(spec, "type_name"), f"Block spec for {type_name!r} has no type_name"
         # spec must have input_ports and output_ports accessible.
-        assert hasattr(spec, "input_ports") or "input_ports" in spec, f"Block spec for {type_name!r} has no input_ports"
-        assert hasattr(spec, "output_ports") or "output_ports" in spec, (
-            f"Block spec for {type_name!r} has no output_ports"
-        )
+        assert _has_contract_field(spec, "input_ports"), f"Block spec for {type_name!r} has no input_ports"
+        assert _has_contract_field(spec, "output_ports"), f"Block spec for {type_name!r} has no output_ports"
 
 
 # ---------------------------------------------------------------------------

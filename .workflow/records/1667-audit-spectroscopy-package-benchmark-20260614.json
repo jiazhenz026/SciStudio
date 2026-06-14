@@ -105,6 +105,100 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T21:33:19.339306Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T21:35:45.386382Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad8b78b282b13e9fbe1a7213ff57921d6c73ee5bc3d9d4eaff2f5dab006bac2d",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T21:35:54.502978Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad8b78b282b13e9fbe1a7213ff57921d6c73ee5bc3d9d4eaff2f5dab006bac2d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T21:35:54.537133Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad8b78b282b13e9fbe1a7213ff57921d6c73ee5bc3d9d4eaff2f5dab006bac2d",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T21:39:09.607300Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ad8b78b282b13e9fbe1a7213ff57921d6c73ee5bc3d9d4eaff2f5dab006bac2d",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T21:40:09.674263Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad8b78b282b13e9fbe1a7213ff57921d6c73ee5bc3d9d4eaff2f5dab006bac2d",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -775,6 +869,148 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.442210Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.496261Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.553758Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.609964Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.659691Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.710071Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.760202Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.817630Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.868676Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:33:19.923017Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:09.779401Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:09.828546Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:09.878566Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:09.929134Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:09.979185Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:10.032991Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:10.082080Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:10.131740Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:10.187775Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T21:40:10.241032Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -787,7 +1023,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "7c064210d04de73e6e0d5af6b4ccbb1765ce5a02",
+    "base": "origin/main",
     "base_sha": "7c064210",
     "changed_files": [
       ".workflow/records/1667-audit-spectroscopy-package-benchmark-20260614.json",
@@ -795,11 +1031,12 @@
       "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
       "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
       "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
-      "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md"
+      "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "tests/contracts/test_runtime_import_contract.py"
     ],
-    "diff_fingerprint": "sha256:8a70803264c56452a65b72c820b80e7bb955d01e17eb8f7002678296dad2720c",
+    "diff_fingerprint": "sha256:d8e9137e81d46f76ea7ff91e478fee4b9d32600c6f0c90ec7af509c8c8c30596",
     "head": "HEAD",
-    "head_sha": "609abbd2",
+    "head_sha": "bc21b04a",
     "surfaces": {
       "docs": 5,
       "frontend": 0,
@@ -808,8 +1045,8 @@
       "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 1,
+      "test": 1,
       "workflow_ci": 0
     }
   },
@@ -887,13 +1124,37 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T21:33:19.923064Z",
+      "diff_fingerprint": "sha256:12fe36d80f9f2c889b23f7b0854ae36dece013be5befe6bfd7ce5d54bf759fd9",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T21:40:10.241057Z",
+      "diff_fingerprint": "sha256:d8e9137e81d46f76ea7ff91e478fee4b9d32600c6f0c90ec7af509c8c8c30596",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "1667-audit-spectroscopy-package-benchmark-20260614",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format",
+      "python_tests",
+      "semantic_dup"
+    ],
     "docs": [],
     "guards": [
       "core_change_guard",
@@ -911,7 +1172,20 @@
   },
   "runtime": "codex:gpt-5",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-14T21:29:31.736054Z",
+      "pattern": "tests/contracts/test_runtime_import_contract.py",
+      "reason": "CI xdist repeatedly failed the route-registration contract from module-level router state outside the audit report diff; add a narrow test isolation fix so the benchmark report PR can satisfy required CI."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T21:41:39.251817Z",
+      "pattern": "tests/contracts/test_runtime_import_contract.py",
+      "reason": "Gate and GitHub CI use FastAPI 0.137 lazy included routers, where app.routes contains _IncludedRouter entries instead of flattened APIRoute paths; update the runtime route contract to collect nested router paths without weakening the contract."
+    }
+  ],
   "session_id": "7a066021-28bc-46f7-bce2-4ffb98be26a7",
   "strictness_tier": 3,
   "task_kind": "docs",
@@ -946,6 +1220,22 @@
       "kind": "na",
       "path": null,
       "rationale": "docs-only benchmark reports; no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T21:29:31.736075Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T21:41:39.251843Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]
