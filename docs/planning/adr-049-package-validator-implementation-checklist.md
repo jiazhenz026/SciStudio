@@ -122,8 +122,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| PV-F1 | `implementer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md` | Models, contract loader, inventory builder | `feat/1664-pv-foundation` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-foundation` | `src/scistudio/packages/validation/{__init__.py,models.py,contracts.py,inventory.py}`, focused tests/fixtures | Engine, registration, CLI docs, core registry edits | #1664 / #1665 | `[ ]` |
-| PV-T1 | `test_engineer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md` | Fixture packages and report/contract test matrix | `feat/1664-pv-fixtures-tests` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-fixtures-tests` | `tests/packages/**` only | Production code, docs except checklist rows | #1664 / #1665 | `[ ]` |
+| PV-F1 | `implementer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md` | Models, contract loader, inventory builder | `feat/1664-pv-foundation` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-foundation` | `src/scistudio/packages/validation/{__init__.py,models.py,contracts.py,inventory.py}`, focused tests/fixtures | Engine, registration, CLI docs, core registry edits | #1664 / #1665 | `[~]` |
+| PV-T1 | `test_engineer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md` | Fixture packages and report/contract test matrix | `feat/1664-pv-fixtures-tests` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-fixtures-tests` | `tests/packages/**` only | Production code, docs except checklist rows | #1664 / #1665 | `[~]` |
 | PV-E1 | `implementer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md` | Validation engine, dry-run registries, production handoff | `feat/1664-pv-engine-registration` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-engine` | `src/scistudio/packages/validation/{engine.py,registration.py}`, production tests | CLI docs, e2e, broad registry refactor | #1664 / #1665 | `[ ]` |
 | PV-C1 | `implementer` | `N/A` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-c1-cli-docs-evidence.md` | CLI, author docs, changelog, e2e scenario, all-package scan evidence | `feat/1664-pv-cli-docs-evidence` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-cli-docs` | `src/scistudio/cli/package_validator.py`, `src/scistudio/cli/main.py`, `pyproject.toml`, docs/evidence files | Engine internals, registry internals | #1664 / #1665 | `[ ]` |
 | PV-A1 | `audit_reviewer` | `with-context` | `docs/planning/adr-049-package-validator-implementation/prompts/pv-a1-with-context-audit.md` | Audit integrated implementation against #1664, ADR-049, spec, tests, and package scan evidence | `audit/1664-pv-with-context` | `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-audit` | `docs/audit/2026-06-14-adr-049-package-validator-with-context.md`, checklist audit rows | Implementation code changes | #1664 / #1665 | `[ ]` |
@@ -151,12 +151,12 @@ For `test_engineer` rows, production code is out of scope by default.
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded -> `docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md`
+- [x] Correct prompt template selected -> `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+- [x] Agent branch/worktree assigned -> `feat/1664-pv-foundation`, `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-foundation`
+- [x] Write set and out-of-scope paths included in prompt -> prompt file
+- [x] TODO rule included in prompt -> prompt file
+- [x] Required checks included in prompt -> prompt file
 
 ### 7.3 Implementation
 
@@ -205,12 +205,12 @@ For `test_engineer` rows, production code is out of scope by default.
 
 ### 8.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded -> `docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md`
+- [x] Correct prompt template selected -> `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+- [x] Agent branch/worktree assigned -> `feat/1664-pv-fixtures-tests`, `C:\Users\jiazh\Desktop\workspace\sci-wt\package-validator-fixtures-tests`
+- [x] Write set and out-of-scope paths included in prompt -> prompt file
+- [x] TODO rule included in prompt -> prompt file
+- [x] Required checks included in prompt -> prompt file
 
 ### 8.3 Implementation
 
