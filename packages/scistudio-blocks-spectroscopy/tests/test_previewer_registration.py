@@ -13,7 +13,23 @@ from scistudio_blocks_spectroscopy.previewers import (
     get_previewers,
 )
 
-from scistudio.previewers.models import OwnerKind
+from scistudio.previewers.models import (
+    OwnerKind,
+    PreviewTarget,
+    TargetKind,
+)
+from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.previewers.router import PreviewRouter
+
+_SPECTRUM_CHAIN = ("DataObject", "Series", "Spectrum")
+_DATASET_CHAIN = ("DataObject", "CompositeData", "SpectralDataset")
+
+
+def _router() -> PreviewRouter:
+    registry = PreviewerRegistry()
+    for spec in get_previewers():
+        assert registry.register(spec)
+    return PreviewRouter(registry)
 
 
 def test_get_previewers_returns_two_specs() -> None:
@@ -47,3 +63,41 @@ def test_top_level_reexports_get_previewers() -> None:
         SPECTRUM_PREVIEWER_ID,
         SPECTRAL_DATASET_PREVIEWER_ID,
     }
+
+
+def test_exact_spectrum_ref_routes_to_spectrum_previewer() -> None:
+    """SC-004: an exact ``Spectrum`` ref routes to the spectrum previewer."""
+    target = PreviewTarget(
+        kind=TargetKind.DATA_REF,
+        ref="r",
+        recorded_type="Spectrum",
+        type_chain=_SPECTRUM_CHAIN,
+    )
+    spec = _router().resolve(target)
+    assert spec.previewer_id == SPECTRUM_PREVIEWER_ID
+    assert spec.target_type == "Spectrum"
+
+
+def test_exact_dataset_ref_routes_to_dataset_previewer() -> None:
+    """SC-004: an exact ``SpectralDataset`` ref routes to the dataset previewer."""
+    target = PreviewTarget(
+        kind=TargetKind.DATA_REF,
+        ref="r",
+        recorded_type="SpectralDataset",
+        type_chain=_DATASET_CHAIN,
+    )
+    spec = _router().resolve(target)
+    assert spec.previewer_id == SPECTRAL_DATASET_PREVIEWER_ID
+    assert spec.target_type == "SpectralDataset"
+
+
+def test_routing_does_not_cross_wire_the_two_previewers() -> None:
+    """SC-004: each previewer only routes for its own exact type."""
+    router = _router()
+    spectrum_target = PreviewTarget(
+        kind=TargetKind.DATA_REF, ref="r", recorded_type="Spectrum", type_chain=_SPECTRUM_CHAIN
+    )
+    dataset_target = PreviewTarget(
+        kind=TargetKind.DATA_REF, ref="r", recorded_type="SpectralDataset", type_chain=_DATASET_CHAIN
+    )
+    assert router.resolve(spectrum_target).previewer_id != router.resolve(dataset_target).previewer_id
