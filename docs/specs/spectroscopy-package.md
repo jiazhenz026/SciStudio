@@ -36,13 +36,6 @@ scope:
     - "A separate SpectralLibrary type; spectral libraries are represented as SpectralDataset instances."
     - "Implementation, package skeleton, PR sequencing, or release planning beyond the planned affected surfaces listed here."
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
-  files:
-    - docs/specs/spectroscopy-package.md
-  excludes: []
-planned_governs:
   modules:
     - scistudio_blocks_spectroscopy
   contracts:
@@ -84,7 +77,14 @@ planned_governs:
     - scistudio.types
     - scistudio.previewers
   files:
+    - docs/specs/spectroscopy-package.md
     - packages/scistudio-blocks-spectroscopy/**
+  excludes: []
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
   excludes: []
 tests:
   - packages/scistudio-blocks-spectroscopy/tests/test_types.py

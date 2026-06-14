@@ -1,0 +1,109 @@
+{
+  "branch": "claudecode/spectro/skeleton",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "packages/scistudio-blocks-spectroscopy/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-14T08:34:56.349826Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/spectroscopy-package.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:37:24.843223Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Skeleton implements the already-merged spectroscopy-package spec verbatim; no new contracts/behavior beyond the spec, so no additional docs change is required for this commit. Generated docs regenerate and #1661 closes at PR time.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1661,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build the complete importable skeleton of scistudio-blocks-spectroscopy: 26 block declarations (full real ports/config/ADR-043 capabilities), 2 data types, functional previewers, wiring, and tests scaffold; every block body raises NotImplementedError per spec FRs.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1661-spectroscopy-package",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-4-8",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-14T08:34:56.349796Z",
+      "pattern": "packages/scistudio-blocks-spectroscopy/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T08:39:38.365313Z",
+      "pattern": "docs/specs/spectroscopy-package.md",
+      "reason": "Landing the package resolves its planned governance: migrate the spec frontmatter governs/planned_governs (files glob, modules, contracts, entry_points) from planned to governs, as required by full_audit doc_drift/closure (rule *.planned-file-is-resolved). Spec file added to gate scope for this migration only."
+    }
+  ],
+  "session_id": "750afd63-ea40-4ad3-b449-a61254beba12",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-14T08:34:56.349834Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_packaging.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:34:56.349839Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_types.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:34:56.349842Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:34:56.349843Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_previewer_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
