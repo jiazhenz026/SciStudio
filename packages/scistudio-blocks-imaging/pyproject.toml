@@ -70,9 +70,6 @@ artifacts = [
     "src/scistudio_blocks_imaging/previewers/assets/*.svg",
 ]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/scistudio_blocks_imaging/previewers/assets" = "scistudio_blocks_imaging/previewers/assets"
-
 [tool.pytest.ini_options]
 markers = [
     "requires_cellpose: needs the [cellpose] extra",

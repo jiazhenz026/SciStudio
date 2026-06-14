@@ -220,7 +220,10 @@ def get_preview_service(self: ApiRuntime) -> PreviewService:
     service = getattr(self, "_preview_service", None)
     if service is None:
         project_dir = Path(self.active_project.path) if self.active_project else None
-        service = build_preview_service(project_dir=project_dir)
+        service = build_preview_service(
+            project_dir=project_dir,
+            child_context_resolver=self.resolve_child_preview_context,
+        )
         self._preview_service = service  # type: ignore[attr-defined]
     return service
 
@@ -228,7 +231,10 @@ def get_preview_service(self: ApiRuntime) -> PreviewService:
 def refresh_preview_service(self: ApiRuntime) -> PreviewService:
     """Rebuild the runtime preview service for the active project (FR-002)."""
     project_dir = Path(self.active_project.path) if self.active_project else None
-    service = build_preview_service(project_dir=project_dir)
+    service = build_preview_service(
+        project_dir=project_dir,
+        child_context_resolver=self.resolve_child_preview_context,
+    )
     self._preview_service = service  # type: ignore[attr-defined]
     return service
 
@@ -318,3 +324,22 @@ def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTa
         return target
     resolved_cls = self._resolve_record_class(record)
     return self._build_preview_target(record, resolved_cls)
+
+
+def resolve_child_preview_context(
+    self: ApiRuntime,
+    target: PreviewTarget,
+    query: dict[str, Any],
+) -> tuple[PreviewTarget, dict[str, Any]]:
+    """Apply runtime catalog truth to a child preview target.
+
+    Collection/composite resources are resolved inside PreviewSessionManager,
+    below the FastAPI route that normally calls resolve_session_target() and
+    enrich_preview_query(). Reapply the same catalog-backed normalization here
+    so child data_refs keep their recorded type chain and storage descriptor.
+    """
+    resolved_target = self.resolve_session_target(target)
+    child_query = dict(query)
+    child_query.pop("_storage", None)
+    child_query.pop("_record_metadata", None)
+    return resolved_target, self.enrich_preview_query(resolved_target.ref, child_query)

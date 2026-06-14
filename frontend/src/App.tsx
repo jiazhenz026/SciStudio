@@ -43,6 +43,7 @@ import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionAct
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { ProjectDialog } from "./components/ProjectDialog";
+import { NewPlotDialog } from "./components/NewPlotDialog";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -114,6 +115,7 @@ export default function App() {
   const toggleMinimap = useAppStore((state) => state.toggleMinimap);
   const setPanelSize = useAppStore((state) => state.setPanelSize);
   const setLastError = useAppStore((state) => state.setLastError);
+  const bumpProjectTreeRefresh = useAppStore((state) => state.bumpProjectTreeRefresh);
 
   const blocks = useAppStore((state) => state.blocks);
   const blockSchemas = useAppStore((state) => state.blockSchemas);
@@ -143,6 +145,7 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
+  const [newPlotDialogOpen, setNewPlotDialogOpen] = useState(false);
 
   // Bottom-panel imperative controls + cross-component callbacks.
   const {
@@ -354,6 +357,13 @@ export default function App() {
                   }
                 : undefined
             }
+            onNewPlot={
+              currentProject
+                ? () => {
+                    setNewPlotDialogOpen(true);
+                  }
+                : undefined
+            }
             onViewSource={currentProject && workflowId ? handleViewSource : undefined}
             onSave={handleSave}
             onSaveAs={() => void saveWorkflowAs()}
@@ -458,6 +468,19 @@ export default function App() {
             open={projectDialogOpen}
             path={projectDialog.path}
             recentProjects={recentProjects}
+          />
+
+          <NewPlotDialog
+            onClose={() => setNewPlotDialogOpen(false)}
+            onCreated={(created) => {
+              bumpProjectTreeRefresh();
+              openFileTab(created.script_path);
+              setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
+            }}
+            open={Boolean(currentProject && newPlotDialogOpen)}
+            saveWorkflow={saveWorkflow}
+            selectedNodeId={selectedNodeId}
+            workflowId={workflowId}
           />
 
           {/* #591/#594: Interactive block modals. */}

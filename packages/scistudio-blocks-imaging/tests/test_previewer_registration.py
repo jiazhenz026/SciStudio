@@ -179,6 +179,16 @@ def test_pyproject_declares_installed_previewer_entry_point() -> None:
     }
 
 
+def test_pyproject_declares_single_viewer_asset_inclusion_path() -> None:
+    """Wheel builds must include viewer assets once so package reinstall works."""
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    wheel = data["tool"]["hatch"]["build"]["targets"]["wheel"]
+
+    assert "src/scistudio_blocks_imaging/previewers/assets/*.js" in wheel["artifacts"]
+    assert "force-include" not in wheel
+
+
 def test_installed_entry_point_registers_imaging_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
     """The registry discovers imaging previewers from entry points without monorepo fallback."""
     entry_point = importlib.metadata.EntryPoint(

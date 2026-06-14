@@ -20,6 +20,26 @@ interface DefinedTheme {
   colors: Record<string, string>;
 }
 
+interface MockCompletionProvider {
+  triggerCharacters?: string[];
+  provideCompletionItems: (
+    model: {
+      uri?: { path?: string };
+      getLineContent?: (lineNumber: number) => string;
+      getWordUntilPosition?: (position: { lineNumber: number; column: number }) => {
+        startColumn: number;
+        endColumn: number;
+      };
+    },
+    position: { lineNumber: number; column: number },
+  ) => { suggestions: Array<{ label: string; insertText: string }> };
+}
+
+interface RegisteredCompletionProvider {
+  language: string;
+  provider: MockCompletionProvider;
+}
+
 interface MockEditorState {
   lastProps: Record<string, unknown> | null;
   // The latest mounted-editor object passed to onMount.
@@ -31,6 +51,7 @@ interface MockEditorState {
   markersByOwner: Map<string, unknown[]>;
   // Themes registered via monaco.editor.defineTheme during beforeMount.
   definedThemes: Map<string, DefinedTheme>;
+  completionProviders: RegisteredCompletionProvider[];
 }
 
 const editorState: MockEditorState = {
@@ -40,6 +61,7 @@ const editorState: MockEditorState = {
   onChangeCb: null,
   markersByOwner: new Map(),
   definedThemes: new Map(),
+  completionProviders: [],
 };
 
 class FakeMonacoEditor {
@@ -64,6 +86,14 @@ class FakeMonacoEditor {
 class FakeMonacoNamespace {
   KeyMod = { CtrlCmd: 0x800 };
   KeyCode = { KeyS: 49 };
+  languages = {
+    CompletionItemKind: { Function: 1, Property: 10 },
+    CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+    registerCompletionItemProvider: (language: string, provider: MockCompletionProvider) => {
+      editorState.completionProviders.push({ language, provider });
+      return { dispose: vi.fn() };
+    },
+  };
   editor = {
     setModelMarkers: (_model: unknown, owner: string, markers: unknown[]) => {
       editorState.markersByOwner.set(owner, markers);
@@ -133,6 +163,7 @@ beforeEach(() => {
   editorState.onChangeCb = null;
   editorState.markersByOwner.clear();
   editorState.definedThemes.clear();
+  editorState.completionProviders = [];
   fetchSpy = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ diagnostics: [] }),
@@ -296,5 +327,58 @@ describe("CodeEditor", () => {
     expect(theme?.inherit).toBe(true);
     // Background MUST be the soft warm gray (#282c34), not pure vs-dark #1e1e1e.
     expect(theme?.colors["editor.background"]).toBe("#282c34");
+  });
+
+  it("registers SciStudio plot context completions for Python and R render files", async () => {
+    render(
+      <CodeEditor
+        tab={makeFileTab({ filePath: "plots/qc/render.py", content: "context." })}
+        onContentChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(editorState.lastProps).not.toBeNull());
+    expect(editorState.completionProviders.map((entry) => entry.language)).toEqual(["python", "r"]);
+
+    const pythonProvider = editorState.completionProviders.find(
+      (entry) => entry.language === "python",
+    )?.provider;
+    expect(pythonProvider).toBeDefined();
+    const pythonResult = pythonProvider?.provideCompletionItems(
+      {
+        uri: { path: "/plots/qc/render.py" },
+        getLineContent: () => "context.",
+        getWordUntilPosition: () => ({ startColumn: 9, endColumn: 9 }),
+      },
+      { lineNumber: 1, column: 9 },
+    );
+    expect(pythonResult?.suggestions.map((item) => item.label)).toEqual(
+      expect.arrayContaining(["to_dataframe", "items", "plt", "save_figure", "save_plot"]),
+    );
+
+    const rProvider = editorState.completionProviders.find(
+      (entry) => entry.language === "r",
+    )?.provider;
+    const rResult = rProvider?.provideCompletionItems(
+      {
+        uri: { path: "/plots/qc/render.R" },
+        getLineContent: () => "context$",
+        getWordUntilPosition: () => ({ startColumn: 9, endColumn: 9 }),
+      },
+      { lineNumber: 1, column: 9 },
+    );
+    expect(rResult?.suggestions.map((item) => item.label)).toEqual(
+      expect.arrayContaining(["to_dataframe", "save_plot", "save_figure"]),
+    );
+
+    const nonPlotResult = pythonProvider?.provideCompletionItems(
+      {
+        uri: { path: "/blocks/sample.py" },
+        getLineContent: () => "context.",
+        getWordUntilPosition: () => ({ startColumn: 9, endColumn: 9 }),
+      },
+      { lineNumber: 1, column: 9 },
+    );
+    expect(nonPlotResult?.suggestions).toEqual([]);
   });
 });

@@ -32,14 +32,23 @@ from __future__ import annotations
 import logging
 from functools import partial
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
-from scistudio.api.schemas import PlotListItem, PlotListResponse, PlotRunRequest, PlotRunResponse
+from scistudio.api.schemas import (
+    PlotCreateRequest,
+    PlotCreateResponse,
+    PlotListItem,
+    PlotListResponse,
+    PlotRunRequest,
+    PlotRunResponse,
+    PlotTargetItem,
+    PlotTargetListResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +107,83 @@ async def list_plots(
         )
     items.sort(key=lambda item: (item.title.lower() or item.plot_id.lower(), item.plot_id.lower()))
     return PlotListResponse(plots=items, count=len(items), warnings=warnings)
+
+
+@router.get("/targets", response_model=PlotTargetListResponse)
+async def list_plot_targets(
+    runtime: RuntimeDep,
+    workflow_id: Annotated[str | None, Query()] = None,
+    workflow_path: Annotated[str | None, Query()] = None,
+    node_id: Annotated[str | None, Query()] = None,
+    output_port: Annotated[str | None, Query()] = None,
+    include_unavailable: Annotated[bool, Query()] = True,
+) -> PlotTargetListResponse:
+    """List workflow output targets a new plot can bind to."""
+    from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
+
+    try:
+        runtime.require_active_project()
+        targets = discover_targets(workflow_path=workflow_path, include_unavailable=include_unavailable)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    items: list[PlotTargetItem] = []
+    for target in targets:
+        if workflow_id is not None and target.workflow_id != workflow_id:
+            continue
+        if node_id is not None and target.node_id != node_id:
+            continue
+        if output_port is not None and target.output_port != output_port:
+            continue
+        items.append(_target_item(target))
+    return PlotTargetListResponse(targets=items, count=len(items))
+
+
+@router.post("", response_model=PlotCreateResponse)
+async def create_plot(payload: PlotCreateRequest, runtime: RuntimeDep) -> PlotCreateResponse:
+    """Create ``plots/<id>/plot.yaml`` plus a render script from the plot template."""
+    from scistudio.ai.agent.mcp.tools_plot.scaffold import PlotScaffoldError, scaffold_plot_files
+    from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
+
+    try:
+        project = runtime.require_active_project()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    target = resolve_target_by_id(payload.target_id)
+    if target is None:
+        raise HTTPException(status_code=400, detail="Unknown plot target. Choose a block output from the target list.")
+
+    warnings: list[str] = []
+    if not target.latest_output_available:
+        warnings.append("The bound block output has no recorded data yet. Run the workflow before running this plot.")
+    try:
+        manifest_path, script_path, bytes_written = scaffold_plot_files(
+            Path(project.path).resolve(),
+            payload.plot_id,
+            target,
+            payload.language,
+            payload.title,
+            payload.overwrite,
+        )
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PlotScaffoldError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create plot files: {exc}") from exc
+
+    project_root = Path(project.path).resolve()
+    return PlotCreateResponse(
+        plot_id=payload.plot_id,
+        manifest_path=_project_relative(project_root, manifest_path),
+        script_path=_project_relative(project_root, script_path),
+        bytes_written=bytes_written,
+        warnings=warnings,
+        target=_target_item(target),
+    )
 
 
 @router.post("/run", response_model=PlotRunResponse)
@@ -192,3 +278,20 @@ def _project_relative(project_root: Path, path: Path) -> str:
         return path.resolve().relative_to(project_root).as_posix()
     except ValueError:
         return str(path)
+
+
+def _target_item(target: Any) -> PlotTargetItem:
+    return PlotTargetItem(
+        target_id=str(target.target_id),
+        workflow_path=str(target.workflow_path),
+        workflow_id=target.workflow_id,
+        node_id=str(target.node_id),
+        node_label=str(target.node_label or ""),
+        block_type=str(target.block_type),
+        output_port=str(target.output_port),
+        output_type=str(target.output_type or ""),
+        is_collection=bool(target.is_collection),
+        latest_run_id=target.latest_run_id,
+        latest_output_available=bool(target.latest_output_available),
+        diagnostics=list(target.diagnostics or []),
+    )

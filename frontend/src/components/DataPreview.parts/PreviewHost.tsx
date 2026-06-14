@@ -83,6 +83,16 @@ function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | und
   return undefined;
 }
 
+function manifestIdentityKey(manifest: PreviewerManifest | undefined): string | null {
+  if (!manifest) return null;
+  return [
+    manifest.previewer_id,
+    manifest.module_url,
+    manifest.export_name,
+    manifest.api_version ?? "",
+  ].join("|");
+}
+
 function cacheDataVersionFromEnvelope(envelope: PreviewEnvelope): string | number | null {
   const candidates = [
     envelope.metadata?.data_version,
@@ -172,18 +182,22 @@ export function PreviewHost({
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
     async (patch: Record<string, unknown>): Promise<PreviewEnvelope> => {
-      const current = envelope;
+      const current = childStack[childStack.length - 1] ?? envelope;
       if (!current?.session_id) {
         return current ?? Promise.reject(new Error("no session"));
       }
       queryRef.current = { ...queryRef.current, ...patch };
       const next = await api.patchPreviewSession(current.session_id, patch);
-      setEnvelope(next);
-      if (target)
+      if (current.session_id === envelope?.session_id) {
+        setEnvelope(next);
+      } else {
+        setChildStack((stack) => (stack.length > 0 ? [...stack.slice(0, -1), next] : stack));
+      }
+      if (target && current.session_id === envelope?.session_id)
         cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, queryRef.current, next);
       return next;
     },
-    [envelope, buildCacheKey, cacheEnvelope, target],
+    [childStack, envelope, buildCacheKey, cacheEnvelope, target],
   );
 
   // -- child routing (composite slot / collection item) --------------------
@@ -264,6 +278,17 @@ export function PreviewHost({
   // The envelope currently in focus (top of the drill-down stack, else root).
   const activeEnvelope = childStack[childStack.length - 1] ?? envelope;
   const manifest = useMemo(() => readManifest(activeEnvelope), [activeEnvelope]);
+  const manifestKey = useMemo(() => manifestIdentityKey(manifest), [manifest]);
+  const dynamicMountKey =
+    manifestKey && activeEnvelope
+      ? `${manifestKey}|${activeEnvelope.session_id ?? activeEnvelope.target.ref}`
+      : null;
+  const activeEnvelopeRef = useRef<PreviewEnvelope | null>(activeEnvelope);
+  const manifestRef = useRef<PreviewerManifest | undefined>(manifest);
+  const patchQueryRef = useRef(patchQuery);
+  activeEnvelopeRef.current = activeEnvelope;
+  manifestRef.current = manifest;
+  patchQueryRef.current = patchQuery;
 
   // -- dynamic previewer mount ---------------------------------------------
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -271,74 +296,96 @@ export function PreviewHost({
   const [dynamicFailed, setDynamicFailed] = useState(false);
 
   const hostApi: PreviewHostApi | null = useMemo(() => {
-    if (!activeEnvelope || !manifest) return null;
+    const initialEnvelope = activeEnvelopeRef.current;
+    if (!initialEnvelope || !dynamicMountKey) return null;
+    const currentEnvelope = () => activeEnvelopeRef.current ?? initialEnvelope;
     const provider: PreviewProviderIdentity = {
-      previewerId: activeEnvelope.previewer_id,
+      previewerId: initialEnvelope.previewer_id,
       capabilities: [],
-      source: activeEnvelope.target.source ?? null,
+      source: initialEnvelope.target.source ?? null,
     };
     return {
       apiVersion: PREVIEWER_HOST_API_VERSION,
-      previewSessionId: activeEnvelope.session_id,
-      envelope: activeEnvelope,
-      kind: activeEnvelope.kind,
-      provider,
+      get previewSessionId() {
+        return currentEnvelope().session_id;
+      },
+      get envelope() {
+        return currentEnvelope();
+      },
+      get kind() {
+        return currentEnvelope().kind;
+      },
+      get provider() {
+        const current = currentEnvelope();
+        return {
+          ...provider,
+          previewerId: current.previewer_id,
+          source: current.target.source ?? null,
+        };
+      },
       session: {
-        refresh: async () =>
-          activeEnvelope.session_id ? api.getPreviewSession(activeEnvelope.session_id) : null,
+        refresh: async () => {
+          const sessionId = currentEnvelope().session_id;
+          return sessionId ? api.getPreviewSession(sessionId) : null;
+        },
         patchQuery: async (q) => {
-          if (!activeEnvelope.session_id) return activeEnvelope;
-          if (activeEnvelope.session_id === envelope?.session_id) return patchQuery(q);
-          return api.patchPreviewSession(activeEnvelope.session_id, q);
+          const current = currentEnvelope();
+          if (!current.session_id) return current;
+          return patchQueryRef.current(q);
         },
         getResource: async (resourceId, params) => {
-          if (!activeEnvelope.session_id) return null;
-          const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+          const current = currentEnvelope();
+          if (!current.session_id) return null;
+          const resource = current.resources.find((r) => r.resource_id === resourceId);
           return (
             await fetchPreviewResource(
-              activeEnvelope.session_id,
+              current.session_id,
               resourceId,
               mergeResourceParams(resource, params),
             )
           ).data;
         },
-        resources: activeEnvelope.resources,
+        get resources() {
+          return currentEnvelope().resources;
+        },
       },
       assetUrl: (assetPath: string) =>
-        `/api/previews/assets/${encodeURIComponent(activeEnvelope.previewer_id)}/${assetPath.replace(/^\/+/, "")}`,
+        `/api/previews/assets/${encodeURIComponent(currentEnvelope().previewer_id)}/${assetPath.replace(/^\/+/, "")}`,
       exportArtifact: async (request) => {
+        const current = currentEnvelope();
         const resourceId = request?.resourceId ?? "export";
-        const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+        const resource = current.resources.find((r) => r.resource_id === resourceId);
         const params = mergeResourceParams(resource, {
           ...(request?.params ?? {}),
           ...(request?.format ? { format: request.format } : {}),
         });
         await saveEnvelopeResource(
-          activeEnvelope,
+          current,
           resourceId,
           params,
-          request?.filename ?? defaultResourceFilename(activeEnvelope, params),
+          request?.filename ?? defaultResourceFilename(current, params),
         );
       },
       saveArtifact: async (request) => {
+        const current = currentEnvelope();
         const resourceId = request?.resourceId ?? "export";
-        const resource = activeEnvelope.resources.find((r) => r.resource_id === resourceId);
+        const resource = current.resources.find((r) => r.resource_id === resourceId);
         const params = mergeResourceParams(resource, {
           ...(request?.params ?? {}),
           ...(request?.format ? { format: request.format } : {}),
         });
         await saveEnvelopeResource(
-          activeEnvelope,
+          current,
           resourceId,
           params,
-          request?.filename ?? defaultResourceFilename(activeEnvelope, params),
+          request?.filename ?? defaultResourceFilename(current, params),
         );
       },
       reportError: (message: string) => {
         setHostDiagnostics((d) => [...d, message]);
       },
     };
-  }, [activeEnvelope, envelope?.session_id, manifest, patchQuery, saveEnvelopeResource]);
+  }, [dynamicMountKey, saveEnvelopeResource]);
 
   useEffect(() => {
     // Tear down any prior instance whenever the focus changes.
@@ -352,10 +399,11 @@ export function PreviewHost({
     }
     setDynamicFailed(false);
 
-    if (!manifest || !hostApi || !mountRef.current) return;
+    const currentManifest = manifestRef.current;
+    if (!currentManifest || !hostApi || !mountRef.current) return;
     let disposed = false;
     const container = mountRef.current;
-    void mountDynamicPreviewer(manifest, container, hostApi, importer).then(
+    void mountDynamicPreviewer(currentManifest, container, hostApi, importer).then(
       (result: LoadResult) => {
         if (disposed) return;
         if (result.ok) {
@@ -378,7 +426,7 @@ export function PreviewHost({
         instanceRef.current = null;
       }
     };
-  }, [manifest, hostApi, importer]);
+  }, [dynamicMountKey, hostApi, importer]);
 
   // Push new envelopes into a live dynamic instance.
   useEffect(() => {
@@ -391,7 +439,7 @@ export function PreviewHost({
   if (!target || status === "idle") {
     return (
       <div className="rounded-[1.6rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-        Nothing to preview.
+        Nothing to preview yet
       </div>
     );
   }

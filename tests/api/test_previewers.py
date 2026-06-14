@@ -526,6 +526,120 @@ def test_collection_resource_uses_descriptor_params(
     assert child["target"]["recorded_type"] == "DataFrame"
 
 
+def test_collection_image_child_resource_uses_catalog_storage(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Collection item previews must route through the catalog-backed Image previewer."""
+    import numpy as np
+    import tifffile
+
+    imaging_ep = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging.previewers:get_previewers",
+        group="scistudio.previewers",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        if kwargs.get("group") == "scistudio.previewers":
+            return (imaging_ep,)
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    runtime.refresh_preview_service()
+
+    image_path = opened_project / "images" / "child.tif"
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    tifffile.imwrite(image_path, np.arange(64, dtype=np.uint8).reshape(8, 8))
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="filesystem",
+            path=str(image_path),
+            format="tiff",
+            metadata={"type_chain": ["DataObject", "Array", "Image"], "axes": ["y", "x"]},
+        ),
+        type_name="Image",
+    )
+
+    resp = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "collection_ref",
+                "ref": "image-collection",
+                "recorded_type": "Image",
+                "type_chain": ["DataObject", "Array", "Image"],
+                "collection_item_type": "Image",
+            },
+            "query": {
+                "_collection_items": [{"data_ref": record.id, "type_name": "Image"}],
+                "_collection_count": 1,
+                "_collection_item_type": "Image",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    resource = body["resources"][0]
+
+    res = client.get(
+        f"/api/previews/sessions/{body['session_id']}/resources/{resource['resource_id']}",
+        params={"params": json.dumps(resource["params"])},
+    )
+
+    assert res.status_code == 200
+    child = res.json()["data"]
+    assert child["session_id"]
+    assert child["session_id"] != body["session_id"]
+    assert child["previewer_id"] == "imaging.image.viewer"
+    assert child["kind"] == "array"
+    assert child["target"]["ref"] == record.id
+    assert child["target"]["recorded_type"] == "Image"
+    assert child["target"]["type_chain"] == ["DataObject", "Array", "Image"]
+    assert child["payload"]["shape"] == [8, 8]
+    assert str(child["payload"]["src"]).startswith("data:image/png;base64,")
+
+
+def test_imaging_previewer_asset_served_from_companion_package_entry_point(
+    client: TestClient,
+    runtime: ApiRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Imaging viewer assets remain available when previewer entry-point metadata is stale."""
+    block_ep = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging:get_block_package",
+        group="scistudio.blocks",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        group = kwargs.get("group")
+        if group == "scistudio.previewers":
+            return ()
+        if group == "scistudio.blocks":
+            return (block_ep,)
+        if group == "scistudio.types":
+            return ()
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    runtime.refresh_preview_service()
+
+    spec = runtime.get_preview_service().registry.get("imaging.image.viewer")
+    assert spec is not None
+    assert spec.frontend_manifest is not None
+
+    resp = client.get("/api/previews/assets/imaging.image.viewer/viewer.js")
+
+    assert resp.status_code == 200
+    assert "text/javascript" in resp.headers["content-type"]
+    assert b"mount" in resp.content
+
+
 def test_composite_resource_uses_descriptor_params(
     client: TestClient,
     opened_project: Path,

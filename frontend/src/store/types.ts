@@ -344,7 +344,7 @@ export interface FileTab {
   id: string;
   filePath: string;
   displayName: string;
-  language: "python" | "yaml" | "json" | "text" | "markdown";
+  language: "python" | "r" | "yaml" | "json" | "text" | "markdown";
   content: string;
   contentLoadedAt: number;
   baseVersion?: number | null;

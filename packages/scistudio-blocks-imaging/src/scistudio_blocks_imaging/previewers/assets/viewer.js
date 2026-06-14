@@ -513,23 +513,44 @@ const previewerModule = {
     maxCtl.readout.textContent = String(state.maxDisplay);
 
     // Slice slider: drive the server re-render via the bounded session API.
-    let sliceTimer = null;
+    let disposed = false;
+    let sliceInFlight = false;
+    let pendingSliceIndex = null;
+    let sliceRequestSeq = 0;
+    function pumpSliceRequest() {
+      if (disposed || sliceInFlight || pendingSliceIndex === null) return;
+      const idx = pendingSliceIndex;
+      pendingSliceIndex = null;
+      sliceInFlight = true;
+      const seq = (sliceRequestSeq += 1);
+      try {
+        const p = host.session.patchQuery({ slice_index: idx });
+        if (p && typeof p.then === "function") {
+          p.then((env) => {
+            if (env && !disposed && pendingSliceIndex === null && seq === sliceRequestSeq) {
+              instance.update(env);
+            }
+          })
+            .catch((err) => host.reportError("slice fetch failed", { error: String(err) }))
+            .finally(() => {
+              sliceInFlight = false;
+              pumpSliceRequest();
+            });
+        } else {
+          sliceInFlight = false;
+          pumpSliceRequest();
+        }
+      } catch (err) {
+        sliceInFlight = false;
+        host.reportError("slice fetch failed", { error: String(err) });
+        pumpSliceRequest();
+      }
+    }
     sliceInput.addEventListener("input", () => {
       const idx = Number(sliceInput.value);
       sliceReadout.textContent = `${idx + 1}/${state.vm.sliceAxisSize || 1}`;
-      if (sliceTimer) clearTimeout(sliceTimer);
-      sliceTimer = setTimeout(() => {
-        try {
-          const p = host.session.patchQuery({ slice_index: idx });
-          if (p && typeof p.then === "function") {
-            p.then((env) => {
-              if (env) instance.update(env);
-            }).catch((err) => host.reportError("slice fetch failed", { error: String(err) }));
-          }
-        } catch (err) {
-          host.reportError("slice fetch failed", { error: String(err) });
-        }
-      }, 200);
+      pendingSliceIndex = idx;
+      pumpSliceRequest();
     });
 
     container.appendChild(root);
@@ -542,7 +563,7 @@ const previewerModule = {
         renderAll();
       },
       unmount() {
-        if (sliceTimer) clearTimeout(sliceTimer);
+        disposed = true;
         stage.removeEventListener("wheel", onWheel);
         stage.removeEventListener("mousedown", onMouseDown);
         stage.removeEventListener("mousemove", onMouseMove);

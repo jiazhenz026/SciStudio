@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+import sys
+import types
+
+import pytest
+
 from scistudio.previewers.fallbacks import dataframe_previewer
 from scistudio.previewers.models import OwnerKind, PreviewerSpec
 from scistudio.previewers.registry import PreviewerRegistry
@@ -82,7 +88,7 @@ def test_raising_factory_is_diagnosed_not_fatal() -> None:
     assert any("raised" in d for d in reg.diagnostics)
 
 
-def test_monorepo_fallback_discovers_get_previewers(monkeypatch) -> None:
+def test_monorepo_fallback_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
     """FR-030: a monorepo package exposing get_previewers() is discovered."""
     import sys
     import types
@@ -97,6 +103,41 @@ def test_monorepo_fallback_discovers_get_previewers(monkeypatch) -> None:
     # imaging package's own monorepo test); this proves the contract shape.
     reg._register_from_factory("scistudio_blocks_fake", fake_module.get_previewers)
     assert reg.get("pkg.fake.viewer") is not None
+    assert reg.diagnostics == []
+
+
+def test_companion_package_entry_point_discovers_get_previewers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Block/type packages can provide previewers even when previewer metadata is stale."""
+    fake_module = types.ModuleType("scistudio_blocks_fake")
+    fake_module.get_previewers = lambda: [_spec("pkg.fake.viewer")]  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scistudio_blocks_fake", fake_module)
+
+    block_ep = importlib.metadata.EntryPoint(
+        name="fake",
+        value="scistudio_blocks_fake:get_block_package",
+        group="scistudio.blocks",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        group = kwargs.get("group")
+        if group == "scistudio.previewers":
+            return ()
+        if group == "scistudio.blocks":
+            return (block_ep,)
+        if group == "scistudio.types":
+            return ()
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+
+    reg = PreviewerRegistry()
+    reg.load_packages(include_monorepo=False)
+
+    assert reg.get("pkg.fake.viewer") is not None
+    assert reg.diagnostics == []
 
 
 def test_project_default_declaration_roundtrips() -> None:

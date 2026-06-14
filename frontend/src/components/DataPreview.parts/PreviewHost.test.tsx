@@ -319,6 +319,92 @@ describe("PreviewHost — dynamic manifest fallback (US2.3 / FR-022 / FR-029)", 
       params: { format: "svg" },
     });
   });
+
+  it("updates a dynamic child preview through host session.patchQuery", async () => {
+    const childManifest = {
+      previewer_id: "imaging.image.viewer",
+      module_url: "/api/previews/assets/imaging.image.viewer/viewer.js",
+      export_name: "ImageViewer",
+      api_version: "1",
+    };
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        session_id: "pv-root",
+        previewer_id: "core.collection.basic",
+        kind: "collection",
+        payload: {
+          count: 1,
+          item_type: "Image",
+          items: [{ data_ref: "img-0", type_name: "Image" }],
+        },
+        resources: [
+          {
+            resource_id: "item:0",
+            kind: "child",
+            params: { index: 0, item: { data_ref: "img-0", type_name: "Image" } },
+          },
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValue(
+      okJson({
+        resource_id: "item:0",
+        data: envelope({
+          session_id: "pv-child",
+          previewer_id: "imaging.image.viewer",
+          kind: "array",
+          payload: { marker: "before" },
+          frontend_manifest: childManifest,
+        }) as unknown as Record<string, unknown>,
+      }),
+    );
+    patchPreviewSession.mockResolvedValue(
+      envelope({
+        session_id: "pv-child",
+        previewer_id: "imaging.image.viewer",
+        kind: "array",
+        payload: { marker: "after" },
+        frontend_manifest: childManifest,
+      }),
+    );
+
+    const capturedHosts: PreviewHostApi[] = [];
+    const update = vi.fn((next: PreviewEnvelope) => {
+      screen.getByTestId("preview-host-dynamic-mount").textContent = String(next.payload.marker);
+    });
+    const mount = vi.fn((container: HTMLElement, host: PreviewHostApi) => {
+      capturedHosts.push(host);
+      container.textContent = String(host.envelope.payload.marker);
+      return { update, unmount: vi.fn() };
+    });
+    const fakeImporter = vi.fn(async () => ({ ImageViewer: { apiVersion: "1", mount } }));
+
+    render(
+      <PreviewHost
+        target={{ ...TARGET, kind: "collection_ref", collection_item_type: "Image" }}
+        importer={fakeImporter}
+      />,
+    );
+
+    expect(await screen.findByTestId("core-collection-viewer")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("collection-item-0"));
+
+    await waitFor(() => expect(mount).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("preview-host-dynamic-mount")).toHaveTextContent("before");
+
+    const host = capturedHosts[capturedHosts.length - 1];
+    if (!host) throw new Error("host API was not captured");
+    await host.session.patchQuery({ axis_indices: { "0": 2 } });
+
+    await waitFor(() =>
+      expect(patchPreviewSession).toHaveBeenCalledWith("pv-child", {
+        axis_indices: { "0": 2 },
+      }),
+    );
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(mount).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("preview-host-dynamic-mount")).toHaveTextContent("after");
+  });
 });
 
 describe("PreviewHost — collection + child routing (US4)", () => {
@@ -380,6 +466,99 @@ describe("PreviewHost — collection + child routing (US4)", () => {
     expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("preview-host-back")).toBeInTheDocument();
   });
+
+  it("patches the active child array session and updates the focused panel", async () => {
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        session_id: "pv-root",
+        previewer_id: "core.collection.basic",
+        kind: "collection",
+        payload: {
+          count: 1,
+          item_type: "Array",
+          items: [{ data_ref: "array-0", type_name: "Array" }],
+        },
+        resources: [
+          {
+            resource_id: "item:0",
+            kind: "child",
+            params: { index: 0, item: { data_ref: "array-0", type_name: "Array" } },
+          },
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValue(
+      okJson({
+        resource_id: "item:0",
+        data: envelope({
+          session_id: "pv-child",
+          previewer_id: "core.array.basic",
+          kind: "array",
+          payload: {
+            shape: [4, 6, 2, 2],
+            dtype: "float32",
+            axes: ["t", "z", "y", "x"],
+            ndim: 4,
+            matrix: [
+              [1, 2],
+              [3, 4],
+            ],
+            vmin: 1,
+            vmax: 12,
+            slice_axes: [
+              { axis: 0, name: "t", size: 4, index: 1 },
+              { axis: 1, name: "z", size: 6, index: 2 },
+            ],
+          },
+        }) as unknown as Record<string, unknown>,
+      }),
+    );
+    patchPreviewSession.mockResolvedValue(
+      envelope({
+        session_id: "pv-child",
+        previewer_id: "core.array.basic",
+        kind: "array",
+        payload: {
+          shape: [4, 6, 2, 2],
+          dtype: "float32",
+          axes: ["t", "z", "y", "x"],
+          ndim: 4,
+          matrix: [
+            [9, 10],
+            [11, 12],
+          ],
+          vmin: 1,
+          vmax: 12,
+          slice_axes: [
+            { axis: 0, name: "t", size: 4, index: 1 },
+            { axis: 1, name: "z", size: 6, index: 4 },
+          ],
+        },
+      }),
+    );
+
+    render(
+      <PreviewHost target={{ ...TARGET, kind: "collection_ref", collection_item_type: "Array" }} />,
+    );
+
+    expect(await screen.findByTestId("core-collection-viewer")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("collection-item-0"));
+
+    expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
+    expect(screen.getByTestId("array-cell-0-0")).toHaveTextContent("1");
+
+    fireEvent.change(screen.getByTestId("array-slice-slider-1"), { target: { value: "4" } });
+
+    await waitFor(() =>
+      expect(patchPreviewSession).toHaveBeenCalledWith("pv-child", {
+        axis_indices: { "0": 1, "1": 4 },
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId("array-cell-0-0")).toHaveTextContent("9"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+    expect(url.pathname).toBe("/api/previews/sessions/pv-root/resources/item%3A0");
+  });
 });
 
 describe("PreviewHost — plot viewer (FR-018 / FR-019)", () => {
@@ -402,6 +581,7 @@ describe("PreviewHost — plot viewer (FR-018 / FR-019)", () => {
     // Sandboxed iframe with an empty sandbox attr → no script execution.
     expect(frame.getAttribute("sandbox")).toBe("");
     expect(screen.getByTestId("plot-export-button")).toBeEnabled();
+    expect(screen.getByTestId("plot-export-button")).toHaveTextContent("Save");
     expect(screen.getByTestId("preview-diagnostics")).toHaveTextContent(/sanitized SVG/);
 
     fireEvent.click(screen.getByTestId("plot-export-button"));

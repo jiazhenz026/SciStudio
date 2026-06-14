@@ -24,6 +24,7 @@ import Plot from "react-plotly.js";
 
 import type { EnvelopeKind, PreviewEnvelope, PreviewResource } from "../../types/api";
 
+import { deriveDisplayName } from "./refEntries";
 import { TableViewer, type TableViewerInitial } from "./TableViewer";
 
 // ---------------------------------------------------------------------------
@@ -719,6 +720,7 @@ export function CollectionViewer({
         {items.map((item, idx) => {
           const resource = itemResources[idx];
           const ref = asString(item.data_ref ?? item.ref, `item ${idx}`);
+          const displayName = deriveDisplayName(ref, item);
           return (
             <button
               key={idx}
@@ -727,7 +729,9 @@ export function CollectionViewer({
               onClick={() => (resource && onOpenResource ? onOpenResource(resource) : undefined)}
               className="rounded-2xl border border-stone-200 bg-white px-3 py-2 text-left text-xs hover:bg-stone-50"
             >
-              <span className="block truncate text-ink">{ref}</span>
+              <span className="block truncate text-ink" title={ref}>
+                {displayName}
+              </span>
               <span className="text-stone-400">{asString(item.type_name, itemType)}</span>
             </button>
           );
@@ -794,12 +798,12 @@ export function PlotViewer({
         <button
           type="button"
           data-testid="plot-export-button"
-          aria-label={`Export plot as ${format || "file"}`}
+          aria-label={`Save plot as ${format || "file"}`}
           disabled={!exportResource}
           onClick={() => (exportResource && onExport ? onExport(exportResource) : undefined)}
           className="ml-auto rounded border border-stone-300 bg-white px-3 py-0.5 disabled:opacity-50"
         >
-          Export / Save
+          Save
         </button>
       </div>
       <MetadataBadges envelope={envelope} />

@@ -10,6 +10,7 @@ FILE_ENTITY_CLASS: str = "file"
 
 ADR036_FILE_ALLOWLIST: tuple[str, ...] = (
     ".py",
+    ".r",
     ".txt",
     ".md",
     ".yaml",

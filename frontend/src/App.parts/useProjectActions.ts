@@ -318,7 +318,10 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     loadWorkflowForProject,
   });
 
-  const { createNewCustomBlock, createNewNote } = useFileActions({ currentProject, openFileTab });
+  const { createNewCustomBlock, createNewNote } = useFileActions({
+    currentProject,
+    openFileTab,
+  });
 
   const newWorkflow = useCallback(() => {
     const name = window.prompt("Workflow name:", "Untitled");

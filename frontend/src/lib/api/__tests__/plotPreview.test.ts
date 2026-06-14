@@ -92,6 +92,90 @@ describe("dataApi.runPlotJob (#1606 run route)", () => {
 });
 
 describe("dataApi plot list + preview resource save", () => {
+  it("GETs /api/plots/targets with the active workflow filter", async () => {
+    const body = {
+      targets: [
+        {
+          target_id: "tgt_1",
+          workflow_path: "workflows/main.yaml",
+          workflow_id: "main",
+          node_id: "node_a",
+          node_label: "Load",
+          block_type: "io.load",
+          output_port: "data",
+          output_type: "DataFrame",
+          is_collection: false,
+          latest_run_id: null,
+          latest_output_available: false,
+          diagnostics: [],
+        },
+      ],
+      count: 1,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await dataApi.listPlotTargets({ workflowId: "main" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/plots/targets?workflow_id=main");
+    expect(out).toEqual(body);
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs a plot scaffold request to /api/plots", async () => {
+    const body = {
+      plot_id: "my_plot",
+      manifest_path: "plots/my_plot/plot.yaml",
+      script_path: "plots/my_plot/render.py",
+      bytes_written: 100,
+      warnings: [],
+      target: {
+        target_id: "tgt_1",
+        workflow_path: "workflows/main.yaml",
+        workflow_id: "main",
+        node_id: "node_a",
+        node_label: "Load",
+        block_type: "io.load",
+        output_port: "data",
+        output_type: "DataFrame",
+        is_collection: false,
+        latest_run_id: null,
+        latest_output_available: false,
+        diagnostics: [],
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await dataApi.createPlot({
+      plot_id: "my_plot",
+      target_id: "tgt_1",
+      title: "My Plot",
+      language: "python",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/plots");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      plot_id: "my_plot",
+      target_id: "tgt_1",
+      title: "My Plot",
+      language: "python",
+    });
+    expect(out).toEqual(body);
+    vi.unstubAllGlobals();
+  });
+
   it("GETs /api/plots with block filters", async () => {
     const body = {
       plots: [

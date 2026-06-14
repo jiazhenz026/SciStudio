@@ -23,8 +23,10 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import (
@@ -80,6 +82,8 @@ def build_preview_service(
     *,
     project_dir: Path | None = None,
     include_monorepo: bool | None = None,
+    child_context_resolver: Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
+    | None = None,
 ) -> PreviewService:
     """Build a fully-loaded :class:`PreviewService` (FR-001/FR-002/FR-030).
 
@@ -96,7 +100,10 @@ def build_preview_service(
     load_project_previewers(registry, project_dir)
 
     router = PreviewRouter(registry)
-    sessions = PreviewSessionManager(registry)
+    sessions = PreviewSessionManager(
+        registry,
+        child_context_resolver=child_context_resolver,
+    )
     return PreviewService(registry=registry, router=router, sessions=sessions)
 
 
