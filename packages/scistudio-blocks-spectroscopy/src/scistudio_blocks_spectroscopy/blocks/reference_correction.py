@@ -10,12 +10,15 @@ zeros (FR-103).
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
+
+import numpy as np
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.core.types.collection import Collection
+from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.types import Spectrum
 
 _SPECTRA_INPUT = InputPort(
@@ -39,6 +42,38 @@ _GRID_POLICY_SCHEMA: dict[str, Any] = {
     "default": "error",
     "title": "Reference grid policy",
 }
+
+_GRID_POLICIES = frozenset({"error", "interpolate_reference_to_sample"})
+_ZERO_POLICIES = frozenset({"error", "nan", "clip"})
+
+
+def _aligned_reference_intensity(
+    block: str,
+    sample_lambda: np.ndarray,
+    sample_intensity: np.ndarray,
+    reference_lambda: np.ndarray,
+    reference_intensity: np.ndarray,
+    grid_policy: str,
+) -> np.ndarray:
+    """Return reference intensity aligned to the sample's ``lambda`` grid.
+
+    ``grid_policy == "error"`` (the default, FR-102) raises ``ValueError`` when
+    the sample and reference grids differ. ``interpolate_reference_to_sample``
+    resamples the reference onto the sample grid with :func:`numpy.interp`.
+    """
+    if _support.grids_close(sample_lambda, reference_lambda):
+        return reference_intensity
+    if grid_policy == "error":
+        raise ValueError(
+            f"{block}: sample and reference 'lambda' grids differ; set "
+            "reference_grid_policy='interpolate_reference_to_sample' to resample the reference."
+        )
+    # interpolate_reference_to_sample (explicit opt-in).
+    order = np.argsort(reference_lambda)
+    return np.asarray(
+        np.interp(sample_lambda, reference_lambda[order], reference_intensity[order]),
+        dtype=np.float64,
+    )
 
 
 class SubtractReferenceSpectrum(ProcessBlock):
@@ -73,7 +108,28 @@ class SubtractReferenceSpectrum(ProcessBlock):
         Test plan: test_reference_correction_blocks.py::test_subtract_same_grid,
           ::test_subtract_errors_on_grid_mismatch.
         """
-        raise NotImplementedError("skeleton — implement per FR-099/FR-100/FR-102; see comment above")
+        block = self.name
+        grid_policy = str(config.get("reference_grid_policy", "error"))
+        if grid_policy not in _GRID_POLICIES:
+            raise ValueError(
+                f"{block}: reference_grid_policy must be one of {sorted(_GRID_POLICIES)}, got {grid_policy!r}"
+            )
+
+        spectra = _support.coerce_spectra(inputs.get("spectra"), block=block, port="spectra")
+        reference = _support.coerce_single_spectrum(inputs.get("reference"), block=block, port="reference")
+        ref_lambda, ref_intensity = _support.spectrum_arrays(reference)
+
+        corrected: list[Spectrum] = []
+        for sample in spectra:
+            sample_lambda, sample_intensity = _support.spectrum_arrays(sample)
+            aligned_ref = _aligned_reference_intensity(
+                block, sample_lambda, sample_intensity, ref_lambda, ref_intensity, grid_policy
+            )
+            corrected_intensity = sample_intensity - aligned_ref
+            derived = _support.derive_spectrum(sample, intensity_values=corrected_intensity)
+            corrected.append(cast(Spectrum, self._auto_flush(derived)))
+
+        return {"corrected": _support.spectra_collection(corrected)}
 
 
 class DivideByReferenceSpectrum(ProcessBlock):
@@ -115,7 +171,53 @@ class DivideByReferenceSpectrum(ProcessBlock):
         Test plan: test_reference_correction_blocks.py::test_divide_errors_on_zero_default,
           ::test_divide_nan_policy.
         """
-        raise NotImplementedError("skeleton — implement per FR-101/FR-102/FR-103; see comment above")
+        block = self.name
+        grid_policy = str(config.get("reference_grid_policy", "error"))
+        if grid_policy not in _GRID_POLICIES:
+            raise ValueError(
+                f"{block}: reference_grid_policy must be one of {sorted(_GRID_POLICIES)}, got {grid_policy!r}"
+            )
+        zero_policy = str(config.get("zero_policy", "error"))
+        if zero_policy not in _ZERO_POLICIES:
+            raise ValueError(f"{block}: zero_policy must be one of {sorted(_ZERO_POLICIES)}, got {zero_policy!r}")
+
+        spectra = _support.coerce_spectra(inputs.get("spectra"), block=block, port="spectra")
+        reference = _support.coerce_single_spectrum(inputs.get("reference"), block=block, port="reference")
+        ref_lambda, ref_intensity = _support.spectrum_arrays(reference)
+
+        corrected: list[Spectrum] = []
+        for sample in spectra:
+            sample_lambda, sample_intensity = _support.spectrum_arrays(sample)
+            aligned_ref = _aligned_reference_intensity(
+                block, sample_lambda, sample_intensity, ref_lambda, ref_intensity, grid_policy
+            )
+            corrected_intensity = self._divide(block, sample_intensity, aligned_ref, zero_policy)
+            derived = _support.derive_spectrum(sample, intensity_values=corrected_intensity)
+            corrected.append(cast(Spectrum, self._auto_flush(derived)))
+
+        return {"corrected": _support.spectra_collection(corrected)}
+
+    @staticmethod
+    def _divide(block: str, numerator: np.ndarray, denominator: np.ndarray, zero_policy: str) -> np.ndarray:
+        """Apply the configured zero-handling policy and divide (FR-103)."""
+        zero_mask = denominator == 0.0
+        if zero_mask.any():
+            if zero_policy == "error":
+                raise ValueError(
+                    f"{block}: reference intensity contains zero values at used coordinates; "
+                    "set zero_policy='nan' or 'clip' to handle them explicitly."
+                )
+            if zero_policy == "clip":
+                # Replace zeros with the smallest positive float so the quotient is finite.
+                denominator = np.where(zero_mask, np.finfo(np.float64).tiny, denominator)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    return np.asarray(numerator / denominator, dtype=np.float64)
+            # zero_policy == "nan": emit NaN where the reference is zero.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                quotient = np.asarray(numerator / denominator, dtype=np.float64)
+            quotient[zero_mask] = np.nan
+            return quotient
+        return np.asarray(numerator / denominator, dtype=np.float64)
 
 
 BLOCKS: list[type] = [SubtractReferenceSpectrum, DivideByReferenceSpectrum]
