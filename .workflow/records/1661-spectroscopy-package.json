@@ -1,5 +1,5 @@
 {
-  "branch": "claudecode/spectroscopy-package",
+  "branch": "claudecode/spectro/io-spectrum",
   "check_events": [
     {
       "at": "2026-06-14T08:54:07.861400Z",
@@ -781,6 +781,14 @@
       "class": null,
       "kind": "path",
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:26:38.592339Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_io_spectrum_smoke.py",
       "rationale": null,
       "verified_in_diff": null
     }
