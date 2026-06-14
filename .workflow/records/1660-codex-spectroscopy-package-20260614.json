@@ -1,0 +1,118 @@
+{
+  "branch": "codex/spectroscopy-package-20260614",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "docs/ai-developer/**"
+    ],
+    "include": [
+      "packages/scistudio-blocks-spectroscopy/**",
+      "docs/planning/spectroscopy-package-implementation-checklist.md",
+      "docs/planning/spectroscopy-package-dispatch-prompts.md",
+      "docs/audit/*spectroscopy*",
+      "pyproject.toml",
+      "tests/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-14T07:49:49.942584Z",
+      "owner_directive": "Manager plan: create checklist and dispatch prompts, then split implementation into IO/types/previewers/utilities, preprocessing, feature extraction/peak/reference, and library/unmixing slices; follow with contract and e2e test-engineer passes.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-14T07:49:49.942623Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T07:49:49.942630Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/spectroscopy-package-implementation-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T07:49:49.942632Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/spectroscopy-package-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1660,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement the latest origin/main docs/specs/spectroscopy-package.md Spectroscopy package through manager-led multi-agent work and submit one codex umbrella PR.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1660-codex-spectroscopy-package-20260614",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-14T07:49:49.942603Z",
+      "pattern": "packages/scistudio-blocks-spectroscopy/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T07:49:49.942611Z",
+      "pattern": "docs/planning/spectroscopy-package-implementation-checklist.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T07:49:49.942613Z",
+      "pattern": "docs/planning/spectroscopy-package-dispatch-prompts.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T07:49:49.942615Z",
+      "pattern": "docs/audit/*spectroscopy*",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "8412dcbb-a049-4e90-b8d7-119a6d27f940",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-14T07:49:49.942636Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
