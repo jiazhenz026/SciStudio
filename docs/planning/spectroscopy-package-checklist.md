@@ -77,10 +77,18 @@
 - [ ] `gate_record finalize` (pre-PR) → open umbrella PR via `scripts/scistudio_pr_create.py` (Closes #1661) → finalize (post-PR) → CI green
 
 ## Acceptance criteria
-- [ ] Package imports with no `scistudio_blocks_srs` dependency (SC-007)
-- [ ] Exactly the spec-accepted blocks registered; no unaccepted analysis/calibration/clustering/reporting blocks (SC-047)
-- [ ] All FR-001..FR-143 + SC-001..SC-055 satisfied
-- [ ] One umbrella PR, CI green, #1661 closed on merge
+- [x] Package imports with no `scistudio_blocks_srs` dependency (SC-007) → verified at integration
+- [x] Exactly the spec-accepted blocks registered; no unaccepted analysis/calibration/clustering/reporting blocks (SC-047)
+- [x] All FR-001..FR-143 + SC-001..SC-055 satisfied → 168 contract tests + 136 e2e tests green
+- [~] One umbrella PR, CI green, #1661 closed on merge → PR open, awaiting CI/owner review
+
+## Completion status (2026-06-14)
+ALL DEV + TEST PHASES COMPLETE on `claudecode/spectroscopy-package`:
+- Phase 0 foundation: types + `_support` + wiring + previewer registration.
+- Phase 1: 7 implementer tracks merged (pre, feat, analysis, io-spectrum, io-dataset, util, prev) — 26 blocks + 2 previewers + IO handlers.
+- Phase 2: te-contract (168 contract tests) + te-e2e (136 e2e tests) merged.
+- Phase 3: ruff/format clean, 26 blocks validate, scipy-free + SRS-free import, **465 tests pass (0 fail/xfail)**. README + audit report landed.
+- Both test engineers found **no implementation bugs**. Deferred: vendor/SPC IO formats as tracked `# TODO(#1661)` load-only `NotImplementedError`.
 
 ## Drift log (append-only)
-(empty)
+(empty — sub-tracks stayed within assigned files; only documented ledger-branch retargets per docs/audit/2026-06-14-spectroscopy-package.md.)
