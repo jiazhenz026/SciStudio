@@ -1,0 +1,720 @@
+{
+  "branch": "audit/spectroscopy-package-benchmark-20260614",
+  "check_events": [
+    {
+      "at": "2026-06-14T20:53:03.808271Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:53:46.182968Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:55:14.942062Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:56:51.510539Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:57:09.504515Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "86b539c9c4a3d30e7157150e69678b3856b855f8",
+    "shas": [
+      "86b539c9c4a3d30e7157150e69678b3856b855f8"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-14T20:42:47.059684Z",
+      "owner_directive": "Evidence plan: inspect spec PR #1658, implementation PRs #1663/#1666, package checker PR #1665; create temporary checker-merged worktrees for each implementation; run package validator/checker and package tests where practical; record findings in docs/audit reports only.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-14T20:42:47.059709Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:42:47.059717Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:42:47.059720Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:42:47.059722Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:42:47.059724Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874330Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874349Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874351Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874353Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874355Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104794Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104814Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104816Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104818Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104819Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011147Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011166Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011168Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011170Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011171Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-14T20:53:03.929048Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:03.988670Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.041671Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.101370Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.154149Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.212501Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.281757Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.339227Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.392227Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:04.443838Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.286822Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.344755Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.394779Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.445194Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.496463Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.546747Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.596163Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.646666Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.715655Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:53:46.765114Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.046211Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.094981Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.144494Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.193776Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.243902Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.312814Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.368822Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.424936Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.478845Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:55:15.530130Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.613019Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.662316Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.716957Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.768975Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.821080Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.876648Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.927662Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:51.975074Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:52.025673Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:56:52.080279Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.606454Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.653742Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.703711Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.753842Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.804994Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.861445Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.910446Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:09.960423Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:10.019225Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:57:10.073981Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1667,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "7c064210",
+    "changed_files": [
+      ".workflow/records/1667-audit-spectroscopy-package-benchmark-20260614.json",
+      "docs/audit/2026-06-14-spectroscopy-package-benchmark-scorecard.md",
+      "docs/audit/2026-06-14-spectroscopy-package-claude-audit.md",
+      "docs/audit/2026-06-14-spectroscopy-package-claude-validator-report.md",
+      "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
+      "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md"
+    ],
+    "diff_fingerprint": "sha256:326f13c7d4814920431cf4a746bc3b9c406efb2d7506ecd2597473fec8763009",
+    "head": "HEAD",
+    "head_sha": "86b539c9",
+    "surfaces": {
+      "docs": 5,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Benchmark PR #1663 and PR #1666 spectroscopy package implementations against docs/specs/spectroscopy-package.md; merge PR #1665 checker into each implementation for validation evidence; commit two audit reports, two checker reports, and one scorecard.",
+  "persona": "audit_reviewer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1667
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-14T20:53:04.443891Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:53:46.765170Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:55:15.530162Z",
+      "diff_fingerprint": "sha256:074be09f8a2cee8db7e37a90141da9d19f6ac8dc15c082cac01d60051d21521f",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:56:52.080317Z",
+      "diff_fingerprint": "sha256:326f13c7d4814920431cf4a746bc3b9c406efb2d7506ecd2597473fec8763009",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:57:10.074026Z",
+      "diff_fingerprint": "sha256:326f13c7d4814920431cf4a746bc3b9c406efb2d7506ecd2597473fec8763009",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1667-audit-spectroscopy-package-benchmark-20260614",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex:gpt-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "7a066021-28bc-46f7-bce2-4ffb98be26a7",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-06-14T20:42:47.059735Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only benchmark reports; implementation validation is represented by recorded package-checker commands and source/test inspection, not by changing product code",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:52:04.874364Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only benchmark reports; no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:53:36.104828Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only benchmark reports; no product code changed",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T20:55:05.011181Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only benchmark reports; no product code changed",
+      "verified_in_diff": null
+    }
+  ]
+}
