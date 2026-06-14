@@ -783,6 +783,62 @@
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:56.444101Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_pre_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:56.711032Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_feat_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:56.990725Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_analysis_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:57.371656Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_io_spectrum_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:57.674593Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_io_dataset_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:57.973983Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_util_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:36:58.246035Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_prev_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
