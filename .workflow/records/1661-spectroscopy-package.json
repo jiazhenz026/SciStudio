@@ -1,18 +1,258 @@
 {
-  "branch": "claudecode/spectro/skeleton",
-  "check_events": [],
+  "branch": "claudecode/spectroscopy-package",
+  "check_events": [
+    {
+      "at": "2026-06-14T08:54:07.861400Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:54:08.802877Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:54:08.895083Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T08:54:23.411648Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:54:23.888493Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:54:23.985362Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T08:54:28.588676Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-14T08:59:54.584808Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:59:55.483399Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T08:59:55.527197Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T09:00:07.750924Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T09:00:08.219305Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T09:00:08.262010Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-14T09:00:12.500870Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d1c3de4b187b5dff1d8447795c4efcd7f651684055f3e3dbec96ad6be7505a3a",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
     "exclude": [],
     "include": [
-      "packages/scistudio-blocks-spectroscopy/**"
+      "packages/scistudio-blocks-spectroscopy/**",
+      "docs/planning/spectroscopy-package-checklist.md",
+      "docs/audit/2026-06-14-spectroscopy-package.md",
+      "docs/specs/spectroscopy-package.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-06-14T08:48:38.946029Z",
+      "owner_directive": "Skeleton landed (types, _support, 26 block declarations, previewers, tests scaffold). Spec planned_governs->governs migration committed. Next: block bodies + tests.",
+      "reason": "plan"
+    }
+  ],
   "docs_events": [
     {
-      "at": "2026-06-14T08:34:56.349826Z",
+      "at": "2026-06-14T08:48:38.946059Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T08:48:38.946069Z",
       "class": null,
       "kind": "path",
       "path": "docs/specs/spectroscopy-package.md",
@@ -20,16 +260,345 @@
       "verified_in_diff": null
     },
     {
-      "at": "2026-06-14T08:37:24.843223Z",
-      "class": "implementation",
+      "at": "2026-06-14T08:48:38.946079Z",
+      "class": "changelog",
       "kind": "na",
       "path": null,
-      "rationale": "Skeleton implements the already-merged spectroscopy-package spec verbatim; no new contracts/behavior beyond the spec, so no additional docs change is required for this commit. Generated docs regenerate and #1661 closes at PR time.",
+      "rationale": "New isolated plugin package; no core changelog entry required.",
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
-  "guard_events": [],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-14T08:54:28.704552Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:28.767194Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:28.823252Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:28.887676Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:28.946329Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:29.012677Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:29.073188Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:29.138061Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:29.211934Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:54:29.277793Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.036945Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.112062Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.167787Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.223049Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.290807Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.347727Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.412674Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.468987Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.526295Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:01.592012Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.597698Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.653661Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.709882Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.772157Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.836815Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.903347Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:02.960635Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:03.017497Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:03.074383Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T08:59:03.151799Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.618725Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.673102Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.728782Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.782646Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.837704Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.894538Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:12.948890Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:13.000131Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:13.055656Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T09:00:13.118279Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -39,50 +608,152 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
-  "owner_directive": "Build the complete importable skeleton of scistudio-blocks-spectroscopy: 26 block declarations (full real ports/config/ADR-043 capabilities), 2 data types, functional previewers, wiring, and tests scaffold; every block body raises NotImplementedError per spec FRs.",
-  "persona": "implementer",
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "7c064210",
+    "changed_files": [
+      ".workflow/records/1661-spectroscopy-package.json",
+      "docs/specs/spectroscopy-package.md",
+      "packages/scistudio-blocks-spectroscopy/README.md",
+      "packages/scistudio-blocks-spectroscopy/pyproject.toml",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/__init__.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/_support.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/__init__.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/feature_extraction.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/io_handlers/__init__.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/io_handlers/dataset_formats.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/io_handlers/spectrum_formats.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/library_matching.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/peak_fitting.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/preprocessing.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/reference_correction.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/unmixing.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/blocks/utilities.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/previewers/__init__.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/previewers/assets/viewer.js",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/previewers/providers.py",
+      "packages/scistudio-blocks-spectroscopy/src/scistudio_blocks_spectroscopy/types.py",
+      "packages/scistudio-blocks-spectroscopy/tests/__init__.py",
+      "packages/scistudio-blocks-spectroscopy/tests/conftest.py",
+      "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
+      "packages/scistudio-blocks-spectroscopy/tests/test_packaging.py",
+      "packages/scistudio-blocks-spectroscopy/tests/test_previewer_registration.py",
+      "packages/scistudio-blocks-spectroscopy/tests/test_types.py"
+    ],
+    "diff_fingerprint": "sha256:9ab6784d2542ed16e60107f1f50e482e4da6a0ee3a593792c2470e1752783a7a",
+    "head": "HEAD",
+    "head_sha": "95a3d2c5",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 21,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 26,
+      "test": 6,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement scistudio-blocks-spectroscopy per spec 001 (umbrella, manager-owned on claudecode/spectroscopy-package). Skeleton on main; implementers fill block bodies; 2 test engineers add contract+e2e tests; single umbrella PR closes #1661.",
+  "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-14T08:54:29.338399Z",
+      "diff_fingerprint": "sha256:15395166c3f108fc9ea1bb2141600520909ff82b28705d08f493932f8e024d52",
+      "mode": "pre-commit",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T08:59:01.592046Z",
+      "diff_fingerprint": "sha256:9ab6784d2542ed16e60107f1f50e482e4da6a0ee3a593792c2470e1752783a7a",
+      "mode": "commit-msg",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-14T08:59:03.151837Z",
+      "diff_fingerprint": "sha256:9ab6784d2542ed16e60107f1f50e482e4da6a0ee3a593792c2470e1752783a7a",
+      "mode": "commit-msg",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-14T09:00:13.118335Z",
+      "diff_fingerprint": "sha256:ca39fa2f40f32e59759db88fdce56135d8f0a5bf046eec92a3e53b8a8064389f",
+      "mode": "pre-commit",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1661-spectroscopy-package",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
-  "runtime": "claude-code:claude-opus-4-8",
+  "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [
-    {
-      "action": "add-include",
-      "at": "2026-06-14T08:34:56.349796Z",
-      "pattern": "packages/scistudio-blocks-spectroscopy/**",
-      "reason": "plan"
-    },
-    {
-      "action": "add-include",
-      "at": "2026-06-14T08:39:38.365313Z",
-      "pattern": "docs/specs/spectroscopy-package.md",
-      "reason": "Landing the package resolves its planned governance: migrate the spec frontmatter governs/planned_governs (files glob, modules, contracts, entry_points) from planned to governs, as required by full_audit doc_drift/closure (rule *.planned-file-is-resolved). Spec file added to gate scope for this migration only."
-    }
-  ],
-  "session_id": "750afd63-ea40-4ad3-b449-a61254beba12",
-  "strictness_tier": null,
+  "scope_events": [],
+  "session_id": "aa7ce5f0-e33b-4241-be18-3eba9f085bed",
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
-      "at": "2026-06-14T08:34:56.349834Z",
+      "at": "2026-06-14T08:48:38.946085Z",
       "class": null,
       "kind": "path",
-      "path": "packages/scistudio-blocks-spectroscopy/tests/test_packaging.py",
+      "path": "packages/scistudio-blocks-spectroscopy/tests",
       "rationale": null,
       "verified_in_diff": null
     },
     {
-      "at": "2026-06-14T08:34:56.349839Z",
+      "at": "2026-06-14T08:52:50.800784Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_support.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:02:36.208146Z",
       "class": null,
       "kind": "path",
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_types.py",
@@ -90,18 +761,26 @@
       "verified_in_diff": null
     },
     {
-      "at": "2026-06-14T08:34:56.349842Z",
+      "at": "2026-06-14T09:02:36.527108Z",
       "class": null,
       "kind": "path",
-      "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_packaging.py",
       "rationale": null,
       "verified_in_diff": null
     },
     {
-      "at": "2026-06-14T08:34:56.349843Z",
+      "at": "2026-06-14T09:02:36.858444Z",
       "class": null,
       "kind": "path",
       "path": "packages/scistudio-blocks-spectroscopy/tests/test_previewer_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:02:37.198237Z",
+      "class": null,
+      "kind": "path",
+      "path": "packages/scistudio-blocks-spectroscopy/tests/test_format_capabilities.py",
       "rationale": null,
       "verified_in_diff": null
     }

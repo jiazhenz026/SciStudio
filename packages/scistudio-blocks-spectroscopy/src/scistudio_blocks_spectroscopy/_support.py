@@ -1,207 +1,79 @@
-"""Internal support helpers for the spectroscopy package.
+"""Shared data-model plumbing for the spectroscopy package (internal).
 
-This module is the single approved seam for constructing and reading
-:class:`~scistudio_blocks_spectroscopy.types.Spectrum` and for wrapping
-``DataFrame``/``Spectrum`` payloads into ``Collection`` outputs. Block code
-MUST go through these helpers instead of touching ``_transient_data`` /
-``storage_ref`` / Arrow tables directly, so that the in-memory payload
-convention stays in exactly one place.
+Every block builds, reads, and derives :class:`Spectrum` /
+:class:`SpectralDataset` / core ``DataFrame`` values through these helpers so the
+storage model stays consistent across the package. Implementers MUST NOT touch
+``_transient_data`` / ``storage_ref`` directly.
 
-``Spectrum`` is a ``Series`` subtype, so its numeric payload is a 2-column
-Arrow table (``lambda``, ``intensity``) carried via the ``data=`` constructor
-parameter (ADR-031 Addendum 2). The reader prefers the in-memory transient
-payload and otherwise materialises from storage.
+Storage model:
 
-numpy and pyarrow are safe to import at module top level (they are package
-dependencies). scipy and other heavy libraries are NOT imported here; block
-bodies lazy-import them inside methods.
+- A :class:`Spectrum` payload is a two-column ``pyarrow.Table`` whose columns are
+  named by its ``index_name`` (``"lambda"``) and ``value_name``
+  (``"intensity"``). In-memory spectra carry it on the transient slot; persisted
+  spectra read it back through ``to_memory()``.
+- A core ``DataFrame`` payload (feature tables, diagnostics, dataset slots) is a
+  ``pyarrow.Table`` carried the same way.
+
+This module depends only on ``numpy`` + ``pyarrow`` (both core dependencies);
+heavy scientific libraries (``scipy``) must be lazy-imported inside the blocks
+that need them, never here and never at any module top level.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import uuid
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 
 import numpy as np
 import pyarrow as pa
 
+from scistudio.core.types.base import DataObject, FrameworkMeta
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.dataframe import DataFrame
 from scistudio_blocks_spectroscopy.types import (
     INTENSITY_COLUMN,
     LAMBDA_COLUMN,
+    SpectralDataset,
     Spectrum,
 )
 
-if TYPE_CHECKING:
-    from pydantic import BaseModel
+# ---------------------------------------------------------------------------
+# IDs
+# ---------------------------------------------------------------------------
 
 
-def _as_arrow_table(obj: Any) -> pa.Table | None:
-    """Return the in-memory Arrow table for *obj*, or ``None`` if absent."""
-    payload = getattr(obj, "_transient_data", None)
-    if isinstance(payload, pa.Table):
-        return payload
-    return None
+def new_spectrum_id(prefix: str = "spec") -> str:
+    """Return a fresh, collision-free internal spectrum id (FR-035).
 
-
-def build_spectrum(
-    lam: Any,
-    inten: Any,
-    *,
-    meta: BaseModel | None = None,
-    user: dict[str, Any] | None = None,
-    framework: Any | None = None,
-) -> Spectrum:
-    """Build a :class:`Spectrum` from coordinate and intensity arrays.
-
-    The two arrays are stored as a 2-column in-memory Arrow table named
-    ``("lambda", "intensity")`` via the ``Series`` ``data=`` parameter. The
-    returned spectrum is reference-free (``storage_ref is None``); the block
-    runtime auto-flushes it to storage when it crosses a port boundary.
-
-    Args:
-        lam: 1-D array-like of spectral coordinates (the ``lambda`` axis).
-        inten: 1-D array-like of intensities, same length as *lam*.
-        meta: Optional :class:`Spectrum.Meta` instance.
-        user: Optional free-form user-metadata dict (JSON-serialisable).
-        framework: Optional ``FrameworkMeta`` (e.g. ``source.framework.derive()``);
-            when ``None`` a fresh one is generated.
-
-    Returns:
-        A new :class:`Spectrum`.
-
-    Raises:
-        ValueError: if *lam* and *inten* have mismatched lengths.
+    Never derived from a filename (FR-036); loaders keep ``source_file`` as
+    separate metadata.
     """
-    lam_arr = np.asarray(lam, dtype=np.float64).reshape(-1)
-    inten_arr = np.asarray(inten, dtype=np.float64).reshape(-1)
-    if lam_arr.shape[0] != inten_arr.shape[0]:
-        raise ValueError(
-            f"build_spectrum: lambda/intensity length mismatch ({lam_arr.shape[0]} != {inten_arr.shape[0]})"
-        )
-    table = pa.table(
-        {
-            LAMBDA_COLUMN: pa.array(lam_arr),
-            INTENSITY_COLUMN: pa.array(inten_arr),
-        }
-    )
-    kwargs: dict[str, Any] = {
-        "index_name": LAMBDA_COLUMN,
-        "value_name": INTENSITY_COLUMN,
-        "length": int(lam_arr.shape[0]),
-        "data": table,
-    }
-    if meta is not None:
-        kwargs["meta"] = meta
-    if user is not None:
-        kwargs["user"] = user
-    if framework is not None:
-        kwargs["framework"] = framework
-    return Spectrum(**kwargs)
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
-def spectrum_arrays(spec: Spectrum) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``(lambda, intensity)`` numpy arrays for *spec*.
-
-    Prefers the in-memory transient Arrow payload; otherwise materialises the
-    backing table from storage via ``to_memory()``. The first two columns are
-    interpreted as ``lambda`` and ``intensity`` respectively (by name when
-    present, else by position).
-
-    Args:
-        spec: The spectrum to read.
-
-    Returns:
-        A ``(lambda_values, intensity_values)`` tuple of float64 arrays.
-
-    Raises:
-        ValueError: if no payload is available (neither transient nor stored).
-    """
-    table = _as_arrow_table(spec)
-    if table is None:
-        materialised = spec.to_memory()
-        table = materialised if isinstance(materialised, pa.Table) else pa.table(materialised)
-    if table is None:  # pragma: no cover - defensive
-        raise ValueError("spectrum_arrays: spectrum has no readable payload")
-
-    names = list(table.column_names)
-    lam_name = LAMBDA_COLUMN if LAMBDA_COLUMN in names else names[0]
-    inten_name = INTENSITY_COLUMN if INTENSITY_COLUMN in names else names[1]
-    lam = np.asarray(table.column(lam_name).to_numpy(zero_copy_only=False), dtype=np.float64)
-    inten = np.asarray(table.column(inten_name).to_numpy(zero_copy_only=False), dtype=np.float64)
-    return lam, inten
+# ---------------------------------------------------------------------------
+# Arrow / DataFrame plumbing
+# ---------------------------------------------------------------------------
 
 
-def derive_spectrum(
-    src: Spectrum,
-    *,
-    intensity_values: Any | None = None,
-    lambda_values: Any | None = None,
-    meta: BaseModel | None = None,
-) -> Spectrum:
-    """Derive a new :class:`Spectrum` from *src*, preserving identity metadata.
-
-    Copies the source ``lambda`` grid and intensities by default, overriding
-    either when ``lambda_values`` / ``intensity_values`` are supplied. The
-    derived spectrum carries a lineage-derived framework, the source ``user``
-    dict (shallow-copied), and either the supplied ``meta`` or the source
-    ``meta``. This is the canonical way preprocessing/fitting blocks emit a
-    transformed spectrum that keeps the same ``spectrum_id`` and metadata.
-
-    Args:
-        src: The source spectrum.
-        intensity_values: Optional replacement intensity array (same length as
-            the lambda grid in use).
-        lambda_values: Optional replacement coordinate array.
-        meta: Optional replacement :class:`Spectrum.Meta`; defaults to
-            ``src.meta``.
-
-    Returns:
-        A new :class:`Spectrum`.
-    """
-    src_lam, src_inten = spectrum_arrays(src)
-    lam = np.asarray(lambda_values, dtype=np.float64).reshape(-1) if lambda_values is not None else src_lam
-    inten = np.asarray(intensity_values, dtype=np.float64).reshape(-1) if intensity_values is not None else src_inten
-    derived_framework = src.framework.derive(derived_from=src.framework.object_id)
-    return build_spectrum(
-        lam,
-        inten,
-        meta=meta if meta is not None else src.meta,
-        user=dict(src.user),
-        framework=derived_framework,
-    )
+def arrow_table(columns: Mapping[str, Sequence[Any] | np.ndarray]) -> pa.Table:
+    """Build a ``pyarrow.Table`` from an ordered column mapping."""
+    return pa.table({name: pa.array(np.asarray(values)) for name, values in columns.items()})
 
 
-def spectra_collection(spectra: list[Spectrum]) -> Collection:
-    """Wrap a list of spectra into a ``Collection[Spectrum]`` output.
-
-    Empty lists are allowed and produce an explicitly typed empty collection
-    (required by ``Collection`` for the empty case).
-
-    Args:
-        spectra: The spectra to wrap (may be empty).
-
-    Returns:
-        A ``Collection`` whose ``item_type`` is :class:`Spectrum`.
-    """
-    if not spectra:
-        return Collection([], item_type=Spectrum)
-    return Collection(items=list(spectra), item_type=Spectrum)
+def dataframe_from_arrow(table: pa.Table) -> DataFrame:
+    """Wrap a ``pyarrow.Table`` in a core ``DataFrame`` (transient payload)."""
+    frame = DataFrame(columns=list(table.column_names), row_count=table.num_rows)
+    frame._arrow_table = table
+    return frame
 
 
-def dataframe_from_rows(rows: list[dict[str, Any]], *, columns: list[str] | None = None) -> DataFrame:
-    """Build a core :class:`DataFrame` from a list of row dicts.
+def dataframe_from_rows(rows: Sequence[Mapping[str, Any]], columns: Sequence[str] | None = None) -> DataFrame:
+    """Build a flat core ``DataFrame`` from a list of row dicts.
 
-    Stores the rows as an in-memory Arrow table (carried via ``data=``); the
-    block runtime persists it on the way out. Column order follows *columns*
-    when given, else the union of keys in first-seen order.
-
-    Args:
-        rows: List of ``column -> value`` row dicts (may be empty).
-        columns: Optional explicit column ordering.
-
-    Returns:
-        A core :class:`DataFrame` wrapping the rows.
+    ``columns`` fixes the column order (and set); when omitted it is the union
+    of keys in first-seen order. Missing cells become ``None``.
     """
     if columns is None:
         ordered: list[str] = []
@@ -210,34 +82,279 @@ def dataframe_from_rows(rows: list[dict[str, Any]], *, columns: list[str] | None
                 if key not in ordered:
                     ordered.append(key)
         columns = ordered
-    table = pa.table({name: pa.array([row.get(name) for row in rows]) for name in columns}) if columns else pa.table({})
-    return DataFrame(
-        columns=list(table.column_names),
-        row_count=table.num_rows,
+    data = {name: pa.array([row.get(name) for row in rows]) for name in columns}
+    return dataframe_from_arrow(pa.table(data))
+
+
+def dataframe_from_pandas(pdf: Any) -> DataFrame:
+    """Build a core ``DataFrame`` from a pandas ``DataFrame``."""
+    return dataframe_from_arrow(pa.Table.from_pandas(pdf, preserve_index=False))
+
+
+def dataframe_arrow(frame: DataFrame) -> pa.Table:
+    """Return the backing ``pyarrow.Table`` of a core ``DataFrame``."""
+    payload = frame.to_memory() if frame.storage_ref is not None else frame._transient_data
+    if payload is None:
+        raise ValueError("DataFrame has no in-memory or persisted payload.")
+    if isinstance(payload, pa.Table):
+        return payload
+    # pandas / dict fall-backs
+    return pa.Table.from_pandas(payload, preserve_index=False) if hasattr(payload, "columns") else pa.table(payload)
+
+
+def dataframe_pandas(frame: DataFrame) -> Any:
+    """Return the backing payload of a core ``DataFrame`` as a pandas frame."""
+    return dataframe_arrow(frame).to_pandas()
+
+
+# ---------------------------------------------------------------------------
+# Spectrum build / read / derive
+# ---------------------------------------------------------------------------
+
+
+def build_spectrum(
+    lambda_values: Sequence[float] | np.ndarray,
+    intensity_values: Sequence[float] | np.ndarray,
+    *,
+    meta: Spectrum.Meta | None = None,
+    user: dict[str, Any] | None = None,
+    framework: FrameworkMeta | None = None,
+    source: str | None = None,
+    spectrum_id: str | None = None,
+) -> Spectrum:
+    """Construct a fresh :class:`Spectrum` from lambda + intensity arrays.
+
+    When ``meta`` carries no ``spectrum_id`` and ``spectrum_id`` is not given, a
+    fresh id is generated (FR-035). ``lambda``/``intensity`` are stored as a
+    two-column Arrow table.
+    """
+    lam = np.asarray(lambda_values, dtype=np.float64)
+    inten = np.asarray(intensity_values, dtype=np.float64)
+    if lam.shape != inten.shape:
+        raise ValueError(f"lambda and intensity must have equal shape, got {lam.shape} vs {inten.shape}")
+    if lam.ndim != 1:
+        raise ValueError(f"Spectrum data must be 1-D, got shape {lam.shape}")
+
+    resolved_meta = meta or Spectrum.Meta()
+    if resolved_meta.spectrum_id is None:
+        from scistudio.core.meta import with_meta_changes
+
+        resolved_meta = cast(
+            Spectrum.Meta, with_meta_changes(resolved_meta, spectrum_id=spectrum_id or new_spectrum_id())
+        )
+
+    table = arrow_table({LAMBDA_COLUMN: lam, INTENSITY_COLUMN: inten})
+    return Spectrum(
+        index_name=LAMBDA_COLUMN,
+        value_name=INTENSITY_COLUMN,
+        length=int(lam.shape[0]),
         data=table,
+        meta=resolved_meta,
+        user=dict(user) if user else None,
+        framework=framework or FrameworkMeta(source=source or "scistudio-blocks-spectroscopy"),
     )
 
 
-def dataframe_collection(df: DataFrame) -> Collection:
-    """Wrap a single :class:`DataFrame` into a ``Collection[DataFrame]`` output.
+def spectrum_table(spectrum: Spectrum) -> pa.Table:
+    """Return the backing two-column ``pyarrow.Table`` of a spectrum."""
+    payload = spectrum.to_memory() if spectrum.storage_ref is not None else spectrum._transient_data
+    if payload is None:
+        raise ValueError("Spectrum has no in-memory or persisted payload.")
+    if isinstance(payload, pa.Table):
+        return payload
+    raise TypeError(f"Spectrum payload must be a pyarrow.Table, got {type(payload).__name__}")
 
-    Multi-output blocks declare ``DataFrame`` output ports and must return a
-    ``Collection`` for every port; this is the canonical single-table wrapper.
 
-    Args:
-        df: The table to wrap.
+def spectrum_arrays(spectrum: Spectrum) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``(lambda_values, intensity_values)`` as float64 numpy arrays."""
+    table = spectrum_table(spectrum)
+    index_name = spectrum.index_name or LAMBDA_COLUMN
+    value_name = spectrum.value_name or INTENSITY_COLUMN
+    lam = np.asarray(table.column(index_name).to_numpy(zero_copy_only=False), dtype=np.float64)
+    inten = np.asarray(table.column(value_name).to_numpy(zero_copy_only=False), dtype=np.float64)
+    return lam, inten
 
-    Returns:
-        A ``Collection`` whose ``item_type`` is :class:`DataFrame`.
+
+def derive_spectrum(
+    source: Spectrum,
+    *,
+    lambda_values: Sequence[float] | np.ndarray | None = None,
+    intensity_values: Sequence[float] | np.ndarray | None = None,
+    meta: Spectrum.Meta | None = None,
+    meta_changes: Mapping[str, Any] | None = None,
+) -> Spectrum:
+    """Derive a new :class:`Spectrum` from ``source``, preserving identity.
+
+    Preserves ``spectrum_id`` and user metadata, derives a fresh framework
+    (lineage), and lets callers replace lambda and/or intensity. When neither
+    array is provided the source payload is reused.
     """
-    return Collection(items=[df], item_type=DataFrame)
+    src_lam, src_inten = spectrum_arrays(source)
+    lam = np.asarray(lambda_values, dtype=np.float64) if lambda_values is not None else src_lam
+    inten = np.asarray(intensity_values, dtype=np.float64) if intensity_values is not None else src_inten
+    if lam.shape != inten.shape:
+        raise ValueError(f"lambda and intensity must have equal shape, got {lam.shape} vs {inten.shape}")
+
+    resolved_meta = meta if meta is not None else source.meta
+    if resolved_meta is not None and meta_changes:
+        from scistudio.core.meta import with_meta_changes
+
+        resolved_meta = cast(Spectrum.Meta, with_meta_changes(resolved_meta, **dict(meta_changes)))
+
+    table = arrow_table({LAMBDA_COLUMN: lam, INTENSITY_COLUMN: inten})
+    return Spectrum(
+        index_name=source.index_name or LAMBDA_COLUMN,
+        value_name=source.value_name or INTENSITY_COLUMN,
+        length=int(lam.shape[0]),
+        data=table,
+        meta=resolved_meta,
+        user=dict(source.user) if source.user else None,
+        framework=source.framework.derive(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Collection helpers
+# ---------------------------------------------------------------------------
+
+
+def spectra_collection(spectra: Sequence[Spectrum]) -> Collection:
+    """Wrap spectra in a ``Collection[Spectrum]`` (empty allowed via item_type)."""
+    return Collection(items=cast(list[DataObject], list(spectra)), item_type=Spectrum)
+
+
+def dataframe_collection(frame: DataFrame) -> Collection:
+    """Wrap one ``DataFrame`` in a ``Collection[DataFrame]`` for an output port."""
+    return Collection(items=cast(list[DataObject], [frame]), item_type=DataFrame)
+
+
+def coerce_spectra(
+    value: Any, *, block: str = "block", port: str = "spectra", allow_empty: bool = False
+) -> list[Spectrum]:
+    """Normalise a port value to a ``list[Spectrum]``.
+
+    Accepts a bare :class:`Spectrum` or a ``Collection[Spectrum]``. Raises
+    ``ValueError`` with a block-qualified message on a missing/empty/wrong input.
+    """
+    if value is None:
+        raise ValueError(f"{block}: missing required '{port}' input")
+    if isinstance(value, Spectrum):
+        return [value]
+    if isinstance(value, Collection):
+        items = [cast(Spectrum, item) for item in value]
+        if not items and not allow_empty:
+            raise ValueError(f"{block}: '{port}' collection is empty")
+        return items
+    raise ValueError(f"{block}: '{port}' expected Spectrum or Collection[Spectrum], got {type(value).__name__}")
+
+
+def coerce_single_spectrum(value: Any, *, block: str = "block", port: str = "reference") -> Spectrum:
+    """Normalise a port value to exactly one :class:`Spectrum`."""
+    items = coerce_spectra(value, block=block, port=port)
+    if len(items) != 1:
+        raise ValueError(f"{block}: '{port}' must be exactly one Spectrum, got {len(items)}")
+    return items[0]
+
+
+def coerce_dataset(value: Any, *, block: str = "block", port: str = "dataset") -> SpectralDataset:
+    """Normalise a port value to one :class:`SpectralDataset`."""
+    if value is None:
+        raise ValueError(f"{block}: missing required '{port}' input")
+    if isinstance(value, SpectralDataset):
+        return value
+    if isinstance(value, Collection):
+        items = list(value)
+        if len(items) == 1 and isinstance(items[0], SpectralDataset):
+            return cast(SpectralDataset, items[0])
+    raise ValueError(f"{block}: '{port}' expected SpectralDataset, got {type(value).__name__}")
+
+
+def coerce_dataframe(value: Any, *, block: str = "block", port: str = "features") -> DataFrame:
+    """Normalise a port value to one core ``DataFrame``."""
+    if value is None:
+        raise ValueError(f"{block}: missing required '{port}' input")
+    if isinstance(value, DataFrame):
+        return value
+    if isinstance(value, Collection):
+        items = list(value)
+        if len(items) == 1 and isinstance(items[0], DataFrame):
+            return cast(DataFrame, items[0])
+    raise ValueError(f"{block}: '{port}' expected DataFrame, got {type(value).__name__}")
+
+
+# ---------------------------------------------------------------------------
+# SpectralDataset frames
+# ---------------------------------------------------------------------------
+
+
+def build_spectral_dataset(
+    index: Any,
+    spectra: Any,
+    *,
+    meta: SpectralDataset.Meta | None = None,
+    framework: FrameworkMeta | None = None,
+    source: str | None = None,
+) -> SpectralDataset:
+    """Construct a :class:`SpectralDataset` from ``index`` + ``spectra`` frames.
+
+    Each of ``index`` / ``spectra`` may be a core ``DataFrame``, a pandas frame,
+    or a ``pyarrow.Table``.
+    """
+    return SpectralDataset(
+        slots={"index": _as_dataframe(index), "spectra": _as_dataframe(spectra)},
+        meta=meta or SpectralDataset.Meta(),
+        framework=framework or FrameworkMeta(source=source or "scistudio-blocks-spectroscopy"),
+    )
+
+
+def dataset_frames(dataset: SpectralDataset) -> tuple[pa.Table, pa.Table]:
+    """Return ``(index_table, spectra_table)`` as ``pyarrow.Table`` values."""
+    return dataframe_arrow(cast(DataFrame, dataset.get("index"))), dataframe_arrow(
+        cast(DataFrame, dataset.get("spectra"))
+    )
+
+
+def _as_dataframe(value: Any) -> DataFrame:
+    if isinstance(value, DataFrame):
+        return value
+    if isinstance(value, pa.Table):
+        return dataframe_from_arrow(value)
+    if hasattr(value, "columns"):  # pandas
+        return dataframe_from_pandas(value)
+    raise TypeError(f"Cannot coerce {type(value).__name__} to a core DataFrame slot.")
+
+
+# ---------------------------------------------------------------------------
+# Grid utilities
+# ---------------------------------------------------------------------------
+
+
+def grids_close(a: np.ndarray, b: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    """Return ``True`` when two lambda grids match within tolerance."""
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    return a.shape == b.shape and bool(np.allclose(a, b, rtol=rtol, atol=atol))
 
 
 __all__ = [
+    "arrow_table",
+    "build_spectral_dataset",
     "build_spectrum",
+    "coerce_dataframe",
+    "coerce_dataset",
+    "coerce_single_spectrum",
+    "coerce_spectra",
+    "dataframe_arrow",
     "dataframe_collection",
+    "dataframe_from_arrow",
+    "dataframe_from_pandas",
     "dataframe_from_rows",
+    "dataframe_pandas",
+    "dataset_frames",
     "derive_spectrum",
+    "grids_close",
+    "new_spectrum_id",
     "spectra_collection",
     "spectrum_arrays",
+    "spectrum_table",
 ]

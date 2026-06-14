@@ -92,6 +92,16 @@ class Spectrum(Series):
         acquisition_date: datetime | None = None
         processing_history: str | None = None
 
+    @property
+    def spectrum_id(self) -> str | None:
+        """Convenience accessor for the internal spectrum id (FR-035).
+
+        Reads ``meta.spectrum_id`` when a typed ``Meta`` is present; returns
+        ``None`` otherwise. The id is an internal unique key, never a filename.
+        """
+        meta = self._meta
+        return getattr(meta, "spectrum_id", None) if meta is not None else None
+
 
 class SpectralDataset(CompositeData):
     """A many-spectrum composite: an ``index`` table plus a ``spectra`` table.
