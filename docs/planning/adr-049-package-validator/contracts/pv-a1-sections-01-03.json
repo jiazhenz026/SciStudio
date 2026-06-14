@@ -1,0 +1,932 @@
+{
+  "schema_version": "adr049.package_contract_table.v1",
+  "agent_id": "PV-A1",
+  "generated_at": "2026-06-14",
+  "source_priority": "code-primary-adr-secondary",
+  "agent_scope": {
+    "sections": [
+      "01_package_metadata_distribution",
+      "02_entry_points",
+      "03_type_contracts"
+    ],
+    "summary": "Code-first package validator contracts for package metadata, block/runner entry points, and type registration."
+  },
+  "contracts": [
+    {
+      "id": "PV-01-001",
+      "section": "01_package_metadata_distribution",
+      "title": "PackageInfo is the package metadata envelope",
+      "contract": "A SciStudio block package metadata envelope is a frozen PackageInfo dataclass with a required name and optional description, author, and version fields. Package authors use this envelope to give the registry package-level display and grouping metadata.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "distribution_metadata",
+          "package_info"
+        ],
+        "trigger": "always_for_candidate_package; PackageInfo checks run when the candidate scistudio.blocks payload returns package metadata",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/base/package_info.py",
+          "symbol": "PackageInfo",
+          "kind": "contains",
+          "pattern": "class PackageInfo:"
+        },
+        {
+          "path": "src/scistudio/blocks/base/package_info.py",
+          "symbol": "PackageInfo",
+          "kind": "contains",
+          "pattern": "@dataclass(frozen=True)"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-025.md",
+          "symbol": "PackageInfo",
+          "kind": "contains",
+          "pattern": "Block packages may also provide package-level metadata through"
+        },
+        {
+          "path": "docs/block-development/publishing.md",
+          "symbol": "PackageInfo",
+          "kind": "contains",
+          "pattern": "`PackageInfo` is a frozen dataclass that describes your package to the"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_registry.py",
+          "symbol": "TestPackageInfo",
+          "kind": "contains",
+          "pattern": "class TestPackageInfo:"
+        },
+        {
+          "path": "tests/blocks/test_registry.py",
+          "symbol": "test_frozen",
+          "kind": "contains",
+          "pattern": "def test_frozen(self) -> None:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "This row covers the public metadata class itself; field-level validation is covered by PV-01-002.",
+      "validator_implication": "A package validator should require any provided package metadata to be a PackageInfo instance and should treat mutation-prone or ad hoc metadata envelopes as invalid for production install."
+    },
+    {
+      "id": "PV-01-002",
+      "section": "01_package_metadata_distribution",
+      "title": "PackageInfo fields are structurally validated",
+      "contract": "PackageInfo validation requires an actual PackageInfo instance, a non-empty string name, string description and author fields, and a non-empty string version. Description and author may be empty strings.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "distribution_metadata",
+          "package_info"
+        ],
+        "trigger": "always_for_candidate_package; PackageInfo checks run when the candidate scistudio.blocks payload returns package metadata",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "symbol": "validate_package_info",
+          "kind": "contains",
+          "pattern": "def validate_package_info(self, info: Any) -> list[str]:"
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "symbol": "validate_package_info",
+          "kind": "contains",
+          "pattern": "PackageInfo.version must be a non-empty string."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-026.md",
+          "symbol": "validate_package_info",
+          "kind": "contains",
+          "pattern": "generated entry-point metadata, harness block"
+        },
+        {
+          "path": "docs/block-development/testing.md",
+          "symbol": "validate_package_info",
+          "kind": "contains",
+          "pattern": "- If `PackageInfo` is present, validates its fields (non-empty `name`,"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/testing/test_harness.py",
+          "symbol": "TestValidatePackageInfo",
+          "kind": "contains",
+          "pattern": "class TestValidatePackageInfo:"
+        },
+        {
+          "path": "tests/testing/test_harness.py",
+          "symbol": "test_empty_version",
+          "kind": "contains",
+          "pattern": "def test_empty_version(self) -> None:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The harness validates PackageInfo structure but does not compare PackageInfo.version against installed distribution metadata.",
+      "validator_implication": "Development validation can report PackageInfo field errors through the harness; production install validation should block packages with malformed metadata and may add distribution-version consistency checks in a later row."
+    },
+    {
+      "id": "PV-02-001",
+      "section": "02_entry_points",
+      "title": "Block package entry points expose package metadata plus block classes",
+      "contract": "Installed block packages declare a scistudio.blocks entry-point group. Runtime accepts a callable returning (PackageInfo, list[type[Block]]), a callable returning list[type[Block]], or a direct Block class; the monorepo package fallback prefers get_block_package() and then get_blocks(). Current in-repo plugin pyprojects point installed scistudio.blocks entries at get_block_package(), while each package also exposes get_blocks() as a plain block-list helper.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "entry_points"
+        ],
+        "trigger": "when_candidate_distribution_declares_a_scistudio_entry_point",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "packages/scistudio-blocks-imaging/pyproject.toml",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.blocks\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/pyproject.toml",
+          "symbol": "scistudio.blocks:imaging",
+          "kind": "contains",
+          "pattern": "imaging = \"scistudio_blocks_imaging:get_block_package\""
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+          "symbol": "get_blocks",
+          "kind": "contains",
+          "pattern": "def get_blocks() -> list[type]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+          "symbol": "get_block_package",
+          "kind": "contains",
+          "pattern": "def get_block_package() -> tuple[PackageInfo, list[type]]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/pyproject.toml",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.blocks\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/pyproject.toml",
+          "symbol": "scistudio.blocks:lcms",
+          "kind": "contains",
+          "pattern": "lcms = \"scistudio_blocks_lcms:get_block_package\""
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py",
+          "symbol": "get_blocks",
+          "kind": "contains",
+          "pattern": "def get_blocks() -> list[type]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py",
+          "symbol": "get_block_package",
+          "kind": "contains",
+          "pattern": "def get_block_package() -> tuple[PackageInfo, list[type]]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/pyproject.toml",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.blocks\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/pyproject.toml",
+          "symbol": "scistudio.blocks:srs",
+          "kind": "contains",
+          "pattern": "srs = \"scistudio_blocks_srs:get_block_package\""
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py",
+          "symbol": "get_blocks",
+          "kind": "contains",
+          "pattern": "def get_blocks() -> list[type]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py",
+          "symbol": "get_block_package",
+          "kind": "contains",
+          "pattern": "def get_block_package() -> tuple[PackageInfo, list[type]]:"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "symbol": "_scan_tier2",
+          "kind": "contains",
+          "pattern": "def _scan_tier2(registry: BlockRegistry) -> None:"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "symbol": "_scan_monorepo_packages",
+          "kind": "contains",
+          "pattern": "prefer ``get_block_package() -> (PackageInfo, list[type[Block]])``"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-025.md",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "| `scistudio.blocks` | Discover block classes and optional package metadata | Active |"
+        },
+        {
+          "path": "docs/adr/ADR-025.md",
+          "symbol": "PackageInfo",
+          "kind": "contains",
+          "pattern": "(PackageInfo(...), [BlockClassA, BlockClassB])"
+        },
+        {
+          "path": "docs/block-development/publishing.md",
+          "symbol": "get_block_package",
+          "kind": "contains",
+          "pattern": "returns a plain `list[type]`, a `get_block_package()` callable, or a direct"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_registry.py",
+          "symbol": "TestScanTier2CallableProtocol",
+          "kind": "contains",
+          "pattern": "class TestScanTier2CallableProtocol:"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_packaging.py",
+          "symbol": "test_get_block_package_returns_package_info_and_blocks",
+          "kind": "contains",
+          "pattern": "def test_get_block_package_returns_package_info_and_blocks() -> None:"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_packaging.py",
+          "symbol": "test_pyproject_declares_release_entry_points",
+          "kind": "contains",
+          "pattern": "scistudio_blocks_imaging:get_block_package"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The active ADR aligns with the tuple/list return contract. The current publishing guide prefers get_blocks() returning the tuple for new packages, while current in-repo plugin pyprojects still use get_block_package() for installed discovery.",
+      "validator_implication": "A validator should load the scistudio.blocks entry point in an isolated context, accept the runtime-compatible shapes, validate PackageInfo when present, validate every concrete Block subclass, and report legacy callable naming as a development warning rather than a production block until migration policy changes."
+    },
+    {
+      "id": "PV-02-002",
+      "section": "02_entry_points",
+      "title": "Core distribution declares block and CodeBlock runner entry points",
+      "contract": "The root SciStudio distribution declares built-in scistudio.blocks entries for core block classes and a scistudio.runners entry-point group for CodeBlock runner backends. Each entry-point reference must resolve to an importable module attribute.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "entry_points"
+        ],
+        "trigger": "when_candidate_distribution_declares_a_scistudio_entry_point",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.blocks\"]"
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:load_data",
+          "kind": "contains",
+          "pattern": "load_data = \"scistudio.blocks.io.loaders.load_data:LoadData\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:save_data",
+          "kind": "contains",
+          "pattern": "save_data = \"scistudio.blocks.io.savers.save_data:SaveData\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:process_merge",
+          "kind": "contains",
+          "pattern": "process_merge = \"scistudio.blocks.process.builtins.merge:MergeBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:process_split",
+          "kind": "contains",
+          "pattern": "process_split = \"scistudio.blocks.process.builtins.split:SplitBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:code_block",
+          "kind": "contains",
+          "pattern": "code_block = \"scistudio.blocks.code:CodeBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:app_block",
+          "kind": "contains",
+          "pattern": "app_block = \"scistudio.blocks.app:AppBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:ai_block",
+          "kind": "contains",
+          "pattern": "ai_block = \"scistudio.blocks.ai:AIBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:subworkflow_block",
+          "kind": "contains",
+          "pattern": "subworkflow_block = \"scistudio.blocks.subworkflow:SubWorkflowBlock\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:merge_collection",
+          "kind": "contains",
+          "pattern": "merge_collection = \"scistudio.blocks.process.builtins.merge_collection:MergeCollection\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:split_collection",
+          "kind": "contains",
+          "pattern": "split_collection = \"scistudio.blocks.process.builtins.split_collection:SplitCollection\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:filter_collection",
+          "kind": "contains",
+          "pattern": "filter_collection = \"scistudio.blocks.process.builtins.filter_collection:FilterCollection\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:slice_collection",
+          "kind": "contains",
+          "pattern": "slice_collection = \"scistudio.blocks.process.builtins.slice_collection:SliceCollection\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:data_router",
+          "kind": "contains",
+          "pattern": "data_router = \"scistudio.blocks.process.builtins.data_router:DataRouter\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.blocks:pair_editor",
+          "kind": "contains",
+          "pattern": "pair_editor = \"scistudio.blocks.process.builtins.pair_editor:PairEditor\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.runners",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.runners\"]"
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.runners:python",
+          "kind": "contains",
+          "pattern": "python = \"scistudio.blocks.code.runners.python_runner:PythonRunner\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.runners:r",
+          "kind": "contains",
+          "pattern": "r = \"scistudio.blocks.code.runners.r_runner:RRunner\""
+        },
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.runners:julia",
+          "kind": "contains",
+          "pattern": "julia = \"scistudio.blocks.code.runners.julia_runner:JuliaRunner\""
+        },
+        {
+          "path": "tests/architecture/test_registries.py",
+          "symbol": "test_entry_point_resolves_to_class",
+          "kind": "contains",
+          "pattern": "def test_entry_point_resolves_to_class("
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-025.md",
+          "symbol": "scistudio.blocks",
+          "kind": "contains",
+          "pattern": "| `scistudio.blocks` | Discover block classes and optional package metadata | Active |"
+        },
+        {
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "symbol": "scistudio.runners",
+          "kind": "contains",
+          "pattern": "| `scistudio.runners` | Registers CodeBlock runner backends for additional script execution environments. |"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/architecture/test_registries.py",
+          "symbol": "test_entry_point_resolves_to_class",
+          "kind": "contains",
+          "pattern": "Every entry-point must reference an importable module AND an existing class."
+        }
+      ],
+      "adr_alignment": "adr_missing",
+      "notes": "ADR-025 governs scistudio.blocks and scistudio.types but does not mention scistudio.runners; the runner group is documented in ARCHITECTURE.md and implemented in root pyproject.toml.",
+      "validator_implication": "A package validator should validate importability and attribute resolution for every declared SciStudio entry-point group. Runner validation should be tracked as architecture-backed until a dedicated ADR/spec row governs runner package semantics."
+    },
+    {
+      "id": "PV-02-003",
+      "section": "02_entry_points",
+      "title": "Development harness validates scistudio.blocks callable return shape",
+      "contract": "The development harness validates scistudio.blocks callable results as either (PackageInfo, list[type[Block]]) or list[type[Block]], validates PackageInfo when present, rejects empty block lists, rejects non-class and non-Block items, and delegates each candidate block to block contract validation.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "entry_points"
+        ],
+        "trigger": "when_candidate_distribution_declares_a_scistudio_entry_point",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "symbol": "validate_entry_point_callable",
+          "kind": "contains",
+          "pattern": "def validate_entry_point_callable(self, callable_result: Any) -> list[str]:"
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "symbol": "validate_entry_point_callable",
+          "kind": "contains",
+          "pattern": "Entry-point callable must return (PackageInfo, list[Block])"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-026.md",
+          "symbol": "BlockTestHarness",
+          "kind": "contains",
+          "pattern": "Block authors need contract checks before distribution"
+        },
+        {
+          "path": "docs/block-development/testing.md",
+          "symbol": "validate_entry_point_callable",
+          "kind": "contains",
+          "pattern": "Per ADR-025, the entry-point callable must return either:"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/testing/test_harness.py",
+          "symbol": "TestValidateEntryPointCallable",
+          "kind": "contains",
+          "pattern": "class TestValidateEntryPointCallable:"
+        },
+        {
+          "path": "tests/testing/test_harness.py",
+          "symbol": "test_empty_block_list",
+          "kind": "contains",
+          "pattern": "def test_empty_block_list(self) -> None:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The harness is stricter than BlockRegistry runtime compatibility for direct class entry points; direct class compatibility is covered as runtime behavior in PV-02-001.",
+      "validator_implication": "A development validator can surface harness errors directly. A production install validator should include the runtime-compatible direct-class path only if compatibility policy keeps it active."
+    },
+    {
+      "id": "PV-03-001",
+      "section": "03_type_contracts",
+      "title": "Type entry points return plugin DataObject type classes",
+      "contract": "Packages register semantic DataObject subclasses through scistudio.types entry points. The callable returns a list of exported type classes, and the root SciStudio package intentionally contributes no built-in domain types through its empty scistudio.types group.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "types"
+        ],
+        "trigger": "when_candidate_declares_scistudio.types",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "pyproject.toml",
+          "symbol": "scistudio.types",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.types\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/pyproject.toml",
+          "symbol": "scistudio.types",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.types\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/pyproject.toml",
+          "symbol": "scistudio.types:imaging",
+          "kind": "contains",
+          "pattern": "imaging = \"scistudio_blocks_imaging:get_types\""
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "def get_types() -> list[type]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/pyproject.toml",
+          "symbol": "scistudio.types",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.types\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/pyproject.toml",
+          "symbol": "scistudio.types:lcms",
+          "kind": "contains",
+          "pattern": "lcms = \"scistudio_blocks_lcms:get_types\""
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "def get_types() -> list[type]:"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/pyproject.toml",
+          "symbol": "scistudio.types",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.types\"]"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/pyproject.toml",
+          "symbol": "scistudio.types:srs",
+          "kind": "contains",
+          "pattern": "srs = \"scistudio_blocks_srs:get_types\""
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "def get_types() -> list[type]:"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-025.md",
+          "symbol": "scistudio.types",
+          "kind": "contains",
+          "pattern": "| `scistudio.types` | Discover custom `DataObject` subclasses | Active |"
+        },
+        {
+          "path": "docs/block-development/custom-types.md",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "def get_types() -> list[type]:"
+        }
+      ],
+      "tests": [
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_packaging.py",
+          "symbol": "test_get_types_returns_exported_imaging_types",
+          "kind": "contains",
+          "pattern": "def test_get_types_returns_exported_imaging_types() -> None:"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/tests/test_types.py",
+          "symbol": "test_get_types_returns_all_four_classes",
+          "kind": "contains",
+          "pattern": "def test_get_types_returns_all_four_classes() -> None:"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/tests/test_types.py",
+          "symbol": "test_get_types_returns_srsimage",
+          "kind": "contains",
+          "pattern": "def test_get_types_returns_srsimage() -> None:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The root scistudio.types group is present but empty by design because domain types live in plugin packages.",
+      "validator_implication": "A validator should invoke scistudio.types callables, require a list or tuple payload, and validate every returned item as a DataObject subclass before registration."
+    },
+    {
+      "id": "PV-03-002",
+      "section": "03_type_contracts",
+      "title": "TypeRegistry validates and registers type classes",
+      "contract": "TypeRegistry is the runtime authority for DataObject type registration. register_class() validates a class before storing a TypeSpec, _scan_entrypoint_types() loads scistudio.types callables, skips malformed entry points with warnings, rejects non-DataObject items, and calls _validate_meta_class() for Meta constraints.",
+      "status": "partial",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "types"
+        ],
+        "trigger": "when_candidate_declares_scistudio.types",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "symbol": "TypeRegistry",
+          "kind": "contains",
+          "pattern": "class TypeRegistry:"
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "symbol": "_validate_meta_class",
+          "kind": "contains",
+          "pattern": "def _validate_meta_class(self, cls: type) -> None:"
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "symbol": "_scan_entrypoint_types",
+          "kind": "contains",
+          "pattern": "eps = importlib.metadata.entry_points(group=\"scistudio.types\")"
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "symbol": "_validate_meta_class",
+          "kind": "contains",
+          "pattern": "``frozen=True`` on ``model_config`` is *recommended*"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-027.md",
+          "symbol": "TypeRegistry",
+          "kind": "contains",
+          "pattern": "Worker subprocesses must scan registered types before reconstructing payloads."
+        },
+        {
+          "path": "docs/adr/ADR-031.md",
+          "symbol": "Meta",
+          "kind": "contains",
+          "pattern": "- Frozen, no `PrivateAttr`, all fields must round-trip through `model_dump_json` / `model_validate_json`"
+        },
+        {
+          "path": "docs/block-development/custom-types.md",
+          "symbol": "Meta",
+          "kind": "contains",
+          "pattern": "1. **`model_config = ConfigDict(frozen=True)`** -- Immutability is required."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/core/test_type_registry_resolve_and_meta.py",
+          "symbol": "TestValidateMetaClass",
+          "kind": "contains",
+          "pattern": "class TestValidateMetaClass:"
+        },
+        {
+          "path": "tests/core/test_type_registry_resolve_and_meta.py",
+          "symbol": "test_register_class_with_meta_having_private_attr_raises",
+          "kind": "contains",
+          "pattern": "def test_register_class_with_meta_having_private_attr_raises(self) -> None:"
+        },
+        {
+          "path": "tests/architecture/test_registries.py",
+          "symbol": "test_type_registry_has_required_interface",
+          "kind": "contains",
+          "pattern": "def test_type_registry_has_required_interface() -> None:"
+        }
+      ],
+      "adr_alignment": "adr_drift",
+      "notes": "Code enforces BaseModel inheritance, no PrivateAttr, and best-effort JSON round-trip. It explicitly treats frozen=True as recommended rather than required, while ADR/docs describe frozen Meta as required.",
+      "validator_implication": "A unified package validator should preserve current registry validation for installed compatibility, but ADR-049 should decide whether frozen Meta becomes a production-blocking validator rule or remains a development warning."
+    },
+    {
+      "id": "PV-03-003",
+      "section": "03_type_contracts",
+      "title": "Current plugin packages ship concrete type payloads",
+      "contract": "The imaging, LC-MS, and SRS packages contribute concrete DataObject subtype payloads through their scistudio.types callables. The payload includes direct base-class subtypes such as Image, Label, Transform, MSRawFile, PeakTable, MIDTable, and SampleMetadata, plus indirect plugin subtypes such as Mask and SRSImage that must still be validated because they are returned by get_types().",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "types"
+        ],
+        "trigger": "when_candidate_declares_scistudio.types",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+          "symbol": "Image",
+          "kind": "contains",
+          "pattern": "class Image(Array):"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+          "symbol": "Mask",
+          "kind": "contains",
+          "pattern": "class Mask(Image):"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+          "symbol": "Label",
+          "kind": "contains",
+          "pattern": "class Label(CompositeData):"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+          "symbol": "Transform",
+          "kind": "contains",
+          "pattern": "class Transform(Array):"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "return list(_IMAGING_TYPES)"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "MSRawFile",
+          "kind": "contains",
+          "pattern": "class MSRawFile(Artifact):"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "PeakTable",
+          "kind": "contains",
+          "pattern": "class PeakTable(DataFrame):"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "MIDTable",
+          "kind": "contains",
+          "pattern": "class MIDTable(DataFrame):"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "SampleMetadata",
+          "kind": "contains",
+          "pattern": "class SampleMetadata(DataFrame):"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "return [MSRawFile, PeakTable, MIDTable, SampleMetadata]"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py",
+          "symbol": "SRSImage",
+          "kind": "contains",
+          "pattern": "class SRSImage(Image):"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "return [SRSImage]"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-027.md",
+          "symbol": "plugin-owned domain types",
+          "kind": "contains",
+          "pattern": "Core contains only base data types. Domain subtypes such as image, spectral,"
+        },
+        {
+          "path": "docs/specs/phase11-imaging-block-spec.md",
+          "symbol": "Image",
+          "kind": "contains",
+          "pattern": "| T-IMG-001 | Types module (Image / Mask / Label / Transform)"
+        },
+        {
+          "path": "docs/specs/phase11-lcms-block-spec.md",
+          "symbol": "MSRawFile",
+          "kind": "contains",
+          "pattern": "\"\"\"LC-MS plugin types: MSRawFile, PeakTable, MIDTable, SampleMetadata.\"\"\""
+        },
+        {
+          "path": "docs/specs/phase11-srs-block-spec.md",
+          "symbol": "SRSImage",
+          "kind": "contains",
+          "pattern": "### T-SRS-001 — `SRSImage` type + `Meta` model"
+        }
+      ],
+      "tests": [
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_packaging.py",
+          "symbol": "test_get_types_returns_exported_imaging_types",
+          "kind": "contains",
+          "pattern": "assert get_types() == [Image, Mask, Label, Transform]"
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/tests/test_types.py",
+          "symbol": "test_get_types_returns_all_four_classes",
+          "kind": "contains",
+          "pattern": "assert get_types() == [MSRawFile, PeakTable, MIDTable, SampleMetadata]"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/tests/test_types.py",
+          "symbol": "test_get_types_returns_srsimage",
+          "kind": "contains",
+          "pattern": "assert get_types() == [SRSImage]"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The mechanical inventory only classifies direct subclasses of known base names as type_class items; a validator must still validate indirect subclasses returned by get_types().",
+      "validator_implication": "A validator should validate the returned type payload itself rather than relying only on static class-base inventory, so indirect DataObject subclasses cannot escape type contract checks."
+    }
+  ],
+  "omissions": [
+    {
+      "id": "OM-001",
+      "title": "Indirect DataObject subclasses are not classified as type_class inventory items",
+      "evidence": [
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+          "symbol": "Mask",
+          "kind": "contains",
+          "pattern": "class Mask(Image):"
+        },
+        {
+          "path": "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py",
+          "symbol": "SRSImage",
+          "kind": "contains",
+          "pattern": "class SRSImage(Image):"
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_packaging.py",
+          "symbol": "get_types",
+          "kind": "contains",
+          "pattern": "assert get_types() == [Image, Mask, Label, Transform]"
+        }
+      ],
+      "recommended_section": "03_type_contracts",
+      "notes": "The current inventory detects direct bases in TYPE_BASE_NAMES, so classes inheriting through plugin type bases are only visible through get_types payload evidence."
+    }
+  ]
+}

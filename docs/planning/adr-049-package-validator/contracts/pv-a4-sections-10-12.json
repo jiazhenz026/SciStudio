@@ -1,0 +1,939 @@
+{
+  "schema_version": "adr049.package_contract_table.v1",
+  "agent_id": "PV-A4",
+  "generated_at": "2026-06-14",
+  "source_priority": "code-primary-adr-secondary",
+  "agent_scope": {
+    "sections": [
+      "10_preview_provider_behavior",
+      "11_plot_jobs",
+      "12_security_isolation"
+    ],
+    "summary": "Preview provider bounded-read and failure contracts, preview-only plot-job contracts, and same-origin/path/subprocess isolation contracts."
+  },
+  "contracts": [
+    {
+      "id": "PV-10-001",
+      "section": "10_preview_provider_behavior",
+      "title": "Preview providers use the bounded data-access surface",
+      "contract": "Package and project preview providers must read data through PreviewDataAccess bounded helpers instead of arbitrary eager materialization or direct frontend-visible storage paths. The validator should flag providers that bypass the PreviewRequest.data_access surface for DataFrame, Array, Series, Text, Artifact, CompositeData, or Collection previews.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_provider"
+        ],
+        "trigger": "when_candidate_previewer_declares_a_backend_provider",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/data_access.py",
+          "kind": "contains",
+          "pattern": "Bounded data-access helpers for previewers",
+          "symbol": "data_access",
+          "notes": "Required inventory module item; module documents the bounded preview data-access surface."
+        },
+        {
+          "path": "src/scistudio/previewers/data_access.py",
+          "kind": "contains",
+          "pattern": "class PreviewDataAccess:",
+          "symbol": "PreviewDataAccess",
+          "notes": "Required inventory class item; public class is the provider read boundary."
+        },
+        {
+          "path": "src/scistudio/previewers/data_access.py",
+          "kind": "contains",
+          "pattern": "DEFAULT_MAX_BYTES = 8 * 1024 * 1024",
+          "notes": "Default byte budget mirrors the bounded MCP preview cap."
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "request.data_access.dataframe_page",
+          "notes": "Fallback providers consume the injected bounded access object."
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "request.data_access.array_plane",
+          "notes": "Array fallback reads through PreviewDataAccess rather than directly materializing storage."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-009: `PreviewDataAccess` must provide bounded helpers for DataFrame,"
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-010: Previewers must not call eager materialization helpers on large data"
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Backend providers must use `PreviewDataAccess` for bounded reads"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_data_access.py",
+          "kind": "contains",
+          "pattern": "def test_array_plane_does_not_materialize_full_zarr"
+        },
+        {
+          "path": "tests/previewers/test_preview_data_access.py",
+          "kind": "contains",
+          "pattern": "assert selector[0] == 3"
+        },
+        {
+          "path": "tests/previewers/test_preview_data_access.py",
+          "kind": "contains",
+          "pattern": "def test_artifact_metadata_no_data_uri_for_large_file"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Development validation should report a provider-bypass error; production install validation should block previewers that cannot demonstrate bounded PreviewDataAccess use or equivalent typed bounded helpers."
+    },
+    {
+      "id": "PV-10-002",
+      "section": "10_preview_provider_behavior",
+      "title": "Preview session invocation converts routine provider failure to typed envelopes",
+      "contract": "The preview session manager must resolve callable or dotted backend providers, inject PreviewRequest with PreviewDataAccess, and convert missing providers, routed PreviewError instances, and unexpected provider exceptions into deterministic error envelopes instead of API crashes or workflow/data mutations.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_provider"
+        ],
+        "trigger": "when_candidate_previewer_declares_a_backend_provider",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "Provider calls are wrapped defensively",
+          "symbol": "session",
+          "notes": "Required inventory module item; session module documents provider invocation and error conversion."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "request = PreviewRequest(",
+          "notes": "Session manager injects target, spec, query, data access, limits, and session id into providers."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "PreviewErrorCode.MISSING_BUNDLE",
+          "notes": "Missing backend provider becomes a typed preview error."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "PreviewErrorCode.PROVIDER_EXCEPTION",
+          "notes": "Unexpected provider exceptions become provider_exception envelopes."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "provider exceptions return preview errors without API crashes"
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "The preview API is session-oriented."
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Preview failures must not mutate workflows, DataObjects, lineage, or"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "def test_create_session_unknown_target_returns_error_envelope"
+        },
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "assert body[\"kind\"] in {\"error\", \"artifact\"}"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "The package validator should statically or smoke-test backend_provider importability/callability and require failure behavior to degrade into typed preview envelopes, with production blocking missing or unimportable providers for declared previewers."
+    },
+    {
+      "id": "PV-10-003",
+      "section": "10_preview_provider_behavior",
+      "title": "Preview resource reads remain session-scoped and bounded",
+      "contract": "Follow-up preview resources must be served through PreviewSessionManager.read_resource using the existing session, public query parameters, and PreviewDataAccess limits. Providers must not expose arbitrary resource identifiers or private query enrichment keys back to client-controlled resource reads.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_provider"
+        ],
+        "trigger": "when_candidate_previewer_declares_a_backend_provider",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "def read_resource(self, session_id: str, resource_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:"
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "merged.update(_public_resource_params(params or {}))"
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "access = self._data_access_factory(session.limits)"
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "raise ProviderError("
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "`GET` | `/api/previews/sessions/{session_id}/resources/{resource_id}` | Fetch bounded provider resource data."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "all preview reads, including table pagination/sort and array"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "def test_array_session_resource_tile"
+        },
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "assert \"matrix\" in res.json()[\"data\"]"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Previewer validation should treat resource handlers as part of the provider contract and flag packages whose resources cannot be reached through session-scoped bounded reads."
+    },
+    {
+      "id": "PV-11-001",
+      "section": "11_plot_jobs",
+      "title": "Plot jobs are strict project-local manifests bound by stable output identity",
+      "contract": "A plot job is not a package registry surface; it is a project-local plots/<plot_id>/plot.yaml plus render script. When validator coverage includes project packages or examples, it must require schema_version 1, a safe single-segment plot_id, strict manifest fields, a stable workflow_path/node_id/output_port binding, and script.path confinement under the plot directory.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "skip"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "plot_jobs",
+          "project_examples"
+        ],
+        "trigger": "when_candidate_ships_plot_manifest_plot_template_or_project_example",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+          "kind": "contains",
+          "pattern": "class PlotManifest(BaseModel):",
+          "notes": "Strict Pydantic manifest root for plot.yaml."
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+          "kind": "contains",
+          "pattern": "schema_version: int = Field(description=\"Manifest schema version; must be 1.\")"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/scaffold.py",
+          "kind": "contains",
+          "pattern": "_PLOT_ID_RE = re.compile(r\"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$\")"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+          "kind": "contains",
+          "pattern": "raw = f\"{norm_path}|{node_id}|{output_port}\".encode()"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+          "kind": "contains",
+          "pattern": "def resolve_script_path(plot_dir: Path, script_path: str, *, root: Path | None = None) -> Path:"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/validation.py",
+          "kind": "contains",
+          "pattern": "resolved.relative_to(plot_dir.resolve())"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-021: `validate_plot` must validate manifest schema, path confinement,"
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "Bind a plot to a stable **workflow path + node id + output port**, never to a"
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Plot jobs are project-local preview-only artifacts, not package registry"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_scaffold_rejects_path_traversal_plot_id"
+        },
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_read_rejects_manifest_script_path_traversal"
+        },
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_validate_broken_target"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Package-install validation should not treat plots as package entry points; development/project validation may validate plot.yaml and render script confinement before allowing run_plot_job."
+    },
+    {
+      "id": "PV-11-002",
+      "section": "11_plot_jobs",
+      "title": "Plot execution is preview-only and writes only display cache state",
+      "contract": "run_plot_job must never register workflow nodes, edit workflow YAML, mutate scheduler outputs, create downstream collections, or claim lineage. It may read the bound target's recorded scheduler output and write current.* plus current.json under .scistudio/previews/<workflow>/<node>/<port>/<plot>/, overwriting previous current artifacts and recording failures there.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "plot_jobs",
+          "project_examples"
+        ],
+        "trigger": "when_candidate_ships_plot_manifest_plot_template_or_project_example",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "Hard invariant (FR-025, verified by tests): a plot run NEVER registers a workflow"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "root / _PREVIEW_ROOT / _safe_seg(workflow_id) / _safe_seg(node_id) / _safe_seg(output_port) / _safe_seg(plot_id)"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "_clear_current_artifacts(cache_dir)"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "metadata_path.write_text(json.dumps(record, indent=2), encoding=\"utf-8\")"
+        },
+        {
+          "path": "src/scistudio/api/routes/plots.py",
+          "kind": "contains",
+          "pattern": "A plot job remains PREVIEW-ONLY"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-025: Plot execution must not register workflow nodes, edit workflow YAML,"
+        },
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-026: Plot execution must write display-only artifacts to"
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "The preview cache is"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/api/test_preview_plot_jobs.py",
+          "kind": "contains",
+          "pattern": "def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage"
+        },
+        {
+          "path": "tests/api/test_preview_plot_jobs.py",
+          "kind": "contains",
+          "pattern": "assert scistudio_children == {\"previews\"}"
+        },
+        {
+          "path": "tests/api/test_preview_plot_jobs.py",
+          "kind": "contains",
+          "pattern": "def test_failed_rerun_records_failure"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Any validator or smoke harness that runs plots must assert no workflow, scheduler, lineage, or downstream data diff escapes the preview cache."
+    },
+    {
+      "id": "PV-11-003",
+      "section": "11_plot_jobs",
+      "title": "Plot runtime clamps subprocess execution, output, file, and log limits",
+      "contract": "Plot rendering must run through the CodeBlock subprocess primitive in a confined working directory and enforce timeout, max output bytes, max file count, stdout/stderr truncation, allowed output formats, and sanitized error reporting. Hand-edited manifests may tighten but not raise absolute execution caps.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "plot_jobs",
+          "project_examples"
+        ],
+        "trigger": "when_candidate_ships_plot_manifest_plot_template_or_project_example",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/models.py",
+          "kind": "contains",
+          "pattern": "ABSOLUTE_MAX_TIMEOUT_SECONDS: float = 300.0"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "def _clamp_limits(manifest: PlotManifest) -> tuple[float, int, int]:"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "work_dir = cache_dir / \"_work\""
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "proc = run_codeblock_process(argv=argv, cwd=work_dir, env_delta={}, timeout_seconds=timeout)"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "errors.append(f\"plot wrote {len(on_disk)} files; max_files cap is {max_files}.\")"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "def _sanitize_error(message: str, root: Path) -> str:"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-024: `run_plot_job` must reuse existing CodeBlock runner primitives where"
+        },
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-029: `run_plot_job` must enforce timeout, output-size cap, file-count cap,"
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "Running renders the figure preview-side in a bounded subprocess"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_run_enforces_file_count_cap"
+        },
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_run_timeout"
+        },
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_run_python_sanitized_failure"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "A plot validation profile should reject manifests or runners that exceed absolute caps, escape the confined work directory, write unsupported formats, or leak project paths in errors."
+    },
+    {
+      "id": "PV-11-004",
+      "section": "11_plot_jobs",
+      "title": "Successful plot artifacts route through PlotPreviewer; failures return no data_ref",
+      "contract": "A successful plot run must register the first display artifact as a PlotArtifact catalog record with plot_artifact metadata so the preview session API routes it to core.plot.basic. Failed or empty plot runs must return failure status and errors without minting a data_ref that would open an empty preview.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "plot_jobs",
+          "project_examples"
+        ],
+        "trigger": "when_candidate_ships_plot_manifest_plot_template_or_project_example",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/api/routes/plots.py",
+          "kind": "contains",
+          "pattern": "record = runtime.register_plot_artifact("
+        },
+        {
+          "path": "src/scistudio/api/routes/plots.py",
+          "kind": "contains",
+          "pattern": "if result.status == \"succeeded\" and result.artifact_paths:"
+        },
+        {
+          "path": "src/scistudio/api/runtime/_data.py",
+          "kind": "contains",
+          "pattern": "record_metadata[\"plot_artifact\"] = True"
+        },
+        {
+          "path": "src/scistudio/api/runtime/_data.py",
+          "kind": "contains",
+          "pattern": "return TargetKind.PLOT_ARTIFACT"
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "previewer_id=\"core.plot.basic\""
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-031: Successful plot artifacts must be consumable by the core"
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-018: Core `PlotPreviewer` must display PNG, JPEG, SVG, and PDF artifacts"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/api/test_plot_preview_wiring.py",
+          "kind": "contains",
+          "pattern": "def test_plot_run_route_registers_artifact_and_preview_session_renders_plot"
+        },
+        {
+          "path": "tests/api/test_plot_preview_wiring.py",
+          "kind": "contains",
+          "pattern": "assert env[\"previewer_id\"] == \"core.plot.basic\""
+        },
+        {
+          "path": "tests/api/test_plot_preview_wiring.py",
+          "kind": "contains",
+          "pattern": "def test_failed_plot_run_returns_status_without_data_ref"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Validator smoke tests for plot examples should assert both producer-to-PlotPreviewer wiring on success and no catalog data_ref on failure."
+    },
+    {
+      "id": "PV-12-001",
+      "section": "12_security_isolation",
+      "title": "Preview frontend manifests are same-origin and hide backend asset roots",
+      "contract": "Previewer frontend manifests must use backend-relative same-origin module and CSS URLs; remote http, https, protocol-relative, data, and file URLs are rejected. Backend-only asset_root may be used for serving but must never be serialized to the frontend envelope.",
+      "status": "implemented",
+      "severity": "blocker",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "security_isolation",
+          "preview_frontend_manifest",
+          "plot_jobs"
+        ],
+        "trigger": "production_always_and_development_when_candidate_declares_assets_subprocesses_or_filesystem_access",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "Package- and project-owned previewers ship a JavaScript ESM module",
+          "symbol": "assets",
+          "notes": "Required inventory module item for preview asset security."
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "def is_remote_url(url: str) -> bool:",
+          "symbol": "is_remote_url",
+          "notes": "Required inventory validator function item for same-origin rejection."
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "_REMOTE_PREFIXES = (\"http://\", \"https://\", \"//\", \"data:\", \"file:\")"
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "manifest module_url is remote and rejected"
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "Wire shape sent to the frontend. ``asset_root`` is intentionally omitted."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-022: Frontend extension modules must be loaded only from backend-validated"
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-024: Package-owned frontend assets must be wheel-packaged, fingerprinted or"
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "`module_url` must be a **backend-relative**, same-origin URL."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_session_manifest.py",
+          "kind": "contains",
+          "pattern": "assert \"asset_root\" not in envelope.frontend_manifest.to_dict()"
+        },
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "assert \"asset_root\" not in created[\"frontend_manifest\"]"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Production package validation must block previewer frontend manifests with remote URLs or frontend-visible asset roots; development validation should return precise manifest diagnostics."
+    },
+    {
+      "id": "PV-12-002",
+      "section": "12_security_isolation",
+      "title": "Preview asset serving is manifest-validated and path-confined",
+      "contract": "The backend asset route may serve only files under the previewer's declared asset_root after validate_manifest succeeds. Asset requests that lack asset_root, point off-origin, escape the root, use a disallowed suffix, or reference a missing file must fail without exposing arbitrary filesystem contents.",
+      "status": "implemented",
+      "severity": "blocker",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "security_isolation",
+          "preview_frontend_manifest",
+          "plot_jobs"
+        ],
+        "trigger": "production_always_and_development_when_candidate_declares_assets_subprocesses_or_filesystem_access",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "def resolve_asset(manifest: FrontendManifest, relative_path: str) -> ServedAsset:"
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "candidate.relative_to(root)"
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "_ALLOWED_ASSET_SUFFIXES = {\".js\", \".mjs\", \".css\", \".map\", \".json\", \".svg\", \".woff\", \".woff2\"}"
+        },
+        {
+          "path": "src/scistudio/api/routes/data.py",
+          "kind": "contains",
+          "pattern": "async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: RuntimeDep) -> FileResponse:"
+        },
+        {
+          "path": "src/scistudio/api/routes/data.py",
+          "kind": "contains",
+          "pattern": "served = resolve_asset(spec.frontend_manifest, asset_path)"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "`GET` | `/api/previews/assets/{asset_id}` | Serve validated same-origin frontend assets."
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "`asset_root` is the filesystem directory the backend path-confines reads"
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "`previewers.assets.validate_manifest` checks same-origin frontend manifest"
+        }
+      ],
+      "tests": [],
+      "adr_alignment": "aligned",
+      "validator_implication": "Validator checks should verify packaged asset roots exist, asset paths resolve under that root, and only allowed frontend asset suffixes are exposed by package previewers."
+    },
+    {
+      "id": "PV-12-003",
+      "section": "12_security_isolation",
+      "title": "Plot SVG display and export are sanitized and bounded",
+      "contract": "PlotPreviewer must sanitize SVG content before inline display, mark SVG payloads sandboxed, strip scripts/event handlers/remote active hrefs, and expose export/save only for the artifact's supported format within preview byte budgets.",
+      "status": "implemented",
+      "severity": "blocker",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "security_isolation",
+          "preview_frontend_manifest",
+          "plot_jobs"
+        ],
+        "trigger": "production_always_and_development_when_candidate_declares_assets_subprocesses_or_filesystem_access",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "def plot_previewer(request: PreviewRequest) -> PreviewEnvelope:"
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "payload[\"sandboxed\"] = True"
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "def sanitize_svg(svg_text: str) -> tuple[str, bool]:"
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "if session.target.kind is not TargetKind.PLOT_ARTIFACT and session.previewer_id != \"core.plot.basic\":"
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "if len(payload) > session.limits.max_bytes:"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-019: SVG rendering must be sanitized or sandboxed so script execution and"
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "SC-007: SVG and PDF plot artifacts render through `PlotPreviewer` and expose"
+        },
+        {
+          "path": "docs/block-development/previewers-and-plots.md",
+          "kind": "contains",
+          "pattern": "SVG is sanitized before display."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_security.py",
+          "kind": "contains",
+          "pattern": "def test_sanitize_svg_strips_well_formed_script"
+        },
+        {
+          "path": "tests/previewers/test_preview_security.py",
+          "kind": "contains",
+          "pattern": "def test_sanitize_svg_strips_event_handlers_and_active_hrefs"
+        },
+        {
+          "path": "tests/api/test_plot_preview_wiring.py",
+          "kind": "contains",
+          "pattern": "assert any(r[\"resource_id\"] == \"export\" for r in env[\"resources\"])"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Validator fixtures that accept plot SVG examples should include active-content cases and fail packages or examples that bypass sanitizer/sandbox/export budget behavior."
+    },
+    {
+      "id": "PV-12-004",
+      "section": "12_security_isolation",
+      "title": "Subprocess isolation exists for plot rendering; broader plugin validation isolation is unresolved",
+      "contract": "Plot rendering is isolated through the CodeBlock subprocess primitive and an auto-generated harness that avoids importing SciStudio inside the render subprocess. A broader package-validator production policy for executing arbitrary package entry points in an isolated validation subprocess or per-plugin environment remains a design gap and should not be claimed as implemented.",
+      "status": "partial",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "security_isolation",
+          "preview_frontend_manifest",
+          "plot_jobs"
+        ],
+        "trigger": "production_always_and_development_when_candidate_declares_assets_subprocesses_or_filesystem_access",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "CodeBlock subprocess primitive"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/runtime.py",
+          "kind": "contains",
+          "pattern": "run_codeblock_process(argv=argv, cwd=work_dir, env_delta={}, timeout_seconds=timeout)"
+        },
+        {
+          "path": "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+          "kind": "contains",
+          "pattern": "subprocess never imports SciStudio, only stdlib + (optionally) pandas/matplotlib"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Should install-time validation execute package code in the main SciStudio"
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Optional heavy dependencies and per-plugin venv isolation need explicit"
+        },
+        {
+          "path": "docs/specs/adr-048-ai-plot-tools.md",
+          "kind": "contains",
+          "pattern": "FR-024: `run_plot_job` must reuse existing CodeBlock runner primitives where"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/ai/test_mcp_tools_plot.py",
+          "kind": "contains",
+          "pattern": "def test_run_timeout"
+        },
+        {
+          "path": "tests/api/test_plot_preview_wiring.py",
+          "kind": "contains",
+          "pattern": "def test_plot_run_offloads_blocking_job_off_the_event_loop"
+        }
+      ],
+      "adr_alignment": "adr_planned",
+      "notes": "Code evidence proves the plot-rendering subprocess boundary, not a general package-install isolation runner. The survey draft explicitly leaves package validation isolation policy open.",
+      "validator_implication": "ADR-049 should avoid claiming a general plugin-validation sandbox until a concrete isolated runner or per-plugin environment contract is selected; production profiles should error on validators that execute untrusted package code in-process."
+    }
+  ],
+  "omissions": []
+}

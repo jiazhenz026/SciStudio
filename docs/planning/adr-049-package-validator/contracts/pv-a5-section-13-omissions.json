@@ -1,0 +1,698 @@
+{
+  "schema_version": "adr049.package_contract_table.v1",
+  "agent_id": "PV-A5",
+  "generated_at": "2026-06-14",
+  "source_priority": "code-primary-adr-secondary",
+  "agent_scope": {
+    "sections": [
+      "13_cross_surface_registry_consistency",
+      "99_omitted_or_discovered_contracts"
+    ],
+    "summary": "Section 13 registry consistency contracts plus discovered package-facing omissions not cleanly owned by sections 1-13."
+  },
+  "contracts": [
+    {
+      "id": "PV-13-001",
+      "section": "13_cross_surface_registry_consistency",
+      "title": "Block registry descriptors preserve package identity",
+      "contract": "A package validator must derive block-package consistency from BlockRegistry descriptors, not live class references: entry-point blocks must produce BlockSpec rows with stable module/class identity, package_name, type_name aliases, and package metadata exposed through packages() and specs_by_package().",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "cross_surface_registry_consistency"
+        ],
+        "trigger": "after_candidate_declared_surfaces_are_loaded_into_dry_run_registries",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "class BlockSpec:",
+          "symbol": "BlockSpec",
+          "notes": "BlockSpec is the descriptor row used by registry consumers."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "class BlockRegistry:",
+          "symbol": "BlockRegistry",
+          "notes": "BlockRegistry owns package metadata and grouped spec accessors."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def _scan_tier2(self) -> None:",
+          "symbol": "_scan_tier2",
+          "notes": "Public registry method delegates to the entry-point scan implementation."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def specs_by_package(self) -> dict[str, list[BlockSpec]]:",
+          "symbol": "BlockRegistry",
+          "notes": "Registry exposes package grouping derived from BlockSpec.package_name."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "BlockRegistry` entry-point scan accepts package tuples, plain block lists,",
+          "notes": "Draft records current BlockRegistry package scan behavior."
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "package metadata vs entry-point owner names need one combined pass.",
+          "notes": "Draft identifies package metadata cross-surface consistency as incomplete."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_registry.py",
+          "kind": "contains",
+          "pattern": "def test_tuple_return_with_package_info(self) -> None:",
+          "notes": "Tests package tuple scan behavior."
+        },
+        {
+          "path": "tests/blocks/test_registry.py",
+          "kind": "contains",
+          "pattern": "def test_specs_by_package_groups_correctly(self) -> None:",
+          "notes": "Tests registry grouping by package_name."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The registry implements the raw descriptor surface, but there is no unified package validation report that checks package metadata consistency before registration.",
+      "validator_implication": "Development should report inconsistent package metadata and missing package grouping as errors; production install should block packages whose block descriptors cannot be reconciled with package metadata."
+    },
+    {
+      "id": "PV-13-002",
+      "section": "13_cross_surface_registry_consistency",
+      "title": "Block entry-point scans are tolerant runtime discovery, not install validation",
+      "contract": "The package validator must run block entry-point discovery in an isolated dry-run registry and convert unsupported return shapes, non-Block items, abstract blocks, duplicate capabilities, and callable failures into structured validation findings instead of relying on live startup warning-and-skip behavior.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "cross_surface_registry_consistency"
+        ],
+        "trigger": "after_candidate_declared_surfaces_are_loaded_into_dry_run_registries",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "def _scan_tier2(registry: BlockRegistry) -> None:",
+          "symbol": "_scan",
+          "notes": "Mechanical inventory records the block registry scan module as the scan surface."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "block_eps: Any = (",
+          "symbol": "_scan_tier2",
+          "notes": "Tier-2 scan selects the scistudio.blocks entry-point group."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "Entry-point '%s' returned unsupported type: %s",
+          "symbol": "_scan_tier2",
+          "notes": "Invalid runtime entry points are logged and skipped."
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "def _scan_monorepo_packages(registry: BlockRegistry) -> None:",
+          "symbol": "_scan",
+          "notes": "Development fallback mirrors package entry-point callable protocol."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Registry scan is tolerant by design.",
+          "notes": "Draft distinguishes runtime tolerance from production install validation."
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "isolated dry-run registry and atomic commit/quarantine semantics.",
+          "notes": "Draft calls out dry-run registry requirement."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_registry.py",
+          "kind": "contains",
+          "pattern": "def test_entry_point_load_failure_logs_warning",
+          "notes": "Runtime behavior currently logs and continues."
+        },
+        {
+          "path": "tests/blocks/test_registry.py",
+          "kind": "contains",
+          "pattern": "def test_abstract_block_entry_point_logs_precise_warning",
+          "notes": "Abstract blocks are skipped with a precise warning."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Current code is deliberately resilient at app startup; the package validator must be stricter and side-effect-free.",
+      "validator_implication": "Validator implementations should instantiate temporary registries and classify each skipped entry point as a package validation finding, with production blocking invalid required package surfaces."
+    },
+    {
+      "id": "PV-13-003",
+      "section": "13_cross_surface_registry_consistency",
+      "title": "Type registry discovery must reconcile package types with blocks and previewers",
+      "contract": "A package validator must scan scistudio.types entry points into a dry-run TypeRegistry, validate returned DataObject subclasses and Meta constraints, and then use that registry to verify block port types, IO capability data_type values, and previewer target_type references.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "cross_surface_registry_consistency"
+        ],
+        "trigger": "after_candidate_declared_surfaces_are_loaded_into_dry_run_registries",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "kind": "contains",
+          "pattern": "class TypeRegistry:",
+          "symbol": "registry",
+          "notes": "Mechanical inventory records the type registry module as the scan surface."
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "kind": "contains",
+          "pattern": "def _scan_entrypoint_types(self) -> None:",
+          "symbol": "_scan_entrypoint_types",
+          "notes": "Type entry-point discovery is the package type scan hook."
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "kind": "contains",
+          "pattern": "eps = importlib.metadata.entry_points(group=\"scistudio.types\")",
+          "symbol": "_scan_entrypoint_types",
+          "notes": "Registry scans the scistudio.types entry-point group."
+        },
+        {
+          "path": "src/scistudio/core/types/registry.py",
+          "kind": "contains",
+          "pattern": "Entry-point '%s' type %r has a Meta class that violates",
+          "symbol": "_scan_entrypoint_types",
+          "notes": "Bad type Meta declarations are warning/skipped at runtime."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "`scistudio.types`: callable returns `list`/`tuple` of `DataObject`",
+          "notes": "Draft records the package type entry-point protocol."
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "block port types vs package type entry points, previewer target types vs",
+          "notes": "Draft identifies type registry cross-surface gaps."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/core/test_type_registry_resolve_and_meta.py",
+          "kind": "contains",
+          "pattern": "class TestValidateMetaClass:",
+          "notes": "Tests type Meta validation behavior."
+        },
+        {
+          "path": "tests/core/test_type_registry_scan_dirs.py",
+          "kind": "contains",
+          "pattern": "A DataObject subclass in a scanned dir is registered by scan_all.",
+          "notes": "Tests registry scan behavior for drop-in types."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The type registry validates individual type classes, but current package validation does not yet perform a combined block/type/previewer consistency pass.",
+      "validator_implication": "The validator should load candidate package types first, then reject package blocks, capabilities, or previewers that reference unresolved or inconsistent type names."
+    },
+    {
+      "id": "PV-13-004",
+      "section": "13_cross_surface_registry_consistency",
+      "title": "Previewer package discovery must feed cross-surface target validation",
+      "contract": "A package validator must scan scistudio.previewers factories, reject malformed PreviewerSpec lists, duplicate or empty previewer_id values, unresolved target_type references, and owner/package mismatches, then reconcile previewer specs with the type registry and package metadata.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "cross_surface_registry_consistency"
+        ],
+        "trigger": "after_candidate_declared_surfaces_are_loaded_into_dry_run_registries",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "class PreviewerRegistry:",
+          "symbol": "registry",
+          "notes": "Mechanical inventory records the previewer registry module as the scan surface."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "def load_packages(self, *, include_monorepo: bool = False) -> None:",
+          "symbol": "load_packages",
+          "notes": "Package previewers load through this registry method."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "def _scan_entry_points(self) -> None:",
+          "symbol": "_scan_entry_points",
+          "notes": "Entry-point scan covers the scistudio.previewers group."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "previewer factory '{source}' returned {type(specs).__name__}, expected list[PreviewerSpec]",
+          "symbol": "registry",
+          "notes": "Malformed factories are diagnostics, not hard install failures today."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "`scistudio.previewers`: callable returns `list[PreviewerSpec]`.",
+          "notes": "Draft records the previewer entry-point protocol."
+        },
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "Previewer spec validation is the weakest surface:",
+          "notes": "Draft calls out missing previewer package validation."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_registry.py",
+          "kind": "contains",
+          "pattern": "def test_duplicate_previewer_id_is_rejected_with_diagnostic() -> None:",
+          "notes": "Tests duplicate previewer diagnostics."
+        },
+        {
+          "path": "tests/previewers/test_preview_registry.py",
+          "kind": "contains",
+          "pattern": "def test_factory_returning_non_list_is_diagnosed() -> None:",
+          "notes": "Tests malformed factory diagnostics."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "PreviewerRegistry has coarse validation, but registry diagnostics currently do not resolve target_type or owner consistency against package metadata and TypeRegistry.",
+      "validator_implication": "Production package validation should block malformed previewer specs and unresolved package previewer targets instead of allowing them to degrade to runtime diagnostics."
+    },
+    {
+      "id": "PV-99-001",
+      "section": "99_omitted_or_discovered_contracts",
+      "title": "Code runner entry-point and language registry contract is not owned by sections 1-13",
+      "contract": "The scistudio.runners entry-point group and RunnerRegistry language mapping are package-facing extension surfaces. A package validator needs an explicit contract for runner class importability, language-key normalization, required runner protocol methods, duplicate language handling, and production compatibility.",
+      "status": "partial",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "runners",
+          "entry_points"
+        ],
+        "trigger": "when_candidate_declares_scistudio.runners_or_runner_language_registry_entries",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "pyproject.toml",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.runners\"]",
+          "symbol": "scistudio.runners",
+          "notes": "The root package declares a runner entry-point group."
+        },
+        {
+          "path": "src/scistudio/blocks/code/runner_registry.py",
+          "kind": "contains",
+          "pattern": "class RunnerRegistry:",
+          "symbol": "RunnerRegistry",
+          "notes": "RunnerRegistry is the public language-to-runner registry."
+        },
+        {
+          "path": "src/scistudio/blocks/code/runner_registry.py",
+          "kind": "contains",
+          "pattern": "self._runners[language.lower()] = runner_class",
+          "symbol": "RunnerRegistry",
+          "notes": "Registry normalizes language keys but does not validate a package runner protocol."
+        }
+      ],
+      "adr_evidence": [],
+      "tests": [
+        {
+          "path": "tests/blocks/test_runner_registry.py",
+          "kind": "contains",
+          "pattern": "class TestRunnerRegistry:",
+          "notes": "Tests runner registry behavior but not external package validation."
+        }
+      ],
+      "adr_alignment": "adr_missing",
+      "notes": "The survey draft focuses on blocks, types, previewers, IO, and preview surfaces. Runner entry points exist in package metadata but do not yet have a validator section.",
+      "validator_implication": "Add a validator section or explicit section-02 subprofile for scistudio.runners before external runner packages are accepted in production."
+    },
+    {
+      "id": "PV-99-002",
+      "section": "99_omitted_or_discovered_contracts",
+      "title": "Scaffold-generated package fixtures are a package contract",
+      "contract": "The init-block-package scaffold generates pyproject metadata, scistudio.blocks entry-point wiring, a get_blocks() callable returning PackageInfo plus block classes, and package-local tests. The package validator should either consume scaffold smoke fixtures or declare scaffold validation out of scope.",
+      "status": "implemented",
+      "severity": "warning",
+      "environments": [
+        "development"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "skip"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "scaffold_fixtures",
+          "package_examples"
+        ],
+        "trigger": "when_candidate_is_generated_from_or_claims_scaffold_fixture_conformance",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/cli/_scaffold.py",
+          "kind": "contains",
+          "pattern": "\"pyproject.toml.tpl\": \"pyproject.toml\"",
+          "symbol": "scaffold_block_package",
+          "notes": "Scaffold creates package metadata and source/test files."
+        },
+        {
+          "path": "src/scistudio/cli/templates/block_package/pyproject.toml.tpl",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.blocks\"]",
+          "symbol": "block_package_pyproject_template",
+          "notes": "Template declares the block package entry point."
+        },
+        {
+          "path": "src/scistudio/cli/templates/block_package/__init__.py.tpl",
+          "kind": "contains",
+          "pattern": "def get_blocks() -> tuple[PackageInfo, list[type]]:",
+          "symbol": "block_package_init_template",
+          "notes": "Template emits the preferred package callable protocol."
+        },
+        {
+          "path": "src/scistudio/cli/templates/block_package/test_block.py.tpl",
+          "kind": "contains",
+          "pattern": "class TestEntryPoint:",
+          "symbol": "block_package_test_template",
+          "notes": "Template emits package-local entry-point tests."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/planning/package-validator-contract-survey-draft.md",
+          "kind": "contains",
+          "pattern": "docs/scaffold",
+          "notes": "Draft notes scaffold guidance and tests as existing coverage."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/cli/test_new_block_package.py",
+          "kind": "contains",
+          "pattern": "def test_generated_init_callable_protocol",
+          "notes": "Tests generated get_blocks callable shape."
+        },
+        {
+          "path": "tests/cli/test_new_block_package.py",
+          "kind": "contains",
+          "pattern": "def test_generated_entry_points_correct",
+          "notes": "Tests generated entry-point metadata."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Sections 1-13 cover the runtime surfaces that scaffold output targets, but not the scaffold-as-contract artifact itself.",
+      "validator_implication": "Development validation should smoke-test scaffolded packages or reuse scaffold fixtures as conformance examples; production package validation can skip scaffold-only checks."
+    },
+    {
+      "id": "PV-99-003",
+      "section": "99_omitted_or_discovered_contracts",
+      "title": "Generated public symbol facts are an API/package compatibility contract",
+      "contract": "The generated facts pipeline records public Python symbols with griffe. Because package validators may claim API compatibility or public extension surfaces, ADR-049 should decide whether validator output must reference or update generated symbol facts for package-facing API drift.",
+      "status": "implemented",
+      "severity": "info",
+      "environments": [
+        "development"
+      ],
+      "validator_profile": {
+        "development": "info",
+        "production": "skip"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "generated_public_facts",
+          "public_api_compatibility"
+        ],
+        "trigger": "when_candidate_claims_public_API_compatibility_against_generated_facts",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/qa/audit/griffe_facts.py",
+          "kind": "contains",
+          "pattern": "def extract_symbol_facts(",
+          "symbol": "extract_symbol_facts",
+          "notes": "Public symbol facts are extracted from Python package surfaces."
+        },
+        {
+          "path": "src/scistudio/qa/audit/griffe_facts.py",
+          "kind": "contains",
+          "pattern": "if name.startswith(\"_\"):",
+          "symbol": "extract_symbol_facts",
+          "notes": "Private symbols are excluded from generated public facts."
+        },
+        {
+          "path": "scripts/audit/generate_facts.py",
+          "kind": "contains",
+          "pattern": "parser.add_argument(\"--check\", action=\"store_true\", help=\"Fail if docs/facts/generated.yaml is stale\")",
+          "symbol": "generate_facts",
+          "notes": "Generated facts have an explicit stale-check command."
+        }
+      ],
+      "adr_evidence": [],
+      "tests": [
+        {
+          "path": "tests/qa/test_griffe_facts.py",
+          "kind": "contains",
+          "pattern": "def test_extract_symbol_facts_from_temporary_package",
+          "notes": "Tests generated symbol fact extraction."
+        },
+        {
+          "path": "tests/qa/test_generate_facts_cli.py",
+          "kind": "contains",
+          "pattern": "def test_generate_facts_check_reports_stale_file",
+          "notes": "Tests stale generated facts detection."
+        }
+      ],
+      "adr_alignment": "adr_missing",
+      "notes": "Generated facts are governance evidence rather than a plugin runtime, but they are package-facing when validator claims mention public APIs.",
+      "validator_implication": "Keep generated facts out of production install blocking unless ADR-049 explicitly adopts them; in development, surface drift as informational validator context."
+    },
+    {
+      "id": "PV-99-004",
+      "section": "99_omitted_or_discovered_contracts",
+      "title": "Registry-derived API serialization is a package-facing contract",
+      "contract": "Block and previewer registries feed HTTP and MCP schema payloads. Package validation should verify candidate registry descriptors are JSON-serializable and remain consistent across palette, schema, connection-validation, preview capability, and MCP schema surfaces before committing them to live registries.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "registry_derived_api_serialization"
+        ],
+        "trigger": "after_candidate_dry_run_registries_emit_API_palette_or_MCP_payloads",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/api/routes/blocks.py",
+          "kind": "contains",
+          "pattern": "@router.get(\"/\", response_model=BlockListResponse)",
+          "symbol": "list_blocks",
+          "notes": "Block registry descriptors are serialized into the palette API."
+        },
+        {
+          "path": "src/scistudio/api/routes/blocks.py",
+          "kind": "contains",
+          "pattern": "@router.get(\"/{block_type}/schema\", response_model=BlockSchemaResponse)",
+          "symbol": "get_block_schema",
+          "notes": "Block registry descriptors are serialized into per-block schema APIs."
+        },
+        {
+          "path": "src/scistudio/api/schemas.py",
+          "kind": "contains",
+          "pattern": "class PreviewerSpecModel(BaseModel):",
+          "symbol": "PreviewerSpecModel",
+          "notes": "Previewer specs have a dedicated API wire model."
+        }
+      ],
+      "adr_evidence": [],
+      "tests": [
+        {
+          "path": "tests/contracts/test_block_schema_contract.py",
+          "kind": "contains",
+          "pattern": "def test_schema_payload_exposes_stable_contract_fields",
+          "notes": "Tests stable API schema fields."
+        },
+        {
+          "path": "tests/api/test_previewers.py",
+          "kind": "contains",
+          "pattern": "def test_image_session_serializes_first_class_frontend_manifest",
+          "notes": "Tests previewer manifest API serialization."
+        }
+      ],
+      "adr_alignment": "adr_missing",
+      "notes": "Sections 1-13 describe registry and previewer contracts but do not make API wire serialization an explicit package validation row.",
+      "validator_implication": "Production package validation should reject registry descriptors that cannot be converted into stable API/MCP payloads, especially non-serializable config schema, format capability, and previewer manifest fields."
+    }
+  ],
+  "omissions": [
+    {
+      "id": "OM-001",
+      "title": "scistudio.runners lacks a package-validator section",
+      "evidence": [
+        {
+          "path": "pyproject.toml",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.runners\"]",
+          "symbol": "scistudio.runners"
+        },
+        {
+          "path": "src/scistudio/blocks/code/runner_registry.py",
+          "kind": "contains",
+          "pattern": "class RunnerRegistry:",
+          "symbol": "RunnerRegistry"
+        }
+      ],
+      "recommended_section": "Add section 14 or extend section 02 with a code-runner entry-point subprofile.",
+      "notes": "The entry-point group exists, but sections 1-13 do not define an external runner package contract."
+    },
+    {
+      "id": "OM-002",
+      "title": "Scaffold templates define a conformance fixture outside the runtime sections",
+      "evidence": [
+        {
+          "path": "src/scistudio/cli/templates/block_package/__init__.py.tpl",
+          "kind": "contains",
+          "pattern": "def get_blocks() -> tuple[PackageInfo, list[type]]:",
+          "symbol": "block_package_init_template"
+        },
+        {
+          "path": "src/scistudio/cli/templates/block_package/test_block.py.tpl",
+          "kind": "contains",
+          "pattern": "class TestEntryPoint:",
+          "symbol": "block_package_test_template"
+        }
+      ],
+      "recommended_section": "Add a development-only scaffold conformance subsection under section 99 or section 02.",
+      "notes": "Generated package tests are package-facing but not an install-time runtime surface."
+    },
+    {
+      "id": "OM-003",
+      "title": "Generated public symbol facts are not linked to package validation claims",
+      "evidence": [
+        {
+          "path": "src/scistudio/qa/audit/griffe_facts.py",
+          "kind": "contains",
+          "pattern": "def extract_symbol_facts(",
+          "symbol": "extract_symbol_facts"
+        },
+        {
+          "path": "scripts/audit/generate_facts.py",
+          "kind": "contains",
+          "pattern": "parser.add_argument(\"--check\", action=\"store_true\", help=\"Fail if docs/facts/generated.yaml is stale\")",
+          "symbol": "generate_facts"
+        }
+      ],
+      "recommended_section": "Keep as governance-only context or add a development validation evidence subsection.",
+      "notes": "Facts are not a runtime package validator dependency today, but they constrain public API drift claims."
+    },
+    {
+      "id": "OM-004",
+      "title": "Registry-derived API serialization is not explicit in sections 1-13",
+      "evidence": [
+        {
+          "path": "src/scistudio/api/routes/blocks.py",
+          "kind": "contains",
+          "pattern": "@router.get(\"/{block_type}/schema\", response_model=BlockSchemaResponse)",
+          "symbol": "get_block_schema"
+        },
+        {
+          "path": "src/scistudio/api/schemas.py",
+          "kind": "contains",
+          "pattern": "class PreviewerSpecModel(BaseModel):",
+          "symbol": "PreviewerSpecModel"
+        }
+      ],
+      "recommended_section": "Add a cross-surface API serialization subsection under section 13 or section 99.",
+      "notes": "Package descriptors must remain safe for API and MCP payloads, not only valid inside registries."
+    }
+  ]
+}

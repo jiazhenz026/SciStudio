@@ -1,0 +1,619 @@
+{
+  "schema_version": "adr049.package_contract_table.v1",
+  "agent_id": "PV-A2",
+  "generated_at": "2026-06-14",
+  "source_priority": "code-primary-adr-secondary",
+  "agent_scope": {
+    "sections": [
+      "04_block_contracts",
+      "05_config_dynamic_variadic",
+      "06_io_format_capability"
+    ],
+    "summary": "Code-first contracts for block harness validation, config/dynamic/variadic ports, and IO format capability registration and lookup."
+  },
+  "contracts": [
+    {
+      "id": "PV-04-001",
+      "section": "04_block_contracts",
+      "title": "BlockTestHarness reports SDK block contract errors",
+      "contract": "BlockTestHarness.validate_block reports errors for non-Block candidates, abstract classes, malformed input_ports/output_ports declarations, missing run attributes, and missing/default block names. It returns an error list and is a test-helper surface rather than an automatic production registration gate.",
+      "status": "partial",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "skip"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "blocks"
+        ],
+        "trigger": "when_candidate_declares_scistudio.blocks",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "class BlockTestHarness:",
+          "symbol": "BlockTestHarness"
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "def validate_block(self) -> list[str]:",
+          "symbol": "validate_block"
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "if not (isinstance(cls, type) and issubclass(cls, Block)):"
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "run_method = getattr(cls, \"run\", None)"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-026.md",
+          "kind": "contains",
+          "pattern": "`BlockTestHarness` is the public SDK test surface. It validates:"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/testing/test_harness.py",
+          "kind": "contains",
+          "pattern": "class TestValidateBlock:"
+        }
+      ],
+      "adr_alignment": "adr_drift",
+      "notes": "ADR-026 describes a public validation surface; code evidence shows a narrower helper that reports diagnostics and does not inspect run signature.",
+      "validator_implication": "Package validator may reuse these predicates, but production blocking should come from explicit package-validator and registry checks."
+    },
+    {
+      "id": "PV-05-001",
+      "section": "05_config_dynamic_variadic",
+      "title": "Config schema and dynamic-port descriptors are registry-spec contracts",
+      "contract": "The registry spec builder merges config_schema along the MRO with child properties winning and output-direction inherited IO path fields rewritten to directory_browser. It also calls BlockRegistry._validate_dynamic_ports, which permits None and otherwise requires a dict with non-empty source_config_key plus exactly one of output_port_mapping/input_port_mapping shaped as port-name -> enum-value -> list of non-empty type-name strings. Dynamic-port shape failures are strict ValueError scan/spec-time errors.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "blocks",
+          "block_config",
+          "block_ports"
+        ],
+        "trigger": "for_each_candidate_block_with_config_schema_dynamic_ports_or_variadic_ports",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "def _merge_config_schema(cls: type) -> dict[str, Any]:",
+          "symbol": "_merge_config_schema"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "for klass in reversed(cls.__mro__):"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "BlockRegistry._validate_dynamic_ports(cls)"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def _validate_dynamic_ports(cls: type) -> None:",
+          "symbol": "_validate_dynamic_ports"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "def _validate_dynamic_ports(cls: type) -> None:",
+          "symbol": "_validate_dynamic_ports"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "must declare exactly one of"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/block-development/block-contract.md",
+          "kind": "contains",
+          "pattern": "Config schema MRO merge (ADR-030)"
+        },
+        {
+          "path": "docs/adr/ADR-028.md",
+          "kind": "contains",
+          "pattern": "`BlockRegistry._validate_dynamic_ports()` validates descriptor shape"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_dynamic_ports.py",
+          "kind": "contains",
+          "pattern": "class TestValidateDynamicPorts:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Current dynamic-port validation is strict for shape but does not resolve mapped type names or prove source_config_key is an enum config field.",
+      "validator_implication": "Package validator should block malformed dynamic_ports and can add cross-surface checks for enum/type-name consistency."
+    },
+    {
+      "id": "PV-05-002",
+      "section": "05_config_dynamic_variadic",
+      "title": "Effective and variadic ports are instance-aware validation surfaces",
+      "contract": "Framework code that needs instance port shape must read get_effective_input_ports/get_effective_output_ports. LoadData maps core_type to output_port_mapping, SaveData maps core_type to input_port_mapping, and workflow validation uses instantiated effective ports when possible. Variadic flags, allowed type lists, and min/max port count limits are serialized into BlockSpec and workflow validation enforces count limits only when the corresponding variadic flag is true.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "blocks",
+          "block_config",
+          "block_ports"
+        ],
+        "trigger": "for_each_candidate_block_with_config_schema_dynamic_ports_or_variadic_ports",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/base/block.py",
+          "kind": "contains",
+          "pattern": "def get_effective_input_ports(self) -> list[InputPort]:",
+          "symbol": "get_effective_input_ports"
+        },
+        {
+          "path": "src/scistudio/blocks/base/block.py",
+          "kind": "contains",
+          "pattern": "variadic_inputs: ClassVar[bool] = False",
+          "symbol": "Block.variadic_inputs"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "variadic_inputs=bool(getattr(cls, \"variadic_inputs\", False))",
+          "symbol": "_spec_from_class"
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "return list(instance.get_effective_input_ports()), list(instance.get_effective_output_ports())",
+          "symbol": "_effective_ports_for_node"
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "if spec.variadic_inputs:",
+          "symbol": "validate_workflow"
+        },
+        {
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "kind": "contains",
+          "pattern": "\"output_port_mapping\": {",
+          "symbol": "LoadData.dynamic_ports"
+        },
+        {
+          "path": "src/scistudio/blocks/io/savers/save_data.py",
+          "kind": "contains",
+          "pattern": "\"input_port_mapping\": {",
+          "symbol": "SaveData.dynamic_ports"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-028.md",
+          "kind": "contains",
+          "pattern": "Workflow validation constructs block instances and reads effective ports."
+        },
+        {
+          "path": "docs/adr/ADR-029.md",
+          "kind": "contains",
+          "pattern": "Variadic block authors declare:"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/workflow/test_validator_dynamic_ports.py",
+          "kind": "contains",
+          "pattern": "class TestValidatorDynamicPortsCompatible:"
+        },
+        {
+          "path": "tests/workflow/test_validator.py",
+          "kind": "contains",
+          "pattern": "class TestValidatorVariadicCardinality:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Package validator should validate the effective BlockSpec/API surface and should not infer dynamic or variadic validity from static ClassVar ports alone."
+    },
+    {
+      "id": "PV-06-001",
+      "section": "06_io_format_capability",
+      "title": "FormatCapability and MetadataFidelity constructors enforce field validity",
+      "contract": "MetadataFidelity validates allowed levels, normalizes field tuples, rejects contradictory field declarations, and verifies typed-meta fields against the DataObject.Meta model. FormatCapability requires stable non-empty fields, load/save direction, a DataObject subclass, normalized non-empty extensions, a MetadataFidelity instance, and roundtrip_group for lossless capabilities.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "io_blocks",
+          "format_capabilities"
+        ],
+        "trigger": "for_each_candidate_IOBlock_or_declared_FormatCapability",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/io/capabilities.py",
+          "kind": "contains",
+          "pattern": "class MetadataFidelity:",
+          "symbol": "MetadataFidelity"
+        },
+        {
+          "path": "src/scistudio/blocks/io/capabilities.py",
+          "kind": "contains",
+          "pattern": "class FormatCapability:",
+          "symbol": "FormatCapability"
+        },
+        {
+          "path": "src/scistudio/blocks/io/capabilities.py",
+          "kind": "contains",
+          "pattern": "lossless capabilities must declare roundtrip_group."
+        },
+        {
+          "path": "src/scistudio/blocks/io/capabilities.py",
+          "kind": "contains",
+          "pattern": "self.metadata_fidelity.validate_typed_meta_fields(self.data_type)"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-001: The system MUST define `FormatCapability`"
+        },
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-002: The system MUST define `MetadataFidelity`"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/contracts/test_io_capability_contract.py",
+          "kind": "contains",
+          "pattern": "test_registered_io_capabilities_expose_stable_replay_fields"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Package validator should instantiate capability declarations to force normalization and constructor-level validation."
+    },
+    {
+      "id": "PV-06-002",
+      "section": "06_io_format_capability",
+      "title": "Registry registration validates class-owned capabilities",
+      "contract": "_format_capabilities_from_class extracts FormatCapability records only from IOBlock subclasses and validates each record. _validate_class_capability checks direction against IO direction, block_type against the class name, handler callability, and package-qualified id. Registry registration then rejects duplicate ids within a spec, ids already declared by other specs, and conflicting defaults for the same direction/type/extension. Legacy supported_extensions and SimpleLoader/SimpleSaver synthesis remain migration scaffolding.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "io_blocks",
+          "format_capabilities"
+        ],
+        "trigger": "for_each_candidate_IOBlock_or_declared_FormatCapability",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "def _validate_class_capability(cls: type, capability: FormatCapability) -> None:",
+          "symbol": "_validate_class_capability"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "kind": "contains",
+          "pattern": "def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:",
+          "symbol": "_format_capabilities_from_class"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def _validate_capability_registration(self, spec: BlockSpec) -> None:",
+          "symbol": "_validate_capability_registration"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) -> None:",
+          "symbol": "_validate_capability_registration"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "must be stable and package-qualified",
+          "symbol": "_validate_capability_id"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "kind": "contains",
+          "pattern": "Conflicting default IO format capabilities"
+        },
+        {
+          "path": "src/scistudio/blocks/io/io_block.py",
+          "kind": "contains",
+          "pattern": "supported_extensions`` synthesis exists only as migration"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-009: The registry MUST validate handler existence"
+        },
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-016: Existing `supported_extensions` declarations MAY synthesize"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_block_registry_capabilities.py",
+          "kind": "contains",
+          "pattern": "test_scan_time_validation_rejects_missing_handler"
+        },
+        {
+          "path": "tests/blocks/test_block_registry_capabilities.py",
+          "kind": "contains",
+          "pattern": "test_scan_time_validation_rejects_default_conflict"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Strict for class-local and registry conflicts; partial for final published-package compliance because migration synthesis remains allowed.",
+      "validator_implication": "Package validator should run capability extraction in registry context and distinguish explicit package-author declarations from synthesized compatibility records."
+    },
+    {
+      "id": "PV-06-003",
+      "section": "06_io_format_capability",
+      "title": "Capability lookup is deterministic and typed-error based",
+      "contract": "list_format_capabilities filters by direction, data type compatibility, format id, and normalized extension with compound-to-single fallback. find_loader_capability and find_saver_capability prefer explicit capability_id, then unique match, single default, type specificity, and priority. Misses and unresolved ambiguity raise typed lookup errors instead of falling back to registration order.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "io_blocks",
+          "format_capabilities"
+        ],
+        "trigger": "for_each_candidate_IOBlock_or_declared_FormatCapability",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def list_format_capabilities(",
+          "symbol": "list_format_capabilities"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def find_loader_capability(",
+          "symbol": "find_loader_capability"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "kind": "contains",
+          "pattern": "def find_saver_capability(",
+          "symbol": "find_saver_capability"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "def list_format_capabilities(",
+          "symbol": "list_format_capabilities"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "def find_loader_capability(",
+          "symbol": "find_loader_capability"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "def find_saver_capability(",
+          "symbol": "find_saver_capability"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "if capability_id is not None:"
+        },
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "raise AmbiguousCapabilityError("
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-007: Capability lookup MUST prefer explicit"
+        },
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-008: Capability lookup MUST fail on unresolved"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/test_block_registry_capabilities.py",
+          "kind": "contains",
+          "pattern": "test_ambiguous_capability_raises_typed_error_without_registration_order_dispatch"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "validator_implication": "Package validator should fail missing or ambiguous capability lookups unless a valid explicit capability_id or unique/default candidate resolves the query."
+    },
+    {
+      "id": "PV-06-004",
+      "section": "06_io_format_capability",
+      "title": "Boundary ports validate by IO capability lookup",
+      "contract": "Workflow validation treats AppBlock and CodeBlock boundary ports as IO boundary declarations. Configured input_ports with declared type plus extension must resolve a saver capability; configured output_ports with declared type plus extension must resolve a loader capability; explicit capability_id is verified as semantic truth. Duplicate output extensions on variadic-output blocks are rejected as file-binning ambiguity. Artifact outputs without capability_id are currently skipped.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "io_blocks",
+          "format_capabilities"
+        ],
+        "trigger": "for_each_candidate_IOBlock_or_declared_FormatCapability",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "Check 10: ADR-043 boundary IO capabilities",
+          "symbol": "validate_workflow"
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "registry.find_saver_capability("
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "registry.find_loader_capability("
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "Duplicate extension"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-012: AppBlock and CodeBlock input ports with declared type and extension"
+        },
+        {
+          "path": "docs/specs/adr-043-io-format-capability-registry.md",
+          "kind": "contains",
+          "pattern": "FR-013: AppBlock and CodeBlock output ports with declared"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/contracts/test_io_capability_contract.py",
+          "kind": "contains",
+          "pattern": "test_boundary_validation_uses_capability_id_not_extension_hint_as_contract"
+        },
+        {
+          "path": "tests/workflow/test_validator.py",
+          "kind": "contains",
+          "pattern": "class TestValidatorAppBlockDuplicateExtensions:"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Implemented in workflow validation, not yet a standalone package-validator entry point. Artifact no-capability output remains a current exception.",
+      "validator_implication": "Package validator should mirror the boundary lookup semantics and explicitly decide whether the Artifact exception remains allowed in package mode."
+    }
+  ],
+  "omissions": [
+    {
+      "id": "OM-001",
+      "title": "Dynamic-port source config enum and mapped type-name resolution are not scan-time enforced",
+      "evidence": [
+        {
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "kind": "contains",
+          "pattern": "def _validate_dynamic_ports(cls: type) -> None:"
+        }
+      ],
+      "recommended_section": "05_config_dynamic_variadic",
+      "notes": "Shape is strict, but cross-surface consistency with config_schema enum values and TypeRegistry names is a package-validator opportunity."
+    },
+    {
+      "id": "OM-002",
+      "title": "Published-package IO compliance is stricter than current migration scaffolding",
+      "evidence": [
+        {
+          "path": "src/scistudio/blocks/io/io_block.py",
+          "kind": "contains",
+          "pattern": "supported_extensions`` synthesis exists only as migration"
+        },
+        {
+          "path": "tests/contracts/test_io_capability_contract.py",
+          "kind": "contains",
+          "pattern": "current core IO declarations have save-only Series JSON roundtrip drift"
+        }
+      ],
+      "recommended_section": "06_io_format_capability",
+      "notes": "Package mode should define when synthesized capabilities and known roundtrip drift become blockers."
+    }
+  ]
+}
