@@ -90,13 +90,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-14T20:59:03.058505Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40b2aa27328e453748477b81d4b60032a863c6f02d80bad3a29bf7e9a458209a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "7a6e717fd5c33bda816ef2536eca96a8a055d308",
+    "sha": "609abbd28c557f18143cc043e319c0a3e0734084",
     "shas": [
-      "7a6e717fd5c33bda816ef2536eca96a8a055d308"
+      "609abbd28c557f18143cc043e319c0a3e0734084"
     ],
     "trailers": []
   },
@@ -640,6 +655,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.165011Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.216703Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.271292Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.322078Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.373791Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.426888Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.480374Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.531919Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.583970Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:03.638066Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.196751Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.245752Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.295317Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.348330Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.397136Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.446648Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.503196Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.552715Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.603341Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-14T20:59:44.662338Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -652,7 +787,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "7c064210d04de73e6e0d5af6b4ccbb1765ce5a02",
     "base_sha": "7c064210",
     "changed_files": [
       ".workflow/records/1667-audit-spectroscopy-package-benchmark-20260614.json",
@@ -662,9 +797,9 @@
       "docs/audit/2026-06-14-spectroscopy-package-codex-audit.md",
       "docs/audit/2026-06-14-spectroscopy-package-codex-validator-report.md"
     ],
-    "diff_fingerprint": "sha256:38c1631f7d0645e13de5352f9a4a94f773e2d552b6165d34061270a30388af54",
+    "diff_fingerprint": "sha256:8a70803264c56452a65b72c820b80e7bb955d01e17eb8f7002678296dad2720c",
     "head": "HEAD",
-    "head_sha": "7a6e717f",
+    "head_sha": "609abbd2",
     "surfaces": {
       "docs": 5,
       "frontend": 0,
@@ -685,8 +820,8 @@
     "closes": [
       1667
     ],
-    "number": null,
-    "url": null
+    "number": 1668,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1668"
   },
   "reconcile_events": [
     {
@@ -736,15 +871,29 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:59:03.638108Z",
+      "diff_fingerprint": "sha256:8a70803264c56452a65b72c820b80e7bb955d01e17eb8f7002678296dad2720c",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-14T20:59:44.662375Z",
+      "diff_fingerprint": "sha256:8a70803264c56452a65b72c820b80e7bb955d01e17eb8f7002678296dad2720c",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1667-audit-spectroscopy-package-benchmark-20260614",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
