@@ -16,6 +16,8 @@ ports, config schemas, and capability records are the real stable contract.
 
 from __future__ import annotations
 
+import glob as _glob
+from pathlib import Path
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
@@ -26,6 +28,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.dataframe import DataFrame
+from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.blocks.io_handlers import (
     dataset_formats,
     spectrum_formats,
@@ -65,6 +68,133 @@ _PATH_CONFIG_SCHEMA: dict[str, Any] = {
     },
     "required": ["path"],
 }
+
+
+# ==========================================================================
+# Spectrum IO dispatch helpers (LoadSpectrum / SaveSpectrum, FR-132..FR-143)
+# ==========================================================================
+
+
+def _resolve_input_paths(raw_path: Any, *, block: str) -> list[Path]:
+    """Resolve ``config['path']`` to a concrete, ordered list of files.
+
+    Accepts a single path string, a list of path strings, a directory (all
+    files inside, sorted), or a glob pattern. Each entry is itself expanded:
+    a directory yields its files; a string containing glob metacharacters is
+    expanded via :func:`glob.glob`. Raises ``ValueError`` when nothing resolves.
+    """
+    if raw_path is None:
+        raise ValueError(f"{block}: config['path'] is required")
+    if isinstance(raw_path, str):
+        raw_entries: list[str] = [raw_path]
+    elif isinstance(raw_path, (list, tuple)):
+        raw_entries = [str(entry) for entry in raw_path]
+    else:
+        raise ValueError(f"{block}: config['path'] must be a string or list of strings, got {type(raw_path).__name__}")
+
+    resolved: list[Path] = []
+    for entry in raw_entries:
+        if not entry:
+            raise ValueError(f"{block}: empty path entry is not allowed")
+        candidate = Path(entry)
+        if candidate.is_dir():
+            files = sorted(p for p in candidate.iterdir() if p.is_file())
+            if not files:
+                raise ValueError(f"{block}: directory {candidate} contains no files")
+            resolved.extend(files)
+        elif any(ch in entry for ch in "*?[") and not candidate.exists():
+            matches = sorted(Path(match) for match in _glob.glob(entry))
+            if not matches:
+                raise ValueError(f"{block}: glob pattern {entry!r} matched no files")
+            resolved.extend(matches)
+        else:
+            resolved.append(candidate)
+    if not resolved:
+        raise ValueError(f"{block}: no input files resolved from config['path']")
+    return resolved
+
+
+def _capability_by_id(block: IOBlock, capability_id: str) -> FormatCapability:
+    """Return the declared capability with ``id == capability_id`` (FR-130/143)."""
+    for capability in block.format_capabilities:
+        if capability.id == capability_id:
+            return capability
+    valid = sorted(c.id for c in block.format_capabilities)
+    raise ValueError(f"{type(block).__name__}: capability_id {capability_id!r} is not declared; valid ids are {valid}")
+
+
+def _resolve_load_format(block: IOBlock, path: Path, capability_id: str | None) -> str:
+    """Resolve the format id for a load (explicit capability_id wins, FR-143)."""
+    if capability_id is not None:
+        capability = _capability_by_id(block, capability_id)
+        if capability.direction != "load":
+            raise ValueError(f"LoadSpectrum: capability_id {capability_id!r} is not a load capability")
+        return capability.format_id
+    if not path.exists():
+        raise FileNotFoundError(f"LoadSpectrum: no file at {path}")
+    fmt = block._detect_format(path)
+    if fmt is None:
+        raise ValueError(
+            f"LoadSpectrum: unsupported spectrum extension {path.suffix.lower()!r}; "
+            f"supported extensions are {sorted(block.supported_extensions)}"
+        )
+    return fmt
+
+
+def _resolve_save_format(block: IOBlock, path: Path, capability_id: str | None) -> str:
+    """Resolve the format id for a save (explicit capability_id wins, FR-143).
+
+    Vendor load-only formats have no saver capability declared (FR-134), so a
+    path whose extension only maps to a load-only format resolves to ``None``
+    here and raises — SaveSpectrum never silently writes a vendor format.
+    """
+    if capability_id is not None:
+        capability = _capability_by_id(block, capability_id)
+        if capability.direction != "save":
+            raise ValueError(f"SaveSpectrum: capability_id {capability_id!r} is not a save capability")
+        return capability.format_id
+    fmt = block._detect_format(path)
+    if fmt is None:
+        raise ValueError(
+            f"SaveSpectrum: unsupported / load-only save extension {path.suffix.lower()!r}; "
+            f"supported save extensions are {sorted(block.supported_extensions)}"
+        )
+    return fmt
+
+
+def _handler_attr_for_format(block: IOBlock, fmt: str, direction: str) -> str:
+    """Look up the handler method name for ``fmt`` from the capability records."""
+    for capability in block.format_capabilities:
+        if capability.format_id == fmt and capability.direction == direction:
+            return capability.handler
+    raise ValueError(f"{type(block).__name__}: no {direction} handler declared for format {fmt!r}")
+
+
+def _load_handler_for_format(block: IOBlock, fmt: str) -> Any:
+    """Return the bound ``_load_*`` handler for ``fmt``."""
+    return getattr(block, _handler_attr_for_format(block, fmt, "load"))
+
+
+def _save_handler_for_format(block: IOBlock, fmt: str) -> Any:
+    """Return the bound ``_save_*`` handler for ``fmt``."""
+    return getattr(block, _handler_attr_for_format(block, fmt, "save"))
+
+
+def _batch_target(path: Path, output_dir: Any) -> tuple[Path, str, str]:
+    """Resolve ``(out_dir, stem, suffix)`` for batch (multi-item) saves.
+
+    When an explicit ``output_dir`` is given, files go there using ``path``'s
+    stem + suffix. Otherwise, if ``path`` has a suffix it is treated as a
+    filename template (parent dir + stem + suffix); a suffix-less ``path`` is
+    treated as the output directory itself.
+    """
+    suffix = "".join(path.suffixes) or ".txt"
+    if isinstance(output_dir, str) and output_dir:
+        return Path(output_dir), (path.stem.split(".")[0] or "spectrum"), suffix
+    if path.suffixes:
+        stem = path.name[: -len(suffix)] or "spectrum"
+        return path.parent, stem, suffix
+    return path, "spectrum", ".txt"
 
 
 # ==========================================================================
@@ -313,7 +443,19 @@ class LoadSpectrum(IOBlock):
         Test plan: test_spectrum_io.py::test_load_generates_unique_ids,
           ::test_load_keeps_source_file_as_metadata.
         """
-        raise NotImplementedError("skeleton — implement per FR-034..FR-036; see comment above")
+        capability_id = config.get("capability_id")
+        if capability_id is not None and not isinstance(capability_id, str):
+            raise ValueError(
+                f"LoadSpectrum: config['capability_id'] must be a string or omitted, got {type(capability_id).__name__}"
+            )
+        paths = _resolve_input_paths(config.get("path"), block="LoadSpectrum")
+        spectra: list[Spectrum] = []
+        for path in paths:
+            fmt = _resolve_load_format(self, path, capability_id)
+            handler = _load_handler_for_format(self, fmt)
+            spectrum = handler(path)
+            spectra.append(spectrum)
+        return _support.spectra_collection(spectra)
 
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:  # pragma: no cover
         raise NotImplementedError("LoadSpectrum is an input block; use load()")
@@ -496,7 +638,33 @@ class SaveSpectrum(IOBlock):
         Test plan: test_spectrum_io.py::test_save_single_and_collection,
           ::test_save_rejects_vendor_load_only_format.
         """
-        raise NotImplementedError("skeleton — implement per FR-037/FR-134; see comment above")
+        raw_path = config.get("path")
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ValueError("SaveSpectrum: config['path'] must be a non-empty string")
+        path = Path(raw_path)
+
+        capability_id = config.get("capability_id")
+        if capability_id is not None and not isinstance(capability_id, str):
+            raise ValueError(
+                f"SaveSpectrum: config['capability_id'] must be a string or omitted, got {type(capability_id).__name__}"
+            )
+
+        spectra = _support.coerce_spectra(obj, block="SaveSpectrum", port="spectra")
+        fmt = _resolve_save_format(self, path, capability_id)
+        handler = _save_handler_for_format(self, fmt)
+
+        if len(spectra) == 1:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            handler(spectra[0], path)
+            return
+
+        # Multi-item Collection: batch mode -> numbered filenames in a directory.
+        out_dir, stem, suffix = _batch_target(path, config.get("output_dir"))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        width = max(4, len(str(len(spectra) - 1)))
+        for index, spectrum in enumerate(spectra):
+            item_path = out_dir / f"{stem}_{index:0{width}d}{suffix}"
+            handler(spectrum, item_path)
 
 
 # ==========================================================================
