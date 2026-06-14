@@ -18,6 +18,7 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=15",
     "pydantic>=2.0",
+    "openpyxl>=3.1",
 ]
 
 [project.entry-points."scistudio.blocks"]

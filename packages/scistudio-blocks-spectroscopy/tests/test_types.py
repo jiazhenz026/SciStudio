@@ -1,6 +1,16 @@
-"""Foundation type + support-helper tests (skeleton-safe)."""
+"""Foundation type + support-helper tests (skeleton-safe).
+
+Type contracts cover SC-001..SC-003 and SC-007 of
+``docs/specs/spectroscopy-package.md``: exactly two package types; ``Spectrum``
+subclasses core ``Series`` with the canonical axis names and the FR-005/FR-006
+``Meta`` fields; ``SpectralDataset`` subclasses ``CompositeData`` with exactly
+the ``index`` + ``spectra`` slots and its FR-013 dataset ``Meta`` fields; and no
+package code imports the legacy ``scistudio_blocks_srs`` package.
+"""
 
 from __future__ import annotations
+
+import sys
 
 import numpy as np
 from scistudio_blocks_spectroscopy import _support
@@ -14,18 +24,49 @@ from scistudio.core.types.series import Series
 def test_spectrum_is_series_with_canonical_names() -> None:
     spec = Spectrum()
     assert isinstance(spec, Series)
+    # SC-002: Spectrum is a Series, NOT an Array (no axes/shape/dtype surface).
+    assert not hasattr(spec, "axes")
+    assert not hasattr(spec, "shape")
     assert spec.index_name == "lambda"
     assert spec.value_name == "intensity"
 
 
 def test_spectrum_meta_required_fields_exist() -> None:
     fields = set(Spectrum.Meta.model_fields)
+    # FR-005 (units) + FR-006 (lambda_kind / modality) — must exist, nullable.
     assert {"lambda_unit", "intensity_unit", "lambda_kind", "modality"}.issubset(fields)
+
+
+def test_spectrum_meta_unit_fields_nullable_and_settable() -> None:
+    # SC-002: the unit metadata is exposed (settable + readable).
+    meta = Spectrum.Meta()
+    assert meta.lambda_unit is None and meta.intensity_unit is None
+    populated = Spectrum.Meta(lambda_unit="nm", intensity_unit="a.u.")
+    assert populated.lambda_unit == "nm"
+    assert populated.intensity_unit == "a.u."
 
 
 def test_spectral_dataset_two_slots() -> None:
     assert issubclass(SpectralDataset, CompositeData)
+    # SC-001 / SC-003 / FR-008: exactly the two semantic slots, both DataFrame.
     assert SpectralDataset.expected_slots == {"index": DataFrame, "spectra": DataFrame}
+
+
+def test_spectral_dataset_slot_type_is_enforced() -> None:
+    # FR-008 / SC-003: slots are isinstance-checked against expected_slots.
+    spectra = _support.dataframe_from_rows([{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}])
+    index = _support.dataframe_from_rows([{"spectrum_id": "a"}])
+    dataset = _support.build_spectral_dataset(index, spectra)
+    assert set(dataset.slot_names) == {"index", "spectra"}
+    assert isinstance(dataset.get("index"), DataFrame)
+    assert isinstance(dataset.get("spectra"), DataFrame)
+
+
+def test_no_srs_import_anywhere_in_package() -> None:
+    """SC-007: importing the package never pulls in ``scistudio_blocks_srs``."""
+    import scistudio_blocks_spectroscopy  # noqa: F401  (ensure full import graph)
+
+    assert "scistudio_blocks_srs" not in sys.modules
 
 
 def test_spectral_dataset_meta_fields_exist() -> None:
