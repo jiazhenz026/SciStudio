@@ -2,6 +2,8 @@
 
 Issue: #1660
 Branch: `codex/spectroscopy-package-20260614`
+Protected base: `main`
+Umbrella PR: #1663 (`[DO NOT MERGE] [codex] Implement spectroscopy package`)
 Gate record: `.workflow/records/1660-codex-spectroscopy-package-20260614.json`
 
 This checklist is the manager-facing coordination artifact for the codex
@@ -119,6 +121,11 @@ umbrella PR implementing `docs/specs/spectroscopy-package.md`.
 
 ## Integration Gates
 
+- [x] Manager umbrella branch created before dispatch.
+- [x] `[DO NOT MERGE]` umbrella PR #1663 opened before dispatch.
+- [x] Initial draft PR was created with the gate-aware wrapper and
+  `SCISTUDIO_SKIP_PREFLIGHT=1` because implementation was intentionally not
+  complete yet.
 - [ ] All package tests pass locally.
 - [ ] Gate record `check --mode pre-pr` passes.
 - [ ] Gate record `finalize` records the PR URL.
