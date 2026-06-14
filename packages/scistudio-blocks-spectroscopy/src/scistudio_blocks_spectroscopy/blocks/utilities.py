@@ -67,6 +67,49 @@ _PATH_CONFIG_SCHEMA: dict[str, Any] = {
 }
 
 
+def _resolve_dataset_io_capability(
+    block_instance: IOBlock,
+    config: BlockConfig,
+    path: Any,
+    *,
+    direction: str,
+    block: str,
+) -> FormatCapability:
+    """Resolve the ADR-043 ``FormatCapability`` for a SpectralDataset IO call.
+
+    Selection rules (FR-143): an explicit ``config['capability_id']`` wins; else
+    a unique extension match in the correct ``direction`` is used; unresolved
+    ambiguity or an unsupported extension fails rather than falling back to
+    registration order. Used only by ``LoadSpectralDataset.load`` and
+    ``SaveSpectralDataset.save``.
+    """
+    from pathlib import Path
+
+    candidates = [c for c in block_instance.get_format_capabilities() if c.direction == direction]
+
+    capability_id = config.get("capability_id")
+    if capability_id:
+        for capability in candidates:
+            if capability.id == capability_id:
+                return capability
+        raise ValueError(f"{block}: capability_id {capability_id!r} not found among {direction} capabilities")
+
+    fmt = block_instance._detect_format(Path(str(path)))
+    if fmt is None:
+        raise ValueError(
+            f"{block}: unsupported extension for {Path(str(path)).name!r}; "
+            f"declared extensions: {sorted(block_instance.supported_extensions)}"
+        )
+    matches = [c for c in candidates if c.format_id == fmt]
+    if not matches:
+        raise ValueError(f"{block}: no {direction} capability declared for format {fmt!r}")
+    if len(matches) > 1:
+        raise ValueError(
+            f"{block}: ambiguous {direction} capability for format {fmt!r}; pass an explicit capability_id (ADR-043)"
+        )
+    return matches[0]
+
+
 # ==========================================================================
 # LoadSpectrum (FR-034..FR-036, FR-132..FR-134)
 # ==========================================================================
@@ -681,18 +724,29 @@ class LoadSpectralDataset(IOBlock):
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
         """Load a dataset-shaped file into a SpectralDataset (FR-038).
 
-        Implementation plan (FR-038, FR-135..FR-139):
-          1. Resolve config['path'] + optional capability_id.
-          2. fmt = self._detect_format(path); dispatch to the matching
-             _load_*_dataset / _load_manifest_json / _load_dataset_xlsx handler.
-          3. Validate required columns: index.spectrum_id; spectra
-             spectrum_id/lambda/intensity; report orphan rows.
-          4. Return Collection(items=[dataset], item_type=SpectralDataset).
-        Edge cases: vendor multi-spectrum files; missing required sheet/column.
-        Test plan: test_spectral_dataset_io.py::test_load_manifest_json,
-          ::test_load_validates_required_columns.
+        Resolves ``config['path']`` and optional ``capability_id``, dispatches to
+        the matching ``_load_*`` handler (manifest JSON / xlsx workbook / SPC /
+        vendor) via ADR-043 selection, and returns the loaded
+        :class:`SpectralDataset`. The handlers validate the canonical two-table
+        layout (FR-038, FR-135..FR-139); the ``IOBlock.run`` wrapper packs the
+        single dataset into a Collection.
         """
-        raise NotImplementedError("skeleton — implement per FR-038/FR-135..FR-139; see comment above")
+        from pathlib import Path
+
+        block = "LoadSpectralDataset"
+        raw_path = config.get("path")
+        if isinstance(raw_path, (list, tuple)):
+            if len(raw_path) != 1:
+                raise ValueError(f"{block}: expected a single dataset path, got {len(raw_path)} paths")
+            raw_path = raw_path[0]
+        if not raw_path:
+            raise ValueError(f"{block}: missing required 'path' config")
+        path = Path(str(raw_path))
+
+        capability = _resolve_dataset_io_capability(self, config, path, direction="load", block=block)
+        handler = getattr(self, capability.handler)
+        dataset: SpectralDataset = handler(path)
+        return dataset
 
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:  # pragma: no cover
         raise NotImplementedError("LoadSpectralDataset is an input block; use load()")
@@ -802,18 +856,33 @@ class SaveSpectralDataset(IOBlock):
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
         """Persist a SpectralDataset (FR-039).
 
-        Implementation plan (FR-039, FR-135..FR-138):
-          1. Resolve config['path'] (+ optional output_dir / capability_id).
-          2. Resolve fmt via _detect_format(path) or explicit capability_id.
-          3. Dispatch to _save_manifest_json / _save_dataset_xlsx /
-             _save_spc_dataset, preserving index.spectrum_id,
-             spectra.spectrum_id, coordinates, intensities, dataset + index meta.
-        Edge cases: empty dataset; unsupported save extension; archive (.zip)
-          must be rejected (FR-136).
-        Test plan: test_spectral_dataset_io.py::test_save_manifest_json,
-          ::test_save_rejects_zip_bundle.
+        Resolves ``config['path']`` (+ optional ``output_dir``/``capability_id``),
+        dispatches to ``_save_manifest_json`` / ``_save_dataset_xlsx`` /
+        ``_save_spc_dataset`` (the only declared savers — there is no archive/zip
+        capability, FR-136), and writes the canonical two-table layout preserving
+        ``index.spectrum_id``, ``spectra.spectrum_id``, coordinates, intensities,
+        and dataset/index metadata (FR-039, FR-135..FR-138).
         """
-        raise NotImplementedError("skeleton — implement per FR-039/FR-135..FR-138; see comment above")
+        from pathlib import Path
+
+        from scistudio_blocks_spectroscopy import _support
+
+        block = "SaveSpectralDataset"
+        dataset = _support.coerce_dataset(obj, block=block, port="dataset")
+
+        raw_path = config.get("path")
+        if isinstance(raw_path, (list, tuple)):
+            raise ValueError(f"{block}: save expects a single output path, got a list")
+        if not raw_path:
+            raise ValueError(f"{block}: missing required 'path' config")
+        path = Path(str(raw_path))
+        output_dir = config.get("output_dir")
+        if output_dir and not path.is_absolute():
+            path = Path(str(output_dir)) / path
+
+        capability = _resolve_dataset_io_capability(self, config, path, direction="save", block=block)
+        handler = getattr(self, capability.handler)
+        handler(dataset, path)
 
 
 # ==========================================================================
