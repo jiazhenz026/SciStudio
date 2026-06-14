@@ -299,6 +299,70 @@
       "path": null,
       "rationale": "initial manager dispatch setup only; author-facing runtime documentation assigned to PV-C1 and tracked in checklist",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:26:44.511793Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-049.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:26:44.511808Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-049-package-validator-implementation.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530538Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/package-validator.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530560Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530563Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-adr-049-existing-package-sweep.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530564Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-14-adr-049-package-validator-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530566Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530567Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -1056,6 +1120,24 @@
       "at": "2026-06-14T08:15:00.712951Z",
       "pattern": "CHANGELOG.md",
       "reason": "Feature behavior needs changelog evidence and the package validator subcommand is registered through the existing CLI app."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T09:26:44.511680Z",
+      "pattern": "docs/adr/ADR-049.md",
+      "reason": "ADR-049 implementation resolves planned validator modules and files; update ADR/spec governance metadata for full_audit closure"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T09:26:44.511766Z",
+      "pattern": "docs/specs/adr-049-package-validator-implementation.md",
+      "reason": "ADR-049 implementation resolves planned validator modules and files; update ADR/spec governance metadata for full_audit closure"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-14T09:44:20.194023Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "Architecture placement test must recognize new scistudio.packages package; deferral scan wording cleanup"
     }
   ],
   "session_id": "7db9fd2b-7db4-4b3f-a802-10f13adb7814",
@@ -1067,6 +1149,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/packages",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:40:57.530570Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packages",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-14T09:44:20.194048Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_placement.py",
       "rationale": null,
       "verified_in_diff": null
     }

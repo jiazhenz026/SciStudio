@@ -1,0 +1,15 @@
+[project]
+name = "pv-invalid-previewer-manifest-package"
+version = "0.1.0"
+description = "ADR-049 invalid previewer manifest package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.previewers"]
+previewers = "pv_invalid_previewer_manifest_package:get_previewers"

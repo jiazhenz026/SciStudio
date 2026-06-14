@@ -1,0 +1,15 @@
+[project]
+name = "pv-invalid-type-meta-package"
+version = "0.1.0"
+description = "ADR-049 invalid type Meta package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.types"]
+types = "pv_invalid_type_meta_package:get_types"

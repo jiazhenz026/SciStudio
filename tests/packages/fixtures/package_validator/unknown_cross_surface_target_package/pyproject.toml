@@ -1,0 +1,15 @@
+[project]
+name = "pv-unknown-cross-surface-target-package"
+version = "0.1.0"
+description = "ADR-049 unknown cross-surface target package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.previewers"]
+previewers = "pv_unknown_cross_surface_target_package:get_previewers"

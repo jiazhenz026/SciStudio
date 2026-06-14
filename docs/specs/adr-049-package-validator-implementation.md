@@ -1,7 +1,7 @@
 ---
 spec_id: adr-049-package-validator-implementation
 title: "ADR-049 Package Validator Implementation Specification"
-status: Planned
+status: Implemented
 feature_branch: design/package-validator-contract-survey
 created: 2026-06-14
 input: "Owner request: define an executable implementation plan for the ADR-049 package validator that validates package contracts during development and before production registration."
@@ -31,6 +31,8 @@ governs:
     - scistudio.blocks.io.capabilities
     - scistudio.core.types.registry
     - scistudio.previewers
+    - scistudio.packages.validation
+    - scistudio.cli.package_validator
   contracts:
     - scistudio.blocks.base.package_info.PackageInfo
     - scistudio.blocks.registry.BlockRegistry
@@ -38,6 +40,14 @@ governs:
     - scistudio.core.types.registry.TypeRegistry
     - scistudio.previewers.registry.PreviewerRegistry
     - scistudio.previewers.models.PreviewerSpec
+    - scistudio.packages.validation.models.PackageValidationProfile
+    - scistudio.packages.validation.models.CandidatePackage
+    - scistudio.packages.validation.models.PackageInventory
+    - scistudio.packages.validation.models.ContractApplicability
+    - scistudio.packages.validation.models.PackageValidationFinding
+    - scistudio.packages.validation.models.PackageValidationReport
+    - scistudio.packages.validation.engine.validate_package
+    - scistudio.packages.validation.engine.validate_installed_package
   entry_points:
     - scistudio.blocks
     - scistudio.types
@@ -52,26 +62,14 @@ governs:
     - packages/scistudio-blocks-*/pyproject.toml
     - packages/scistudio-blocks-*/src/**
     - packages/scistudio-blocks-*/tests/**
-planned_governs:
-  modules:
-    - scistudio.packages.validation
-    - scistudio.cli.package_validator
-  contracts:
-    - scistudio.packages.validation.PackageValidationProfile
-    - scistudio.packages.validation.CandidatePackage
-    - scistudio.packages.validation.PackageInventory
-    - scistudio.packages.validation.ContractApplicability
-    - scistudio.packages.validation.PackageValidationFinding
-    - scistudio.packages.validation.PackageValidationReport
-    - scistudio.packages.validation.validate_package
-    - scistudio.packages.validation.validate_installed_package
-  entry_points: []
-  files:
     - src/scistudio/packages/validation/**
     - src/scistudio/cli/package_validator.py
-    - tests/packages/test_package_validator.py
-    - tests/packages/test_package_validator_reports.py
-    - tests/packages/fixtures/package_validator/**
+    - tests/packages/**
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
 tests:
   - tests/packages/test_package_validator.py
   - tests/packages/test_package_validator_reports.py
@@ -310,7 +308,7 @@ same contract IDs so reports are traceable to ADR-049.
 ### 4.5 Risks And Rollback
 
 - Registry APIs may not currently support cheap dry-run cloning. Mitigation:
-  compose temporary registry instances first; only add clone APIs where tests
+  compose isolated registry instances first; only add clone APIs where tests
   prove composition is insufficient.
 - Candidate imports may run package code. Mitigation: production validation must
   use an isolation boundary before live mutation.

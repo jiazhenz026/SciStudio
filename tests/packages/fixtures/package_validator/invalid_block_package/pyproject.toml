@@ -1,0 +1,15 @@
+[project]
+name = "pv-invalid-block-package"
+version = "0.1.0"
+description = "ADR-049 invalid block package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.blocks"]
+invalid = "pv_invalid_block_package:get_block_package"

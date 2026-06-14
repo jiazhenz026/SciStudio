@@ -1,0 +1,18 @@
+[project]
+name = "pv-block-type-only-package"
+version = "0.1.0"
+description = "ADR-049 block and type only package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.blocks"]
+blocks = "pv_block_type_only_package:get_block_package"
+
+[project.entry-points."scistudio.types"]
+types = "pv_block_type_only_package:get_types"

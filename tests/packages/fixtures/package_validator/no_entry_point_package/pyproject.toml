@@ -1,0 +1,12 @@
+[project]
+name = "pv-no-entry-point-package"
+version = "0.1.0"
+description = "ADR-049 no-entry-point package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

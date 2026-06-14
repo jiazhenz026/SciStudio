@@ -1,0 +1,15 @@
+[project]
+name = "pv-invalid-io-capability-package"
+version = "0.1.0"
+description = "ADR-049 invalid IO capability package-validator fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.entry-points."scistudio.blocks"]
+blocks = "pv_invalid_io_capability_package:get_block_package"
