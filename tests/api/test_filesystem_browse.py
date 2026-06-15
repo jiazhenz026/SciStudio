@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -88,10 +87,11 @@ class TestBrowseFilesystem:
         assert resp.status_code == 400
 
     def test_path_traversal_outside_allowlist_is_rejected(self, client: TestClient, browse_dir: Path) -> None:
-        # A ``..`` escape that canonicalises outside the allowlist is rejected
-        # by the realpath+commonpath guard, not silently followed.
-        escaped_dir = "Windows" if os.name == "nt" else "etc"
-        escape = browse_dir.joinpath(*([".."] * (len(browse_dir.resolve().parts) - 1)), escaped_dir)
+        # Use the filesystem/drive root (browse_dir.anchor) so the escape is
+        # guaranteed to be outside the home/temp allowlist on every OS,
+        # regardless of tmp_path depth or how tempdir nests under home (Windows).
+        # The guard fires before any existence check so the name never needs to exist.
+        escape = Path(browse_dir.anchor) / "scistudio_nonexistent_outside_allowlist"
         resp = client.get(
             "/api/filesystem/browse",
             params={"path": str(escape)},
