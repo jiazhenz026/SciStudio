@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from scistudio_blocks_spectroscopy import _support
@@ -38,7 +38,7 @@ def _spectrum(sid: str, *, lam: Any, inten: Any) -> Spectrum:
 
 def _library(spectra: list[Spectrum]) -> SpectralDataset:
     out = SpectrumToSpectralDataset().run({"spectra": _support.spectra_collection(spectra)}, _config())
-    return next(iter(out["dataset"]))
+    return cast(SpectralDataset, next(iter(out["dataset"])))
 
 
 def _matches(query: list[Spectrum], lib: SpectralDataset, **params: Any) -> Any:
@@ -112,3 +112,22 @@ def test_incompatible_grid_is_non_success_by_default() -> None:
     # Default grid_policy="error": no success row for the incompatible grid.
     assert "success" not in statuses
     assert any(s != "success" for s in statuses)
+
+
+def test_mixed_compatible_and_incompatible_library_rows_are_reported() -> None:
+    query_grid = np.linspace(0.0, 10.0, 11)
+    incompatible_grid = np.linspace(0.0, 10.0, 21)
+    lib = _library(
+        [
+            _spectrum("compatible", lam=query_grid, inten=query_grid),
+            _spectrum("incompatible", lam=incompatible_grid, inten=incompatible_grid),
+        ]
+    )
+    query = _spectrum("q1", lam=query_grid, inten=query_grid)
+    table = _matches([query], lib, method="cosine_similarity", top_k=1)
+    rows = {row["library_spectrum_id"]: row for row in table.to_pylist()}
+
+    assert rows["compatible"]["status"] == "success"
+    assert rows["compatible"]["rank"] == 1
+    assert rows["incompatible"]["status"] == "incompatible_grid"
+    assert rows["incompatible"]["rank"] == 0

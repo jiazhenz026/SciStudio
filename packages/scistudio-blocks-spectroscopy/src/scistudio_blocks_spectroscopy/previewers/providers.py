@@ -443,7 +443,9 @@ def _slot_ref(parent: StorageReference, record_md: dict[str, Any], slot: str) ->
     if candidate is None:
         return None
     candidate = _slot_file_candidate(Path(candidate)) or candidate
-    return StorageReference(backend=parent.backend, path=candidate, format=_format_for_path(candidate))
+    fmt = _format_for_path(candidate)
+    backend = "filesystem" if parent.backend == "composite" and fmt in {"parquet", "csv"} else parent.backend
+    return StorageReference(backend=backend, path=candidate, format=fmt)
 
 
 def _slot_file_candidate(path: Path) -> str | None:
@@ -511,6 +513,68 @@ def _read_slot_page(
     return list(page_obj.columns), rows, total, truncated
 
 
+def _index_filters(query: dict[str, Any], columns: list[str]) -> list[dict[str, str]]:
+    """Normalize provider-side index filters from query params."""
+    valid_columns = set(columns)
+    filters: list[dict[str, str]] = []
+
+    def add(column: Any, value: Any, op: Any = "contains") -> None:
+        if not isinstance(column, str) or column not in valid_columns or value in (None, ""):
+            return
+        operation = str(op or "contains").lower()
+        if operation not in {"contains", "equals"}:
+            operation = "contains"
+        filters.append({"column": column, "value": str(value), "op": operation})
+
+    raw_filters = query.get("filters")
+    if isinstance(raw_filters, str):
+        try:
+            raw_filters = json.loads(raw_filters)
+        except Exception:
+            raw_filters = None
+    if isinstance(raw_filters, dict):
+        for column, value in raw_filters.items():
+            add(column, value, "equals")
+    elif isinstance(raw_filters, list):
+        for item in raw_filters:
+            if isinstance(item, dict):
+                add(item.get("column"), item.get("value"), item.get("op", "contains"))
+
+    add(query.get("filter_column"), query.get("filter_value"), query.get("filter_op", "contains"))
+    return filters
+
+
+def _row_matches_filters(row: dict[str, Any], filters: list[dict[str, str]]) -> bool:
+    for spec in filters:
+        cell = "" if row.get(spec["column"]) is None else str(row.get(spec["column"]))
+        needle = spec["value"]
+        if spec["op"] == "equals":
+            if cell != needle:
+                return False
+        elif needle.lower() not in cell.lower():
+            return False
+    return True
+
+
+def _apply_index_filters(
+    index_rows: list[dict[str, Any]],
+    spectra_rows: list[dict[str, Any]],
+    filters: list[dict[str, str]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if not filters:
+        return index_rows, spectra_rows
+    filtered_index = [row for row in index_rows if _row_matches_filters(row, filters)]
+    visible_ids = {
+        str(row.get(_SPECTRUM_ID))
+        for row in filtered_index
+        if isinstance(row, dict) and row.get(_SPECTRUM_ID) not in (None, "")
+    }
+    filtered_spectra = [
+        row for row in spectra_rows if isinstance(row, dict) and str(row.get(_SPECTRUM_ID)) in visible_ids
+    ]
+    return filtered_index, filtered_spectra
+
+
 def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
     """Preview a ``SpectralDataset`` as a metadata-aware spectral explorer.
 
@@ -547,6 +611,7 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
     }
     index_rows: list[dict[str, Any]] = []
     index_columns: list[str] = []
+    index_total = 0
     index_truncated = False
     if index_read is not None:
         index_columns, index_rows, index_total, index_truncated = index_read
@@ -573,6 +638,20 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
         truncated = truncated or spectra_truncated
     else:
         diagnostics.append("spectra slot not readable for a bounded diagnostics scan")
+
+    active_filters = _index_filters(request.query, index_columns)
+    if active_filters:
+        index_unfiltered_total = index_total
+        index_rows, spectra_rows = _apply_index_filters(index_rows, spectra_rows, active_filters)
+        index_payload.update(
+            rows=index_rows,
+            total_rows=len(index_rows),
+            filtered=True,
+            unfiltered_total_rows=index_unfiltered_total,
+        )
+        spectra_total = len(spectra_rows)
+        if index_truncated or spectra_truncated:
+            diagnostics.append("filters applied to bounded preview rows; additional off-page matches may exist")
 
     dataset_diagnostics = compute_dataset_diagnostics(
         index_rows,
@@ -613,6 +692,7 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
             "groupable_columns": [c for c in index_columns if c != _SPECTRUM_ID],
             "colorable_columns": [c for c in index_columns if c != _SPECTRUM_ID],
             "selected_ids": _selected_ids(request.query),
+            "active_filters": active_filters,
             "group_by": plot_payload["group_by"],
             "color_by": plot_payload["color_by"],
             "plot_mode": plot_payload["mode"],

@@ -132,9 +132,19 @@ class SpectralDataset(CompositeData):
         package contract also requires table schemas and the
         ``index.spectrum_id`` <-> ``spectra.spectrum_id`` join invariant.
         """
+        slot_names = set(slots or {})
+        expected = set(self.expected_slots)
+        if slot_names != expected:
+            missing = sorted(expected - slot_names)
+            extra = sorted(slot_names - expected)
+            details: list[str] = []
+            if missing:
+                details.append(f"missing required slot(s) {missing!r}")
+            if extra:
+                details.append(f"unexpected slot(s) {extra!r}")
+            raise ValueError(f"SpectralDataset requires exactly slots {sorted(expected)!r}; " + "; ".join(details))
         super().__init__(slots=slots, **kwargs)
-        if self.expected_slots.keys() <= self._slots.keys():
-            self.validate_slots()
+        self.validate_slots()
 
     def validate_slots(self) -> None:
         """Validate required columns, ids, numeric payload columns, and joins."""

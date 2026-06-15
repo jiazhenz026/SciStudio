@@ -26,10 +26,12 @@ from scistudio_blocks_spectroscopy.previewers import (
     get_previewers,
 )
 from scistudio_blocks_spectroscopy.previewers.providers import (
+    _slot_ref,
     compute_dataset_diagnostics,
     spectral_dataset_provider,
 )
 
+from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import (
     EnvelopeKind,
@@ -51,9 +53,15 @@ def _spec() -> PreviewerSpec:
     raise AssertionError(SPECTRAL_DATASET_PREVIEWER_ID)
 
 
-def _request(root: Path, record_md: dict, extra_query: dict | None = None) -> PreviewRequest:
+def _request(
+    root: Path,
+    record_md: dict,
+    extra_query: dict | None = None,
+    *,
+    storage_backend: str = "filesystem",
+) -> PreviewRequest:
     query = {
-        "_storage": {"backend": "filesystem", "path": str(root), "format": "parquet"},
+        "_storage": {"backend": storage_backend, "path": str(root), "format": "parquet"},
         "_record_metadata": record_md,
     }
     if extra_query:
@@ -129,11 +137,51 @@ def test_dataset_provider_resolves_composite_slot_data_parquet(tmp_path: Path) -
         index_cols={"spectrum_id": ["a"], "material": ["gold"]},
         spectra_cols={"spectrum_id": ["a"], "lambda": [1.0], "intensity": [10.0]},
     )
-    env = spectral_dataset_provider(_request(root, {"slots": {"index": "DataFrame", "spectra": "DataFrame"}}))
+    index_ref = _slot_ref(StorageReference(backend="composite", path=str(root), format="composite"), {}, "index")
+    assert index_ref is not None
+    assert index_ref.backend == "filesystem"
+    assert index_ref.format == "parquet"
+
+    env = spectral_dataset_provider(
+        _request(root, {"slots": {"index": "DataFrame", "spectra": "DataFrame"}}, storage_backend="composite")
+    )
     assert env.payload["index_table"]["available"] is True
     assert env.payload["index_table"]["rows"][0]["spectrum_id"] == "a"
     assert env.payload["spectra_table"]["available"] is True
     assert env.payload["plot"]["overlay"]["series"][0]["points"] == [{"x": 1.0, "y": 10.0}]
+
+
+def test_dataset_previewer_filters_index_and_spectra_by_index_column(tmp_path: Path) -> None:
+    root = _dataset_dir(
+        tmp_path,
+        index_cols={
+            "spectrum_id": ["a", "b", "c"],
+            "material": ["gold", "silver", "gold"],
+            "prep": ["wet", "dry", "dry"],
+        },
+        spectra_cols={
+            "spectrum_id": ["a", "a", "b", "b", "c", "c"],
+            "lambda": [1.0, 2.0, 1.0, 2.0, 1.0, 2.0],
+            "intensity": [10.0, 11.0, 20.0, 21.0, 30.0, 31.0],
+        },
+    )
+    env = spectral_dataset_provider(
+        _request(
+            root,
+            {"slots": {"index": "DataFrame", "spectra": "DataFrame"}},
+            extra_query={"filter_column": "material", "filter_value": "gold"},
+        )
+    )
+
+    index_ids = [row["spectrum_id"] for row in env.payload["index_table"]["rows"]]
+    spectra_ids = {row["spectrum_id"] for row in env.payload["spectra_table"]["rows"]}
+    plot_ids = {series["spectrum_id"] for series in env.payload["plot"]["overlay"]["series"]}
+    assert index_ids == ["a", "c"]
+    assert spectra_ids == {"a", "c"}
+    assert plot_ids == {"a", "c"}
+    assert env.payload["index_table"]["filtered"] is True
+    assert env.payload["index_table"]["unfiltered_total_rows"] == 3
+    assert env.payload["controls"]["active_filters"] == [{"column": "material", "value": "gold", "op": "contains"}]
 
 
 def test_dataset_previewer_supports_grouping_over_arbitrary_index_columns(tmp_path: Path) -> None:

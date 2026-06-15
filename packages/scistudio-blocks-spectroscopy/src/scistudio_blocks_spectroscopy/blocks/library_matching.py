@@ -245,7 +245,7 @@ class MatchSpectralLibrary(ProcessBlock):
             }
             for rank, (lib_id, score) in enumerate(ranked, start=1)
         ]
-        return rows
+        return rows + incompatible
 
     @staticmethod
     def _query_units(query: Spectrum) -> tuple[str | None, str | None]:
