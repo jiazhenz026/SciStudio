@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import inspect
+import os
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from scistudio.packages.validation.contracts import contract_applies, load_contract_tables
+from scistudio.packages.validation.contracts import PackageContract, contract_applies, load_contract_tables
 from scistudio.packages.validation.inventory import CandidateEntryPoint, build_inventory, candidate_import_context
 from scistudio.packages.validation.models import (
     ContractResult,
@@ -22,9 +26,26 @@ from scistudio.packages.validation.models import (
 
 # fmt: off
 def validate_package(path_or_distribution: str | Path, profile: PackageValidationProfile | str = PackageValidationProfile.DEVELOPMENT) -> PackageValidationReport:
-    report, _dry_run = _validate_package_with_dry_run(path_or_distribution, profile=profile)
-    return report
+    try:
+        report, _dry_run = _validate_package_with_dry_run(path_or_distribution, profile=profile)
+        return report
+    except Exception as exc:
+        return _failure_report(path_or_distribution, _normalize_profile(profile), exc)
 # fmt: on
+
+
+def validate_installed_package(
+    distribution: str,
+    profile: PackageValidationProfile | str = PackageValidationProfile.PRODUCTION,
+) -> PackageValidationReport:
+    validation_profile = _normalize_profile(profile)
+    if (
+        validation_profile is PackageValidationProfile.PRODUCTION
+        and os.environ.get("SCISTUDIO_PACKAGE_VALIDATOR_SUBPROCESS") != "1"
+    ):
+        registration = importlib.import_module("scistudio.packages.validation.registration")
+        return cast(PackageValidationReport, registration.validate_for_registration(distribution).report)
+    return validate_package(distribution, profile=validation_profile)
 
 
 def _validate_package_with_dry_run(
@@ -38,13 +59,32 @@ def _validate_package_with_dry_run(
     contracts = load_contract_tables()
     findings: list[PackageValidationFinding] = []
     dry_run = DryRunBuilder()
+    executed_contracts: set[str] = {"PV-01-001", "PV-01-002"}
+    if candidate.candidate.source_kind == "unsupported-archive":
+        findings.append(
+            _finding(
+                "PV-01-001",
+                "blocker",
+                "distribution_metadata",
+                candidate.candidate.value,
+                "Archive input type is not supported by the package validator.",
+                "Provide a source tree, wheel, source distribution, or installed distribution name.",
+            )
+        )
 
     with candidate_import_context(candidate):
         for entry_point in candidate.entry_points:
-            _validate_entry_point(entry_point, candidate.inventory, dry_run, findings)
-        _validate_cross_surface(candidate.inventory, dry_run, findings)
+            _validate_entry_point(entry_point, candidate.inventory, dry_run, findings, executed_contracts)
+        _validate_cross_surface(candidate.inventory, dry_run, findings, executed_contracts)
 
-    contract_results = _contract_results(contracts, candidate.inventory.surfaces, findings, validation_profile)
+    findings = _apply_profile_behaviors(findings, contracts, validation_profile)
+    contract_results = _contract_results(
+        contracts,
+        candidate.inventory.surfaces,
+        findings,
+        validation_profile,
+        executed_contracts,
+    )
     report = PackageValidationReport(
         package=candidate.inventory.package,
         profile=validation_profile,
@@ -54,12 +94,6 @@ def _validate_package_with_dry_run(
         dry_run_registries=dry_run.summary(),
     )
     return report, dry_run
-
-
-# fmt: off
-def validate_installed_package(distribution: str, profile: PackageValidationProfile | str = PackageValidationProfile.PRODUCTION) -> PackageValidationReport:
-    return validate_package(distribution, profile=profile)
-# fmt: on
 
 
 class DryRunBuilder:
@@ -76,24 +110,86 @@ class DryRunBuilder:
         self.previewer_registry = PreviewerRegistry()
         self.runners: dict[str, Any] = {}
         self.api_payloads = 0
+        self.candidate_block_names: set[str] = set()
+        self.candidate_type_names: set[str] = set()
+        self.candidate_previewer_ids: set[str] = set()
+        self.candidate_runner_names: set[str] = set()
 
     def summary(self) -> DryRunRegistrySet:
         return DryRunRegistrySet(
-            blocks=len(self.block_registry.all_specs()),
-            types=len(self.type_registry.all_types()),
-            previewers=len(self.previewer_registry.all_specs()),
-            format_capabilities=len(self.block_registry.list_format_capabilities()),
-            runners=len(self.runners),
+            blocks=len(self.candidate_block_names),
+            types=len(self.candidate_type_names),
+            previewers=len(self.candidate_previewer_ids),
+            format_capabilities=len(self.candidate_format_capability_ids()),
+            runners=len(self.candidate_runner_names),
             api_payloads=self.api_payloads,
         )
 
+    def add_block_spec(self, spec: Any) -> None:
+        self.block_registry._register_spec(spec)
+        self.candidate_block_names.add(spec.name)
 
-# fmt: off
-def _validate_entry_point(entry_point: CandidateEntryPoint, inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
+    def add_type_class(self, cls: type) -> None:
+        self.type_registry.register_class(cls)
+        self.candidate_type_names.add(cls.__name__)
+
+    def add_previewer_spec(self, spec: Any) -> bool:
+        registered = self.previewer_registry.register(spec)
+        if registered:
+            self.candidate_previewer_ids.add(spec.previewer_id)
+        return registered
+
+    def add_runner(self, name: str, runner: Any) -> None:
+        self.runners[name] = runner
+        self.candidate_runner_names.add(name)
+
+    def candidate_block_specs(self) -> list[Any]:
+        specs = self.block_registry.all_specs()
+        return [specs[name] for name in self.candidate_block_names if name in specs]
+
+    def candidate_type_specs(self) -> dict[str, Any]:
+        specs = self.type_registry.all_types()
+        return {name: specs[name] for name in self.candidate_type_names if name in specs}
+
+    def candidate_previewer_specs(self) -> list[Any]:
+        return [
+            spec for spec in self.previewer_registry.all_specs() if spec.previewer_id in self.candidate_previewer_ids
+        ]
+
+    def candidate_format_capability_ids(self) -> set[str]:
+        return {
+            capability.id
+            for spec in self.candidate_block_specs()
+            for capability in getattr(spec, "format_capabilities", ())
+        }
+
+
+def _validate_entry_point(
+    entry_point: CandidateEntryPoint,
+    inventory: Any,
+    dry_run: DryRunBuilder,
+    findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
+) -> None:
+    executed_contracts.update({"PV-02-001", "PV-02-002"})
+    validator = _ENTRY_POINT_VALIDATORS.get(entry_point.group)
+    if validator is None:
+        findings.append(_unknown_entry_point_group_finding(entry_point))
+        return
     loaded = _load_entry_point(entry_point, findings)
-    if loaded is not None and (validator := _ENTRY_POINT_VALIDATORS.get(entry_point.group)):
-        validator(entry_point, loaded, inventory, dry_run, findings)
-# fmt: on
+    if loaded is not None:
+        validator(entry_point, loaded, inventory, dry_run, findings, executed_contracts)
+
+
+def _unknown_entry_point_group_finding(entry_point: CandidateEntryPoint) -> PackageValidationFinding:
+    return _finding(
+        "PV-02-002",
+        "error",
+        "entry_points",
+        f"{entry_point.group}:{entry_point.name}",
+        f"Unknown SciStudio entry-point group {entry_point.group!r}.",
+        "Use one of scistudio.blocks, scistudio.types, scistudio.previewers, or scistudio.runners.",
+    )
 
 
 def _load_entry_point(
@@ -122,9 +218,15 @@ def _validate_blocks_entry_point(
     inventory: Any,
     dry_run: DryRunBuilder,
     findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
 ) -> None:
+    from scistudio.blocks.app.app_block import AppBlock
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.base.package_info import PackageInfo
+    from scistudio.blocks.code.code_block import CodeBlock
+    from scistudio.blocks.io.io_block import IOBlock
+
+    executed_contracts.add("PV-02-003")
 
     try:
         result = loaded if isinstance(loaded, type) and issubclass(loaded, Block) else loaded()
@@ -195,11 +297,22 @@ def _validate_blocks_entry_point(
             )
             continue
         inventory.block_symbols.append(cls.__name__)
+        inventory.surfaces.update({"blocks", "block_config", "block_ports"})
+        executed_contracts.update({"PV-04-001", "PV-05-001", "PV-05-002"})
+        if issubclass(cls, IOBlock):
+            inventory.surfaces.update({"io_blocks", "format_capabilities"})
+            executed_contracts.update({"PV-06-001", "PV-06-002", "PV-06-003", "PV-06-004"})
+        if issubclass(cls, AppBlock):
+            inventory.surfaces.add("app_blocks")
+            executed_contracts.update({"PV-08-001", "PV-08-002", "PV-08-003"})
+        if issubclass(cls, CodeBlock):
+            inventory.surfaces.add("code_blocks")
+            executed_contracts.update({"PV-08-001", "PV-08-002", "PV-08-003"})
         if inspect.isabstract(cls):
             continue
         try:
             spec = _block_spec_for_class(cls, package_name, inventory.package.version)
-            dry_run.block_registry._register_spec(spec)
+            dry_run.add_block_spec(spec)
             inventory.format_capability_ids.extend(capability.id for capability in spec.format_capabilities)
         except Exception as exc:
             contract_id = "PV-06-002" if "Duplicate capability id" in str(exc) else "PV-06-001"
@@ -221,8 +334,10 @@ def _validate_blocks_entry_point(
 def _validate_package_info(package_info: Any, inventory: Any, findings: list[PackageValidationFinding]) -> None:
     if not _package_info_is_instance(package_info, findings):
         return
+    inventory.surfaces.add("package_info")
     inventory.package_info = _package_info_payload(package_info)
     findings.extend(_package_info_field_findings(package_info))
+    findings.extend(_package_info_identity_findings(package_info, inventory))
 
 
 def _package_info_is_instance(package_info: Any, findings: list[PackageValidationFinding]) -> bool:
@@ -262,6 +377,12 @@ def _blank_package_info_fields(package_info: Any) -> list[str]:
     ]
 
 
+def _non_string_package_info_fields(package_info: Any) -> list[str]:
+    return [
+        field_name for field_name in ("description", "author") if not isinstance(getattr(package_info, field_name), str)
+    ]
+
+
 def _package_info_field_findings(package_info: Any) -> list[PackageValidationFinding]:
     return [
         _finding(
@@ -273,6 +394,33 @@ def _package_info_field_findings(package_info: Any) -> list[PackageValidationFin
             "Populate PackageInfo with stable non-empty name and version fields.",
         )
         for field_name in _blank_package_info_fields(package_info)
+    ] + [
+        _finding(
+            "PV-01-002",
+            "error",
+            "package_info",
+            field_name,
+            f"PackageInfo.{field_name} must be a string.",
+            "Populate PackageInfo description and author with strings, or leave them as empty strings.",
+        )
+        for field_name in _non_string_package_info_fields(package_info)
+    ]
+
+
+def _package_info_identity_findings(package_info: Any, inventory: Any) -> list[PackageValidationFinding]:
+    if not isinstance(package_info.name, str) or not package_info.name.strip():
+        return []
+    if package_info.name == inventory.package.name:
+        return []
+    return [
+        _finding(
+            "PV-01-002",
+            "warning",
+            "package_info",
+            package_info.name,
+            f"PackageInfo.name {package_info.name!r} differs from distribution name {inventory.package.name!r}.",
+            "Keep PackageInfo.name aligned with the package distribution name where possible.",
+        )
     ]
 
 
@@ -282,8 +430,11 @@ def _validate_types_entry_point(
     inventory: Any,
     dry_run: DryRunBuilder,
     findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
 ) -> None:
     from scistudio.core.types.base import DataObject
+
+    executed_contracts.update({"PV-03-001", "PV-03-002", "PV-03-003"})
 
     try:
         result = loaded()
@@ -327,7 +478,7 @@ def _validate_types_entry_point(
             continue
         inventory.type_symbols.append(cls.__name__)
         try:
-            dry_run.type_registry.register_class(cls)
+            dry_run.add_type_class(cls)
         except Exception as exc:
             findings.append(
                 _finding(
@@ -347,9 +498,12 @@ def _validate_previewers_entry_point(
     inventory: Any,
     dry_run: DryRunBuilder,
     findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
 ) -> None:
     from scistudio.previewers.assets import validate_manifest
     from scistudio.previewers.models import PreviewerSpec
+
+    executed_contracts.update({"PV-09-001", "PV-09-002", "PV-09-004", "PV-09-005"})
 
     try:
         result = loaded()
@@ -391,6 +545,13 @@ def _validate_previewers_entry_point(
             )
             continue
         inventory.previewer_ids.append(spec.previewer_id)
+        inventory.surfaces.add("previewers")
+        if spec.backend_provider is not None:
+            inventory.surfaces.add("preview_provider")
+            executed_contracts.update({"PV-10-001", "PV-10-002", "PV-10-003", "PV-09-006"})
+        if spec.frontend_manifest is not None:
+            inventory.surfaces.update({"preview_frontend_manifest", "security_isolation"})
+            executed_contracts.update({"PV-09-003", "PV-12-001", "PV-12-002", "PV-12-004"})
         manifest_result = validate_manifest(spec.frontend_manifest)
         if spec.frontend_manifest is not None and not manifest_result.valid:
             findings.append(
@@ -403,7 +564,7 @@ def _validate_previewers_entry_point(
                     "Use same-origin backend-relative module/css URLs and a valid manifest descriptor.",
                 )
             )
-        if not dry_run.previewer_registry.register(spec):
+        if not dry_run.add_previewer_spec(spec):
             findings.append(
                 _finding(
                     "PV-09-004",
@@ -417,12 +578,20 @@ def _validate_previewers_entry_point(
 
 
 # fmt: off
-def _validate_runner_entry_point(entry_point: CandidateEntryPoint, loaded: Any, inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
+def _validate_runner_entry_point(
+    entry_point: CandidateEntryPoint,
+    loaded: Any,
+    inventory: Any,
+    dry_run: DryRunBuilder,
+    findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
+) -> None:
+    executed_contracts.add("PV-99-001")
     if not isinstance(loaded, type):
         findings.append(_runner_class_finding(entry_point))
         return
     inventory.runner_symbols.append(loaded.__name__)
-    dry_run.runners[entry_point.name] = loaded
+    dry_run.add_runner(entry_point.name, loaded)
 # fmt: on
 
 
@@ -445,8 +614,30 @@ _ENTRY_POINT_VALIDATORS = {
 }
 
 
-def _validate_cross_surface(inventory: Any, dry_run: DryRunBuilder, findings: list[PackageValidationFinding]) -> None:
+def _validate_cross_surface(
+    inventory: Any,
+    dry_run: DryRunBuilder,
+    findings: list[PackageValidationFinding],
+    executed_contracts: set[str],
+) -> None:
+    if inventory.surfaces & {"blocks", "types", "previewers", "format_capabilities", "runners"}:
+        inventory.surfaces.update({"cross_surface_registry_consistency", "registry_derived_api_serialization"})
+        executed_contracts.update({"PV-13-001", "PV-13-002", "PV-13-003", "PV-13-004", "PV-99-004"})
     known_types = set(dry_run.type_registry.all_types())
+    for block_spec in dry_run.candidate_block_specs():
+        for port in [*getattr(block_spec, "input_ports", ()), *getattr(block_spec, "output_ports", ())]:
+            for accepted_type in getattr(port, "accepted_types", ()):
+                if not _accepted_type_is_known(accepted_type, inventory, known_types):
+                    findings.append(
+                        _finding(
+                            "PV-13-003",
+                            "error",
+                            "cross_surface_registry_consistency",
+                            getattr(accepted_type, "__name__", repr(accepted_type)),
+                            f"Block {block_spec.name!r} port {getattr(port, 'name', '<unknown>')!r} references an unregistered type.",
+                            "Declare referenced DataObject types through scistudio.types or use a registered core type.",
+                        )
+                    )
     for spec in dry_run.previewer_registry.all_specs():
         if spec.target_type and spec.target_type not in known_types:
             findings.append(
@@ -459,6 +650,84 @@ def _validate_cross_surface(inventory: Any, dry_run: DryRunBuilder, findings: li
                     "Declare the target DataObject type through scistudio.types or target a registered core/base type.",
                 )
             )
+    _validate_registry_api_serialization(dry_run, findings)
+
+
+def _accepted_type_is_known(accepted_type: Any, inventory: Any, known_types: set[str]) -> bool:
+    name = getattr(accepted_type, "__name__", "")
+    if name in known_types:
+        return True
+
+    if _is_core_transport_type(accepted_type):
+        return True
+
+    if not _is_data_object_subclass(accepted_type):
+        return False
+
+    type_path = _module_file_for_type(accepted_type)
+    candidate_root = getattr(inventory, "root_path", None)
+    if type_path is None or candidate_root is None:
+        return False
+    return not _path_is_relative_to(type_path, candidate_root)
+
+
+def _is_core_transport_type(value: Any) -> bool:
+    return (
+        isinstance(value, type)
+        and value.__module__.startswith("scistudio.core.types.")
+        and value.__name__ == "Collection"
+    )
+
+
+def _is_data_object_subclass(value: Any) -> bool:
+    from scistudio.core.types.base import DataObject
+
+    return isinstance(value, type) and issubclass(value, DataObject)
+
+
+def _module_file_for_type(value: type) -> Path | None:
+    module = inspect.getmodule(value)
+    module_file = getattr(module, "__file__", None)
+    if module_file is None:
+        return None
+    return Path(module_file).resolve()
+
+
+def _path_is_relative_to(path: Path, root: Path) -> bool:
+    with contextlib.suppress(ValueError):
+        path.relative_to(root.resolve())
+        return True
+    return False
+
+
+def _validate_registry_api_serialization(
+    dry_run: DryRunBuilder,
+    findings: list[PackageValidationFinding],
+) -> None:
+    try:
+        for block_spec in dry_run.candidate_block_specs():
+            {
+                "name": block_spec.name,
+                "type_name": block_spec.type_name,
+                "package_name": block_spec.package_name,
+                "inputs": [getattr(port, "name", "") for port in block_spec.input_ports],
+                "outputs": [getattr(port, "name", "") for port in block_spec.output_ports],
+                "format_capabilities": [capability.id for capability in block_spec.format_capabilities],
+            }
+        for previewer_spec in dry_run.candidate_previewer_specs():
+            previewer_spec.to_dict()
+        dry_run.api_payloads = len(dry_run.candidate_block_names) + len(dry_run.candidate_previewer_ids)
+    except Exception as exc:
+        findings.append(
+            _finding(
+                "PV-99-004",
+                "error",
+                "registry_derived_api_serialization",
+                None,
+                f"Dry-run registry rows could not be serialized for API/palette payloads: {exc}",
+                "Keep registry descriptors JSON-safe and free of unserializable runtime objects in API payload fields.",
+            )
+        )
 
 
 def _contract_results(
@@ -466,6 +735,7 @@ def _contract_results(
     surfaces: set[str],
     findings: list[PackageValidationFinding],
     profile: PackageValidationProfile,
+    executed_contracts: set[str],
 ) -> list[ContractResult]:
     findings_by_contract = {finding.contract_id: finding for finding in findings}
     results: list[ContractResult] = []
@@ -474,8 +744,8 @@ def _contract_results(
         if not applies:
             result = ContractResultState.NOT_APPLICABLE
         elif contract.contract_id in findings_by_contract:
-            result = ContractResultState.FAIL
-        elif contract.validator_profile.get(profile.value) == "skip":
+            result = _finding_result_state(findings_by_contract[contract.contract_id])
+        elif contract.validator_profile.get(profile.value) == "skip" or contract.contract_id not in executed_contracts:
             result = ContractResultState.SKIPPED
         else:
             result = ContractResultState.PASS
@@ -487,9 +757,57 @@ def _contract_results(
                 surface=contract.primary_surface,
                 symbol=finding.symbol if finding else None,
                 severity=finding.severity if finding else contract.severity,
+                evidence=(
+                    "validator_not_executed_for_candidate_trigger"
+                    if applies and contract.contract_id not in executed_contracts and finding is None
+                    else None
+                ),
             )
         )
     return results
+
+
+def _finding_result_state(finding: PackageValidationFinding) -> ContractResultState:
+    severity = str(finding.severity)
+    if severity in {FindingSeverity.WARNING.value, FindingSeverity.INFO.value}:
+        return ContractResultState.WARNING
+    return ContractResultState.FAIL
+
+
+def _apply_profile_behaviors(
+    findings: list[PackageValidationFinding],
+    contracts: list[PackageContract],
+    profile: PackageValidationProfile,
+) -> list[PackageValidationFinding]:
+    contracts_by_id = {contract.contract_id: contract for contract in contracts}
+    normalized: list[PackageValidationFinding] = []
+    for finding in findings:
+        contract = contracts_by_id.get(finding.contract_id)
+        behavior = contract.validator_profile.get(profile.value) if contract is not None else None
+        severity = _severity_for_profile_behavior(behavior, str(finding.severity))
+        normalized.append(replace(finding, severity=severity, profile_behavior=behavior))
+    return normalized
+
+
+def _severity_for_profile_behavior(behavior: str | None, fallback: str) -> FindingSeverity:
+    fallback_severity = FindingSeverity(fallback)
+    if behavior is None:
+        return fallback_severity
+    profile_severity = {
+        "block": FindingSeverity.BLOCKER,
+        "error": FindingSeverity.ERROR,
+        "warning": FindingSeverity.WARNING,
+        "info": FindingSeverity.INFO,
+    }.get(behavior)
+    if profile_severity is None:
+        return fallback_severity
+    order = {
+        FindingSeverity.INFO: 0,
+        FindingSeverity.WARNING: 1,
+        FindingSeverity.ERROR: 2,
+        FindingSeverity.BLOCKER: 3,
+    }
+    return profile_severity if order[profile_severity] > order[fallback_severity] else fallback_severity
 
 
 def _block_spec_for_class(cls: type, package_name: str, package_version: str) -> Any:
@@ -501,18 +819,18 @@ def _block_spec_for_class(cls: type, package_name: str, package_version: str) ->
     except BlockRegistrationError as exc:
         if "cannot resolve distribution version" not in str(exc):
             raise
-        spec = _block_spec_with_package_version(spec_module, cls, package_version)
+        original_resolver = spec_module._resolve_distribution_version
+
+        def resolve_candidate_package_version(cls: type) -> str:
+            return package_version
+
+        spec_module._resolve_distribution_version = resolve_candidate_package_version
+        try:
+            spec = spec_module._spec_from_class(cls, source="package_validator")
+        finally:
+            spec_module._resolve_distribution_version = original_resolver
     spec.package_name = package_name
     return spec
-
-
-def _block_spec_with_package_version(spec_module: Any, cls: type, package_version: str) -> Any:
-    original_resolver = spec_module._resolve_distribution_version
-    spec_module._resolve_distribution_version = lambda _cls: package_version
-    try:
-        return spec_module._spec_from_class(cls, source="package_validator")
-    finally:
-        spec_module._resolve_distribution_version = original_resolver
 
 
 def _capability_symbol(cls: type, exc: Exception) -> str | None:
@@ -552,4 +870,32 @@ def _finding(
         symbol=symbol,
         message=message,
         repair_hint=repair_hint,
+    )
+
+
+def _failure_report(
+    path_or_distribution: str | Path,
+    profile: PackageValidationProfile,
+    exc: Exception,
+) -> PackageValidationReport:
+    from scistudio.packages.validation.models import PackageIdentity, PackageInventory
+
+    value = str(path_or_distribution)
+    package = PackageIdentity(name=Path(value).name or value, version="unknown", source=value)
+    inventory = PackageInventory(package=package, surfaces={"distribution_metadata"})
+    return PackageValidationReport(
+        package=package,
+        profile=profile,
+        inventory=inventory,
+        findings=[
+            PackageValidationFinding(
+                contract_id="PV-01-001",
+                severity=FindingSeverity.BLOCKER,
+                surface="distribution_metadata",
+                symbol=value,
+                message=f"Package inventory could not be built: {exc}",
+                repair_hint="Provide valid package metadata and importable SciStudio entry-point declarations.",
+                profile_behavior="block" if profile is PackageValidationProfile.PRODUCTION else "error",
+            )
+        ],
     )

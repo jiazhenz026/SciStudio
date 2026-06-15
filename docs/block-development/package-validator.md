@@ -3,7 +3,7 @@ doc_type: block-development
 title: "Package Validator"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-06-14
+last_updated: 2026-06-15
 governed_by:
   - ADR-049
 summary: "How package authors and install-time registration code use the ADR-049 package validator for development diagnostics and production accept/reject decisions."
@@ -34,6 +34,12 @@ The module form is equivalent and is useful inside a source checkout:
 $env:PYTHONPATH = "src"
 python -m scistudio.cli.package_validator packages/scistudio-blocks-imaging --profile production --json
 ```
+
+The candidate argument may be a source tree, an installed distribution name, a
+wheel, or a source distribution. Wheel and source-distribution inputs are
+inspected for package metadata and SciStudio entry points before validation; a
+bad archive is returned as a structured reject report instead of being accepted
+as metadata-only input.
 
 Profiles:
 
@@ -71,10 +77,24 @@ plan.commit_to(block_registry=block_registry, type_registry=type_registry)
 `validate_for_registration()` returns a plan/report boundary. Caller-owned
 installer code commits live registry rows by calling `plan.commit_to(...)` only
 after validation passes. The helper runs the production report in a subprocess
-before any in-process commit preparation. A reject report returns `False` from
-`commit_to(...)` and leaves live registries unchanged. If a live registry
-rejects one row during commit, previously written rows from the same call are
-rolled back.
+before returning an accepted plan; candidate package modules are not imported
+into the caller's process while the production decision is being made. A reject
+report returns `False` from `commit_to(...)` and leaves live registries
+unchanged. If a live registry rejects one row during commit, previously written
+rows from the same call are rolled back.
+
+Installers may pass existing live registries to `validate_for_registration(...)`
+so the report can reject candidate packages that conflict with installed type,
+previewer, runner, or IO capability IDs before a commit is attempted:
+
+```python
+plan = validate_for_registration(
+    "packages/scistudio-blocks-imaging",
+    block_registry=block_registry,
+    type_registry=type_registry,
+    previewer_registry=previewer_registry,
+)
+```
 
 ## Report Shape
 
@@ -94,7 +114,13 @@ contains:
 
 Absent surfaces are reported as `not_applicable`. For example, a package that
 declares only blocks and types does not fail previewer contracts; those rows are
-classified as not applicable.
+classified as not applicable. A row whose surface applies but whose runtime
+validator did not execute is reported as `skipped` with evidence instead of
+being reported as `pass`. Package authors should treat skipped applicable rows
+as incomplete validation coverage, not as proof that the contract passed.
+
+Unknown `scistudio.*` entry-point groups are structured findings. Misspelled or
+future entry-point groups must not be silently ignored.
 
 ## Source Tree Dependencies
 
@@ -103,6 +129,11 @@ only the candidate package and sibling `packages/*/src` directories that are
 declared in the candidate package's `project.dependencies`. This keeps local
 source-tree validation faithful to package metadata: a package may use a sibling
 source tree only if it declares the dependency in `pyproject.toml`.
+
+Block ports may reference DataObject types owned by declared dependency
+packages. DataObject types defined inside the candidate package itself must be
+returned by its `scistudio.types` entry point before candidate block ports or
+previewers may target them.
 
 ## Contract Evidence
 
