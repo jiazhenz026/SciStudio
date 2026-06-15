@@ -380,6 +380,9 @@ function renderDataset(container, payload, host, diagnostics) {
   const groupable = Array.isArray(controls.groupable_columns)
     ? controls.groupable_columns
     : columns.filter((c) => c !== "spectrum_id");
+  const filterable = Array.isArray(controls.filterable_columns) ? controls.filterable_columns : columns;
+  const activeFilters = Array.isArray(controls.active_filters) ? controls.active_filters : [];
+  const firstFilter = activeFilters.length ? activeFilters[0] : {};
   let selected = new Set(Array.isArray(controls.selected_ids) ? controls.selected_ids.map(String) : []);
   let search = "";
 
@@ -412,6 +415,37 @@ function renderDataset(container, payload, host, diagnostics) {
   groupSelect.addEventListener("change", () => patchQuery(host, { group_by: groupSelect.value || null }, "group change"));
   colorSelect.addEventListener("change", () => patchQuery(host, { color_by: colorSelect.value || null }, "color change"));
 
+  const filterSelect = el("select", { style: "font:12px sans-serif" }, el("option", { value: "", text: "no filter" }));
+  for (const col of filterable) filterSelect.appendChild(el("option", { value: col, text: col }));
+  filterSelect.value = firstFilter.column || "";
+  const filterInput = el("input", {
+    type: "search",
+    placeholder: "filter value",
+    value: firstFilter.value || "",
+    style: "font:12px sans-serif;padding:2px 4px;width:120px",
+  });
+  const applyFilter = () =>
+    patchQuery(
+      host,
+      {
+        filter_column: filterSelect.value || null,
+        filter_value: filterSelect.value && filterInput.value ? filterInput.value : null,
+      },
+      "filter update",
+    );
+  filterInput.addEventListener("keydown", (evt) => {
+    if (evt.key === "Enter") applyFilter();
+  });
+  const filterButton = el("button", { style: "font:12px sans-serif", onclick: applyFilter }, "Apply");
+  const clearFilterButton = el("button", {
+    style: "font:12px sans-serif",
+    onclick: () => {
+      filterSelect.value = "";
+      filterInput.value = "";
+      patchQuery(host, { filter_column: null, filter_value: null, filters: null }, "filter clear");
+    },
+  }, "Clear");
+
   const searchInput = el("input", {
     type: "search",
     placeholder: "search index",
@@ -427,6 +461,11 @@ function renderDataset(container, payload, host, diagnostics) {
   controlBar.appendChild(groupSelect);
   controlBar.appendChild(el("span", null, "Color"));
   controlBar.appendChild(colorSelect);
+  controlBar.appendChild(el("span", null, "Filter"));
+  controlBar.appendChild(filterSelect);
+  controlBar.appendChild(filterInput);
+  controlBar.appendChild(filterButton);
+  controlBar.appendChild(clearFilterButton);
   controlBar.appendChild(searchInput);
   container.appendChild(controlBar);
 

@@ -63,6 +63,24 @@ def test_spectral_dataset_slot_type_is_enforced() -> None:
     assert isinstance(dataset.get("spectra"), DataFrame)
 
 
+def test_spectral_dataset_requires_exact_slots_at_construction() -> None:
+    # FR-008 / SC-003: empty, partial, or extra slots are invalid datasets.
+    spectra = _support.dataframe_from_rows([{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}])
+    index = _support.dataframe_from_rows([{"spectrum_id": "a"}])
+    extra = _support.dataframe_from_rows([{"spectrum_id": "a"}])
+
+    bad_slots = [
+        None,
+        {},
+        {"index": index},
+        {"spectra": spectra},
+        {"index": index, "spectra": spectra, "metadata": extra},
+    ]
+    for slots in bad_slots:
+        with pytest.raises(ValueError, match="exactly slots"):
+            SpectralDataset(slots=slots)
+
+
 @pytest.mark.parametrize(
     ("index_rows", "spectra_rows", "match"),
     [
