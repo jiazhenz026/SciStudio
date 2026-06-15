@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -100,6 +101,7 @@ def test_production_validation_valid_package_commits_dry_run_rows_atomically() -
     assert report["dry_run_registries"]["previewers"] >= 1
     assert report["dry_run_registries"]["format_capabilities"] >= 1
     assert plan.accepted
+    assert not plan.dry_run.candidate_block_names
     assert plan.commit_to(
         block_registry=block_registry,
         type_registry=type_registry,
@@ -116,13 +118,21 @@ def test_production_registration_commit_rolls_back_on_live_registry_failure() ->
     from scistudio.blocks.registry import BlockRegistry
     from scistudio.core.types.registry import TypeRegistry
     from scistudio.packages.validation.registration import validate_for_registration
+    from scistudio.previewers.models import OwnerKind, PreviewerSpec
     from scistudio.previewers.registry import PreviewerRegistry
 
     plan = validate_for_registration(FIXTURES / "valid_package")
     block_registry = BlockRegistry()
     type_registry = TypeRegistry()
     previewer_registry = PreviewerRegistry()
-    previewer_registry.register(plan.dry_run.previewer_registry.all_specs()[0])
+    previewer_registry.register(
+        PreviewerSpec(
+            previewer_id="pv.valid.sample",
+            owner_kind=OwnerKind.PACKAGE,
+            owner_name="already-installed",
+            target_type="ValidSample",
+        )
+    )
     before_blocks = _block_registry_snapshot(block_registry)
     before_types = tuple(sorted(type_registry.all_types()))
     before_previewers = _previewer_registry_snapshot(previewer_registry)
@@ -137,3 +147,29 @@ def test_production_registration_commit_rolls_back_on_live_registry_failure() ->
     assert _block_registry_snapshot(block_registry) == before_blocks
     assert tuple(sorted(type_registry.all_types())) == before_types
     assert _previewer_registry_snapshot(previewer_registry) == before_previewers
+
+
+def test_production_plan_does_not_import_candidate_before_commit() -> None:
+    from scistudio.packages.validation.registration import validate_for_registration
+
+    sys.modules.pop("pv_valid_package", None)
+
+    plan = validate_for_registration(FIXTURES / "valid_package")
+
+    assert plan.accepted
+    assert "pv_valid_package" not in sys.modules
+
+
+def test_production_registration_rejects_existing_capability_conflict_before_commit() -> None:
+    from scistudio.blocks.registry import BlockRegistry
+    from scistudio.packages.validation.registration import validate_for_registration
+
+    block_registry = BlockRegistry()
+    first_plan = validate_for_registration(FIXTURES / "valid_package")
+    assert first_plan.commit_to(block_registry=block_registry)
+
+    second_plan = validate_for_registration(FIXTURES / "valid_package", block_registry=block_registry)
+
+    assert not second_plan.accepted
+    assert second_plan.report.registration_decision == "reject"
+    assert any(finding.contract_id == "PV-13-004" for finding in second_plan.report.findings)

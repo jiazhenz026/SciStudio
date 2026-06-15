@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ class PackageRegistrationPlan:
 
     report: PackageValidationReport
     dry_run: DryRunBuilder
+    candidate: str | Path | None = None
 
     @property
     def accepted(self) -> bool:
@@ -56,6 +58,7 @@ class PackageRegistrationPlan:
         if not self.accepted:
             return False
 
+        dry_run = self._materialized_dry_run()
         snapshots = _RegistrySnapshots.capture(
             block_registry=block_registry,
             type_registry=type_registry,
@@ -64,17 +67,17 @@ class PackageRegistrationPlan:
         )
         try:
             if block_registry is not None:
-                for block_spec in self.dry_run.block_registry.all_specs().values():
+                for block_spec in dry_run.candidate_block_specs():
                     block_registry._register_spec(block_spec)
             if type_registry is not None:
-                for type_name, type_spec in self.dry_run.type_registry.all_types().items():
+                for type_name, type_spec in dry_run.candidate_type_specs().items():
                     type_registry.register(type_name, type_spec)
             if previewer_registry is not None:
-                for previewer_spec in self.dry_run.previewer_registry.all_specs():
+                for previewer_spec in dry_run.candidate_previewer_specs():
                     if not previewer_registry.register(previewer_spec):
                         raise ValueError(f"Previewer registry rejected {previewer_spec.previewer_id!r}.")
             if runners is not None:
-                runners.update(self.dry_run.runners)
+                runners.update({name: dry_run.runners[name] for name in dry_run.candidate_runner_names})
         except Exception:
             snapshots.restore(
                 block_registry=block_registry,
@@ -85,16 +88,45 @@ class PackageRegistrationPlan:
             raise
         return True
 
+    def _materialized_dry_run(self) -> DryRunBuilder:
+        if (
+            self.dry_run.candidate_block_names
+            or self.dry_run.candidate_type_names
+            or self.dry_run.candidate_previewer_ids
+            or self.dry_run.candidate_runner_names
+            or self.candidate is None
+        ):
+            return self.dry_run
+        report, dry_run = _validate_package_with_dry_run(self.candidate, profile=PackageValidationProfile.PRODUCTION)
+        if report.registration_decision == RegistrationDecision.REJECT:
+            raise ValueError("Accepted registration plan no longer validates when materializing dry-run rows.")
+        return dry_run
 
-def validate_for_registration(candidate: str | Path) -> PackageRegistrationPlan:
+
+def validate_for_registration(
+    candidate: str | Path,
+    *,
+    block_registry: Any | None = None,
+    type_registry: Any | None = None,
+    previewer_registry: Any | None = None,
+    runners: dict[str, Any] | None = None,
+) -> PackageRegistrationPlan:
     """Validate *candidate* with the production profile and return a commit plan."""
 
     isolated_report = _validate_in_subprocess(candidate)
     if isolated_report.registration_decision == RegistrationDecision.REJECT:
         return PackageRegistrationPlan(report=isolated_report, dry_run=DryRunBuilder())
+    conflict_report = _existing_registry_conflict_report(
+        isolated_report,
+        block_registry=block_registry,
+        type_registry=type_registry,
+        previewer_registry=previewer_registry,
+        runners=runners,
+    )
+    if conflict_report is not None:
+        return PackageRegistrationPlan(report=conflict_report, dry_run=DryRunBuilder())
 
-    report, dry_run = _validate_package_with_dry_run(candidate, profile=PackageValidationProfile.PRODUCTION)
-    return PackageRegistrationPlan(report=report, dry_run=dry_run)
+    return PackageRegistrationPlan(report=isolated_report, dry_run=DryRunBuilder(), candidate=candidate)
 
 
 def _validate_in_subprocess(candidate: str | Path) -> PackageValidationReport:
@@ -108,7 +140,9 @@ def _validate_in_subprocess(candidate: str | Path) -> PackageValidationReport:
         "--json",
     ]
     try:
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        env = dict(os.environ)
+        env["SCISTUDIO_PACKAGE_VALIDATOR_SUBPROCESS"] = "1"
+        result = subprocess.run(command, check=False, capture_output=True, text=True, env=env)
     except OSError as exc:
         return _subprocess_failure_report(candidate, f"Production validation subprocess failed to start: {exc}")
 
@@ -149,6 +183,85 @@ def _isolation_failure(candidate: str | Path, message: str) -> PackageValidation
         symbol=str(candidate),
         message=message,
         repair_hint="Run production validation in a working isolated Python environment before registration.",
+    )
+
+
+def _existing_registry_conflict_report(
+    report: PackageValidationReport,
+    *,
+    block_registry: Any | None,
+    type_registry: Any | None,
+    previewer_registry: Any | None,
+    runners: dict[str, Any] | None,
+) -> PackageValidationReport | None:
+    findings: list[PackageValidationFinding] = []
+    if block_registry is not None:
+        existing_capability_ids = {capability.id for capability in block_registry.list_format_capabilities()}
+        for capability_id in report.inventory.format_capability_ids:
+            if capability_id in existing_capability_ids:
+                findings.append(
+                    PackageValidationFinding(
+                        contract_id="PV-13-004",
+                        severity=FindingSeverity.BLOCKER,
+                        surface="cross_surface_registry_consistency",
+                        symbol=capability_id,
+                        message=f"Candidate capability id {capability_id!r} already exists in the target registry.",
+                        repair_hint="Use a package-qualified capability id that does not conflict with installed packages.",
+                        profile_behavior="block",
+                    )
+                )
+    if type_registry is not None:
+        existing_types = set(type_registry.all_types())
+        for type_name in report.inventory.type_symbols:
+            if type_name in existing_types:
+                findings.append(
+                    PackageValidationFinding(
+                        contract_id="PV-13-003",
+                        severity=FindingSeverity.BLOCKER,
+                        surface="cross_surface_registry_consistency",
+                        symbol=type_name,
+                        message=f"Candidate type {type_name!r} already exists in the target registry.",
+                        repair_hint="Rename the candidate type or upgrade the existing package through an explicit replacement path.",
+                        profile_behavior="block",
+                    )
+                )
+    if previewer_registry is not None:
+        for previewer_id in report.inventory.previewer_ids:
+            if previewer_registry.get(previewer_id) is not None:
+                findings.append(
+                    PackageValidationFinding(
+                        contract_id="PV-13-004",
+                        severity=FindingSeverity.BLOCKER,
+                        surface="cross_surface_registry_consistency",
+                        symbol=previewer_id,
+                        message=f"Candidate previewer_id {previewer_id!r} already exists in the target registry.",
+                        repair_hint="Use a unique package-qualified previewer_id or perform an explicit package upgrade.",
+                        profile_behavior="block",
+                    )
+                )
+    if runners is not None:
+        for runner_name in report.inventory.runner_symbols:
+            if runner_name in runners:
+                findings.append(
+                    PackageValidationFinding(
+                        contract_id="PV-99-001",
+                        severity=FindingSeverity.ERROR,
+                        surface="runners",
+                        symbol=runner_name,
+                        message=f"Candidate runner {runner_name!r} already exists in the target registry.",
+                        repair_hint="Use a unique runner entry-point name or perform an explicit package upgrade.",
+                        profile_behavior="error",
+                    )
+                )
+    if not findings:
+        return None
+    return PackageValidationReport(
+        package=report.package,
+        profile=report.profile,
+        inventory=report.inventory,
+        contract_results=report.contract_results,
+        findings=[*report.findings, *findings],
+        dry_run_registries=report.dry_run_registries,
     )
 
 

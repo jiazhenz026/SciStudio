@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+from collections.abc import Iterable, Mapping
 
 import pytest
 
@@ -119,7 +120,41 @@ def app_routes() -> set[str]:
     from scistudio.api.app import create_app
 
     app = create_app()
-    return {r.path for r in app.routes if hasattr(r, "path")}
+    return _collect_route_paths(app.routes)
+
+
+def _collect_route_paths(routes: Iterable[object], prefix: str = "") -> set[str]:
+    """Collect route paths across FastAPI versions.
+
+    FastAPI 0.123 can keep included routers as wrapper entries in
+    ``app.routes``; older versions eagerly expand them. The contract is the
+    effective path set, so recursively inspect included routers when present.
+    """
+    paths: set[str] = set()
+    for route in routes:
+        raw_path = getattr(route, "path", None) or getattr(route, "path_format", None)
+        if isinstance(raw_path, str):
+            paths.add(_join_route_prefix(prefix, raw_path))
+
+        include_context = getattr(route, "include_context", None)
+        nested_router = getattr(route, "original_router", None) or getattr(include_context, "included_router", None)
+        nested_routes = getattr(nested_router, "routes", None)
+        if nested_routes is not None:
+            nested_prefix = getattr(include_context, "prefix", "") or ""
+            paths.update(_collect_route_paths(nested_routes, _join_route_prefix(prefix, nested_prefix)))
+    return paths
+
+
+def _join_route_prefix(prefix: str, path: str) -> str:
+    if not prefix:
+        return path or ""
+    if not path:
+        return prefix
+    return f"{prefix.rstrip('/')}/{path.lstrip('/')}"
+
+
+def _has_spec_field(spec: object, field: str) -> bool:
+    return hasattr(spec, field) or (isinstance(spec, Mapping) and field in spec)
 
 
 def test_api_workflow_routes_are_registered(app_routes: set[str]) -> None:
@@ -258,12 +293,10 @@ def test_block_spec_has_required_contract_fields() -> None:
     reg.scan()
     for type_name, spec in reg.all_specs().items():
         # spec must have a type_name that matches the key.
-        assert hasattr(spec, "type_name") or "type_name" in spec, f"Block spec for {type_name!r} has no type_name"
+        assert _has_spec_field(spec, "type_name"), f"Block spec for {type_name!r} has no type_name"
         # spec must have input_ports and output_ports accessible.
-        assert hasattr(spec, "input_ports") or "input_ports" in spec, f"Block spec for {type_name!r} has no input_ports"
-        assert hasattr(spec, "output_ports") or "output_ports" in spec, (
-            f"Block spec for {type_name!r} has no output_ports"
-        )
+        assert _has_spec_field(spec, "input_ports"), f"Block spec for {type_name!r} has no input_ports"
+        assert _has_spec_field(spec, "output_ports"), f"Block spec for {type_name!r} has no output_ports"
 
 
 # ---------------------------------------------------------------------------

@@ -97,3 +97,16 @@ def test_contract_results_include_pass_fail_and_not_applicable_classifications()
     assert "pass" in valid_results
     assert "not_applicable" in no_entry_results
     assert "fail" in invalid_results
+
+
+def test_applicable_unexecuted_contract_rows_are_not_reported_as_pass() -> None:
+    report = _validate("valid_package", "production")
+    results = {
+        item["contract_id"]: item
+        for item in _items(report, "contract_results")
+        if item["contract_id"] in {"PV-10-001", "PV-12-003"}
+    }
+
+    assert results
+    assert {item["result"] for item in results.values()} == {"skipped"}
+    assert {item.get("evidence") for item in results.values()} == {"validator_not_executed_for_candidate_trigger"}

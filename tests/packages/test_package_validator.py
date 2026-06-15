@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import zipfile
 from pathlib import Path
 from typing import Any, cast
 
@@ -142,3 +143,196 @@ def test_no_entry_point_package_reports_surface_contracts_not_applicable() -> No
     assert _text(_field(report, "registration_decision")) in {"accept", "register", "allow", "none"}
     assert extension_results
     assert {str(item.get("result")) for item in extension_results} == {"not_applicable"}
+
+
+def test_unknown_scistudio_entry_point_group_is_a_structured_failure(tmp_path: Path) -> None:
+    package_root = tmp_path / "unknown_group"
+    package_dir = package_root / "src" / "pv_unknown_group"
+    package_dir.mkdir(parents=True)
+    package_dir.joinpath("__init__.py").write_text("def get_bad():\n    return []\n", encoding="utf-8")
+    package_root.joinpath("pyproject.toml").write_text(
+        """[project]
+name = "pv-unknown-group"
+version = "0.1.0"
+
+[project.entry-points."scistudio.unknown"]
+bad = "pv_unknown_group:get_bad"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+""",
+        encoding="utf-8",
+    )
+
+    report = _validation_api()[0](package_root)
+
+    assert _status_is_failing(_field(report, "status"))
+    assert "PV-02-002" in _finding_contract_ids(report)
+
+
+def test_declared_dependency_port_types_do_not_need_candidate_registration(tmp_path: Path) -> None:
+    packages_root = tmp_path / "packages"
+    dependency_root = packages_root / "pv-dependency"
+    dependency_package_dir = dependency_root / "src" / "pv_dependency"
+    dependency_package_dir.mkdir(parents=True)
+    dependency_package_dir.joinpath("__init__.py").write_text(
+        """
+from scistudio.core.types.base import DataObject
+
+
+class DependencySample(DataObject):
+    pass
+
+
+def get_types():
+    return [DependencySample]
+""",
+        encoding="utf-8",
+    )
+    dependency_root.joinpath("pyproject.toml").write_text(
+        """[project]
+name = "pv-dependency"
+version = "0.1.0"
+
+[project.entry-points."scistudio.types"]
+types = "pv_dependency:get_types"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+""",
+        encoding="utf-8",
+    )
+
+    candidate_root = packages_root / "pv-candidate"
+    candidate_package_dir = candidate_root / "src" / "pv_candidate"
+    candidate_package_dir.mkdir(parents=True)
+    candidate_package_dir.joinpath("__init__.py").write_text(
+        """
+from typing import ClassVar
+
+from pv_dependency import DependencySample
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.collection import Collection
+
+
+class DependencyBlock(Block):
+    name: ClassVar[str] = "Dependency Block"
+    type_name: ClassVar[str] = "pv.dependency"
+    input_ports: ClassVar[list[InputPort]] = [InputPort(name="sample", accepted_types=[DependencySample])]
+    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="sample", accepted_types=[DependencySample])]
+
+    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
+        return {"sample": inputs["sample"]}
+
+
+def get_blocks():
+    return [DependencyBlock]
+""",
+        encoding="utf-8",
+    )
+    candidate_root.joinpath("pyproject.toml").write_text(
+        """[project]
+name = "pv-candidate"
+version = "0.1.0"
+dependencies = ["pv-dependency>=0.1.0"]
+
+[project.entry-points."scistudio.blocks"]
+blocks = "pv_candidate:get_blocks"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+""",
+        encoding="utf-8",
+    )
+
+    report = _validation_api()[0](candidate_root, profile="production")
+
+    assert _status_is_passing(_field(report, "status"))
+    assert "PV-13-003" not in _finding_contract_ids(report)
+
+
+def test_candidate_local_port_types_must_be_registered(tmp_path: Path) -> None:
+    package_root = tmp_path / "local_type_not_registered"
+    package_dir = package_root / "src" / "pv_local_type_not_registered"
+    package_dir.mkdir(parents=True)
+    package_dir.joinpath("__init__.py").write_text(
+        """
+from typing import ClassVar
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+
+
+class LocalSample(DataObject):
+    pass
+
+
+class LocalTypeBlock(Block):
+    name: ClassVar[str] = "Local Type Block"
+    type_name: ClassVar[str] = "pv.local_type"
+    input_ports: ClassVar[list[InputPort]] = [InputPort(name="sample", accepted_types=[LocalSample])]
+    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="sample", accepted_types=[LocalSample])]
+
+    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
+        return {"sample": inputs["sample"]}
+
+
+def get_blocks():
+    return [LocalTypeBlock]
+""",
+        encoding="utf-8",
+    )
+    package_root.joinpath("pyproject.toml").write_text(
+        """[project]
+name = "pv-local-type-not-registered"
+version = "0.1.0"
+
+[project.entry-points."scistudio.blocks"]
+blocks = "pv_local_type_not_registered:get_blocks"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+""",
+        encoding="utf-8",
+    )
+
+    report = _validation_api()[0](package_root, profile="production")
+
+    assert _status_is_failing(_field(report, "status"))
+    assert "PV-13-003" in _finding_contract_ids(report)
+    assert "LocalSample" in _finding_symbols(report)
+
+
+def test_wheel_entry_points_are_validated_instead_of_treated_as_metadata_only(tmp_path: Path) -> None:
+    wheel_path = tmp_path / "pv_bad_wheel-0.1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel_path, "w") as wheel:
+        wheel.writestr(
+            "pv_bad_wheel/__init__.py",
+            "def get_blocks():\n    return ['not a block class']\n",
+        )
+        wheel.writestr("pv_bad_wheel-0.1.0.dist-info/METADATA", "Name: pv-bad-wheel\nVersion: 0.1.0\n")
+        wheel.writestr(
+            "pv_bad_wheel-0.1.0.dist-info/entry_points.txt",
+            "[scistudio.blocks]\nmain = pv_bad_wheel:get_blocks\n",
+        )
+
+    report = _validation_api()[0](wheel_path)
+
+    assert _status_is_failing(_field(report, "status"))
+    assert "PV-04-001" in _finding_contract_ids(report)
+
+
+def test_bad_source_metadata_returns_structured_report(tmp_path: Path) -> None:
+    package_root = tmp_path / "bad_toml"
+    package_root.mkdir()
+    package_root.joinpath("pyproject.toml").write_text("[project\n", encoding="utf-8")
+
+    report = _validation_api()[0](package_root)
+
+    assert _status_is_failing(_field(report, "status"))
+    assert "PV-01-001" in _finding_contract_ids(report)
