@@ -264,7 +264,13 @@
       "rationale": "local gate venv dependency drift; CI remains authoritative for full repository python_tests"
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "HEAD",
+    "shas": [
+      "HEAD"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -574,6 +580,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.327757Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.381050Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.435299Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.489671Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.542993Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.596669Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.649218Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.701350Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.754809Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T06:38:50.810734Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -598,9 +686,9 @@
       "packages/scistudio-blocks-spectroscopy/tests/test_spectral_dataset_previewer.py",
       "packages/scistudio-blocks-spectroscopy/tests/test_types.py"
     ],
-    "diff_fingerprint": "sha256:893a45cfd89fa6144bb4882941c0e11cb015f23d422f317d20a154c15a56176a",
+    "diff_fingerprint": "sha256:a83a253c20940f88c597207f36a0fd38cf7e29ad735bd5c704b0fcc8d6ded5c8",
     "head": "HEAD",
-    "head_sha": "24ae6496",
+    "head_sha": "9f6d7a09",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -616,7 +704,14 @@
   },
   "owner_directive": "Fix PR1666 audit P1 plus three P2 spectroscopy package findings and open a stacked PR.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1661
+    ],
+    "number": 1672,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1672"
+  },
   "reconcile_events": [
     {
       "at": "2026-06-15T06:20:47.051811Z",
@@ -655,19 +750,21 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-06-15T06:38:50.810769Z",
+      "diff_fingerprint": "sha256:a83a253c20940f88c597207f36a0fd38cf7e29ad735bd5c704b0fcc8d6ded5c8",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "1661-pr1666-spectroscopy-quality-fixes",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "format_check",
-      "full_audit",
-      "lint_format",
-      "python_tests",
-      "semantic_dup"
-    ],
+    "checks": [],
     "docs": [
       "docs_required_or_na"
     ],
