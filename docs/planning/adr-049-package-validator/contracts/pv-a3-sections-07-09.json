@@ -1,0 +1,959 @@
+{
+  "schema_version": "adr049.package_contract_table.v1",
+  "agent_id": "PV-A3",
+  "generated_at": "2026-06-14",
+  "source_priority": "code-primary-adr-secondary",
+  "agent_scope": {
+    "sections": [
+      "07_data_transport_runtime_boundary",
+      "08_app_code_block_boundaries",
+      "09_previewer_contracts"
+    ],
+    "summary": "Contracts for package-validator behavior around direct smoke execution, AppBlock and CodeBlock boundary validation, and previewer registration, routing, manifests, assets, and session stamping."
+  },
+  "contracts": [
+    {
+      "id": "PV-07-001",
+      "section": "07_data_transport_runtime_boundary",
+      "title": "Smoke tests execute Block.run directly and propagate failures",
+      "contract": "A package validator smoke test for runtime transport must instantiate only Block subclasses, pass optional params through BlockConfig params, call instance.run(inputs, config), and return that output mapping. Non-Block classes are strict TypeError failures, and any exception raised by run() propagates to the caller. This helper observes a block boundary; it does not by itself prove worker serialization, lineage, or storage durability.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "skip"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "blocks",
+          "runtime_smoke"
+        ],
+        "trigger": "when_candidate_block_has_safe_fixture_or_profile_requires_safe_smoke_validation",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "def smoke_test(",
+          "symbol": "smoke_test",
+          "notes": "Required inventory item for section 07."
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "return instance.run(inputs, config)",
+          "notes": "The harness directly executes the block runtime boundary."
+        },
+        {
+          "path": "src/scistudio/testing/harness.py",
+          "kind": "contains",
+          "pattern": "raise TypeError(f\"{cls!r} is not a subclass of Block. Cannot run smoke test.\")",
+          "notes": "Non-Block targets are strict failures."
+        }
+      ],
+      "adr_evidence": [],
+      "tests": [
+        {
+          "path": "tests/testing/test_harness.py",
+          "kind": "contains",
+          "pattern": "def test_smoke_test_returns_outputs",
+          "notes": "Smoke test returns the block output mapping."
+        },
+        {
+          "path": "tests/testing/test_harness.py",
+          "kind": "contains",
+          "pattern": "def test_smoke_test_propagates_errors",
+          "notes": "Runtime exceptions propagate."
+        },
+        {
+          "path": "tests/testing/test_harness.py",
+          "kind": "contains",
+          "pattern": "def test_smoke_test_rejects_non_block",
+          "notes": "Non-Block targets are rejected."
+        }
+      ],
+      "adr_alignment": "adr_missing",
+      "notes": "ADR-020 governs the broader runtime transport model, but no ADR found in this pass defines BlockTestHarness.smoke_test itself.",
+      "validator_implication": "Block package validation can use smoke_test as a development-time executable check and should treat raised exceptions as blocking smoke failures."
+    },
+    {
+      "id": "PV-07-002",
+      "section": "07_data_transport_runtime_boundary",
+      "title": "Collection transport remains runtime-specific at external boundaries",
+      "contract": "Package validation must not reduce data transport to a single metadata-only rule. AppBlock unwraps Collection inputs for tool-specific file exchange and rewraps collected artifacts as Collections; CodeBlock v2 materializes declared file-exchange ports, writes a manifest, invokes a backend, and reconstructs declared outputs. A validator may inspect declarations statically, but executable transport proof requires a smoke or runtime test.",
+      "status": "implemented",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "warning"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "blocks",
+          "runtime_smoke"
+        ],
+        "trigger": "when_candidate_block_has_safe_fixture_or_profile_requires_safe_smoke_validation",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/app/app_block.py",
+          "kind": "contains",
+          "pattern": "if isinstance(value, Collection):",
+          "symbol": "AppBlock",
+          "notes": "AppBlock unpacks Collection inputs before file exchange."
+        },
+        {
+          "path": "src/scistudio/blocks/app/app_block.py",
+          "kind": "contains",
+          "pattern": "collection_results[key] = Collection([value], item_type=Artifact)",
+          "symbol": "AppBlock",
+          "notes": "Legacy AppBlock collection wrapping behavior."
+        },
+        {
+          "path": "src/scistudio/blocks/code/code_block.py",
+          "kind": "contains",
+          "pattern": "manifest = prepare_codeblock_exchange(",
+          "symbol": "CodeBlock",
+          "notes": "CodeBlock materializes declared exchange inputs."
+        },
+        {
+          "path": "src/scistudio/blocks/code/code_block.py",
+          "kind": "contains",
+          "pattern": "outputs = collect_codeblock_outputs(",
+          "symbol": "CodeBlock",
+          "notes": "CodeBlock reconstructs declared exchange outputs."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-020.md",
+          "kind": "contains",
+          "pattern": "### 7.2 CodeBlock Boundary",
+          "notes": "ADR-020 describes CodeBlock collection boundary behavior."
+        },
+        {
+          "path": "docs/adr/ADR-020.md",
+          "kind": "contains",
+          "pattern": "### 7.3 AppBlock And External Tool Boundary",
+          "notes": "ADR-020 delegates AppBlock exchange shape to the external tool block."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/blocks/code/test_codeblock_exchange.py",
+          "kind": "contains",
+          "pattern": "CodeBlockExchangePort",
+          "notes": "CodeBlock file-exchange port tests cover boundary artifacts."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Static package validation can identify likely boundary declarations, but current implementation makes actual data movement a runtime concern.",
+      "validator_implication": "Emit a warning when only static declarations were inspected; block only when an executable smoke/runtime check or strict boundary validator fails."
+    },
+    {
+      "id": "PV-08-001",
+      "section": "08_app_code_block_boundaries",
+      "title": "CodeBlock v2 persisted config validation is strict for concrete CodeBlock specs",
+      "contract": "CodeBlock package validation must use the concrete CodeBlock v2 config contract: strip runtime-only keys, reject legacy inline/function/runner fields, require project-local paths, require supported script extensions, validate port direction/name/exchange_folder/data_type/capability lookup, and return CodeBlockValidationDiagnostic entries whose default severity is error.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "app_blocks",
+          "code_blocks"
+        ],
+        "trigger": "when_candidate_declares_AppBlock_or_CodeBlock_surfaces_or_configs",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/blocks/code/validation.py",
+          "kind": "contains",
+          "pattern": "def validate_codeblock_config(",
+          "symbol": "validate_codeblock_config",
+          "notes": "Required inventory item for section 08."
+        },
+        {
+          "path": "src/scistudio/blocks/code/validation.py",
+          "kind": "contains",
+          "pattern": "diagnostics.extend(_port_diagnostics(parsed, registry=registry))",
+          "notes": "Port declarations participate in strict validation."
+        },
+        {
+          "path": "src/scistudio/blocks/code/config.py",
+          "kind": "contains",
+          "pattern": "Inline CodeBlock configs are not valid CodeBlock v2 configs.",
+          "notes": "Legacy inline configs become migration errors."
+        },
+        {
+          "path": "src/scistudio/blocks/code/config.py",
+          "kind": "contains",
+          "pattern": "CodeBlock v2 does not call SciStudio entry functions; scripts must use file exchange.",
+          "notes": "Entry-function script configs are rejected by the v2 config model."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-005.md",
+          "kind": "contains",
+          "pattern": "CodeBlock v2 is narrowed by ADR-041 toward project-local script file exchange",
+          "notes": "ADR-005 records the current CodeBlock v2 narrowing."
+        },
+        {
+          "path": "docs/adr/ADR-005.md",
+          "kind": "contains",
+          "pattern": "CodeBlock exchange and workflow-validator tests cover the current v2 script",
+          "notes": "ADR verification references strict v2 diagnostics."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/workflow/test_validator_codeblock_v2.py",
+          "kind": "contains",
+          "pattern": "def test_validate_workflow_reports_node_scoped_codeblock_diagnostics",
+          "notes": "Workflow validator renders CodeBlock v2 errors."
+        },
+        {
+          "path": "tests/workflow/test_validator_codeblock_v2.py",
+          "kind": "contains",
+          "pattern": "def test_validate_workflow_reports_legacy_inline_migration",
+          "notes": "Legacy inline configs are reported as errors."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The current code treats these as diagnostics objects internally, then workflow validation renders error-severity diagnostics as save-time errors.",
+      "validator_implication": "A package validator should block concrete CodeBlock declarations that produce error-severity CodeBlockValidationDiagnostic entries."
+    },
+    {
+      "id": "PV-08-002",
+      "section": "08_app_code_block_boundaries",
+      "title": "Workflow validation enforces AppBlock output ambiguity and CodeBlock strictness",
+      "contract": "When a registry is provided, validate_workflow enforces boundary checks for variadic cardinality, AppBlock duplicate output-port extensions, and concrete CodeBlock v2 declarations. Duplicate AppBlock extensions and CodeBlock error diagnostics are strict errors. Unknown block types are returned as warning strings and skip deeper type and CodeBlock validation.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "app_blocks",
+          "code_blocks"
+        ],
+        "trigger": "when_candidate_declares_AppBlock_or_CodeBlock_surfaces_or_configs",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "def validate_workflow(",
+          "symbol": "validate_workflow",
+          "notes": "Required inventory item for section 08."
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "Check 8: AppBlock duplicate output-port extensions",
+          "notes": "AppBlock duplicate extension check is a workflow boundary validator."
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "diagnostic.render(node_id=node.id) for diagnostic in diagnostics if diagnostic.severity == \"error\"",
+          "notes": "Only error-severity CodeBlock diagnostics become workflow errors."
+        },
+        {
+          "path": "src/scistudio/workflow/validator.py",
+          "kind": "contains",
+          "pattern": "Warning: block type",
+          "notes": "Unknown registry specs are diagnostic warnings, not deep validation failures."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-006.md",
+          "kind": "contains",
+          "pattern": "`AppBlock` is the external-software block category.",
+          "notes": "ADR-006 identifies AppBlock as the external tool boundary."
+        },
+        {
+          "path": "docs/adr/ADR-005.md",
+          "kind": "contains",
+          "pattern": "CodeBlock is the block category for user-provided code.",
+          "notes": "ADR-005 identifies CodeBlock as the user-code boundary."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/workflow/test_validator.py",
+          "kind": "contains",
+          "pattern": "class TestValidatorAppBlockDuplicateExtensions",
+          "notes": "AppBlock duplicate extension workflow checks."
+        },
+        {
+          "path": "tests/workflow/test_validator.py",
+          "kind": "contains",
+          "pattern": "def test_duplicate_extension_under_params_envelope",
+          "notes": "Validator reads frontend-style params.output_ports."
+        },
+        {
+          "path": "tests/workflow/test_validator.py",
+          "kind": "contains",
+          "pattern": "class TestIsCodeBlockSpecNarrowing",
+          "notes": "CodeBlock validation applies only to concrete CodeBlock specs."
+        },
+        {
+          "path": "tests/workflow/test_validator_codeblock_v2.py",
+          "kind": "contains",
+          "pattern": "def test_validate_workflow_preserves_unknown_block_warning",
+          "notes": "Unknown block registry entries remain warnings."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Current implementation returns all messages as strings; consumers distinguish warnings by message text, while CodeBlock diagnostic severity is explicit before rendering.",
+      "validator_implication": "Block package validation should block duplicate AppBlock output extensions and concrete CodeBlock error diagnostics, but report unknown or unavailable registry entries as diagnostics unless the package contract requires full registry resolution."
+    },
+    {
+      "id": "PV-08-003",
+      "section": "08_app_code_block_boundaries",
+      "title": "Concrete AppBlock and CodeBlock subclasses inherit boundary contracts with drift-sensitive checks",
+      "contract": "Concrete package subclasses of AppBlock and CodeBlock should be inspected as boundary participants. AppBlock subclasses that override run() must preserve extension-based output routing when output_ports are configured. CodeBlock subclasses delegating to CodeBlock.run must provide v2 file-exchange config and must not rely on legacy language, mode, or entry_function fields unless the package validator classifies that as a migration failure.",
+      "status": "partial",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "warning"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "app_blocks",
+          "code_blocks"
+        ],
+        "trigger": "when_candidate_declares_AppBlock_or_CodeBlock_surfaces_or_configs",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py",
+          "kind": "contains",
+          "pattern": "class FijiBlock(AppBlock):",
+          "symbol": "FijiBlock",
+          "notes": "Non-required inventory AppBlock subclass."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py",
+          "kind": "contains",
+          "pattern": "return self._bin_outputs_by_extension(output_files, config)",
+          "notes": "Override preserves configured output-port binning."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py",
+          "kind": "contains",
+          "pattern": "class NapariBlock(AppBlock):",
+          "symbol": "NapariBlock",
+          "notes": "Non-required inventory AppBlock subclass."
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/elmaven_block.py",
+          "kind": "contains",
+          "pattern": "class ElMAVENBlock(_LCMSBlockMixin, AppBlock):",
+          "symbol": "ElMAVENBlock",
+          "notes": "Non-required inventory AppBlock subclass."
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/accucor_r.py",
+          "kind": "contains",
+          "pattern": "class AccuCorR(_LCMSBlockMixin, CodeBlock):",
+          "symbol": "AccuCorR",
+          "notes": "Non-required inventory CodeBlock subclass."
+        },
+        {
+          "path": "packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/accucor_r.py",
+          "kind": "contains",
+          "pattern": "patched_params[\"entry_function\"] = \"run_accucor\"",
+          "notes": "Implementation currently patches a field that CodeBlock v2 rejects."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-005.md",
+          "kind": "contains",
+          "pattern": "ADR-041 rejects inline execution in CodeBlock v2",
+          "notes": "ADR-005 records the v2 rejection of framework-shaped CodeBlock configs."
+        },
+        {
+          "path": "docs/adr/ADR-006.md",
+          "kind": "contains",
+          "pattern": "AppBlock tests verify file-exchange preparation and output reconstruction.",
+          "notes": "ADR-006 aligns with AppBlock file-exchange subclass behavior."
+        }
+      ],
+      "tests": [
+        {
+          "path": "packages/scistudio-blocks-lcms/tests/test_external/test_accucor_r.py",
+          "kind": "contains",
+          "pattern": "monkeypatch.setattr(CodeBlock, \"run\", fake_run)",
+          "notes": "Existing AccuCorR run test bypasses actual CodeBlock.run validation."
+        },
+        {
+          "path": "tests/plugins/test_phase11_skeleton.py",
+          "kind": "contains",
+          "pattern": "(AccuCorR, CodeBlock)",
+          "notes": "Skeleton test confirms CodeBlock subclass identity."
+        }
+      ],
+      "adr_alignment": "adr_drift",
+      "notes": "Drift is code-first: AccuCorR patches entry_function/language/mode before delegating, while CodeBlock v2 validation rejects entry_function and legacy runner fields. The current AccuCorR run test monkeypatches CodeBlock.run, so it does not exercise the real v2 delegate.",
+      "validator_implication": "Package validation should at least warn on CodeBlock subclasses that synthesize legacy fields; it should block when the concrete runtime config is passed through validate_codeblock_config and produces error diagnostics."
+    },
+    {
+      "id": "PV-09-001",
+      "section": "09_previewer_contracts",
+      "title": "Previewer entry points return PreviewerSpec lists and registry failures are diagnostic",
+      "contract": "A package previewer surface is declared with the scistudio.previewers entry-point group. The entry point resolves to a zero-argument factory returning a list or tuple of PreviewerSpec objects. PreviewerRegistry loads core specs, entry-point specs, and optional monorepo package specs; duplicate IDs, empty IDs, broken factories, non-list returns, and non-PreviewerSpec items are recorded as diagnostics or skipped instead of crashing the registry.",
+      "status": "implemented",
+      "severity": "warning",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "warning",
+        "production": "warning"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "packages/scistudio-blocks-imaging/pyproject.toml",
+          "kind": "contains",
+          "pattern": "[project.entry-points.\"scistudio.previewers\"]",
+          "symbol": "scistudio.previewers",
+          "notes": "Required inventory entry-point group."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+          "kind": "contains",
+          "pattern": "def get_previewers() -> list[PreviewerSpec]:",
+          "symbol": "get_previewers",
+          "notes": "Required inventory package entry-point factory."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "class PreviewerRegistry:",
+          "symbol": "PreviewerRegistry",
+          "notes": "Required inventory registry class."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "PREVIEWER_ENTRY_POINT_GROUP = \"scistudio.previewers\"",
+          "notes": "Registry uses the package entry-point group."
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "previewer factory '{source}' returned non-PreviewerSpec item; skipping",
+          "notes": "Factory item mismatches are diagnostics."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "A previewer may be supplied by core, an installed package",
+          "notes": "ADR-048 defines package/project previewers."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "package previewers from `scistudio.previewers` entry points",
+          "notes": "Spec declares entry-point loading."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_registry.py",
+          "kind": "contains",
+          "pattern": "def test_duplicate_previewer_id_is_rejected_with_diagnostic",
+          "notes": "Duplicate IDs are diagnostic."
+        },
+        {
+          "path": "tests/previewers/test_preview_registry.py",
+          "kind": "contains",
+          "pattern": "def test_factory_returning_non_list_is_diagnosed",
+          "notes": "Bad factory return type is diagnostic."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "def test_pyproject_declares_installed_previewer_entry_point",
+          "notes": "Imaging package entry point is pinned."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Current registry behavior is diagnostic-first. A future package validator may choose to escalate diagnostics for publish-time validation, but that is stricter than the runtime registry.",
+      "validator_implication": "Report registry diagnostics and malformed factories; block only when the package-validation profile explicitly requires a clean previewer registry."
+    },
+    {
+      "id": "PV-09-002",
+      "section": "09_previewer_contracts",
+      "title": "PreviewerSpec and FrontendManifest define the public previewer declaration shape",
+      "contract": "PreviewerSpec declares previewer_id, owner_kind, owner_name, target_type, supports_collection, priority, capabilities, backend_provider, optional frontend_manifest, and api_version. FrontendManifest declares previewer_id, module_url, export_name, css, version, api_version, and backend-only asset_root. The public wire shape must omit asset_root; value validity is enforced by registry and asset validators rather than dataclass construction.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "class FrontendManifest:",
+          "symbol": "FrontendManifest",
+          "notes": "Required inventory manifest model."
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "class PreviewerSpec:",
+          "symbol": "PreviewerSpec",
+          "notes": "Required inventory previewer model."
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "Wire shape sent to the frontend. ``asset_root`` is intentionally omitted.",
+          "notes": "FrontendManifest.to_dict omits backend-only asset_root."
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "PreviewerSpecList = list[PreviewerSpec]",
+          "notes": "Entry-point canonical return shape alias."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "| `previewer_id` | Stable globally unique ID",
+          "notes": "ADR-048 lists PreviewerSpec fields."
+        },
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "The manifest must name the previewer ID",
+          "notes": "ADR-048 lists manifest fields."
+        }
+      ],
+      "tests": [
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "assert \"asset_root\" not in manifest.to_dict()",
+          "notes": "Backend-only asset_root is not serialized."
+        },
+        {
+          "path": "tests/previewers/test_preview_session_manifest.py",
+          "kind": "contains",
+          "pattern": "assert \"asset_root\" not in envelope.frontend_manifest.to_dict()",
+          "notes": "Session envelope manifest wire shape omits asset_root."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "The dataclasses are frozen declaration models, not full validators. Empty IDs and remote URLs are handled by registry/assets.",
+      "validator_implication": "Validate the declaration shape, then delegate value-level checks to PreviewerRegistry and validate_manifest/resolve_asset."
+    },
+    {
+      "id": "PV-09-003",
+      "section": "09_previewer_contracts",
+      "title": "Frontend manifest validation separates blocking invalidity from diagnostics",
+      "contract": "validate_manifest returns ManifestValidation. A missing manifest, missing previewer_id, missing module_url, remote module_url, remote css URL, or missing export_name makes the manifest invalid. An api_version mismatch and missing version are diagnostics; api_version mismatch sets api_version_ok false but does not by itself flip valid to false. resolve_asset is stricter: it raises MissingBundleError for missing asset_root, remote asset URLs, path traversal outside asset_root, disallowed suffixes, or absent files, and returns ServedAsset only for path-confined allowed files.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "def validate_manifest(manifest: FrontendManifest | None) -> ManifestValidation:",
+          "symbol": "validate_manifest",
+          "notes": "Required inventory manifest validator."
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "def resolve_asset(manifest: FrontendManifest, relative_path: str) -> ServedAsset:",
+          "symbol": "resolve_asset",
+          "notes": "Required inventory asset resolver."
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "api_version_ok = manifest.api_version == PREVIEWER_API_VERSION",
+          "notes": "API version mismatch is tracked separately from validity."
+        },
+        {
+          "path": "src/scistudio/previewers/assets.py",
+          "kind": "contains",
+          "pattern": "asset path escapes confinement root",
+          "notes": "Path confinement failure is a strict MissingBundleError."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "Package and project frontend modules are loaded only through backend-validated",
+          "notes": "ADR-048 requires backend-validated same-origin manifests."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-024: Package-owned frontend assets must be wheel-packaged",
+          "notes": "Spec requires path-confined validated assets."
+        }
+      ],
+      "tests": [
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "def test_manifests_pass_asset_validation_and_resolve_to_a_real_file",
+          "notes": "Positive manifest and asset resolution coverage."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "assert result.api_version_ok",
+          "notes": "Current imaging manifest has matching API version."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Current code distinguishes invalid manifests from diagnostic-compatible API-version drift. resolve_asset is exception-based and should be treated as strict.",
+      "validator_implication": "Block remote, path-escaping, missing-root, missing-file, and invalid required-field cases; warn on API-version mismatch unless the validation profile escalates compatibility drift."
+    },
+    {
+      "id": "PV-09-004",
+      "section": "09_previewer_contracts",
+      "title": "PreviewRouter selection is deterministic and ambiguous matches are strict errors",
+      "contract": "PreviewRouter must resolve a PreviewTarget by collection-aware type specificity and owner tier: project exact, package exact, project parent, package parent, core collection fallback, core base fallback, then unknown/error. Highest priority wins within a bucket. Unresolved priority ties raise RoutingAmbiguityError, and no-match cases raise UnknownTargetError. A project default may resolve a tie for its target type.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "block",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/router.py",
+          "kind": "contains",
+          "pattern": "class PreviewRouter:",
+          "symbol": "PreviewRouter",
+          "notes": "Required inventory router class."
+        },
+        {
+          "path": "src/scistudio/previewers/router.py",
+          "kind": "contains",
+          "pattern": "raise RoutingAmbiguityError(",
+          "notes": "Ambiguous candidates are strict typed errors."
+        },
+        {
+          "path": "src/scistudio/previewers/router.py",
+          "kind": "contains",
+          "pattern": "raise UnknownTargetError(",
+          "notes": "No previewer match is a strict typed error."
+        },
+        {
+          "path": "src/scistudio/previewers/router.py",
+          "kind": "contains",
+          "pattern": "default_id = self._registry.project_default_for(type_name)",
+          "notes": "Project defaults can resolve priority ties."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "Resolution order is:",
+          "notes": "ADR-048 defines previewer resolution order."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-004: Within the same precedence tier and type specificity",
+          "notes": "Spec defines priority and ambiguity behavior."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_routing.py",
+          "kind": "contains",
+          "pattern": "def test_unresolved_priority_tie_raises_ambiguity",
+          "notes": "Ambiguous tie raises RoutingAmbiguityError."
+        },
+        {
+          "path": "tests/previewers/test_preview_routing.py",
+          "kind": "contains",
+          "pattern": "def test_collection_with_item_previewer_and_no_core_raises",
+          "notes": "Collection targets do not fall through to item-only previewers."
+        },
+        {
+          "path": "tests/previewers/test_preview_routing.py",
+          "kind": "contains",
+          "pattern": "def test_project_default_resolves_tie",
+          "notes": "Project default resolves ties."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "PreviewSessionManager converts PreviewError from routing into error envelopes for one-shot rendering, but the router itself is strict exception-based.",
+      "validator_implication": "Block package configurations that would produce unresolved routing ambiguity; report UnknownTargetError only when the validation scenario expects a previewer to exist."
+    },
+    {
+      "id": "PV-09-005",
+      "section": "09_previewer_contracts",
+      "title": "Core and imaging package PreviewerSpec declarations establish fallback and package ownership",
+      "contract": "Core previewer specs are registered unconditionally for DataFrame, Array, Series, Text, Artifact, CompositeData, Collection, PlotArtifact, and DataObject fallback targets. The imaging package get_previewers factory returns Image and Label package-owned specs with positive priority, backend providers, capabilities, and same-origin frontend manifests so package exact matches can beat core fallbacks while core remains available when imaging is absent.",
+      "status": "implemented",
+      "severity": "info",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "info",
+        "production": "info"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "def core_previewer_specs() -> list[PreviewerSpec]:",
+          "symbol": "PreviewerSpec",
+          "notes": "Core fallback specs are concrete PreviewerSpec declarations."
+        },
+        {
+          "path": "src/scistudio/previewers/fallbacks.py",
+          "kind": "contains",
+          "pattern": "previewer_id=\"core.base.fallback\"",
+          "notes": "Universal core base fallback."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+          "kind": "contains",
+          "pattern": "previewer_id=IMAGE_PREVIEWER_ID,",
+          "symbol": "PreviewerSpec",
+          "notes": "Imaging Image spec declaration."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers/__init__.py",
+          "kind": "contains",
+          "pattern": "frontend_manifest=_frontend_manifest(IMAGE_PREVIEWER_ID),",
+          "symbol": "FrontendManifest",
+          "notes": "Imaging package spec declares a frontend manifest."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-012: Core must provide fallback previewers for DataFrame",
+          "notes": "Spec requires core fallback previewers."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-025: `scistudio-blocks-imaging` must register package previewers for",
+          "notes": "Spec requires package-owned imaging previewers."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_registry.py",
+          "kind": "contains",
+          "pattern": "def test_core_specs_load_unconditionally",
+          "notes": "Core fallback registry coverage."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "def test_get_previewers_returns_image_and_label_package_specs",
+          "notes": "Imaging package PreviewerSpec coverage."
+        },
+        {
+          "path": "packages/scistudio-blocks-imaging/tests/test_previewer_registration.py",
+          "kind": "contains",
+          "pattern": "def test_image_falls_back_to_core_array_when_imaging_absent",
+          "notes": "Core fallback remains available without imaging."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "This row covers non-required concrete PreviewerSpec declarations from the inventory so package-validator design does not focus only on registry classes.",
+      "validator_implication": "Use info-level reporting for discovered fallback/package spec inventories, escalating only for malformed IDs, missing providers where required, or routing ambiguity."
+    },
+    {
+      "id": "PV-09-006",
+      "section": "09_previewer_contracts",
+      "title": "Session rendering stamps manifests and turns provider failures into error envelopes",
+      "contract": "PreviewSessionManager resolves a spec, invokes its backend provider, converts PreviewError and unexpected provider exceptions into PreviewEnvelope error responses, and stamps the resolved spec frontend_manifest onto the envelope when the provider did not set one. A provider-set frontend_manifest has precedence over the spec default.",
+      "status": "implemented",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "error"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "previewers",
+          "preview_frontend_manifest"
+        ],
+        "trigger": "when_candidate_declares_scistudio.previewers",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "except PreviewError as exc:",
+          "notes": "Typed provider/routing errors become error envelopes."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "except Exception as exc:",
+          "notes": "Unexpected provider exceptions are also converted."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "if envelope.frontend_manifest is None and spec.frontend_manifest is not None:",
+          "symbol": "PreviewerSpec",
+          "notes": "Spec manifest stamping behavior."
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "return PreviewerSpec(",
+          "symbol": "PreviewerSpec",
+          "notes": "Missing-spec helper is a concrete PreviewerSpec declaration from the inventory."
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/adr/ADR-048.md",
+          "kind": "contains",
+          "pattern": "The session manager stamps the resolved previewer's `frontend_manifest`",
+          "notes": "ADR-048 defines first-class manifest stamping."
+        },
+        {
+          "path": "docs/specs/adr-048-preview-system.md",
+          "kind": "contains",
+          "pattern": "FR-029: The implementation must add deterministic diagnostic payloads",
+          "notes": "Spec requires deterministic diagnostics."
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/previewers/test_preview_session_manifest.py",
+          "kind": "contains",
+          "pattern": "def test_spec_manifest_is_auto_injected_when_provider_sets_none",
+          "notes": "Spec manifest is stamped when provider omits one."
+        },
+        {
+          "path": "tests/previewers/test_preview_session_manifest.py",
+          "kind": "contains",
+          "pattern": "def test_provider_set_manifest_is_not_overwritten",
+          "notes": "Provider manifest precedence is tested."
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Session behavior makes previewer provider failures non-fatal to the API surface even when the underlying router/provider raises typed or unexpected exceptions.",
+      "validator_implication": "Validate manifest ownership at the spec/session seam and classify provider exceptions as typed error-envelope behavior rather than process crashes."
+    }
+  ]
+}
