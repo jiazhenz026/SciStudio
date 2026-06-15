@@ -15,10 +15,31 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-15T02:13:44.371727Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13b7fb9142dc6e648f6f0998a54753c831db4eacf23ff225c9dcbcf7922161be",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "8907eb1f0fb3275fb0a79e020d9abf5353b122ed",
+    "shas": [
+      "8907eb1f0fb3275fb0a79e020d9abf5353b122ed"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [
       "docs/ai-developer/**"
@@ -150,6 +171,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.497888Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.549884Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.602558Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.655267Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.714392Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.766912Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.821688Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.874044Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.926768Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:13:44.980953Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -164,12 +245,21 @@
   "observed_diff": {
     "base": "origin/track/adr-049-package-validator-implementation",
     "base_sha": "b86c1de2",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1664-pr1665-codex-review-comments.json",
+      "docs/planning/adr-049-package-validator-implementation-checklist.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-a1-with-context-audit.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-c1-cli-docs-evidence.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation-r2.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
+    ],
+    "diff_fingerprint": "sha256:e852278989846a30581c62996ee36372d18e0eca0c69c9a61d1aa5bb2c865aeb",
     "head": "HEAD",
-    "head_sha": "b86c1de2",
+    "head_sha": "8907eb1f",
     "surfaces": {
-      "docs": 0,
+      "docs": 7,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -183,11 +273,26 @@
   },
   "owner_directive": "Address unresolved Codex review comments on PR #1665: assign ADR-049 T-010 production call-site integration in planning evidence and correct dispatched-agent pre-PR base commands.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1664
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-15T02:12:00.353499Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-15T02:13:44.980991Z",
+      "diff_fingerprint": "sha256:e852278989846a30581c62996ee36372d18e0eca0c69c9a61d1aa5bb2c865aeb",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
