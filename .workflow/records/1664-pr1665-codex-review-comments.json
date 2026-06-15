@@ -30,13 +30,28 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-15T02:16:06.420961Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13b7fb9142dc6e648f6f0998a54753c831db4eacf23ff225c9dcbcf7922161be",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "8907eb1f0fb3275fb0a79e020d9abf5353b122ed",
+    "sha": "71a169ef7f5d3a8e6851fcf5868a27252947988a",
     "shas": [
-      "8907eb1f0fb3275fb0a79e020d9abf5353b122ed"
+      "71a169ef7f5d3a8e6851fcf5868a27252947988a"
     ],
     "trailers": []
   },
@@ -291,6 +306,251 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.554011Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.609133Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.664409Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.721471Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.777123Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.839444Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.903541Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:06.959051Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:07.015872Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:07.073173Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:27.900726Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:27.954466Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.015038Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.068501Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.128553Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "scripts/audit/check_package_contract_tables.py",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "scripts/audit/check_package_contract_tables.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-15T02:16:28.183633Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.238990Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.301912Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.361209Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:28.416374Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.371404Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.424507Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.477511Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.535570Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.593582Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.652272Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.704276Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.762480Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.814482Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:16:48.868479Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -315,9 +575,9 @@
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
     ],
-    "diff_fingerprint": "sha256:303232b16648f83c247aa867cde2a2da6036a84736badd7f8e520d03659c6dba",
+    "diff_fingerprint": "sha256:b830c161420335dea0122fd1a68b42b69f3f8235aa172ae60c34d790755af29e",
     "head": "HEAD",
-    "head_sha": "2f7b852f",
+    "head_sha": "71a169ef",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -338,8 +598,8 @@
     "closes": [
       1664
     ],
-    "number": null,
-    "url": null
+    "number": 1669,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1669"
   },
   "reconcile_events": [
     {
@@ -365,15 +625,40 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-15T02:16:07.073217Z",
+      "diff_fingerprint": "sha256:b830c161420335dea0122fd1a68b42b69f3f8235aa172ae60c34d790755af29e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-15T02:16:28.416448Z",
+      "diff_fingerprint": "sha256:d6c7211545c1abd9e7fdfd52f7b7627b98d07faceaec6556d9bbf187bd996d74",
+      "mode": "ci",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "guard.mod_guard",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-06-15T02:16:48.868518Z",
+      "diff_fingerprint": "sha256:b830c161420335dea0122fd1a68b42b69f3f8235aa172ae60c34d790755af29e",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1664-pr1665-codex-review-comments",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
