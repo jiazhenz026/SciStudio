@@ -99,7 +99,7 @@ Known deferred items:
 
 - `python scripts/audit/check_package_contract_tables.py`
 - `$env:PYTHONPATH='src'; python -m pytest tests/packages/test_package_validator_reports.py tests/packages/test_package_validator.py --timeout=60`
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-049-package-validator-implementation --pr-body-file .workflow/local/pr-body.md`
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#1664"` before PR creation
 - `python scripts/scistudio_pr_create.py --base track/adr-049-package-validator-implementation` for your PR if assigned to open one
 - Sentrux: N/A unless gate_record selects it.

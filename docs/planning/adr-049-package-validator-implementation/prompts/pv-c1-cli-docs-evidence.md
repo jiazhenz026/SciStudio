@@ -95,7 +95,7 @@ Known deferred items:
 - `python scripts/audit/check_package_contract_tables.py`
 - final package sweep command over core, imaging, SRS, LCMS, and repository package fixtures
 - e2e scenario: docs/ai-developer/e2e/2026-06-14-adr-049-package-validator.md
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-049-package-validator-implementation --pr-body-file .workflow/local/pr-body.md`
 - Sentrux: N/A unless gate_record selects it.
 
 ## Output Required

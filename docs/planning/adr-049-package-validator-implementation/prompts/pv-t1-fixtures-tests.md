@@ -42,6 +42,11 @@ You own only:
 - tests/packages/test_package_validator_production_registration.py
 - your checklist rows for PV-T1
 
+This test write set is sequenced before implementation-agent integration.
+Other agents may list focused package-validator tests as required verification
+or follow-up update paths, but they must not edit the same test files in
+parallel unless the manager imports/rebases PV-T1 output first.
+
 You must not touch:
 
 - src/scistudio/**
@@ -87,7 +92,7 @@ Known deferred items:
 
 - `$env:PYTHONPATH='src'; python -m pytest tests/packages --timeout=60`
 - `python scripts/audit/check_package_contract_tables.py`
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-049-package-validator-implementation --pr-body-file .workflow/local/pr-body.md`
 - Sentrux: N/A unless gate_record selects it.
 
 ## Output Required

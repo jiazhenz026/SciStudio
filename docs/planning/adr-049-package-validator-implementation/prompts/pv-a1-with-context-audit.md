@@ -90,7 +90,7 @@ Run or verify:
 - `$env:PYTHONPATH='src'; python -m pytest tests/packages --timeout=60`
 - package validator existing-package sweep evidence
 - e2e scenario verdict
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-049-package-validator-implementation --pr-body-file .workflow/local/pr-body.md`
 
 ## Output Required
 

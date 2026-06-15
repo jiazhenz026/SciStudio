@@ -1,0 +1,242 @@
+{
+  "branch": "fix/pr1665-codex-review-comments",
+  "check_events": [
+    {
+      "at": "2026-06-15T02:11:59.611149Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "docs/ai-developer/**"
+    ],
+    "include": [
+      "docs/planning/adr-049-package-validator-implementation-checklist.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md",
+      "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-15T02:09:07.108710Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108732Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108735Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation-r2.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108737Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-e1-engine-registration.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108739Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108740Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-c1-cli-docs-evidence.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-15T02:09:07.108742Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator-implementation/prompts/pv-a1-with-context-audit.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-15T02:11:59.761735Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:11:59.845733Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:11:59.914144Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:11:59.977697Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.045107Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.113805Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.181312Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.241397Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.296742Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:12:00.353439Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1664,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/track/adr-049-package-validator-implementation",
+    "base_sha": "b86c1de2",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "b86c1de2",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Address unresolved Codex review comments on PR #1665: assign ADR-049 T-010 production call-site integration in planning evidence and correct dispatched-agent pre-PR base commands.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-15T02:12:00.353499Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1664-pr1665-codex-review-comments",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-15T02:08:57.200201Z",
+      "pattern": "docs/planning/adr-049-package-validator-implementation/prompts/**",
+      "reason": "Codex review showed the dispatched-agent pre-PR base command was duplicated across ADR-049 prompts; expand docs-only scope to update every prompt consistently."
+    }
+  ],
+  "session_id": "69fda370-5731-46d7-809a-64f964d32791",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-06-15T02:09:07.108751Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only review comment fix for ADR-049 planning and dispatch instructions; no runtime behavior changes.",
+      "verified_in_diff": null
+    }
+  ]
+}

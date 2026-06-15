@@ -92,13 +92,18 @@ Known deferred items:
 2. Build dry-run registry summaries for candidate types, blocks, previewers, format capabilities, runners, and registry-derived API serialization without live mutation.
 3. Add cross-surface consistency checks for unknown types, conflicting capability IDs, invalid previewer targets, and serializable descriptors.
 4. Implement production registration handoff that rejects on blocking findings and leaves live registries unchanged on failure.
-5. Add tests proving valid dry-run pass, invalid package reject, and atomic live commit behavior.
+5. Own ADR-049 T-010 for production package-registration call sites: install,
+   enable, upgrade, reload, and startup paths that make a package-registration
+   decision must go through the production validation handoff before live
+   mutation. Existing tolerant startup discovery that is not making an
+   install-time registration decision remains out of scope per spec FR-015.
+6. Add tests proving valid dry-run pass, invalid package reject, and atomic live commit behavior.
 
 ## Required Tests And Checks
 
 - `$env:PYTHONPATH='src'; python -m pytest tests/packages/test_package_validator.py tests/packages/test_package_validator_production_registration.py --timeout=60`
 - `python scripts/audit/check_package_contract_tables.py`
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/design/package-validator-contract-survey --pr-body-file .workflow/local/pr-body.md`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-049-package-validator-implementation --pr-body-file .workflow/local/pr-body.md`
 - Sentrux: N/A unless gate_record selects it.
 
 ## Output Required

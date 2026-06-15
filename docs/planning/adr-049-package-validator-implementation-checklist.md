@@ -132,6 +132,11 @@ language_source: en
 
 For `test_engineer` rows, production code is out of scope by default.
 
+Sequencing note: PV-T1's `tests/packages/**` write set is sequenced before
+implementation-agent integration. PV-F1, PV-E1, and PV-C1 may list focused
+package-validator tests as verification/update paths, but parallel edits to the
+same test files require a manager import or rebase before PR readiness.
+
 ## 7. Track: Foundation, Contracts, Inventory
 
 ### 7.1 Track Scope
@@ -195,6 +200,8 @@ For `test_engineer` rows, production code is out of scope by default.
   - Dry-run type/block/previewer/IO capability/runner/API summaries by composition first.
   - Cross-surface consistency checks.
   - Atomic production registration handoff with live-registry unchanged-on-failure tests.
+  - ADR-049 T-010 production call-site boundary for install, enable, upgrade,
+    reload, and startup paths that make a package-registration decision.
 - Out of scope:
   - Partial registration or quarantine UI.
   - Tolerant startup discovery behavior changes.
@@ -218,6 +225,11 @@ For `test_engineer` rows, production code is out of scope by default.
 
 - [x] Per-surface validation dispatch implemented -> `src/scistudio/packages/validation/engine.py`
 - [x] Dry-run registry summaries implemented -> `src/scistudio/packages/validation/engine.py`
+- [x] T-010 production call-site boundary assigned -> PV-E1 owns
+  `validate_for_registration(...).commit_to(...)` as the required handoff for
+  install, enable, upgrade, reload, and startup package-registration decisions;
+  existing tolerant startup discovery that is not making an install-time
+  registration decision remains out of scope per spec FR-015.
 - [x] Cross-surface checks implemented -> `src/scistudio/packages/validation/engine.py`
 - [x] Production registration handoff implemented -> `src/scistudio/packages/validation/registration.py`
 - [x] Tests added/updated -> `tests/packages/test_package_validator.py`, `tests/packages/test_package_validator_production_registration.py`
