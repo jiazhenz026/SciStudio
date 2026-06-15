@@ -69,10 +69,18 @@ def _restrict_range(
     return lam[mask], inten[mask]
 
 
-def _measure_at_coordinate(lam: np.ndarray, inten: np.ndarray, coordinate: float) -> tuple[float, float]:
-    """Return ``(measured_coordinate, intensity)`` at the nearest grid point."""
+def _measure_at_coordinate(
+    lam: np.ndarray, inten: np.ndarray, coordinate: float
+) -> tuple[float | None, float | None, str]:
+    """Return nearest-grid measurement or a non-success status for out-of-grid coordinates."""
+    if lam.size == 0:
+        return None, None, "empty_spectrum"
+    lo = float(np.min(lam))
+    hi = float(np.max(lam))
+    if coordinate < lo or coordinate > hi:
+        return None, None, "coordinate_out_of_grid"
     idx = int(np.argmin(np.abs(lam - coordinate)))
-    return float(lam[idx]), float(inten[idx])
+    return float(lam[idx]), float(inten[idx]), _STATUS_OK
 
 
 def _reduce_range(inten: np.ndarray, reducer: str) -> float:
@@ -100,8 +108,7 @@ def _measure_peak_intensity(
     reducer = str(peak.get("reducer", "max"))
 
     if coordinate is not None:
-        coord, intensity = _measure_at_coordinate(lam, inten, float(coordinate))
-        return coord, intensity, _STATUS_OK
+        return _measure_at_coordinate(lam, inten, float(coordinate))
 
     if lambda_min is None and lambda_max is None:
         return None, None, "peak_definition_missing_coordinate_or_range"
@@ -211,8 +218,7 @@ class ExtractIntensity(ProcessBlock):
                     coord = float(np.mean(win_lam))
                     status = _STATUS_OK
             elif target is not None:
-                coord, value = _measure_at_coordinate(lam, inten, float(target))
-                status = _STATUS_OK
+                coord, value, status = _measure_at_coordinate(lam, inten, float(target))
             else:
                 coord, value, status = None, None, "no_target_coordinate_or_range"
             rows.append({"spectrum_id": key, "measured_coordinate": coord, "intensity": value, "status": status})

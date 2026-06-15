@@ -7,7 +7,8 @@ Binds the dataset IO contract for ``LoadSpectralDataset`` / ``SaveSpectralDatase
   the spectrum_id join, and every dataset ``Meta`` field survive (SC-053/FR-141);
 - xlsx is a typed-meta three-sheet workbook round-trip (FR-137);
 - no ``.zip``/``.spectraldataset.zip`` save capability is declared (SC-054);
-- SPC + vendor multi-spectrum loaders are tracked ``NotImplementedError``.
+- SPC + vendor multi-spectrum handlers are tracked deferrals but are not
+  advertised through block capability dispatch until implemented.
 """
 
 from __future__ import annotations
@@ -142,9 +143,8 @@ def test_manifest_rejects_orphan_spectra(tmp_path: Path) -> None:
     """FR-012: spectra rows must join to an index spectrum_id."""
     index = _support.dataframe_from_rows([{"spectrum_id": "a"}])
     orphan = _support.dataframe_from_rows([{"spectrum_id": "ghost", "lambda": 1.0, "intensity": 2.0}])
-    bad = _support.build_spectral_dataset(index, orphan, meta=SpectralDataset.Meta())
     with pytest.raises(ValueError):
-        dataset_formats.save_manifest_json(bad, tmp_path / "bad.json")
+        _support.build_spectral_dataset(index, orphan, meta=SpectralDataset.Meta())
 
 
 @pytest.mark.parametrize(
@@ -169,3 +169,9 @@ def test_spc_dataset_save_is_deferred(tmp_path: Path) -> None:
     dataset, _, _ = _synthetic_dataset()
     with pytest.raises(NotImplementedError):
         dataset_formats.save_spc_dataset(dataset, tmp_path / "out.spc")
+    with pytest.raises(ValueError):
+        SaveSpectralDataset().save(dataset, _config(path=str(tmp_path / "out.spc")))
+    spc = tmp_path / "in.spc"
+    spc.write_bytes(b"")
+    with pytest.raises(ValueError):
+        LoadSpectralDataset().load(_config(path=str(spc)))

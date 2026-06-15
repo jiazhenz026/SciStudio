@@ -10,7 +10,7 @@ handlers in :mod:`scistudio_blocks_spectroscopy.blocks.io_handlers.dataset_forma
 - ``xlsx`` (``.xlsx``) — typed-meta three-sheet workbook round-trip (FR-137).
 
 Plus the canonical two-table layout (FR-038/FR-039), the FR-136 archive (.zip)
-rejection, and the load-only vendor / SPC deferrals (FR-139/FR-140, FR-138).
+rejection, and tracked but unadvertised vendor / SPC deferrals.
 """
 
 from __future__ import annotations
@@ -164,9 +164,8 @@ def test_manifest_json_rejects_orphan_spectra(tmp_path: Path) -> None:
     """FR-012: spectra rows must join to index.spectrum_id."""
     index = _support.dataframe_from_rows([{"spectrum_id": "a"}])
     orphan = _support.dataframe_from_rows([{"spectrum_id": "ghost", "lambda": 1.0, "intensity": 2.0}])
-    bad = _support.build_spectral_dataset(index, orphan, meta=SpectralDataset.Meta())
     with pytest.raises(ValueError, match="unknown spectrum_id"):
-        dataset_formats.save_manifest_json(bad, tmp_path / "bad.json")
+        _support.build_spectral_dataset(index, orphan, meta=SpectralDataset.Meta())
 
 
 @pytest.mark.parametrize(

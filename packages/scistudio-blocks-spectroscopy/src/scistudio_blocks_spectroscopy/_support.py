@@ -300,8 +300,10 @@ def build_spectral_dataset(
     Each of ``index`` / ``spectra`` may be a core ``DataFrame``, a pandas frame,
     or a ``pyarrow.Table``.
     """
+    index_df = _as_dataframe(index)
+    spectra_df = _as_dataframe(spectra)
     return SpectralDataset(
-        slots={"index": _as_dataframe(index), "spectra": _as_dataframe(spectra)},
+        slots={"index": index_df, "spectra": spectra_df},
         meta=meta or SpectralDataset.Meta(),
         framework=framework or FrameworkMeta(source=source or "scistudio-blocks-spectroscopy"),
     )
@@ -309,6 +311,7 @@ def build_spectral_dataset(
 
 def dataset_frames(dataset: SpectralDataset) -> tuple[pa.Table, pa.Table]:
     """Return ``(index_table, spectra_table)`` as ``pyarrow.Table`` values."""
+    dataset.validate_slots()
     return dataframe_arrow(cast(DataFrame, dataset.get("index"))), dataframe_arrow(
         cast(DataFrame, dataset.get("spectra"))
     )

@@ -10,18 +10,18 @@ imports `scistudio_blocks_srs`.
 
 ## Data types
 
-- `Spectrum(Series)` — one 1-D spectrum (`lambda` index, `intensity` value;
+- `Spectrum(Series)` - one 1-D spectrum (`lambda` index, `intensity` value;
   FR-003/004). Typed `Meta` carries `lambda_unit`, `intensity_unit`,
   `lambda_kind`, `modality`, plus `spectrum_id`/`source_file` provenance. Build
   and read it through the package helpers in `scistudio_blocks_spectroscopy._support`
   (`build_spectrum`, `spectrum_arrays`, `derive_spectrum`).
-- `SpectralDataset(CompositeData)` — many spectra as an `index` table (one row
-  per spectrum, unique `spectrum_id` + arbitrary metadata) plus a long-form
+- `SpectralDataset(CompositeData)` - many spectra as an `index` table (one row
+  per spectrum, unique `spectrum_id` plus arbitrary metadata) plus a long-form
   `spectra` table (`spectrum_id`, `lambda`, `intensity`). A spectral library is
-  a dataset with `meta.dataset_role="library"` (FR-014) — there is no separate
+  a dataset with `meta.dataset_role="library"` (FR-014); there is no separate
   library type.
 
-Format support is NOT declared on the types (FR-131); it lives on the IO blocks
+Format support is not declared on the types (FR-131); it lives on the IO blocks
 as ADR-043 `FormatCapability` records.
 
 ## Blocks (26)
@@ -46,24 +46,27 @@ back onto `SpectralDataset.index` with `AttachFeaturesToSpectralDataset`.
 
 The four IO blocks declare explicit `FormatCapability` records (FR-128..FR-143).
 
-- **Round-trippable (load + save):** delimited text `.txt`/`.csv`/`.tsv`,
-  Excel `.xlsx`, the package-native lossless `.spectrum.json` (Spectrum) and
-  JSON manifest + Parquet sidecar (`SpectralDataset`), and JCAMP-DX
-  `.jdx`/`.dx`/`.jcamp` for Spectrum.
-- **Declared, fixture-pending:** SPC (`.spc`) and the vendor/instrument formats
-  (Thermo OMNIC `.spa`/`.spg`, Bruker OPUS, HORIBA LabSpec, Renishaw WiRE
-  `.wdf`, WITec `.wip`/`.wid`, Andor, Princeton/LightField `.spe`) are declared
-  per the accepted matrix but raise an informative `NotImplementedError`
-  (`# TODO(#1661)`) until fixture data / an optional SDK is available. Vendor
-  formats are load-only (no saver, no `roundtrip_group`, no `lossless`).
+- **Round-trippable and advertised:** delimited text `.txt`/`.csv`/`.tsv`,
+  Excel `.xlsx`, package-native lossless `.spectrum.json` for `Spectrum`,
+  package-native JSON manifest plus Parquet sidecars for `SpectralDataset`, and
+  JCAMP-DX `.jdx`/`.dx`/`.jcamp` for `Spectrum`.
+- **Deferred and not advertised:** SPC (`.spc`) and vendor/instrument-native
+  formats are intentionally not exposed through `FormatCapability` records in
+  this draft. Direct handler entry points remain tracked with `TODO(#1661)` and
+  raise informative `NotImplementedError` until fixture data or an optional SDK
+  proves real load/save behavior. Unsupported suffix selection through the IO
+  blocks fails before a deferred handler is selected.
 
 ## Previewers (ADR-048)
 
-- `spectroscopy.spectrum.viewer` (`Spectrum`, SERIES envelope) — bounded
-  two-column read, axis units, export resources, honest sampling metadata.
+- `spectroscopy.spectrum.viewer` (`Spectrum`, SERIES envelope) - bounded
+  two-column read, axis units, pan/zoom hoverable line plot, honest sampling
+  metadata, diagnostics, and SVG/PNG/PDF/points exports.
 - `spectroscopy.spectral_dataset.viewer` (`SpectralDataset`, COMPOSITE envelope)
-  — paginated index table, dataset health diagnostics (duplicate/orphan/missing
-  coverage/unit/heatmap-alignment), plot-mode + export resources.
+  - paginated/searchable/selectable index table, group/color controls, bounded
+  overlay/selected/group mean/group band/heatmap plot payloads, dataset health
+  diagnostics (duplicate/orphan/missing coverage/unit/heatmap-alignment), and
+  preview exports.
 
 ## Dependencies
 
@@ -74,11 +77,11 @@ blocks never requires them.
 
 ## Testing
 
-```
+```bash
 pytest packages/scistudio-blocks-spectroscopy/tests
 ```
 
 Covers type/packaging/previewer-registration contracts, ADR-043 format
 capabilities, per-block contract tests (SC-001..SC-055), and an end-to-end
-`tests/e2e/` suite of pseudo-spectra generators + load→block→save workflows,
+`tests/e2e/` suite of pseudo-spectra generators plus load/block/save workflows,
 boundary cases, and chained pipelines.

@@ -20,6 +20,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, ClassVar
 
+import pyarrow as pa
+import pyarrow.types as pat
 from pydantic import BaseModel, ConfigDict
 
 from scistudio.core.types.composite import CompositeData
@@ -123,6 +125,25 @@ class SpectralDataset(CompositeData):
         "spectra": DataFrame,
     }
 
+    def __init__(self, *, slots: dict[str, Any] | None = None, **kwargs: Any) -> None:
+        """Construct and validate the canonical two-slot dataset layout.
+
+        Core ``CompositeData`` validates only slot object types. The spectroscopy
+        package contract also requires table schemas and the
+        ``index.spectrum_id`` <-> ``spectra.spectrum_id`` join invariant.
+        """
+        super().__init__(slots=slots, **kwargs)
+        if self.expected_slots.keys() <= self._slots.keys():
+            self.validate_slots()
+
+    def validate_slots(self) -> None:
+        """Validate required columns, ids, numeric payload columns, and joins."""
+        index = self.get("index")
+        spectra = self.get("spectra")
+        if not isinstance(index, DataFrame) or not isinstance(spectra, DataFrame):
+            return
+        validate_spectral_dataset_tables(_dataframe_arrow(index), _dataframe_arrow(spectra))
+
     class Meta(BaseModel):
         """Dataset-level typed metadata (FR-013).
 
@@ -156,6 +177,73 @@ def get_types() -> list[type]:
     return [Spectrum, SpectralDataset]
 
 
+def validate_spectral_dataset_tables(index_table: pa.Table, spectra_table: pa.Table) -> None:
+    """Validate the canonical ``SpectralDataset`` table contract.
+
+    Enforces SC-003 / FR-009..FR-012 at the type boundary:
+    ``index.spectrum_id`` must be present, unique, non-null, and covered by the
+    long-form spectra slot; ``spectra`` must carry non-null ``spectrum_id`` plus
+    numeric ``lambda`` and ``intensity`` columns whose ids join back to index.
+    """
+    if SPECTRUM_ID_COLUMN not in index_table.column_names:
+        raise ValueError(
+            f"SpectralDataset index table must contain {SPECTRUM_ID_COLUMN!r}; got {list(index_table.column_names)}"
+        )
+
+    required_spectra = {SPECTRUM_ID_COLUMN, LAMBDA_COLUMN, INTENSITY_COLUMN}
+    missing = required_spectra.difference(spectra_table.column_names)
+    if missing:
+        raise ValueError(
+            f"SpectralDataset spectra table must contain {sorted(required_spectra)}; missing {sorted(missing)}"
+        )
+
+    for column in (LAMBDA_COLUMN, INTENSITY_COLUMN):
+        field = spectra_table.schema.field(column)
+        if not (pat.is_integer(field.type) or pat.is_floating(field.type)):
+            raise ValueError(f"SpectralDataset spectra.{column} must be numeric, got {field.type}")
+
+    index_ids = index_table.column(SPECTRUM_ID_COLUMN).to_pylist()
+    spectra_ids = spectra_table.column(SPECTRUM_ID_COLUMN).to_pylist()
+    if any(sid in (None, "") for sid in index_ids):
+        raise ValueError("SpectralDataset index.spectrum_id must not contain null/empty values")
+    if any(sid in (None, "") for sid in spectra_ids):
+        raise ValueError("SpectralDataset spectra.spectrum_id must not contain null/empty values")
+
+    duplicates = _duplicates(index_ids)
+    if duplicates:
+        raise ValueError(f"SpectralDataset index.spectrum_id must be unique; duplicates {duplicates!r}")
+
+    index_id_set = set(index_ids)
+    spectra_id_set = set(spectra_ids)
+    orphans = sorted(str(sid) for sid in (spectra_id_set - index_id_set))
+    if orphans:
+        raise ValueError(f"SpectralDataset spectra rows reference unknown spectrum_id(s) {orphans!r}")
+    missing_coverage = sorted(str(sid) for sid in (index_id_set - spectra_id_set))
+    if missing_coverage:
+        raise ValueError(f"SpectralDataset index row(s) have no spectra coverage {missing_coverage!r}")
+
+
+def _dataframe_arrow(frame: DataFrame) -> pa.Table:
+    payload = frame.to_memory() if frame.storage_ref is not None else frame._transient_data
+    if payload is None:
+        raise ValueError("SpectralDataset DataFrame slot has no in-memory or persisted payload")
+    if isinstance(payload, pa.Table):
+        return payload
+    if hasattr(payload, "columns"):
+        return pa.Table.from_pandas(payload, preserve_index=False)
+    return pa.table(payload)
+
+
+def _duplicates(values: list[Any]) -> list[str]:
+    seen: set[Any] = set()
+    out: list[str] = []
+    for value in values:
+        if value in seen and str(value) not in out:
+            out.append(str(value))
+        seen.add(value)
+    return out
+
+
 __all__ = [
     "INTENSITY_COLUMN",
     "LAMBDA_COLUMN",
@@ -163,4 +251,5 @@ __all__ = [
     "SpectralDataset",
     "Spectrum",
     "get_types",
+    "validate_spectral_dataset_tables",
 ]

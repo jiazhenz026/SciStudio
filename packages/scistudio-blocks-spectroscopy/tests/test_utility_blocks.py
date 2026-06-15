@@ -21,7 +21,7 @@ Covers the nine utility blocks of FR-032:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -81,7 +81,7 @@ def _spectrum(
 
 def _to_dataset(spectra: list[Spectrum], **config: Any) -> SpectralDataset:
     out = SpectrumToSpectralDataset().run({"spectra": _support.spectra_collection(spectra)}, _config(**config))
-    return next(iter(out["dataset"]))
+    return cast(SpectralDataset, next(iter(out["dataset"])))
 
 
 def _index_table(dataset: SpectralDataset) -> Any:
@@ -178,6 +178,21 @@ def test_spectrum_to_dataset_join_by_source_file() -> None:
     assert pairs == {"id1": "wet", "id2": "dry"}
 
 
+def test_spectrum_to_dataset_rejects_duplicate_metadata_join_keys() -> None:
+    spectra = [_spectrum("id1", source_file="/data/one.csv")]
+    metadata = _support.dataframe_from_rows(
+        [
+            {"source_file": "/data/one.csv", "condition": "wet"},
+            {"source_file": "/data/one.csv", "condition": "dry"},
+        ]
+    )
+    with pytest.raises(ValueError, match="must be unique"):
+        SpectrumToSpectralDataset().run(
+            {"spectra": _support.spectra_collection(spectra), "metadata": Collection([metadata], item_type=DataFrame)},
+            _config(metadata_join_key="source_file"),
+        )
+
+
 # ---------------------------------------------------------------------------
 # SC-011: round-trip dataset <-> spectra
 # ---------------------------------------------------------------------------
@@ -248,6 +263,31 @@ def test_merge_rejects_duplicate_ids_by_default() -> None:
         MergeSpectralDataset().run({"datasets": Collection([ds1, ds2], item_type=SpectralDataset)}, _config())
 
 
+def test_dataset_boundary_rejects_internal_duplicate_ids() -> None:
+    index = _support.dataframe_from_rows([{"spectrum_id": "dup"}, {"spectrum_id": "dup"}])
+    spectra = _support.dataframe_from_rows(
+        [
+            {"spectrum_id": "dup", "lambda": 1.0, "intensity": 2.0},
+            {"spectrum_id": "dup", "lambda": 2.0, "intensity": 3.0},
+        ]
+    )
+    with pytest.raises(ValueError, match="unique"):
+        _support.build_spectral_dataset(index, spectra)
+
+
+def test_merge_rejects_row_level_unit_mismatch() -> None:
+    ds1 = _support.build_spectral_dataset(
+        _support.dataframe_from_rows([{"spectrum_id": "a", "lambda_unit": "nm"}]),
+        _support.dataframe_from_rows([{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}]),
+    )
+    ds2 = _support.build_spectral_dataset(
+        _support.dataframe_from_rows([{"spectrum_id": "b", "lambda_unit": "cm-1"}]),
+        _support.dataframe_from_rows([{"spectrum_id": "b", "lambda": 1.0, "intensity": 3.0}]),
+    )
+    with pytest.raises(ValueError, match="incompatible lambda_unit"):
+        MergeSpectralDataset().run({"datasets": Collection([ds1, ds2], item_type=SpectralDataset)}, _config())
+
+
 def test_merge_remap_policy_makes_ids_unique() -> None:
     ds1 = _to_dataset([_spectrum("dup"), _spectrum("a")])
     ds2 = _to_dataset([_spectrum("dup"), _spectrum("b")])
@@ -298,6 +338,21 @@ def test_attach_features_rejects_missing_join_key() -> None:
             {
                 "dataset": Collection([dataset], item_type=SpectralDataset),
                 "features": Collection([bad_features], item_type=DataFrame),
+            },
+            _config(),
+        )
+
+
+def test_attach_features_rejects_duplicate_join_keys() -> None:
+    dataset = _to_dataset([_spectrum("a")])
+    duplicate_features = _support.dataframe_from_rows(
+        [{"spectrum_id": "a", "auc": 1.0}, {"spectrum_id": "a", "auc": 2.0}]
+    )
+    with pytest.raises(ValueError, match="must be unique"):
+        AttachFeaturesToSpectralDataset().run(
+            {
+                "dataset": Collection([dataset], item_type=SpectralDataset),
+                "features": Collection([duplicate_features], item_type=DataFrame),
             },
             _config(),
         )

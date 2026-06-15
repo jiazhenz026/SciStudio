@@ -1,9 +1,9 @@
-"""Per-format handler stubs for ``SpectralDataset`` load/save (FR-135..FR-139).
+"""Per-format handler functions for ``SpectralDataset`` load/save (FR-135..FR-139).
 
 Each function corresponds to one ``handler=`` named in a
 ``LoadSpectralDataset`` / ``SaveSpectralDataset`` ``FormatCapability`` record
 (spec §"SpectralDataset load/save capabilities"). The block methods delegate
-here; implementers fill the bodies.
+here.
 
 Loaders return a single :class:`SpectralDataset` (two ``DataFrame`` slots:
 ``index`` and ``spectra``). Savers write *dataset* to *path* and return
@@ -22,9 +22,10 @@ Package-owned formats implemented here:
 - ``xlsx`` (``.xlsx``/``.xls``) — explicit ``index``, ``spectra``, and optional
   ``meta`` sheets (``typed_meta`` fidelity, FR-137).
 
-Vendor / instrument-native multi-spectrum formats and ``.spc`` are deferred
-(``NotImplementedError`` with a tracked ``TODO(#1661)``) because they need a
-fixture or an optional binary SDK that is not available in this draft.
+Vendor / instrument-native multi-spectrum formats and ``.spc`` are deferred and
+are not advertised by the current ``FormatCapability`` matrix. Their direct
+entry points raise ``NotImplementedError`` with tracked ``TODO(#1661)`` notes
+until a fixture or optional binary SDK is available.
 """
 
 from __future__ import annotations
@@ -36,12 +37,7 @@ from typing import Any
 import pyarrow as pa
 
 from scistudio_blocks_spectroscopy import _support
-from scistudio_blocks_spectroscopy.types import (
-    INTENSITY_COLUMN,
-    LAMBDA_COLUMN,
-    SPECTRUM_ID_COLUMN,
-    SpectralDataset,
-)
+from scistudio_blocks_spectroscopy.types import SpectralDataset
 
 # Package-native manifest schema marker (FR-135, FR-141). Bumping this is a
 # schema-version change; the loader accepts manifests it understands and raises
@@ -86,25 +82,9 @@ def _meta_from_mapping(values: dict[str, Any]) -> SpectralDataset.Meta:
 
 def _validate_dataset_tables(index_table: pa.Table, spectra_table: pa.Table) -> None:
     """Validate the canonical two-table layout (FR-038, FR-009..FR-012)."""
-    if SPECTRUM_ID_COLUMN not in index_table.column_names:
-        raise ValueError(
-            f"SpectralDataset index table must contain a {SPECTRUM_ID_COLUMN!r} column; "
-            f"got {list(index_table.column_names)}"
-        )
-    required_spectra = {SPECTRUM_ID_COLUMN, LAMBDA_COLUMN, INTENSITY_COLUMN}
-    missing = required_spectra.difference(spectra_table.column_names)
-    if missing:
-        raise ValueError(
-            f"SpectralDataset spectra table must contain {sorted(required_spectra)} columns; missing {sorted(missing)}"
-        )
-    index_ids = set(index_table.column(SPECTRUM_ID_COLUMN).to_pylist())
-    spectra_ids = set(spectra_table.column(SPECTRUM_ID_COLUMN).to_pylist())
-    orphans = spectra_ids.difference(index_ids)
-    if orphans:
-        raise ValueError(
-            f"SpectralDataset spectra rows reference unknown spectrum_id(s) {sorted(orphans)}; "
-            "every spectra.spectrum_id must join to index.spectrum_id (FR-012)"
-        )
+    from scistudio_blocks_spectroscopy.types import validate_spectral_dataset_tables
+
+    validate_spectral_dataset_tables(index_table, spectra_table)
 
 
 def _sidecar_paths(path: Path) -> tuple[Path, Path]:

@@ -15,9 +15,10 @@ Spec coverage:
   sampling/truncation flags come from the bounded read; a missing-unit / empty /
   nonnumeric diagnostic is reported but the plot still renders.
 - ``spectral_dataset_provider`` — FR-022..FR-029. The ``index`` slot is read as
-  a paginated table; the ``spectra`` slot is read (bounded) only for dataset
-  health diagnostics (FR-027). Capabilities and plot-mode names are exposed so
-  the explorer UI can offer them. Bounded reads only (FR-028).
+  a paginated table; the ``spectra`` slot is read with the same bounded access
+  policy to provide diagnostics and lightweight explorer plot payloads.
+  Capabilities and plot-mode names are exposed so the explorer UI can offer
+  them. Bounded reads only (FR-028).
 
 FR-030: these providers perform NO scientific processing — only bounded reads,
 shape inspection, and integrity (join/schema/unit/numeric/alignment) checks.
@@ -25,6 +26,7 @@ shape inspection, and integrity (join/schema/unit/numeric/alignment) checks.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -399,11 +401,11 @@ def _columns_of(rows: list[dict[str, Any]]) -> list[str]:
     return cols
 
 
-def _grid_signature(grid: list[float]) -> tuple[int, float, float]:
-    """A cheap, order-insensitive signature of a lambda grid (length + bounds)."""
+def _grid_signature(grid: list[float]) -> tuple[float, ...]:
+    """Tolerance-rounded full-grid signature used for heatmap alignment checks."""
     if not grid:
-        return (0, 0.0, 0.0)
-    return (len(grid), round(min(grid), 6), round(max(grid), 6))
+        return ()
+    return tuple(round(float(value), 6) for value in grid)
 
 
 # ---------------------------------------------------------------------------
@@ -426,11 +428,13 @@ def _slot_ref(parent: StorageReference, record_md: dict[str, Any], slot: str) ->
     elif isinstance(record_md.get(f"{slot}_path"), str):
         candidate = record_md[f"{slot}_path"]
     else:
+        candidate = _manifest_slot_path(Path(parent.path), slot)
         base = Path(parent.path)
-        for name in (slot, f"{slot}.parquet", f"{slot}.csv"):
-            probe = base / name
-            if probe.exists():
-                candidate = str(probe)
+        for name in (f"{slot}.parquet", f"{slot}.csv", f"{slot}/data.parquet", f"{slot}/data.csv", slot):
+            if candidate is not None:
+                break
+            candidate = _slot_file_candidate(base / name)
+            if candidate is not None:
                 break
         if candidate is None and base.suffix.lower() in {".parquet", ".csv"}:
             # Single-file dataset payloads are not slot-separable for a bounded
@@ -438,7 +442,48 @@ def _slot_ref(parent: StorageReference, record_md: dict[str, Any], slot: str) ->
             return None
     if candidate is None:
         return None
-    return StorageReference(backend=parent.backend, path=candidate, format=parent.format)
+    candidate = _slot_file_candidate(Path(candidate)) or candidate
+    return StorageReference(backend=parent.backend, path=candidate, format=_format_for_path(candidate))
+
+
+def _slot_file_candidate(path: Path) -> str | None:
+    """Return a concrete slot file, resolving directory slots to data files."""
+    if path.is_dir():
+        for child_name in ("data.parquet", "data.csv"):
+            child = path / child_name
+            if child.is_file():
+                return str(child)
+        return None
+    return str(path) if path.is_file() else None
+
+
+def _manifest_slot_path(parent_path: Path, slot: str) -> str | None:
+    """Resolve package-native manifest slot refs when the parent ref is JSON."""
+    if parent_path.suffix.lower() != ".json" or not parent_path.exists():
+        return None
+    try:
+        manifest = json.loads(parent_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    slots = manifest.get("slots")
+    if not isinstance(slots, dict):
+        return None
+    ref = slots.get(slot)
+    if not isinstance(ref, dict) or not isinstance(ref.get("path"), str):
+        return None
+    candidate = Path(ref["path"])
+    if not candidate.is_absolute():
+        candidate = parent_path.parent / candidate
+    return str(candidate) if candidate.exists() else None
+
+
+def _format_for_path(path: str) -> str | None:
+    suffix = Path(path).suffix.lower()
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix == ".csv":
+        return "csv"
+    return None
 
 
 def _read_slot_page(
@@ -522,8 +567,9 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
     spectra_rows: list[dict[str, Any]] = []
     spectra_columns: list[str] = []
     spectra_truncated = False
+    spectra_total = 0
     if spectra_read is not None:
-        spectra_columns, spectra_rows, _spectra_total, spectra_truncated = spectra_read
+        spectra_columns, spectra_rows, spectra_total, spectra_truncated = spectra_read
         truncated = truncated or spectra_truncated
     else:
         diagnostics.append("spectra slot not readable for a bounded diagnostics scan")
@@ -540,12 +586,37 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
         diagnostics.append(f"{issue['code']}: {issue}")
 
     resources = _dataset_resources(slot_map)
+    plot_payload = _dataset_plot_payload(
+        index_rows=index_rows,
+        spectra_rows=spectra_rows,
+        index_columns=index_columns,
+        query=request.query,
+        heatmap_aligned=bool(dataset_diagnostics.get("heatmap_aligned")),
+    )
 
     payload = {
         "slots": slot_map,
         "index_table": index_payload,
+        "spectra_table": {
+            "columns": spectra_columns,
+            "rows": spectra_rows,
+            "total_rows": spectra_total,
+            "truncated": spectra_truncated,
+            "available": spectra_read is not None,
+        },
         "capabilities": list(_DATASET_CAPABILITIES),
         "plot_modes": list(_PLOT_MODES),
+        "plot": plot_payload,
+        "controls": {
+            "searchable_columns": index_columns,
+            "filterable_columns": index_columns,
+            "groupable_columns": [c for c in index_columns if c != _SPECTRUM_ID],
+            "colorable_columns": [c for c in index_columns if c != _SPECTRUM_ID],
+            "selected_ids": _selected_ids(request.query),
+            "group_by": plot_payload["group_by"],
+            "color_by": plot_payload["color_by"],
+            "plot_mode": plot_payload["mode"],
+        },
         "diagnostics": dataset_diagnostics,
         "dataset_metadata": _dataset_metadata_panel(record_md),
     }
@@ -569,6 +640,144 @@ def spectral_dataset_provider(request: PreviewRequest) -> PreviewEnvelope:
             },
         ),
     )
+
+
+def _dataset_plot_payload(
+    *,
+    index_rows: list[dict[str, Any]],
+    spectra_rows: list[dict[str, Any]],
+    index_columns: list[str],
+    query: dict[str, Any],
+    heatmap_aligned: bool,
+) -> dict[str, Any]:
+    """Build bounded plot payloads for the dataset explorer.
+
+    This is display shaping only: no baseline correction, smoothing, fitting, or
+    other scientific processing. Group summaries are computed from the bounded
+    visible rows solely so the preview can render the requested explorer modes.
+    """
+    mode = str(query.get("plot_mode") or "overlay")
+    if mode not in _PLOT_MODES:
+        mode = "overlay"
+    group_by = _query_column(query.get("group_by"), index_columns)
+    color_by = _query_column(query.get("color_by"), index_columns)
+    selected_ids = set(_selected_ids(query))
+    index_by_id = {
+        str(row.get(_SPECTRUM_ID)): row
+        for row in index_rows
+        if isinstance(row, dict) and row.get(_SPECTRUM_ID) not in (None, "")
+    }
+
+    series_by_id: dict[str, dict[str, Any]] = {}
+    skipped_rows = 0
+    for row in spectra_rows:
+        if not isinstance(row, dict) or row.get(_SPECTRUM_ID) in (None, ""):
+            skipped_rows += 1
+            continue
+        sid = str(row[_SPECTRUM_ID])
+        x_val = _finite_float(row.get(_LAMBDA))
+        y_val = _finite_float(row.get(_INTENSITY))
+        if x_val is None or y_val is None:
+            skipped_rows += 1
+            continue
+        index_md = index_by_id.get(sid, {})
+        series = series_by_id.setdefault(
+            sid,
+            {
+                "spectrum_id": sid,
+                "label": sid,
+                "group": _string_cell(index_md.get(group_by)) if group_by else None,
+                "color": _string_cell(index_md.get(color_by)) if color_by else None,
+                "selected": sid in selected_ids,
+                "points": [],
+            },
+        )
+        series["points"].append({"x": x_val, "y": y_val})
+
+    series_list = list(series_by_id.values())
+    selected_series = [series for series in series_list if series["selected"]]
+    group_payload = _group_payload(series_list, group_by)
+    heatmap_payload = _heatmap_payload(series_list, heatmap_aligned)
+    return {
+        "mode": mode,
+        "group_by": group_by,
+        "color_by": color_by,
+        "selected_ids": sorted(selected_ids),
+        "overlay": {"series": series_list},
+        "selected": {"series": selected_series},
+        "group_mean": {"groups": group_payload["mean"]},
+        "group_band": {"groups": group_payload["band"]},
+        "heatmap": heatmap_payload,
+        "skipped_rows": skipped_rows,
+        "bounded": True,
+    }
+
+
+def _query_column(raw: Any, columns: list[str]) -> str | None:
+    return raw if isinstance(raw, str) and raw in columns and raw != _SPECTRUM_ID else None
+
+
+def _selected_ids(query: dict[str, Any]) -> list[str]:
+    raw = query.get("selected_ids", query.get("selected"))
+    if isinstance(raw, str):
+        return [part.strip() for part in raw.split(",") if part.strip()]
+    if isinstance(raw, (list, tuple, set)):
+        return [str(value) for value in raw if value not in (None, "")]
+    return []
+
+
+def _string_cell(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _group_payload(series_list: list[dict[str, Any]], group_by: str | None) -> dict[str, Any]:
+    groups: dict[str, dict[float, list[float]]] = {}
+    for series in series_list:
+        group = _string_cell(series.get("group")) if group_by else "all"
+        if group is None:
+            group = "(missing)"
+        buckets = groups.setdefault(group, {})
+        for point in series.get("points", []):
+            x_val = float(point["x"])
+            buckets.setdefault(x_val, []).append(float(point["y"]))
+
+    mean_groups: list[dict[str, Any]] = []
+    band_groups: list[dict[str, Any]] = []
+    for group, buckets in groups.items():
+        mean_points: list[dict[str, float]] = []
+        band_points: list[dict[str, float]] = []
+        for x_val in sorted(buckets):
+            values = buckets[x_val]
+            mean = sum(values) / len(values)
+            mean_points.append({"x": x_val, "y": mean})
+            band_points.append({"x": x_val, "mean": mean, "min": min(values), "max": max(values)})
+        mean_groups.append({"group": group, "points": mean_points})
+        band_groups.append({"group": group, "points": band_points})
+    return {"mean": mean_groups, "band": band_groups}
+
+
+def _heatmap_payload(series_list: list[dict[str, Any]], heatmap_aligned: bool) -> dict[str, Any]:
+    if not series_list:
+        return {"aligned": heatmap_aligned, "x": [], "rows": [], "matrix": []}
+    first_x = [point["x"] for point in series_list[0].get("points", [])]
+    matrix: list[list[float]] = []
+    rows: list[str] = []
+    aligned = heatmap_aligned
+    for series in series_list:
+        points = series.get("points", [])
+        x_values = [point["x"] for point in points]
+        if x_values != first_x:
+            aligned = False
+        rows.append(str(series.get("spectrum_id")))
+        matrix.append([float(point["y"]) for point in points])
+    return {
+        "aligned": aligned,
+        "x": first_x if aligned else [],
+        "rows": rows if aligned else [],
+        "matrix": matrix if aligned else [],
+    }
 
 
 def _dataset_resources(slot_map: dict[str, str]) -> tuple[PreviewResource, ...]:

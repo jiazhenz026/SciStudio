@@ -6,10 +6,10 @@ Covers SC-048..SC-055 of ``docs/specs/spectroscopy-package.md``:
   formal ADR-043 fields (not synthesized migration scaffolds).
 - SC-049: ``capability_id`` is only a lookup reference to ``FormatCapability.id``
   and no package type declares file extensions / format support.
-- SC-050/SC-051: txt/csv/tsv/xlsx/spectrum_json/jcamp_dx/SPC load+save; SPC has
-  both directions on spectrum and dataset.
-- SC-052: vendor/native formats are load-only with no saver, no
-  ``roundtrip_group``, and no ``lossless`` fidelity.
+- SC-050/SC-051: txt/csv/tsv/xlsx/spectrum_json/jcamp_dx load+save; SPC is not
+  advertised until implemented.
+- SC-052: vendor/native formats are not advertised as capabilities until
+  fixture-backed handlers exist.
 - SC-053: dataset native JSON uses a package-owned manifest + sidecar slots.
 - SC-054: no ``.zip``/``.spectraldataset.zip`` capability is declared.
 - SC-055: capability lookup fails on unresolved ambiguity rather than choosing
@@ -34,10 +34,9 @@ from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
 
 _IO_BLOCKS = [LoadSpectrum, SaveSpectrum, LoadSpectralDataset, SaveSpectralDataset]
-_SAVE_BLOCKS = [SaveSpectrum, SaveSpectralDataset]
 
-# SC-052: vendor / native instrument formats accepted in this draft (load-only).
-_VENDOR_FORMAT_IDS = {
+_DEFERRED_FORMAT_IDS = {
+    "spc",
     "thermo_omnic_spa",
     "thermo_omnic_spg",
     "bruker_opus",
@@ -76,21 +75,10 @@ def test_handlers_resolve_on_class() -> None:
             assert callable(getattr(block, cap.handler))
 
 
-def test_vendor_load_only_formats_have_no_saver() -> None:
-    load_only_format_ids = {
-        "thermo_omnic_spa",
-        "bruker_opus",
-        "horiba_labspec",
-        "renishaw_wdf",
-        "andor_solis",
-        "princeton_spe",
-        "thermo_omnic_spg",
-        "witec_project",
-    }
-    saver_format_ids = {
-        cap.format_id for block in (SaveSpectrum, SaveSpectralDataset) for cap in block.get_format_capabilities()
-    }
-    assert load_only_format_ids.isdisjoint(saver_format_ids)
+def test_deferred_binary_formats_are_not_advertised() -> None:
+    """SC-051/SC-052: deferred SPC/vendor formats are not runtime capabilities."""
+    format_ids = {cap.format_id for block in _IO_BLOCKS for cap in block.get_format_capabilities()}
+    assert _DEFERRED_FORMAT_IDS.isdisjoint(format_ids)
 
 
 def test_lossless_capabilities_declare_roundtrip_group() -> None:
@@ -145,16 +133,10 @@ def test_capability_id_only_references_capability_id_field() -> None:
             assert cap.id in ids
 
 
-def test_spc_declares_load_and_save_on_spectrum_and_dataset() -> None:
-    """SC-051: SPC (.spc) has both load and save capabilities (spectrum+dataset)."""
-    load_spectrum_spc = [c for c in LoadSpectrum.get_format_capabilities() if c.format_id == "spc"]
-    save_spectrum_spc = [c for c in SaveSpectrum.get_format_capabilities() if c.format_id == "spc"]
-    load_dataset_spc = [c for c in LoadSpectralDataset.get_format_capabilities() if c.format_id == "spc"]
-    save_dataset_spc = [c for c in SaveSpectralDataset.get_format_capabilities() if c.format_id == "spc"]
-    assert load_spectrum_spc and load_spectrum_spc[0].direction == "load"
-    assert save_spectrum_spc and save_spectrum_spc[0].direction == "save"
-    assert load_dataset_spc and load_dataset_spc[0].direction == "load"
-    assert save_dataset_spc and save_dataset_spc[0].direction == "save"
+def test_spc_is_contractually_deferred() -> None:
+    """SC-051: SPC is tracked as planned work, not an executable capability."""
+    for block in _IO_BLOCKS:
+        assert all(cap.format_id != "spc" for cap in block.get_format_capabilities())
 
 
 def test_native_round_trippable_formats_load_and_save() -> None:
@@ -166,17 +148,11 @@ def test_native_round_trippable_formats_load_and_save() -> None:
     assert native <= save_ids
 
 
-def test_vendor_formats_are_load_only_no_roundtrip_no_lossless() -> None:
-    """SC-052: vendor/native formats are load-only with no roundtrip/lossless."""
-    save_format_ids = {c.format_id for blk in _SAVE_BLOCKS for c in blk.get_format_capabilities()}
-    for block in (LoadSpectrum, LoadSpectralDataset):
-        for cap in block.get_format_capabilities():
-            if cap.format_id in _VENDOR_FORMAT_IDS:
-                # No saver declared for any vendor format.
-                assert cap.format_id not in save_format_ids, cap.format_id
-                # No roundtrip group and not lossless.
-                assert cap.roundtrip_group is None, cap.id
-                assert cap.metadata_fidelity.level != "lossless", cap.id
+def test_vendor_formats_are_contractually_deferred() -> None:
+    """SC-052: vendor/native formats have no advertised loader or saver."""
+    advertised = {c.format_id for blk in _IO_BLOCKS for c in blk.get_format_capabilities()}
+    vendor_ids = _DEFERRED_FORMAT_IDS - {"spc"}
+    assert vendor_ids.isdisjoint(advertised)
 
 
 def test_dataset_native_json_uses_package_manifest() -> None:

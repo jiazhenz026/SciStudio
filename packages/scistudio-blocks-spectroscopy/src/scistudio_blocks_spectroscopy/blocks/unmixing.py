@@ -39,9 +39,11 @@ _RESERVED_COLUMNS = ("spectrum_id", "method")
 _STATUS_SUCCESS = "success"
 _STATUS_ILL_CONDITIONED = "ill_conditioned"
 _STATUS_FAILED = "failed"
+_STATUS_CONSTRAINT_NOT_SATISFIED = "constraint_not_satisfied"
 
 #: Large weight for the sum-to-one equality row in the augmented NNLS.
 _SUM_TO_ONE_WEIGHT = 1.0e6
+_SUM_TO_ONE_TOLERANCE = 1.0e-6
 
 
 class SpectralUnmixing(ProcessBlock):
@@ -270,6 +272,18 @@ def _solve(
     elif condition_number is not None and condition_number > 1.0e12:
         status = _STATUS_ILL_CONDITIONED
         message = "design matrix is ill-conditioned"
+    if method == "sum_to_one_non_negative_least_squares":
+        coefficient_sum = float(np.sum(coeffs))
+        if not np.isfinite(coefficient_sum) or abs(coefficient_sum - 1.0) > _SUM_TO_ONE_TOLERANCE:
+            detail = (
+                f"sum-to-one constraint not satisfied: sum={coefficient_sum:.12g}, "
+                f"tolerance={_SUM_TO_ONE_TOLERANCE:.1e}"
+            )
+            if status == _STATUS_SUCCESS:
+                status = _STATUS_CONSTRAINT_NOT_SATISFIED
+                message = detail
+            else:
+                message = f"{message}; {detail}" if message else detail
 
     # Reconstruct the fit on the original (un-augmented) design for quality stats.
     fitted = design @ coeffs

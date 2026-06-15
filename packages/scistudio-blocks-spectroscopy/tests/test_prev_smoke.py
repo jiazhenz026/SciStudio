@@ -195,12 +195,21 @@ def test_spectral_dataset_provider_builds_composite_envelope(tmp_path: Path) -> 
     # Capabilities + plot modes exposed (FR-024/FR-025).
     assert env.payload["capabilities"] == ["table", "filter", "group", "plot", "diagnostics", "export"]
     assert env.payload["plot_modes"] == ["overlay", "selected", "group_mean", "group_band", "heatmap"]
+    assert env.payload["plot"]["overlay"]["series"]
+    assert env.payload["spectra_table"]["available"] is True
     # Healthy dataset -> diagnostics present and ok.
     assert env.payload["diagnostics"]["ok"] is True
     # Child slot resources + figure/rows/group export (FR-029).
     res_ids = {r.resource_id for r in env.resources}
     assert {"slot:index", "slot:spectra"} <= res_ids
-    assert {"export_figure_svg", "export_selected_rows_csv", "export_grouped_summary_csv"} <= res_ids
+    assert {
+        "export_figure_svg",
+        "export_figure_png",
+        "export_figure_pdf",
+        "export_visible_spectra_csv",
+        "export_selected_rows_csv",
+        "export_grouped_summary_csv",
+    } <= res_ids
 
 
 def test_spectral_dataset_provider_detects_health_issues(tmp_path: Path) -> None:
@@ -277,6 +286,22 @@ def test_compute_dataset_diagnostics_flags_unit_and_alignment() -> None:
     assert "unit_inconsistency" in codes
     assert "heatmap_alignment" in codes
     assert diag["heatmap_aligned"] is False
+
+
+def test_compute_dataset_diagnostics_flags_same_endpoint_interior_mismatch() -> None:
+    diag = compute_dataset_diagnostics(
+        index_rows=[{"spectrum_id": "a"}, {"spectrum_id": "b"}],
+        spectra_rows=[
+            {"spectrum_id": "a", "lambda": 1.0, "intensity": 1.0},
+            {"spectrum_id": "a", "lambda": 2.0, "intensity": 2.0},
+            {"spectrum_id": "a", "lambda": 3.0, "intensity": 3.0},
+            {"spectrum_id": "b", "lambda": 1.0, "intensity": 1.0},
+            {"spectrum_id": "b", "lambda": 2.5, "intensity": 2.0},
+            {"spectrum_id": "b", "lambda": 3.0, "intensity": 3.0},
+        ],
+    )
+    codes = {i["code"] for i in diag["issues"]}
+    assert "heatmap_alignment" in codes
 
 
 def test_compute_dataset_diagnostics_flags_nonnumeric_and_missing_columns() -> None:

@@ -979,13 +979,12 @@ Acceptance Scenarios:
   `Spectrum`, `SpectralDataset`, or their typed `Meta` models.
 - FR-132: `LoadSpectrum` and `SaveSpectrum` must provide load/save
   capabilities for `.txt`, `.csv`, `.tsv`, `.xlsx`, package-owned
-  `.spectrum.json`, JCAMP-DX (`.jdx`, `.dx`, `.jcamp`), and SPC (`.spc`)
-  according to the accepted capability matrix.
-- FR-133: `LoadSpectrum` must provide load-only capabilities for accepted
-  single-spectrum vendor or instrument formats, including Thermo OMNIC `.spa`,
-  Bruker OPUS through explicit capability selection, HORIBA LabSpec single
-  spectrum exports, Andor/ASCII-style spectra, and Princeton/LightField SPE
-  where the handler can return one `Spectrum`.
+  `.spectrum.json`, and JCAMP-DX (`.jdx`, `.dx`, `.jcamp`) according to the
+  accepted capability matrix.
+- FR-133: SPC (`.spc`) and single-spectrum vendor or instrument-native formats
+  are planned but not accepted runtime capabilities in this draft. The package
+  must not advertise them through `FormatCapability` records until fixture- or
+  SDK-backed handlers and tests are available.
 - FR-134: `SaveSpectrum` must not declare saver capabilities for accepted
   vendor or instrument-native load-only formats unless a later owner-approved
   amendment accepts a tested writer for that exact format.
@@ -998,22 +997,23 @@ Acceptance Scenarios:
 - FR-137: `LoadSpectralDataset` and `SaveSpectralDataset` must provide
   load/save capabilities for `.xlsx` workbooks that use explicit `index`,
   `spectra`, and optional `meta` sheets.
-- FR-138: SPC (`.spc`) must be available as both load and save capability for
-  `Spectrum` and `SpectralDataset` where the handler can represent the target
-  as a single-spectrum or multi-spectrum SPC payload.
-- FR-139: `LoadSpectralDataset` must provide load-only capabilities for
-  accepted multi-spectrum vendor or instrument formats, including Thermo OMNIC
-  `.spg`, Renishaw WiRE `.wdf`, WITec `.wip`/`.wid`, HORIBA LabSpec map or
-  group exports, Andor/FITS-style multi-spectrum outputs, and
-  Princeton/LightField SPE where the handler returns multiple spectra.
-- FR-140: Vendor or instrument-native load-only capabilities must not declare a
-  matching saver, must not set a `roundtrip_group`, and must not claim
-  `lossless` metadata fidelity.
+- FR-138: Multi-spectrum SPC (`.spc`) is planned but not an accepted
+  `SpectralDataset` runtime capability in this draft. It must remain tracked as
+  deferred work until fixtures or an optional SPC library prove load/save
+  behavior.
+- FR-139: Multi-spectrum vendor or instrument-native formats are planned but
+  not accepted runtime capabilities in this draft. They must not be advertised
+  through `FormatCapability` records until fixture- or SDK-backed handlers and
+  tests are available.
+- FR-140: If vendor or instrument-native load-only capabilities are accepted by
+  a later owner-approved amendment, they must not declare a matching saver,
+  must not set a `roundtrip_group`, and must not claim `lossless` metadata
+  fidelity.
 - FR-141: Package-owned native JSON manifest capabilities may claim
   `lossless` only when both load and save capabilities share a
   `roundtrip_group` and tests prove preservation of the primary payload,
   required typed `Meta` fields, and required `SpectralDataset` slot schemas.
-- FR-142: Delimited text, Excel, JCAMP-DX, and SPC capabilities must declare
+- FR-142: Delimited text, Excel, and JCAMP-DX capabilities must declare
   conservative `metadata_fidelity` values that match tested behavior. They
   must not imply preservation of arbitrary vendor-native metadata.
 - FR-143: Capability lookup for spectroscopy IO must follow ADR-043 selection
@@ -1118,14 +1118,6 @@ uses the same explicit field lists plus `level="lossless"`.
 | `scistudio-blocks-spectroscopy.spectrum.spectrum_json.save` | `save` | `Spectrum` | `spectrum_json` | `(".spectrum.json",)` | Native Spectrum JSON | `SaveSpectrum` | `_save_spectrum_json` | `true/0` | `scistudio-blocks-spectroscopy.spectrum.spectrum_json` | `lossless(lambda_unit,intensity_unit,lambda_kind,modality)` |
 | `scistudio-blocks-spectroscopy.spectrum.jcamp_dx.load` | `load` | `Spectrum` | `jcamp_dx` | `(".jdx", ".dx", ".jcamp")` | JCAMP-DX spectrum | `LoadSpectrum` | `_load_jcamp_dx` | `true/0` | `scistudio-blocks-spectroscopy.spectrum.jcamp_dx` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
 | `scistudio-blocks-spectroscopy.spectrum.jcamp_dx.save` | `save` | `Spectrum` | `jcamp_dx` | `(".jdx", ".dx", ".jcamp")` | JCAMP-DX spectrum | `SaveSpectrum` | `_save_jcamp_dx` | `true/0` | `scistudio-blocks-spectroscopy.spectrum.jcamp_dx` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.spc.load` | `load` | `Spectrum` | `spc` | `(".spc",)` | SPC spectrum | `LoadSpectrum` | `_load_spc` | `true/0` | `scistudio-blocks-spectroscopy.spectrum.spc` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.spc.save` | `save` | `Spectrum` | `spc` | `(".spc",)` | SPC spectrum | `SaveSpectrum` | `_save_spc` | `true/0` | `scistudio-blocks-spectroscopy.spectrum.spc` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.thermo_omnic_spa.load` | `load` | `Spectrum` | `thermo_omnic_spa` | `(".spa",)` | Thermo OMNIC SPA spectrum | `LoadSpectrum` | `_load_thermo_omnic_spa` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.bruker_opus.load` | `load` | `Spectrum` | `bruker_opus` | `(".opus",)` | Bruker OPUS spectrum | `LoadSpectrum` | `_load_bruker_opus` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.horiba_labspec.load` | `load` | `Spectrum` | `horiba_labspec` | `(".l6s", ".l5s", ".ngs", ".xml")` | HORIBA LabSpec spectrum | `LoadSpectrum` | `_load_horiba_labspec` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.renishaw_wdf.load` | `load` | `Spectrum` | `renishaw_wdf` | `(".wdf",)` | Renishaw WiRE spectrum | `LoadSpectrum` | `_load_renishaw_wdf` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.andor_solis.load` | `load` | `Spectrum` | `andor_solis` | `(".sif", ".fits", ".fit", ".asc")` | Andor Solis spectrum | `LoadSpectrum` | `_load_andor_solis` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
-| `scistudio-blocks-spectroscopy.spectrum.princeton_spe.load` | `load` | `Spectrum` | `princeton_spe` | `(".spe",)` | Princeton/LightField SPE spectrum | `LoadSpectrum` | `_load_princeton_spe` | `true/0` | `null` | `typed_meta(lambda_unit,intensity_unit,lambda_kind,modality)` |
 
 `SpectralDataset` load/save capabilities:
 
@@ -1135,15 +1127,6 @@ uses the same explicit field lists plus `level="lossless"`.
 | `scistudio-blocks-spectroscopy.spectral_dataset.manifest_json.save` | `save` | `SpectralDataset` | `spectral_dataset_manifest_json` | `(".json",)` | SpectralDataset manifest (JSON) | `SaveSpectralDataset` | `_save_manifest_json` | `true/0` | `scistudio-blocks-spectroscopy.spectral_dataset.manifest_json` | `lossless(dataset_name,dataset_role,lambda_unit,intensity_unit,modality,schema_version)` |
 | `scistudio-blocks-spectroscopy.spectral_dataset.xlsx.load` | `load` | `SpectralDataset` | `xlsx` | `(".xlsx", ".xls")` | SpectralDataset Excel workbook | `LoadSpectralDataset` | `_load_dataset_xlsx` | `true/0` | `scistudio-blocks-spectroscopy.spectral_dataset.xlsx` | `typed_meta(dataset_name,dataset_role,lambda_unit,intensity_unit,modality,schema_version)` |
 | `scistudio-blocks-spectroscopy.spectral_dataset.xlsx.save` | `save` | `SpectralDataset` | `xlsx` | `(".xlsx",)` | SpectralDataset Excel workbook | `SaveSpectralDataset` | `_save_dataset_xlsx` | `true/0` | `scistudio-blocks-spectroscopy.spectral_dataset.xlsx` | `typed_meta(dataset_name,dataset_role,lambda_unit,intensity_unit,modality,schema_version)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.spc.load` | `load` | `SpectralDataset` | `spc` | `(".spc",)` | SPC spectral dataset | `LoadSpectralDataset` | `_load_spc_dataset` | `true/0` | `scistudio-blocks-spectroscopy.spectral_dataset.spc` | `typed_meta(dataset_name,dataset_role,lambda_unit,intensity_unit,modality,schema_version)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.spc.save` | `save` | `SpectralDataset` | `spc` | `(".spc",)` | SPC spectral dataset | `SaveSpectralDataset` | `_save_spc_dataset` | `true/0` | `scistudio-blocks-spectroscopy.spectral_dataset.spc` | `typed_meta(dataset_name,dataset_role,lambda_unit,intensity_unit,modality,schema_version)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.thermo_omnic_spg.load` | `load` | `SpectralDataset` | `thermo_omnic_spg` | `(".spg",)` | Thermo OMNIC SPG dataset | `LoadSpectralDataset` | `_load_thermo_omnic_spg` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.renishaw_wdf.load` | `load` | `SpectralDataset` | `renishaw_wdf` | `(".wdf",)` | Renishaw WiRE dataset | `LoadSpectralDataset` | `_load_renishaw_wdf_dataset` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.bruker_opus.load` | `load` | `SpectralDataset` | `bruker_opus` | `(".opus",)` | Bruker OPUS dataset | `LoadSpectralDataset` | `_load_bruker_opus_dataset` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.horiba_labspec.load` | `load` | `SpectralDataset` | `horiba_labspec` | `(".l6s", ".l5s", ".ngc", ".xml", ".txt")` | HORIBA LabSpec dataset | `LoadSpectralDataset` | `_load_horiba_labspec_dataset` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.witec_project.load` | `load` | `SpectralDataset` | `witec_project` | `(".wip", ".wid")` | WITec project dataset | `LoadSpectralDataset` | `_load_witec_project` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.andor_solis.load` | `load` | `SpectralDataset` | `andor_solis` | `(".sif", ".fits", ".fit")` | Andor Solis dataset | `LoadSpectralDataset` | `_load_andor_solis_dataset` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
-| `scistudio-blocks-spectroscopy.spectral_dataset.princeton_spe.load` | `load` | `SpectralDataset` | `princeton_spe` | `(".spe",)` | Princeton/LightField SPE dataset | `LoadSpectralDataset` | `_load_princeton_spe_dataset` | `true/0` | `null` | `typed_meta(dataset_role,lambda_unit,intensity_unit,modality)` |
 
 The `SpectralDataset` JSON manifest capability is package-owned but must remain
 compatible with core `CompositeData` IO semantics: the boundary file is a JSON
@@ -1404,10 +1387,10 @@ Expected verification after implementation:
 - Utility block tests prove load/save, conversion, filtering, merging,
   feature attachment, generated-ID behavior, metadata joins by `spectrum_id`
   and `source_file`, and duplicate-ID policies.
-- IO tests prove SPC has both load and save capabilities, accepted
-  vendor/native instrument formats are load-only, and `SpectralDataset` native
-  save/load follows the core `CompositeData` JSON manifest plus sidecar slot
-  model rather than a zip or archive format.
+- IO tests prove deferred SPC/vendor/native formats are not advertised as
+  runtime capabilities, and `SpectralDataset` native save/load follows the core
+  `CompositeData` JSON manifest plus sidecar slot model rather than a zip or
+  archive format.
 - Preprocessing tests prove every accepted preprocessing block accepts
   `Collection[Spectrum]`, rejects `SpectralDataset`, preserves item count,
   order, and `spectrum_id`, and supports only the accepted methods.
@@ -1715,14 +1698,14 @@ matching, or unmixing requirement before implementation starts.
   workflow or lookup reference to `FormatCapability.id`, and no package type
   declares file extensions or format support.
 - SC-050: Spectrum IO tests prove `.txt`, `.csv`, `.tsv`, `.xlsx`,
-  `.spectrum.json`, JCAMP-DX, and SPC capabilities can load and save according
-  to their declared metadata fidelity.
-- SC-051: Spectrum and dataset format tests prove SPC (`.spc`) has both load
-  and save capabilities, including the dataset case when the SPC payload
-  contains multiple spectra.
-- SC-052: Format capability tests prove vendor/native instrument formats
-  accepted in this draft are load-only and do not declare saver capabilities,
-  `roundtrip_group`, or `lossless` metadata fidelity.
+  `.spectrum.json`, and JCAMP-DX capabilities can load and save according to
+  their declared metadata fidelity.
+- SC-051: Spectrum and dataset format tests prove SPC (`.spc`) remains a
+  tracked planned deferral and is not advertised as a runtime capability until
+  implemented.
+- SC-052: Format capability tests prove vendor/native instrument formats remain
+  tracked planned deferrals and are not advertised as runtime capabilities until
+  implemented.
 - SC-053: Dataset IO tests prove `SpectralDataset` native JSON save/load uses
   a package-owned JSON manifest plus sidecar `index` and `spectra` table slots,
   aligned with core `CompositeData` IO semantics.
