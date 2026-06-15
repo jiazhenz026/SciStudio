@@ -159,6 +159,8 @@ def test_generated_library_dataset_previews_with_index_and_capabilities(tmp_path
     # Explorer capabilities + plot modes exposed (FR-024/FR-025).
     assert "plot" in env.payload["capabilities"]
     assert "heatmap" in env.payload["plot_modes"]
+    assert env.payload["plot"]["overlay"]["series"]
+    assert env.payload["plot"]["heatmap"]["aligned"] is True
     # Library is well-formed -> diagnostics clean.
     assert env.payload["diagnostics"]["ok"] is True
 
@@ -225,6 +227,22 @@ def test_non_aligned_grids_flag_heatmap(tmp_path: Path) -> None:
     codes = {i["code"] for i in diag["issues"]}
     assert "heatmap_alignment" in codes
     assert diag["heatmap_aligned"] is False
+
+
+def test_same_bounds_different_interior_grid_flags_heatmap() -> None:
+    diag = compute_dataset_diagnostics(
+        index_rows=[{"spectrum_id": "a"}, {"spectrum_id": "b"}],
+        spectra_rows=[
+            {"spectrum_id": "a", "lambda": 400.0, "intensity": 1.0},
+            {"spectrum_id": "a", "lambda": 500.0, "intensity": 2.0},
+            {"spectrum_id": "a", "lambda": 600.0, "intensity": 1.0},
+            {"spectrum_id": "b", "lambda": 400.0, "intensity": 1.0},
+            {"spectrum_id": "b", "lambda": 520.0, "intensity": 2.0},
+            {"spectrum_id": "b", "lambda": 600.0, "intensity": 1.0},
+        ],
+    )
+    assert diag["heatmap_aligned"] is False
+    assert "heatmap_alignment" in {i["code"] for i in diag["issues"]}
 
 
 def test_aligned_grids_no_heatmap_warning() -> None:

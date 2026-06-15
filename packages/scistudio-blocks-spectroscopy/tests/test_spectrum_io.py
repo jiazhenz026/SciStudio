@@ -11,8 +11,8 @@ executable assertions, complementing the implementer smoke tests:
   not), and the LoadSpectrum block regenerates a fresh package-managed
   ``spectrum_id`` while keeping ``source_file`` separate (FR-035/FR-036);
 - ``capability_id`` selects a handler by ``FormatCapability.id`` (SC-049);
-- vendor load-only formats surface a tracked ``NotImplementedError`` and have no
-  saver (SC-052).
+- vendor/SPC handlers remain tracked deferrals, but are not advertised through
+  block capability dispatch until implemented (SC-051/SC-052).
 """
 
 from __future__ import annotations
@@ -211,10 +211,18 @@ def test_save_block_rejects_vendor_load_only_extension(tmp_path: Path) -> None:
         )
 
 
-def test_spc_spectrum_is_deferred(tmp_path: Path) -> None:
-    """SC-051: SPC is declared (load+save) but the body is a tracked deferral."""
+def test_spc_spectrum_is_deferred_not_advertised(tmp_path: Path) -> None:
+    """SC-051: SPC handlers are tracked TODOs, not block capabilities."""
     spec = _make_spectrum()
     with pytest.raises(NotImplementedError):
         spectrum_formats.save_spc(spec, tmp_path / "x.spc")
     with pytest.raises(NotImplementedError):
         spectrum_formats.load_spc(tmp_path / "x.spc")
+    with pytest.raises(ValueError):
+        SaveSpectrum().save(
+            Collection([spec], item_type=Spectrum), BlockConfig(params={"path": str(tmp_path / "x.spc")})
+        )
+    spc = tmp_path / "x.spc"
+    spc.write_bytes(b"")
+    with pytest.raises(ValueError):
+        LoadSpectrum().load(BlockConfig(params={"path": str(spc)}))

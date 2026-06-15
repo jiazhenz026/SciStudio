@@ -10,8 +10,10 @@ Nine utility blocks that move data between files, ``Collection[Spectrum]``, and
   :class:`SpectralDatasetToSpectrum`, :class:`FilterSpectralDataset`,
   :class:`MergeSpectralDataset`, :class:`AttachFeaturesToSpectralDataset`.
 
-Executable bodies are skeleton stubs that raise ``NotImplementedError``; the
-ports, config schemas, and capability records are the real stable contract.
+Executable bodies delegate to package-owned helpers and per-format handlers.
+Capabilities are declared only for executable formats; deferred SPC/vendor
+handlers remain tracked in ``io_handlers`` but are not discoverable runtime
+capabilities until fixtures or optional SDK support exists.
 """
 
 from __future__ import annotations
@@ -57,8 +59,6 @@ _DATASET_META_FIELDS = (
     "modality",
     "schema_version",
 )
-_DATASET_VENDOR_META_FIELDS = ("dataset_role", "lambda_unit", "intensity_unit", "modality")
-
 # Shared file-path config schema fragment for IO blocks.
 _PATH_CONFIG_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -286,19 +286,6 @@ class LoadSpectrum(IOBlock):
         ".jdx": "jcamp_dx",
         ".dx": "jcamp_dx",
         ".jcamp": "jcamp_dx",
-        ".spc": "spc",
-        ".spa": "thermo_omnic_spa",
-        ".opus": "bruker_opus",
-        ".l6s": "horiba_labspec",
-        ".l5s": "horiba_labspec",
-        ".ngs": "horiba_labspec",
-        ".xml": "horiba_labspec",
-        ".wdf": "renishaw_wdf",
-        ".sif": "andor_solis",
-        ".fits": "andor_solis",
-        ".fit": "andor_solis",
-        ".asc": "andor_solis",
-        ".spe": "princeton_spe",
     }
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
@@ -378,91 +365,6 @@ class LoadSpectrum(IOBlock):
             handler="_load_jcamp_dx",
             is_default=True,
             roundtrip_group=f"{_PKG}.spectrum.jcamp_dx",
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.spc.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="spc",
-            extensions=(".spc",),
-            label="SPC spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_spc",
-            is_default=True,
-            roundtrip_group=f"{_PKG}.spectrum.spc",
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.thermo_omnic_spa.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="thermo_omnic_spa",
-            extensions=(".spa",),
-            label="Thermo OMNIC SPA spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_thermo_omnic_spa",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.bruker_opus.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="bruker_opus",
-            extensions=(".opus",),
-            label="Bruker OPUS spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_bruker_opus",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.horiba_labspec.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="horiba_labspec",
-            extensions=(".l6s", ".l5s", ".ngs", ".xml"),
-            label="HORIBA LabSpec spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_horiba_labspec",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.renishaw_wdf.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="renishaw_wdf",
-            extensions=(".wdf",),
-            label="Renishaw WiRE spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_renishaw_wdf",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.andor_solis.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="andor_solis",
-            extensions=(".sif", ".fits", ".fit", ".asc"),
-            label="Andor Solis spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_andor_solis",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.princeton_spe.load",
-            direction="load",
-            data_type=Spectrum,
-            format_id="princeton_spe",
-            extensions=(".spe",),
-            label="Princeton/LightField SPE spectrum",
-            block_type="LoadSpectrum",
-            handler="_load_princeton_spe",
-            is_default=True,
             metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_SPECTRUM_META_FIELDS),
         ),
     )
@@ -570,7 +472,6 @@ class SaveSpectrum(IOBlock):
         ".jdx": "jcamp_dx",
         ".dx": "jcamp_dx",
         ".jcamp": "jcamp_dx",
-        ".spc": "spc",
     }
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
@@ -652,19 +553,6 @@ class SaveSpectrum(IOBlock):
             roundtrip_group=f"{_PKG}.spectrum.jcamp_dx",
             metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_writes=_SPECTRUM_META_FIELDS),
         ),
-        FormatCapability(
-            id=f"{_PKG}.spectrum.spc.save",
-            direction="save",
-            data_type=Spectrum,
-            format_id="spc",
-            extensions=(".spc",),
-            label="SPC spectrum",
-            block_type="SaveSpectrum",
-            handler="_save_spc",
-            is_default=True,
-            roundtrip_group=f"{_PKG}.spectrum.spc",
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_writes=_SPECTRUM_META_FIELDS),
-        ),
     )
 
     _save_delimited_text = staticmethod(spectrum_formats.save_delimited_text)
@@ -731,7 +619,7 @@ class LoadSpectralDataset(IOBlock):
     direction: ClassVar[str] = "input"
     type_name: ClassVar[str] = "spectroscopy.load_spectral_dataset"
     name: ClassVar[str] = "Load Spectral Dataset"
-    description: ClassVar[str] = "Load a SpectralDataset from a manifest, workbook, SPC, or vendor file."
+    description: ClassVar[str] = "Load a SpectralDataset from a manifest or workbook."
     version: ClassVar[str] = "0.1.0"
     subcategory: ClassVar[str] = "io"
 
@@ -745,21 +633,6 @@ class LoadSpectralDataset(IOBlock):
         ".json": "spectral_dataset_manifest_json",
         ".xlsx": "xlsx",
         ".xls": "xlsx",
-        ".spc": "spc",
-        ".spg": "thermo_omnic_spg",
-        ".wdf": "renishaw_wdf",
-        ".opus": "bruker_opus",
-        ".l6s": "horiba_labspec",
-        ".l5s": "horiba_labspec",
-        ".ngc": "horiba_labspec",
-        ".xml": "horiba_labspec",
-        ".txt": "horiba_labspec",
-        ".wip": "witec_project",
-        ".wid": "witec_project",
-        ".sif": "andor_solis",
-        ".fits": "andor_solis",
-        ".fit": "andor_solis",
-        ".spe": "princeton_spe",
     }
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
@@ -789,103 +662,6 @@ class LoadSpectralDataset(IOBlock):
             roundtrip_group=f"{_PKG}.spectral_dataset.xlsx",
             metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_META_FIELDS),
         ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.spc.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="spc",
-            extensions=(".spc",),
-            label="SPC spectral dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_spc_dataset",
-            is_default=True,
-            roundtrip_group=f"{_PKG}.spectral_dataset.spc",
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.thermo_omnic_spg.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="thermo_omnic_spg",
-            extensions=(".spg",),
-            label="Thermo OMNIC SPG dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_thermo_omnic_spg",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.renishaw_wdf.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="renishaw_wdf",
-            extensions=(".wdf",),
-            label="Renishaw WiRE dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_renishaw_wdf_dataset",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.bruker_opus.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="bruker_opus",
-            extensions=(".opus",),
-            label="Bruker OPUS dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_bruker_opus_dataset",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.horiba_labspec.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="horiba_labspec",
-            extensions=(".l6s", ".l5s", ".ngc", ".xml", ".txt"),
-            label="HORIBA LabSpec dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_horiba_labspec_dataset",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.witec_project.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="witec_project",
-            extensions=(".wip", ".wid"),
-            label="WITec project dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_witec_project",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.andor_solis.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="andor_solis",
-            extensions=(".sif", ".fits", ".fit"),
-            label="Andor Solis dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_andor_solis_dataset",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.princeton_spe.load",
-            direction="load",
-            data_type=SpectralDataset,
-            format_id="princeton_spe",
-            extensions=(".spe",),
-            label="Princeton/LightField SPE dataset",
-            block_type="LoadSpectralDataset",
-            handler="_load_princeton_spe_dataset",
-            is_default=True,
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_reads=_DATASET_VENDOR_META_FIELDS),
-        ),
     )
 
     _load_manifest_json = staticmethod(dataset_formats.load_manifest_json)
@@ -903,8 +679,8 @@ class LoadSpectralDataset(IOBlock):
         """Load a dataset-shaped file into a SpectralDataset (FR-038).
 
         Resolves ``config['path']`` and optional ``capability_id``, dispatches to
-        the matching ``_load_*`` handler (manifest JSON / xlsx workbook / SPC /
-        vendor) via ADR-043 selection, and returns the loaded
+        the matching ``_load_*`` handler (manifest JSON / xlsx workbook) via
+        ADR-043 selection, and returns the loaded
         :class:`SpectralDataset`. The handlers validate the canonical two-table
         layout (FR-038, FR-135..FR-139); the ``IOBlock.run`` wrapper packs the
         single dataset into a Collection.
@@ -941,7 +717,7 @@ class SaveSpectralDataset(IOBlock):
     direction: ClassVar[str] = "output"
     type_name: ClassVar[str] = "spectroscopy.save_spectral_dataset"
     name: ClassVar[str] = "Save Spectral Dataset"
-    description: ClassVar[str] = "Save a SpectralDataset to a JSON manifest, workbook, or SPC file."
+    description: ClassVar[str] = "Save a SpectralDataset to a JSON manifest or workbook."
     version: ClassVar[str] = "0.1.0"
     subcategory: ClassVar[str] = "io"
 
@@ -979,7 +755,6 @@ class SaveSpectralDataset(IOBlock):
     supported_extensions: ClassVar[dict[str, str]] = {
         ".json": "spectral_dataset_manifest_json",
         ".xlsx": "xlsx",
-        ".spc": "spc",
     }
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
@@ -1009,19 +784,6 @@ class SaveSpectralDataset(IOBlock):
             roundtrip_group=f"{_PKG}.spectral_dataset.xlsx",
             metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_writes=_DATASET_META_FIELDS),
         ),
-        FormatCapability(
-            id=f"{_PKG}.spectral_dataset.spc.save",
-            direction="save",
-            data_type=SpectralDataset,
-            format_id="spc",
-            extensions=(".spc",),
-            label="SPC spectral dataset",
-            block_type="SaveSpectralDataset",
-            handler="_save_spc_dataset",
-            is_default=True,
-            roundtrip_group=f"{_PKG}.spectral_dataset.spc",
-            metadata_fidelity=MetadataFidelity(level="typed_meta", typed_meta_writes=_DATASET_META_FIELDS),
-        ),
     )
 
     _save_manifest_json = staticmethod(dataset_formats.save_manifest_json)
@@ -1035,9 +797,9 @@ class SaveSpectralDataset(IOBlock):
         """Persist a SpectralDataset (FR-039).
 
         Resolves ``config['path']`` (+ optional ``output_dir``/``capability_id``),
-        dispatches to ``_save_manifest_json`` / ``_save_dataset_xlsx`` /
-        ``_save_spc_dataset`` (the only declared savers — there is no archive/zip
-        capability, FR-136), and writes the canonical two-table layout preserving
+        dispatches to ``_save_manifest_json`` / ``_save_dataset_xlsx`` (the
+        only declared savers — there is no archive/zip capability, FR-136), and
+        writes the canonical two-table layout preserving
         ``index.spectrum_id``, ``spectra.spectrum_id``, coordinates, intensities,
         and dataset/index metadata (FR-039, FR-135..FR-138).
         """
@@ -1107,11 +869,20 @@ def _join_metadata(index_pdf: Any, meta_pdf: Any, join_key: str, block: str) -> 
         raise ValueError(f"{block}: index has no join column {join_key!r}")
     if join_key not in meta_pdf.columns:
         raise ValueError(f"{block}: metadata table has no join column {join_key!r}")
+    duplicate_meta_keys = _duplicate_values(meta_pdf[join_key].tolist())
+    if duplicate_meta_keys:
+        raise ValueError(
+            f"{block}: metadata join key {join_key!r} must be unique; "
+            f"duplicates {duplicate_meta_keys!r} would multiply index rows"
+        )
     # Drop overlapping non-key columns from the index so metadata fills them in
     # (metadata table is the authoritative side for the joined columns).
     overlap = [c for c in meta_pdf.columns if c != join_key and c in index_pdf.columns]
     left = index_pdf.drop(columns=overlap) if overlap else index_pdf
-    return left.merge(meta_pdf, on=join_key, how="left")
+    merged = left.merge(meta_pdf, on=join_key, how="left")
+    if len(merged) != len(index_pdf):
+        raise ValueError(f"{block}: metadata join changed index row count from {len(index_pdf)} to {len(merged)}")
+    return merged
 
 
 def _dataset_meta_from_spectra(spectra: list[Spectrum]) -> SpectralDataset.Meta:
@@ -1244,6 +1015,13 @@ def _check_unit_compatibility(datasets: list[SpectralDataset], block: str) -> No
                 value = getattr(meta, field, None)
                 if value is not None:
                     seen.add(value)
+            index_tbl, _ = _support.dataset_frames(dataset)
+            if field in index_tbl.column_names:
+                seen.update(
+                    value
+                    for value in index_tbl.column(field).to_pylist()
+                    if value is not None and not _is_missing(value) and value != ""
+                )
         if len(seen) > 1:
             raise ValueError(
                 f"{block}: incompatible {field} across datasets {sorted(seen)!r}; "
@@ -1287,6 +1065,19 @@ def _reject_object_cells(pdf: Any, block: str) -> None:
                     f"{block}: feature column {column!r} contains a {type(value).__name__} object; "
                     "feature tables must be flat and columnar (FR-083)"
                 )
+
+
+def _duplicate_values(values: list[Any]) -> list[str]:
+    """Return duplicate non-missing key values in first-seen order."""
+    seen: set[Any] = set()
+    duplicates: list[str] = []
+    for value in values:
+        if _is_missing(value):
+            continue
+        if value in seen and str(value) not in duplicates:
+            duplicates.append(str(value))
+        seen.add(value)
+    return duplicates
 
 
 def _is_missing(value: Any) -> bool:
@@ -1683,6 +1474,12 @@ class AttachFeaturesToSpectralDataset(ProcessBlock):
             raise ValueError(f"{block}: index table missing join key {join_key!r}")
         if join_key not in feat_pdf.columns:
             raise ValueError(f"{block}: features table missing join key {join_key!r}")
+        duplicate_feature_keys = _duplicate_values(feat_pdf[join_key].tolist())
+        if duplicate_feature_keys:
+            raise ValueError(
+                f"{block}: feature join key {join_key!r} must be unique; "
+                f"duplicates {duplicate_feature_keys!r} would multiply index rows"
+            )
 
         # Reject Spectrum/object cells in the feature table (FR-083).
         _reject_object_cells(feat_pdf, block)
@@ -1709,6 +1506,8 @@ class AttachFeaturesToSpectralDataset(ProcessBlock):
         feat_join = feat_pdf.rename(columns=rename)
         index_join = index_pdf.drop(columns=drop_existing) if drop_existing else index_pdf
         merged = index_join.merge(feat_join, on=join_key, how="left")
+        if len(merged) != len(index_pdf):
+            raise ValueError(f"{block}: feature join changed index row count from {len(index_pdf)} to {len(merged)}")
 
         index_df = _support.dataframe_from_pandas(merged)
         # spectra slot is left untouched (FR-084).

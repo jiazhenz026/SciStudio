@@ -12,9 +12,8 @@ Covers (track io-spectrum, FR-034..FR-037, FR-132..FR-134, FR-141..FR-143):
   ``source_file`` as metadata only (FR-035/FR-036);
 - SaveSpectrum single vs. multi-item (batch numbered files) and explicit
   ``capability_id`` selection (FR-143);
-- SaveSpectrum refuses a vendor load-only extension as a save target (FR-134);
-- LoadSpectrum surfaces vendor load-only formats as informative
-  ``NotImplementedError`` (FR-133); SPC is deferred with a tracked TODO.
+- SaveSpectrum/LoadSpectrum reject SPC/vendor extensions because those deferred
+  handlers are not advertised as runtime capabilities until implemented.
 """
 
 from __future__ import annotations
@@ -226,10 +225,10 @@ def test_save_rejects_vendor_load_only_extension(tmp_path: Path) -> None:
         )
 
 
-def test_load_vendor_format_is_not_implemented(tmp_path: Path) -> None:
+def test_load_vendor_format_is_unsupported_until_implemented(tmp_path: Path) -> None:
     vendor = tmp_path / "v.spa"
     vendor.write_bytes(b"\x00\x01")
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError):
         LoadSpectrum().load(BlockConfig(params={"path": str(vendor)}))
 
 

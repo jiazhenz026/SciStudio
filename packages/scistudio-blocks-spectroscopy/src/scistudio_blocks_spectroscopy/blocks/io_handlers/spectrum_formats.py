@@ -21,8 +21,9 @@ Implemented round-trippable formats:
 - ``jcamp_dx`` (``.jdx``/``.dx``/``.jcamp``) — minimal JCAMP-DX (``##XYPOINTS``)
   with ``##XUNITS``/``##YUNITS`` mapped to lambda/intensity units. ``typed_meta``.
 
-``spc`` and the vendor LOAD-ONLY formats raise an informative
-``NotImplementedError`` (no fixture / optional SDK), tracked under #1661.
+``spc`` and vendor formats are deferred and are not advertised by the current
+``FormatCapability`` matrix. Their direct entry points raise informative
+``NotImplementedError`` exceptions, tracked under #1661.
 """
 
 from __future__ import annotations

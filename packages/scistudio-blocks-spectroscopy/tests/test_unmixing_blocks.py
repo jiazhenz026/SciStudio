@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.blocks import unmixing
-from scistudio_blocks_spectroscopy.blocks.unmixing import SpectralUnmixing
+from scistudio_blocks_spectroscopy.blocks.unmixing import SpectralUnmixing, _solve
 from scistudio_blocks_spectroscopy.types import Spectrum
 
 from scistudio.blocks.base.config import BlockConfig
@@ -146,6 +146,19 @@ def test_fit_quality_schema() -> None:
     row = fq.to_pylist()[0]
     assert row["n_components"] == 2
     assert row["method"] == "least_squares"
+
+
+def test_sum_to_one_nnls_verifies_constraint_after_fit() -> None:
+    def fake_nnls(_design: np.ndarray, _target: np.ndarray) -> tuple[np.ndarray, float]:
+        return np.asarray([0.25, 0.25], dtype=float), 0.0
+
+    design = np.eye(2, dtype=float)
+    target = np.ones(2, dtype=float)
+    coeffs, quality = _solve("sum_to_one_non_negative_least_squares", design, target, fake_nnls)
+
+    assert float(np.sum(coeffs)) == pytest.approx(0.5)
+    assert quality["status"] == "constraint_not_satisfied"
+    assert "sum-to-one constraint not satisfied" in quality["message"]
 
 
 # ---------------------------------------------------------------------------

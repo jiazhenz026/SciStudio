@@ -187,6 +187,9 @@ def test_extract_intensity_reports_status() -> None:
     # No coordinate or range configured -> explicit status, not a crash.
     no_target = _features_table(ExtractIntensity(), [_spectrum("s1")])
     assert no_target.column("status").to_pylist() == ["no_target_coordinate_or_range"]
+    out_of_grid = _features_table(ExtractIntensity(), [_spectrum("s1")], target_coordinate=500.0)
+    assert out_of_grid.column("status").to_pylist() == ["coordinate_out_of_grid"]
+    assert out_of_grid.column("intensity").to_pylist() == [None]
 
 
 def test_calculate_auc_reports_insufficient_points() -> None:
@@ -226,6 +229,24 @@ def test_calculate_ratio_is_peak_to_peak() -> None:
     # Peak at center over itself -> ratio 1.0 with ok status.
     assert table.column("status").to_pylist() == ["ok"]
     assert table.column("ratio").to_pylist()[0] == pytest.approx(1.0)
+
+
+def test_calculate_ratio_reports_out_of_grid_peak() -> None:
+    spectra = [_spectrum("s1")]
+    numerator_bad = _features_table(
+        CalculateRatio(),
+        spectra,
+        numerator_peak={"coordinate": 500.0},
+        denominator_peak={"coordinate": 50.0},
+    )
+    assert numerator_bad.column("status").to_pylist() == ["numerator_coordinate_out_of_grid"]
+    denominator_bad = _features_table(
+        CalculateRatio(),
+        spectra,
+        numerator_peak={"coordinate": 50.0},
+        denominator_peak={"coordinate": 500.0},
+    )
+    assert denominator_bad.column("status").to_pylist() == ["denominator_coordinate_out_of_grid"]
 
 
 def test_find_peaks_supports_range_bounds() -> None:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 
 import numpy as np
+import pytest
 from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.types import SpectralDataset, Spectrum
 
@@ -60,6 +61,35 @@ def test_spectral_dataset_slot_type_is_enforced() -> None:
     assert set(dataset.slot_names) == {"index", "spectra"}
     assert isinstance(dataset.get("index"), DataFrame)
     assert isinstance(dataset.get("spectra"), DataFrame)
+
+
+@pytest.mark.parametrize(
+    ("index_rows", "spectra_rows", "match"),
+    [
+        ([{"label": "a"}], [{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}], "index table"),
+        ([{"spectrum_id": "a"}], [{"spectrum_id": "a", "lambda": 1.0}], "missing"),
+        (
+            [{"spectrum_id": "a"}, {"spectrum_id": "a"}],
+            [{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}],
+            "unique",
+        ),
+        ([{"spectrum_id": "a"}], [{"spectrum_id": "ghost", "lambda": 1.0, "intensity": 2.0}], "unknown"),
+        (
+            [{"spectrum_id": "a"}, {"spectrum_id": "b"}],
+            [{"spectrum_id": "a", "lambda": 1.0, "intensity": 2.0}],
+            "coverage",
+        ),
+        ([{"spectrum_id": "a"}], [{"spectrum_id": "a", "lambda": "bad", "intensity": 2.0}], "numeric"),
+    ],
+)
+def test_spectral_dataset_validates_required_columns_and_join(
+    index_rows: list[dict], spectra_rows: list[dict], match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        _support.build_spectral_dataset(
+            _support.dataframe_from_rows(index_rows),
+            _support.dataframe_from_rows(spectra_rows),
+        )
 
 
 def test_no_srs_import_anywhere_in_package() -> None:

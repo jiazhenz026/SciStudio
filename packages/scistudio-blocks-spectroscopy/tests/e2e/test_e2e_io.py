@@ -3,7 +3,7 @@
 Drives full save -> load round-trips on disk through the real LoadSpectrum /
 SaveSpectrum / LoadSpectralDataset / SaveSpectralDataset blocks (writing to
 tmp_path) and asserts numeric + metadata fidelity, id generation/preservation,
-batch numbering, capability_id selection, and vendor/SPC deferrals.
+batch numbering, capability_id selection, and unsupported deferred vendor/SPC formats.
 """
 
 from __future__ import annotations
@@ -124,10 +124,10 @@ def test_save_rejects_vendor_load_only_extension(tmp_path: Path) -> None:
         SaveSpectrum().save(Collection([spec], item_type=Spectrum), _cfg(path=str(tmp_path / "out.spa")))
 
 
-def test_load_vendor_format_not_implemented(tmp_path: Path) -> None:
+def test_load_vendor_format_unsupported_until_implemented(tmp_path: Path) -> None:
     vendor = tmp_path / "v.spa"
     vendor.write_bytes(b"\x00\x01")
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError):
         LoadSpectrum().load(_cfg(path=str(vendor)))
 
 
