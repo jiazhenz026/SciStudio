@@ -231,6 +231,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.414112Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.473675Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.529438Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.582433Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.636096Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.688695Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.741225Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.794367Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.847419Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T02:14:37.902137Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -255,9 +315,9 @@
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-f1-foundation.md",
       "docs/planning/adr-049-package-validator-implementation/prompts/pv-t1-fixtures-tests.md"
     ],
-    "diff_fingerprint": "sha256:e852278989846a30581c62996ee36372d18e0eca0c69c9a61d1aa5bb2c865aeb",
+    "diff_fingerprint": "sha256:303232b16648f83c247aa867cde2a2da6036a84736badd7f8e520d03659c6dba",
     "head": "HEAD",
-    "head_sha": "8907eb1f",
+    "head_sha": "2f7b852f",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -293,6 +353,14 @@
     {
       "at": "2026-06-15T02:13:44.980991Z",
       "diff_fingerprint": "sha256:e852278989846a30581c62996ee36372d18e0eca0c69c9a61d1aa5bb2c865aeb",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-15T02:14:37.902176Z",
+      "diff_fingerprint": "sha256:303232b16648f83c247aa867cde2a2da6036a84736badd7f8e520d03659c6dba",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
