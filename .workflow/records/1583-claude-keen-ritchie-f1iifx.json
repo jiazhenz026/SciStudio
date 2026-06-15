@@ -128,6 +128,85 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-15T13:22:08.309156Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9800decc92637eb8d73fb1c51064b89ef636f95135cb36fd2bba6f573984aec",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-15T13:22:14.265439Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9800decc92637eb8d73fb1c51064b89ef636f95135cb36fd2bba6f573984aec",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-15T13:22:14.282538Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9800decc92637eb8d73fb1c51064b89ef636f95135cb36fd2bba6f573984aec",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-15T13:25:49.900520Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a9800decc92637eb8d73fb1c51064b89ef636f95135cb36fd2bba6f573984aec",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-15T13:26:30.380647Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a9800decc92637eb8d73fb1c51064b89ef636f95135cb36fd2bba6f573984aec",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -141,9 +220,9 @@
     }
   ],
   "commit": {
-    "sha": "7b38daa163fd33425c95e42edf496aa73ab3fdd9",
+    "sha": "ca6149ee65fa817eb7d131a18d3a5ccc5200ea5e",
     "shas": [
-      "7b38daa163fd33425c95e42edf496aa73ab3fdd9"
+      "ca6149ee65fa817eb7d131a18d3a5ccc5200ea5e"
     ],
     "trailers": []
   },
@@ -345,6 +424,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.388130Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.389940Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.391696Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.395050Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.396788Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.398592Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.401592Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.403717Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.405516Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:30.413526Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.735109Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.737565Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.739336Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.741600Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.743353Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.745206Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.749538Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.751406Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.753171Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-15T13:26:55.757515Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -357,15 +600,15 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "c3e7b9c245cac392b5d4546e724beaa4ac88027c",
     "base_sha": "c3e7b9c",
     "changed_files": [
       ".workflow/records/1583-claude-keen-ritchie-f1iifx.json",
       "tests/api/test_filesystem_browse.py"
     ],
-    "diff_fingerprint": "sha256:4d05b7f128c3ef59586e757b9b7027945c30d8419630a295523a9f7a1e586caf",
+    "diff_fingerprint": "sha256:2fe260b6435348dd601e1ad0d7c0dbe679e6c8ad5053b21b36736ba0bd993548",
     "head": "HEAD",
-    "head_sha": "7b38daa",
+    "head_sha": "ca6149e",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -386,8 +629,8 @@
     "closes": [
       1583
     ],
-    "number": null,
-    "url": null
+    "number": 1674,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1674"
   },
   "reconcile_events": [
     {
@@ -408,19 +651,32 @@
         "checks.python_tests",
         "checks.semantic_dup"
       ]
+    },
+    {
+      "at": "2026-06-15T13:26:30.413561Z",
+      "diff_fingerprint": "sha256:2fe260b6435348dd601e1ad0d7c0dbe679e6c8ad5053b21b36736ba0bd993548",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-06-15T13:26:55.757550Z",
+      "diff_fingerprint": "sha256:2fe260b6435348dd601e1ad0d7c0dbe679e6c8ad5053b21b36736ba0bd993548",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "1583-claude-keen-ritchie-f1iifx",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "format_check",
-      "full_audit",
-      "lint_format",
-      "python_tests",
-      "semantic_dup"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
