@@ -1,0 +1,116 @@
+{
+  "branch": "claude/keen-ritchie-opkcc0",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/utils/wrapping.py",
+      "tests/utils/test_wrapping.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-16T13:10:20.998434Z",
+      "owner_directive": "implement wrap_as_dataobject() auto-detection: numpy->Array, pandas DataFrame->DataFrame, pandas Series->Series, str->Text, DataObject passthrough",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-16T13:10:20.998492Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "no user-visible contract change; stub implementation only, no API addition",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-16T13:10:20.998503Z",
+      "class": "spec/ADR",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision; this is a pure implementation of an existing stub",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-16T13:11:54.611085Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "wrap_as_dataobject is a pure utility stub; no contract, schema, or ADR change",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-16T13:11:54.611113Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "utility stub fix; no new public API surface for external callers",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1639,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Find and implement a small fix: issue #1639 implement wrap_as_dataobject() type auto-detection in src/scistudio/utils/wrapping.py",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1639-claude-keen-ritchie-opkcc0",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code/claude-sonnet-4-6",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-16T13:10:20.998465Z",
+      "pattern": "src/scistudio/utils/wrapping.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-16T13:10:20.998474Z",
+      "pattern": "tests/utils/test_wrapping.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "c006797f-773f-4dfd-8b49-00bf87dc2454",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-16T13:10:20.998509Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/utils/test_wrapping.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-16T13:11:54.611119Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/utils/test_wrapping.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
