@@ -26,11 +26,11 @@ import sys
 from collections.abc import MutableMapping
 from pathlib import Path
 
-# Repo-locating git env vars, i.e. the output of ``git rev-parse
-# --local-env-vars``. Hardcoded (so the scrub never forks a git process -- which
-# would itself read the polluted env -- on the hook hot path) and MUST be kept in
-# sync with that command's output. tests/scripts/test_run_python_module.py
-# cross-checks this tuple against ``git rev-parse --local-env-vars``.
+# Repo-locating git env vars. This must cover the output of ``git rev-parse
+# --local-env-vars`` for the running Git version, with a small allowance for
+# known compatibility extras that some Git builds expose and others omit.
+# Hardcoded so the scrub never forks a git process -- which would itself read
+# the polluted env -- on the hook hot path.
 _GIT_LOCAL_ENV_VARS: tuple[str, ...] = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_CONFIG",
