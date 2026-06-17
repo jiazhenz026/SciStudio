@@ -359,9 +359,9 @@
     }
   ],
   "commit": {
-    "sha": "c73fc0d2a68311d004156ba5c466e9ab47a424de",
+    "sha": "cd30b7d",
     "shas": [
-      "c73fc0d2a68311d004156ba5c466e9ab47a424de"
+      "cd30b7d"
     ],
     "trailers": []
   },
@@ -648,6 +648,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.425357Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/utils/wrapping.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/utils/wrapping.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-17T13:25:27.427279Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.429289Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.431273Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.433150Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.435078Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.437024Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.438976Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.440857Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-17T13:25:27.447490Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -660,7 +764,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "c3e7b9c245cac392b5d4546e724beaa4ac88027c",
     "base_sha": "c3e7b9c",
     "changed_files": [
       ".workflow/records/1639-impl-1639-wrap-dataobject.json",
@@ -668,9 +772,9 @@
       "src/scistudio/utils/wrapping.py",
       "tests/utils/test_wrapping.py"
     ],
-    "diff_fingerprint": "sha256:f7228efbfefef0017a52a1ef827e03ba104ba80b0c49aefefc02457f52b67e91",
+    "diff_fingerprint": "sha256:d4a0385bdbc482a7e9b0730ca8982b1ea021a854e4282b3ef841ce2c79cccea0",
     "head": "HEAD",
-    "head_sha": "c73fc0d",
+    "head_sha": "cd30b7d",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -691,8 +795,8 @@
     "closes": [
       1639
     ],
-    "number": null,
-    "url": null
+    "number": 1676,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1676"
   },
   "reconcile_events": [
     {
@@ -728,6 +832,16 @@
         "checks.semantic_dup",
         "guard.core_change_guard"
       ]
+    },
+    {
+      "at": "2026-06-17T13:25:27.447524Z",
+      "diff_fingerprint": "sha256:d4a0385bdbc482a7e9b0730ca8982b1ea021a854e4282b3ef841ce2c79cccea0",
+      "mode": "ci",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "guard.core_change_guard"
+      ]
     }
   ],
   "record_id": "1639-impl-1639-wrap-dataobject",
@@ -736,17 +850,7 @@
     "admin_labels": [
       "admin-approved:core-change"
     ],
-    "checks": [
-      "architecture_tests",
-      "deferral_discipline",
-      "format_check",
-      "full_audit",
-      "import_contracts",
-      "lint_format",
-      "python_tests",
-      "semantic_dup",
-      "type_check"
-    ],
+    "checks": [],
     "docs": [
       "docs_required_or_na"
     ],
