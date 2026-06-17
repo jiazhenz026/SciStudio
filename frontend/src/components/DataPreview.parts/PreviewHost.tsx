@@ -240,10 +240,12 @@ export function PreviewHost({
         throw new Error("no preview session");
       }
       const defaultFilename = filename ?? defaultResourceFilename(active, params);
-      const dialog = await api.openNativeSaveDialog({
-        defaultFilename,
-        fileFilter: fileFilterForFilename(defaultFilename),
-      }).catch(() => ({ paths: [] }));
+      const dialog = await api
+        .openNativeSaveDialog({
+          defaultFilename,
+          fileFilter: fileFilterForFilename(defaultFilename),
+        })
+        .catch(() => ({ paths: [] }));
       const destinationPath = dialog.paths[0];
       if (destinationPath) {
         await api.savePreviewResource(active.session_id, resourceId, {

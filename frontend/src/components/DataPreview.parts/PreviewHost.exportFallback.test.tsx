@@ -67,7 +67,9 @@ beforeEach(() => {
   savePreviewResource.mockReset();
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
-  anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+  anchorClickSpy = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => undefined);
 });
 
 afterEach(() => {
