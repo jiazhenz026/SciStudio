@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_draft_only_validation_diagnostic(message: Any) -> bool:
+    """Return true for diagnostics that should not block editor draft saves."""
+    text = str(message)
+    return "required input port" in text and "has no incoming connection" in text
+
+
 def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
     project = self.require_active_project()
     return Path(project.path) / "workflows" / f"{workflow_id}.yaml"
@@ -51,22 +57,22 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
 
     # #1518 (DSN-2): ``validate_workflow`` previously only ``logger.warning``-ed
     # and saved anyway, so an ill-typed / cyclic / contract-violating graph
-    # persisted cleanly and only failed deep inside a block at run time. Now
-    # we partition the diagnostics: messages the validator prefixes with
-    # ``"Warning:"`` (unknown block type, missing port — intentionally
-    # non-fatal so an agent can save a partial graph mid-edit) stay as log
-    # warnings; everything else (duplicate node id, cycle, type-incompatible
-    # edge, dangling required input, variadic cardinality, duplicate
-    # extension, CodeBlock/boundary capability errors) is a hard error that
-    # rejects the save. The route layer maps the raised ``ValueError`` to
-    # HTTP 422 (api/routes/workflows.py create/update handlers).
+    # persisted cleanly and only failed deep inside a block at run time. Editor
+    # saves still need to accept incomplete draft graphs, so required-input
+    # dangling-port diagnostics are logged here and remain hard errors at run
+    # start (``runtime._runs.start_workflow`` re-validates the loaded graph).
+    # The route layer maps raised ``ValueError`` to HTTP 422
+    # (api/routes/workflows.py create/update handlers).
     diagnostics = validate_workflow(definition, registry=self.block_registry)
     warnings = [d for d in diagnostics if str(d).startswith("Warning:")]
-    hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
-    if warnings:
+    draft_only = [d for d in diagnostics if _is_draft_only_validation_diagnostic(d)]
+    hard_errors = [
+        d for d in diagnostics if not str(d).startswith("Warning:") and not _is_draft_only_validation_diagnostic(d)
+    ]
+    if warnings or draft_only:
         logger.warning(
             "Workflow validation warnings: %s",
-            "; ".join(str(w) for w in warnings),
+            "; ".join(str(w) for w in [*warnings, *draft_only]),
         )
     if hard_errors:
         raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))

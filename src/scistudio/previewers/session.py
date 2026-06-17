@@ -29,7 +29,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, cast
 from urllib.parse import unquote_to_bytes
 from uuid import uuid4
 
@@ -45,6 +45,7 @@ from scistudio.previewers.models import (
     PreviewMetadata,
     PreviewProvider,
     PreviewRequest,
+    PreviewResourceProvider,
     PreviewSession,
     PreviewTarget,
     ProviderError,
@@ -66,6 +67,7 @@ _PLOT_EXPORT_MIME = {
     ".pdf": "application/pdf",
 }
 ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
+ProviderT = TypeVar("ProviderT", bound=Callable[..., Any])
 
 
 class PreviewSessionManager:
@@ -212,6 +214,28 @@ class PreviewSessionManager:
         if resource_id == "export":
             return self._export_plot_resource(session, merged)
 
+        spec = self._require_spec(session.previewer_id)
+        resource_provider = self._resolve_resource_provider(spec)
+        if resource_provider is not None:
+            request = PreviewRequest(
+                target=session.target,
+                spec=spec,
+                query=merged,
+                data_access=access,
+                limits=session.limits,
+                session_id=session.session_id,
+            )
+            try:
+                return resource_provider(request, resource_id, _public_resource_params(params or {}))
+            except ProviderError:
+                raise
+            except Exception as exc:
+                logger.debug("preview resource provider failed for %s", resource_id, exc_info=True)
+                raise ProviderError(
+                    f"resource provider for {session.previewer_id!r} failed: {exc}",
+                    detail={"resource_id": resource_id, "previewer_id": session.previewer_id},
+                ) from exc
+
         raise ProviderError(
             f"unknown resource id {resource_id!r} for session {session_id}",
             detail={"resource_id": resource_id},
@@ -310,14 +334,10 @@ class PreviewSessionManager:
         return envelope.with_session(session_id)
 
     def _resolve_provider(self, spec: PreviewerSpec) -> PreviewProvider | None:
-        provider = spec.backend_provider
-        if provider is None:
-            return None
-        if callable(provider):
-            return provider
-        if isinstance(provider, str):
-            return _import_provider(provider)
-        return None
+        return _provider_from_decl(spec.backend_provider)
+
+    def _resolve_resource_provider(self, spec: PreviewerSpec) -> PreviewResourceProvider | None:
+        return _provider_from_decl(spec.resource_provider)
 
     def _error_envelope(
         self,
@@ -502,7 +522,17 @@ class PreviewSessionManager:
         }
 
 
-def _import_provider(dotted: str) -> PreviewProvider | None:
+def _provider_from_decl(provider: ProviderT | str | None) -> ProviderT | None:
+    if provider is None:
+        return None
+    if callable(provider):
+        return provider
+    if isinstance(provider, str):
+        return cast(ProviderT | None, _import_callable(provider))
+    return None
+
+
+def _import_callable(dotted: str) -> Callable[..., Any] | None:
     """Resolve a ``module:callable`` (or ``module.callable``) provider import path."""
     import importlib
 

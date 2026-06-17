@@ -1,4 +1,4 @@
-"""Apache Arrow / Parquet storage backend for DataFrame types."""
+"""Apache Arrow / Parquet storage backend for tabular DataFrame and Series types."""
 
 from __future__ import annotations
 

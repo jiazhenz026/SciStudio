@@ -243,13 +243,17 @@ export function PreviewHost({
       const dialog = await api.openNativeSaveDialog({
         defaultFilename,
         fileFilter: fileFilterForFilename(defaultFilename),
-      });
+      }).catch(() => ({ paths: [] }));
       const destinationPath = dialog.paths[0];
-      if (!destinationPath) return;
-      await api.savePreviewResource(active.session_id, resourceId, {
-        destination_path: destinationPath,
-        params: params ?? {},
-      });
+      if (destinationPath) {
+        await api.savePreviewResource(active.session_id, resourceId, {
+          destination_path: destinationPath,
+          params: params ?? {},
+        });
+        return;
+      }
+      const result = await fetchPreviewResource(active.session_id, resourceId, params);
+      downloadDataUri(result.data, defaultFilename);
     },
     [],
   );
@@ -571,4 +575,19 @@ function fileFilterForFilename(filename: string): string {
   if (!match) return "All files (*.*)|*.*";
   const extension = match[1].toLowerCase();
   return `${extension.toUpperCase()} (*.${extension})|*.${extension}|All files (*.*)|*.*`;
+}
+
+function downloadDataUri(data: Record<string, unknown>, filename: string): void {
+  const dataUri = data.data_uri;
+  if (typeof dataUri !== "string" || !dataUri.startsWith("data:")) {
+    throw new Error("resource did not provide downloadable data");
+  }
+  const link = document.createElement("a");
+  link.href = dataUri;
+  link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }

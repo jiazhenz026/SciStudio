@@ -23,6 +23,7 @@ from scistudio.previewers.models import (
 from scistudio_blocks_spectroscopy.previewers.providers import (
     spectral_dataset_provider,
     spectrum_provider,
+    spectrum_resource_provider,
 )
 
 SPECTRUM_PREVIEWER_ID = "spectroscopy.spectrum.viewer"
@@ -61,6 +62,7 @@ def get_previewers() -> list[PreviewerSpec]:
             priority=100,
             capabilities=("plot", "navigate", "diagnostics", "export"),
             backend_provider=spectrum_provider,
+            resource_provider=spectrum_resource_provider,
             frontend_manifest=_frontend_manifest(SPECTRUM_PREVIEWER_ID),
         ),
         PreviewerSpec(
@@ -85,4 +87,5 @@ __all__ = [
     "get_previewers",
     "spectral_dataset_provider",
     "spectrum_provider",
+    "spectrum_resource_provider",
 ]

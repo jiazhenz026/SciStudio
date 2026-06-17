@@ -75,7 +75,7 @@ scistudio/                               # ← repo root
 │       │   │   ├── __init__.py
 │       │   │   ├── base.py             # StorageBackend protocol (read/write/slice/iter_chunks)
 │       │   │   ├── zarr_backend.py     # Zarr store for Array types (chunked, lazy)
-│       │   │   ├── arrow_backend.py    # Apache Arrow / Parquet for DataFrame types
+│       │   │   ├── arrow_backend.py    # Apache Arrow / Parquet for DataFrame and Series types
 │       │   │   ├── filesystem.py       # Plain filesystem for Text, Artifact
 │       │   │   ├── composite_store.py  # Directory-of-slots storage for CompositeData
 │       │   │   └── ref.py              # StorageReference: pointer to a stored object

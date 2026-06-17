@@ -218,6 +218,14 @@ class FrontendManifest:
         }
 
 
+def _provider_repr(provider: object) -> str | None:
+    if isinstance(provider, str):
+        return provider
+    if provider is None:
+        return None
+    return getattr(provider, "__name__", repr(provider))
+
+
 # ---------------------------------------------------------------------------
 # Previewer spec
 # ---------------------------------------------------------------------------
@@ -242,6 +250,8 @@ class PreviewerSpec:
             ``export``.
         backend_provider: Either a :data:`PreviewProvider` callable or a
             dotted ``module:callable`` import path resolved lazily.
+        resource_provider: Optional package/project-owned follow-up resource
+            reader for custom resource ids declared by the envelope.
         frontend_manifest: Optional same-origin manifest descriptor.
         api_version: Previewer API compatibility version.
     """
@@ -254,17 +264,13 @@ class PreviewerSpec:
     priority: int = 0
     capabilities: tuple[str, ...] = ()
     backend_provider: PreviewProvider | str | None = None
+    resource_provider: PreviewResourceProvider | str | None = None
     frontend_manifest: FrontendManifest | None = None
     api_version: str = PREVIEWER_API_VERSION
 
     def to_dict(self) -> dict[str, Any]:
-        provider_repr: str | None
-        if isinstance(self.backend_provider, str):
-            provider_repr = self.backend_provider
-        elif self.backend_provider is None:
-            provider_repr = None
-        else:
-            provider_repr = getattr(self.backend_provider, "__name__", repr(self.backend_provider))
+        provider_repr = _provider_repr(self.backend_provider)
+        resource_provider_repr = _provider_repr(self.resource_provider)
         return {
             "previewer_id": self.previewer_id,
             "owner_kind": self.owner_kind.value,
@@ -274,6 +280,7 @@ class PreviewerSpec:
             "priority": self.priority,
             "capabilities": list(self.capabilities),
             "backend_provider": provider_repr,
+            "resource_provider": resource_provider_repr,
             "frontend_manifest": (self.frontend_manifest.to_dict() if self.frontend_manifest is not None else None),
             "api_version": self.api_version,
         }
@@ -514,6 +521,7 @@ class PreviewRequest:
 # the session API never crashes (FR-028). The session manager still wraps
 # provider calls defensively for unexpected exceptions.
 PreviewProvider = Callable[[PreviewRequest], PreviewEnvelope]
+PreviewResourceProvider = Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]]
 
 
 @runtime_checkable
@@ -627,6 +635,7 @@ __all__ = [
     "PreviewProvider",
     "PreviewRequest",
     "PreviewResource",
+    "PreviewResourceProvider",
     "PreviewSession",
     "PreviewSource",
     "PreviewTarget",

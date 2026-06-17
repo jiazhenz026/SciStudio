@@ -13,12 +13,17 @@ from __future__ import annotations
 import sys
 
 import numpy as np
+import pyarrow as pa
 import pytest
 from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.types import SpectralDataset, Spectrum
 
+from scistudio.blocks.base.block import Block
+from scistudio.core.storage.flush_context import clear, get_output_dir, set_output_dir
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.registry import TypeRegistry
+from scistudio.core.types.serialization import _reconstruct_one, _serialise_one
 from scistudio.core.types.series import Series
 
 
@@ -135,6 +140,45 @@ def test_build_and_read_spectrum_roundtrip() -> None:
     assert np.allclose(lam, [1.0, 2.0, 3.0])
     assert np.allclose(inten, [10.0, 20.0, 30.0])
     assert spec.length == 3
+
+
+def test_spectrum_auto_flush_round_trips_arrow_payload(tmp_path) -> None:
+    import scistudio.core.types.serialization as serialization_module
+
+    spec = _support.build_spectrum([1.0, 2.0, 3.0], [10.0, 20.0, 30.0])
+
+    previous_output_dir = get_output_dir()
+    set_output_dir(str(tmp_path))
+    try:
+        flushed = Block._auto_flush(spec)
+    finally:
+        clear()
+        if previous_output_dir is not None:
+            set_output_dir(previous_output_dir)
+
+    assert flushed is spec
+    assert spec.storage_ref is not None
+    assert spec.storage_ref.backend == "arrow"
+    assert spec.storage_ref.format == "parquet"
+    assert spec.storage_ref.path.endswith(".parquet")
+    assert isinstance(_support.spectrum_table(spec), pa.Table)
+
+    registry = TypeRegistry()
+    registry.scan_builtins()
+    registry.register_class(Spectrum)
+    previous_registry = serialization_module._registry_instance
+    serialization_module._registry_instance = registry
+    try:
+        restored = _reconstruct_one(_serialise_one(spec))
+    finally:
+        serialization_module._registry_instance = previous_registry
+
+    assert isinstance(restored, Spectrum)
+    assert restored.storage_ref is not None
+    assert restored.storage_ref.backend == "arrow"
+    lam, inten = _support.spectrum_arrays(restored)
+    np.testing.assert_allclose(lam, [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(inten, [10.0, 20.0, 30.0])
 
 
 def test_derive_spectrum_replaces_intensity_keeps_grid() -> None:

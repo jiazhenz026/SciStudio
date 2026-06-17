@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from scistudio.core.storage.ref import StorageReference
@@ -50,13 +52,59 @@ def test_text_chunk_bounds_bytes(tmp_path: Path) -> None:
     assert chunk.total_bytes == 10000
 
 
-def test_series_points_decimate() -> None:
+def test_series_points_returns_complete_values() -> None:
     access = PreviewDataAccess(series_points=10)
     ref = StorageReference(backend="filesystem", path="/x", format="bin")
     result = access.series_points(ref, {"values": list(range(1000))})
-    assert len(result.points) <= 10
+    assert len(result.points) == 1000
     assert result.total == 1000
-    assert result.truncated is True
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert result.points[0] == {"x": 0.0, "y": 0.0}
+    assert result.points[-1] == {"x": 999.0, "y": 999.0}
+
+
+def test_series_points_reads_complete_parquet_extent(tmp_path: Path) -> None:
+    path = tmp_path / "series.parquet"
+    pq.write_table(pa.table({"time": list(range(1000)), "signal": [float(i) * 2 for i in range(1000)]}), path)
+    access = PreviewDataAccess(series_points=10)
+    ref = StorageReference(backend="arrow", path=str(path), format="parquet")
+
+    result = access.series_points(ref, {"index_name": "time", "value_name": "signal"})
+
+    assert result.total == 1000
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert len(result.points) == 1000
+    assert result.points[0] == {"x": 0.0, "y": 0.0}
+    assert result.points[-1] == {"x": 999.0, "y": 1998.0}
+
+
+def test_table_xy_points_reads_complete_parquet_extent(tmp_path: Path) -> None:
+    path = tmp_path / "spectrum.parquet"
+    xs = list(range(700, 1700))
+    ys = [float(i) / 10.0 for i in range(len(xs))]
+    pq.write_table(pa.table({"lambda": xs, "intensity": ys}), path)
+    access = PreviewDataAccess(series_points=10)
+    ref = StorageReference(backend="arrow", path=str(path), format="parquet")
+
+    result = access.table_xy_points(ref, x_column="lambda", y_column="intensity")
+
+    assert result.total == 1000
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert len(result.points) == 1000
+    assert result.points[0] == {"x": 700.0, "y": 0.0}
+    assert result.points[-1] == {"x": 1699.0, "y": 99.9}
+
+
+def test_series_points_rejects_zarr_storage(tmp_path: Path) -> None:
+    path = tmp_path / "spectrum.zarr"
+    path.mkdir()
+    access = PreviewDataAccess(series_points=5)
+    ref = StorageReference(backend="zarr", path=str(path), format="zarr")
+    with pytest.raises(ValueError, match="Series preview expects Arrow/Parquet storage"):
+        access.series_points(ref, {})
 
 
 def test_collection_sample_bounds_items() -> None:

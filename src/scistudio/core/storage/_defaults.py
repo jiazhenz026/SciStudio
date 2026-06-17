@@ -42,7 +42,7 @@ def build_default() -> BackendRouter:
     composite = CompositeStore()
 
     router.register(Array, "zarr", zarr)
-    router.register(Series, "zarr", zarr)
+    router.register(Series, "arrow", arrow)
     router.register(DataFrame, "arrow", arrow)
     router.register(Text, "filesystem", fs)
     router.register(Artifact, "filesystem", fs)

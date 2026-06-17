@@ -258,10 +258,17 @@ def _degrade_to_artifact(request: PreviewRequest, ref: StorageReference, *, reas
 
 
 def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Series preview with both chart points and a small table view (FR-015)."""
+    """Series preview with complete chart points and a table view (FR-015)."""
     ref = _ref_for(request)
     metadata = _record_metadata(request)
-    result = request.data_access.series_points(ref, metadata)
+    try:
+        result = request.data_access.series_points(ref, metadata)
+    except Exception as exc:
+        logger.debug("series preview failed for %s", ref.path, exc_info=True)
+        return _error_envelope(request, None, f"series preview failed: {exc}")
+    diagnostics: list[str] = []
+    if result.nonnumeric:
+        diagnostics.append(f"skipped {result.nonnumeric} nonnumeric row(s)")
     table_rows = [{"index": p["x"], "value": p["y"]} for p in result.points]
     return PreviewEnvelope(
         previewer_id=request.spec.previewer_id,
@@ -272,11 +279,12 @@ def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
             "table": {"columns": ["index", "value"], "rows": table_rows},
             "total": result.total,
         },
+        diagnostics=tuple(diagnostics),
         metadata=PreviewMetadata(
-            sampled=result.truncated,
-            truncated=result.truncated,
-            complete=not result.truncated,
-            extra={"total": result.total},
+            sampled=False,
+            truncated=False,
+            complete=result.nonnumeric == 0,
+            extra={"total": result.total, "shown": len(result.points), "nonnumeric_rows": result.nonnumeric},
         ),
     )
 
@@ -550,7 +558,7 @@ def core_previewer_specs() -> list[PreviewerSpec]:
             owner_kind=OwnerKind.CORE,
             owner_name="scistudio",
             target_type="Series",
-            capabilities=("chart", "table", "decimate"),
+            capabilities=("chart", "table"),
             backend_provider=series_previewer,
         ),
         PreviewerSpec(
