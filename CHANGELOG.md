@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#1639] Implement `wrap_as_dataobject()` auto-detection in
+  `src/scistudio/utils/wrapping.py`. The function was a `NotImplementedError`
+  stub; it now maps `str` → `Text`, `numpy.ndarray` → `Array` (with
+  `dim_N` axis labels inferred from ndim), `pandas.DataFrame` → `DataFrame`,
+  and `pandas.Series` → `Series`. numpy and pandas are soft dependencies:
+  their absence only prevents wrapping of those specific types. Unsupported
+  types raise `TypeError`. 14 unit tests in
+  `tests/utils/test_wrapping.py`. (@claude, 2026-06-17, branch:
+  impl/1639-wrap-dataobject)
+
 ### Fixed
 
 - [#1644] ADR-048 PR #1577 final blocker cleanup for #1594: make MCP
