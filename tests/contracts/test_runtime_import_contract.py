@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+from collections.abc import Mapping
 
 import pytest
 
@@ -113,6 +114,11 @@ _REQUIRED_AI_ROUTES = {
 }
 
 
+def _has_contract_field(spec: object, field: str) -> bool:
+    """Return whether a registry spec exposes a required field."""
+    return hasattr(spec, field) or (isinstance(spec, Mapping) and field in spec)
+
+
 @pytest.fixture(scope="module")
 def app_routes() -> set[str]:
     """Collect all registered route paths from the FastAPI app."""
@@ -120,6 +126,23 @@ def app_routes() -> set[str]:
 
     app = create_app()
     return {r.path for r in app.routes if hasattr(r, "path")}
+
+
+def test_fastapi_router_paths_remain_visible_to_contract_tests() -> None:
+    """FastAPI dependency updates must preserve route path introspection."""
+    from fastapi import APIRouter, FastAPI
+
+    router = APIRouter()
+
+    @router.get("/contract-route")
+    def contract_route() -> dict[str, bool]:
+        return {"ok": True}
+
+    app = FastAPI()
+    app.include_router(router)
+
+    route_paths = {getattr(route, "path", None) for route in app.routes}
+    assert "/contract-route" in route_paths
 
 
 def test_api_workflow_routes_are_registered(app_routes: set[str]) -> None:
@@ -258,12 +281,10 @@ def test_block_spec_has_required_contract_fields() -> None:
     reg.scan()
     for type_name, spec in reg.all_specs().items():
         # spec must have a type_name that matches the key.
-        assert hasattr(spec, "type_name") or "type_name" in spec, f"Block spec for {type_name!r} has no type_name"
+        assert _has_contract_field(spec, "type_name"), f"Block spec for {type_name!r} has no type_name"
         # spec must have input_ports and output_ports accessible.
-        assert hasattr(spec, "input_ports") or "input_ports" in spec, f"Block spec for {type_name!r} has no input_ports"
-        assert hasattr(spec, "output_ports") or "output_ports" in spec, (
-            f"Block spec for {type_name!r} has no output_ports"
-        )
+        assert _has_contract_field(spec, "input_ports"), f"Block spec for {type_name!r} has no input_ports"
+        assert _has_contract_field(spec, "output_ports"), f"Block spec for {type_name!r} has no output_ports"
 
 
 # ---------------------------------------------------------------------------
