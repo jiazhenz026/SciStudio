@@ -209,3 +209,83 @@ def test_block_spec_remains_a_dataclass() -> None:
     assert spec.name == "example"
     assert spec.version == "0.1.0"
     assert spec.format_capabilities == []
+
+
+# ---------------------------------------------------------------------------
+# ADR-050 canvas-node-readability — BlockSpec field-preservation guard (#1698)
+#
+# SC-012 / FR-031 / FR-032: the square node + BottomPanel refactor must NOT
+# remove any package-facing schema field. This dataclass-level guard fails
+# loudly if a future change drops the category, port, dynamic-port, variadic,
+# config-schema, or capability fields that the registry carries from package
+# block classes into the API. Keeping it at the dataclass field set (not a
+# specific block) makes it a structural regression tripwire independent of which
+# packages happen to be installed.
+# ---------------------------------------------------------------------------
+
+
+def test_adr050_block_spec_retains_package_facing_fields() -> None:
+    """SC-012/FR-031: BlockSpec keeps every package-facing contract field.
+
+    These fields are the source of the BlockSummary / BlockSchemaResponse
+    payloads the canvas node, port editor, TypeLegend, and BottomPanel read.
+    Dropping any of them would silently break the new node model.
+    """
+    import dataclasses
+
+    field_names = {f.name for f in dataclasses.fields(BlockSpec)}
+    required = {
+        # block-kind mark + palette grouping (FR-028)
+        "base_category",
+        "subcategory",
+        # canvas ports + TypeLegend (FR-030)
+        "input_ports",
+        "output_ports",
+        "direction",
+        # BottomPanel Config ordering + widget selection (FR-029)
+        "config_schema",
+        # enum-driven dynamic ports (FR-030)
+        "dynamic_ports",
+        # variadic + topology controls (FR-030)
+        "variadic_inputs",
+        "variadic_outputs",
+        "allowed_input_types",
+        "allowed_output_types",
+        "min_input_ports",
+        "max_input_ports",
+        "min_output_ports",
+        "max_output_ports",
+        # BottomPanel capability selection (FR-030)
+        "format_capabilities",
+        # palette source + grouping (FR-027)
+        "type_name",
+        "package_name",
+        "source",
+    }
+    missing = required - field_names
+    assert not missing, f"ADR-050 SC-012: BlockSpec dropped package-facing fields {missing}"
+
+
+def test_adr050_block_spec_defaults_keep_contract_shapes() -> None:
+    """SC-010: a default BlockSpec exposes the contract fields with safe shapes.
+
+    The frontend tolerates "no metadata" only when the fields exist with their
+    documented empty shapes (lists, dicts, None). This pins the defaults so a
+    refactor cannot quietly change a list field to None or vice versa.
+    """
+    spec = BlockSpec(name="example")
+    assert spec.base_category == ""
+    assert spec.subcategory == ""
+    assert spec.input_ports == []
+    assert spec.output_ports == []
+    assert spec.config_schema == {}
+    assert spec.dynamic_ports is None
+    assert spec.variadic_inputs is False
+    assert spec.variadic_outputs is False
+    assert spec.allowed_input_types == []
+    assert spec.allowed_output_types == []
+    assert spec.min_input_ports is None
+    assert spec.max_input_ports is None
+    assert spec.min_output_ports is None
+    assert spec.max_output_ports is None
+    assert spec.format_capabilities == []

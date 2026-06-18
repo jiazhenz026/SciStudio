@@ -451,3 +451,264 @@ def test_lcms_srs_blocks_have_domain_prefix(client: TestClient) -> None:
         assert block["type_name"].startswith("srs."), (
             f"SRS block {block['name']} missing 'srs.' prefix: {block['type_name']}"
         )
+
+
+# ----------------------------------------------------------------------------
+# ADR-050 canvas-node-readability — package -> registry -> API schema contract.
+#
+# The square node + BottomPanel refactor (issue #1698) removes inline node-body
+# config but MUST NOT change the package -> registry -> API block-schema
+# contract that feeds canvas ports, the `+/-` topology controls, the TypeLegend,
+# and BottomPanel Config field ordering / widget selection. These tests prove
+# that BlockSummary (palette) and BlockSchemaResponse (detail) keep exposing the
+# metadata the new frontend reads — for core AND for package-provided imaging,
+# spectroscopy, LCMS, and SRS blocks — without any package source edit.
+#
+# Spec: docs/specs/adr-050-canvas-node-readability.md FR-027..FR-033,
+# SC-010..SC-012. ADR: docs/adr/ADR-050.md §5.
+# ----------------------------------------------------------------------------
+
+
+# Representative package-provided blocks per domain. One IO block (carries
+# format_capabilities + a config_schema path widget) and one process/analysis
+# block (carries typed ports) per package, so the contract is proven across
+# imaging, spectroscopy, LCMS, and SRS without editing any package source.
+_ADR050_PACKAGE_BLOCKS = {
+    "scistudio-blocks-imaging": ("imaging.load_image", "imaging.axis_merge"),
+    "scistudio-blocks-spectroscopy": (
+        "spectroscopy.load_spectrum",
+        "spectroscopy.find_peaks",
+    ),
+    "scistudio-blocks-lcms": ("lcms.load_mzml_files", "lcms.pool_size_normalize"),
+    "scistudio-blocks-srs": ("srs.pca", "srs.calibrate"),
+}
+
+_ADR050_PACKAGE_TYPE_NAMES = [tn for pair in _ADR050_PACKAGE_BLOCKS.values() for tn in pair]
+
+# BlockSummary fields the square node + palette read (FR-027/FR-028/FR-030).
+_BLOCK_SUMMARY_CONTRACT_FIELDS = (
+    "name",
+    "type_name",
+    "base_category",
+    "subcategory",
+    "input_ports",
+    "output_ports",
+    "direction",
+    "source",
+    "package_name",
+    "variadic_inputs",
+    "variadic_outputs",
+    "format_capabilities",
+)
+
+# Extra BlockSchemaResponse fields the BottomPanel + port editor read on top of
+# the summary fields (FR-029/FR-030).
+_BLOCK_SCHEMA_CONTRACT_FIELDS = (
+    "config_schema",
+    "type_hierarchy",
+    "dynamic_ports",
+    "allowed_input_types",
+    "allowed_output_types",
+    "min_input_ports",
+    "max_input_ports",
+    "min_output_ports",
+    "max_output_ports",
+)
+
+
+def _port_shape_ok(port: dict[str, object]) -> bool:
+    """A port payload must name itself and expose serialized accepted types."""
+    accepted_types = port.get("accepted_types")
+    return (
+        isinstance(port.get("name"), str)
+        and isinstance(accepted_types, list)
+        and all(isinstance(t, str) for t in accepted_types)
+    )
+
+
+@pytest.mark.parametrize("type_name", _ADR050_PACKAGE_TYPE_NAMES)
+def test_adr050_package_block_summary_exposes_node_contract(client: TestClient, type_name: str) -> None:
+    """SC-010/SC-011: palette summaries keep every field the square node reads.
+
+    Each representative package block must appear in ``GET /api/blocks/`` (or,
+    for aggregated IO loaders/savers, be reachable via its schema endpoint) with
+    the full BlockSummary contract intact, so the square node mark, palette
+    grouping, and ``[+]`` variadic affordance render from package contracts.
+    """
+    response = client.get("/api/blocks/")
+    assert response.status_code == 200
+    blocks = {block["type_name"]: block for block in response.json()["blocks"]}
+
+    # ADR-043 collapses some package IO blocks (e.g. imaging.load_image) into
+    # core Load/Save and omits them from the palette listing; for those the
+    # contract is carried by the schema endpoint instead.
+    summary = blocks.get(type_name)
+    if summary is None:
+        schema = client.get(f"/api/blocks/{type_name}/schema")
+        assert schema.status_code == 200, f"{type_name} resolvable in neither palette nor schema"
+        summary = schema.json()
+
+    for field_name in _BLOCK_SUMMARY_CONTRACT_FIELDS:
+        assert field_name in summary, f"{type_name} dropped BlockSummary field '{field_name}'"
+
+    # base_category is the source of the block-kind mark; subcategory drives
+    # palette grouping (FR-028). Both must be strings and base_category must be
+    # one of the six canonical base kinds.
+    assert summary["base_category"] in {"io", "process", "code", "app", "ai", "subworkflow"}
+    assert isinstance(summary["subcategory"], str)
+
+    # Ports must keep their serialized shape for canvas rendering + TypeLegend.
+    for port in [*summary["input_ports"], *summary["output_ports"]]:
+        assert _port_shape_ok(port), f"{type_name} port lost its name/accepted_types shape: {port}"
+
+    # Variadic flags drive the [+]/[-] affordance even before schema fetch.
+    assert isinstance(summary["variadic_inputs"], bool)
+    assert isinstance(summary["variadic_outputs"], bool)
+    assert isinstance(summary["format_capabilities"], list)
+
+
+@pytest.mark.parametrize("type_name", _ADR050_PACKAGE_TYPE_NAMES)
+def test_adr050_package_block_schema_exposes_bottompanel_contract(client: TestClient, type_name: str) -> None:
+    """SC-010/SC-011/FR-029/FR-030: detail schema keeps BottomPanel + port-editor fields.
+
+    The BottomPanel Config tab orders fields by ``config_schema`` and selects
+    widgets via ``ui_widget``; the port editor reads ``dynamic_ports``,
+    variadic flags, allowed types, and min/max port limits. All must survive
+    the node refactor for every representative package block.
+    """
+    response = client.get(f"/api/blocks/{type_name}/schema")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    for field_name in (*_BLOCK_SUMMARY_CONTRACT_FIELDS, *_BLOCK_SCHEMA_CONTRACT_FIELDS):
+        assert field_name in payload, f"{type_name} schema dropped contract field '{field_name}'"
+
+    # config_schema must be an object-typed JSON schema with a properties map
+    # so BottomPanel can render and order Config fields (FR-029).
+    config_schema = payload["config_schema"]
+    assert isinstance(config_schema, dict)
+    assert isinstance(config_schema.get("properties", {}), dict)
+
+    # dynamic_ports is either None (static block) or the enum-driven descriptor
+    # the frontend uses to recompute accepted_types (FR-030).
+    dynamic_ports = payload["dynamic_ports"]
+    assert dynamic_ports is None or isinstance(dynamic_ports, dict)
+    if isinstance(dynamic_ports, dict):
+        assert "source_config_key" in dynamic_ports
+        assert "output_port_mapping" in dynamic_ports
+
+    # Variadic-port editor contract: flags are bools, allowed-type lists are
+    # string lists, and min/max limits are int-or-None (FR-030).
+    assert isinstance(payload["variadic_inputs"], bool)
+    assert isinstance(payload["variadic_outputs"], bool)
+    assert all(isinstance(t, str) for t in payload["allowed_input_types"])
+    assert all(isinstance(t, str) for t in payload["allowed_output_types"])
+    for limit_field in ("min_input_ports", "max_input_ports", "min_output_ports", "max_output_ports"):
+        assert payload[limit_field] is None or isinstance(payload[limit_field], int)
+
+
+def test_adr050_package_config_schema_exposes_ui_priority_and_ui_widget(client: TestClient) -> None:
+    """FR-029/SC-010: package config_schema keeps ``ui_priority`` and ``ui_widget``.
+
+    Removing node-body config MUST NOT strip the schema fields BottomPanel uses
+    to order fields (``ui_priority``) and pick widgets (``ui_widget``). Proven
+    against a package process block (LCMS pool-size normalize: every field is
+    priority-ordered) and a package app block (imaging napari: declares a
+    ``file_browser`` path widget and ``port_editor`` widgets for variadic
+    ports), so both axes of the contract are covered without package edits.
+    """
+    process_schema = client.get("/api/blocks/lcms.pool_size_normalize/schema")
+    assert process_schema.status_code == 200
+    process_props = process_schema.json()["config_schema"]["properties"]
+    assert process_props, "lcms.pool_size_normalize lost its config properties"
+    # BottomPanel orders Config fields by ui_priority — package process fields
+    # keep an integer priority.
+    assert all("ui_priority" in prop for prop in process_props.values()), (
+        "lcms.pool_size_normalize dropped ui_priority from a config field"
+    )
+    assert all(isinstance(prop["ui_priority"], int) for prop in process_props.values())
+
+    app_schema = client.get("/api/blocks/imaging.napari/schema")
+    assert app_schema.status_code == 200
+    app_props = app_schema.json()["config_schema"]["properties"]
+    # ui_widget selection survives for package-provided fields: a file browser
+    # for the executable path and the port editor for variadic port config.
+    widgets = {name: prop.get("ui_widget") for name, prop in app_props.items()}
+    assert widgets.get("app_command") == "file_browser", widgets
+    assert widgets.get("input_ports") == "port_editor", widgets
+    assert widgets.get("output_ports") == "port_editor", widgets
+
+
+def test_adr050_package_io_block_schema_exposes_format_capabilities(client: TestClient) -> None:
+    """FR-030/SC-011: package IO loaders keep serialized format_capabilities.
+
+    BottomPanel capability selection reads ``format_capabilities`` from package
+    IO blocks. The contract (the field is present and each entry carries the
+    BottomPanel-consumed keys) must hold for spectroscopy and LCMS loaders
+    without editing package source.
+    """
+    for type_name, expected_data_type in (
+        ("spectroscopy.load_spectrum", "Spectrum"),
+        ("lcms.load_mzml_files", "MSRawFile"),
+    ):
+        response = client.get(f"/api/blocks/{type_name}/schema")
+        assert response.status_code == 200, response.text
+        capabilities = response.json()["format_capabilities"]
+        assert capabilities, f"{type_name} dropped its format_capabilities"
+        capability = capabilities[0]
+        assert {"id", "direction", "data_type", "format_id", "extensions", "label"}.issubset(capability)
+        assert any(cap["data_type"] == expected_data_type for cap in capabilities), (
+            f"{type_name} no longer advertises a {expected_data_type} capability"
+        )
+
+
+def test_adr050_variadic_package_block_advertises_topology_controls(client: TestClient) -> None:
+    """FR-030/SC-011: a variadic package block keeps the ``[+]`` topology contract.
+
+    ``spectroscopy.merge_spectral_dataset`` is variadic on inputs. The square
+    node renders its ``[+]/[-]`` controls from ``variadic_inputs`` and the port
+    editor reads ``allowed_input_types`` + min/max limits — all must round-trip
+    through the API for the package block.
+    """
+    response = client.get("/api/blocks/spectroscopy.merge_spectral_dataset/schema")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["variadic_inputs"] is True, "package variadic-input flag was lost"
+    assert isinstance(payload["allowed_input_types"], list)
+    # min/max limits remain part of the contract (None means unconstrained).
+    for limit_field in ("min_input_ports", "max_input_ports"):
+        assert limit_field in payload
+        assert payload[limit_field] is None or isinstance(payload[limit_field], int)
+    # The single declared input port still serializes with its accepted types.
+    assert payload["input_ports"], "variadic merge block lost its declared input port"
+    assert _port_shape_ok(payload["input_ports"][0])
+
+
+def test_adr050_no_package_specific_node_hint_fields_added(client: TestClient) -> None:
+    """FR-032/SC-012: the API exposes no old-node / square-node hint fields.
+
+    The refactor must not introduce package-specific legacy-renderer,
+    compact-card, or square-node marker fields onto the schema payload, and
+    must not drop the existing package-facing fields. The BlockSchemaResponse
+    field set is the contract; a representative package block exercises it.
+    """
+    response = client.get("/api/blocks/imaging.axis_merge/schema")
+    assert response.status_code == 200
+    keys = set(response.json())
+
+    forbidden_markers = {
+        "legacy_node",
+        "old_node",
+        "square_node",
+        "compact_card",
+        "node_renderer",
+        "inline_config",
+        "node_hint",
+    }
+    leaked = keys & forbidden_markers
+    assert not leaked, f"ADR-050 forbids package-specific node hint fields; found {leaked}"
+
+    # And the existing package-facing contract fields are all still present.
+    required = set(_BLOCK_SUMMARY_CONTRACT_FIELDS) | set(_BLOCK_SCHEMA_CONTRACT_FIELDS)
+    missing = required - keys
+    assert not missing, f"imaging.axis_merge schema dropped contract fields: {missing}"
