@@ -8,6 +8,8 @@ availability diagnostics (R is reported, never required — FR-021, FR-015).
 
 from __future__ import annotations
 
+import ast
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -183,6 +185,8 @@ def validate_plot(plot_id: str | None = None, path: str | None = None) -> Valida
             errors.append("script.path escapes the project root.")
         if not script_path.exists():
             errors.append(f"render script not found: {manifest.script.path}")
+        else:
+            errors.extend(_validate_render_signature(script_path, manifest))
 
     # Target existence (FR-021): the bound workflow path + node + output port
     # must still resolve to a discoverable target.
@@ -256,6 +260,52 @@ def _short_pydantic(exc: ValidationError) -> str:
         loc = ".".join(str(p) for p in err.get("loc", ()))
         parts.append(f"{loc}: {err.get('msg', '')}")
     return "; ".join(parts)
+
+
+def _validate_render_signature(script_path: Path, manifest: PlotManifest) -> list[str]:
+    entrypoint = manifest.script.entrypoint
+    if manifest.script.language == "python":
+        try:
+            tree = ast.parse(script_path.read_text(encoding="utf-8"), filename=str(script_path))
+        except SyntaxError as exc:
+            return [f"render script syntax error: {exc.msg} at line {exc.lineno}."]
+        render_node = next(
+            (node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == entrypoint),
+            None,
+        )
+        if render_node is None:
+            return [f"render script must define def {entrypoint}(collection)."]
+        args = render_node.args
+        positional = [*args.posonlyargs, *args.args]
+        ok = (
+            len(positional) == 1
+            and positional[0].arg == "collection"
+            and not args.defaults
+            and not args.vararg
+            and not args.kwonlyargs
+            and not args.kw_defaults
+            and not args.kwarg
+        )
+        if ok:
+            return []
+        return [
+            "Python render entrypoint must be exactly def render(collection). "
+            "render(collection, context) is not supported."
+        ]
+    if manifest.script.language == "r":
+        source = script_path.read_text(encoding="utf-8")
+        pattern = rf"(?s)\b{re.escape(entrypoint)}\s*(?:<-|=)\s*function\s*\((?P<formals>[^)]*)\)"
+        match = re.search(pattern, source)
+        if match is None:
+            return [f"R render script must define {entrypoint} <- function(collection)."]
+        formals = [part.strip() for part in match.group("formals").split(",") if part.strip()]
+        if formals == ["collection"]:
+            return []
+        return [
+            "R render entrypoint must be exactly render <- function(collection). "
+            "render <- function(collection, context) is not supported."
+        ]
+    return []
 
 
 __all__ = [

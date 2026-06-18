@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Coroutine, Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
 
@@ -27,6 +28,8 @@ from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
+
+_T = TypeVar("_T")
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +70,7 @@ class _StubRun:
 class _StubRuntime:
     _project_dir: Path
     block_registry: Any = None
+    type_registry: Any = None
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     active_workflow_id: str | None = None
 
@@ -79,18 +83,18 @@ class _Measurements:  # pragma: no cover
     pass
 
 
-def _run(coro):
+def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     return asyncio.run(coro)
 
 
 @pytest.fixture(autouse=True)
-def _teardown_ctx():
+def _teardown_ctx() -> Generator[None, None, None]:
     yield
     _context.set_context(None)
 
 
 @pytest.fixture
-def setup(tmp_path: Path):
+def setup(tmp_path: Path) -> tuple[Path, _StubRuntime, Path]:
     project = tmp_path / "proj"
     (project / "workflows").mkdir(parents=True)
     wf = project / "workflows" / "main.yaml"
@@ -125,11 +129,12 @@ def setup(tmp_path: Path):
     _run(scaffold_plot(plot_id="p1", target_id=tid, language="python"))
     (project / "plots" / "p1" / "render.py").write_text(
         (
-            "def render(collection, context):\n"
-            "    df = context.to_dataframe(collection, max_rows=1000)\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    df = collection.items.open_one()\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.scatter(df['x'], df['y'], s=4)\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
         encoding="utf-8",
     )
@@ -141,7 +146,7 @@ def setup(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_writes_current_svg_and_json_at_fr026_layout(setup) -> None:
+def test_writes_current_svg_and_json_at_fr026_layout(setup: tuple[Path, _StubRuntime, Path]) -> None:
     project, _runtime, _wf = setup
     res = _run(run_plot_job(plot_id="p1"))
     assert res.status == "succeeded", res.errors
@@ -165,28 +170,31 @@ def test_writes_current_svg_and_json_at_fr026_layout(setup) -> None:
     assert record["cache_key"] == res.cache_key
 
 
-def test_rerun_overwrites_current(setup) -> None:
+def test_rerun_overwrites_current(setup: tuple[Path, _StubRuntime, Path]) -> None:
     _project, _runtime, _wf = setup
     first = _run(run_plot_job(plot_id="p1"))
     svg = Path(first.artifact_paths[0])
+    assert first.metadata_path is not None
     first_created = json.loads(Path(first.metadata_path).read_text(encoding="utf-8"))["created"]
     second = _run(run_plot_job(plot_id="p1"))
     assert Path(second.artifact_paths[0]) == svg
+    assert second.metadata_path is not None
     second_created = json.loads(Path(second.metadata_path).read_text(encoding="utf-8"))["created"]
     assert second_created >= first_created
 
 
-def test_failed_rerun_records_failure(setup) -> None:
+def test_failed_rerun_records_failure(setup: tuple[Path, _StubRuntime, Path]) -> None:
     project, _runtime, _wf = setup
     ok = _run(run_plot_job(plot_id="p1"))
     assert ok.status == "succeeded"
     previous_svg = Path(ok.artifact_paths[0])
     assert previous_svg.is_file()
     (project / "plots" / "p1" / "render.py").write_text(
-        "def render(collection, context):\n    raise ValueError('boom')\n", encoding="utf-8"
+        "def render(collection):\n    raise ValueError('boom')\n", encoding="utf-8"
     )
     bad = _run(run_plot_job(plot_id="p1"))
     assert bad.status == "failed"
+    assert bad.metadata_path is not None
     record = json.loads(Path(bad.metadata_path).read_text(encoding="utf-8"))
     assert record["status"] == "failed"
     assert record["error"]
@@ -198,7 +206,9 @@ def test_failed_rerun_records_failure(setup) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(setup) -> None:
+def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(
+    setup: tuple[Path, _StubRuntime, Path],
+) -> None:
     project, runtime, wf = setup
     wf_before = wf.read_text(encoding="utf-8")
     # Snapshot scheduler outputs (the only live run state).
@@ -227,7 +237,7 @@ def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(setup) -> Non
 # ---------------------------------------------------------------------------
 
 
-def test_artifact_consumable_by_plot_previewer(setup) -> None:
+def test_artifact_consumable_by_plot_previewer(setup: tuple[Path, _StubRuntime, Path]) -> None:
     _project, _runtime, _wf = setup
     res = _run(run_plot_job(plot_id="p1"))
     assert res.status == "succeeded", res.errors

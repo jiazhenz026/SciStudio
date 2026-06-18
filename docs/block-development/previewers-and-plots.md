@@ -400,7 +400,7 @@ outputs:
 runtime:
   timeout_seconds: 30
 limits:
-  max_rows: 10000
+  max_input_bytes: 67108864
   max_output_bytes: 10485760    # 10 MiB
   max_files: 8
 ```
@@ -414,36 +414,82 @@ hand-edited manifest cannot raise the caps beyond the safe envelope
 
 ## The render contract (Python and R)
 
-The render script exposes a single `render(collection, context)` entry point.
+The render script exposes a single context-free entry point. `context` is not a
+plot authoring API.
 
-**Python** — `render(collection, context)`:
+**Python** - `render(collection)`:
 
 ```python
-def render(collection, context):
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+def render(collection):
+    import matplotlib.pyplot as plt
+
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     ax.scatter(df["x"], df["y"], s=6)
-    return context.save_figure(fig, "figure.svg")
+    return fig
 ```
 
-**R** — `render <- function(collection, context)`:
+**R** - `render <- function(collection)`:
 
 ```r
-render <- function(collection, context) {
-  df <- context$to_dataframe(collection, max_rows = 10000)
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
+render <- function(collection) {
+  df <- collection$items$open_one()
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
     ggplot2::geom_point()
-  context$save_plot(p, "figure.pdf")
 }
 ```
 
-`context` helpers are preview-only — there are **no** workflow-mutation APIs:
+Python collection helpers:
 
-- `context.to_dataframe(collection, max_rows=...)` — bounded DataFrame.
-- `context.items(collection, max_items=...)` — bounded iteration over refs.
-- `context.plt` — `matplotlib.pyplot` (Agg backend).
-- `context.save_figure(fig, "figure.svg")` / `context.save_plot(...)` — save a
-  PNG / JPEG / SVG / PDF artifact. SVG is sanitized before display.
+| API | Result |
+|---|---|
+| `collection.types` | `tuple[str, ...]` of normalized core base types. |
+| `collection.items` | Sequence-like item wrapper. |
+| `len(collection.items)` | Number of items. |
+| `for item in collection.items` | Iterate item wrappers. |
+| `collection.items[index]` | One item wrapper. |
+| `collection.items[start:stop]` | List of item wrappers. |
+| `collection.items.open()` | List of native Python values. |
+| `collection.items.open(max_items=n)` | List of at most `n` native Python values. |
+| `collection.items.open_one()` | First native Python value. |
+| `item.type` | One normalized core base type name. |
+| `item.metadata` | Read-only non-storage metadata mapping. |
+| `item.open()` | One native Python value. |
+
+R collection helpers:
+
+| API | Result |
+|---|---|
+| `collection$types` | Character vector of normalized core base types. |
+| `collection$items` | Sequence-like item wrapper. |
+| `length(collection$items)` | Number of items. |
+| `collection$items[[index]]` | One item wrapper. |
+| `collection$items$open()` | List of native R values. |
+| `collection$items$open(max_items = n)` | List of at most `n` native R values. |
+| `collection$items$open_one()` | First native R value. |
+| `collection$items[[index]]$type` | One normalized core base type name. |
+| `collection$items[[index]]$metadata` | Non-storage metadata list. |
+| `collection$items[[index]]$open()` | One native R value. |
+
+Native conversion table:
+
+| Core base type | Python `open()` result | R `open()` result |
+|---|---|---|
+| `Array` | `numpy.ndarray` | `matrix` for 2-D data, `array` otherwise |
+| `DataFrame` | `pandas.DataFrame` | `data.frame` |
+| `Series` | `pandas.Series` | atomic vector |
+| `Text` | `str` | character scalar |
+| `Artifact` | `pathlib.Path` | character scalar path |
+| `CompositeData` | `dict[str, native]` recursively | named list recursively |
+
+Package-defined subclasses are folded back to the nearest supported core base
+type before user code sees them. For example, package `Image` and `Mask`
+subclasses of core `Array` appear as `Array` and open as arrays.
+
+`open()` is explicit materialization, not lazy loading. Before reading, it uses
+metadata or storage size to enforce the plot input memory cap. If the input is
+too large, `open()` fails and the user should write an explicit storage-aware
+reader for that plot.
 
 seaborn works when the project environment provides it; ggplot2 works when R +
 ggplot2 are installed. Only `svg`, `pdf`, `png`, `jpeg` are accepted output

@@ -28,6 +28,7 @@ from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.tools_plot._harness import PYTHON_HARNESS, R_HARNESS
 from scistudio.ai.agent.mcp.tools_plot.models import (
     ABSOLUTE_MAX_FILES,
+    ABSOLUTE_MAX_INPUT_BYTES,
     ABSOLUTE_MAX_OUTPUT_BYTES,
     ABSOLUTE_MAX_TIMEOUT_SECONDS,
     LOG_TRUNCATE_BYTES,
@@ -45,6 +46,8 @@ _PYTHON_HARNESS_NAME = "_plot_harness.py"
 _R_HARNESS_NAME = "_plot_harness.R"
 _INPUTS_NAME = "_plot_inputs.json"
 _PREVIEW_ROOT = ".scistudio/previews"
+_CORE_OPEN_TYPES = ("Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData")
+_CORE_OPEN_TYPE_SET = frozenset(_CORE_OPEN_TYPES)
 
 
 # ---------------------------------------------------------------------------
@@ -130,13 +133,14 @@ def _flatten_to_refs(value: Any) -> tuple[list[dict[str, Any]], list[str]]:
     refs: list[dict[str, Any]] = []
     collection_ids: list[str] = []
 
-    def _one(item: Any) -> None:
+    def _one(item: Any, *, item_type: str | None = None) -> None:
         if isinstance(item, dict) and "path" in item:
             refs.append(
                 {
                     "backend": item.get("backend", "filesystem"),
                     "path": str(item.get("path")),
                     "format": item.get("format"),
+                    "item_type": item.get("item_type") or item.get("type") or item_type,
                     "metadata": item.get("metadata"),
                 }
             )
@@ -155,8 +159,9 @@ def _flatten_to_refs(value: Any) -> tuple[list[dict[str, Any]], list[str]]:
         # a single ref. FR-016: the plot script must receive the actual
         # selected block-output collection, not an empty one.
         if value.get("_collection") and isinstance(value.get("items"), list):
+            item_type = str(value.get("item_type")) if value.get("item_type") else None
             for it in value["items"]:
-                _one(it)
+                _one(it, item_type=item_type)
         elif isinstance(value.get("_collection_items"), list):
             for it in value["_collection_items"]:
                 _one(it)
@@ -235,11 +240,94 @@ def _register_preview_artifact(
 # ---------------------------------------------------------------------------
 
 
-def _clamp_limits(manifest: PlotManifest) -> tuple[float, int, int]:
+def _clamp_limits(manifest: PlotManifest) -> tuple[float, int, int, int]:
     timeout = min(float(manifest.runtime.timeout_seconds), ABSOLUTE_MAX_TIMEOUT_SECONDS)
+    max_input_bytes = min(int(manifest.limits.max_input_bytes), ABSOLUTE_MAX_INPUT_BYTES)
     max_bytes = min(int(manifest.limits.max_output_bytes), ABSOLUTE_MAX_OUTPUT_BYTES)
     max_files = min(int(manifest.limits.max_files), ABSOLUTE_MAX_FILES)
-    return timeout, max_bytes, max_files
+    return timeout, max_bytes, max_files, max_input_bytes
+
+
+def _input_envelope(refs: list[dict[str, Any]], type_registry: Any | None = None) -> dict[str, Any]:
+    """Build the context-free collection envelope consumed by the harness."""
+    items = [_normalise_input_item(ref, type_registry=type_registry) for ref in refs]
+    types: list[str] = []
+    for item in items:
+        typ = str(item.get("type") or "DataObject")
+        if typ != "DataObject" and typ not in types:
+            types.append(typ)
+    return {"schema_version": 1, "collection": {"types": types, "items": items}}
+
+
+def _normalise_input_item(ref: dict[str, Any], *, type_registry: Any | None = None) -> dict[str, Any]:
+    """Fold package subclasses to supported core base types for user code."""
+    metadata = ref.get("metadata") if isinstance(ref.get("metadata"), dict) else {}
+    normalised_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    slots = normalised_metadata.get("slots")
+    if isinstance(slots, dict):
+        normalised_metadata["slots"] = {
+            str(name): _normalise_input_item(slot, type_registry=type_registry)
+            for name, slot in slots.items()
+            if isinstance(slot, dict)
+        }
+    return {
+        "type": _normalise_core_type(ref, type_registry=type_registry),
+        "_backend": ref.get("backend"),
+        "_path": ref.get("path"),
+        "_format": ref.get("format"),
+        "metadata": normalised_metadata,
+    }
+
+
+def _normalise_core_type(ref: dict[str, Any], *, type_registry: Any | None = None) -> str:
+    raw_chain: Any = None
+    metadata = ref.get("metadata")
+    if isinstance(metadata, dict):
+        raw_chain = metadata.get("type_chain")
+    if not raw_chain:
+        raw_chain = ref.get("type_chain")
+    if not raw_chain:
+        raw_chain = ref.get("item_type")
+    if isinstance(raw_chain, str):
+        chain = [raw_chain]
+    elif isinstance(raw_chain, (list, tuple)):
+        chain = [str(name) for name in raw_chain]
+    else:
+        chain = []
+    for name in reversed(chain):
+        if name in _CORE_OPEN_TYPE_SET:
+            return name
+        base = _registered_core_base(type_registry, name)
+        if base is not None:
+            return base
+    if str(ref.get("format") or "").lower() in {"csv", "tsv", "parquet", "pq"}:
+        return "DataFrame"
+    return "DataObject"
+
+
+def _registered_core_base(type_registry: Any | None, type_name: str) -> str | None:
+    if type_registry is None or type_name in _CORE_OPEN_TYPE_SET:
+        return type_name if type_name in _CORE_OPEN_TYPE_SET else None
+    try:
+        types = type_registry.all_types()
+    except Exception:
+        return None
+    if not isinstance(types, dict):
+        return None
+    current = type_name
+    seen: set[str] = set()
+    while current and current not in seen:
+        if current in _CORE_OPEN_TYPE_SET:
+            return current
+        seen.add(current)
+        spec = types.get(current)
+        if spec is None:
+            return None
+        if isinstance(spec, dict):
+            current = str(spec.get("base_type") or "")
+        else:
+            current = str(getattr(spec, "base_type", "") or "")
+    return None
 
 
 def _interpreter_for(loaded: LoadedPlot) -> list[str] | None:
@@ -299,7 +387,7 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
     root = _resolve_project_root(ctx)
     loaded = load_plot(plot_id=plot_id)
     manifest = loaded.manifest
-    timeout, max_bytes, max_files = _clamp_limits(manifest)
+    timeout, max_bytes, max_files, max_input_bytes = _clamp_limits(manifest)
     if timeout_seconds is not None:
         timeout = min(float(timeout_seconds), ABSOLUTE_MAX_TIMEOUT_SECONDS)
 
@@ -344,7 +432,10 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
         (work_dir / _R_HARNESS_NAME).write_text(R_HARNESS, encoding="utf-8")
     user_script_name = Path(manifest.script.path).name
     shutil.copy2(loaded.script_path, work_dir / user_script_name)
-    (work_dir / _INPUTS_NAME).write_text(json.dumps(resolved.refs), encoding="utf-8")
+    (work_dir / _INPUTS_NAME).write_text(
+        json.dumps(_input_envelope(resolved.refs, type_registry=getattr(ctx, "type_registry", None))),
+        encoding="utf-8",
+    )
 
     allowed_csv = ",".join(manifest.outputs.allowed_formats)
     argv = [
@@ -353,8 +444,9 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
         manifest.script.entrypoint,
         _INPUTS_NAME,
         ".",
-        str(manifest.limits.max_rows),
+        manifest.outputs.preferred_format,
         allowed_csv,
+        str(max_input_bytes),
     ]
 
     status: PlotStatus = "failed"
