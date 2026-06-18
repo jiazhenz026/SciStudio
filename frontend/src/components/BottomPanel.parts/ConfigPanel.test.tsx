@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { FormatCapabilityResponse } from "../../types/api";
@@ -7,6 +7,10 @@ import { ConfigPanel } from "./ConfigPanel";
 const apiMocks = vi.hoisted(() => ({
   browseFilesystem: vi.fn(),
   openNativeDialog: vi.fn(),
+  // CapabilityDropdown (rendered by PortEditorTable / CodeBlock port table)
+  // fetches capabilities via ``listCapabilities`` → ``api.listBlocks`` inside
+  // an effect; stub it so those effects resolve cleanly in tests.
+  listBlocks: vi.fn().mockResolvedValue({ blocks: [] }),
 }));
 
 vi.mock("../../lib/api", () => ({
@@ -22,6 +26,7 @@ vi.mock("../../lib/api", () => ({
   api: {
     browseFilesystem: apiMocks.browseFilesystem,
     openNativeDialog: apiMocks.openNativeDialog,
+    listBlocks: apiMocks.listBlocks,
   },
 }));
 
@@ -288,5 +293,271 @@ describe("ConfigPanel", () => {
     expect(screen.queryByRole("option", { name: /Binary/ })).toBeNull();
     expect(screen.queryByRole("option", { name: /PDF/ })).toBeNull();
     expect(screen.getByText("Artifact / any / pixel_only")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // ADR-050 SC-003 — BottomPanel Config owns ALL computational config after
+  // the inline node-config strip is removed by FE-1. These tests prove the
+  // panel still surfaces every control the node body used to: core type,
+  // format capability, file path (covered above), CodeBlock editing, and
+  // full variadic port editing (naming + type selection + add/remove).
+  // -------------------------------------------------------------------------
+
+  it("renders the variadic port editor with naming, type selection, and add/remove (SC-003)", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "merge-1",
+          block_type: "merge",
+          config: {
+            params: {
+              input_ports: [
+                { name: "a", types: ["Image"] },
+                { name: "b", types: ["Image"] },
+              ],
+            },
+          },
+        }}
+        schema={{
+          name: "Merge",
+          type_name: "merge",
+          base_category: "process",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          variadic_inputs: true,
+          min_input_ports: 1,
+          max_input_ports: 4,
+          allowed_input_types: ["Image", "DataFrame"],
+          config_schema: { properties: {} },
+          type_hierarchy: [
+            { name: "DataObject", base_type: "", description: "" },
+            { name: "Image", base_type: "DataObject", description: "" },
+            { name: "DataFrame", base_type: "DataObject", description: "" },
+          ],
+        }}
+      />,
+    );
+
+    // Port editor heading + name inputs prove BottomPanel owns full port editing.
+    expect(screen.getByText("Input Ports")).toBeInTheDocument();
+    const nameInputs = screen.getAllByPlaceholderText("port name") as HTMLInputElement[];
+    expect(nameInputs).toHaveLength(2);
+    expect(nameInputs[0].value).toBe("a");
+
+    // Type selection is editable per port.
+    const typeSelects = screen.getAllByRole("combobox") as HTMLSelectElement[];
+    fireEvent.change(typeSelects[0], { target: { value: "DataFrame" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      input_ports: [
+        { name: "a", types: ["DataFrame"], capability_id: null },
+        { name: "b", types: ["Image"] },
+      ],
+    });
+
+    // Add Port appends a new row through the input_ports config.
+    onUpdateConfig.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /Add Port/ }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      input_ports: [
+        { name: "a", types: ["Image"] },
+        { name: "b", types: ["Image"] },
+        { name: "port_3", types: ["Image"] },
+      ],
+    });
+  });
+
+  it("renders the CodeBlock config editor in BottomPanel (SC-003)", () => {
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: { params: { code: "print('hi')", inputs: [], outputs: [] } },
+        }}
+        schema={{
+          name: "Code Block",
+          type_name: "code_block",
+          base_category: "code",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+
+    // The CodeBlock branch renders its dedicated editor (declared input/output
+    // port tables + script path) rather than the generic schema-field grid —
+    // proving CodeBlock config lives in BottomPanel, not on the canvas node.
+    expect(screen.getByText("Declared inputs")).toBeInTheDocument();
+    expect(screen.getByText("Declared outputs")).toBeInTheDocument();
+    expect(screen.getByText("Script path")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // ADR-050 FR-014 — lossy-save warning detail. The canvas square node no
+  // longer renders this chip; BottomPanel Config is the sole surface for it.
+  // -------------------------------------------------------------------------
+
+  const saveSchema = () => ({
+    name: "Save",
+    type_name: "save_data",
+    base_category: "io",
+    subcategory: "",
+    description: "",
+    version: "0.1.0",
+    input_ports: [],
+    output_ports: [],
+    direction: "output" as const,
+    config_schema: {
+      properties: {
+        path: { type: "string", title: "Path", ui_priority: 0 },
+      },
+    },
+    type_hierarchy: [{ name: "Image", base_type: "DataObject", description: "" }],
+    format_capabilities: [
+      makeCapability({
+        id: "imaging.image.png.save",
+        direction: "save",
+        data_type: "Image",
+        format_id: "png",
+        extensions: [".png"],
+        label: "PNG",
+        // pixel_only: drops every OME field.
+        metadata_fidelity: {
+          level: "pixel_only",
+          typed_meta_reads: [],
+          typed_meta_writes: [],
+          format_metadata_reads: [],
+          format_metadata_writes: [],
+          notes: null,
+        },
+      }),
+    ],
+  });
+
+  const upstreamImageOutputs = {
+    "load-1": {
+      output: {
+        metadata: { meta: { ome: { images: [{ pixels: { physical_size_x: 0.5 } }] } } },
+      },
+    },
+  };
+
+  it("renders the lossy-save warning detail for a selected save node (FR-014)", () => {
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "save-1",
+          block_type: "save_data",
+          config: { params: { path: "out.png", capability_id: "imaging.image.png.save" } },
+        }}
+        schema={saveSchema()}
+        edges={[{ source: "load-1:output", target: "save-1:input" }]}
+        blockOutputs={upstreamImageOutputs}
+      />,
+    );
+
+    const detail = screen.getByTestId("config-lossy-save-detail");
+    expect(detail).toBeInTheDocument();
+    expect(within(detail).getByTestId("lossy-save-warning")).toBeInTheDocument();
+    expect(within(detail).getByText(/Lossy save/)).toBeInTheDocument();
+  });
+
+  it("omits the lossy-save detail when the capability round-trips losslessly (FR-014)", () => {
+    const schema = saveSchema();
+    schema.format_capabilities[0].id = "imaging.image.ome.save";
+    schema.format_capabilities[0].metadata_fidelity = {
+      level: "lossless",
+      typed_meta_reads: [],
+      typed_meta_writes: [],
+      format_metadata_reads: [],
+      format_metadata_writes: [],
+      notes: null,
+    };
+
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "save-1",
+          block_type: "save_data",
+          config: { params: { path: "out.ome.tiff", capability_id: "imaging.image.ome.save" } },
+        }}
+        schema={schema}
+        edges={[{ source: "load-1:output", target: "save-1:input" }]}
+        blockOutputs={upstreamImageOutputs}
+      />,
+    );
+
+    expect(screen.queryByTestId("config-lossy-save-detail")).toBeNull();
+  });
+
+  it("degrades gracefully (no lossy detail) when blockOutputs/edges are absent (FR-014)", () => {
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "save-1",
+          block_type: "save_data",
+          config: { params: { path: "out.png", capability_id: "imaging.image.png.save" } },
+        }}
+        schema={saveSchema()}
+      />,
+    );
+
+    // The panel still renders config controls without the optional wiring.
+    expect(screen.getByLabelText("Path")).toBeInTheDocument();
+    expect(screen.queryByTestId("config-lossy-save-detail")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ADR-050 SC-002 — no production import path in the BottomPanel config surface
+// references the deleted inline-node-config modules. This guards the
+// config-ownership seam: config lives in BottomPanel, never inline on the node.
+// ---------------------------------------------------------------------------
+describe("BottomPanel config surface — no inline-config imports (SC-002)", () => {
+  const ownedFiles = [
+    "BottomPanel.tsx",
+    "BottomPanel.parts/ConfigPanel.tsx",
+    "BottomPanel.parts/FormatCapabilityConfig.tsx",
+    "BottomPanel.parts/TabBar.tsx",
+    "WorkflowEditor/LossySaveWarning.tsx",
+    "PortEditorTable.tsx",
+    "PortEditor/CapabilityDropdown.tsx",
+    "TypeLegend.tsx",
+  ];
+
+  const forbidden = [
+    "InlineConfigField",
+    "InlineTextInputField",
+    "InlineCapabilitySelector",
+    "inlineConfigHelpers",
+  ];
+
+  it("none of the config-surface source files import inline-node-config modules", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    // Vitest runs with cwd = frontend/ (vite.config.ts uses ./-relative paths),
+    // so resolve the owned source files under src/components from there.
+    const componentsDir = join(process.cwd(), "src", "components");
+    for (const relative of ownedFiles) {
+      const source = readFileSync(join(componentsDir, relative), "utf8");
+      for (const token of forbidden) {
+        expect(source, `${relative} must not reference ${token}`).not.toContain(token);
+      }
+    }
   });
 });
