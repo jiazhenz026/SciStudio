@@ -27,7 +27,7 @@ concurrency:
 jobs:
   build-dmg:
     name: Build macOS DMG
-    runs-on: macos-13
+    runs-on: macos-15-intel
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:

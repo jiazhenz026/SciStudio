@@ -99,7 +99,7 @@ def test_desktop_has_macos_dmg_builder() -> None:
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
     assert "pull_request:" in workflow_text
-    assert "runs-on: macos-13" in workflow_text
+    assert "runs-on: macos-15-intel" in workflow_text
     assert "npm --prefix desktop run build:python:mac" in workflow_text
     assert "npm --prefix desktop run dist:dmg" in workflow_text
     assert "desktop/dist/*.dmg" in workflow_text
