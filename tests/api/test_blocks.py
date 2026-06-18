@@ -71,8 +71,8 @@ def test_validate_connection_endpoint_uses_registry_type_information(client: Tes
         json={
             "source_block": "process_block",
             "source_port": "output",
-            "target_block": "Merge",
-            "target_port": "left",
+            "target_block": "imaging.axis_merge",
+            "target_port": "images",
         },
     )
     assert bidirectional.status_code == 200
@@ -307,14 +307,76 @@ def test_block_schema_exposes_serializable_format_capabilities(client: TestClien
 
 
 def test_list_blocks_keeps_palette_compact_with_capability_metadata(client: TestClient) -> None:
-    """ADR-043 capabilities must not expand one aggregate IOBlock into many blocks."""
+    """ADR-043 package IO capabilities are surfaced through core Load/Save."""
     response = client.get("/api/blocks/")
     assert response.status_code == 200
     blocks = response.json()["blocks"]
 
-    load_image_blocks = [block for block in blocks if block["type_name"] == "imaging.load_image"]
-    assert len(load_image_blocks) == 1
-    assert load_image_blocks[0]["format_capabilities"]
+    assert [block for block in blocks if block["type_name"] == "imaging.load_image"] == []
+    assert [block for block in blocks if block["type_name"] == "imaging.save_image"] == []
+
+    load = next(block for block in blocks if block["type_name"] == "load_data")
+    save = next(block for block in blocks if block["type_name"] == "save_data")
+    assert any(capability["data_type"] == "Image" for capability in load["format_capabilities"])
+    assert any(capability["data_type"] == "Image" for capability in save["format_capabilities"])
+
+
+def test_core_load_save_schema_aggregates_registered_io_types(client: TestClient) -> None:
+    """Core Load/Save schema exposes package types and removes allow_pickle UI."""
+    load_response = client.get("/api/blocks/load_data/schema")
+    assert load_response.status_code == 200
+    load_payload = load_response.json()
+    load_props = load_payload["config_schema"]["properties"]
+    assert "Image" in load_props["core_type"]["enum"]
+    assert "allow_pickle" not in load_props
+    assert load_props["path"]["ui_widget"] == "file_browser"
+    assert any(capability["data_type"] == "Image" for capability in load_payload["format_capabilities"])
+    assert load_payload["dynamic_ports"]["output_port_mapping"]["data"]["Image"] == ["Image"]
+
+    save_response = client.get("/api/blocks/save_data/schema")
+    assert save_response.status_code == 200
+    save_payload = save_response.json()
+    save_props = save_payload["config_schema"]["properties"]
+    assert "Image" in save_props["core_type"]["enum"]
+    assert "allow_pickle" not in save_props
+    assert save_props["path"]["ui_widget"] == "directory_browser"
+    assert any(capability["data_type"] == "Image" for capability in save_payload["format_capabilities"])
+    assert any(
+        capability["id"] == "scistudio-blocks-lcms.table.xlsx.save"
+        for capability in save_payload["format_capabilities"]
+    )
+    assert save_payload["dynamic_ports"]["input_port_mapping"]["data"]["Image"] == ["Image"]
+
+
+def test_core_load_save_schema_collapses_artifact_formats_to_any(client: TestClient) -> None:
+    """Artifact is opaque bytes, so the unified GUI exposes Any, not extensions."""
+    load_response = client.get("/api/blocks/load_data/schema")
+    assert load_response.status_code == 200
+    load_payload = load_response.json()
+    load_artifact = [
+        capability for capability in load_payload["format_capabilities"] if capability["data_type"] == "Artifact"
+    ]
+    assert len(load_artifact) == 1
+    assert load_artifact[0]["id"] == "core.artifact.any.load"
+    assert load_artifact[0]["direction"] == "load"
+    assert load_artifact[0]["format_id"] == "any"
+    assert load_artifact[0]["extensions"] == []
+    assert load_artifact[0]["label"] == "Any"
+    assert load_artifact[0]["is_default"] is True
+
+    save_response = client.get("/api/blocks/save_data/schema")
+    assert save_response.status_code == 200
+    save_payload = save_response.json()
+    save_artifact = [
+        capability for capability in save_payload["format_capabilities"] if capability["data_type"] == "Artifact"
+    ]
+    assert len(save_artifact) == 1
+    assert save_artifact[0]["id"] == "core.artifact.any.save"
+    assert save_artifact[0]["direction"] == "save"
+    assert save_artifact[0]["format_id"] == "any"
+    assert save_artifact[0]["extensions"] == []
+    assert save_artifact[0]["label"] == "Any"
+    assert save_artifact[0]["is_default"] is True
 
 
 # ----------------------------------------------------------------------------

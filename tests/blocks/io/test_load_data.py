@@ -21,6 +21,7 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import logging
 import pickle
@@ -35,6 +36,7 @@ from scistudio.blocks.io import LoadData
 from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.collection import Collection
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
@@ -110,6 +112,7 @@ def test_load_csv_to_dataframe(tmp_path: Path) -> None:
     assert isinstance(df, DataFrame)
     assert df.columns == ["a", "b", "c"]
     assert df.row_count == 3
+    assert df.framework.source == str(csv_path)
     # Phase 1 _load_dataframe_with_persist persists to arrow storage.
     # Verify data is accessible via storage_ref or get_in_memory_data().
     table = df.get_in_memory_data()
@@ -125,6 +128,7 @@ def test_load_tsv_to_dataframe(tmp_path: Path) -> None:
 
     df = block.load(block.config)
 
+    assert isinstance(df, DataFrame)
     assert df.columns == ["a", "b"]
     assert df.row_count == 2
 
@@ -137,6 +141,7 @@ def test_load_json_records_to_dataframe(tmp_path: Path) -> None:
 
     df = block.load(block.config)
 
+    assert isinstance(df, DataFrame)
     assert set(df.columns or []) == {"x", "y"}
     assert df.row_count == 2
 
@@ -149,6 +154,7 @@ def test_load_json_columns_to_dataframe(tmp_path: Path) -> None:
 
     df = block.load(block.config)
 
+    assert isinstance(df, DataFrame)
     assert set(df.columns or []) == {"x", "y"}
     assert df.row_count == 3
 
@@ -162,6 +168,7 @@ def test_load_parquet_to_dataframe(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": str(parquet_path)}})
     df = block.load(block.config)
 
+    assert isinstance(df, DataFrame)
     assert df.columns == ["col_a", "col_b"]
     assert df.row_count == 3
 
@@ -260,6 +267,10 @@ def test_load_single_column_csv_to_series(tmp_path: Path) -> None:
     assert isinstance(s, Series)
     assert s.value_name == "intensity"
     assert s.length == 3
+    table = s.get_in_memory_data()
+    assert isinstance(table, pa.Table)
+    assert table.column_names == ["intensity"]
+    assert table.column("intensity").to_pylist() == [10, 20, 30]
 
 
 def test_load_multi_column_csv_as_series_rejected(tmp_path: Path) -> None:
@@ -343,6 +354,7 @@ def test_load_artifact_with_sidecar_metadata(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "Artifact", "path": str(bin_path)}})
     art = block.load(block.config)
 
+    assert isinstance(art, Artifact)
     assert art.user["source"] == "instrument-A"
     assert art.user["version"] == 7
 
@@ -392,9 +404,10 @@ def test_load_composite_data_from_manifest(tmp_path: Path) -> None:
     assert isinstance(composite, CompositeData)
     assert set(composite.slot_names) == {"table", "notes", "signal"}
     assert isinstance(composite.get("table"), DataFrame)
-    assert isinstance(composite.get("notes"), Text)
+    notes = composite.get("notes")
+    assert isinstance(notes, Text)
     assert isinstance(composite.get("signal"), Array)
-    assert composite.get("notes").content == "hello composite"
+    assert notes.content == "hello composite"
 
 
 def test_load_composite_data_rejects_nested_composite(tmp_path: Path) -> None:
@@ -556,8 +569,6 @@ def test_load_data_multi_path_returns_collection(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1), str(csv2)]}})
     result = block.load(block.config)
 
-    from scistudio.core.types.collection import Collection
-
     assert isinstance(result, Collection)
     assert len(result) == 2
     assert all(isinstance(item, DataFrame) for item in result)
@@ -574,8 +585,13 @@ def test_load_data_multi_path_collection_preserves_contents(tmp_path: Path) -> N
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1), str(csv2)]}})
     result = block.load(block.config)
 
-    assert result[0].row_count == 2
-    assert result[1].row_count == 3
+    assert isinstance(result, Collection)
+    first = result[0]
+    second = result[1]
+    assert isinstance(first, DataFrame)
+    assert isinstance(second, DataFrame)
+    assert first.row_count == 2
+    assert second.row_count == 3
 
 
 def test_load_data_multi_path_single_element_list(tmp_path: Path) -> None:
@@ -585,8 +601,6 @@ def test_load_data_multi_path_single_element_list(tmp_path: Path) -> None:
 
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1)]}})
     result = block.load(block.config)
-
-    from scistudio.core.types.collection import Collection
 
     assert isinstance(result, Collection)
     assert len(result) == 1
@@ -603,10 +617,60 @@ def test_load_data_multi_path_array(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "Array", "path": [str(npy1), str(npy2)]}})
     result = block.load(block.config)
 
+    assert isinstance(result, Collection)
     assert result.item_type is Array
     assert len(result) == 2
     np.testing.assert_array_equal(np.asarray(result[0]), arr)
     np.testing.assert_array_equal(np.asarray(result[1]), arr * 2)
+
+
+def test_load_data_multi_path_package_image(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Multi-path dispatch must resolve package Image loaders from a path list."""
+    tifffile = pytest.importorskip("tifffile")
+    pytest.importorskip("scistudio_blocks_imaging")
+    from scistudio_blocks_imaging.types import Image
+
+    block_ep = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging:get_block_package",
+        group="scistudio.blocks",
+    )
+    type_ep = importlib.metadata.EntryPoint(
+        name="imaging",
+        value="scistudio_blocks_imaging:get_types",
+        group="scistudio.types",
+    )
+    entry_points = importlib.metadata.EntryPoints((block_ep, type_ep))
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        group = kwargs.get("group")
+        if group == "scistudio.blocks":
+            return (block_ep,)
+        if group == "scistudio.types":
+            return (type_ep,)
+        return entry_points
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+
+    p1 = tmp_path / "img1.tif"
+    p2 = tmp_path / "img2.tif"
+    tifffile.imwrite(p1, np.zeros((2, 3), dtype=np.uint8))
+    tifffile.imwrite(p2, np.ones((4, 5), dtype=np.uint8))
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    block = LoadData(config={"params": {"core_type": "Image", "path": [str(p1), str(p2)]}})
+    result = block.load(block.config, output_dir=str(output_dir))
+
+    assert isinstance(result, Collection)
+    assert result.item_type is Image
+    assert len(result) == 2
+    assert all(isinstance(item, Image) for item in result)
+    assert result[0].shape == (2, 3)
+    assert result[1].shape == (4, 5)
 
 
 def test_load_data_multi_path_get_effective_output_ports_is_collection(tmp_path: Path) -> None:

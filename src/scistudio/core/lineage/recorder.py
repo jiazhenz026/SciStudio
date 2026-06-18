@@ -92,6 +92,14 @@ class LineageRecorder:
         # D38-3.2 (closes Codex P1 on PR #926): track whether we are
         # subscribed so ``dispose()`` is idempotent.
         self._subscribed = False
+        # #1527 (BUG-6): latch set when ANY provenance write for this run
+        # fails. Previously every store error was logged-and-swallowed, so a
+        # run with silently-missing lineage rows / block_io edges still
+        # finalised as a clean "completed". We keep swallowing the exception
+        # (a lineage outage must not crash the workflow) but no longer hide
+        # it: the flag is OR-ed into ``runs.provenance_degraded`` at
+        # finalisation and surfaced on the run row / API response.
+        self._provenance_degraded = False
 
         event_bus.subscribe(_BLOCK_DONE, self._on_terminal)
         event_bus.subscribe(_BLOCK_ERROR, self._on_terminal)
@@ -102,6 +110,11 @@ class LineageRecorder:
     @property
     def run_id(self) -> str:
         return self._run_id
+
+    @property
+    def provenance_degraded(self) -> bool:
+        """Whether any provenance write for this run failed (#1527 / BUG-6)."""
+        return self._provenance_degraded
 
     # ------------------------------------------------------------------
     # Lifecycle hooks called from the scheduler / ApiRuntime
@@ -118,10 +131,19 @@ class LineageRecorder:
         try:
             self._store.insert_run(run)
         except Exception:
-            logger.warning("LineageRecorder: insert_run failed (non-fatal)", exc_info=True)
+            self._provenance_degraded = True
+            logger.warning("LineageRecorder: insert_run failed (provenance degraded)", exc_info=True)
 
     def finalize_run(self, *, status: str) -> None:
-        """Update the run's ``finished_at`` and ``status`` on completion."""
+        """Update the run's ``finished_at`` and ``status`` on completion.
+
+        #1527 (BUG-6): the run's accumulated ``provenance_degraded`` latch is
+        persisted alongside the terminal columns so a run whose lineage
+        writes failed cannot be read back as clean. A failure of the
+        finalisation write itself also latches the flag (so a later read /
+        retry sees a degraded run rather than a stale "running" row reported
+        as completed by the caller).
+        """
         if self._store is None:
             return
         try:
@@ -129,9 +151,11 @@ class LineageRecorder:
                 self._run_id,
                 finished_at=datetime.now().isoformat(),
                 status=status,
+                provenance_degraded=self._provenance_degraded,
             )
         except Exception:
-            logger.warning("LineageRecorder: finalize_run failed (non-fatal)", exc_info=True)
+            self._provenance_degraded = True
+            logger.warning("LineageRecorder: finalize_run failed (provenance degraded)", exc_info=True)
 
     def dispose(self) -> None:
         """Detach this recorder from its ``EventBus`` (D38-3.2).
@@ -198,8 +222,9 @@ class LineageRecorder:
         try:
             self._store.insert_block_execution(be)
         except Exception:
+            self._provenance_degraded = True
             logger.warning(
-                "LineageRecorder: insert_block_execution failed for block %s (non-fatal)",
+                "LineageRecorder: insert_block_execution failed for block %s (provenance degraded)",
                 block_id,
                 exc_info=True,
             )
@@ -221,8 +246,9 @@ class LineageRecorder:
                 port_values=data.get("outputs"),
             )
         except Exception:
+            self._provenance_degraded = True
             logger.warning(
-                "LineageRecorder: I/O recording failed for block %s (non-fatal)",
+                "LineageRecorder: I/O recording failed for block %s (provenance degraded)",
                 block_id,
                 exc_info=True,
             )

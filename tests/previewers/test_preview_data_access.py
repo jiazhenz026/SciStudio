@@ -1,0 +1,382 @@
+"""Bounded data-access tests (ADR-048 FR-009 / FR-010 / SC-004)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pytest
+
+from scistudio.core.storage.ref import StorageReference
+from scistudio.previewers.data_access import PreviewDataAccess
+
+
+def _csv(tmp_path: Path, rows: int) -> StorageReference:
+    header = "idx,val\n"
+    body = "".join(f"{i},{i * 2}\n" for i in range(rows))
+    path = tmp_path / "t.csv"
+    path.write_text(header + body, encoding="utf-8")
+    return StorageReference(backend="filesystem", path=str(path), format="csv")
+
+
+def test_dataframe_page_bounds_rows(tmp_path: Path) -> None:
+    ref = _csv(tmp_path, 1000)
+    access = PreviewDataAccess(max_rows=200)
+    page = access.dataframe_page(ref, page=1, page_size=99999)
+    # page_size is capped at the row budget.
+    assert page.page_size == 200
+    assert len(page.rows) == 200
+    assert page.total_rows == 1000
+    assert page.truncated is True
+
+
+def test_dataframe_page_sort(tmp_path: Path) -> None:
+    ref = _csv(tmp_path, 50)
+    access = PreviewDataAccess()
+    page = access.dataframe_page(ref, sort_by="val", sort_dir="desc")
+    assert page.sort_by == "val"
+    assert page.sort_dir == "desc"
+    assert page.rows[0]["val"] == 98  # max val = (49 * 2)
+
+
+def test_text_chunk_bounds_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "big.txt"
+    path.write_text("x" * 10000, encoding="utf-8")
+    ref = StorageReference(backend="filesystem", path=str(path), format="txt")
+    access = PreviewDataAccess(text_chars=100)
+    chunk = access.text_chunk(ref)
+    assert len(chunk.content) == 100
+    assert chunk.truncated is True
+    assert chunk.total_bytes == 10000
+
+
+def test_series_points_returns_complete_values() -> None:
+    access = PreviewDataAccess(series_points=10)
+    ref = StorageReference(backend="filesystem", path="/x", format="bin")
+    result = access.series_points(ref, {"values": list(range(1000))})
+    assert len(result.points) == 1000
+    assert result.total == 1000
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert result.points[0] == {"x": 0.0, "y": 0.0}
+    assert result.points[-1] == {"x": 999.0, "y": 999.0}
+
+
+def test_series_points_reads_complete_parquet_extent(tmp_path: Path) -> None:
+    path = tmp_path / "series.parquet"
+    pq.write_table(pa.table({"time": list(range(1000)), "signal": [float(i) * 2 for i in range(1000)]}), path)
+    access = PreviewDataAccess(series_points=10)
+    ref = StorageReference(backend="arrow", path=str(path), format="parquet")
+
+    result = access.series_points(ref, {"index_name": "time", "value_name": "signal"})
+
+    assert result.total == 1000
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert len(result.points) == 1000
+    assert result.points[0] == {"x": 0.0, "y": 0.0}
+    assert result.points[-1] == {"x": 999.0, "y": 1998.0}
+
+
+def test_table_xy_points_reads_complete_parquet_extent(tmp_path: Path) -> None:
+    path = tmp_path / "spectrum.parquet"
+    xs = list(range(700, 1700))
+    ys = [float(i) / 10.0 for i in range(len(xs))]
+    pq.write_table(pa.table({"lambda": xs, "intensity": ys}), path)
+    access = PreviewDataAccess(series_points=10)
+    ref = StorageReference(backend="arrow", path=str(path), format="parquet")
+
+    result = access.table_xy_points(ref, x_column="lambda", y_column="intensity")
+
+    assert result.total == 1000
+    assert result.truncated is False
+    assert result.nonnumeric == 0
+    assert len(result.points) == 1000
+    assert result.points[0] == {"x": 700.0, "y": 0.0}
+    assert result.points[-1] == {"x": 1699.0, "y": 99.9}
+
+
+def test_series_points_rejects_zarr_storage(tmp_path: Path) -> None:
+    path = tmp_path / "spectrum.zarr"
+    path.mkdir()
+    access = PreviewDataAccess(series_points=5)
+    ref = StorageReference(backend="zarr", path=str(path), format="zarr")
+    with pytest.raises(ValueError, match="Series preview expects Arrow/Parquet storage"):
+        access.series_points(ref, {})
+
+
+def test_collection_sample_bounds_items() -> None:
+    access = PreviewDataAccess(max_items=3)
+    items = [{"data_ref": f"d{i}", "type_name": "Image"} for i in range(20)]
+    sample = access.collection_sample(count=20, item_type="Image", items=items)
+    assert len(sample.items) == 3
+    assert sample.count == 20
+    assert sample.sampled is True
+
+
+def test_composite_slots_inventory_only() -> None:
+    access = PreviewDataAccess()
+    slots = access.composite_slots({"slots": {"raster": "Array", "obs": "DataFrame"}})
+    assert slots.slots == {"raster": "Array", "obs": "DataFrame"}
+
+
+def test_array_plane_does_not_materialize_full_zarr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """SC-004: a large array preview reads ONE bounded plane, never the whole array.
+
+    The fake Zarr handle records every index access. A bounded ``array_plane``
+    must NOT use the full-array ``handle[...]`` slice on a handle that exposes
+    a ``.shape`` (the real-array contract); it must index a single plane.
+    """
+    import sys
+    import types
+
+    accesses: list[object] = []
+
+    class _FakeZarrArray:
+        shape = (50, 512, 512)  # 50 planes; full read would be ~13M floats
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            accesses.append(key)
+            # Return a 2-D plane regardless; the test asserts on the SELECTOR,
+            # not the data, to prove no full ``[...]`` materialization happened.
+            return np.zeros((512, 512), dtype=np.float32)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "big.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(
+        backend="zarr",
+        path=str(zarr_path),
+        format="zarr",
+        metadata={"axes": ["z", "y", "x"], "shape": [50, 512, 512]},
+    )
+    access = PreviewDataAccess(max_dim=256)
+    plane = access.array_plane(ref, slice_index=3)
+
+    assert plane.shape == [50, 512, 512]
+    assert plane.slice_axis_name == "z"
+    assert plane.slice_axis_size == 50
+    assert plane.slice_index == 3
+    # The single non-displayed (z) axis is echoed as a per-axis descriptor.
+    assert [a.name for a in plane.slice_axes] == ["z"]
+    assert plane.slice_axes[0].axis == 0
+    assert plane.slice_axes[0].size == 50
+    assert plane.slice_axes[0].index == 3
+    # The numeric matrix is the actual (downsampled) plane data, with a finite
+    # value extent for the legend (the fake handle returns all-zeros).
+    assert plane.vmin == 0.0
+    assert plane.vmax == 0.0
+    # The single read selector picked plane index 3 along axis 0 — NOT a full
+    # ``Ellipsis`` / ``slice(None)`` materialization of all 50 planes.
+    assert accesses, "expected exactly one bounded plane read"
+    selector = accesses[0]
+    assert selector is not Ellipsis
+    assert isinstance(selector, tuple)
+    assert selector[0] == 3  # bounded to the requested z-plane
+    # Downsampled to <= max_dim on the longest side.
+    assert len(plane.matrix) <= 256
+    assert all(len(row) <= 256 for row in plane.matrix)
+
+
+def test_array_plane_per_axis_indices_select_every_extra_axis(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A 4-D array is fully navigable: each non-(y,x) axis is independently picked.
+
+    The fake handle records the selector so we can prove the bounded read used
+    the requested index on EVERY extra axis (not just the first), and that the
+    returned ``slice_axes`` echo the clamped selection.
+    """
+    import sys
+    import types
+
+    accesses: list[object] = []
+
+    class _FakeZarrArray:
+        shape = (4, 6, 32, 32)  # axes t, z, y, x
+        dtype = "float64"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            accesses.append(key)
+            return np.zeros((32, 32), dtype=np.float64)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "nd.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(
+        backend="zarr",
+        path=str(zarr_path),
+        format="zarr",
+        metadata={"axes": ["t", "z", "y", "x"], "shape": [4, 6, 32, 32]},
+    )
+    access = PreviewDataAccess(max_dim=256)
+    # Select t=2, z=5 (the latter clamps below its size of 6).
+    plane = access.array_plane(ref, axis_indices={0: 2, 1: 5})
+
+    # Both extra axes are surfaced as independently navigable descriptors.
+    assert [(a.name, a.size, a.index) for a in plane.slice_axes] == [("t", 4, 2), ("z", 6, 5)]
+    selector = accesses[0]
+    assert isinstance(selector, tuple)
+    assert selector[0] == 2  # t
+    assert selector[1] == 5  # z
+    # y, x stay full-span slices.
+    assert selector[2] == slice(None)
+    assert selector[3] == slice(None)
+
+
+def test_array_plane_signed_extent_not_clipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Signed data keeps its true min/max (negatives are NOT clipped to 0)."""
+    import sys
+    import types
+
+    signed = np.linspace(-5.0, 5.0, 16, dtype=np.float32).reshape(4, 4)
+
+    class _FakeZarrArray:
+        shape = (4, 4)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return signed
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "signed.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    access = PreviewDataAccess()
+    plane = access.array_plane(ref)
+
+    assert plane.slice_axes == []  # 2-D: nothing to slice
+    assert plane.vmin is not None and plane.vmin < 0  # negative preserved
+    assert plane.vmax is not None and plane.vmax > 0
+    # The matrix itself still carries the negative values.
+    finite_values = [v for row in plane.matrix for v in row if v is not None]
+    assert min(finite_values) < 0
+
+
+def test_array_plane_all_nan_extent_is_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An all-NaN plane yields ``vmin``/``vmax`` of None (no misleading legend)."""
+    import sys
+    import types
+
+    class _FakeZarrArray:
+        shape = (3, 3)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return np.full((3, 3), np.nan, dtype=np.float32)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "nan.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    plane = PreviewDataAccess().array_plane(ref)
+    assert plane.vmin is None
+    assert plane.vmax is None
+    # The matrix is JSON-safe: non-finite cells are encoded as ``None``.
+    assert all(v is None for row in plane.matrix for v in row)
+
+
+def test_array_plane_matrix_is_json_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A plane mixing NaN/inf with finite values serializes as strict JSON.
+
+    Masked scientific arrays carry NaN/+-inf; the numeric matrix is the primary
+    preview payload, so non-finite cells must be encoded as ``null`` (not the
+    invalid ``NaN`` / ``Infinity`` JSON tokens) or the session response breaks.
+    """
+    import json
+    import sys
+    import types
+
+    mixed = np.array(
+        [[1.0, np.nan, 3.0], [np.inf, -2.0, -np.inf], [0.0, 5.5, -7.0]],
+        dtype=np.float32,
+    )
+
+    class _FakeZarrArray:
+        shape = (3, 3)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return mixed
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "mixed.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    plane = PreviewDataAccess().array_plane(ref)
+
+    # Non-finite cells became None; finite cells survived.
+    assert plane.matrix[0] == [1.0, None, 3.0]
+    assert plane.matrix[1] == [None, -2.0, None]
+    # vmin/vmax ignore the non-finite cells.
+    assert plane.vmin == -7.0
+    assert plane.vmax == 5.5
+    # Strict JSON (allow_nan=False) must succeed — proves no NaN/Infinity tokens.
+    json.dumps(plane.matrix, allow_nan=False)
+
+
+def test_array_tile_bounds_dimensions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import sys
+    import types
+
+    class _FakeZarrArray:
+        shape = (1024, 1024)
+        dtype = "float32"
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return np.arange(1024 * 1024, dtype=np.float32).reshape(1024, 1024)
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeZarrArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+    zarr_path = tmp_path / "tile.zarr"
+    zarr_path.mkdir()
+    ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
+    access = PreviewDataAccess(max_tile=64)
+    tile = access.array_tile(ref, y0=0, x0=0, height=500, width=500)
+    # Tile dimensions capped at the tile budget.
+    assert tile.height == 64
+    assert tile.width == 64
+    assert len(tile.matrix) == 64
+    assert len(tile.matrix[0]) == 64
+
+
+def test_artifact_metadata_no_data_uri_for_large_file(tmp_path: Path) -> None:
+    path = tmp_path / "big.png"
+    path.write_bytes(b"x" * 4096)
+    ref = StorageReference(backend="filesystem", path=str(path), format="png")
+    access = PreviewDataAccess(max_bytes=1024)
+    info = access.artifact_metadata(ref)
+    assert info.size_bytes == 4096
+    assert info.data_uri is None  # too large to inline
+    assert info.mime_type == "image/png"
+
+
+def test_dataframe_page_caps_page_size(tmp_path: Path) -> None:
+    ref = _csv(tmp_path, 10)
+    access = PreviewDataAccess(max_rows=5)
+    page = access.dataframe_page(ref, page_size=100)
+    assert page.page_size == 5

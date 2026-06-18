@@ -12,6 +12,7 @@ from scistudio_blocks_imaging.io.save_image import SaveImage
 from scistudio_blocks_imaging.types import Image
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.io.savers import SaveData
 from scistudio.core.types.collection import Collection
 
 
@@ -51,6 +52,49 @@ def test_save_single_image_to_tiff(tmp_path: Path) -> None:
     assert np.array_equal(back, arr)
 
 
+def test_unified_save_data_proxy_writes_image_to_directory(tmp_path: Path) -> None:
+    arr = np.arange(12, dtype=np.uint16).reshape(3, 4)
+    img = _make_image(arr, ["y", "x"])
+    block = SaveData(
+        config={
+            "params": {
+                "core_type": "Image",
+                "path": str(tmp_path),
+                "capability_id": "scistudio-blocks-imaging.image.tiff.save",
+                "filename": "image",
+            }
+        }
+    )
+
+    block.save(img, block.config)
+
+    out_path = tmp_path / "image.tif"
+    assert out_path.is_file()
+    assert block.config.get("path") == str(out_path)
+
+
+def test_unified_save_data_proxy_refuses_existing_image_file(tmp_path: Path) -> None:
+    arr = np.arange(12, dtype=np.uint16).reshape(3, 4)
+    img = _make_image(arr, ["y", "x"])
+    out_path = tmp_path / "image.tif"
+    out_path.write_bytes(b"existing")
+    block = SaveData(
+        config={
+            "params": {
+                "core_type": "Image",
+                "path": str(tmp_path),
+                "capability_id": "scistudio-blocks-imaging.image.tiff.save",
+                "filename": "image",
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="refuses to overwrite existing output"):
+        block.save(img, block.config)
+
+    assert out_path.read_bytes() == b"existing"
+
+
 def test_save_collection_tiff_round_trip_preserves_data_and_axes(
     tmp_path: Path,
 ) -> None:
@@ -66,8 +110,8 @@ def test_save_collection_tiff_round_trip_preserves_data_and_axes(
     out = loaded[0]
     assert out.axes == ["c", "y", "x"]
     assert out.shape == (2, 3, 5)
-    assert out.dtype == np.int16
-    assert np.array_equal(out._data, arr)
+    assert out.dtype == str(np.dtype(np.int16))
+    assert np.array_equal(out.get_in_memory_data(), arr)
 
 
 def test_save_zarr_round_trip(tmp_path: Path) -> None:
@@ -81,7 +125,7 @@ def test_save_zarr_round_trip(tmp_path: Path) -> None:
     loaded = LoadImage().load(BlockConfig(params={"path": str(out_path)}))
     out = loaded[0]
     assert out.axes == ["c", "y", "x"]
-    assert np.array_equal(out._data, arr)
+    assert np.array_equal(out.get_in_memory_data(), arr)
 
 
 def test_save_format_override_forces_tiff(tmp_path: Path) -> None:

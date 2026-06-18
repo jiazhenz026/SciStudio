@@ -2,17 +2,23 @@
  * #898 — derive human-friendly pill labels from output payloads.
  *
  * Every output dict in ``blockOutputs[block_id]`` already carries
- * ``metadata.framework.source`` (full source file path stamped by
- * LoadImage and other IO blocks). Walk the payload and pair each
+ * ``metadata.meta.source_file`` / ``metadata.framework.source`` (full source
+ * file path stamped by IO blocks). Walk the payload and pair each
  * ``data_ref`` with a display name so the pill labels read e.g.
  * ``beads.tif`` instead of ``data-873de``.
  *
  * Mirror of `LossySaveWarning.extractRefEntries` shape — keep in sync.
  */
 
+import type { PreviewTarget } from "../../types/api";
+
 export interface RefEntry {
+  id: string;
   ref: string;
   displayName: string;
+  outputPort?: string;
+  target: PreviewTarget;
+  initialQuery?: Record<string, unknown>;
 }
 
 function basename(p: string): string {
@@ -21,40 +27,117 @@ function basename(p: string): string {
   return parts[parts.length - 1] || trimmed;
 }
 
-function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
+export function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
   const md = dataItem.metadata;
   if (md && typeof md === "object") {
     const mdRec = md as Record<string, unknown>;
-    // 1. framework.source — set by IO loaders (LoadImage etc.)
-    const framework = mdRec.framework;
-    if (framework && typeof framework === "object") {
-      const src = (framework as Record<string, unknown>).source;
-      if (typeof src === "string" && src) return basename(src);
-    }
-    // 2. meta.source_file — typed Image.Meta
+    // 1. Typed source-file metadata. Imaging and spectroscopy loaders both
+    // use this when the framework source is package provenance rather than a
+    // user-facing filename.
+    const directSourceFile = mdRec.source_file;
+    if (typeof directSourceFile === "string" && directSourceFile) return basename(directSourceFile);
+    const directFilePath = mdRec.file_path;
+    if (typeof directFilePath === "string" && directFilePath) return basename(directFilePath);
     const meta = mdRec.meta;
     if (meta && typeof meta === "object") {
       const sourceFile = (meta as Record<string, unknown>).source_file;
       if (typeof sourceFile === "string" && sourceFile) return basename(sourceFile);
-      // 3. meta.file_path — Artifact
       const filePath = (meta as Record<string, unknown>).file_path;
       if (typeof filePath === "string" && filePath) return basename(filePath);
     }
+    // 2. framework.source — set by IO loaders (LoadImage etc.). Package names
+    // such as "scistudio-blocks-spectroscopy" are provenance, not filenames.
+    const framework = mdRec.framework;
+    if (framework && typeof framework === "object") {
+      const src = (framework as Record<string, unknown>).source;
+      if (typeof src === "string" && src && /[\\/]/.test(src)) return basename(src);
+    }
   }
-  // 4. Fallback: truncated ref (today's behavior)
+  // 3. Fallback: truncated ref (today's behavior)
   return ref.slice(0, 10);
 }
 
-export function extractRefEntries(payload: unknown): RefEntry[] {
+function collectionItemType(
+  record: Record<string, unknown>,
+  items: Record<string, unknown>[],
+): string {
+  const explicit =
+    record.item_type ?? record.item_type_name ?? record.collection_item_type ?? record.type_name;
+  if (typeof explicit === "string" && explicit) return explicit;
+  const firstType = items.find((item) => typeof item.type_name === "string")?.type_name;
+  return typeof firstType === "string" && firstType ? firstType : "DataObject";
+}
+
+function normalizeCollectionItem(item: unknown): Record<string, unknown> | null {
+  if (!item || typeof item !== "object") return null;
+  const record = item as Record<string, unknown>;
+  const ref = record.data_ref ?? record.ref;
+  if (typeof ref !== "string" || !ref) return null;
+  const out: Record<string, unknown> = { data_ref: ref };
+  if (typeof record.type_name === "string") out.type_name = record.type_name;
+  if (record.metadata && typeof record.metadata === "object") out.metadata = record.metadata;
+  return out;
+}
+
+function typeChainFor(typeName: string): string[] {
+  if (!typeName || typeName === "DataObject") return ["DataObject"];
+  return ["DataObject", typeName];
+}
+
+function displayNameForPath(path: string[], fallback: string): string {
+  return path[path.length - 1] || fallback;
+}
+
+function visit(payload: unknown, path: string[]): RefEntry[] {
   if (!payload || typeof payload !== "object") {
     return [];
   }
   const record = payload as Record<string, unknown>;
   if (typeof record.data_ref === "string") {
-    return [{ ref: record.data_ref, displayName: deriveDisplayName(record.data_ref, record) }];
+    return [
+      {
+        id: record.data_ref,
+        ref: record.data_ref,
+        displayName: deriveDisplayName(record.data_ref, record),
+        outputPort: path[0],
+        target: { kind: "data_ref", ref: record.data_ref },
+      },
+    ];
   }
   if (record.kind === "collection" && Array.isArray(record.items)) {
-    return record.items.flatMap((item) => extractRefEntries(item));
+    const items = record.items
+      .map((item) => normalizeCollectionItem(item))
+      .filter((item): item is Record<string, unknown> => item !== null);
+    const itemType = collectionItemType(record, items);
+    const ref =
+      typeof record.collection_ref === "string" && record.collection_ref
+        ? record.collection_ref
+        : `collection:${path.join(".") || "root"}`;
+    const displayName = displayNameForPath(path, "Collection");
+    return [
+      {
+        id: ref,
+        ref,
+        displayName: `${displayName} (${record.count ?? items.length})`,
+        outputPort: path[0],
+        target: {
+          kind: "collection_ref",
+          ref,
+          recorded_type: itemType,
+          type_chain: typeChainFor(itemType),
+          collection_item_type: itemType,
+        },
+        initialQuery: {
+          _collection_items: items,
+          _collection_count: typeof record.count === "number" ? record.count : items.length,
+          _collection_item_type: itemType,
+        },
+      },
+    ];
   }
-  return Object.values(record).flatMap((value) => extractRefEntries(value));
+  return Object.entries(record).flatMap(([key, value]) => visit(value, [...path, key]));
+}
+
+export function extractRefEntries(payload: unknown): RefEntry[] {
+  return visit(payload, []);
 }

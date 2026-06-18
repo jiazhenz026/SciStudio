@@ -20,8 +20,8 @@ Fill every placeholder before dispatch.
 
 - Repository: SciStudio
 - Owner request: <one sentence>
-- Task kind: <feature|bugfix|hotfix|refactor|docs|maintenance|manager>
-- Persona: <manager|implementer|adr_author|test_engineer>
+- Task kind: <feature|bugfix|hotfix|refactor|docs|maintenance|manager|guided>
+- Persona: <manager|implementer|adr_author|test_engineer|live_implementer>
 - Issue: #<issue>
 - Issue URL: <url>
 - Umbrella PR: #<pr> `[DO NOT MERGE]`
@@ -99,10 +99,14 @@ Known deferred items:
 
 - <test command or N/A reason>
 - <lint/check command>
-- `python -m scistudio.qa.governance.gate_receipt run` or explicit
-  `gate_receipt exec` commands for every required Phase 5 check
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr` to run
+  tier-selected CI-equivalent checks and reconcile the gate ledger before PR
+  creation (receipt behavior is folded into the ledger per ADR-042 Addendum 6;
+  there is no separate `gate_receipt` command)
+- `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` before PR creation
 - `python scripts/scistudio_pr_create.py` for the final PR (do not use
-  `gh pr create` directly; ADR-042 Addendum 5)
+  `gh pr create` directly)
+- `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` after PR is created
 - <docs/audit command or N/A reason>
 - <Sentrux MCP/CLI command or N/A reason>
 

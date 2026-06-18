@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scistudio.local/schemas/adr049.package_contract_table.v1.json",
+  "title": "ADR-049 Package Validator Contract Table",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent_id",
+    "generated_at",
+    "source_priority",
+    "agent_scope",
+    "contracts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "adr049.package_contract_table.v1"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "source_priority": {
+      "const": "code-primary-adr-secondary"
+    },
+    "agent_scope": {
+      "type": "object",
+      "required": ["sections", "summary"],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "summary": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/contract"}
+    },
+    "omissions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/omission"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["path", "kind", "pattern"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["contains", "regex"]},
+        "pattern": {"type": "string", "minLength": 1},
+        "symbol": {"type": "string"},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "contract": {
+      "type": "object",
+      "required": [
+        "id",
+        "section",
+        "title",
+        "contract",
+        "status",
+        "severity",
+        "environments",
+        "validator_profile",
+        "applicability",
+        "code_evidence",
+        "adr_evidence",
+        "tests",
+        "adr_alignment",
+        "validator_implication"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^PV-[0-9]{2}-[0-9]{3}$"},
+        "section": {
+          "enum": [
+            "01_package_metadata_distribution",
+            "02_entry_points",
+            "03_type_contracts",
+            "04_block_contracts",
+            "05_config_dynamic_variadic",
+            "06_io_format_capability",
+            "07_data_transport_runtime_boundary",
+            "08_app_code_block_boundaries",
+            "09_previewer_contracts",
+            "10_preview_provider_behavior",
+            "11_plot_jobs",
+            "12_security_isolation",
+            "13_cross_surface_registry_consistency",
+            "99_omitted_or_discovered_contracts"
+          ]
+        },
+        "title": {"type": "string", "minLength": 1},
+        "contract": {"type": "string", "minLength": 1},
+        "status": {
+          "enum": ["implemented", "partial", "planned", "not_implemented", "deprecated"]
+        },
+        "severity": {
+          "enum": ["blocker", "error", "warning", "info"]
+        },
+        "environments": {
+          "type": "array",
+          "items": {"enum": ["development", "production"]},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "validator_profile": {
+          "type": "object",
+          "required": ["development", "production"],
+          "properties": {
+            "development": {"enum": ["block", "error", "warning", "info", "skip"]},
+            "production": {"enum": ["block", "error", "warning", "info", "skip"]}
+          },
+          "additionalProperties": false
+        },
+        "applicability": {
+          "$ref": "#/$defs/applicability"
+        },
+        "code_evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"},
+          "minItems": 1
+        },
+        "adr_evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"}
+        },
+        "tests": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"}
+        },
+        "adr_alignment": {
+          "enum": ["aligned", "adr_missing", "adr_drift", "adr_planned", "unknown"]
+        },
+        "notes": {"type": "string"},
+        "validator_implication": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "applicability": {
+      "type": "object",
+      "required": ["candidate_surfaces", "trigger", "not_applicable_result"],
+      "properties": {
+        "candidate_surfaces": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "trigger": {"type": "string", "minLength": 1},
+        "not_applicable_result": {"const": "not_applicable"}
+      },
+      "additionalProperties": false
+    },
+    "omission": {
+      "type": "object",
+      "required": ["id", "title", "evidence", "recommended_section"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^OM-[0-9]{3}$"},
+        "title": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"},
+          "minItems": 1
+        },
+        "recommended_section": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

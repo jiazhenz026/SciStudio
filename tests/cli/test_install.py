@@ -312,6 +312,71 @@ def test_install_codex_project_scope_writes_local_config(fake_home: Path, fake_c
     assert not (fake_home / ".codex" / "config.toml").is_file()
 
 
+# ---------------------------------------------------------------------------
+# #1521 — FLAT skill layout (discoverable by Claude Code / Codex)
+# ---------------------------------------------------------------------------
+
+
+_EXPECTED_SUB_SKILLS = (
+    "scistudio-build-workflow",
+    "scistudio-write-block",
+    "scistudio-debug-run",
+    "scistudio-inspect-data",
+    "scistudio-project-qa",
+    "scistudio-write-plot",
+)
+
+
+def test_install_skill_layout_is_flat_and_discoverable(fake_home: Path, fake_cwd: Path) -> None:
+    """#1521: sub-skills install as flat siblings, not nested under scistudio/.
+
+    Claude Code / Codex discovery walk exactly one level under ``skills/``;
+    the base skill keeps its own ``scistudio/`` dir and every task-scoped
+    sub-skill must sit beside it (depth 1), never at ``skills/scistudio/<name>/``.
+    """
+    perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+
+    for tree in (".claude", ".agents"):
+        skills_root = fake_home / tree / "skills"
+        # Base skill discoverable at depth 1.
+        assert (skills_root / MCP_SERVER_NAME / "SKILL.md").is_file()
+        # Each sub-skill is a flat sibling, discoverable at depth 1.
+        for sub in _EXPECTED_SUB_SKILLS:
+            assert (skills_root / sub / "SKILL.md").is_file(), f"{tree}: {sub} not flat-installed"
+            # And it must NOT be buried under the nested (undiscoverable) path.
+            assert not (skills_root / MCP_SERVER_NAME / sub).exists(), f"{tree}: {sub} nested under scistudio/"
+
+
+def test_install_skill_layout_matches_provisioning(fake_home: Path, fake_cwd: Path) -> None:
+    """#1521: install.py FLAT layout mirrors agent_provisioning.skills.write_skills."""
+    perform_install(target=None, scope="project", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+
+    from scistudio.agent_provisioning.skills import _SKILL_NAMES
+
+    for tree in (".claude", ".agents"):
+        skills_root = fake_cwd / tree / "skills"
+        for name in _SKILL_NAMES:
+            assert (skills_root / name / "SKILL.md").is_file(), f"{tree}: {name} missing in flat layout"
+        # No skill SKILL.md should exist deeper than one level under skills/.
+        for skill_md in skills_root.rglob("SKILL.md"):
+            depth = len(skill_md.relative_to(skills_root).parts)
+            assert depth == 2, f"{tree}: {skill_md} at unexpected depth {depth} (expected <name>/SKILL.md)"
+
+
+def test_remove_skill_removes_flat_siblings(fake_home: Path, fake_cwd: Path) -> None:
+    """#1521: removal cleans the base skill AND every flat sub-skill sibling."""
+    perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    removed = perform_install(target=None, scope="user", skill=True, do_all=False, remove=True, cwd=fake_cwd)
+    skill_results = [r for r in removed if r.target == "skill"]
+    assert len(skill_results) == 2
+    assert all(r.action == "removed" for r in skill_results)
+    for tree in (".claude", ".agents"):
+        skills_root = fake_home / tree / "skills"
+        assert not (skills_root / MCP_SERVER_NAME).exists()
+        for sub in _EXPECTED_SUB_SKILLS:
+            assert not (skills_root / sub).exists(), f"{tree}: {sub} not removed"
+
+
 def test_perform_install_codex_no_longer_forces_user_scope(fake_home: Path, fake_cwd: Path) -> None:
     """ADR-040 §3.9: removed fallback — 'wrote to user scope' detail no longer surfaces when scope=project."""
     results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)

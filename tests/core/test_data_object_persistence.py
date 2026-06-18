@@ -7,6 +7,7 @@ import pytest
 
 from scistudio.core.types.array import Array
 from scistudio.core.types.base import DataObject
+from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
 
 
@@ -100,6 +101,29 @@ class TestSaveDataFrameToArrow:
         loaded = pq.read_table(target)
         assert loaded.column_names == ["a", "b"]
         assert loaded.num_rows == 3
+
+
+class TestSaveSeriesToArrow:
+    """Series.save — round-trip through ArrowBackend."""
+
+    def test_save_series_to_arrow(self, tmp_path: object) -> None:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        series = Series(index_name="time", value_name="signal", length=3)
+        series._arrow_table = pa.table({"signal": [1.0, 2.0, 3.0]})
+
+        target = (tmp_path / "series.parquet").as_posix()
+        ref = series.save(target)
+
+        assert ref is not None
+        assert ref.backend == "arrow"
+        assert ref.path == target
+        assert series.storage_ref is not None
+
+        loaded = pq.read_table(target)
+        assert loaded.column_names == ["signal"]
+        assert loaded.to_pydict() == {"signal": [1.0, 2.0, 3.0]}
 
 
 class TestSaveTextToFilesystem:

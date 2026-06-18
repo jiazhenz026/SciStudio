@@ -34,6 +34,8 @@ class TestNativeDialogWindowsDirectory:
         assert "FolderPicker" in ps_script
         assert "IFileDialog" in ps_script
         assert "Add-Type -TypeDefinition" in ps_script
+        assert "$owner.TopMost = $true;" in ps_script
+        assert "[FolderPicker]::Pick('Select Folder', $owner.Handle)" in ps_script
         assert "FolderBrowserDialog" not in ps_script
 
         assert result == [r"C:\Users\test\Documents"]
@@ -67,6 +69,8 @@ class TestNativeDialogWindowsDirectory:
 
         assert "OpenFileDialog" in ps_script
         assert "FolderPicker" not in ps_script
+        assert "$owner.TopMost = $true;" in ps_script
+        assert "$d.ShowDialog($owner)" in ps_script
         assert result == [r"C:\file1.txt", r"C:\file2.txt"]
 
 
@@ -109,6 +113,18 @@ class TestNativeDialogNoTimeout:
             _native_dialog_macos("file", None)
 
         self._assert_no_timeout(mock_run)
+
+    def test_macos_save_file_result_converts_file_hfs_path(self) -> None:
+        from scistudio.api.routes.filesystem import _native_dialog_macos
+
+        mock_result = MagicMock()
+        mock_result.stdout = "file Macintosh HD:Users:jiazhenz:Desktop:spectrum.svg"
+        mock_result.returncode = 0
+
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result):
+            result = _native_dialog_macos("save_file", "/Users/jiazhenz/Desktop", "spectrum.svg")
+
+        assert result == ["/Users/jiazhenz/Desktop/spectrum.svg"]
 
     def test_linux_dialog_has_no_timeout(self) -> None:
         from scistudio.api.routes.filesystem import _native_dialog_linux

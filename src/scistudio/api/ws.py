@@ -37,6 +37,10 @@ from scistudio.engine.events import (
 
 logger = logging.getLogger(__name__)
 
+_GUI_DISCONNECT_GRACE_SEC = 2.0
+_gui_ws_clients: set[int] = set()
+_gui_disconnect_cancel_task: asyncio.Task[None] | None = None
+
 # ADR-036 §3.5 (I36c): outbound event type emitted after a successful
 # blocks/*.py save passes lint and hot_reload runs. Declared here as a
 # bare string (not a constant in scistudio.engine.events) because the
@@ -153,6 +157,69 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
     }
 
 
+async def _cancel_running_workflows_for_gui_disconnect(event_bus: EventBus) -> None:
+    """Cancel active workflows when the GUI session disappears."""
+    runtime = getattr(event_bus, "runtime", None)
+    runs = getattr(runtime, "workflow_runs", None)
+    if not isinstance(runs, dict):
+        return
+
+    for workflow_id, run in list(runs.items()):
+        task = getattr(run, "task", None)
+        if task is not None and callable(getattr(task, "done", None)) and task.done():
+            continue
+        scheduler = getattr(run, "scheduler", None)
+        cancel_workflow = getattr(scheduler, "cancel_workflow", None)
+        if not callable(cancel_workflow):
+            continue
+        try:
+            await cancel_workflow()
+            logger.info("Cancelled workflow %s after GUI websocket disconnect", workflow_id)
+        except Exception:
+            logger.warning("Failed to cancel workflow %s after GUI websocket disconnect", workflow_id, exc_info=True)
+            continue
+
+        if task is not None and callable(getattr(task, "done", None)) and not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
+            except (asyncio.CancelledError, TimeoutError):
+                pass
+            except Exception:
+                logger.debug(
+                    "Workflow %s task finished with exception after GUI disconnect", workflow_id, exc_info=True
+                )
+
+
+def _has_active_workflow_runs(event_bus: EventBus) -> bool:
+    runtime = getattr(event_bus, "runtime", None)
+    runs = getattr(runtime, "workflow_runs", None)
+    if not isinstance(runs, dict):
+        return False
+    for run in runs.values():
+        task = getattr(run, "task", None)
+        if task is None:
+            continue
+        if not callable(getattr(task, "done", None)) or not task.done():
+            return True
+    return False
+
+
+async def _cancel_after_gui_disconnect_grace(event_bus: EventBus) -> None:
+    """Debounce transient reconnects before cancelling browser-owned runs."""
+    global _gui_disconnect_cancel_task
+
+    try:
+        await asyncio.sleep(_GUI_DISCONNECT_GRACE_SEC)
+        if _gui_ws_clients:
+            return
+        await _cancel_running_workflows_for_gui_disconnect(event_bus)
+    except asyncio.CancelledError:
+        raise
+    finally:
+        if asyncio.current_task() is _gui_disconnect_cancel_task:
+            _gui_disconnect_cancel_task = None
+
+
 async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     """Handle a WebSocket connection for real-time workflow updates.
 
@@ -171,9 +238,15 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     # narrow.
     from scistudio.api.routes import ai_pty as ai_pty_module
 
+    global _gui_disconnect_cancel_task
+
     await websocket.accept()
 
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    client_token = id(outbound_queue)
+    _gui_ws_clients.add(client_token)
+    if _gui_disconnect_cancel_task is not None and not _gui_disconnect_cancel_task.done():
+        _gui_disconnect_cancel_task.cancel()
 
     def _on_event(event: EngineEvent) -> None:
         """Callback for EventBus — enqueue event for outbound delivery."""
@@ -228,6 +301,8 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                             data=data.get("data", {}),
                         )
                     )
+                elif msg_type == "ping":
+                    outbound_queue.put_nowait({"type": "pong"})
                 elif msg_type == "block_user_marked_done":
                     # Audit P1-E (Codex #866-3): ADR-035 §3.5 path (c) —
                     # the user clicked "Mark done" in an AI Block tab.
@@ -273,6 +348,9 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     finally:
+        _gui_ws_clients.discard(client_token)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
+        if not _gui_ws_clients and _has_active_workflow_runs(event_bus):
+            _gui_disconnect_cancel_task = asyncio.create_task(_cancel_after_gui_disconnect_grace(event_bus))

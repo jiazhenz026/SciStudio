@@ -14,7 +14,6 @@ from queue import Empty, Queue
 from threading import Thread
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
@@ -94,16 +93,18 @@ def test_execute_broadcasts_runtime_lifecycle_events_to_websocket(
     assert any(frame.get("block_id") == "final" for frame in frames if frame["type"] == BLOCK_DONE)
 
 
-@pytest.mark.xfail(
-    reason="#1486: completed workflow outputs are not yet guaranteed to resolve via preview API",
-    strict=True,
-)
 def test_completed_run_lineage_outputs_are_previewable(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    """A completed run should expose output objects that the preview API can read."""
+    """A completed run should expose output objects that the preview API can read.
+
+    #1486: previously xfail — the legacy one-shot preview route could not always
+    resolve completed-run outputs. Under ADR-048 (#1604) the routed session API
+    resolves the output ref's storage from the catalog (``enrich_preview_query``
+    / ``resolve_session_target``) and renders a real (non-error) envelope.
+    """
     _create_workflow(client, opened_project, "vertical-lineage-preview")
 
     assert client.post("/api/workflows/vertical-lineage-preview/execute").status_code == 200
@@ -121,9 +122,19 @@ def test_completed_run_lineage_outputs_are_previewable(
     ]
     assert output_ids, "lineage detail should include previewable output object ids"
 
-    preview = client.get(f"/api/data/{output_ids[0]}/preview")
-    assert preview.status_code == 200, preview.text
-    assert preview.json()["preview"]
+    # ADR-048 no-compat (#1604): preview through the routed session API (the
+    # legacy GET /api/data/{ref}/preview adapter was removed). #1486 tracks
+    # whether completed-run outputs resolve via the preview subsystem at all.
+    session = client.post(
+        "/api/previews/sessions",
+        json={"target": {"kind": "data_ref", "ref": output_ids[0]}, "query": {}},
+    )
+    assert session.status_code == 200, session.text
+    body = session.json()
+    # The output resolves to a real preview envelope, not an error/unroutable one.
+    assert body["kind"] != "error", body
+    assert body.get("error") is None, body
+    assert body["session_id"]
 
 
 def test_git_restore_then_get_workflow_returns_restored_definition(

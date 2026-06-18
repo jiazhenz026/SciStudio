@@ -15,6 +15,7 @@ from yaml import YAMLError
 from scistudio.qa.audit._util import normalise_path
 from scistudio.qa.audit.architecture_drift import check as check_architecture_drift
 from scistudio.qa.audit.closure import check_bidirectional
+from scistudio.qa.audit.developer_docs import check_report as check_developer_docs
 from scistudio.qa.audit.doc_drift import classify_repo
 from scistudio.qa.audit.fact_drift import check_substitutions
 from scistudio.qa.audit.facts import (
@@ -151,6 +152,7 @@ def run(
     check_stale: bool = True,
     include_frontmatter_lint: bool = True,
     include_doc_drift: bool = True,
+    include_developer_docs: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,
     include_signature_drift: bool = True,
@@ -179,6 +181,10 @@ def run(
             child_reports.append(classify_repo(root, registry))
         else:
             deferred_children.append("doc_drift")
+        if include_developer_docs:
+            child_reports.append(check_developer_docs(root))
+        else:
+            deferred_children.append("developer_docs")
         if include_closure:
             maintainers_path = root / "MAINTAINERS"
             maintainers = load_maintainers(maintainers_path) if maintainers_path.exists() else None
@@ -303,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-stale-check", action="store_true")
     parser.add_argument("--skip-frontmatter-lint", action="store_true")
     parser.add_argument("--skip-doc-drift", action="store_true")
+    parser.add_argument("--skip-developer-docs", action="store_true")
     parser.add_argument("--skip-fact-drift", action="store_true")
     parser.add_argument("--skip-closure", action="store_true")
     parser.add_argument("--skip-signature-drift", action="store_true")
@@ -327,6 +334,7 @@ def main(argv: list[str] | None = None) -> int:
             check_stale=not args.no_stale_check,
             include_frontmatter_lint=not args.skip_frontmatter_lint,
             include_doc_drift=not args.skip_doc_drift,
+            include_developer_docs=not args.skip_developer_docs,
             include_fact_drift=not args.skip_fact_drift,
             include_closure=not args.skip_closure,
             include_signature_drift=not args.skip_signature_drift,

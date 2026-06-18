@@ -53,11 +53,11 @@ class BlockRegistrationError(Exception):
 
 
 class CapabilityRegistrationError(BlockRegistrationError):
-    """Raised when an ADR-043 format capability cannot be indexed."""
+    """Raised when an IO format capability cannot be indexed."""
 
 
 class CapabilityLookupError(LookupError):
-    """Base class for ADR-043 format capability lookup failures."""
+    """Base class for IO format capability lookup failures."""
 
     def __init__(
         self,

@@ -248,7 +248,9 @@ function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
     }
     try {
       const tpl = await api.getBlockTemplate("basic");
-      await api.putProjectFile(currentProject.id, filePath, tpl.content);
+      await api.putProjectFile(currentProject.id, filePath, tpl.content, {
+        createParentDirs: true,
+      });
       openFileTab(filePath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -316,7 +318,10 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     loadWorkflowForProject,
   });
 
-  const { createNewCustomBlock, createNewNote } = useFileActions({ currentProject, openFileTab });
+  const { createNewCustomBlock, createNewNote } = useFileActions({
+    currentProject,
+    openFileTab,
+  });
 
   const newWorkflow = useCallback(() => {
     const name = window.prompt("Workflow name:", "Untitled");

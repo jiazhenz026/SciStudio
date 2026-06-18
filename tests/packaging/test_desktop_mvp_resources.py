@@ -15,7 +15,9 @@ def _desktop_package_json() -> dict[str, object]:
     package_json = DESKTOP_DIR / "package.json"
     if not package_json.exists():
         pytest.skip("ADR-037 desktop package scaffold is not present yet; tracked by #1502.")
-    return json.loads(package_json.read_text(encoding="utf-8"))
+    parsed: object = json.loads(package_json.read_text(encoding="utf-8"))
+    assert isinstance(parsed, dict)
+    return {str(key): value for key, value in parsed.items()}
 
 
 def test_desktop_package_declares_mvp_scripts() -> None:
@@ -90,7 +92,7 @@ def test_desktop_has_macos_dmg_builder() -> None:
     content = script.read_text(encoding="utf-8")
     assert "python-build-standalone" in content
     assert "resources/python" in content or 'PYTHON_ROOT="$RESOURCES_ROOT/python"' in content
-    assert "pip install --no-warn-script-location \"$REPO_ROOT\"" in content
+    assert 'pip install --no-warn-script-location "$REPO_ROOT"' in content
     assert "import scistudio, fastapi, uvicorn, pty" in content
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"

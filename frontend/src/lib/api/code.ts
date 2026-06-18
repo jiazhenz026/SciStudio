@@ -32,7 +32,12 @@ export const codeApi = {
       {
         method: "PUT",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ content, source: options?.source ?? "canvas", source_id: sourceId }),
+        body: JSON.stringify({
+          content,
+          source: options?.source ?? "canvas",
+          source_id: sourceId,
+          create_parent_dirs: options?.createParentDirs ?? false,
+        }),
       },
     );
   },

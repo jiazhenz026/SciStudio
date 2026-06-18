@@ -18,31 +18,31 @@ governs:
   modules:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
-    - scistudio.qa.governance.sentrux_gate
-    - scistudio.qa.governance.human_bypass_guard
-    - scistudio.qa.governance.core_change_guard
-    - scistudio.qa.governance.pr_merge_guard
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard
+    - scistudio.qa.governance.gate_record.guards.core_change_guard
+    - scistudio.qa.governance.gate_record.guards.pr_merge_guard
     - scistudio.qa.schemas.frontmatter
     - scistudio.qa.audit.architecture_drift
   contracts:
     - scistudio.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scistudio.qa.audit.architecture_drift.check
-    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427); contract
-    # paths below point to the canonical definition sites so doc_drift / closure
-    # can resolve them against generated facts. The re-exports at
-    # ``scistudio.qa.governance.gate_record.<name>`` remain stable.
-    - scistudio.qa.governance.gate_record.models.GateRecord
-    - scistudio.qa.governance.gate_record.models.CheckEvidence
-    - scistudio.qa.governance.gate_record.models.SentruxEvidence
-    - scistudio.qa.governance.gate_record.models.FullAuditEvidence
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.gate_record.validation.check_pre_commit
-    - scistudio.qa.governance.gate_record.validation.check_commit_msg
-    - scistudio.qa.governance.gate_record.validation.check_pr
-    - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
-    - scistudio.qa.governance.human_bypass_guard.check
-    - scistudio.qa.governance.core_change_guard.check
-    - scistudio.qa.governance.pr_merge_guard.check
+    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427) and was
+    # restructured into a ledger + shared evaluator + guards layout by ADR-042
+    # Addendum 6. The standalone ``models``/``validation`` modules and the
+    # per-stage validators collapsed into the ledger event types and the shared
+    # ``evaluator.reconcile`` entry point; guard modules moved under
+    # ``gate_record.guards``. The contract paths below point to the canonical
+    # definition sites in that new layout so doc_drift / closure can resolve
+    # them against generated facts.
+    - scistudio.qa.governance.gate_record.ledger.GateLedger
+    - scistudio.qa.governance.gate_record.ledger.CheckEvent
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate.SentruxEvidence
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
+    - scistudio.qa.governance.gate_record.guards.sentrux_gate.check
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard.check
+    - scistudio.qa.governance.gate_record.guards.core_change_guard.check
+    - scistudio.qa.governance.gate_record.guards.pr_merge_guard.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum1.md
@@ -83,6 +83,20 @@ translations: []
 # ADR-042 Addendum 1: CI-Reviewed Gate Records And Sentrux Free-Tier Checks
 
 ## 1. Decision Summary
+
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. The `gate_record.models` and
+> `gate_record.validation` modules and the standalone guard modules were
+> superseded by the ledger event types, the shared `evaluator.reconcile`
+> entry point, and the `gate_record.guards` package; `FullAuditEvidence`
+> and the per-stage validators no longer exist as separate symbols. The
+> `governs` block has been repointed to the surviving symbols.
+>
+> **Current command surface:** The stage-specific commands and local bypass
+> environment examples in this historical addendum have been superseded. Current
+> AI-authored work uses `gate_record init`, `plan`, `amend`, `check`, and
+> `finalize`; there is no separate `gate_record docs`, `gate_record sentrux`,
+> `--staged`, or `SCISTUDIO_GATE_BYPASS_LABELS` workflow.
 
 This addendum makes the following decisions for ADR-042 gate and architecture
 governance:
@@ -237,14 +251,14 @@ python -m scistudio.qa.governance.gate_record finalize \
 python -m scistudio.qa.governance.gate_record pre-commit --staged
 python -m scistudio.qa.governance.gate_record pre-commit \
   --staged \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+  --bypass-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
 python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file> \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+  --bypass-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
 python -m scistudio.qa.governance.gate_record pre-push \
-  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+  --bypass-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
 python -m scistudio.qa.governance.gate_record pr-ready \
   --pr-body "<body>" \
-  --pr-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+  --pr-label human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge
 python -m scistudio.qa.governance.gate_record ci \
   --gate-record .workflow/records/<issue>-<task-slug>.json \
   --base <base-ref> \
@@ -532,17 +546,17 @@ gate record unless an administrator explicitly approves the relevant override.
 Examples:
 
 ```bash
-SCISTUDIO_GATE_BYPASS_LABELS=admin-approved:ai-override git push -u origin HEAD
+SCISTUDIO_GATE_BYPASS_LABELS=admin-approved:bypass git push -u origin HEAD
 
 python -m scistudio.qa.governance.gate_record pre-push \
-  --bypass-label admin-approved:ai-override
+  --bypass-label admin-approved:bypass
 
 python -m scistudio.qa.governance.gate_record pr-ready \
   --pr-body "Closes #1266" \
-  --pr-label admin-approved:ai-override
+  --pr-label admin-approved:bypass
 
 gh pr create \
-  --label admin-approved:ai-override \
+  --label admin-approved:bypass \
   --body "Closes #1266"
 ```
 
@@ -551,7 +565,7 @@ The valid administrator labels are exactly:
 | Label | Meaning |
 |---|---|
 | `human-authored` | Human-authored PR bypass for AI-only harness requirements |
-| `admin-approved:ai-override` | One-off AI harness override |
+| `admin-approved:bypass` | One-off AI harness override |
 | `admin-approved:core-change` | Protected core component change approval |
 | `admin-approved:merge` | Approved merge automation |
 

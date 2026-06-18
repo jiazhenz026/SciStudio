@@ -23,7 +23,7 @@ a derived instance is produced (per ADR-027 D5 propagation rules) via
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -148,4 +148,4 @@ class FrameworkMeta(BaseModel):
         # Pydantic v2 model_copy preserves immutability and re-validates
         # the supplied override. ``deep=False`` is correct: every field is
         # a scalar / datetime — no nested mutable structure to copy.
-        return self.model_copy(update={"lineage_id": lineage_id})
+        return cast("FrameworkMeta", self.model_copy(update={"lineage_id": lineage_id}))

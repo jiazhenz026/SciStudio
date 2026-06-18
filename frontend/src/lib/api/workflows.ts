@@ -8,6 +8,7 @@
 import type {
   CancelPropagationResponse,
   ExecuteFromResponse,
+  WorkflowExecutionOptions,
   WorkflowExecutionResponse,
   WorkflowResponse,
 } from "../../types/api";
@@ -75,11 +76,17 @@ export const workflowsApi = {
     apiFetch<void>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
       method: "DELETE",
     }),
-  executeWorkflow: (workflowId: string) =>
+  executeWorkflow: (workflowId: string, options?: WorkflowExecutionOptions) =>
     apiFetch<WorkflowExecutionResponse>(
       `/api/workflows/${encodeURIComponent(workflowId)}/execute`,
       {
         method: "POST",
+        ...(options?.overwriteNodeIds?.length
+          ? {
+              headers: JSON_HEADERS,
+              body: JSON.stringify({ overwrite_node_ids: options.overwriteNodeIds }),
+            }
+          : {}),
       },
     ),
   pauseWorkflow: (workflowId: string) =>
@@ -99,11 +106,14 @@ export const workflowsApi = {
       `/api/workflows/${encodeURIComponent(workflowId)}/blocks/${encodeURIComponent(blockId)}/cancel`,
       { method: "POST" },
     ),
-  executeFrom: (workflowId: string, blockId: string) =>
+  executeFrom: (workflowId: string, blockId: string, options?: WorkflowExecutionOptions) =>
     apiFetch<ExecuteFromResponse>(`/api/workflows/${encodeURIComponent(workflowId)}/execute-from`, {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ block_id: blockId }),
+      body: JSON.stringify({
+        block_id: blockId,
+        overwrite_node_ids: options?.overwriteNodeIds ?? [],
+      }),
     }),
   exportWorkflowToPath: (workflowId: string, path: string) =>
     apiFetch<{ status: string; path: string }>("/api/workflows/export-path", {

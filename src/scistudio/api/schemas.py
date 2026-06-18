@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -54,10 +54,17 @@ class WorkflowExecutionResponse(BaseModel):
     message: str
 
 
+class ExecuteWorkflowRequest(BaseModel):
+    """Request body for workflow execution."""
+
+    overwrite_node_ids: list[str] = Field(default_factory=list)
+
+
 class ExecuteFromRequest(BaseModel):
     """Request body for selective re-run."""
 
     block_id: str
+    overwrite_node_ids: list[str] = Field(default_factory=list)
 
 
 class ExecuteFromResponse(WorkflowExecutionResponse):
@@ -221,12 +228,221 @@ class DataMetadataResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class DataPreviewResponse(BaseModel):
-    """Response body for a lightweight data preview."""
+# ---------------------------------------------------------------------------
+# ADR-048 SPEC 1: routed previewer session API schemas.
+#
+# These mirror the canonical ``scistudio.previewers`` models on the wire. The
+# legacy one-shot ``DataPreviewResponse`` REST-preview body and its
+# ``GET /api/data/{ref}/preview`` route were removed under ADR-048 no-compat
+# (#1604); previews now flow exclusively through the session API below.
+# ---------------------------------------------------------------------------
 
-    ref: str
-    type_name: str
-    preview: dict[str, Any] = Field(default_factory=dict)
+
+class PreviewTargetModel(BaseModel):
+    """Wire shape of a previewer :class:`PreviewTarget`."""
+
+    kind: str = Field(description="data_ref / collection_ref / artifact / plot_artifact.")
+    ref: str = Field(description="Data, collection, or artifact reference (catalog id or path).")
+    recorded_type: str = Field(default="", description="Most-specific recorded type name.")
+    type_chain: list[str] = Field(default_factory=list, description="Ordered general -> specific type chain.")
+    collection_item_type: str | None = Field(default=None)
+    source: dict[str, Any] | None = Field(default=None, description="Optional workflow/node/output display identity.")
+
+
+class PreviewSessionCreate(BaseModel):
+    """Request body for ``POST /api/previews/sessions``."""
+
+    target: PreviewTargetModel
+    query: dict[str, Any] = Field(default_factory=dict, description="Initial normalized query state.")
+
+
+class PreviewSessionPatch(BaseModel):
+    """Request body for ``PATCH /api/previews/sessions/{session_id}``."""
+
+    query: dict[str, Any] = Field(default_factory=dict, description="Query state to merge (slice/page/sort/slot/item).")
+
+
+class PreviewFrontendManifestModel(BaseModel):
+    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
+
+    previewer_id: str
+    module_url: str
+    export_name: str = "default"
+    css: list[str] = Field(default_factory=list)
+    version: str = "0"
+    api_version: str = "1"
+
+
+class PreviewEnvelopeModel(BaseModel):
+    """Wire shape of a canonical :class:`PreviewEnvelope`."""
+
+    session_id: str | None = None
+    previewer_id: str
+    target: dict[str, Any] = Field(default_factory=dict)
+    kind: str = Field(description="dataframe/array/series/text/artifact/composite/collection/plot/error.")
+    payload: dict[str, Any] = Field(default_factory=dict)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    diagnostics: list[str] = Field(default_factory=list)
+    error: dict[str, Any] | None = None
+    frontend_manifest: PreviewFrontendManifestModel | None = None
+
+
+class PreviewerSpecModel(BaseModel):
+    """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
+
+    previewer_id: str
+    owner_kind: str
+    owner_name: str
+    target_type: str
+    supports_collection: bool = False
+    priority: int = 0
+    capabilities: list[str] = Field(default_factory=list)
+    backend_provider: str | None = None
+    frontend_manifest: PreviewFrontendManifestModel | None = None
+    api_version: str = "1"
+
+
+class PreviewResourceResponse(BaseModel):
+    """Response body for a bounded session resource read."""
+
+    resource_id: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class PreviewResourceSaveRequest(BaseModel):
+    """Request body for saving a bounded preview resource to a user path."""
+
+    destination_path: str = Field(description="Absolute path selected by the native save dialog.")
+    params: dict[str, Any] = Field(default_factory=dict, description="Resource params copied from the descriptor.")
+
+
+class PreviewResourceSaveResponse(BaseModel):
+    """Response body after a preview resource is saved to disk."""
+
+    path: str
+    filename: str
+    size_bytes: int
+    mime_type: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
+#
+# These wire the producer (run_plot_job) to the consumer (PlotPreviewer): the
+# run route executes the plot job and, on success, registers the produced
+# artifact as a previewable catalog record so the frontend can open a routed
+# ``plot_artifact`` preview session through the existing previews API.
+# ---------------------------------------------------------------------------
+
+
+class PlotRunRequest(BaseModel):
+    """Request body for ``POST /api/plots/run``."""
+
+    plot_id: str = Field(description="Plot id under plots/ to execute.")
+    run_id: str | None = Field(
+        default=None,
+        description="Optional run id to source the target output from; defaults to latest.",
+    )
+    timeout_seconds: float | None = Field(
+        default=None,
+        description="Optional override of the manifest timeout (re-clamped to the absolute ceiling).",
+    )
+
+
+class PlotTargetItem(BaseModel):
+    """One selectable workflow output target for a new plot."""
+
+    target_id: str
+    workflow_path: str
+    workflow_id: str | None = None
+    node_id: str
+    node_label: str = ""
+    block_type: str
+    output_port: str
+    output_type: str = ""
+    is_collection: bool = False
+    latest_run_id: str | None = None
+    latest_output_available: bool = False
+    diagnostics: list[str] = Field(default_factory=list)
+
+
+class PlotTargetListResponse(BaseModel):
+    """Response body for ``GET /api/plots/targets``."""
+
+    targets: list[PlotTargetItem] = Field(default_factory=list)
+    count: int
+
+
+class PlotCreateRequest(BaseModel):
+    """Request body for ``POST /api/plots``."""
+
+    plot_id: str = Field(description="Plot id and plots/<id> directory name.")
+    target_id: str = Field(description="Target id selected from GET /api/plots/targets.")
+    title: str | None = Field(default=None, description="Human title written to plot.yaml.")
+    language: Literal["python", "r"] = Field(default="python")
+    overwrite: bool = Field(default=False)
+
+
+class PlotCreateResponse(BaseModel):
+    """Response body after creating a plot scaffold."""
+
+    plot_id: str
+    manifest_path: str
+    script_path: str
+    bytes_written: int
+    warnings: list[str] = Field(default_factory=list)
+    target: PlotTargetItem
+
+
+class PlotRunResponse(BaseModel):
+    """Response body for ``POST /api/plots/run``.
+
+    On success ``data_ref`` is the catalog id the frontend passes to
+    ``POST /api/previews/sessions`` (with ``target.kind="plot_artifact"``) to
+    render the produced artifact through the core ``PlotPreviewer``. It is
+    ``None`` when the plot run failed / produced no artifact, in which case
+    ``status`` plus ``errors`` explain why.
+    """
+
+    status: str = Field(description="succeeded / failed / cancelled / timed_out.")
+    data_ref: str | None = Field(
+        default=None,
+        description="Catalog id of the registered plot artifact; open a preview session with this ref.",
+    )
+    recorded_type: str = Field(default="PlotArtifact", description="Recorded type of the artifact record.")
+    type_chain: list[str] = Field(default_factory=list, description="Ordered general -> specific type chain.")
+    cache_key: str | None = Field(default=None, description="Preview cache key for UI refresh (FR-030).")
+    artifact_paths: list[str] = Field(default_factory=list, description="Absolute preview-cache artifact paths.")
+    source: dict[str, Any] | None = Field(
+        default=None,
+        description="Display-only workflow/node/output identity for the preview panel label.",
+    )
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
+class PlotListItem(BaseModel):
+    """One project-local plot manifest summary for the app shell."""
+
+    plot_id: str
+    title: str = ""
+    workflow_id: str | None = None
+    node_id: str
+    output_port: str
+    display_label: str = ""
+    language: str
+    preferred_format: str
+    manifest_path: str
+    script_path: str
+
+
+class PlotListResponse(BaseModel):
+    """Response body for ``GET /api/plots``."""
+
+    plots: list[PlotListItem] = Field(default_factory=list)
+    count: int
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ProjectCreate(BaseModel):

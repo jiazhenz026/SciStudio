@@ -1,0 +1,212 @@
+{
+  "branch": "desktop",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/**",
+      "src/scistudio/paths.py",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/api/routes/**",
+      "src/scistudio/api/app.py",
+      "frontend/**",
+      "tests/**",
+      "pyproject.toml",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-18T06:11:00.353649Z",
+      "owner_directive": "Owner approved merging latest main into desktop before implementing the local package installer.",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-18T06:11:00.353719Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-037-desktop-mvp-spec.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T06:11:00.353725Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-037-desktop-mvp-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T06:11:00.353727Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a2-cli-paths.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1682,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner directed: merge latest main into the desktop branch, then implement a GUI local package installer where users select a local package file/path; local installer scope overrides conflicting ADR-037 marketplace language.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1682-desktop",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353668Z",
+      "pattern": ".agents/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353676Z",
+      "pattern": ".claude/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353678Z",
+      "pattern": ".codex/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353680Z",
+      "pattern": ".gemini/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353681Z",
+      "pattern": ".github/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353683Z",
+      "pattern": "docs/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353685Z",
+      "pattern": "packages/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353686Z",
+      "pattern": "scripts/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353688Z",
+      "pattern": "src/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353689Z",
+      "pattern": "tests/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353691Z",
+      "pattern": "frontend/**",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353692Z",
+      "pattern": "AGENTS.md",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353693Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353695Z",
+      "pattern": "CONTRIBUTING.md",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353696Z",
+      "pattern": "README.md",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353698Z",
+      "pattern": "LICENSE",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T06:11:00.353699Z",
+      "pattern": ".pre-commit-config.yaml",
+      "reason": "Owner-directed branch sync brings current origin/main governance, workflow, core, frontend, package, and test surfaces into the desktop branch before local package installer work."
+    }
+  ],
+  "session_id": "86d9a26a-7bf2-4f01-95fb-a6e9d42724f5",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-18T06:11:00.353731Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_placement.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T06:11:00.353735Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_desktop_mvp_resources.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

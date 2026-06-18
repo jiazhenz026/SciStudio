@@ -701,9 +701,9 @@ section gains a ``testpaths`` key that includes both the core
     rootdir = "."
 
 Plugin-package tests run via the same ``pytest`` invocation as core
-tests. Each plugin package also has its own ``pyproject.toml`` so
-that ``pip install -e packages/scistudio-blocks-imaging`` works
-standalone for downstream consumers.
+tests. Each plugin package also has its own ``pyproject.toml`` so a
+normal package install into a clean virtual environment works standalone
+for downstream consumers.
 
 This decision is implemented incrementally: T-IMG-038 / T-SRS-013 /
 T-LCMS-020 each add their plugin's ``tests`` path to the root config

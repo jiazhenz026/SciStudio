@@ -396,18 +396,15 @@ def _remove_codex(scope: str, cwd: Path) -> InstallResult:
 # ---------------------------------------------------------------------------
 
 
-def _skill_dest(scope: str, cwd: Path) -> tuple[Path, Path]:
-    """Return ``(claude_path, codex_path)`` skill destinations for *scope*.
+def _skill_tree_roots(scope: str, cwd: Path) -> tuple[Path, Path]:
+    """Return ``(claude_skills_root, codex_skills_root)`` for *scope*.
 
-    Per ADR-040 §3.9, the skill is cross-installed to both Claude Code and
-    Codex skill trees so end users get identical guidance regardless of
-    which CLI they launch:
+    These are the ``skills/`` directories one level *above* each installed
+    skill, i.e. the directory skill discovery walks. Per ADR-040 §3.9 the
+    skill bundle is cross-installed to both Claude Code and Codex skill trees:
 
-    * user scope:    ``~/.claude/skills/scistudio/``   AND ``~/.agents/skills/scistudio/``
-    * project scope: ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/``
-
-    Both providers use identical ``SKILL.md`` format (frontmatter +
-    progressive-disclosure body); only the on-disk path differs.
+    * user scope:    ``~/.claude/skills/``   AND ``~/.agents/skills/``
+    * project scope: ``<cwd>/.claude/skills/`` AND ``<cwd>/.agents/skills/``
     """
     if scope == "user":
         base = Path.home()
@@ -416,9 +413,55 @@ def _skill_dest(scope: str, cwd: Path) -> tuple[Path, Path]:
     else:
         raise ValueError(f"unsupported scope for skill: {scope!r}")
     return (
-        base / ".claude" / "skills" / MCP_SERVER_NAME,
-        base / ".agents" / "skills" / MCP_SERVER_NAME,
+        base / ".claude" / "skills",
+        base / ".agents" / "skills",
     )
+
+
+def _skill_dest(scope: str, cwd: Path) -> tuple[Path, Path]:
+    """Return ``(claude_path, codex_path)`` base-skill destinations for *scope*.
+
+    These are the on-disk locations of the base ``scistudio`` skill (the one
+    that keeps its own ``scistudio/`` directory). Task-scoped sub-skills are
+    installed as *siblings* of this directory — see :func:`_install_skill` and
+    the module-level FLAT-layout note. Retained as a thin helper so callers and
+    tests that only care about the base skill location keep working.
+
+    * user scope:    ``~/.claude/skills/scistudio/``   AND ``~/.agents/skills/scistudio/``
+    * project scope: ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/``
+    """
+    claude_root, codex_root = _skill_tree_roots(scope, cwd)
+    return (
+        claude_root / MCP_SERVER_NAME,
+        codex_root / MCP_SERVER_NAME,
+    )
+
+
+def _discover_skill_layout(src: Path) -> dict[str, Path]:
+    """Map skill-name -> source directory for the FLAT install layout.
+
+    The bundled source tree (``_find_skill_source``) is nested:
+
+        <src>/SKILL.md                              # base "scistudio" skill
+        <src>/scistudio-write-block/SKILL.md        # task-scoped sub-skill
+        <src>/scistudio-debug-run/SKILL.md
+        ...
+
+    Claude Code and Codex skill discovery walk exactly one level under
+    ``skills/`` (see :mod:`scistudio.agent_provisioning.skills` module
+    docstring, confirmed by ADR-040 Phase 4 e2e). Copying the whole tree into
+    a single ``skills/scistudio/`` directory buries every sub-skill one level
+    too deep, yielding ``Skill(scistudio-write-block) -> Unknown skill``.
+
+    This returns the FLAT mapping the installer must materialise: the base
+    skill under its own ``scistudio/`` name, and each task-scoped sub-skill as
+    a top-level sibling. Each value is the source directory to copy from.
+    """
+    layout: dict[str, Path] = {MCP_SERVER_NAME: src}
+    for child in sorted(src.iterdir()):
+        if child.is_dir() and (child / "SKILL.md").is_file():
+            layout[child.name] = child
+    return layout
 
 
 def _find_skill_source() -> Path:
@@ -475,42 +518,79 @@ def _find_skill_source() -> Path:
     )
 
 
+def _copy_base_skill(src: Path, dest: Path) -> None:
+    """Copy only the base-skill files (``SKILL.md`` + any top-level assets).
+
+    Sub-skill directories under *src* are NOT copied here — they are installed
+    as flat siblings of *dest* by :func:`_install_skill`. We copy the base
+    skill's own files (top-level files and any non-skill asset subdirectories)
+    but skip child directories that are themselves discoverable skills, so the
+    base ``scistudio/`` directory stays a single discoverable skill rather than
+    re-nesting the sub-skills.
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in sorted(src.iterdir()):
+        if child.is_dir():
+            # A child dir that is itself a skill is installed flat elsewhere;
+            # skip it so it does not get buried under the base skill.
+            if (child / "SKILL.md").is_file():
+                continue
+            shutil.copytree(child, dest / child.name)
+        else:
+            shutil.copy2(child, dest / child.name)
+
+
 def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
-    """Cross-install the SciStudio skill bundle to both Claude and Codex paths.
+    """Cross-install the SciStudio skill bundle FLAT to both provider trees.
 
     Per ADR-040 §3.9, the skill is cross-installed to both providers:
 
-    * user scope:    ``~/.claude/skills/scistudio/`` AND ``~/.agents/skills/scistudio/``
-    * project scope: ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/``
+    * user scope:    ``~/.claude/skills/`` AND ``~/.agents/skills/``
+    * project scope: ``<cwd>/.claude/skills/`` AND ``<cwd>/.agents/skills/``
+
+    The layout is FLAT, matching
+    :func:`scistudio.agent_provisioning.skills.write_skills`: the base
+    ``scistudio`` skill lands at ``<tree>/scistudio/SKILL.md`` and each
+    task-scoped sub-skill (``scistudio-build-workflow``, ``scistudio-write-block``,
+    ``scistudio-debug-run``, ``scistudio-inspect-data``, ``scistudio-project-qa``)
+    lands as a *sibling* at ``<tree>/<name>/SKILL.md``. This is required because
+    Claude Code and Codex skill discovery walk exactly one level under
+    ``skills/`` (#1521) — the previous nested ``skills/scistudio/<name>/``
+    layout produced ``Skill(<name>) -> Unknown skill``.
 
     Source is resolved via :func:`_find_skill_source` (preferring the packaged
     ``src/scistudio/_skills/scistudio/`` tree, falling back to a repo-root
-    walk-up for dev checkouts). Both providers receive the full tree
-    including the base ``SKILL.md`` and all five task-scoped sub-skills
-    (``scistudio-build-workflow``, ``scistudio-write-block``,
-    ``scistudio-debug-run``, ``scistudio-inspect-data``, ``scistudio-project-qa``).
+    walk-up for dev checkouts).
 
-    Returns one ``InstallResult`` per destination (two per call). Always
+    Returns one ``InstallResult`` per destination *tree* (two per call: Claude +
+    Codex); the ``path`` is the base ``scistudio`` skill directory. Always
     copies (never symlinks) for Windows compatibility — symlinks require
     admin / developer mode on Windows.
     """
     src = _find_skill_source()
-    claude_dest, codex_dest = _skill_dest(scope, cwd)
+    layout = _discover_skill_layout(src)
+    claude_root, codex_root = _skill_tree_roots(scope, cwd)
     results: list[InstallResult] = []
-    for dest in (claude_dest, codex_dest):
-        action = "updated" if dest.is_dir() else "installed"
-        if dest.is_dir():
+    for root in (claude_root, codex_root):
+        base_dest = root / MCP_SERVER_NAME
+        action = "updated" if base_dest.is_dir() else "installed"
+        for name, skill_src in layout.items():
+            dest = root / name
             # Wipe stale files so removed files in src don't linger.
-            shutil.rmtree(dest)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(src, dest)
+            if dest.is_dir():
+                shutil.rmtree(dest)
+            if name == MCP_SERVER_NAME:
+                _copy_base_skill(skill_src, dest)
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(skill_src, dest)
         results.append(
             InstallResult(
                 target="skill",
                 scope=scope,
-                path=dest,
+                path=base_dest,
                 action=action,
-                detail=f"copied {src} -> {dest}",
+                detail=f"installed {len(layout)} flat skill(s) from {src} -> {root}",
             )
         )
     return results
@@ -519,21 +599,55 @@ def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
 def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
     """Symmetric removal across both Claude and Codex skill trees.
 
-    Per ADR-040 §3.9, mirrors :func:`_install_skill`: removes both
-    ``.claude/skills/scistudio/`` and ``.agents/skills/scistudio/`` at the
-    requested scope. Returns one ``InstallResult`` per destination
-    (``removed`` if the directory existed, ``noop`` otherwise).
+    Per ADR-040 §3.9, mirrors :func:`_install_skill`: removes the FLAT layout
+    — the base ``scistudio/`` directory plus every task-scoped sibling
+    sub-skill (``scistudio-*``) — under both ``.claude/skills/`` and
+    ``.agents/skills/`` at the requested scope. Returns one ``InstallResult``
+    per destination *tree* (``removed`` if anything was deleted, ``noop``
+    otherwise); the ``path`` is the base ``scistudio`` skill directory.
+
+    Discovery of which sibling skills to remove is best-effort: it uses the
+    bundled source layout when locatable, and additionally sweeps any
+    ``scistudio-*`` sibling directories present in the tree so an install whose
+    sub-skill set has since changed still cleans up fully.
     """
-    claude_dest, codex_dest = _skill_dest(scope, cwd)
+    claude_root, codex_root = _skill_tree_roots(scope, cwd)
+    # Determine the set of skill names to remove. Prefer the bundled layout;
+    # fall back to the canonical base name if the source can't be located.
+    names: set[str] = {MCP_SERVER_NAME}
+    try:
+        src = _find_skill_source()
+        names |= set(_discover_skill_layout(src).keys())
+    except FileNotFoundError:
+        pass
+
     results: list[InstallResult] = []
-    for dest in (claude_dest, codex_dest):
-        if not dest.is_dir():
-            results.append(InstallResult(target="skill", scope=scope, path=dest, action="noop", detail="not installed"))
-            continue
-        shutil.rmtree(dest)
-        results.append(
-            InstallResult(target="skill", scope=scope, path=dest, action="removed", detail="directory removed")
-        )
+    for root in (claude_root, codex_root):
+        base_dest = root / MCP_SERVER_NAME
+        targets = set(names)
+        # Sweep any stray scistudio-* sibling skills regardless of current source.
+        if root.is_dir():
+            for child in root.iterdir():
+                if child.is_dir() and (child.name == MCP_SERVER_NAME or child.name.startswith(f"{MCP_SERVER_NAME}-")):
+                    targets.add(child.name)
+
+        removed_any = False
+        for name in targets:
+            dest = root / name
+            if dest.is_dir():
+                shutil.rmtree(dest)
+                removed_any = True
+
+        if removed_any:
+            results.append(
+                InstallResult(
+                    target="skill", scope=scope, path=base_dest, action="removed", detail="flat skills removed"
+                )
+            )
+        else:
+            results.append(
+                InstallResult(target="skill", scope=scope, path=base_dest, action="noop", detail="not installed")
+            )
     return results
 
 

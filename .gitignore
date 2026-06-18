@@ -105,3 +105,6 @@ src/scistudio/api/static/
 .workflow/records/*.local.json
 .workflow/records/*-scratch.json
 .workflow/full-audit-*.json
+
+# Scratch audit output (CI writes .audit/full-audit.json; never committed)
+.audit/

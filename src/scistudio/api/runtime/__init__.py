@@ -36,9 +36,10 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from scistudio.api.file_contracts import FILE_ENTITY_CLASS
 from scistudio.blocks.registry import BlockRegistry
@@ -54,25 +55,120 @@ from scistudio.utils.event_logger import install_event_logger
 
 from . import _data, _projects, _runs, _workflows
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
-from ._preview_cache import (
-    _TABLE_CACHE_MAX,
-    MAX_TABLE_PAGE_SIZE,
-    _get_preview_table,
-    _read_preview_table_from_disk,
-    _table_cache,
-    _table_cache_lock,
-    _trim_table_cache_locked,
-)
-from ._preview_image import (
-    _downsample_matrix,
-    _image_data_uri_from_matrix,
-    _infer_type_name_from_ref,
-    _load_preview_matrix,
-)
+
+# ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
+# moved down into ``scistudio.previewers`` (``_table_cache`` / ``_raster``) so the
+# previewer subsystem no longer imports up into the API layer. Only the
+# API-specific ``_infer_type_name_from_ref`` remains here.
+from ._preview_image import _infer_type_name_from_ref
 
 logger = logging.getLogger("scistudio.api.runtime")
 WORKFLOW_ENTITY_CLASS = "workflow"
 _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS = 2.0
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read a positive-integer override from the environment, else *default*."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("%s=%r is not an integer; using default %d", name, raw, default)
+        return default
+    if value <= 0:
+        logger.warning("%s=%d must be positive; using default %d", name, value, default)
+        return default
+    return value
+
+
+# #1551 / DSN-12: the per-session ``data_catalog`` and ``workflow_runs`` registries
+# previously grew unboundedly — ``data_catalog`` accumulates one entry per block
+# output for the lifetime of the process and ``workflow_runs`` retains a finished
+# run per workflow id forever. Both are now bounded with LRU eviction so a long
+# session does not leak. Caps are generous (a real session touches far fewer
+# distinct previews / workflows) and overridable via the environment for power
+# users with very large projects.
+_DATA_CATALOG_MAX = _env_int("SCISTUDIO_DATA_CATALOG_MAX", 4096)
+_WORKFLOW_RUNS_MAX = _env_int("SCISTUDIO_WORKFLOW_RUNS_MAX", 256)
+
+_K = TypeVar("_K")
+_V = TypeVar("_V")
+
+
+class _BoundedRegistry(dict[_K, _V]):
+    """LRU-bounded ``dict`` subclass with optional eviction guarding.
+
+    A drop-in ``dict`` (it **subclasses** ``dict`` so ``isinstance(x, dict)``
+    stays ``True`` for every existing consumer — ``api/ws.py``, the MCP tool
+    layer, ``api/app.py`` — without touching those modules). It caps the number
+    of retained entries at *max_entries*; when an insertion would exceed the
+    cap, the least-recently-used entries are evicted oldest-first. ``dict``
+    preserves insertion order (Python 3.7+), and recency is maintained by
+    re-inserting touched keys.
+
+    ``evictable`` is an optional predicate ``(key, value) -> bool``. An entry
+    for which it returns ``False`` is skipped during eviction and kept — this
+    is how ``workflow_runs`` avoids dropping a still-live run (whose asyncio
+    task would otherwise be orphaned). If every over-cap entry is unevictable
+    the map is allowed to exceed the cap rather than evicting a live entry; a
+    warning is logged so the condition is visible.
+
+    Recency note: ``__setitem__`` (write) refreshes recency. ``__getitem__``
+    deliberately does *not* reorder — reordering on read would mutate the dict
+    during a ``for x in reg.values()`` loop (the lifespan shutdown does exactly
+    this), raising ``RuntimeError: dict mutated during iteration``. Write-order
+    LRU is sufficient for the leak fix in #1551.
+    """
+
+    def __init__(
+        self,
+        max_entries: int,
+        *,
+        evictable: Callable[[_K, _V], bool] | None = None,
+        on_evict: Callable[[_K, _V], None] | None = None,
+    ) -> None:
+        super().__init__()
+        if max_entries <= 0:
+            raise ValueError("max_entries must be positive")
+        self._max = int(max_entries)
+        self._evictable = evictable
+        self._on_evict = on_evict
+
+    def __setitem__(self, key: _K, value: _V) -> None:
+        if key in self:
+            # Refresh recency: delete + reinsert moves the key to the end.
+            super().__delitem__(key)
+        super().__setitem__(key, value)
+        self._evict_if_needed()
+
+    def _evict_if_needed(self) -> None:
+        if len(self) <= self._max:
+            return
+        # Walk oldest-first, evicting evictable entries until back under cap.
+        for key in list(self.keys()):
+            if len(self) <= self._max:
+                break
+            value = self[key]
+            if self._evictable is not None and not self._evictable(key, value):
+                continue
+            super().__delitem__(key)
+            if self._on_evict is not None:
+                try:
+                    self._on_evict(key, value)
+                except Exception:
+                    logger.debug("registry on_evict callback failed for %r", key, exc_info=True)
+        overflow = len(self) - self._max
+        if overflow > 0:
+            # Every remaining over-cap entry was unevictable (e.g. all runs
+            # still live). Keep them — orphaning a live run is worse than a
+            # temporary overflow — but surface the condition.
+            logger.warning(
+                "_BoundedRegistry: %d entries over cap %d are unevictable; retaining",
+                overflow,
+                self._max,
+            )
 
 
 # ----------------------------------------------------------------------
@@ -103,8 +199,9 @@ class DataRecord:
     type_name: str
     metadata: dict[str, Any] = field(default_factory=dict)
     # ADR-027 D2 / #407: full type chain from the worker subprocess wire format,
-    # e.g. ["DataObject", "Array", "Image"]. Used by preview_data() to resolve
-    # plugin types via TypeRegistry instead of relying on class name equality.
+    # e.g. ["DataObject", "Array", "Image"]. Used by the routed previewer target
+    # resolution to resolve plugin types via TypeRegistry instead of relying on
+    # class name equality.
     type_chain: list[str] = field(default_factory=list)
 
 
@@ -126,6 +223,18 @@ class WorkflowRun:
     task: asyncio.Task[None]
     checkpoint_manager: CheckpointManager
     workflow_git_commit: str | None = None
+
+
+def _run_is_evictable(_key: str, run: WorkflowRun) -> bool:
+    """#1551: only finished runs may be LRU-evicted from ``workflow_runs``.
+
+    Evicting a live run would orphan its ``asyncio.Task`` and scheduler (they
+    share the event bus / resource manager / lineage store), so an in-flight
+    run is pinned in the registry until its task completes. A completed run has
+    nothing live to lose — its lineage row is finalized by the task's
+    done-callback (see ``_runs._finalize_lineage_run``).
+    """
+    return run.task.done()
 
 
 @dataclass(frozen=True)
@@ -197,8 +306,19 @@ class ApiRuntime:
         self.known_projects: dict[str, KnownProject] = {}
 
         self.active_project: KnownProject | None = None
-        self.data_catalog: dict[str, DataRecord] = {}
-        self.workflow_runs: dict[str, WorkflowRun] = {}
+        # #1551 / DSN-12: both registries are LRU-bounded so a long session does
+        # not leak. ``data_catalog`` evicts the least-recently-previewed record;
+        # ``workflow_runs`` only evicts finished runs (a live run's asyncio task
+        # would be orphaned if dropped — see ``_run_is_evictable``). They are
+        # exposed via the ``data_catalog`` / ``workflow_runs`` properties below
+        # so that the project-lifecycle resets in ``_projects`` (which assign a
+        # plain ``{}``) keep the LRU bound instead of silently reverting to an
+        # unbounded dict.
+        self._data_catalog: _BoundedRegistry[str, DataRecord] = _BoundedRegistry(_DATA_CATALOG_MAX)
+        self._workflow_runs: _BoundedRegistry[str, WorkflowRun] = _BoundedRegistry(
+            _WORKFLOW_RUNS_MAX,
+            evictable=_run_is_evictable,
+        )
         # ADR-034: the MCP server's TCP/socket port is published into the
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
         # subprocess can discover it.
@@ -248,6 +368,41 @@ class ApiRuntime:
         self._load_known_projects()
         self._configure_static_registries()
         self._bind_event_logging()
+
+    # ------------------------------------------------------------------
+    # #1551 / DSN-12: bounded session registries.
+    #
+    # Exposed as properties so the existing ``self.data_catalog = {}`` /
+    # ``self.workflow_runs = {}`` resets in ``_projects`` re-seed a *bounded*
+    # registry rather than swapping in an unbounded dict. The setter accepts
+    # any mapping (the common case is an empty dict on project switch) and
+    # rebuilds the LRU-bounded container, preserving the cap + eviction policy
+    # across project lifecycle transitions.
+    # ------------------------------------------------------------------
+    @property
+    def data_catalog(self) -> MutableMapping[str, DataRecord]:
+        return self._data_catalog
+
+    @data_catalog.setter
+    def data_catalog(self, value: MutableMapping[str, DataRecord]) -> None:
+        registry: _BoundedRegistry[str, DataRecord] = _BoundedRegistry(_DATA_CATALOG_MAX)
+        for key, record in value.items():
+            registry[key] = record
+        self._data_catalog = registry
+
+    @property
+    def workflow_runs(self) -> MutableMapping[str, WorkflowRun]:
+        return self._workflow_runs
+
+    @workflow_runs.setter
+    def workflow_runs(self, value: MutableMapping[str, WorkflowRun]) -> None:
+        registry: _BoundedRegistry[str, WorkflowRun] = _BoundedRegistry(
+            _WORKFLOW_RUNS_MAX,
+            evictable=_run_is_evictable,
+        )
+        for key, run in value.items():
+            registry[key] = run
+        self._workflow_runs = registry
 
     def _configure_static_registries(self) -> None:
         include_monorepo = os.environ.get("SCISTUDIO_DEV") == "1"
@@ -553,20 +708,34 @@ class ApiRuntime:
     # Workflow I/O + upload (_workflows)
     workflow_path = _workflows.workflow_path
     save_workflow = _workflows.save_workflow
+    mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
     _config_schema_for_block = _workflows._config_schema_for_block
     _relativify_node_config = _workflows._relativify_node_config
     _absolutify_node_config = _workflows._absolutify_node_config
     delete_workflow = _workflows.delete_workflow
+    _upload_destination = _workflows._upload_destination
+    stage_upload_file = _workflows.stage_upload_file
+    discard_staged_upload = _workflows.discard_staged_upload
+    finish_staged_upload = _workflows.finish_staged_upload
     upload_file = _workflows.upload_file
 
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
+    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
+    # PreviewService can reach the core PlotPreviewer at runtime.
+    register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    preview_data = _data.preview_data
+    # ADR-048 SPEC 1: previewer subsystem accessors.
+    get_preview_service = _data.get_preview_service
+    refresh_preview_service = _data.refresh_preview_service
+    enrich_preview_query = _data.enrich_preview_query
+    resolve_session_target = _data.resolve_session_target
+    resolve_child_preview_context = _data.resolve_child_preview_context
+    _build_preview_target = _data._build_preview_target
 
     # Workflow execution + lineage (_runs)
     _ancestors_of = _runs._ancestors_of
@@ -583,9 +752,7 @@ class ApiRuntime:
 # Sorted to satisfy ruff RUF022.
 __all__ = [
     "FILE_ENTITY_CLASS",
-    "MAX_TABLE_PAGE_SIZE",
     "WORKFLOW_ENTITY_CLASS",
-    "_TABLE_CACHE_MAX",
     "ApiRuntime",
     "DataRecord",
     "FirstPartyEntityWrite",
@@ -593,18 +760,10 @@ __all__ = [
     "LogBroadcaster",
     "Path",
     "WorkflowRun",
-    "_downsample_matrix",
-    "_get_preview_table",
-    "_image_data_uri_from_matrix",
     "_infer_type_name_from_ref",
-    "_load_preview_matrix",
     "_now_iso",
-    "_read_preview_table_from_disk",
     "_rmtree_force",
     "_safe_parent_dir",
     "_slugify",
-    "_table_cache",
-    "_table_cache_lock",
-    "_trim_table_cache_locked",
     "logger",
 ]

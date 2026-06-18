@@ -20,6 +20,7 @@
 import { type Node, type NodeProps } from "@xyflow/react";
 import { useLayoutEffect, useRef, useState } from "react";
 
+import type { FormatCapabilityResponse, TypeHierarchyEntry } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
 import { LossySaveWarning } from "../WorkflowEditor/LossySaveWarning";
@@ -32,6 +33,72 @@ import { PortHandles } from "./BlockNode.parts/PortHandles";
 import { StatusBadge } from "./BlockNode.parts/StatusBadge";
 import { categoryIcons } from "./BlockNode.parts/badgeStyles";
 import { getTopConfigProperties } from "./BlockNode.parts/inlineConfigHelpers";
+
+function ancestorTypeNames(typeName: string, typeHierarchy: TypeHierarchyEntry[]): Set<string> {
+  const ancestors = new Set<string>();
+  if (!typeName) return ancestors;
+  ancestors.add(typeName);
+  const index = new Map(typeHierarchy.map((entry) => [entry.name, entry]));
+  let current = index.get(typeName);
+  while (current?.base_type && !ancestors.has(current.base_type)) {
+    ancestors.add(current.base_type);
+    current = index.get(current.base_type);
+  }
+  return ancestors;
+}
+
+function capabilitiesForType(
+  capabilities: FormatCapabilityResponse[],
+  selectedType: string | null,
+  typeHierarchy: TypeHierarchyEntry[],
+): FormatCapabilityResponse[] {
+  if (!selectedType) return capabilities;
+  const acceptedTypes = ancestorTypeNames(selectedType, typeHierarchy);
+  const filtered = capabilities.filter((capability) => acceptedTypes.has(capability.data_type));
+  if (!acceptedTypes.has("Artifact")) return filtered;
+  let artifactInserted = false;
+  return filtered.flatMap((capability) => {
+    if (capability.data_type !== "Artifact") return [capability];
+    if (artifactInserted) return [];
+    artifactInserted = true;
+    return [
+      {
+        ...capability,
+        id: `core.artifact.any.${capability.direction}`,
+        data_type: "Artifact",
+        format_id: "any",
+        extensions: [],
+        label: "Any",
+        is_default: true,
+        roundtrip_group: null,
+        is_synthesized: false,
+        migration_scaffold: false,
+      },
+    ];
+  });
+}
+
+function coreTypeFromConfig(
+  configProps: ReturnType<typeof getTopConfigProperties>,
+  config: BlockNodeData["config"],
+): string | null {
+  const coreTypeConfig = configProps.find((prop) => prop.key === "core_type")?.schema;
+  if (typeof config?.core_type === "string") return config.core_type;
+  if (typeof coreTypeConfig?.default === "string") return coreTypeConfig.default;
+  return null;
+}
+
+function dynamicPortConfigValue(
+  configProps: ReturnType<typeof getTopConfigProperties>,
+  config: BlockNodeData["config"],
+  sourceConfigKey: string | undefined,
+): string | undefined {
+  if (sourceConfigKey == null) return undefined;
+  const configured = config?.[sourceConfigKey];
+  if (typeof configured === "string" && configured) return configured;
+  const schemaDefault = configProps.find((prop) => prop.key === sourceConfigKey)?.schema.default;
+  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
+}
 
 export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
   // ADR-028 Addendum 1 §B fix #2 / §C11: hide the ``direction`` config
@@ -50,10 +117,12 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // Blocks without a ``core_type`` field (e.g. imaging.threshold) are
   // unaffected because the filter is a no-op when ``coreType`` is null.
   const allFormatCapabilities = data.schema?.format_capabilities ?? [];
-  const coreType = typeof data.config?.core_type === "string" ? data.config.core_type : null;
-  const formatCapabilities = coreType
-    ? allFormatCapabilities.filter((cap) => cap.data_type === coreType)
-    : allFormatCapabilities;
+  const coreType = coreTypeFromConfig(configProps, data.config);
+  const formatCapabilities = capabilitiesForType(
+    allFormatCapabilities,
+    coreType,
+    data.schema?.type_hierarchy ?? [],
+  );
   const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
   // ADR-028 Addendum 1 §B fix #3 / §C8: read ``direction`` from the schema
   // (class-level ClassVar, populated by the backend at scan time) instead
@@ -68,8 +137,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // user changes the dropdown.
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
-  const drivingConfigValue =
-    sourceConfigKey != null ? (data.config?.[sourceConfigKey] as string | undefined) : undefined;
+  const drivingConfigValue = dynamicPortConfigValue(configProps, data.config, sourceConfigKey);
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
@@ -118,7 +186,9 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   }, [configProps.length, effectiveInputPorts.length, effectiveOutputPorts.length]);
 
   const handleConfigChange = (key: string, value: unknown) => {
-    data.onUpdateConfig?.({ [key]: value });
+    data.onUpdateConfig?.(
+      key === sourceConfigKey ? { [key]: value, capability_id: null } : { [key]: value },
+    );
   };
 
   // ADR-029 D2: variadic port UI — [+] and [-] controls.
@@ -203,23 +273,23 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
         ref={configSectionRef}
         className="nodrag nowheel space-y-2 overflow-hidden border-b border-stone-100 px-3 py-2"
       >
+        {configProps.length > 0
+          ? configProps.map((prop) => (
+              <InlineConfigField
+                key={prop.key}
+                prop={prop}
+                value={data.config?.[prop.key]}
+                onChange={handleConfigChange}
+              />
+            ))
+          : null}
         {formatCapabilities.length > 0 ? (
           <InlineCapabilitySelector
             capabilities={formatCapabilities}
             value={data.config?.capability_id}
             onChange={(capabilityId) => data.onUpdateConfig?.({ capability_id: capabilityId })}
           />
-        ) : null}
-        {configProps.length > 0 ? (
-          configProps.map((prop) => (
-            <InlineConfigField
-              key={prop.key}
-              prop={prop}
-              value={data.config?.[prop.key]}
-              onChange={handleConfigChange}
-            />
-          ))
-        ) : formatCapabilities.length === 0 ? (
+        ) : configProps.length === 0 ? (
           <p className="text-center text-[11px] italic text-stone-400">No parameters</p>
         ) : null}
       </div>

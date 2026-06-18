@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Memory Safety"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-06-10
+governed_by:
+  - ADR-042
+  - ADR-048
+summary: "Bounded-access and large-data guidance: the three-tier processing model, auto-flush, streaming reads/writes, resource hints, and the bounded-read budgets previewers must honor."
+---
+
 # Memory Safety
 
 This document covers patterns for processing large scientific datasets
@@ -15,9 +27,10 @@ bounded.
 4. [Tier 3: Manual run with pack/unpack](#tier-3-manual-run-with-packunpack)
 5. [Auto-Flush Mechanism](#auto-flush-mechanism)
 6. [Streaming Data Access](#streaming-data-access)
-7. [IOBlock Streaming Writes](#ioblock-streaming-writes)
+7. [Streaming Writes with persist_array / persist_table](#streaming-writes-with-persist_array-persist_table)
 8. [Memory Hints and Resource Declarations](#memory-hints-and-resource-declarations)
 9. [Decision Guide](#decision-guide)
+10. [Bounded reads in previewers](#bounded-reads-in-previewers)
 
 ---
 
@@ -33,6 +46,64 @@ controlling how many items are in memory at any point.
 
 ---
 
+## Data Access Strategies
+
+Block authors choose how to read input data and how to produce output data.
+The framework supports both full materialization and streaming -- choose based
+on your expected data size.
+
+### Reading input data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full load** | `arr = item.to_memory()` | O(full array) | Data fits in RAM; need full array for computation |
+| **Partial read** | `plane = item.sel(z=5)` | O(slice) | Only need a subset of dimensions |
+| **Chunked iteration** | `for chunk in item.iter_chunks(1024):` | O(chunk) | Process large data piece by piece |
+
+### Writing output data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full output** | `Array(..., data=result)` | O(result) | Result fits in RAM (most blocks) |
+| **Streaming write** | `ref = self.persist_array(chunk_iter, shape, dtype)` | O(chunk) | Producing very large output |
+
+### Common patterns
+
+**Pattern 1 -- Simple transform (most blocks):**
+
+```python
+def process_item(self, item, config, state=None):
+    data = item.to_memory()                          # full read
+    result = some_transform(data)
+    return Array(axes=list(item.axes), shape=result.shape,
+                 dtype=str(result.dtype), data=result)  # full write
+```
+
+**Pattern 2 -- Large data, chunked processing:**
+
+```python
+def process_item(self, item, config, state=None):
+    def compute():
+        for i, chunk in enumerate(item.iter_chunks(1024)):  # streaming read
+            yield i, transform(chunk)
+    ref = self.persist_array(compute(), shape, dtype)        # streaming write
+    return Array(axes=list(item.axes), shape=shape,
+                 dtype=str(dtype), storage_ref=ref)
+```
+
+**Pattern 3 -- Partial read, full write:**
+
+```python
+def process_item(self, item, config, state=None):
+    plane = item.sel(z=config.get("z_index"))   # partial read
+    data = plane.to_memory()
+    result = process_plane(data)
+    return Array(axes=list(plane.axes), shape=result.shape,
+                 dtype=str(result.dtype), data=result)  # full write
+```
+
+---
+
 ## Tier 1: process_item with Auto-Flush
 
 **O(1) peak memory** -- the recommended approach for 80% of blocks.
@@ -44,13 +115,12 @@ class MyBlock(ProcessBlock):
     def process_item(self, item, config, state=None):
         data = np.asarray(item.to_memory())       # load one item
         result_data = transform(data)               # process it
-        result = Array(
+        return Array(                                # auto-flushed, then GC'd
             axes=list(item.axes),
             shape=result_data.shape,
             dtype=str(result_data.dtype),
+            data=result_data,
         )
-        result._data = result_data
-        return result                               # auto-flushed, then GC'd
 ```
 
 How it works:
@@ -101,9 +171,7 @@ def run(self, inputs, config):
     def transform(item):
         data = np.asarray(item.to_memory())
         result_data = process(data)
-        result = Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype))
-        result._data = result_data
-        return result
+        return Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype), data=result_data)
     output = self.map_items(transform, images)
     return {"output": output}
 ```
@@ -307,3 +375,22 @@ ARCHITECTURE.md §6.7 + the "Resource Hints" section in
 | Large file loading | All blocks: `persist_array` streaming |
 | Table loading | All blocks: `persist_table` |
 | Selective data access | `sel()`, `iter_over()`, `iter_chunks()` |
+| Previewing large data | Previewer: `PreviewDataAccess` bounded reads |
+
+---
+
+## Bounded reads in previewers
+
+The same bounded-access discipline applies to ADR-048 previewers. A previewer
+backend provider reads **only** through `request.data_access` (a
+`PreviewDataAccess`), which enforces a row / byte / item / tile / dimension
+budget so a preview of a multi-GB Zarr / TIFF / Parquet never materialises the
+whole object. A Zarr array, for example, is sliced with explicit indices
+(`arr[plane_index, y0:y1, x0:x1]`) rather than `arr[...]`, so only the requested
+plane or tile is read into RAM.
+
+Default preview budgets mirror the block-side bounds: 200 rows, 8 MiB, 100
+collection items, 256-pixel tiles, 256-pixel max dimension. A provider that
+bypasses `PreviewDataAccess` and reads storage directly breaks this contract and
+can OOM the backend. See
+[Previewers and Plot Jobs](previewers-and-plots.md#previewdataaccess-bounded-reads).

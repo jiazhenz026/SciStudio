@@ -47,7 +47,7 @@ language_source: en
   - `docs/planning/adr-037-desktop-mvp-checklist.md`
   - `docs/planning/dispatch-prompts/adr-037-desktop-mvp-*.md`
   - `desktop/**`
-  - `src/scistudio/paths.py`
+  - `src/scistudio/desktop/paths.py`
   - `src/scistudio/cli/main.py`
   - `src/scistudio/blocks/registry/**`
   - targeted tests under `tests/cli/`, `tests/blocks/`, `tests/packaging/`
@@ -123,7 +123,7 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a1-desktop-shell.md` | Electron shell and staging scripts | `adr-037-mvp-a1-desktop-shell` | `SciStudio-desktop-a1` | `desktop/**` | `src/**`, `frontend/src/**` | #1502 | `[x] bff0e7f integrated + manager fixes` |
-| A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a2-cli-paths.md` | CLI bundled mode and paths module | `adr-037-mvp-a2-cli-paths` | `SciStudio-desktop-a2` | `src/scistudio/cli/main.py`, `src/scistudio/paths.py`, `tests/cli/test_cli.py` | `desktop/**`, registry | #1502 | `[x] 9ce74a7 integrated + manager module-entry fix` |
+| A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a2-cli-paths.md` | CLI bundled mode and paths module | `adr-037-mvp-a2-cli-paths` | `SciStudio-desktop-a2` | `src/scistudio/cli/main.py`, `src/scistudio/desktop/paths.py`, `tests/cli/test_cli.py` | `desktop/**`, registry | #1502 | `[x] 9ce74a7 integrated + manager module-entry fix` |
 | A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a3-package-discovery.md` | Hard-installed packages discovery | `adr-037-mvp-a3-package-discovery` | `SciStudio-desktop-a3` | `src/scistudio/blocks/registry/**`, `tests/blocks/test_desktop_package_discovery.py` | `desktop/**`, CLI | #1502 | `[x] 35566d8 integrated` |
 | A4 | test_engineer | N/A | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a4-validation.md` | Validation scripts and smoke tests | `adr-037-mvp-a4-validation` | `SciStudio-desktop-a4` | `tests/packaging/**`, `desktop/scripts/**` validation-only | production code unless explicitly blocked | #1502 | `[x] f7a9363 integrated; SCIEASY env finding fixed` |
 | A5 | audit_reviewer | with-context | `docs/planning/dispatch-prompts/adr-037-desktop-mvp-a5-audit.md` | ADR impact and MVP readiness audit | `adr-037-mvp-a5-audit` | `SciStudio-desktop-a5` | `docs/audit/2026-05-24-adr-037-desktop-mvp-audit.md` | production code | #1502 | `[x] 3b80f2d report integrated; early P1s superseded by implementation evidence` |
@@ -144,7 +144,7 @@ language_source: en
 ### 7.2 A2 CLI And Paths
 
 - [x] `scistudio gui --bundled --port 0` -> JSON ready line verified
-- [x] `scistudio.paths` resolver -> `src/scistudio/paths.py`
+- [x] `scistudio.desktop.paths` resolver -> `src/scistudio/desktop/paths.py`
 - [x] CLI regression tests -> `tests/cli/test_cli.py` in 29-test targeted run
 
 ### 7.3 A3 Hard-Installed Packages

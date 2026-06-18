@@ -37,6 +37,7 @@ validation hook added here.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.metadata
 import importlib.util
@@ -47,7 +48,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel  # noqa: F401
+    from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +302,8 @@ class TypeRegistry:
 
         try:
             dumped = instance.model_dump(mode="json")
-            meta.model_validate(dumped)
+            meta_model: type[BaseModel] = meta
+            meta_model.model_validate(dumped)
         except Exception as exc:
             raise ValueError(
                 f"{cls.__name__}.Meta failed JSON round-trip: {exc}. "
@@ -506,7 +508,11 @@ class TypeRegistry:
                     continue
                 try:
                     mtime = py_file.stat().st_mtime
-                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}"
+                    # Include a hash of the absolute path to prevent module-name
+                    # collisions when two scan dirs contain files with the same
+                    # stem and the same mtime (issue #1374).
+                    path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
+                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue

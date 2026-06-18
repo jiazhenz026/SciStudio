@@ -3,11 +3,13 @@ doc_type: block-development
 title: "Architecture for Block Developers"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
   - ADR-043
-summary: "Execution model and data transport guidance for block authors, including canonical-zone and boundary IO rules."
+  - ADR-047
+  - ADR-048
+summary: "Execution model and data transport for block authors: the three extension surfaces, subprocess isolation, Collection transport, boundary IO, lifecycle, cancellation, and resource hints."
 ---
 
 # Architecture for Block Developers
@@ -19,19 +21,43 @@ that block developers need to understand.
 
 ## Table of Contents
 
-1. [Subprocess Isolation](#subprocess-isolation)
-2. [Data Transport](#data-transport)
-3. [Boundary Formats](#boundary-formats)
-4. [Block Lifecycle](#block-lifecycle)
-5. [Three Tiers of Collection Handling](#three-tiers-of-collection-handling)
-6. [Cancellation Semantics](#cancellation-semantics)
-7. [Resource Hints](#resource-hints)
+1. [Extension surfaces](#extension-surfaces)
+2. [Subprocess Isolation](#subprocess-isolation)
+3. [Data Transport](#data-transport)
+4. [Boundary Formats](#boundary-formats)
+5. [Block Lifecycle](#block-lifecycle)
+6. [Three Tiers of Collection Handling](#three-tiers-of-collection-handling)
+7. [Cancellation Semantics](#cancellation-semantics)
+8. [Resource Hints](#resource-hints)
+
+---
+
+## Extension surfaces
+
+SciStudio extends through small, explicit contracts rather than core edits. As
+a package or project author you have four surfaces, each wired independently:
+
+| Surface | Entry point | What it adds | Guide |
+|---|---|---|---|
+| Blocks | `scistudio.blocks` | workflow logic (process / IO / code / app / ai / subworkflow) | [Block Contract](block-contract.md), [Publishing](publishing.md) |
+| Types | `scistudio.types` | semantic `DataObject` subclasses | [Custom Types](custom-types.md) |
+| Previewers | `scistudio.previewers` | display behaviour for a type (ADR-048) | [Previewers and Plot Jobs](previewers-and-plots.md) |
+| Plot jobs | `<project>/plots/<id>/` | preview-only figures (ADR-048) | [Previewers and Plot Jobs](previewers-and-plots.md#plot-jobs-are-preview-only) |
+
+The first three are package/project registrations discovered by their
+respective registries; the block registry decomposition and capability-aware
+lookup are ADR-047. Plot jobs are project-local files, not a registry surface,
+and never become workflow nodes. Domain logic, types, and display stay in
+packages — core ships only generic fallbacks (see
+[Data Types](data-types.md#preview-implications)).
 
 ---
 
 ## Subprocess Isolation
 
-**ADR-017**: Every block executes in its own subprocess. This gives you:
+**ADR-017**: Most blocks execute in their own subprocess. Interactive blocks
+(AppBlock GUI sessions, AIBlock PTY sessions) are the exception and run
+in-process. Subprocess isolation gives you:
 
 - **Library freedom**: Import any Python package, any version. Your block's
   subprocess has its own import namespace.
@@ -39,6 +65,11 @@ that block developers need to understand.
   without affecting other blocks.
 - **CPU isolation**: Long-running computation does not block the engine.
 - **Crash containment**: If your block crashes, only that subprocess dies.
+
+The scheduler and subprocess-wrapper internals (ADR-046 and its addendum)
+evolve independently of this contract: from a block author's perspective the
+model is simply "the engine runs my `run()` in a worker and moves typed refs
+across the boundary". You never call the scheduler directly.
 
 **What you cannot do**:
 
@@ -60,7 +91,7 @@ Engine process                    Block subprocess
      |  --- JSON (config, refs) --->   |
      |                                 |  block.run(inputs, config)
      |                                 |  item.to_memory()  # reads from zarr
-     |                                 |  result._data = ...
+     |                                 |  Array(..., data=...)
      |                                 |  _auto_flush(result)  # writes to zarr
      |  <-- JSON (output refs) ---     |
      |                                 |
@@ -180,9 +211,8 @@ iteration, auto-flush, and Collection packing. Peak memory: O(1 item).
 def process_item(self, item, config, state=None):
     data = np.asarray(item.to_memory())
     result_data = some_transform(data)
-    result = Array(axes=list(item.axes), shape=result_data.shape, dtype=str(result_data.dtype))
-    result._data = result_data
-    return result
+    return Array(axes=list(item.axes), shape=result_data.shape,
+                 dtype=str(result_data.dtype), data=result_data)
 ```
 
 ### Tier 2: map_items / parallel_map
@@ -194,10 +224,9 @@ def run(self, inputs, config):
     images = inputs["images"]
     def transform(item):
         data = np.asarray(item.to_memory())
-        # ... transform ...
-        result = Array(axes=list(item.axes), shape=data.shape, dtype=str(data.dtype))
-        result._data = transformed
-        return result
+        transformed = some_transform(data)
+        return Array(axes=list(item.axes), shape=transformed.shape,
+                     dtype=str(transformed.dtype), data=transformed)
     output = self.map_items(transform, images)
     return {"output": output}
 ```

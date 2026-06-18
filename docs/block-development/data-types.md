@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Data Types"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-06-10
+governed_by:
+  - ADR-042
+  - ADR-048
+summary: "Core data type hierarchy, Collection transport, Array axes, metadata slots, lazy loading, type-inheritance port matching, and the preview-routing implications of a type's recorded type chain."
+---
+
 # Data Types
 
 This document covers the core data type hierarchy, Collection transport,
@@ -19,6 +31,7 @@ Array axes, metadata slots, and lazy loading.
 10. [Metadata Slots](#metadata-slots)
 11. [Lazy Loading and Data Access](#lazy-loading-and-data-access)
 12. [Type Inheritance and Port Matching](#type-inheritance-and-port-matching)
+13. [Preview implications](#preview-implications)
 
 ---
 
@@ -44,7 +57,7 @@ Domain-specific subclasses (e.g., `Image`, `FluorImage`, `PeakTable`,
 ## DataObject Base Class
 
 `scistudio.core.types.base.DataObject` is the root of the data type
-hierarchy. Every data object has four declared slots:
+hierarchy. Every data object has five declared slots:
 
 ```python
 class DataObject:
@@ -52,6 +65,9 @@ class DataObject:
     _meta: BaseModel | None     # typed domain metadata (Pydantic)
     _user: dict[str, Any]       # free-form user metadata (JSON-serializable)
     _storage_ref: StorageReference | None  # pointer to persisted data
+    _transient_data: Any        # in-memory data set via the `data=`
+                                # constructor parameter (ADR-031 Addendum 2);
+                                # never serialized, auto-flushed to storage
 ```
 
 ### Construction
@@ -374,3 +390,28 @@ CompositeData
 When a Collection is checked against a port, the Collection's
 `item_type` is used for the isinstance check. A
 `Collection[FluorImage]` matches a port accepting `[Array]`.
+
+---
+
+## Preview implications
+
+A data ref carries a recorded **type chain** (ordered general → specific, e.g.
+`["DataObject", "Array", "Image"]`). ADR-048 preview routing dispatches on that
+chain: it finds the most specific previewer for the recorded type, then walks
+toward more general ancestors, then falls back to the generic core previewer for
+the base type.
+
+Two consequences for type and block authors:
+
+- **Record concrete types.** A `Collection[Image]` routes to an `Image`
+  previewer; a `Collection[DataObject]` can only reach the generic core base
+  fallback. This is the same reason ports should use concrete `accepted_types`
+  ([Block Contract](block-contract.md#concrete-accepted-types-by-default)).
+- **Core owns only generic fallbacks.** Core ships generic previewers
+  (`core.dataframe.basic`, `core.array.basic`, `core.series.basic`,
+  `core.text.basic`, `core.artifact.basic`, `core.composite.basic`,
+  `core.collection.basic`, `core.plot.basic`, `core.base.fallback`). Rich
+  domain display — for example the imaging `Image` / `Label` viewers — is
+  package-owned. To give your custom type a domain viewer, ship a previewer for
+  it. See [Previewers and Plot Jobs](previewers-and-plots.md) and
+  [Types vs Previewers](custom-types.md#types-vs-previewers).

@@ -60,6 +60,7 @@ from __future__ import annotations
 import json
 import pickle
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -76,8 +77,10 @@ from scistudio.blocks.io.savers._capability import (
     _PICKLE_NOTE,  # noqa: F401  re-export for backward compat
     _SAVE_CAPABILITIES,
     _SAVE_EXTENSION_MAP,
+    _ensure_save_target_available,
     _legacy_save_extension_map,  # noqa: F401  re-export for backward compat
-    _resolve_save_format,
+    _resolve_save_format,  # noqa: F401  re-export for backward compat
+    _resolve_save_path_and_format,
     _save_capability,  # noqa: F401  re-export for backward compat
     _supported_save_extensions,
 )
@@ -105,6 +108,84 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+from scistudio.utils.atomic_io import (
+    atomic_path,
+    atomic_replace_dir,
+    atomic_write_bytes,
+    atomic_write_text,
+    atomic_writer,
+)
+
+
+def _source_file_stem(obj: DataObject) -> tuple[str, str]:
+    if isinstance(obj, Artifact) and obj.file_path is not None:
+        source_name = Path(obj.file_path).name
+    else:
+        source = getattr(obj.framework, "source", "")
+        source_name = Path(source).name if isinstance(source, str) and source else ""
+    if not source_name:
+        return type(obj).__name__.lower(), ""
+    source_path = Path(source_name)
+    return source_path.stem or source_path.name, source_path.name
+
+
+def _collection_item_filename(
+    configured: str | None,
+    item: DataObject,
+    *,
+    index: int,
+) -> str:
+    _stem, name = _source_file_stem(item)
+    if configured and configured.strip():
+        path = Path(configured.strip()).name
+        candidate = Path(path)
+        return f"{candidate.stem}-{index}{candidate.suffix}" if candidate.suffix else f"{path}-{index}"
+    if name:
+        return name
+    raise ValueError(
+        "SaveData cannot name collection items because no source filename is available. "
+        "Set the Save block filename field."
+    )
+
+
+def _save_collection(
+    collection: Collection,
+    *,
+    target_cls: type[DataObject],
+    dispatch_fn: Callable[[DataObject, BlockConfig], None],
+    config: BlockConfig,
+) -> None:
+    items = list(collection)
+    if not items:
+        raise ValueError("SaveData received an empty Collection; nothing to save.")
+    for item in items:
+        if not isinstance(item, target_cls):
+            raise ValueError(
+                f"SaveData(core_type={target_cls.__name__}) received a "
+                f"Collection item of type {type(item).__name__}; all items must match the configured core_type."
+            )
+    output_dir = _require_path(config)
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError("SaveData received a multi-item Collection; config.path must be a folder path.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    configured = config.get("filename")
+    if configured is not None and not isinstance(configured, str):
+        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(configured).__name__}")
+    for idx, item in enumerate(items, start=1):
+        params = dict(config.params)
+        params["path"] = str(output_dir)
+        params["filename"] = _collection_item_filename(configured, item, index=idx)
+        item_config = BlockConfig(params=params)
+        dispatch_fn(item, item_config)
+
+
+def _selected_package_save_capability(config: BlockConfig) -> str | None:
+    raw = config.get("capability_id")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    capability_id = raw.strip()
+    core_capability_ids = {capability.id for capability in _SAVE_CAPABILITIES}
+    return None if capability_id in core_capability_ids else capability_id
 
 
 class SaveData(IOBlock):
@@ -180,13 +261,20 @@ class SaveData(IOBlock):
                 "default": "DataFrame",
                 "ui_priority": 0,
             },
-            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            # Direction-aware post-processing auto-switches to directory_browser.
-            "allow_pickle": {
-                "type": "boolean",
-                "default": False,
+            "filename": {
+                "type": "string",
+                "title": "Filename",
+                "default": "",
                 "ui_priority": 2,
             },
+            "overwrite": {
+                "type": "boolean",
+                "title": "Overwrite",
+                "default": False,
+                "ui_priority": 3,
+            },
+            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
+            # Direction-aware post-processing auto-switches to directory_browser.
         },
         "required": ["core_type"],
     }
@@ -219,7 +307,11 @@ class SaveData(IOBlock):
         documented default in :attr:`config_schema`).
         """
         type_name = self.config.get("core_type", "DataFrame")
-        cls = _CORE_TYPE_MAP.get(type_name, DataFrame)
+        cls = _CORE_TYPE_MAP.get(type_name)
+        if cls is None:
+            from scistudio.blocks.io._unified_dispatch import resolve_type_class
+
+            cls = resolve_type_class(str(type_name)) or DataFrame
         return [InputPort(name="data", accepted_types=[cls], required=True)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
@@ -233,21 +325,34 @@ class SaveData(IOBlock):
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
         """Dispatch to the matching ``_save_*`` function based on ``core_type``.
 
-        ``obj`` may be a bare :class:`DataObject` (the common case) or
-        a single-item :class:`Collection` whose ``item_type`` matches
-        the configured ``core_type``. Mixed-type Collections are
-        explicitly out-of-scope per spec §j and raise
-        :class:`ValueError`.
+        ``obj`` may be a bare :class:`DataObject` or a homogeneous
+        :class:`Collection` whose items match the configured
+        ``core_type``. Multi-item Collections are written as one file per
+        item under the configured folder path.
         """
         type_name = config.get("core_type", "DataFrame")
         if type_name not in _CORE_TYPE_MAP:
-            raise ValueError(f"Unknown core_type {type_name!r}; expected one of {sorted(_CORE_TYPE_MAP.keys())}.")
+            from scistudio.blocks.io._unified_dispatch import delegate_save, resolve_type_class
 
-        # Unwrap a single-item Collection so the dispatch functions
-        # always see a bare DataObject. Mixed-type Collections are
-        # rejected with an explicit ValueError per spec §j.
+            if resolve_type_class(str(type_name)) is None:
+                raise ValueError(f"Unknown core_type {type_name!r}; expected a registered DataObject type.")
+            if isinstance(obj, Collection):
+                raise ValueError(f"SaveData custom core_type {type_name!r} requires a single DataObject input.")
+
+            delegate_save(obj=obj, config=config, core_type=str(type_name))
+            return
+
         target_cls = _CORE_TYPE_MAP[type_name]
-        unwrapped = _unwrap_for_save(obj, target_cls)
+        if _selected_package_save_capability(config) is not None:
+            from scistudio.blocks.io._unified_dispatch import delegate_save
+
+            if isinstance(obj, Collection):
+                raise ValueError(
+                    f"SaveData package capability {config.get('capability_id')!r} requires a single DataObject input."
+                )
+            unwrapped = _unwrap_for_save(obj, target_cls)
+            delegate_save(obj=unwrapped, config=config, core_type=str(type_name))
+            return
 
         dispatch: dict[str, Any] = {
             "Array": _save_array,
@@ -257,6 +362,11 @@ class SaveData(IOBlock):
             "Artifact": _save_artifact,
             "CompositeData": _save_composite_data,
         }
+        if isinstance(obj, Collection) and len(obj) > 1:
+            _save_collection(obj, target_cls=target_cls, dispatch_fn=dispatch[type_name], config=config)
+            return
+
+        unwrapped = _unwrap_for_save(obj, target_cls)
         dispatch[type_name](unwrapped, config)
 
 
@@ -281,11 +391,20 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, Array, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in (allow_pickle=True).
+        # The reciprocal LoadData.pickle path executes arbitrary code on
+        # load, so a shared workflow that enables allow_pickle can run code
+        # on the opener's machine. _check_pickle_gate already raised unless
+        # the user opted in and logged a loud WARNING; we only reach here
+        # for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic temp+fsync+os.replace so a crash mid-dump
+        # leaves any prior artifact intact instead of a truncated .pkl.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
@@ -293,14 +412,27 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
         import numpy as np
 
         data = obj.get_in_memory_data()
-        np.save(str(path), np.asarray(data))
+        # BUG-2 (#1516): np.save writes directly to the path and would
+        # truncate a prior artifact on a crash; serialise to a buffer and
+        # write atomically. np.save appends ".npy" when missing, so target
+        # the buffer (which never rewrites the suffix) and keep ``path``.
+        import io as _io
+
+        buf = _io.BytesIO()
+        np.save(buf, np.asarray(data))
+        atomic_write_bytes(path, buf.getvalue())
         return
 
     if fmt == "npz":
         import numpy as np
 
         data = obj.get_in_memory_data()
-        np.savez(str(path), data=np.asarray(data))
+        # BUG-2 (#1516): same atomic-buffer pattern as .npy.
+        import io as _io
+
+        buf = _io.BytesIO()
+        np.savez(buf, data=np.asarray(data))
+        atomic_write_bytes(path, buf.getvalue())
         return
 
     if fmt == "zarr":
@@ -313,16 +445,21 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
 
         # ADR-031 Phase 3: zarr-to-zarr streaming copy via store copy
         # when the source is zarr-backed. Zero materialization.
+        # BUG-2 (#1516): a zarr store is a *directory* tree; build it in a
+        # temp sibling dir and atomically swap it into place so a crash
+        # mid-copy never leaves a half-written store at ``path``.
         ref = getattr(obj, "_storage_ref", None)
         if ref is not None and ref.backend == "zarr":
-            _zarr_store_copy(ref.path, str(path))
+            with atomic_replace_dir(path) as tmp_dir:
+                _zarr_store_copy(ref.path, str(tmp_dir))
             return
 
         import numpy as np
 
         data = obj.get_in_memory_data()
         arr = np.asarray(data)
-        zarr.save(str(path), arr)  # type: ignore[arg-type]
+        with atomic_replace_dir(path) as tmp_dir:
+            zarr.save(str(tmp_dir), arr)  # type: ignore[arg-type]
         return
 
     if fmt == "parquet":
@@ -341,12 +478,14 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
                 "only 1-D arrays are supported. Use .npy / .npz / .zarr for N-D."
             )
         table = pa.table({"value": arr})
-        pq.write_table(table, str(path))
+        # BUG-2 (#1516): write parquet via the atomic context manager.
+        with atomic_writer(path, mode="wb") as fh:
+            pq.write_table(table, fh)
         return
 
     raise ValueError(
         f"Unsupported Array file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(Array))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -363,26 +502,38 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, DataFrame, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in; the LoadData pickle
+        # path executes arbitrary code on load. _check_pickle_gate logged a
+        # loud WARNING and only returns True for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic write so a crash mid-dump keeps the prior
+        # artifact intact.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
     # ADR-031 Phase 3: streaming paths for CSV/TSV/Parquet when
     # the source is arrow-backed.
+    # BUG-2 (#1516): the streaming exporters write directly by path; wrap
+    # each in atomic_path so the chunked write lands on a temp sibling and
+    # only atomically replaces ``path`` once the full file is durable.
     if fmt == "csv":
-        _streaming_save_dataframe_csv(obj, path, delimiter=",")
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_csv(obj, tmp, delimiter=",")
         return
 
     if fmt == "tsv":
-        _streaming_save_dataframe_csv(obj, path, delimiter="\t")
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_csv(obj, tmp, delimiter="\t")
         return
 
     if fmt == "parquet":
-        _streaming_save_dataframe_parquet(obj, path)
+        with atomic_path(path) as tmp:
+            _streaming_save_dataframe_parquet(obj, tmp)
         return
 
     if fmt == "json":
@@ -390,13 +541,14 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
         # the complete record list.
         table = _dataframe_to_arrow_table(obj)
         records = table.to_pylist()
-        with path.open("w", encoding="utf-8") as fh:
+        # BUG-2 (#1516): atomic JSON write.
+        with atomic_writer(path, mode="w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
     raise ValueError(
         f"Unsupported DataFrame file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(DataFrame))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -412,11 +564,16 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     assert isinstance(obj, Series), f"Expected Series, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
-    fmt = _resolve_save_format(path)
+    path, fmt = _resolve_save_path_and_format(path, Series, config, obj)
+    _ensure_save_target_available(path, config)
 
     if _check_pickle_gate(path, config):
+        # SECURITY (#1545 / BUG-10): pickle is opt-in; LoadData unpickling
+        # executes arbitrary code. _check_pickle_gate already logged a loud
+        # WARNING and only returns True for an explicit opt-in.
         data = obj.get_in_memory_data()
-        with path.open("wb") as fh:
+        # BUG-2 (#1516): atomic write.
+        with atomic_writer(path, mode="wb") as fh:
             pickle.dump(data, fh)
         return
 
@@ -429,37 +586,42 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     # numpy; an existing Table is passed through verbatim.
     table = raw if isinstance(raw, pa.Table) else pa.table({column_name: pa.array(raw)})
 
+    # BUG-2 (#1516): pyarrow writers take a path/handle; route every format
+    # through the atomic helpers so a crash mid-write keeps the prior file.
     if fmt == "csv":
         import pyarrow.csv as pcsv
 
-        pcsv.write_csv(table, str(path))
+        with atomic_path(path) as tmp:
+            pcsv.write_csv(table, str(tmp))
         return
 
     if fmt == "tsv":
         import pyarrow.csv as pcsv
 
-        pcsv.write_csv(
-            table,
-            str(path),
-            write_options=pcsv.WriteOptions(delimiter="\t"),
-        )
+        with atomic_path(path) as tmp:
+            pcsv.write_csv(
+                table,
+                str(tmp),
+                write_options=pcsv.WriteOptions(delimiter="\t"),
+            )
         return
 
     if fmt == "parquet":
         import pyarrow.parquet as pq
 
-        pq.write_table(table, str(path))
+        with atomic_writer(path, mode="wb") as fh:
+            pq.write_table(table, fh)
         return
 
     if fmt == "json":
         records = table.to_pylist()
-        with path.open("w", encoding="utf-8") as fh:
+        with atomic_writer(path, mode="w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
     raise ValueError(
         f"Unsupported Series file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {list(_supported_save_extensions())} "
+        f"Supported extensions: {list(_supported_save_extensions(Series))} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -473,6 +635,8 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Text), f"Expected Text, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, Text, config, obj)
+    _ensure_save_target_available(path, config)
     # ADR-043 FR-003: cross-check via the SaveData capability map (the
     # canonical registry-visible set). The internal ``supported`` frozenset
     # below is a permissive superset retained for backward compatibility
@@ -497,7 +661,7 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     if suffix not in supported:
         raise ValueError(
             f"Unsupported Text file extension {suffix!r}. "
-            f"Supported extensions: {list(_supported_save_extensions())} "
+            f"Supported extensions: {list(_supported_save_extensions(Text))} "
             f"(Text-specific superset: {sorted(supported)})."
         )
 
@@ -505,7 +669,9 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
         raise ValueError("Cannot save Text with content=None; populate Text.content first.")
 
     encoding = obj.encoding or "utf-8"
-    path.write_text(obj.content, encoding=encoding)
+    # BUG-2 (#1516): atomic text write so an overwrite crash keeps the old
+    # file readable instead of truncating it.
+    atomic_write_text(path, obj.content, encoding=encoding)
 
 
 def _save_artifact(obj: DataObject, config: BlockConfig) -> None:
@@ -520,22 +686,30 @@ def _save_artifact(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Artifact), f"Expected Artifact, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, Artifact, config, obj)
+    _ensure_save_target_available(path, config)
 
+    # BUG-2 (#1516): every artifact byte/string write goes through the
+    # atomic helpers so a crash mid-write leaves any prior artifact intact.
     if obj.file_path is not None and Path(obj.file_path).exists():
-        shutil.copy2(str(obj.file_path), str(path))
+        # shutil.copy2 writes directly into the destination; copy into a
+        # temp sibling and atomically replace.
+        with atomic_path(path) as tmp:
+            shutil.copy2(str(obj.file_path), str(tmp))
     else:
         data = obj.get_in_memory_data()
         if isinstance(data, str):
-            path.write_text(data, encoding="utf-8")
+            atomic_write_text(path, data, encoding="utf-8")
         elif isinstance(data, bytes):
-            path.write_bytes(data)
+            atomic_write_bytes(path, data)
         else:
             raise ValueError(
                 f"Cannot save Artifact: get_in_memory_data() returned {type(data).__name__}, expected bytes or str."
             )
 
     sidecar = path.with_suffix(path.suffix + ".meta.json")
-    sidecar.write_text(
+    atomic_write_text(
+        sidecar,
         json.dumps(
             {
                 "mime_type": obj.mime_type,
@@ -560,6 +734,8 @@ def _save_composite_data(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, CompositeData), f"Expected CompositeData, got {type(obj).__name__}"
     path = _require_path(config)
+    path, _fmt = _resolve_save_path_and_format(path, CompositeData, config, obj)
+    _ensure_save_target_available(path, config)
     if path.suffix.lower() != ".json":
         raise ValueError(f"CompositeData manifest must use the .json extension, got {path.suffix!r}.")
 
@@ -599,7 +775,10 @@ def _save_composite_data(obj: DataObject, config: BlockConfig) -> None:
         "kind": "CompositeData",
         "slots": manifest_slots,
     }
-    path.write_text(
+    # BUG-2 (#1516): atomic manifest write. Per-slot files are written by
+    # the recursive _save_* dispatch above, each of which is itself atomic.
+    atomic_write_text(
+        path,
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

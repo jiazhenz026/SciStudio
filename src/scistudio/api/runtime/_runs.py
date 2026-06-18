@@ -6,6 +6,7 @@ Issue #1430 / umbrella #1427: behavior unchanged.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 from datetime import UTC
 from pathlib import Path
@@ -24,6 +25,39 @@ if TYPE_CHECKING:
     from . import ApiRuntime, WorkflowRun
 
 logger = logging.getLogger(__name__)
+
+
+class WorkflowAlreadyRunningError(RuntimeError):
+    """Raised when a workflow is re-executed while a live run is in flight.
+
+    Short-term concurrency guard for #1525: starting a second scheduler for
+    the same ``workflow_id`` while the first is still running silently orphans
+    the original run (both share the event bus, resource manager, process
+    registry, checkpoint slot, and lineage store, and ``get_run`` /
+    ``cancel_workflow`` only resolve the newest entry). The route maps this to
+    HTTP 409. The long-term fix (keying runs by ``run_id`` with an explicit
+    concurrency policy) is tracked separately.
+
+    TODO(#1517): replace this guard with run-identity keyed concurrency.
+      Out of scope per manager dispatch A1 (short-term guard only for #1525).
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1517
+    """
+
+    def __init__(self, workflow_id: str) -> None:
+        self.workflow_id = workflow_id
+        super().__init__(f"Workflow is already running: {workflow_id}")
+
+
+def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
+    """Return ``True`` when a live (non-finished) run exists for *workflow_id*.
+
+    Module-level helper (not a bound ``ApiRuntime`` method) so the guard works
+    without touching the runtime ``__init__`` method-binding table.
+    """
+    run = runtime.workflow_runs.get(workflow_id)
+    if run is None:
+        return False
+    return not run.task.done()
 
 
 def _ancestors_of(self: ApiRuntime, workflow: WorkflowDefinition, block_id: str) -> set[str]:
@@ -147,9 +181,24 @@ def _finalize_lineage_run(
     task: asyncio.Task[None],
     scheduler: DAGScheduler,
 ) -> None:
-    """Update the ``runs`` row when the workflow task finishes."""
+    """Update the ``runs`` row when the workflow task finishes.
+
+    #1527 (BUG-6): ``recorder.finalize_run`` now persists the recorder's
+    accumulated ``provenance_degraded`` latch onto the ``runs`` row, so a run
+    whose lineage / block_io writes silently failed can no longer be read
+    back as a clean "completed". We additionally emit a warning here when the
+    derived status would otherwise be a clean completion but provenance is
+    degraded, so the loss is visible in logs and not only in the DB column.
+    """
     try:
         status = self._derive_lineage_run_status(scheduler, task)
+        if getattr(recorder, "provenance_degraded", False):
+            logger.warning(
+                "ADR-038/#1527: run %s finished with status=%s but one or more "
+                "provenance writes failed; runs.provenance_degraded will be set.",
+                getattr(recorder, "run_id", "<unknown>"),
+                status,
+            )
         recorder.finalize_run(status=status)
     except Exception:
         logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
@@ -165,6 +214,7 @@ def start_workflow(
     *,
     execute_from: str | None = None,
     parent_run_id: str | None = None,
+    overwrite_node_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Schedule a workflow run.
 
@@ -180,6 +230,16 @@ def start_workflow(
     ``workflow_dirty`` at INSERT time.
     """
     from . import WorkflowRun
+
+    # #1525 short-term guard: reject starting a second scheduler for a
+    # workflow whose previous run is still live. Without this, the old
+    # asyncio.Task / DAGScheduler is never cancelled and keeps racing the new
+    # one on the shared event bus, resource manager, process registry,
+    # checkpoint slot, and lineage store — and becomes uncancellable because
+    # get_run / cancel_workflow only resolve the newest run. Checked before any
+    # side effect (auto-commit, lineage INSERT, task creation).
+    if _is_workflow_running(self, workflow_id):
+        raise WorkflowAlreadyRunningError(workflow_id)
 
     # ADR-039 §3.4 pre-run auto-commit
     workflow_git_commit: str | None = None
@@ -234,6 +294,28 @@ def start_workflow(
         )
 
     workflow = self.load_workflow(workflow_id)
+
+    # #1518 (DSN-2): ``start_workflow`` previously scheduled the run without
+    # ever calling ``validate_workflow``, so a graph that bypassed save-time
+    # validation (e.g. an externally edited YAML, or one saved before #1518)
+    # would fail deep inside a block at run time instead of being rejected up
+    # front. Re-run validation on the loaded definition and refuse to start
+    # on a hard error. ``"Warning:"``-prefixed diagnostics (unknown block
+    # type / missing port) remain non-fatal, matching ``save_workflow``.
+    from scistudio.workflow.validator import validate_workflow
+
+    diagnostics = validate_workflow(workflow, registry=self.block_registry)
+    hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
+    if hard_errors:
+        raise ValueError("Cannot start workflow; validation failed: " + "; ".join(str(e) for e in hard_errors))
+
+    if overwrite_node_ids:
+        workflow = copy.deepcopy(workflow)
+        for node in workflow.nodes:
+            if node.id in overwrite_node_ids:
+                params = node.config.setdefault("params", {})
+                if isinstance(params, dict):
+                    params["overwrite"] = True
     checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
     checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
     if execute_from is not None and checkpoint is None:

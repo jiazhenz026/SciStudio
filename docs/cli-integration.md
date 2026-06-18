@@ -7,14 +7,16 @@ does this internally; CLI integration exposes the same MCP surface plus
 a SciStudio-aware skill to any compatible client.
 
 The result: `pip install scistudio && scistudio install --all && claude`
-in a project dir, and your CLI immediately has 25 SciStudio tools plus a
+in a project dir, and your CLI immediately has 33 SciStudio tools plus a
 skill describing how to use them.
 
 ## Quick start
 
 ```bash
 # 1. Install SciStudio.
-pip install scistudio   # or pip install -e . from a source checkout
+pip install scistudio
+# Source checkout development should use an isolated env plus PYTHONPATH=src,
+# not an editable install from a shared worktree.
 
 # 2. Wire up your CLI of choice. --all installs claude + codex + skill at user scope.
 scistudio install --all
@@ -122,16 +124,17 @@ A packaged directory `src/scistudio/_skills/scistudio/` (per ADR-040 §3.4,
 bundled with the wheel and installed by `scistudio install --skill`)
 containing:
 
-- `SKILL.md` — base identity + thin pointer index to the 5 task-scoped
+- `SKILL.md` — base identity + thin pointer index to the 6 task-scoped
   sub-skills.
 - `scistudio-build-workflow/SKILL.md`, `scistudio-write-block/SKILL.md`,
   `scistudio-debug-run/SKILL.md`, `scistudio-inspect-data/SKILL.md`,
-  `scistudio-project-qa/SKILL.md` — JIT-loaded task skills with
-  progressive-disclosure semantics (frontmatter `description` triggers
-  body load on demand).
+  `scistudio-project-qa/SKILL.md`, `scistudio-write-plot/SKILL.md`
+  (ADR-048 SPEC 2 — preview-only plot authoring) — JIT-loaded task skills
+  with progressive-disclosure semantics (frontmatter `description`
+  triggers body load on demand).
 
 Per ADR-040 §3.9, `scistudio install --skill` **cross-installs** the
-entire 6-file tree to both providers:
+entire 7-file tree to both providers:
 
 - Claude Code reads `~/.claude/skills/scistudio/` (user) or
   `<project>/.claude/skills/scistudio/` (project).
@@ -245,9 +248,8 @@ their specific machine-driven contexts so the filter remains meaningful.
 
 ## See also
 
-- `docs/adr/ADR.md` ADR-033 — embedded coding agent architecture.
+- `docs/adr/ADR-033.md` — embedded coding agent architecture.
 - `docs/adr/ADR-038.md` — unified run lineage database (supersedes ADR-032).
 - `docs/adr/ADR-039.md` — git-backed source version control.
-- `docs/specs/eca-spike-codex-format.md` — Codex provider parity notes.
-- `docs/guides/ai-chat.md` — user-facing AI chat guide for the GUI.
+- `docs/adr/ADR-040.md` — CLI skill and MCP integration.
 - `CLAUDE.md` — non-negotiable project principles (repo root).

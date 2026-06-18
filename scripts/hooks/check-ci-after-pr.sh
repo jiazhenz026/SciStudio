@@ -23,12 +23,14 @@ fi
 PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
 
 cat <<EOF
-⚠️ MANDATORY CI CHECK: PR #${PR_NUM} created.
+⚠️ MANDATORY POST-PR STEPS: PR #${PR_NUM} created (${PR_URL}).
 You MUST now:
-1. Wait 2-3 minutes for CI to start
-2. Run: gh pr checks ${PR_NUM} --watch
-3. If ANY check fails: diagnose, fix, push, repeat until ALL GREEN
-4. Do NOT report the PR as done until CI passes
+1. Record PR provenance in the gate ledger:
+   python -m scistudio.qa.governance.gate_record finalize --pr ${PR_URL}
+2. Wait 2-3 minutes for CI to start
+3. Run: gh pr checks ${PR_NUM} --watch
+4. If ANY check fails: diagnose, fix, push, repeat until ALL GREEN
+5. Do NOT report the PR as done until CI passes
 
-This is a NON-NEGOTIABLE requirement per CLAUDE.md §6.4.
+This is a NON-NEGOTIABLE requirement per CLAUDE.md §6.4 and ADR-042 Addendum 6.
 EOF

@@ -404,11 +404,17 @@ to load only the data they actually need.
 | Base type | Primary backend | Rationale |
 |---|---|---|
 | `Array` | Zarr | Chunked, compressed, cloud-compatible storage for large numeric data. |
-| `Series` | Zarr or Parquet | Efficient storage for long one-dimensional values. |
+| `Series` | Apache Arrow / Parquet | Columnar storage for indexed one-dimensional values while preserving label/value schema. |
 | `DataFrame` | Apache Arrow / Parquet | Columnar storage for filtering, aggregation, and memory mapping. |
 | `Text` | In memory or filesystem | Small textual payloads can usually travel directly. |
 | `Artifact` | Filesystem | Original files are preserved for interoperability. |
 | `CompositeData` | Directory of slot backends | Each slot uses the backend appropriate to its own type. |
+
+`Series` storage is table-shaped even when the logical value is one-dimensional.
+Generic `Series` values normally persist as a one-column Arrow table named by
+`value_name`; domain-specific `Series` subclasses may use additional columns
+when their type contract requires explicit coordinates, such as `Spectrum`
+storing `lambda` and `intensity`.
 
 #### 4.3.2 Canonical Zone And Boundary Formats
 
@@ -774,12 +780,14 @@ instead of hiding the downstream effects of an earlier failure.
 
 ### 5.3 Subprocess Isolation
 
-Block logic runs outside the engine process. The engine remains an orchestrator:
-it validates workflow state, starts workers, records transitions, handles
-cancellation, and collects outputs. The worker process reconstructs typed inputs
-from references, executes the block, and returns typed outputs.
+Subprocess isolation is the **default execution path for non-interactive
+blocks**. For these blocks, block logic runs outside the engine process. The
+engine remains an orchestrator: it validates workflow state, starts workers,
+records transitions, handles cancellation, and collects outputs. The worker
+process reconstructs typed inputs from references, executes the block, and
+returns typed outputs.
 
-Subprocess isolation provides three guarantees:
+For non-interactive blocks, subprocess isolation provides three guarantees:
 
 - **Reliable cancellation**: the runtime can terminate a block without killing
   the engine.
@@ -788,6 +796,28 @@ Subprocess isolation provides three guarantees:
 - **Low data-copy overhead**: large payloads stay in storage; cross-process
   exchange carries references and metadata rather than full data whenever
   possible.
+
+#### 5.3.1 Interactive blocks run in-process
+
+Interactive blocks (for example `DataRouter` and `PairEditor`, identified by
+`execution_mode == ExecutionMode.INTERACTIVE`) are a deliberate exception: they
+run **in-process inside the scheduler coroutine**, not in a worker subprocess.
+This is the design decision established by ADR-018 and issues #591/#594.
+
+The reason is bidirectional communication. An interactive block transitions to
+`PAUSED`, calls `prepare_prompt(inputs, config)` to build data for the frontend,
+emits an `INTERACTIVE_PROMPT` event over the WebSocket, awaits the user's
+response, and only then calls `run(inputs, config)` with that response merged
+into its config. This prompt round-trip requires a live bidirectional channel to
+the frontend that a one-shot worker subprocess does not provide. Running these
+blocks in-process avoids building a separate IPC transport for prompt
+round-trips (the rejected alternative in #1331).
+
+Consequently, the crash-isolation guarantee above does **not** apply to
+interactive blocks: a fault in an interactive block runs in the same process as
+the engine. Interactive blocks are framework-provided and intentionally kept
+small for this reason. See `scistudio/engine/scheduler/_dispatch.py`
+(`_run_interactive`) for the implementation.
 
 ### 5.4 Core Block Classes
 
@@ -1535,6 +1565,8 @@ block, data, run, and permission schemas owned by the backend.
 Realtime channels use **WebSocket** and streaming responses to keep clients in
 sync with runtime activity. They carry block state, run progress, interactive
 prompts, workflow changes, Git-head changes, logs, and agent-terminal updates.
+The WebSocket protocol also supports an application-level `ping` -> `pong`
+heartbeat so the browser can detect an OPEN-but-stale socket and reconnect.
 
 The event source is the backend **EventBus** and runtime services. The frontend
 does not infer execution state locally, manufacture block transitions, or treat

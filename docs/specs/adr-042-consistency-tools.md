@@ -245,10 +245,11 @@ Acceptance Scenarios:
   facts registry and fail stale or invalid substitutions.
 - FR-008: `closure` MUST verify that every governed code path or public surface
   has an owning ADR/spec or maintainer entry.
-- FR-009: `closure` MUST verify that every ADR/spec governed file or symbol
-  claim resolves to a real path or symbol unless it is tracked future work.
-- FR-010: Future-work records MUST be explicit and machine-readable enough to
-  distinguish tracked future work from stale or hallucinated claims.
+- FR-009: `closure` MUST verify that every ADR/spec `governs` file or symbol
+  claim resolves to a real path or symbol.
+- FR-010: Future-work records MUST be explicit in `planned_governs`, using the
+  same GovernedSurfaces shape as `governs`, so audit can distinguish tracked
+  future work from stale or hallucinated claims.
 - FR-011: `full_audit` MUST aggregate child reports into the shared
   `AuditReport` envelope and fail when any consistency child has an error.
 - FR-012: `generate_facts` MUST extract expected signature facts from
@@ -275,6 +276,13 @@ Acceptance Scenarios:
   require active spec coverage for ADRs with phase `legacy`.
 - FR-020: `doc_drift` MUST report active spec governed modules, contracts,
   entry-points, and files that are not covered by their related ADRs.
+- FR-021: `doc_drift` and `closure` MUST report unresolved `planned_governs` in
+  planning/pre-implementation documents as informational, but MUST fail when a
+  planned surface already resolves or when a non-planning document still
+  declares planned surfaces.
+- FR-022: `full_audit` MUST include a `developer_docs` child report by default
+  for `docs/block-development/**`, validating developer-doc frontmatter, local
+  links/anchors, and stale block/package contract references.
 
 ### Key Entities
 
@@ -314,9 +322,10 @@ tooling in GitHub issues and owner review.
 | `src/scistudio/qa/audit/doc_drift.py` | create | Documentation/fact contradiction classifier |
 | `src/scistudio/qa/audit/fact_drift.py` | create | Fact substitution checker |
 | `src/scistudio/qa/audit/closure.py` | create | Ownership and coverage closure checker |
+| `src/scistudio/qa/audit/developer_docs.py` | create | Strong checks for block/package developer guides |
 | `src/scistudio/qa/audit/full_audit.py` | create | Aggregate consistency runner |
 | `docs/facts/generated.yaml` | generate | Generated fact snapshot |
-| `tests/qa/test_audit_*.py` | create | Focused fixtures for facts, drift, closure, and aggregate reports |
+| `tests/qa/test_audit_*.py`, `tests/docs/test_block_development_docs.py` | create | Focused fixtures for facts, drift, closure, developer docs, and aggregate reports |
 
 ### 4.3 Implementation Sequence
 
@@ -546,6 +555,7 @@ class ADRFrontmatter(BaseModel):
     tracking_issue: int | None
     is_code_implementation: bool
     governs: GovernedSurfaces
+    planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
@@ -574,6 +584,7 @@ class SpecFrontmatter(BaseModel):
     related_specs: list[str]
     scope: SpecScope
     governs: GovernedSurfaces
+    planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
     tests: list[str]
     acceptance_source: Literal["speckit", "issue", "adr", "manual"]
     language_source: str = "en"
@@ -671,6 +682,7 @@ def run(
     check_stale: bool = True,
     include_frontmatter_lint: bool = True,
     include_doc_drift: bool = True,
+    include_developer_docs: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,
     include_signature_drift: bool = True,
@@ -718,6 +730,11 @@ CLI exit codes are uniform across ADR-042 audit tools:
   exit-code mismatches from signature-level spec facts.
 - SC-007: `doc_drift` detects active ADR/spec governed-surface mismatches in
   both directions and ignores Draft specs for current implementation closure.
+- SC-008: `planned_governs` unresolved future surfaces are non-blocking in
+  planning/pre-implementation documents, while resolved planned surfaces fail
+  until the document state and `governs` metadata are advanced.
+- SC-009: `full_audit` includes `developer_docs` by default and fails stale or
+  broken `docs/block-development/**` developer guide content.
 
 ## 6. Assumptions
 

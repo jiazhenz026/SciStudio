@@ -1,6 +1,7 @@
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import type { ConnectionStatus } from "../hooks/connectionState";
 import type { ProjectResponse } from "../types/api";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
 import { ProjectHeader, StatusPill } from "./Toolbar.parts/ProjectHeader";
@@ -20,6 +21,10 @@ interface ToolbarProps {
   selectedNodeId: string | null;
   wsConnected: boolean;
   sseConnected: boolean;
+  /** #177: full connection lifecycle for the status pills (optional;
+   *  falls back to the boolean when absent). */
+  wsStatus?: ConnectionStatus;
+  sseStatus?: ConnectionStatus;
   recentProjects: ProjectResponse[];
   /**
    * ADR-036 §3.7 — discriminator that drives the toolbar's kind-swap.
@@ -36,6 +41,7 @@ interface ToolbarProps {
   onNewCustomBlock?: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewNote?: () => void;
+  onNewPlot?: () => void;
   /** ADR-036 §3.4 — optional. Opens read-only YAML view of active workflow. */
   onViewSource?: () => void;
   onSave: () => void;
@@ -66,6 +72,8 @@ export function Toolbar(props: ToolbarProps) {
     selectedNodeId,
     wsConnected,
     sseConnected,
+    wsStatus,
+    sseStatus,
     recentProjects,
     activeTabKind = "workflow",
     onNewProject,
@@ -75,6 +83,7 @@ export function Toolbar(props: ToolbarProps) {
     onNewWorkflow,
     onNewCustomBlock,
     onNewNote,
+    onNewPlot,
     onViewSource,
     onSave,
     onSaveAs,
@@ -132,6 +141,7 @@ export function Toolbar(props: ToolbarProps) {
           onNewWorkflow={onNewWorkflow}
           onNewCustomBlock={onNewCustomBlock}
           onNewNote={onNewNote}
+          onNewPlot={onNewPlot}
           onImport={onImport}
           onSave={onSave}
           onSaveAs={onSaveAs}
@@ -160,8 +170,8 @@ export function Toolbar(props: ToolbarProps) {
 
         {/* Connection Status */}
         <div className="flex shrink-0 items-center gap-2">
-          <StatusPill connected={wsConnected} label="WS" />
-          <StatusPill connected={sseConnected} label="Logs" />
+          <StatusPill connected={wsConnected} status={wsStatus} label="WS" />
+          <StatusPill connected={sseConnected} status={sseStatus} label="Logs" />
         </div>
       </header>
     </TooltipProvider>

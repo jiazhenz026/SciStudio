@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-06-12T03:05:32+00:00",
+  "config": {
+    "root": "src/scistudio"
+  },
+  "current": {
+    "untracked_total": 75,
+    "tracked_total": 38,
+    "by_phrase": {
+      "eventually": 1,
+      "for_now": 1,
+      "hack": 1,
+      "in_the_future": 1,
+      "later": 21,
+      "low_quality": 2,
+      "not_implemented": 1,
+      "placeholder": 14,
+      "temporary": 15,
+      "todo": 8,
+      "v1": 10
+    }
+  },
+  "ratchet": {
+    "max_untracked_total": 75,
+    "max_by_phrase": {
+      "eventually": 1,
+      "for_now": 1,
+      "hack": 1,
+      "in_the_future": 1,
+      "later": 21,
+      "low_quality": 2,
+      "not_implemented": 1,
+      "placeholder": 14,
+      "temporary": 15,
+      "todo": 8,
+      "v1": 10
+    }
+  },
+  "ratchet_policy": "Whole-repo untracked deferral counts may shrink but never grow. After tracking or removing deferrals, re-run --write-baseline to ratchet down. New untracked deferrals in a PR diff are blocked by the --diff gate."
+}

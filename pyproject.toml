@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
-    "fastapi>=0.110",
+    "fastapi>=0.110,<0.136",  # Keep API route path contract stable; FastAPI 0.137/Starlette 1.3 drops router paths.
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
     "zarr>=3.0",
@@ -44,15 +44,35 @@ dev = [
     "pytest-cov>=6.0",
     "pytest-xdist>=3.5",
     "pytest-timeout>=2.3",  # ADR-040 preflight: hard wall-clock kill for hung tests (Windows subprocess/asyncio edge cases)
+    "hypothesis>=6.0",  # #1602: property-based tests (e.g. serializer path round-trip)
     "ruff>=0.11",
     "mypy>=1.15",
     "types-PyYAML>=6.0",
     "import-linter>=2.0",
     "griffe>=1.7",
     "pre-commit>=4.0",
+    # ADR-042 Addendum 6 parity venvs must be able to run the local mirror of
+    # ci.yml jobs. Keep build-system helpers in the dev extra so python_tests
+    # and wheel_release_smoke do not fail as environment-parity gaps.
+    "setuptools>=68.0",
+    "build>=1.2",
+    # Several selected python_tests import tabular and TIFF preview/inspection
+    # paths. Keep the CI-equivalent dev environment complete without making
+    # these optional data-format helpers core runtime dependencies.
+    "pandas>=2.2",
+    "tifffile>=2024.8",
+    # ADR-048 SPEC 2: the preview-side plot harness renders matplotlib figures
+    # (context.plt) and SC-006 requires the matplotlib SVG path tested end to
+    # end. matplotlib is a plot-job runtime helper, not a core dependency.
+    "matplotlib>=3.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
     "vulture>=2.11",
+    # ADR-042 Addendum 2 / Addendum 6: semantic-dup parity checks run
+    # scripts/semantic_dup_scan.py locally from the gate_record parity venv.
+    # CI installs fastembed explicitly for the same ratchet job; keep the dev
+    # extra in sync so auto-provisioned local parity environments can run it.
+    "fastembed>=0.7",
     # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
     # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
     # ``ome: OME | None`` field. Listed here as well so the skeleton import
@@ -141,10 +161,29 @@ select = [
   "B",   # flake8-bugbear
   "SIM", # flake8-simplify
   "RUF", # ruff-specific
+  "C901", # mccabe complexity ceiling (#1602)
+  "TD",  # flake8-todos: keep TODO markers well-formed + issue-linked (#1602)
+  "FIX", # flake8-fixme: flag leftover FIXME/XXX/HACK markers (#1602)
 ]
 ignore = [
   "E501", # line too long (handled by formatter)
+  # flake8-todos rules we deliberately do NOT enforce, to fit the repo's
+  # ``TODO(#NNN):`` convention (issue link lives in the author slot, not a
+  # trailing URL) — issue-link enforcement is owned by scripts/deferral_scan.py
+  # (#1602), which understands ``TODO(#NNN)`` exactly:
+  "TD002", # missing author — our convention puts ``#NNN`` here, not a name
+  "TD003", # missing issue link — deferral_scan owns the ``(#NNN)`` check
+  # flake8-fixme FIX002 flags *every* TODO line; we allow tracked TODOs, so
+  # bare-TODO blocking is owned by deferral_scan, not ruff:
+  "FIX002", # line contains TODO
 ]
+
+[tool.ruff.lint.mccabe]
+# Grandfathered ceiling (#1602): current worst is ``validate_workflow`` at 60,
+# carried with an explicit ``# noqa: C901``. 30 blocks any *new* function from
+# exceeding it while leaving the existing single offender visible. Ratchet down
+# as complex functions are refactored.
+max-complexity = 30
 
 [tool.ruff.lint.isort]
 known-first-party = ["scistudio"]
@@ -166,9 +205,19 @@ packages = ["scistudio"]
 module = ["zarr", "zarr.*"]
 follow_imports = "skip"
 
+# tifffile uses Python 3.12+ type-alias syntax in current releases. The package
+# remains an optional/dev data-format helper for tests, while SciStudio's mypy
+# target is still Python 3.11, so do not parse tifffile internals.
+[[tool.mypy.overrides]]
+module = ["tifffile", "tifffile.*"]
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+# TODO(#1540): Restore coverage gate to ≥80% once ADR-034 Phase 1-3 tests are
+#   added back. Lowered temporarily during PR #808 rollback.
+#   Out of scope per owner decision recorded in issue #1540.
+#   Followup: https://github.com/zjzcpj/scistudio/issues/1540
 addopts = "-ra -q --cov=scistudio --cov-report=term-missing --cov-fail-under=70"
 # ADR-040 preflight: per-test 60s wall-clock kill via pytest-timeout. Without
 # this, hung tests (Windows subprocess pipe issues, deadlocked asyncio) hang
@@ -183,6 +232,39 @@ markers = [
     "requires_imaging: marks tests that need scistudio-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
     "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scistudio-blocks-imaging/pyproject.toml.",
+]
+# filterwarnings policy (issue #1560):
+#   - "error" is NOT applied globally — the suite uses third-party libraries
+#     (zarr, fsspec, h5py, PIL, pytest-asyncio) that emit deprecation warnings
+#     we do not own.  Turning those into errors would break CI on every upstream
+#     release.  Instead we silence known third-party deprecations explicitly and
+#     let unrecognised warnings from scistudio.* surface as errors so regressions
+#     are visible.
+#
+#   Policy rationale:
+#     1. Third-party DeprecationWarnings: ignore (not our responsibility to fix
+#        until we upgrade the dependency; tracked via normal dependency updates).
+#     2. PendingDeprecationWarning from third-parties: ignore (same rationale).
+#     3. DeprecationWarning whose source is scistudio.*: error (we own it).
+#     4. PytestUnraisableExceptionWarning: error (signals hidden async failures).
+#
+#   Conservative approach: we deliberately do NOT use "error::DeprecationWarning"
+#   globally because zarr, h5py, and fsspec emit stdlib deprecations that would
+#   make the suite fail today; that cleanup belongs in the dependency-upgrade
+#   milestone (issue #1560).
+filterwarnings = [
+    # Surface first-party regressions as errors.
+    "error::DeprecationWarning:scistudio.*",
+    "error::PendingDeprecationWarning:scistudio.*",
+    # Catch hidden async failures that would otherwise be swallowed.
+    "error::pytest.PytestUnraisableExceptionWarning",
+    # Known third-party deprecations — ignore until upstream resolves.
+    "ignore::DeprecationWarning:zarr.*",
+    "ignore::DeprecationWarning:fsspec.*",
+    "ignore::DeprecationWarning:h5py.*",
+    "ignore::DeprecationWarning:PIL.*",
+    "ignore::DeprecationWarning:pkg_resources.*",
+    "ignore::PendingDeprecationWarning",
 ]
 
 [tool.importlinter]
@@ -222,8 +304,16 @@ forbidden_modules = ["scistudio.engine", "scistudio.api", "scistudio.ai"]
 # Core ↔ Blocks per the first contract above). Both ignore entries
 # below are lazy function-body imports executed only inside the per-run
 # AppBlock dispatch path.
+#
+# ADR-035 §3.8 (#1591): AIBlock.run() drives the agent runtime, lazily
+# importing `ai.agent.terminal` helpers (`_ensure_mcp_config`,
+# `_write_system_prompt_tempfile`) inside the per-run dispatch path. This
+# edge only became visible to grimp once `ai/agent/` gained its
+# `__init__.py` (#1591); the crossing is intentional and lazy, so it is
+# carved out here rather than restructured.
 ignore_imports = [
     "scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control",
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
 ]
 
 [[tool.importlinter.contracts]]
@@ -231,6 +321,17 @@ name = "Engine must not depend on api or ai services"
 type = "forbidden"
 source_modules = ["scistudio.engine"]
 forbidden_modules = ["scistudio.api", "scistudio.ai"]
+# ADR-035 §3.8 (#1591): the only engine->ai path is transitive through the
+# block-registry scan — `engine.scheduler -> blocks.registry -> _spec ->
+# blocks.ai.ai_block -> ai.agent.terminal`. The terminating edge is the same
+# accepted lazy AIBlock->agent import carved out in the Blocks contract above
+# (it became graph-visible once `ai/agent/` gained its `__init__.py`). Engine
+# does not depend on ai services directly; it scans every block (incl. the AI
+# block) via the registry. Carve out the same leaf edge here so the registry
+# scan does not transitively trip this contract.
+ignore_imports = [
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -256,7 +357,10 @@ omit = [
 ]
 
 [tool.coverage.report]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+# TODO(#1540): Restore coverage gate to ≥80% once ADR-034 Phase 1-3 tests are
+#   added back. Lowered temporarily during PR #808 rollback.
+#   Out of scope per owner decision recorded in issue #1540.
+#   Followup: https://github.com/zjzcpj/scistudio/issues/1540
 fail_under = 70
 show_missing = true
 exclude_lines = [

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
+import pytest
 from fastapi.testclient import TestClient
+
+from scistudio.api.runtime import ApiRuntime
 
 
 def test_project_crud_and_path_opening(client: TestClient, project_parent: Path) -> None:
@@ -59,6 +64,42 @@ def test_project_crud_and_path_opening(client: TestClient, project_parent: Path)
     deleted = client.delete(f"/api/projects/{first_payload['id']}")
     assert deleted.status_code == 204
     assert not Path(first_payload["path"]).exists()
+
+
+def test_workflow_save_without_active_project_returns_session_conflict(client: TestClient) -> None:
+    """Backend session loss should be distinguishable from workflow validation errors."""
+    workflow = {
+        "id": "main",
+        "nodes": [],
+        "edges": [],
+        "metadata": {},
+    }
+
+    created = client.post("/api/workflows/", json=workflow)
+    assert created.status_code == 409
+    assert created.json()["detail"] == "No project is currently open."
+
+    updated = client.put("/api/workflows/main", json=workflow)
+    assert updated.status_code == 409
+    assert updated.json()["detail"] == "No project is currently open."
+
+
+def test_execute_workflow_sets_engine_api_url_for_workers(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AIBlock worker subprocesses need the engine API callback URL."""
+    monkeypatch.delenv("SCISTUDIO_ENGINE_API_URL", raising=False)
+
+    def fake_start_workflow(workflow_id: str, **_: Any) -> dict[str, str]:
+        assert os.environ["SCISTUDIO_ENGINE_API_URL"] == "http://testserver"
+        return {"workflow_id": workflow_id, "status": "running", "message": "started"}
+
+    monkeypatch.setattr(runtime, "start_workflow", fake_start_workflow)
+    response = client.post("/api/workflows/main/execute")
+    assert response.status_code == 200
 
 
 def test_list_projects_sorted_by_last_opened(client: TestClient, project_parent: Path) -> None:

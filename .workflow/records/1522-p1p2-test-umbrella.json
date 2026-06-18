@@ -1,0 +1,2069 @@
+{
+  "branch": "claude/p1p2-test",
+  "check_events": [
+    {
+      "at": "2026-06-10T17:55:07.852318Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:55:15.614744Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:55:15.705939Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:55:29.331829Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:55:29.368627Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:55:30.114195Z",
+      "command": "npm run lint",
+      "covered_surface": "frontend",
+      "exit_code": 4294963238,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 4294963238",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:55:37.284280Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:55:37.786596Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:55:37.822104Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:57:20.787299Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "python_tests",
+      "parity_detail": "missing module: setuptools",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: setuptools",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:20.933612Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "semantic_dup",
+      "parity_detail": "missing module: fastembed",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: fastembed",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:32.251587Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-10T17:57:32.286853Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "wheel_release_smoke",
+      "parity_detail": "missing module: build",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: build",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:40.129009Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:40.167358Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:57:40.753904Z",
+      "command": "npm run lint",
+      "covered_surface": "frontend",
+      "exit_code": 4294963238,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 4294963238",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:47.992958Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:48.197087Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:57:48.232011Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T17:59:24.922316Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "python_tests",
+      "parity_detail": "missing module: setuptools",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: setuptools",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:59:25.064534Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "semantic_dup",
+      "parity_detail": "missing module: fastembed",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: fastembed",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T17:59:25.698325Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-10T17:59:25.731738Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "wheel_release_smoke",
+      "parity_detail": "missing module: build",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: build",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:02:31.919079Z",
+      "command": "npm run lint",
+      "covered_surface": "frontend",
+      "exit_code": 4294963238,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 4294963238",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:06:29.871325Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:02.821648Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:20.910679Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:20.950138Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T18:07:24.327145Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:31.623284Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:31.840069Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:07:31.901325Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T18:09:04.320405Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "python_tests",
+      "parity_detail": "missing module: setuptools",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: setuptools",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:09:04.465432Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "semantic_dup",
+      "parity_detail": "missing module: fastembed",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: fastembed",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:09:05.226399Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-10T18:09:05.263735Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "wheel_release_smoke",
+      "parity_detail": "missing module: build",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: build",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:10:19.452660Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:10:19.494153Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T18:10:22.759820Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:10:29.970941Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:10:30.186988Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:10:30.224482Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T18:12:15.315028Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "python_tests",
+      "parity_detail": "missing module: setuptools",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: setuptools",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:12:15.453774Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "semantic_dup",
+      "parity_detail": "missing module: fastembed",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: fastembed",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T18:12:16.080687Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-10T18:12:16.115543Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:815d67e12fc55883d6e828b53513e6d8de128789ce4cc5b6804231491b3ec274",
+      "name": "wheel_release_smoke",
+      "parity_detail": "missing module: build",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: build",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/**",
+      "frontend/src/**",
+      "pyproject.toml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-10T17:54:21.749333Z",
+      "class": "ci-policy",
+      "kind": "na",
+      "path": null,
+      "rationale": "CI workflow comments and issue links document the packaging-path check; no user-facing docs change",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:06:17.779554Z",
+      "class": "gate-runtime",
+      "kind": "na",
+      "path": null,
+      "rationale": "internal gate evaluator behavior only; existing gate command docs remain accurate",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-10T17:55:15.897112Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:15.924716Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:15.951936Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:15.978789Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.005679Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.031293Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.055593Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.079867Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.105922Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:55:16.131736Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.342388Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.367357Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.392257Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.417039Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.440925Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.463548Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.486901Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.509354Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.531064Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:57:32.553797Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# the build was not committed and developers must run",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# This step runs AFTER the build step so dist/index.html always",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-10T17:59:25.793626Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.821291Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.848151Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.875067Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.899356Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.923358Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.945671Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.968398Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:25.992508Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T17:59:26.018520Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# the build was not committed and developers must run",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# This step runs AFTER the build step so dist/index.html always",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-10T18:02:31.973479Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:31.996784Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.021601Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.045249Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.071950Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.097661Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.121892Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.147375Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.171883Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:02:32.197006Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# the build was not committed and developers must run",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# 'cd frontend && npm run build' and commit the result.",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-# This step runs AFTER the build step so dist/index.html always",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-10T18:06:29.925985Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:29.950280Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:29.974327Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.127975Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.152449Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.178325Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.205342Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.230578Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.254836Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:06:30.282418Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-frontend",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: npm",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-frontend",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-echo \"Run 'cd frontend && npm run build' and commit the result.\"",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-10T18:07:02.876677Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:02.900795Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:02.925389Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:02.949660Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:02.975104Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:03.133791Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:03.160264Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:03.185237Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:03.209620Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:07:03.233375Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.326312Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.354265Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.384264Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.415391Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.444661Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.474210Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.502723Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.663701Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.691804Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:09:05.719826Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.175146Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.202505Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.230872Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.257945Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.283985Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.310318Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.473454Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.502523Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.528677Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T18:12:16.556449Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1522,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1540,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1550,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1560,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "a13a460c568f88e4b15bb16b23d982b07e3ab1cc",
+    "base_sha": "a13a460c",
+    "changed_files": [
+      ".github/workflows/ci.yml",
+      ".workflow/records/1522-p1p2-test-umbrella.json",
+      "frontend/src/components/AIChat/__tests__/TerminalTabs.skeleton.test.tsx",
+      "frontend/src/components/BottomPanel.test.tsx",
+      "pyproject.toml",
+      "tests/ai/test_mcp_server_skeleton.py",
+      "tests/ai/test_mcp_tools_authoring.py",
+      "tests/ai/test_mcp_tools_disk_integration.py",
+      "tests/ai/test_mcp_tools_inspection.py",
+      "tests/ai/test_mcp_tools_qa.py",
+      "tests/ai/test_mcp_tools_workflow.py",
+      "tests/api/test_runtime_rerun_parent_id.py",
+      "tests/blocks/test_process_block.py",
+      "tests/blocks/test_registry.py",
+      "tests/blocks/test_subworkflow.py",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/engine/test_pty_control_skeleton.py",
+      "tests/engine/test_scheduler.py",
+      "tests/engine/test_worker.py",
+      "tests/qa/test_gate_record_hooks.py"
+    ],
+    "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+    "head": "HEAD",
+    "head_sha": "4131e087",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 2,
+      "governance": 2,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 1,
+      "protected_core": 0,
+      "sentrux": 18,
+      "test": 17,
+      "workflow_ci": 1
+    }
+  },
+  "owner_directive": "P1-P2 and stale-bug fix session: test-quality umbrella (silent-pass tests, skipped stubs, coverage policy). [DO NOT MERGE] integration PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-10T17:55:16.131773Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-10T17:57:32.553843Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-06-10T17:59:26.018569Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-06-10T18:02:32.197053Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-06-10T18:06:30.282466Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-06-10T18:07:03.233409Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-10T18:09:05.719869Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-06-10T18:12:16.556482Z",
+      "diff_fingerprint": "sha256:cd46bc05dd45a12d97a1c8df59822b18102a01d927bfae0da2bced17b8f298d5",
+      "mode": "pre-push",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1522-p1p2-test-umbrella",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-10T17:54:21.749249Z",
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "Fix #1550 by removing the vacuous frontend/dist mtime/dirty-tree check from the frontend job and validating the actual wheel staging path under src/scistudio/api/static before wheel build."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:06:17.779523Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/checks.py",
+      "reason": "fix gate frontend cwd and ignore comment-only CI token removals"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:06:17.779540Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/guards/weakened_ci_check.py",
+      "reason": "fix gate frontend cwd and ignore comment-only CI token removals"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:06:17.779542Z",
+      "pattern": "tests/qa/test_guard_calculators.py",
+      "reason": "fix gate frontend cwd and ignore comment-only CI token removals"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T18:06:17.779544Z",
+      "pattern": "tests/qa/test_gate_evaluator.py",
+      "reason": "fix gate frontend cwd and ignore comment-only CI token removals"
+    }
+  ],
+  "session_id": "3017a875-9a9e-4d70-a28a-31ae1bf26fa9",
+  "strictness_tier": 1,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-06-10T17:54:21.749342Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T17:54:21.749346Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:06:17.779559Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_guard_calculators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T18:06:17.779562Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

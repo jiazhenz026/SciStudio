@@ -40,7 +40,7 @@ function formatSize(size: number | null | undefined): string {
 
 // ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
 // knows how to render. Anything outside this set is ignored on double-click.
-const EDITABLE_EXTENSIONS: readonly string[] = ["py", "txt", "md", "json", "csv"];
+const EDITABLE_EXTENSIONS: readonly string[] = ["py", "r", "txt", "md", "json", "csv"];
 
 function TreeNodeRow({
   node,

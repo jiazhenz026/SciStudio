@@ -1,0 +1,230 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1503-custom-block-parent-dir-hotfix.json"
+      ],
+      "reason": "Add committed gate record evidence for hotfix delivery"
+    }
+  ],
+  "branch": "hotfix/custom-block-parent-dir",
+  "changed_test_paths": [
+    "tests/api/test_file_endpoints.py",
+    "frontend/src/lib/api/__tests__/api-surface.test.ts"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/api/routes/projects.py tests/api/test_file_endpoints.py",
+      "exit_code": 0,
+      "name": "python-ruff-targeted",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/api/routes/projects.py tests/api/test_file_endpoints.py",
+      "exit_code": 0,
+      "name": "python-format-targeted",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/api/test_file_endpoints.py --no-cov",
+      "exit_code": 0,
+      "name": "pytest-file-endpoints",
+      "output_path": "17 passed, 1 warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npx prettier --check src/App.parts/useProjectActions.ts src/lib/api/code.ts src/lib/api/version.ts src/lib/api/__tests__/api-surface.test.ts",
+      "exit_code": 0,
+      "name": "frontend-prettier-targeted",
+      "output_path": "All matched files use Prettier code style",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npx eslint src/App.parts/useProjectActions.ts src/lib/api/code.ts src/lib/api/version.ts src/lib/api/__tests__/api-surface.test.ts --no-warn-ignored",
+      "exit_code": 0,
+      "name": "frontend-eslint-targeted",
+      "output_path": "No problems",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm test -- --run src/lib/api/__tests__/api-surface.test.ts",
+      "exit_code": 0,
+      "name": "frontend-api-test",
+      "output_path": "1 file, 6 tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run typecheck",
+      "exit_code": 0,
+      "name": "frontend-typecheck",
+      "output_path": "tsc --noEmit passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full-audit",
+      "output_path": "full_audit passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1503-custom-block-parent-dir-hotfix.json",
+    "shas": [
+      "a67c0610ade968fa377d24091da7ccc8eb4f2323"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No new architecture decision; constrained hotfix within ADR-036"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Hotfix restores existing ADR-036 behavior without release-note-worthy user-facing contract change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Single-owner hotfix with committed gate record; no multi-agent planning checklist was created"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Behavior already covered by ADR-036 New custom block scaffold contract; hotfix restores that behavior without changing public docs"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No schema or public contract expansion beyond optional scaffold flag for existing endpoint"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1503,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1503"
+    }
+  ],
+  "owner_directive": "Owner-guided hotfix: New custom block fails with Parent directory does not exist",
+  "persona": "implementer",
+  "planned_files": [
+    "src/scistudio/api/routes/projects.py",
+    "tests/api/test_file_endpoints.py",
+    "frontend/src/App.parts/useProjectActions.ts",
+    "frontend/src/lib/api/code.ts",
+    "frontend/src/lib/api/version.ts",
+    "frontend/src/lib/api/__tests__/api-surface.test.ts"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1503
+    ],
+    "number": 1504,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1504"
+  },
+  "record_path": ".workflow/records/1503-custom-block-parent-dir-hotfix.json",
+  "required_checks": [
+    "ruff",
+    "pytest",
+    "prettier",
+    "eslint",
+    "frontend-typecheck"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/projects.py",
+      "tests/api/test_file_endpoints.py",
+      "frontend/src/App.parts/useProjectActions.ts",
+      "frontend/src/lib/api/code.ts",
+      "frontend/src/lib/api/version.ts",
+      "frontend/src/lib/api/__tests__/api-surface.test.ts"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux unavailable/not run locally in owner-guided hotfix; CI/gate remains authoritative",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1503-custom-block-parent-dir",
+  "task_kind": "hotfix"
+}

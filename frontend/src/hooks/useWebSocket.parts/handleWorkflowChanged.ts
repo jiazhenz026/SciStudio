@@ -21,13 +21,28 @@ export interface WorkflowChangedDeps {
 }
 
 function autoOpenCreatedWorkflow(changedId: string): void {
+  // #1322 diagnostics: prod-only reports of auto-open intermittently not
+  // firing after an agent ``write_workflow``. The WS frame was confirmed
+  // correct in the 2026-05-21 hotfix session, so the suspected gap is on
+  // the fetch / openTab path (e.g. ``getWorkflow`` racing a not-yet-flushed
+  // file, or the dedupe key mismatching). These debug logs make the next
+  // recurrence diagnosable per the issue's repro guidance without changing
+  // behaviour. See frontend/docs/2026-06-10-autoopen-investigation.md.
+  // eslint-disable-next-line no-console
+  console.debug("[workflow.changed] auto-open: fetching created workflow", changedId);
   api
     .getWorkflow(changedId)
     .then((fresh) => {
+      // eslint-disable-next-line no-console
+      console.debug("[workflow.changed] auto-open: opening tab", changedId, {
+        fetchedId: fresh?.id,
+      });
       useAppStore.getState().openTab(fresh, changedId);
     })
-    .catch(() => {
+    .catch((err) => {
       // best-effort; user can still open it via the file tree
+      // eslint-disable-next-line no-console
+      console.debug("[workflow.changed] auto-open: getWorkflow failed", changedId, err);
     });
 }
 

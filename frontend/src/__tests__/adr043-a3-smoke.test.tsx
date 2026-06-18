@@ -12,10 +12,11 @@
 //
 //   1. Open a workflow with a port that has multiple matching
 //      capabilities; verify the dropdown shows >=2 options.
-//   2. Click the "OME metadata" button on a sample output; verify the
-//      panel opens and renders at least one field.
-//   3. Verify the lossy-save warning appears on a SaveImage node when
+//   2. Verify the lossy-save warning appears on a SaveImage node when
 //      source OME has fields the target capability cannot persist.
+//
+// The legacy "OME metadata panel" click-path was removed under ADR-048
+// (#1604); the rich OME surface is now the imaging package previewer's job.
 //
 // The manual in-app browser checklist (vite preview against a running
 // backend) lives next to this file at
@@ -28,8 +29,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CapabilityDropdown } from "../components/PortEditor/CapabilityDropdown";
 import { LossySaveWarning } from "../components/WorkflowEditor/LossySaveWarning";
-import { OMEMetadataPanel, hasOMEContent } from "../components/OutputPreview/OMEMetadataPanel";
-import { extractOMEFromMetadata } from "../api/capabilities";
 import type { FormatCapabilityResponse } from "../types/api";
 
 // ---------------------------------------------------------------------------
@@ -157,58 +156,13 @@ describe("ADR-043 Phase A3 smoke — capability dropdown ambiguity (FR-012)", ()
   });
 });
 
-describe("ADR-043 Phase A3 smoke — OME metadata panel toggle (FR-013)", () => {
-  it("opens panel with at least one field on click and supports copy", async () => {
-    const ome = {
-      images: [
-        {
-          name: "sample.czi",
-          pixels: {
-            physical_size_x: 0.325,
-            size_x: 2048,
-          },
-          channels: [{ name: "DAPI", emission_wavelength: 461 }],
-        },
-      ],
-    };
-    const copy = vi.fn();
-
-    function Harness() {
-      const [open, setOpen] = useState(false);
-      return (
-        <div>
-          {!open ? (
-            <button type="button" data-testid="open-ome" onClick={() => setOpen(true)}>
-              OME metadata
-            </button>
-          ) : (
-            <OMEMetadataPanel ome={ome} onClose={() => setOpen(false)} copyToClipboard={copy} />
-          )}
-        </div>
-      );
-    }
-    render(<Harness />);
-    expect(screen.queryByTestId("ome-panel")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("open-ome"));
-    expect(screen.getByTestId("ome-panel")).toBeInTheDocument();
-
-    // At least one field rendered (the top-level `images` array surfaces
-    // the per-image `name` leaf immediately because depth < 2).
-    expect(screen.getByText("sample.czi")).toBeInTheDocument();
-
-    // Copy button on the leaf writes through to the clipboard.
-    const copyBtn = screen.getByRole("button", { name: /Copy images.\[0\].name/i });
-    fireEvent.click(copyBtn);
-    expect(copy).toHaveBeenCalledWith("sample.czi");
-  });
-
-  it("hides panel for outputs without OME (hasOMEContent guard)", () => {
-    expect(hasOMEContent(null)).toBe(false);
-    expect(hasOMEContent({})).toBe(false);
-    expect(extractOMEFromMetadata({})).toBeNull();
-  });
-});
+// NOTE(#1604): the "OME metadata panel toggle" smoke scenario that lived here
+// covered the legacy `OMEMetadataPanel` + `useOmeMetadata` surface. That panel
+// is removed under ADR-048 (no-compat, #1594): the rich image-domain OME
+// surface is now owned by the imaging package previewer (`imaging.image.viewer`
+// → `image_metadata` / `has_ome` rendered by the packaged `viewer.js` through
+// the mounted PreviewHost). The SaveImage lossy-OME-write surface below is a
+// distinct, still-live path (`extractOMEFromMetadata` in `api/capabilities`).
 
 describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
   it("hides the chip when a broad 'ome' write declaration claims full OME round-trip (#1371)", () => {

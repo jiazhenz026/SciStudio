@@ -282,3 +282,73 @@ class TestWorkerSubprocessRoundtrip:
         # (error envelope or success envelope) — not died before any
         # output was produced.
         assert stdout.strip(), f"Worker produced no stdout:\nSTDERR:\n{stderr}"
+
+
+# ---------------------------------------------------------------------------
+# #1531: broken / hostile drop-in must not crash the palette refresh.
+# ---------------------------------------------------------------------------
+
+
+class TestBrokenDropInDoesNotCrashScan:
+    """Issue #1531: a failing or hostile drop-in module must not crash scan().
+
+    Before the #1531 hardening, ``_scan_tier1`` called ``spec.loader.exec_module``
+    without its own try/except.  A SyntaxError or any exception raised at
+    module top-level (e.g. ``raise RuntimeError("hostile")`` in a drop-in)
+    propagated all the way out, killing the palette refresh and leaving the
+    palette empty.
+
+    The fix wraps exec_module in a per-file try/except: the offending file is
+    logged as a warning and skipped; any other drop-ins in the same or a
+    different scan dir continue to register normally.
+    """
+
+    def test_broken_dropin_does_not_crash_scan(self, tmp_path: Path) -> None:
+        """A drop-in that raises at import time must not crash scan()."""
+        broken = tmp_path / "broken_block.py"
+        broken.write_text("raise RuntimeError('hostile drop-in')\n")
+
+        reg = BlockRegistry()
+        reg.add_scan_dir(tmp_path)
+        # scan() must not raise — the broken file is skipped with a warning.
+        reg.scan()
+
+    def test_broken_dropin_does_not_prevent_good_dropin_from_registering(self, tmp_path: Path) -> None:
+        """A broken drop-in must not prevent a good one in the same dir from registering."""
+        (tmp_path / "broken_block.py").write_text("raise RuntimeError('hostile')\n")
+        (tmp_path / "good_block.py").write_text(DROPIN_SOURCE)
+
+        reg = BlockRegistry()
+        reg.add_scan_dir(tmp_path)
+        reg.scan()
+
+        assert "Issue706Echo" in reg.all_specs(), (
+            "Good drop-in must still register even when another drop-in in the same dir crashes"
+        )
+
+    def test_broken_dropin_warns(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """A failing drop-in must emit at least one WARNING log entry referencing the file."""
+        import logging
+
+        broken = tmp_path / "hostile_block.py"
+        broken.write_text("raise RuntimeError('hostile drop-in')\n")
+
+        reg = BlockRegistry()
+        reg.add_scan_dir(tmp_path)
+        with caplog.at_level(logging.WARNING, logger="scistudio.blocks.registry._scan"):
+            reg.scan()
+
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert any("hostile_block.py" in r.getMessage() for r in warnings), (
+            "Expected a warning log mentioning the broken drop-in filename"
+        )
+
+    def test_syntax_error_dropin_does_not_crash_scan(self, tmp_path: Path) -> None:
+        """A drop-in with a SyntaxError must be skipped gracefully."""
+        bad = tmp_path / "syntax_error_block.py"
+        bad.write_text("this is not valid python !!!!\n")
+
+        reg = BlockRegistry()
+        reg.add_scan_dir(tmp_path)
+        # Must not raise SyntaxError (or any other exception).
+        reg.scan()

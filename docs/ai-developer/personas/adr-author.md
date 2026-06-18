@@ -121,10 +121,18 @@ language_source: en
 - Manager dispatch rules, when dispatched:
   `docs/ai-developer/specific_rules/agent-dispatch.md`
 
-- ADR-042 Addendum 5 governance documents:
-  `docs/adr/ADR-042-addendum5.md` and
-  `docs/specs/adr-042-local-gate-receipts.md` are the contract for any edits
-  to receipt, wrapper, or write-guard behavior.
+- ADR-042 Addendum 6 governance documents:
+  `docs/adr/ADR-042-addendum6.md` and
+  `docs/specs/adr-042-gate-ledger-runtime.md` are the current contract for any
+  edits to gate ledger, evaluator, wrapper, hook, or write-guard behavior.
+  The gate record is the single source of truth; the receipt subsystem is folded
+  into ledger `check_events` and `reconcile_events`. Use `gate_record init`,
+  `plan`, `amend`, `check`, and `finalize`; the old `start`, `docs`, `sentrux`,
+  and `ci` subcommands remain as compatibility aliases only.
+
+- The `guided` task kind and `live_implementer` persona are defined in
+  Addendum 6 §7.2–§7.3. When authoring or updating persona or workflow docs
+  that list task kinds or personas, include `guided` and `live_implementer`.
 
 - Root policy:
   `AGENTS.md`

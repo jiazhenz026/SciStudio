@@ -7,6 +7,7 @@ docstring for the free-function-bound-as-method pattern.
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,12 @@ if TYPE_CHECKING:
     from . import ApiRuntime
 
 logger = logging.getLogger(__name__)
+
+
+def _is_draft_only_validation_diagnostic(message: Any) -> bool:
+    """Return true for diagnostics that should not block editor draft saves."""
+    text = str(message)
+    return "required input port" in text and "has no incoming connection" in text
 
 
 def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
@@ -48,24 +55,52 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
     )
     from scistudio.workflow.validator import validate_workflow
 
-    errors = validate_workflow(definition, registry=self.block_registry)
-    if errors:
+    # #1518 (DSN-2): ``validate_workflow`` previously only ``logger.warning``-ed
+    # and saved anyway, so an ill-typed / cyclic / contract-violating graph
+    # persisted cleanly and only failed deep inside a block at run time. Editor
+    # saves still need to accept incomplete draft graphs, so required-input
+    # dangling-port diagnostics are logged here and remain hard errors at run
+    # start (``runtime._runs.start_workflow`` re-validates the loaded graph).
+    # The route layer maps raised ``ValueError`` to HTTP 422
+    # (api/routes/workflows.py create/update handlers).
+    diagnostics = validate_workflow(definition, registry=self.block_registry)
+    warnings = [d for d in diagnostics if str(d).startswith("Warning:")]
+    draft_only = [d for d in diagnostics if _is_draft_only_validation_diagnostic(d)]
+    hard_errors = [
+        d for d in diagnostics if not str(d).startswith("Warning:") and not _is_draft_only_validation_diagnostic(d)
+    ]
+    if warnings or draft_only:
         logger.warning(
             "Workflow validation warnings: %s",
-            "; ".join(str(e) for e in errors),
+            "; ".join(str(w) for w in [*warnings, *draft_only]),
         )
+    if hard_errors:
+        raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))
 
     path = self.workflow_path(definition.id)
     save_yaml(definition, path)
     # ADR-034 Phase 2: tell the FS watcher this write came from us so it
     # does not echo a workflow.changed event back to the canvas.
+    self.mark_workflow_self_write(path)
+    return definition
+
+
+def mark_workflow_self_write(self: ApiRuntime, path: Path) -> None:
+    """Tell the FS watcher *path* was a first-party write; suppress its echo.
+
+    ADR-034 Phase 2. Centralised on the runtime so first-party writers — the
+    canvas save here and the agent MCP workflow-write tool — call it through the
+    injected runtime instead of importing ``api.routes.workflow_watcher``
+    directly. The latter inverts the ai->api layer boundary (the AI MCP tool
+    lives in the ``ai`` layer); routing through the runtime keeps the import
+    edge inside the ``api`` layer (#1591 / #1597).
+    """
     try:
         from scistudio.api.routes.workflow_watcher import mark_self_write
 
         mark_self_write(path)
     except Exception:
         logger.warning("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
-    return definition
 
 
 def load_workflow(self: ApiRuntime, workflow_id: str) -> WorkflowDefinition:
@@ -116,20 +151,56 @@ def _absolutify_node_config(
     return absolutify_paths(config, project_dir, schema)
 
 
-def delete_workflow(self: ApiRuntime, workflow_id: str) -> None:
+def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
+    """Delete a workflow's YAML from disk.
+
+    Returns ``True`` when a file was actually removed, ``False`` when no
+    workflow file existed. The route uses this to decide whether to emit the
+    versioned ``workflow.changed`` ``kind="deleted"`` event (#1462 / ADR-045
+    §3.4) so a user-initiated delete is attributed to ``source="canvas"``
+    rather than being mis-tagged ``source="external"`` by the FS watcher.
+    """
     path = self.workflow_path(workflow_id)
     if path.exists():
         path.unlink()
+        return True
+    return False
 
 
-def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, Any]:
+def _upload_destination(self: ApiRuntime, filename: str) -> Path:
     project = self.require_active_project()
     safe_name = Path(filename).name  # strips all directory components
     if not safe_name or safe_name.startswith("."):
         raise ValueError(f"Invalid filename: {filename!r}")
     destination = Path(project.path) / "data" / "raw" / safe_name
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(content)
+    return destination
+
+
+def stage_upload_file(self: ApiRuntime, filename: str) -> tuple[Path, Path]:
+    """Return final and temporary same-directory paths for a streamed upload."""
+    destination = self._upload_destination(filename)
+    with tempfile.NamedTemporaryFile(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".upload",
+        delete=False,
+    ) as staged:
+        staged_path = Path(staged.name)
+    return destination, staged_path
+
+
+def discard_staged_upload(self: ApiRuntime, staged_path: Path) -> None:
+    try:
+        staged_path.unlink()
+    except FileNotFoundError:
+        return
+
+
+def finish_staged_upload(self: ApiRuntime, destination: Path, staged_path: Path) -> dict[str, Any]:
+    if destination.parent != staged_path.parent:
+        raise ValueError("staged upload must live beside the destination")
+    staged_path.replace(destination)
 
     extension = destination.suffix.lower().lstrip(".") or "bin"
     ref = StorageReference(
@@ -143,3 +214,13 @@ def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, An
         "type_name": record.type_name,
         "metadata": record.metadata,
     }
+
+
+def upload_file(self: ApiRuntime, filename: str, content: bytes) -> dict[str, Any]:
+    destination, staged_path = self.stage_upload_file(filename)
+    try:
+        staged_path.write_bytes(content)
+        return self.finish_staged_upload(destination, staged_path)
+    except Exception:
+        self.discard_staged_upload(staged_path)
+        raise

@@ -1,1009 +1,1077 @@
+"""Rewritten CLI + verification tests for ADR-042 Addendum 6 (spec §5 / §10).
+
+Owns the rewritten ``gate_record`` CLI surface (init / plan / amend / check /
+finalize), alias delegation (§5.8), deterministic branch-scoped discovery (§5.1),
+the migrated label vocabulary (``admin-approved:bypass``), and the Addendum 6 §4
+acceptance behaviours not covered elsewhere: local == ci use the same evaluator
+path, version/env parity fails closed when unreproducible (§7.10), incremental
+check validity by covered surface + input fingerprint, per-task-kind obligation
+inference for all eight kinds, and ``guided`` scope expansion via directive/scope
+events without bypassing final tier-selected checks.
+"""
+
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
-from typing import cast
 
 import pytest
-from pydantic import ValidationError
 
-from scistudio.qa.governance.gate_record import (
-    CANONICAL_STAGE_ORDER,
-    CheckEvidence,
-    GateRecord,
-    GateStage,
-    SentruxEvidence,
-    _discover_gate_record,
-    _is_governance_path,
-    _is_test_path,
-    check_commit_msg,
-    check_pr_ready,
-    check_pre_commit,
-    check_pre_push,
-    main,
-    validate_gate_record,
-)
+from scistudio.qa.governance.gate_record import cli, evaluator, io, workflow
+from scistudio.qa.governance.gate_record.checks import event_is_valid_for
+from scistudio.qa.governance.gate_record.ledger import CheckEvent, GateLedger, TestEvent
 
+RECORDS_DIR = ".workflow/records"
 
-def _record(**overrides: object) -> dict[str, object]:
-    record: dict[str, object] = {
-        "schema_version": "1",
-        "record_path": ".workflow/records/1267-gate-record-core.json",
-        "task_id": "1267-gate-record-core",
-        "task_kind": "feature",
-        "persona": "implementer",
-        "branch": "feat/issue-1267/gate-record-core",
-        "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
-        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
-        "scope": {
-            "include": [
-                "src/scistudio/qa/governance/gate_record.py",
-                "src/scistudio/qa/governance/__init__.py",
-                ".workflow/**",
-                "tests/qa/test_gate_record*.py",
-            ],
-            "exclude": ["docs/adr/ADR-042.md"],
-        },
-        "governance_touch": True,
-        "stages": [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER],
-        "planned_files": ["src/scistudio/qa/governance/gate_record.py"],
-        "changed_test_paths": ["tests/qa/test_gate_record.py"],
-        "admin_labels": [{"name": "admin-approved:core-change", "applied_by": "@owner"}],
-        "required_checks": ["ruff", "pytest", "full_audit", "sentrux"],
-        "check_results": [
-            {
-                "name": "pytest",
-                "command_or_tool": "pytest tests/qa/test_gate_record.py",
-                "status": "pass",
-                "exit_code": 0,
-            }
-        ],
-        "sentrux": {
-            "mode": "free-tier",
-            "command_or_tool": "sentrux check .",
-            "status": "pass",
-            "rules_checked": 3,
-            "total_rules_defined": 15,
-            "pro_required": False,
-        },
-        "full_audit": {
-            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
-            "status": "pass",
-            "exit_code": 0,
-            "output_path": "docs/audit/full-audit-latest.json",
-            "blocks_merge": False,
-        },
-    }
-    record.update(overrides)
-    return record
 
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
 
-def test_gate_record_accepts_canonical_six_stage_model() -> None:
-    record = GateRecord.model_validate(_record())
 
-    assert record.stages[0].stage is GateStage.SCOPE_AND_ISSUE
-    assert record.stages[-1].stage is GateStage.COMMIT_AND_SUBMIT_PR
-    assert record.persona == "implementer"
-    assert record.admin_labels[0].name == "admin-approved:core-change"
+@pytest.fixture
+def git_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "track/x")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "test")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-q", "-m", "base")
+    return repo
 
 
-def test_gate_record_model_accepts_historical_record_without_persona() -> None:
-    payload = _record()
-    payload.pop("persona")
+def _run(repo: Path, *argv: str) -> int:
+    return cli.main(["--repo-root", str(repo), *argv])
 
-    record = GateRecord.model_validate(payload)
 
-    assert record.persona is None
-
-
-def test_validate_gate_record_rejects_new_record_without_persona() -> None:
-    payload = _record()
-    payload.pop("persona")
-
-    report = validate_gate_record(payload)
-
-    assert report.blocks_merge
-    assert "gate-record.persona.missing" in {finding.rule_id for finding in report.findings}
-
-
-def test_gate_record_rejects_unsupported_persona() -> None:
-    with pytest.raises(ValidationError, match="persona"):
-        GateRecord.model_validate(_record(persona="freeform_agent"))
-
-
-def test_gate_record_rejects_missing_or_reordered_stage() -> None:
-    data = _record(stages=[{"stage": GateStage.PLAN.value, "status": "done"}])
-
-    try:
-        GateRecord.model_validate(data)
-    except ValidationError as exc:
-        assert "six ADR-042 Addendum 1 stages" in str(exc)
-    else:  # pragma: no cover - explicit assertion path
-        raise AssertionError("GateRecord accepted an invalid stage sequence")
-
-
-def test_sentrux_evidence_rejects_pro_required_claims() -> None:
-    with pytest.raises(ValidationError, match="pro_required"):
-        SentruxEvidence.model_validate(
-            {
-                "mode": "free-tier",
-                "command_or_tool": "sentrux check .",
-                "status": "pass",
-                "pro_required": True,
-            }
-        )
-
-
-def test_sentrux_evidence_rejects_impossible_rule_counts() -> None:
-    with pytest.raises(ValidationError, match="rules_checked cannot exceed total_rules_defined"):
-        SentruxEvidence.model_validate(
-            {
-                "mode": "free-tier",
-                "command_or_tool": "sentrux check .",
-                "status": "pass",
-                "rules_checked": 4,
-                "total_rules_defined": 3,
-                "pro_required": False,
-            }
-        )
-
-
-def test_full_audit_known_debt_is_allowed_but_unclassified_failures_block() -> None:
-    known_debt = _record(
-        full_audit={
-            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
-            "status": "fail",
-            "exit_code": 1,
-            "output_path": "docs/audit/full-audit-latest.json",
-            "blocks_merge": True,
-            "known_debt": ["frontmatter legacy backlog"],
-        }
-    )
-    assert not validate_gate_record(known_debt).blocks_merge
-
-    unclassified = _record(
-        full_audit={
-            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
-            "status": "fail",
-            "exit_code": 1,
-            "output_path": "docs/audit/full-audit-latest.json",
-            "blocks_merge": True,
-            "unclassified_failures": ["new doc drift"],
-        }
-    )
-    report = validate_gate_record(unclassified)
-    assert report.blocks_merge
-    assert {finding.rule_id for finding in report.findings} == {
-        "gate-record.full-audit.unclassified-failures",
-        "gate-record.full-audit.unclassified-fail-status",
-    }
-
-
-def test_check_evidence_rejects_passing_nonzero_exit_code() -> None:
-    with pytest.raises(ValidationError, match="passing checks cannot record a non-zero exit_code"):
-        CheckEvidence.model_validate(
-            {
-                "name": "ruff",
-                "command_or_tool": "ruff check .",
-                "status": "pass",
-                "exit_code": 1,
-            }
-        )
-
-
-def test_governance_path_excludes_gate_record_evidence_files() -> None:
-    """#1340: gate-record evidence files under ``.workflow/records/**`` are
-    written by every AI-authored PR by design. They live under ``.workflow/``
-    but are not governance policy, so they must not trigger the governance
-    touch rule on their own. Real governance touches (gate code, hooks, CI)
-    still count.
-    """
-
-    assert _is_governance_path(".workflow/active") is True
-    assert _is_governance_path(".workflow/hooks/pre-commit") is True
-    assert _is_governance_path(".github/workflows/workflow-gate.yml") is True
-    assert _is_governance_path(".pre-commit-config.yaml") is True
-    assert _is_governance_path("docs/adr/ADR-042.md") is True
-    assert _is_governance_path("docs/adr/ADR-042-addendum1.md") is True
-    assert _is_governance_path("src/scistudio/qa/governance/gate_record.py") is True
-
-    assert _is_governance_path(".workflow/records/1340-wire-vulture.json") is False
-    assert _is_governance_path(".workflow/records/some-future.json") is False
-
-    assert _is_governance_path("src/scistudio/engine/scheduler.py") is False
-    assert _is_governance_path("CHANGELOG.md") is False
-
-
-def test_gate_record_without_governance_touch_accepts_records_only_change() -> None:
-    """A PR whose only ``.workflow/**`` change is its own gate-record evidence
-    file must validate cleanly with ``governance_touch=false`` (#1340).
-    """
-
-    record = _record(
-        governance_touch=False,
-        scope={"include": ["src/scistudio/engine/scheduler.py", ".workflow/records/**"], "exclude": []},
-    )
-    report = validate_gate_record(
-        record,
-        changed_files=[
-            "src/scistudio/engine/scheduler.py",
-            ".workflow/records/1267-gate-record-core.json",
-        ],
-    )
-
-    governance_findings = [f for f in report.findings if f.rule_id == "gate-record.governance-touch.missing"]
-    assert governance_findings == []
-
-
-def test_amend_cli_flips_governance_touch_to_true(tmp_path: Path) -> None:
-    """#1340: amend --governance-touch flips the record's governance_touch
-    flag to True. This closes the CLI gap where start was the only command
-    that could set governance_touch, forcing direct JSON edits when an
-    in-flight gate record legitimately needed to certify a governance touch.
-    """
-
-    record_path = tmp_path / ".workflow" / "records" / "1340-amend-governance-touch.json"
-
-    assert (
-        main(
-            [
-                "start",
-                "--repo-root",
-                str(tmp_path),
-                "--issue",
-                "1340",
-                "--slug",
-                "amend governance touch",
-                "--task-kind",
-                "feature",
-                "--persona",
-                "implementer",
-                "--branch",
-                "feat/issue-1340/amend-governance-touch",
-                "--owner-directive",
-                "test the new amend --governance-touch flag",
-                "--include",
-                "src/scistudio/qa/governance/gate_record.py",
-                "--record",
-                str(record_path),
-            ]
-        )
-        == 0
-    )
-
-    record_before = json.loads(record_path.read_text(encoding="utf-8"))
-    assert record_before["governance_touch"] is False
-
-    assert (
-        main(
-            [
-                "amend",
-                "--record",
-                str(record_path),
-                "--reason",
-                "extend scope to include a governance code edit not foreseen at start",
-                "--include",
-                "src/scistudio/qa/governance/mod_guard.py",
-                "--governance-touch",
-            ]
-        )
-        == 0
-    )
-
-    record_after = json.loads(record_path.read_text(encoding="utf-8"))
-    assert record_after["governance_touch"] is True
-    assert any(
-        amendment.get("reason", "").startswith("extend scope to include a governance code edit")
-        for amendment in record_after["amendments"]
-    )
-
-
-def test_amend_without_governance_touch_flag_preserves_existing_value(tmp_path: Path) -> None:
-    """A plain ``amend`` call without ``--governance-touch`` must not toggle
-    governance_touch. The flag is opt-in: silence means leave the existing
-    value alone.
-    """
-
-    record_path = tmp_path / ".workflow" / "records" / "1340-amend-preserve.json"
-    assert (
-        main(
-            [
-                "start",
-                "--repo-root",
-                str(tmp_path),
-                "--issue",
-                "1340",
-                "--slug",
-                "amend preserve",
-                "--task-kind",
-                "feature",
-                "--persona",
-                "implementer",
-                "--branch",
-                "feat/issue-1340/amend-preserve",
-                "--owner-directive",
-                "directive",
-                "--include",
-                "src/scistudio/qa/governance/**",
-                "--governance-touch",
-                "--record",
-                str(record_path),
-            ]
-        )
-        == 0
-    )
-
-    assert json.loads(record_path.read_text(encoding="utf-8"))["governance_touch"] is True
-
-    assert (
-        main(
-            [
-                "amend",
-                "--record",
-                str(record_path),
-                "--reason",
-                "plain scope amendment, no governance_touch change",
-                "--include",
-                "tests/qa/test_extra.py",
-            ]
-        )
-        == 0
-    )
-
-    assert json.loads(record_path.read_text(encoding="utf-8"))["governance_touch"] is True
-
-
-def test_gate_record_still_requires_governance_touch_for_real_governance_files() -> None:
-    """Editing actual governance code (gate_record.py, CI workflows) must
-    still require ``governance_touch=true``. This is the inverse of the
-    records-only carve-out — the rule fix in #1340 must not weaken the real
-    governance protection.
-    """
-
-    record = _record(
-        governance_touch=False,
-        scope={"include": ["src/scistudio/qa/governance/**", ".workflow/records/**"], "exclude": []},
-    )
-    report = validate_gate_record(
-        record,
-        changed_files=[
-            "src/scistudio/qa/governance/gate_record.py",
-            ".workflow/records/1267-gate-record-core.json",
-        ],
-    )
-
-    governance_findings = [f for f in report.findings if f.rule_id == "gate-record.governance-touch.missing"]
-    assert len(governance_findings) == 1
-    assert governance_findings[0].file == "src/scistudio/qa/governance/gate_record.py"
-
-
-def test_pr_ready_does_not_require_commit_and_submit_pr_stage_done() -> None:
-    """#1340: ``pr-ready`` runs BEFORE ``gh pr create``. The
-    ``commit_and_submit_pr`` stage is set by ``finalize``, which needs a
-    commit SHA and PR URL. Requiring that stage done at pr-ready time would
-    be a chicken-and-egg: no PR exists yet, so no finalize, so the stage
-    can never be done, so pr-ready can never pass on a fresh branch.
-    """
-
-    record_data = _record()
-    pending_stages: list[dict[str, object]] = []
-    for stage in cast(list[dict[str, object]], record_data["stages"]):
-        copy = dict(stage)
-        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
-            copy["status"] = "pending"
-        pending_stages.append(copy)
-    record_data["stages"] = pending_stages
-
-    pr_body = "## Summary\n- thing\n\nGate record: .workflow/records/1267-gate-record-core.json\n\nCloses #1267\n"
-    report = check_pr_ready_via_function = validate_gate_record(
-        record_data,
-        changed_files=["src/scistudio/qa/governance/gate_record.py"],
-        pr_body=pr_body,
-        require_pr_body=True,
-        require_post_pr_stages=False,
-    )
-
-    stage_findings = [f for f in report.findings if f.rule_id == "gate-record.stage.not-done"]
-    assert stage_findings == []
-    del check_pr_ready_via_function
-
-
-def test_ci_still_requires_commit_and_submit_pr_stage_done() -> None:
-    """The chicken-and-egg carve-out is opt-in. CI (which runs after the PR
-    exists and after ``finalize`` should have been called) keeps requiring
-    every stage done — including ``commit_and_submit_pr``.
-    """
-
-    record_data = _record()
-    pending_stages: list[dict[str, object]] = []
-    for stage in cast(list[dict[str, object]], record_data["stages"]):
-        copy = dict(stage)
-        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
-            copy["status"] = "pending"
-        pending_stages.append(copy)
-    record_data["stages"] = pending_stages
-
-    pr_body = "## Summary\n- thing\n\nGate record: .workflow/records/1267-gate-record-core.json\n\nCloses #1267\n"
-    report = validate_gate_record(
-        record_data,
-        changed_files=["src/scistudio/qa/governance/gate_record.py"],
-        pr_body=pr_body,
-        require_pr_body=True,
-    )
-
-    stage_findings = [
-        f
-        for f in report.findings
-        if f.rule_id == "gate-record.stage.not-done" and f.evidence.get("stage") == GateStage.COMMIT_AND_SUBMIT_PR.value
-    ]
-    assert len(stage_findings) == 1, "CI must still require commit_and_submit_pr to be done"
-
-
-def test_pre_push_does_not_require_commit_and_submit_pr_stage_done() -> None:
-    """``pre-push`` runs BEFORE ``git push``. The PR doesn't exist yet; the
-    commit_and_submit_pr stage cannot be done. Same carve-out as pr-ready.
-    """
-
-    record_data = _record()
-    pending_stages: list[dict[str, object]] = []
-    for stage in cast(list[dict[str, object]], record_data["stages"]):
-        copy = dict(stage)
-        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
-            copy["status"] = "pending"
-        pending_stages.append(copy)
-    record_data["stages"] = pending_stages
-
-    report = validate_gate_record(
-        record_data,
-        changed_files=["src/scistudio/qa/governance/gate_record.py"],
-        require_post_pr_stages=False,
-    )
-
-    stage_findings = [f for f in report.findings if f.rule_id == "gate-record.stage.not-done"]
-    assert stage_findings == []
-
-
-def _write_record_file(path: Path, *, task_kind: str, task_id: str = "test") -> Path:
+def _commit(repo: Path, rel: str, content: str = "x\n") -> None:
+    path = repo / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"task_kind": task_kind, "task_id": task_id}),
+    path.write_text(content, encoding="utf-8")
+    _git(repo, "add", rel)
+    _git(repo, "commit", "-q", "-m", f"add {rel}")
+
+
+# ---------------------------------------------------------------------------
+# init: creates the ledger, succeeds with NO issue (bootstrapping bug fixed).
+# ---------------------------------------------------------------------------
+
+
+def test_init_creates_ledger_without_issue(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rc = _run(
+        git_repo,
+        "init",
+        "--task-kind",
+        "bugfix",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "fix the thing",
+        "--print-instructions",
+        "false",
+    )
+    assert rc == workflow.EXIT_OK
+    records = list((git_repo / RECORDS_DIR).glob("*.json"))
+    assert len(records) == 1
+    ledger = io.load_ledger(records[0])
+    assert ledger.schema_version == 2
+    assert ledger.task_kind == "bugfix"
+    assert ledger.issues == []  # init no longer requires an issue.
+
+
+def test_init_prints_task_instructions(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _run(
+        git_repo,
+        "init",
+        "--task-kind",
+        "feature",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "build a feature",
+    )
+    out = capsys.readouterr().out
+    assert "gate ledger:" in out
+    # Instruction generator renders task identity + persona guidance.
+    assert "feature" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# plan / amend: append-only field updates.
+# ---------------------------------------------------------------------------
+
+
+def _init(git_repo: Path, **extra: str) -> Path:
+    argv = [
+        "init",
+        "--task-kind",
+        extra.get("task_kind", "bugfix"),
+        "--persona",
+        extra.get("persona", "implementer"),
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "do the work",
+        "--print-instructions",
+        "false",
+    ]
+    _run(git_repo, *argv)
+    return next((git_repo / RECORDS_DIR).glob("*.json"))
+
+
+def test_plan_appends_scope_and_issue(git_repo: Path) -> None:
+    record = _init(git_repo)
+    rc = _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    assert rc == workflow.EXIT_OK
+    ledger = io.load_ledger(record)
+    assert "src/scistudio/**" in ledger.effective_include()
+    assert any(ref.number == 1509 for ref in ledger.issues)
+
+
+def test_amend_requires_reason(git_repo: Path) -> None:
+    _init(git_repo)
+    # argparse marks --reason required; passing none is a usage error.
+    with pytest.raises(SystemExit):
+        _run(git_repo, "amend", "--include", "src/x.py")
+
+
+def test_amend_records_scope_supersession(git_repo: Path) -> None:
+    record = _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/a/**")
+    rc = _run(git_repo, "amend", "--reason", "owner expansion", "--remove-include", "src/a/**", "--include", "src/b/**")
+    assert rc == workflow.EXIT_OK
+    ledger = io.load_ledger(record)
+    assert "src/b/**" in ledger.effective_include()
+    assert "src/a/**" not in ledger.effective_include()
+    # Removal is a supersession event, not a deletion of history.
+    assert any(e.action == "remove-include" for e in ledger.scope_events)
+
+
+def test_amend_rejects_invalid_admin_label(git_repo: Path) -> None:
+    _init(git_repo)
+    with pytest.raises(SystemExit):
+        # admin-approved:ai-override no longer exists (migrated to :bypass).
+        _run(git_repo, "amend", "--reason", "x", "--admin-label", "admin-approved:ai-override")
+
+
+def test_amend_accepts_migrated_bypass_label(git_repo: Path) -> None:
+    record = _init(git_repo)
+    rc = _run(git_repo, "amend", "--reason", "owner bypass", "--admin-label", "admin-approved:bypass")
+    assert rc == workflow.EXIT_OK
+    ledger = io.load_ledger(record)
+    assert "admin-approved:bypass" in ledger.requested_label_names()
+
+
+# ---------------------------------------------------------------------------
+# Deterministic discovery (§5.1): branch-scoped, no stale matches.
+# ---------------------------------------------------------------------------
+
+
+def test_discovery_uses_only_current_branch_ledger(git_repo: Path) -> None:
+    # An active ledger for the current branch.
+    _init(git_repo)
+    # A stale record from another branch must NOT match.
+    other = GateLedger.model_validate(
+        {
+            "record_id": "other",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "some/other-branch",
+            "owner_directive": "unrelated",
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "9999-other.json", other, repo_root=git_repo)
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).branch == "track/x"
+
+
+def test_discovery_ignores_finalized_and_old_format_records(git_repo: Path) -> None:
+    _init(git_repo)
+    # A finalized same-branch record (post-PR) is no longer the active ledger.
+    finalized = GateLedger.model_validate(
+        {
+            "record_id": "done",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "already shipped",
+            "pull_request": {"url": "https://github.com/o/r/pull/1", "number": 1},
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "1-done.json", finalized, repo_root=git_repo)
+    # An old-format (schema v1) record on the same branch must not match.
+    (git_repo / RECORDS_DIR / "legacy.json").write_text(
+        json.dumps({"schema_version": "1", "branch": "track/x", "task_id": "legacy"}),
         encoding="utf-8",
     )
-    return path
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).record_id != "done"
 
 
-def test_discover_gate_record_returns_single_record_unchanged(tmp_path: Path) -> None:
-    record = _write_record_file(
-        tmp_path / ".workflow" / "records" / "1340-wire-vulture.json",
-        task_kind="feature",
+def test_discovery_can_include_specific_finalized_record(git_repo: Path) -> None:
+    finalized = GateLedger.model_validate(
+        {
+            "record_id": "done",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "already shipped",
+            "pull_request": {"url": "https://github.com/o/r/pull/1", "number": 1},
+        }
     )
+    record_path = git_repo / RECORDS_DIR / "1-done.json"
+    io.write_ledger(record_path, finalized, repo_root=git_repo)
 
-    resolved = _discover_gate_record(tmp_path, [".workflow/records/1340-wire-vulture.json"])
+    default_discovery = io.discover_ledger(git_repo)
+    assert not default_discovery.found
 
-    assert resolved == record
-
-
-def test_discover_gate_record_picks_manager_record_on_umbrella(tmp_path: Path) -> None:
-    """#1340: umbrella PRs created by the manager persona accumulate sub-PR
-    records in their diff. The umbrella's own record has ``task_kind: manager``;
-    sub-PR records have implementation task kinds (feature/bugfix/etc).
-    Discovery must pick the manager record as the primary.
-    """
-
-    umbrella = _write_record_file(
-        tmp_path / ".workflow" / "records" / "1266-umbrella.json",
-        task_kind="manager",
-        task_id="1266-umbrella",
-    )
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "1267-sub-a.json",
-        task_kind="feature",
-        task_id="1267-sub-a",
-    )
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "1268-sub-b.json",
-        task_kind="bugfix",
-        task_id="1268-sub-b",
-    )
-
-    resolved = _discover_gate_record(
-        tmp_path,
-        [
-            ".workflow/records/1267-sub-a.json",
-            ".workflow/records/1266-umbrella.json",
-            ".workflow/records/1268-sub-b.json",
-        ],
-    )
-
-    assert resolved == umbrella
+    included = io.discover_ledger(git_repo, include_finalized_paths=[record_path])
+    assert included.found
+    assert included.path == record_path
 
 
-def test_discover_gate_record_returns_none_for_multiple_manager_records(tmp_path: Path) -> None:
-    """Defensive case: if a PR somehow carries multiple manager records, the
-    umbrella heuristic does not apply and discovery falls back to the
-    single-record-on-disk path (which returns None when more than one exists).
-    """
+def test_discovery_reports_temporarily_unreadable_ledger(git_repo: Path) -> None:
+    records_dir = git_repo / RECORDS_DIR
+    records_dir.mkdir(parents=True)
+    record_path = records_dir / "1586-partial.json"
+    record_path.write_text("{", encoding="utf-8")
 
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "100-m1.json",
-        task_kind="manager",
-    )
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "200-m2.json",
-        task_kind="manager",
-    )
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.has_unreadable
+    assert discovery.unreadable == [record_path]
 
-    resolved = _discover_gate_record(
-        tmp_path,
-        [".workflow/records/100-m1.json", ".workflow/records/200-m2.json"],
-    )
-
+    resolved, err = workflow._resolve_ledger_path(git_repo, None)
     assert resolved is None
+    assert err is not None
+    assert err.exit_code == workflow.EXIT_SCHEMA
+    assert "temporarily unreadable" in "\n".join(err.lines)
 
 
-def test_discover_gate_record_returns_none_for_multiple_non_manager_records(tmp_path: Path) -> None:
-    """If a PR carries multiple records but none are manager-kind, this is
-    not the umbrella case — fail closed (return None so the caller emits the
-    standard 'exactly one gate record' error).
-    """
-
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "100-feature.json",
-        task_kind="feature",
+def test_discovery_ignores_stale_v1_record_alongside_v2(git_repo: Path) -> None:
+    # Codex P1 #1 (#1509): the deleted 1509-adr042-add6-guards.json was a
+    # throwaway schema-v1 scope record on a sub-branch, superseded by the v2
+    # umbrella ledger. Even on the SAME branch a stale v1 record must never be
+    # discovered as the active ledger; only the v2 record resolves.
+    branch = "track/adr-042-add6/umbrella"
+    v2 = GateLedger.model_validate(
+        {
+            "record_id": "1509-umbrella-integration",
+            "runtime": "claude-code",
+            "task_kind": "feature",
+            "persona": "implementer",
+            "branch": branch,
+            "owner_directive": "umbrella integration",
+        }
     )
-    _write_record_file(
-        tmp_path / ".workflow" / "records" / "200-bugfix.json",
-        task_kind="bugfix",
+    io.write_ledger(git_repo / RECORDS_DIR / "1509-umbrella-integration.json", v2, repo_root=git_repo)
+    # A stale schema-v1 throwaway record on the same branch (as the deleted file).
+    (git_repo / RECORDS_DIR / "1509-adr042-add6-guards.json").write_text(
+        json.dumps({"schema_version": "1", "branch": branch, "task_id": "1509-adr042-add6-guards"}),
+        encoding="utf-8",
     )
-
-    resolved = _discover_gate_record(
-        tmp_path,
-        [".workflow/records/100-feature.json", ".workflow/records/200-bugfix.json"],
-    )
-
-    assert resolved is None
+    discovery = io.discover_ledger(git_repo, branch=branch)
+    assert discovery.found
+    assert discovery.path is not None
+    assert discovery.path.name == "1509-umbrella-integration.json"
+    assert io.load_ledger(discovery.path).record_id == "1509-umbrella-integration"
 
 
-def test_check_commit_msg_requires_adr042_trailers() -> None:
-    report = check_commit_msg(
-        """feat(#1267): add gate record core
-
-Gate-Record: .workflow/records/1267-gate-record-core.json
-Task-Kind: feature
-Issue: #1267
-Assisted-by: Codex:gpt-5
-"""
-    )
-    assert not report.blocks_merge
-
-    missing = check_commit_msg("feat: no trailers\n")
-    assert missing.blocks_merge
-    assert "Gate-Record" in {finding.message.rsplit(" ", 1)[-1] for finding in missing.findings}
+def test_discovery_zero_matches_reports_run_init(git_repo: Path) -> None:
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.candidates == []
 
 
-def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
-    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
-
-    assert (
-        main(
-            [
-                "start",
-                "--repo-root",
-                str(tmp_path),
-                "--issue",
-                "1267",
-                "--issue-url",
-                "https://github.com/zjzcpj/SciStudio/issues/1267",
-                "--slug",
-                "Gate Record Core",
-                "--task-kind",
-                "feature",
-                "--persona",
-                "implementer",
-                "--branch",
-                "feat/issue-1267/gate-record-core",
-                "--owner-directive",
-                "Implement ADR-042 Addendum 1 Track B.",
-                "--include",
-                "src/scistudio/qa/governance/**",
-                "--include",
-                "tests/qa/test_gate_record*.py",
-                "--governance-touch",
-                "--record",
-                str(record_path),
-            ]
+def test_discovery_multiple_same_branch_is_ambiguous(git_repo: Path) -> None:
+    for name in ("a", "b"):
+        ledger = GateLedger.model_validate(
+            {
+                "record_id": name,
+                "runtime": "claude-code",
+                "task_kind": "bugfix",
+                "persona": "implementer",
+                "branch": "track/x",
+                "owner_directive": "d",
+            }
         )
-        == 0
+        io.write_ledger(git_repo / RECORDS_DIR / f"{name}.json", ledger, repo_root=git_repo)
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.ambiguous
+    assert len(discovery.candidates) == 2
+
+
+def test_check_says_run_init_when_no_ledger(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rc = _run(git_repo, "check")
+    out = capsys.readouterr().out
+    assert rc == workflow.EXIT_USAGE
+    assert "run init" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# CI branch resolution (#1509): in `pull_request` events the checkout is a
+# detached merge commit, so `git rev-parse --abbrev-ref HEAD` is not the PR
+# branch. Discovery must scope to the CI-provided PR branch ref instead.
+# ---------------------------------------------------------------------------
+
+
+def test_ci_branch_resolution_finds_ledger_in_detached_head(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ledger for the PR branch (not the branch git currently has checked out).
+    pr_branch = "track/adr-042-add6/umbrella"
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "umbrella",
+            "runtime": "claude-code",
+            "task_kind": "manager",
+            "persona": "manager",
+            "branch": pr_branch,
+            "owner_directive": "umbrella integration",
+        }
     )
-    assert (
-        main(
-            [
-                "plan",
-                "--record",
-                str(record_path),
-                "--files",
-                "src/scistudio/qa/governance/gate_record.py",
-                "--checks",
-                "ruff check .",
-                "--tests",
-                "tests/qa/test_gate_record.py",
-                "--docs",
-                "docs/specs/adr-042-gate-record-sentrux-workflow.md",
-            ]
+    io.write_ledger(git_repo / RECORDS_DIR / "1509-umbrella.json", ledger, repo_root=git_repo)
+
+    # Simulate a CI detached-HEAD checkout: HEAD points at a commit, no branch.
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    # Without CI env, the detached HEAD yields no branch -> single-ledger fallback.
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    assert io.current_branch(git_repo) is None
+
+    # With the GitHub Actions PR env set, the PR branch is resolved and matches.
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_HEAD_REF", pr_branch)
+    monkeypatch.setenv("GITHUB_REF_NAME", pr_branch)
+    assert io.current_branch(git_repo) == pr_branch
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).branch == pr_branch
+
+
+def test_ci_branch_resolution_falls_back_to_ref_name(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # GITHUB_REF_NAME is the fallback when GITHUB_HEAD_REF is unset (e.g. push).
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.setenv("GITHUB_REF_NAME", "track/x")
+    assert io.current_branch(git_repo) == "track/x"
+
+
+def test_detached_head_single_ledger_fallback(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # No CI env and a detached HEAD: discovery cannot scope to a branch, but a
+    # lone non-finalized v2 ledger is unambiguous and is used as a last resort.
+    other = GateLedger.model_validate(
+        {
+            "record_id": "lone",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "some/other-branch",
+            "owner_directive": "the only active gate work",
+        }
+    )
+    io.write_ledger(git_repo / RECORDS_DIR / "1-lone.json", other, repo_root=git_repo)
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    assert io.current_branch(git_repo) is None
+    discovery = io.discover_ledger(git_repo)
+    assert discovery.found
+    assert discovery.path is not None
+    assert io.load_ledger(discovery.path).record_id == "lone"
+
+
+def test_detached_head_multiple_ledgers_stays_ambiguous(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # With more than one active ledger and no resolvable branch, never guess:
+    # report the candidates so the caller passes --record.
+    for name in ("a", "b"):
+        ledger = GateLedger.model_validate(
+            {
+                "record_id": name,
+                "runtime": "claude-code",
+                "task_kind": "bugfix",
+                "persona": "implementer",
+                "branch": f"track/{name}",
+                "owner_directive": "d",
+            }
         )
-        == 0
+        io.write_ledger(git_repo / RECORDS_DIR / f"{name}.json", ledger, repo_root=git_repo)
+    _git(git_repo, "checkout", "-q", "--detach", "HEAD")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    discovery = io.discover_ledger(git_repo)
+    assert not discovery.found
+    assert discovery.ambiguous
+    assert len(discovery.candidates) == 2
+
+
+# ---------------------------------------------------------------------------
+# Alias delegation (§5.8): aliases delegate to the new code, own no decision.
+# ---------------------------------------------------------------------------
+
+
+def test_start_alias_delegates_to_init(git_repo: Path) -> None:
+    rc = _run(
+        git_repo,
+        "start",
+        "--task-kind",
+        "bugfix",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "via alias",
+        "--print-instructions",
+        "false",
     )
-    assert (
-        main(
-            [
-                "docs",
-                "--record",
-                str(record_path),
-                "--updated",
-                "docs/specs/adr-042-gate-record-sentrux-workflow.md",
-                "--updated",
-                "docs/planning/adr-042-addendum1-implementation-checklist.md",
-                "--na",
-                "changelog=Gate governance migration keeps CHANGELOG tracked.",
-            ]
+    assert rc == workflow.EXIT_OK
+    assert list((git_repo / RECORDS_DIR).glob("*.json"))
+
+
+def test_pre_push_alias_runs_check_in_pre_push_mode(git_repo: Path) -> None:
+    record = _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    # pre-push alias delegates to check --mode pre-push. --skip-execution keeps
+    # the assertion about MODE delegation independent of real check tooling.
+    _run(git_repo, "pre-push", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    ledger = io.load_ledger(record)
+    # The alias delegated to check --mode pre-push (single evaluator path).
+    assert ledger.reconcile_events[-1].mode == "pre-push"
+    # A WIP in-scope push records NO PR-readiness obligation gaps (§3.4); any
+    # remaining gaps are diff-coherence / environment guards, never PR-readiness.
+    unsatisfied = ledger.reconcile_events[-1].unsatisfied
+    assert "issue.required" not in unsatisfied
+    assert "tests.changed_test_required" not in unsatisfied
+    assert "docs.docs_required_or_na" not in unsatisfied
+    assert "guard.docs_landing" not in unsatisfied
+    assert "guard.issue_link" not in unsatisfied
+
+
+def test_pr_ready_alias_runs_check_in_pre_pr_mode(git_repo: Path) -> None:
+    record = _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**")
+    _commit(git_repo, "src/scistudio/x.py")
+    # No issue linked -> pre-pr blocks on PR-readiness (issue obligation). Use
+    # --skip-execution so the failure is the PR-readiness gap, not check tooling.
+    rc = _run(git_repo, "pr-ready", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    assert rc == workflow.EXIT_FAIL
+    # And the reconcile event records the pre-pr mode (single evaluator path).
+    ledger = io.load_ledger(record)
+    assert ledger.reconcile_events[-1].mode == "pre-pr"
+
+
+# ---------------------------------------------------------------------------
+# Fix C: --only / --skip-execution cannot report final readiness (§7.5).
+# ---------------------------------------------------------------------------
+
+
+def test_skip_execution_prints_not_final_readiness_banner(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    # local recovery: --skip-execution leaves mandatory tier checks unrun. It must
+    # print the "NOT final PR readiness" banner naming which mandatory checks were
+    # skipped, and must NOT print the unqualified "reconciliation passed" line
+    # (which would falsely claim final readiness).
+    _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    assert "mandatory" in out
+    # Never the bare final-readiness claim while mandatory checks are unrun.
+    assert "\nreconciliation passed" not in out
+
+
+def test_local_recovery_may_exit_zero_when_only_unrun_checks_remain(
+    git_repo: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Neutralize unrelated guards so the ONLY gap is the unrun mandatory checks;
+    # this isolates the §7.5 rule that local recovery may exit 0 but with the
+    # not-final-readiness banner.
+    monkeypatch.setattr(evaluator, "GUARD_REGISTRY", {}, raising=True)
+    _init(git_repo)
+    _run(
+        git_repo,
+        "plan",
+        "--include",
+        "src/scistudio/**",
+        "--include",
+        "tests/**",
+        "--issue",
+        "1509",
+        "--docs-na",
+        "implementation:internal change",
+        "--test-path",
+        "tests/test_x.py",
+    )
+    (git_repo / "src/scistudio").mkdir(parents=True, exist_ok=True)
+    (git_repo / "src/scistudio/x.py").write_text("x = 1\n", encoding="utf-8")
+    (git_repo / "tests").mkdir(parents=True, exist_ok=True)
+    (git_repo / "tests/test_x.py").write_text("def test_x():\n    assert True\n", encoding="utf-8")
+    _git(git_repo, "add", "src/scistudio/x.py", "tests/test_x.py")
+    _git(git_repo, "commit", "-q", "-m", "impl + test")
+    rc = _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD", "--skip-execution")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    # Local recovery may exit 0; the banner is the required signal, not failure.
+    assert rc == workflow.EXIT_OK
+
+
+def test_only_recovery_in_pre_pr_is_not_final_readiness(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    # pre-pr (strict) with --only runs a subset; mandatory tier checks remain
+    # unrun, so this is NOT final readiness and must not exit 0 as if ready.
+    rc = _run(git_repo, "check", "--mode", "pre-pr", "--base", "HEAD~1", "--head", "HEAD", "--only", "__none__")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" in out
+    assert rc != workflow.EXIT_OK
+
+
+def test_full_check_no_recovery_does_not_print_recovery_banner(
+    git_repo: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.qa.governance.gate_record import checks
+    from scistudio.qa.governance.gate_record.ledger import CheckEvent
+
+    # Stub check execution so this exercises the full (non-recovery) path without
+    # running heavy real tools; every required check is "run" -> no unrun gap.
+    def _pass(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        return CheckEvent(name=name, command="x", covered_surface="python", exit_code=0, status="pass", summary="clean")
+
+    monkeypatch.setattr(checks, "run_check", _pass)
+    _init(git_repo, task_kind="docs", persona="adr_author")
+    _run(git_repo, "plan", "--include", "docs/**", "--issue", "1509", "--test-na", "implementation:docs only")
+    _commit(git_repo, "docs/notes.md")
+    # A full docs-tier check (no --only/--skip-execution) should not emit the
+    # recovery banner.
+    _run(git_repo, "check", "--base", "HEAD~1", "--head", "HEAD")
+    out = capsys.readouterr().out.lower()
+    assert "not final pr readiness" not in out
+
+
+# ---------------------------------------------------------------------------
+# Fix D: default base = merge-base(origin/main, HEAD), not raw origin/main.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_default_base_uses_merge_base(git_repo: Path) -> None:
+    # Build: base commit -> branch off -> add divergent commits on both sides.
+    _git(git_repo, "branch", "feature")
+    _commit(git_repo, "main_only.py", "m\n")  # advances track/x past the fork point
+    main_head = io.resolve_sha(git_repo, "HEAD")
+    _git(git_repo, "checkout", "-q", "feature")
+    _commit(git_repo, "feature_only.py", "f\n")
+    fork_point = subprocess.run(
+        ["git", "merge-base", "track/x", "HEAD"],
+        cwd=git_repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    resolved = io.resolve_default_base(git_repo, upstream="track/x", head="HEAD")
+    # The default base is the fork point (merge-base), NOT the advanced track/x tip.
+    assert resolved == fork_point
+    assert resolved != main_head
+
+
+def test_resolve_default_base_falls_back_when_no_merge_base(git_repo: Path) -> None:
+    # An unresolvable upstream ref cannot produce a merge-base -> fall back.
+    resolved = io.resolve_default_base(git_repo, upstream="origin/main", head="HEAD")
+    assert resolved == "origin/main"
+
+
+# ---------------------------------------------------------------------------
+# #1627: SCISTUDIO_GATE_BASE overrides the default base so the commit-msg /
+# pre-commit hooks of a track-stacked sub-PR diff against their track, not the
+# hardcoded origin/main (which would misread the whole track delta as authored
+# here). Env only fills the default; an explicit upstream still wins.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_default_base_honors_gate_base_env(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    track_tip = io.resolve_sha(git_repo, "HEAD")  # the track/x tip
+    _git(git_repo, "checkout", "-q", "-b", "sub-pr")
+    _commit(git_repo, "feature.py", "f\n")  # the sub-PR's own commit on top of the track
+    monkeypatch.setenv("SCISTUDIO_GATE_BASE", "track/x")
+    resolved = io.resolve_default_base(git_repo)  # no explicit upstream -> resolve from env
+    # merge-base(track/x, HEAD) is the track tip; the sub-PR delta is just its own commit.
+    assert io.resolve_sha(git_repo, resolved) == track_tip
+
+
+def test_resolve_default_base_default_is_origin_main_without_env(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SCISTUDIO_GATE_BASE", raising=False)
+    # No env override + no explicit upstream -> origin/main (unresolvable here -> raw ref).
+    assert io.resolve_default_base(git_repo) == "origin/main"
+
+
+def test_resolve_default_base_explicit_upstream_not_env_overridden(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_GATE_BASE", "track/x")
+    # An explicit upstream wins over the env override (env only fills the default).
+    assert io.resolve_default_base(git_repo, upstream="origin/main") == "origin/main"
+
+
+def test_explicit_base_is_honored_verbatim(git_repo: Path) -> None:
+    base = workflow._resolve_base(git_repo, "HEAD~0", "HEAD")
+    assert base == "HEAD~0"
+
+
+# ---------------------------------------------------------------------------
+# pre-push vs pre-pr: WIP push is not blocked as if opening a PR (§3.4).
+# ---------------------------------------------------------------------------
+
+
+def test_pre_push_does_not_enforce_pr_readiness_but_pre_pr_does(git_repo: Path) -> None:
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "1509-x",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "fix",
+            "declared_scope": {"include": ["src/scistudio/**"]},
+        }
+    )
+    _commit(git_repo, "src/scistudio/x.py")
+    push = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-push", run_checks=False
+    )
+    # No docs/test/issue PR-readiness gaps block a WIP push.
+    assert "issue.required" not in push.unsatisfied
+    assert "tests.changed_test_required" not in push.unsatisfied
+    assert "docs.docs_required_or_na" not in push.unsatisfied
+    assert "guard.docs_landing" not in push.unsatisfied
+    assert "guard.issue_link" not in push.unsatisfied
+
+    pre_pr = evaluator.reconcile(
+        ledger=GateLedger.model_validate(ledger.model_dump(mode="json")),
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        run_checks=False,
+    )
+    # pre-pr stays strict: missing issue + test evidence are gaps.
+    assert "issue.required" in pre_pr.unsatisfied
+    assert "tests.changed_test_required" in pre_pr.unsatisfied
+
+
+def test_pre_push_still_blocks_out_of_scope_change(git_repo: Path) -> None:
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "1509-x",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "fix",
+            "declared_scope": {"include": ["src/scistudio/api/**"]},
+        }
+    )
+    _commit(git_repo, "src/scistudio/core/secret.py")
+    push = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-push", run_checks=False
+    )
+    # Scope/diff coherence IS validated on pre-push.
+    assert any(f.rule_id == "scope.out-of-scope" for f in push.report.findings)
+
+
+# ---------------------------------------------------------------------------
+# local == ci: the same evaluator path / tier for the same diff (§10.3).
+# ---------------------------------------------------------------------------
+
+
+def test_local_and_ci_use_same_evaluator_path(git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/qa/governance/x.py")
+
+    def _fresh() -> GateLedger:
+        return GateLedger.model_validate(
+            {
+                "record_id": "1509-x",
+                "runtime": "claude-code",
+                "task_kind": "maintenance",
+                "persona": "implementer",
+                "branch": "track/x",
+                "owner_directive": "fix",
+                "declared_scope": {"include": ["src/scistudio/**"]},
+            }
         )
-        == 0
+
+    local = evaluator.reconcile(
+        ledger=_fresh(), repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
     )
-    assert (
-        main(
-            [
-                "amend",
-                "--record",
-                str(record_path),
-                "--reason",
-                "Implementation confirmed within planned scope.",
-            ]
+    ci = evaluator.reconcile(
+        ledger=_fresh(), repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    # One reconciliation code path, one tier-selection input: same tier and the
+    # SAME pre-role-split tier-selected check set for the same diff.
+    assert local.strictness_tier == ci.strictness_tier == 1  # qa/governance escalates.
+    # §7.5 role split (#1509): the workflow-gate ``ci`` mode validates GOVERNANCE
+    # + guards, so the ci.yml-owned quality matrix is dropped from ci-mode
+    # required obligations (ci.yml jobs are authoritative for it on the same PR).
+    # local keeps the full matrix as the CI-equivalent preflight.
+    assert set(local.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS
+    assert not (set(ci.required_obligations.checks) & evaluator._CI_OWNED_QUALITY_CHECKS)
+
+
+# ---------------------------------------------------------------------------
+# Per-task-kind obligation inference for all eight kinds (§7.7).
+# ---------------------------------------------------------------------------
+
+
+_ALL_TASK_KINDS = ("hotfix", "bugfix", "feature", "refactor", "docs", "maintenance", "manager", "guided")
+
+
+@pytest.mark.parametrize("task_kind", _ALL_TASK_KINDS)
+def test_obligation_inference_per_task_kind(task_kind: str, git_repo: Path) -> None:
+    _commit(git_repo, "src/scistudio/x.py")
+    persona = "adr_author" if task_kind == "docs" else ("manager" if task_kind == "manager" else "implementer")
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "1509-x",
+            "runtime": "claude-code",
+            "task_kind": task_kind,
+            "persona": persona,
+            "branch": "track/x",
+            "owner_directive": "work",
+            "declared_scope": {"include": ["src/scistudio/**"]},
+        }
+    )
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="local", run_checks=False
+    )
+    obligations = result.required_obligations
+    # Every kind always runs every guard once and infers >=1 required check.
+    assert obligations.guards == sorted(evaluator.GUARD_REGISTRY.keys())
+    assert obligations.checks
+    # An implementation change requires test evidence for code-bearing kinds, but
+    # docs/manager kinds do not (§3.3.5).
+    if task_kind in ("docs", "manager"):
+        assert "changed_test_required" not in obligations.tests
+    else:
+        assert "changed_test_required" in obligations.tests
+
+
+# ---------------------------------------------------------------------------
+# guided scope expansion via directive/scope events (§9 / §10.3).
+# ---------------------------------------------------------------------------
+
+
+def test_guided_scope_expands_without_bypassing_final_checks(git_repo: Path) -> None:
+    from scistudio.qa.governance.gate_record.ledger import ScopeEvent
+
+    _commit(git_repo, "src/scistudio/newly/asked.py")
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "1509-guided",
+            "runtime": "claude-code",
+            "task_kind": "guided",
+            "persona": "live_implementer",
+            "branch": "track/x",
+            "owner_directive": "live session",
+            "declared_scope": {"include": ["src/scistudio/initial/**"]},
+            "issues": [{"number": 1509, "url": "https://github.com/o/r/issues/1509"}],
+        }
+    )
+    # Without the directive the new file is out of scope.
+    before = evaluator.reconcile(
+        ledger=GateLedger.model_validate(ledger.model_dump(mode="json")),
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="local",
+        run_checks=False,
+    )
+    assert any(f.rule_id == "scope.out-of-scope" for f in before.report.findings)
+
+    # Owner directive expands scope (append-only). Now in scope...
+    ledger.scope_events.append(ScopeEvent(action="add-include", pattern="src/scistudio/newly/**", reason="owner"))
+    after = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=False
+    )
+    assert not any(f.rule_id == "scope.out-of-scope" for f in after.report.findings)
+    # ...but the final tier-selected check obligations are NOT bypassed: a guided
+    # implementation change still owes test evidence.
+    assert "tests.changed_test_required" in after.unsatisfied
+
+
+# ---------------------------------------------------------------------------
+# Incremental check validity (§7.2 / §10.3).
+# ---------------------------------------------------------------------------
+
+
+def test_incremental_check_validity_by_covered_surface() -> None:
+    py = CheckEvent(
+        name="lint_format",
+        command="ruff check .",
+        covered_surface="python",
+        status="pass",
+        exit_code=0,
+        input_fingerprint=io.fingerprint_paths(["src/scistudio/x.py"]),
+    )
+    # An UNRELATED edit (different surface fingerprint) does not invalidate it.
+    same_surface_fp = io.fingerprint_paths(["src/scistudio/x.py"])
+    assert event_is_valid_for(py, input_fingerprint=same_surface_fp)
+    # A later edit to the SAME covered surface changes the fingerprint and
+    # invalidates only that surface's evidence.
+    changed_fp = io.fingerprint_paths(["src/scistudio/x.py", "src/scistudio/y.py"])
+    assert not event_is_valid_for(py, input_fingerprint=changed_fp)
+
+
+# ---------------------------------------------------------------------------
+# Parity fails closed when the environment cannot be reproduced (§7.10).
+# ---------------------------------------------------------------------------
+
+
+def test_parity_fails_closed_for_pr_readiness(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import parity
+
+    _commit(git_repo, "src/scistudio/x.py")
+    ledger = GateLedger.model_validate(
+        {
+            "record_id": "1509-x",
+            "runtime": "claude-code",
+            "task_kind": "bugfix",
+            "persona": "implementer",
+            "branch": "track/x",
+            "owner_directive": "fix",
+            "declared_scope": {"include": ["src/scistudio/**"]},
+            "issues": [{"number": 1509, "url": "https://github.com/o/r/issues/1509"}],
+        }
+    )
+    # Simulate an unreproducible CI-equivalent environment WITHOUT creating a
+    # real venv or hitting the network: monkeypatch the provisioning seam to
+    # return a fail-closed report (§7.10). assess_parity delegates to
+    # provision_venv in local/pre-pr modes.
+    monkeypatch.setattr(
+        parity,
+        "provision_venv",
+        lambda _repo, **_k: parity.ParityReport(
+            importable=False, gaps=["cannot create isolated per-worktree venv: simulated"]
+        ),
+    )
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True, only=["__none__"]
+    )
+    # Fail closed: a parity gap is an unsatisfied obligation in PR-readiness mode.
+    assert result.parity_gaps
+    assert any(item.startswith("parity.") for item in result.unsatisfied)
+
+
+# ---------------------------------------------------------------------------
+# Sanitization (§8): no absolute local paths in committed events.
+# ---------------------------------------------------------------------------
+
+
+def test_check_sanitization_violation_returns_exit_5(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    record = _init(git_repo)
+    ledger = io.load_ledger(record)
+    ledger.test_events.append(TestEvent(kind="path", path="tests/test_x.py"))
+    # Inject a forbidden absolute path into a committed event via a check_event.
+    ledger.check_events.append(
+        CheckEvent(
+            name="lint",
+            command="ruff check .",
+            covered_surface="python",
+            status="fail",
+            exit_code=1,
+            summary=r"error in C:\Users\someone\repo\x.py",
         )
-        == 0
     )
-    assert (
-        main(
-            [
-                "check",
-                "--record",
-                str(record_path),
-                "--name",
-                "pytest",
-                "--command",
-                "pytest tests/qa/test_gate_record.py --timeout=60",
-                "--status",
-                "pass",
-                "--exit-code",
-                "0",
-            ]
-        )
-        == 0
+    sanitize_path = git_repo / RECORDS_DIR / record.name
+    save_err = workflow._save(git_repo, sanitize_path, ledger)
+    assert save_err is not None
+    assert save_err.exit_code == workflow.EXIT_SANITIZE
+
+
+# ---------------------------------------------------------------------------
+# finalize: pre-PR (no --pr) vs post-PR (--pr), no chicken-egg deadlock (§10.2).
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_pre_pr_requires_body_file_not_pr(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(git_repo)
+    # Pre-PR finalize without --pr-body-file is a usage error (not a PR-URL req).
+    rc = _run(git_repo, "finalize", "--commit", "abc123")
+    out = capsys.readouterr().out
+    assert rc == workflow.EXIT_USAGE
+    assert "pr-body-file" in out.lower()
+
+
+def test_finalize_pre_pr_records_commit_and_closes(git_repo: Path, tmp_path: Path) -> None:
+    record = _init(git_repo)
+    _run(git_repo, "plan", "--include", "src/scistudio/**", "--issue", "1509")
+    _commit(git_repo, "src/scistudio/x.py")
+    _run(git_repo, "plan", "--test-path", "src/scistudio/x.py", "--docs-na", "implementation:internal")
+    body = git_repo / "body.md"
+    body.write_text("Closes #1509\n", encoding="utf-8")
+    rc = _run(
+        git_repo,
+        "finalize",
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--commit",
+        "abc123",
+        "--pr-body-file",
+        str(body),
+        "--closes",
+        "1509",
     )
-    assert (
-        main(
-            [
-                "check",
-                "--record",
-                str(record_path),
-                "--full-audit",
-                "--command",
-                "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
-                "--status",
-                "pass",
-                "--exit-code",
-                "0",
-                "--output-path",
-                "docs/audit/full-audit-latest.json",
-            ]
-        )
-        == 0
+    ledger = io.load_ledger(record)
+    assert ledger.commit is not None and ledger.commit.sha == "abc123"
+    assert ledger.pull_request is not None and 1509 in ledger.pull_request.closes
+    # rc may be 0 or non-zero depending on check execution; the recording is the
+    # contract under test here. Assert it is a defined workflow exit code.
+    assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+# ---------------------------------------------------------------------------
+# --no-record: the git-hook form gates without persisting the ledger (#1609).
+# ---------------------------------------------------------------------------
+
+
+def _init_for_no_record(repo: Path) -> Path:
+    _run(
+        repo,
+        "init",
+        "--task-kind",
+        "bugfix",
+        "--persona",
+        "implementer",
+        "--runtime",
+        "claude-code",
+        "--branch",
+        "track/x",
+        "--owner-directive",
+        "fix the thing",
+        "--print-instructions",
+        "false",
     )
-    assert (
-        main(
-            [
-                "sentrux",
-                "--record",
-                str(record_path),
-                "--command-or-tool",
-                "sentrux mcp check-rules",
-                "--status",
-                "pass",
-                "--mode",
-                "free-tier",
-                "--rules-checked",
-                "3",
-                "--total-rules-defined",
-                "15",
-                "--threshold",
-                "max_cycles=0",
-            ]
-        )
-        == 0
+    return next((repo / RECORDS_DIR).glob("*.json"))
+
+
+def test_no_record_flag_parses_on_check_and_commit_msg() -> None:
+    parser = cli.build_parser()
+    assert parser.parse_args(["check", "--mode", "pre-commit", "--no-record"]).no_record is True
+    assert parser.parse_args(["commit-msg", "MSG", "--no-record"]).no_record is True
+
+
+def test_check_no_record_does_not_modify_the_ledger(git_repo: Path) -> None:
+    record = _init_for_no_record(git_repo)
+    # A normal check persists evidence/obligations -> establish a baseline.
+    _run(git_repo, "check", "--mode", "pre-commit", "--skip-execution")
+    baseline = record.read_bytes()
+    # The git-hook form (--no-record) must NOT touch the ledger. Under the
+    # pre-commit framework a hook that modifies a tracked file fails the commit,
+    # and the gate's always-append evidence never converges (#1609 deadlock).
+    rc = _run(git_repo, "check", "--mode", "pre-commit", "--no-record", "--skip-execution")
+    assert record.read_bytes() == baseline
+    assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
+
+
+def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # After post-PR finalize records the PR URL the ledger is "finalized"; the
+    # commit-msg git hook still runs on the provenance commit and must discover
+    # it, not fail "no gate ledger found" (#1609).
+    record = _init_for_no_record(git_repo)
+    data = json.loads(record.read_text(encoding="utf-8"))
+    data["pull_request"] = {
+        "url": "https://example.com/pr/1",
+        "number": 1,
+        "closes": [],
+        "body_closes_issues": [],
+    }
+    record.write_text(json.dumps(data), encoding="utf-8")
+    assert io.load_ledger(record).pull_request is not None  # valid + finalized
+
+    msg = git_repo / "COMMIT_EDITMSG"
+    msg.write_text("chore: follow-up\n", encoding="utf-8")
+    capsys.readouterr()
+    _run(git_repo, "commit-msg", str(msg), "--no-record")
+    out = capsys.readouterr()
+    assert "no gate ledger found" not in (out.out + out.err)
+
+
+# ---------------------------------------------------------------------------
+# #1628: pre-commit drops the two slowest checks; failed checks inline findings.
+# ---------------------------------------------------------------------------
+
+
+def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
+    git_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _init(git_repo)
+    # A python-src change selects both python_tests (has_python_src) and
+    # semantic_dup (sentrux-applicable).
+    _commit(git_repo, "src/scistudio/x.py", "y = 1\n")
+    capsys.readouterr()
+    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-commit", "--skip-execution")
+    pre_commit = capsys.readouterr().out
+    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution")
+    pre_pr = capsys.readouterr().out
+    # pre-commit drops the two slow checks; pre-pr keeps the full selection.
+    assert "python_tests" not in pre_commit
+    assert "semantic_dup" not in pre_commit
+    assert "python_tests" in pre_pr
+    assert "semantic_dup" in pre_pr
+
+
+def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
+    log = tmp_path / ".workflow" / "local" / "logs" / "full_audit.log"
+    log.parent.mkdir(parents=True)
+    # An invalid-UTF-8 byte -> errors="replace" yields U+FFFD; the excerpt MUST
+    # ASCII-clean it so printing can't crash on a GBK/cp1252 console (#1628).
+    log.write_bytes(b"noise line\nERROR: thing A \xff byte\nFAILED test_b\n")
+    event = CheckEvent(
+        name="full_audit",
+        command="cmd",
+        covered_surface="governance",
+        status="fail",
+        raw_log_ref=".workflow/local/logs/full_audit.log",
     )
-    assert (
-        main(
-            [
-                "finalize",
-                "--record",
-                str(record_path),
-                "--commit",
-                "abc1234",
-                "--pr-number",
-                "1276",
-                "--pr",
-                "https://github.com/zjzcpj/SciStudio/pull/1276",
-                "--closes",
-                "#1267",
-            ]
-        )
-        == 0
-    )
-
-    payload = json.loads(record_path.read_text(encoding="utf-8"))
-    record = GateRecord.model_validate(payload)
-    assert [stage.status for stage in record.stages] == ["done", "done", "done", "done", "done", "done"]
-    assert record.record_path == ".workflow/records/1267-gate-record-core.json"
-    assert record.persona == "implementer"
-    assert record.full_audit is not None
-    assert record.sentrux is not None
-    assert record.commit is not None
-    assert record.docs_landing["docs"]["paths"] == ["docs/specs/adr-042-gate-record-sentrux-workflow.md"]
-    assert record.docs_landing["checklist"]["paths"] == ["docs/planning/adr-042-addendum1-implementation-checklist.md"]
-    assert record.docs_landing["changelog"]["not_applicable"] is True
+    out = evaluator._failed_check_excerpt(tmp_path, event)
+    assert "ERROR: thing A" in out
+    assert "FAILED test_b" in out
+    assert out.lstrip().startswith("|")  # indented excerpt lines
+    assert "�" not in out
+    out.encode("ascii")  # printable on any console; raises if not ASCII-clean
 
 
-def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
-    record_path = tmp_path / ".workflow" / "records" / "1300-hotfix-crash.json"
-
-    assert (
-        main(
-            [
-                "start",
-                "--repo-root",
-                str(tmp_path),
-                "--issue",
-                "1300",
-                "--slug",
-                "hotfix crash",
-                "--task-kind",
-                "hotfix",
-                "--persona",
-                "implementer",
-                "--branch",
-                "hotfix/crash",
-                "--owner-directive",
-                "Retroactively record the completed hotfix gate.",
-                "--include",
-                "src/scistudio/runtime/**",
-                "--include",
-                "tests/**",
-                "--record",
-                str(record_path),
-            ]
-        )
-        == 0
-    )
-
-    record = GateRecord.model_validate(json.loads(record_path.read_text(encoding="utf-8")))
-    assert record.task_kind == "hotfix"
-    assert record.persona == "implementer"
-    assert record.branch == "hotfix/crash"
-
-
-def test_start_cli_requires_persona(tmp_path: Path) -> None:
-    record_path = tmp_path / ".workflow" / "records" / "1301-missing-persona.json"
-
-    with pytest.raises(SystemExit):
-        main(
-            [
-                "start",
-                "--repo-root",
-                str(tmp_path),
-                "--issue",
-                "1301",
-                "--slug",
-                "missing persona",
-                "--task-kind",
-                "maintenance",
-                "--branch",
-                "feat/missing-persona",
-                "--owner-directive",
-                "Validate persona requirement.",
-                "--include",
-                "tests/**",
-                "--record",
-                str(record_path),
-            ]
-        )
-
-
-def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
-    missing_record = check_pre_commit(tmp_path, staged_files=["src/scistudio/example.py"])
-    assert not missing_record.blocks_merge
-    assert missing_record.summary["skipped"] == "no gate record present yet; final push/PR/CI gate remains required"
-
-    data = _record(
-        full_audit=None,
-        sentrux=None,
-        changed_test_paths=[],
-        scope={"include": ["src/scistudio/**"], "exclude": []},
-    )
-    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
-    record_path.parent.mkdir(parents=True)
-    record_path.write_text(json.dumps(data), encoding="utf-8")
-
-    report = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["src/scistudio/example.py"])
-    assert not report.blocks_merge
-
-    outside_scope = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["docs/adr/ADR-042.md"])
-    assert outside_scope.blocks_merge
-    assert "gate-record.scope.outside-include" in {finding.rule_id for finding in outside_scope.findings}
-
-
-@pytest.mark.parametrize(
-    "label",
-    [
-        "human-authored",
-        "admin-approved:ai-override",
-    ],
-)
-def test_broad_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: str) -> None:
-    pre_commit = check_pre_commit(
-        tmp_path,
-        staged_files=["docs/adr/ADR-042.md"],
-        bypass_labels=[label],
-    )
-    commit_msg = check_commit_msg("fix: missing trailers", bypass_labels=[label])
-    pre_push = check_pre_push(tmp_path, bypass_labels=[label])
-    pr_ready = check_pr_ready(tmp_path, pr_body="", pr_labels=[label])
-
-    for report in (pre_commit, commit_msg, pre_push, pr_ready):
-        assert not report.blocks_merge
-        assert report.summary["bypass_labels"] == [label]
-
-
-@pytest.mark.parametrize("label", ["admin-approved:core-change", "admin-approved:merge"])
-def test_narrow_admin_labels_do_not_bypass_scope_or_trailers(tmp_path: Path, label: str) -> None:
-    data = _record(
-        full_audit=None,
-        sentrux=None,
-        changed_test_paths=[],
-        scope={"include": ["src/scistudio/**"], "exclude": []},
-    )
-    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
-    record_path.parent.mkdir(parents=True)
-    record_path.write_text(json.dumps(data), encoding="utf-8")
-
-    pre_commit = check_pre_commit(
-        tmp_path,
-        gate_record=record_path,
-        staged_files=["docs/adr/ADR-042.md"],
-        bypass_labels=[label],
-    )
-    commit_msg = check_commit_msg("fix: missing trailers", bypass_labels=[label])
-
-    assert pre_commit.blocks_merge
-    assert "gate-record.scope.outside-include" in {finding.rule_id for finding in pre_commit.findings}
-    assert commit_msg.blocks_merge
-    assert "gate-record.commit-trailer.missing" in {finding.rule_id for finding in commit_msg.findings}
-
-
-def test_invalid_override_label_does_not_bypass_local_hooks(tmp_path: Path) -> None:
-    report = check_pr_ready(tmp_path, pr_body="", pr_labels=["admin-approved-core-change"])
-
-    assert report.blocks_merge
-    assert "gate-record.override-label.invalid" in {finding.rule_id for finding in report.findings}
-
-
-class TestIsTestPathPytestConventions:
-    """Pre-#1389 behaviour: pytest conventions must keep classifying correctly."""
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "tests/qa/test_gate_record.py",
-            "tests/api/test_filesystem.py",
-            "tests/blocks/code/test_exchange.py",
-            "src/scistudio/utils/tests/test_paths.py",
-            "src/scistudio/foo/test_bar.py",
-            "src/scistudio/foo/bar_test.py",
-        ],
-    )
-    def test_pytest_conventions_classify_as_test(self, path: str) -> None:
-        assert _is_test_path(path) is True
-
-
-class TestIsTestPathVitestRecognition:
-    """#1389: vitest co-located test files must classify as test paths.
-
-    Pre-fix behaviour treated `frontend/src/components/Foo.test.tsx` as an
-    implementation file with no test change, forcing vitest-only PRs to
-    either restructure tests or burn an `admin-approved:ai-override` label
-    (PRs #1383, #1299, #1313, #1320). The classifier now recognises the
-    canonical vitest filename suffixes and the `__tests__/` directory
-    convention.
-    """
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "frontend/src/components/PortEditorTable.test.tsx",
-            "frontend/src/components/PortEditorTable.test.ts",
-            "frontend/src/api/capabilities.test.tsx",
-            "frontend/src/hooks/useSSE.spec.tsx",
-            "frontend/src/hooks/useSSE.spec.ts",
-            "frontend/src/utils/format.test.js",
-            "frontend/src/utils/format.spec.jsx",
-        ],
-    )
-    def test_vitest_filename_suffixes_classify_as_test(self, path: str) -> None:
-        assert _is_test_path(path) is True
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "frontend/src/__tests__/LossySaveWarning.test.tsx",
-            "frontend/src/components/__tests__/foo.tsx",
-            "packages/scistudio-blocks-imaging/__tests__/load.test.tsx",
-        ],
-    )
-    def test_underscore_tests_dir_classifies_as_test(self, path: str) -> None:
-        assert _is_test_path(path) is True
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            # Codex P2 from PR #1396: top-level `__tests__/` directory must
-            # classify even without a leading slash. Pre-fix `/__tests__/`
-            # substring check rejected these.
-            "__tests__/foo.tsx",
-            "__tests__/nested/bar.test.tsx",
-        ],
-    )
-    def test_top_level_underscore_tests_dir_classifies_as_test(self, path: str) -> None:
-        assert _is_test_path(path) is True
-
-
-class TestIsTestPathImplementationStays:
-    """Regression: implementation files must NOT be misclassified as tests."""
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "frontend/src/components/PortEditorTable.tsx",
-            "frontend/src/api/capabilities.ts",
-            "src/scistudio/qa/governance/gate_record.py",
-            "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py",
-            "scripts/scistudio_pr_create.py",
-            "docs/adr/ADR-042.md",
-            ".workflow/records/1267-gate-record-core.json",
-            "frontend/src/components/PortEditorTableHelper.ts",
-        ],
-    )
-    def test_non_test_paths_classify_as_non_test(self, path: str) -> None:
-        assert _is_test_path(path) is False
-
-
-class TestVitestChangedTestPathAccepted:
-    """End-to-end: GateRecord schema accepts vitest path in changed_test_paths."""
-
-    def test_schema_accepts_vitest_co_located_test(self) -> None:
-        payload = _record(
-            scope={
-                "include": [
-                    "frontend/src/components/PortEditorTable.tsx",
-                    "frontend/src/components/PortEditorTable.test.tsx",
-                ],
-                "exclude": [],
-            },
-            changed_test_paths=["frontend/src/components/PortEditorTable.test.tsx"],
-        )
-        record = GateRecord.model_validate(payload)
-        assert record.changed_test_paths == ["frontend/src/components/PortEditorTable.test.tsx"]
-
-    def test_schema_still_rejects_non_test_path_in_changed_test_paths(self) -> None:
-        payload = _record(
-            changed_test_paths=["frontend/src/components/PortEditorTable.tsx"],
-        )
-        with pytest.raises(ValidationError, match="non-test"):
-            GateRecord.model_validate(payload)
+def test_failed_check_excerpt_empty_without_log(tmp_path: Path) -> None:
+    no_ref = CheckEvent(name="x", command="c", covered_surface="python", status="fail", raw_log_ref=None)
+    missing = CheckEvent(name="x", command="c", covered_surface="python", status="fail", raw_log_ref="nope.log")
+    assert evaluator._failed_check_excerpt(tmp_path, no_ref) == ""
+    assert evaluator._failed_check_excerpt(tmp_path, missing) == ""

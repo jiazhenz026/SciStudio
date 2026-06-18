@@ -4,12 +4,14 @@
  * Extracted from `frontend/src/lib/api.ts` (#1422).
  */
 
-import type { FilesystemBrowseResponse } from "../../types/api";
+import type { FilesystemBrowseResponse, FilesystemStatResponse } from "../../types/api";
 import { apiFetch, JSON_HEADERS } from "./core";
 
 export const filesystemApi = {
   browseFilesystem: (path: string) =>
     apiFetch<FilesystemBrowseResponse>(`/api/filesystem/browse?path=${encodeURIComponent(path)}`),
+  statFilesystem: (path: string) =>
+    apiFetch<FilesystemStatResponse>(`/api/filesystem/stat?path=${encodeURIComponent(path)}`),
   revealInExplorer: (path: string) =>
     apiFetch<{ status: string }>("/api/filesystem/reveal", {
       method: "POST",

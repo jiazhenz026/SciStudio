@@ -22,9 +22,8 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { api } from "./lib/api";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
@@ -44,6 +43,7 @@ import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionAct
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { ProjectDialog } from "./components/ProjectDialog";
+import { NewPlotDialog } from "./components/NewPlotDialog";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -115,6 +115,7 @@ export default function App() {
   const toggleMinimap = useAppStore((state) => state.toggleMinimap);
   const setPanelSize = useAppStore((state) => state.setPanelSize);
   const setLastError = useAppStore((state) => state.setLastError);
+  const bumpProjectTreeRefresh = useAppStore((state) => state.bumpProjectTreeRefresh);
 
   const blocks = useAppStore((state) => state.blocks);
   const blockSchemas = useAppStore((state) => state.blockSchemas);
@@ -122,11 +123,6 @@ export default function App() {
   const setBlocks = useAppStore((state) => state.setBlocks);
   const setBlockSchema = useAppStore((state) => state.setBlockSchema);
   const setPaletteSearch = useAppStore((state) => state.setPaletteSearch);
-
-  const previewCache = useAppStore((state) => state.previewCache);
-  const previewLoading = useAppStore((state) => state.previewLoading);
-  const cachePreview = useAppStore((state) => state.cachePreview);
-  const setPreviewLoading = useAppStore((state) => state.setPreviewLoading);
 
   const tabs = useAppStore((state) => state.tabs);
   const activeTabId = useAppStore((state) => state.activeTabId);
@@ -149,6 +145,7 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
+  const [newPlotDialogOpen, setNewPlotDialogOpen] = useState(false);
 
   // Bottom-panel imperative controls + cross-component callbacks.
   const {
@@ -163,8 +160,10 @@ export default function App() {
     setActiveBottomTab,
   });
 
-  const { connected: wsConnected } = useWorkflowWebSocket(Boolean(currentProject));
-  const { connected: sseConnected } = useLogStream(
+  const { connected: wsConnected, status: wsStatus } = useWorkflowWebSocket(
+    Boolean(currentProject),
+  );
+  const { connected: sseConnected, status: sseStatus } = useLogStream(
     workflowId,
     activeBottomTab === "logs" ? selectedNodeId : null,
   );
@@ -238,20 +237,6 @@ export default function App() {
     importWorkflow,
   } = projectActions;
 
-  const loadPreview = useCallback(
-    async (dataRef: string) => {
-      try {
-        setPreviewLoading(dataRef, true);
-        const payload = await api.getDataPreview(dataRef);
-        cachePreview(payload);
-      } catch (error) {
-        setPreviewLoading(dataRef, false);
-        setLastError((error as Error).message);
-      }
-    },
-    [cachePreview, setLastError, setPreviewLoading],
-  );
-
   // Workflow execution callbacks (run / pause / resume / cancel / per-block).
   const {
     runWorkflow,
@@ -268,6 +253,8 @@ export default function App() {
     saveWorkflow,
     setLastError,
     workflowPayloadId: workflowPayload.id,
+    workflowNodes,
+    blockSchemas,
   });
 
   // Canvas / toolbar handlers (palette add, edge connect, view source, save).
@@ -343,6 +330,8 @@ export default function App() {
             selectedNodeId={selectedNodeId}
             wsConnected={wsConnected}
             sseConnected={sseConnected}
+            wsStatus={wsStatus}
+            sseStatus={sseStatus}
             recentProjects={recentProjects}
             activeTabKind={activeTabKind}
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
@@ -365,6 +354,13 @@ export default function App() {
               currentProject
                 ? () => {
                     void createNewNote();
+                  }
+                : undefined
+            }
+            onNewPlot={
+              currentProject
+                ? () => {
+                    setNewPlotDialogOpen(true);
                   }
                 : undefined
             }
@@ -445,10 +441,7 @@ export default function App() {
               unreadLogsCount={unreadLogsCount}
               selectedNode={selectedNode}
               selectedSchema={selectedSchema}
-              previewCache={previewCache}
-              previewLoading={previewLoading}
               selectedNodeLabel={selectedNodeLabel}
-              onLoadPreview={loadPreview}
               setPanelSize={setPanelSize}
             />
           ) : (
@@ -475,6 +468,19 @@ export default function App() {
             open={projectDialogOpen}
             path={projectDialog.path}
             recentProjects={recentProjects}
+          />
+
+          <NewPlotDialog
+            onClose={() => setNewPlotDialogOpen(false)}
+            onCreated={(created) => {
+              bumpProjectTreeRefresh();
+              openFileTab(created.script_path);
+              setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
+            }}
+            open={Boolean(currentProject && newPlotDialogOpen)}
+            saveWorkflow={saveWorkflow}
+            selectedNodeId={selectedNodeId}
+            workflowId={workflowId}
           />
 
           {/* #591/#594: Interactive block modals. */}

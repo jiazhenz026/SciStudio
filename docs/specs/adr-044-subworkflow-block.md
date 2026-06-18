@@ -429,7 +429,8 @@ Acceptance Scenarios:
 - Frontend Chrome smoke test (per memory rule "Mandatory Chrome smoke test
   for all UI agents") covers `SubWorkflowNode` rendering, double-click tab
   open, dynamic port handle rendering, broken-ref placeholder.
-- `ruff check .`, `ruff format --check .`, `pytest` on relevant directories.
+- `python -m scistudio.qa.governance.gate_record check --mode local`, plus
+  targeted `pytest` on relevant directories while iterating.
 - ADR-042 QA full audit on the implementation PR.
 - Frontmatter lint on this spec and ADR-044.
 - Sentrux applicability check on the touched source paths.

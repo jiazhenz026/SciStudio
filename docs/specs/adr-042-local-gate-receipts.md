@@ -34,15 +34,15 @@ governs:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
   contracts:
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.gate_record.validation.check_pre_push
-    - scistudio.qa.governance.gate_record.validation.check_pr_ready
-    - scistudio.qa.governance.gate_record.validation.check_pr
-    - scistudio.qa.governance.gate_record.workflow.run_ci
-    - scistudio.qa.governance.gate_receipt.validate_receipt
+    # Restructured by ADR-042 Addendum 6: the standalone ``validation`` and
+    # ``workflow`` modules (per-stage validators and ``run_ci``) collapsed into
+    # the single shared ``evaluator.reconcile`` entry point, the guard modules
+    # moved under ``gate_record.guards``, and the separate ``gate_receipt``
+    # module (``validate_receipt``) was folded into the ledger and pruned.
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
     - scistudio.qa.governance.worktree_write_guard.check_hook_payload
-    - scistudio.qa.governance.core_change_guard.check
-    - scistudio.qa.governance.human_bypass_guard.check
+    - scistudio.qa.governance.gate_record.guards.core_change_guard.check
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard.check
   files:
     - docs/specs/adr-042-local-gate-receipts.md
     - docs/adr/ADR-042-addendum5.md
@@ -79,11 +79,31 @@ language_source: en
 
 # ADR-042 Local Gate Receipts And Worktree Guard Specification
 
+> **Superseded command-surface note:** This spec records ADR-042 Addendum 5.
+> ADR-042 Addendum 6 folded standalone `gate_receipt` behavior into committed
+> gate-record ledger events. Current AI-authored work uses `gate_record check`
+> modes instead of `gate_receipt run` / `exec` / `validate`.
+
 ## 1. Change Summary
 
-This spec implements ADR-042 Addendum 5. It defines a local preflight system
-that produces candidate-specific receipt JSON and stdout/stderr transcripts for
-AI-authored work before push or PR creation.
+> **Note (ADR-042 Addendum 6):** The implementation symbols this spec governs
+> were restructured by Addendum 6. The per-stage `validation` validators and
+> `workflow.run_ci` collapsed into the single shared `evaluator.reconcile`
+> entry point, the guard modules moved under `gate_record.guards`, and the
+> separate `gate_receipt` module (`validate_receipt`) was folded into the
+> gate-record ledger and has no successor symbol. The `governs` block has been
+> repointed to the surviving symbols.
+
+This spec records the ADR-042 Addendum 5 receipt design. Current repository
+workflow no longer exposes a separate `gate_receipt` command: ADR-042 Addendum
+6 folded receipt behavior into the committed gate ledger through
+`gate_record check` and `gate_record finalize`. Treat the command names and
+receipt entities below as historical Addendum 5 design context unless a later
+Addendum 6 note explicitly maps them to a surviving symbol.
+
+The original spec implemented ADR-042 Addendum 5. It defined a local preflight
+system that produced candidate-specific receipt JSON and stdout/stderr
+transcripts for AI-authored work before push or PR creation.
 
 The spec also narrows override-label semantics and adds write-time worktree
 guards. The goal is to move predictable failures from GitHub CI to local hard

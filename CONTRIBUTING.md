@@ -5,7 +5,7 @@
 ```bash
 pip install pre-commit
 pre-commit install --hook-type pre-commit --hook-type commit-msg
-pip install ruff mypy pytest import-linter
+python -m pip install ".[dev]"
 ```
 
 ## Workflow
@@ -15,9 +15,7 @@ pip install ruff mypy pytest import-linter
 3. Use [Conventional Commits](https://www.conventionalcommits.org/) — e.g., `feat(core): ...`, `fix(storage): ...`.
 4. Run checks before pushing:
    ```bash
-   ruff check . && ruff format --check .
-   mypy packages/ --ignore-missing-imports
-   pytest
+   PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --mode local
    ```
 5. Open a PR against `main`, fill in the template, and link the issue.
 

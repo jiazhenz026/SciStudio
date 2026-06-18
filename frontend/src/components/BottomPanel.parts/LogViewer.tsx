@@ -23,15 +23,31 @@ export function LogViewer({ entries }: { entries: LogEntry[] }) {
       </div>
       <div className="flex-1 overflow-auto rounded-[1.4rem] border border-stone-200 bg-stone-950 p-4">
         {filtered.length ? (
-          filtered.map((entry, index) => (
+          filtered.map((entry) => (
             <div
               className="border-b border-stone-800 py-2 text-sm text-stone-100"
-              key={`${entry.timestamp}-${index}`}
+              key={[
+                entry.timestamp,
+                entry.level,
+                entry.workflow_id ?? "workflow",
+                entry.block_id ?? "system",
+                entry.message,
+              ].join("|")}
             >
               <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
                 {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
               </p>
-              <p className="mt-1">{entry.message}</p>
+              <p className="mt-1 break-words">{entry.message}</p>
+              {entry.details && entry.details !== entry.message ? (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-medium text-stone-400 hover:text-stone-200">
+                    Show traceback
+                  </summary>
+                  <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-stone-800 bg-stone-900 p-3 text-xs leading-5 text-stone-300">
+                    {entry.details}
+                  </pre>
+                </details>
+              ) : null}
             </div>
           ))
         ) : (

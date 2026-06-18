@@ -3,16 +3,23 @@ doc_type: block-development
 title: "Block Developer SDK Quickstart"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-06-10
 governed_by:
   - ADR-042
   - ADR-043
-summary: "Five-minute block authoring guide with pointers to process blocks and simple local IO blocks."
+  - ADR-048
+summary: "Five-minute block authoring guide built on the current package scaffold and concrete port types, with pointers to process blocks, simple local IO blocks, previewers, and plot jobs."
 ---
 
 # Block Developer SDK -- Quickstart
 
 Build your first SciStudio block in five minutes.
+
+> **Three extension surfaces.** A package can ship blocks
+> (`scistudio.blocks`), data types (`scistudio.types`), and — new in ADR-048 —
+> previewers (`scistudio.previewers`). This quickstart covers blocks; see
+> [Custom Types](custom-types.md) and
+> [Previewers and Plot Jobs](previewers-and-plots.md) for the others.
 
 ---
 
@@ -20,8 +27,9 @@ Build your first SciStudio block in five minutes.
 
 A **block** is a self-contained unit of computation with typed inputs, typed
 outputs, and validated configuration. Users wire blocks together on a visual
-canvas to form workflows. The runtime executes each block in an isolated
-subprocess.
+canvas to form workflows. The runtime executes most blocks in an isolated
+subprocess; interactive blocks are the exception and run in-process (see
+[Architecture for Block Devs](architecture-for-block-devs.md)).
 
 ---
 
@@ -66,15 +74,14 @@ class InvertImage(ProcessBlock):
     def process_item(self, item: Array, config: BlockConfig, state: Any = None) -> Array:
         data = np.asarray(item.to_memory())
         inverted = data.max() - data
-        result = Array(
+        return Array(
             axes=list(item.axes),
             shape=item.shape,
             dtype=str(inverted.dtype),
             framework=item.framework.derive(),
             user=dict(item.user),
+            data=inverted,  # in-memory result; auto-flushed by the framework
         )
-        result._data = inverted  # transient; auto-flushed by the framework
-        return result
 ```
 
 ### What this code does
@@ -94,9 +101,10 @@ class InvertImage(ProcessBlock):
    arrives as a lightweight reference; you must call `to_memory()` when you
    need the actual numpy array.
 
-4. **`result._data = inverted`** is a transient assignment. The framework's
-   auto-flush mechanism persists this to zarr storage before the result
-   crosses the block boundary. In production IOBlock loaders, prefer
+4. **`data=inverted`** passes the in-memory result to the `Array` constructor
+   (ADR-031 Addendum 2). It is stored in the transient `_transient_data` slot;
+   the framework's auto-flush mechanism persists it to zarr storage before the
+   result crosses the block boundary. In production IOBlock loaders, prefer
    `persist_array()` for streaming writes (see
    [IOBlock persist helpers](block-contract.md#ioblock-persist-helpers)).
 
@@ -107,8 +115,13 @@ class InvertImage(ProcessBlock):
 **Tier 1 (drop-in file):** Place the `.py` file in your project's `blocks/`
 directory or `~/.scistudio/blocks/`. The runtime discovers it automatically.
 
-**Tier 2 (installable package):** Create a Python package with
-`pyproject.toml` and `scistudio.blocks` entry-points. See
+**Tier 2 (installable package):** Scaffold a package with
+`scistudio init-block-package my-blocks`, then add blocks. The scaffold wires a
+`pyproject.toml` `scistudio.blocks` entry point and a `get_blocks()` callable
+returning a `(PackageInfo, list[type])` tuple — the canonical primary pattern.
+Its example block uses concrete `Array` ports, not an empty `accepted_types`
+list, because concrete types drive connection checks and preview routing
+([Block Contract](block-contract.md#concrete-accepted-types-by-default)). See
 [Publishing](publishing.md).
 
 ---
@@ -163,6 +176,32 @@ declarations, and a non-empty `name`.
 
 ---
 
+## Data Access Strategies
+
+Block authors choose how to read input data and how to produce output data.
+The framework supports both full materialization and streaming -- choose based
+on your expected data size.
+
+### Reading input data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full load** | `arr = item.to_memory()` | O(full array) | Data fits in RAM; need full array for computation |
+| **Partial read** | `plane = item.sel(z=5)` | O(slice) | Only need a subset of dimensions |
+| **Chunked iteration** | `for chunk in item.iter_chunks(1024):` | O(chunk) | Process large data piece by piece |
+
+### Writing output data
+
+| Strategy | API | Memory | When to use |
+|----------|-----|--------|-------------|
+| **Full output** | `Array(..., data=result)` | O(result) | Result fits in RAM (most blocks) |
+| **Streaming write** | `ref = self.persist_array(chunk_iter, shape, dtype)` | O(chunk) | Producing very large output |
+
+For the full streaming patterns and worked examples, see
+[Memory Safety](memory-safety.md#data-access-strategies).
+
+---
+
 ## Next steps
 
 | Topic | Document |
@@ -173,5 +212,6 @@ declarations, and a non-empty `name`.
 | Working with Collections | [Collection Guide](collection-guide.md) |
 | Memory-safe processing for large data | [Memory Safety](memory-safety.md) |
 | Creating custom domain types | [Custom Types](custom-types.md) |
+| Previewers and preview-side plot jobs | [Previewers and Plot Jobs](previewers-and-plots.md) |
 | Testing with BlockTestHarness | [Testing](testing.md) |
 | Packaging and distributing blocks | [Publishing](publishing.md) |

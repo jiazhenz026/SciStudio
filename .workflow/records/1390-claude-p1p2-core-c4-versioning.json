@@ -1,0 +1,576 @@
+{
+  "branch": "claude/p1p2-core-c4-versioning",
+  "check_events": [
+    {
+      "at": "2026-06-10T07:02:47.307506Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T07:02:47.393657Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T07:02:51.915341Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T07:02:52.208064Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T07:02:52.303501Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-10T07:04:30.603484Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "python_tests",
+      "parity_detail": "missing module: setuptools",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: setuptools",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T07:04:30.777948Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "semantic_dup",
+      "parity_detail": "missing module: fastembed",
+      "parity_gap": true,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "parity gap: missing module: fastembed",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-10T07:04:42.159143Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f961ea4e464256016d064422844b50b8834c317372b147da1919968c9361e17c",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [
+    {
+      "name": "guard.core_change_guard",
+      "rationale": "pre-existing C1 durability files in umbrella branch \u2014 not C4 scope, covered by C1 gate record and PR"
+    }
+  ],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/versioning/**",
+      "tests/core/test_git_engine.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-10T06:55:00.506324Z",
+      "owner_directive": "Three issues: #1390 branches() refname:short disambiguation, #969 is_repository docstring + log parser field guard, #1394 versioning parts (phantom commit on same-branch switch, tag force, restore docstring)",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-10T06:55:00.506385Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "internal bug fixes - no changelog entry needed for P3 nits",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T06:55:00.506404Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural change - fixes stay within ADR-039 contract",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T07:01:46.637832Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "bug-fix P3 nits \u2014 no user-facing behavior change requiring release note",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T07:01:46.637895Z",
+      "class": "adr-addendum",
+      "kind": "na",
+      "path": null,
+      "rationale": "clarifications only, no new architectural decisions",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T07:04:57.999953Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "P3 nits with no user-visible behavior change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-10T07:04:42.166881Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/loaders/load_data.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/savers/save_data.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/savers/save_data.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/checkpoint.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/checkpoint.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/utils/atomic_io.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/utils/atomic_io.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/serializer.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/serializer.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-10T07:04:42.168746Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.170516Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.172283Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.174281Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.176194Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.178106Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.179939Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.181570Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-10T07:04:42.188015Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1390,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 969,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1394,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "a13a460",
+    "changed_files": [
+      ".workflow/records/1515-p1p2-core-umbrella.json",
+      "src/scistudio/blocks/io/loaders/load_data.py",
+      "src/scistudio/blocks/io/savers/save_data.py",
+      "src/scistudio/engine/checkpoint.py",
+      "src/scistudio/utils/atomic_io.py",
+      "src/scistudio/workflow/serializer.py",
+      "tests/blocks/io/test_save_data_durability.py",
+      "tests/engine/test_checkpoint_durability.py",
+      "tests/utils/test_atomic_io.py",
+      "tests/workflow/test_serializer_durability.py"
+    ],
+    "diff_fingerprint": "sha256:099251451447cebed14cd056d66fb613a03750b1b8cc036e1ca6073972357dbf",
+    "head": "HEAD",
+    "head_sha": "9543a61",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 5,
+      "packaging": 0,
+      "protected_core": 5,
+      "sentrux": 9,
+      "test": 4,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix #1390 (branches() tag/branch name collision), #969 (is_repository worktree docstring, merge FF heuristic already done, log parser), #1394 versioning parts (phantom commit same-branch switch, engine.tag force, restore docstring)",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-10T07:04:42.188093Z",
+      "diff_fingerprint": "sha256:099251451447cebed14cd056d66fb613a03750b1b8cc036e1ca6073972357dbf",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "guard.core_change_guard",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
+  "record_id": "1390-claude-p1p2-core-c4-versioning",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code:claude-sonnet-4-6",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-10T06:55:00.506355Z",
+      "pattern": "src/scistudio/core/versioning/_branch_ops.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T06:55:00.506362Z",
+      "pattern": "src/scistudio/core/versioning/_history_ops.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T06:55:00.506364Z",
+      "pattern": "src/scistudio/core/versioning/git_engine.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T06:55:00.506367Z",
+      "pattern": "tests/core/test_git_engine.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T07:01:46.637770Z",
+      "pattern": "src/scistudio/core/versioning/_branch_ops.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T07:01:46.637801Z",
+      "pattern": "src/scistudio/core/versioning/_merge_ops.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T07:01:46.637806Z",
+      "pattern": "src/scistudio/core/versioning/_history_ops.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T07:01:46.637809Z",
+      "pattern": "src/scistudio/core/versioning/git_engine.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-10T07:01:46.637812Z",
+      "pattern": "tests/core/test_git_engine.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "cc650a54-1e98-4253-a65f-bfea10a9c7db",
+  "strictness_tier": 1,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-06-10T06:55:00.506414Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_git_engine.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T07:01:46.637905Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_git_engine.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-10T07:04:57.999994Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_git_engine.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

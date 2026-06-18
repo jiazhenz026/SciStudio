@@ -1,0 +1,369 @@
+{
+  "branch": "fix/pr1577-preview-cache-legacy-cleanup-20260613",
+  "check_events": [
+    {
+      "at": "2026-06-13T21:15:54.901629Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-13T21:16:07.490141Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-13T21:16:07.570822Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/store/previewSlice.ts",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "src/scistudio/previewers/session.py",
+      "tests/previewers",
+      "frontend/e2e/support/systemMocks.ts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-13T21:03:58.096551Z",
+      "class": "adr048-spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "implementation now conforms to existing ADR-048/SPEC 1 cache and legacy-removal requirements; no contract text changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-13T21:16:07.681126Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:07.734198Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:07.799104Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:07.852303Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:07.915202Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:07.972265Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:08.035563Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:08.089267Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:08.150382Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:16:08.200625Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:56.943264Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:56.994158Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.044243Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.093888Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.145050Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.194517Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.244114Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.293462Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.344653Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-13T21:26:57.396050Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1649,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/track/adr-048-spec1-preview-system",
+    "base_sha": "d3209847",
+    "changed_files": [
+      ".workflow/records/1649-pr1577-preview-cache-legacy-cleanup.json",
+      "frontend/e2e/support/systemMocks.ts",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/store/previewSlice.ts",
+      "src/scistudio/previewers/fallbacks.py",
+      "src/scistudio/previewers/session.py",
+      "tests/previewers/test_fallback_array.py",
+      "tests/previewers/test_preview_session_cache_key.py"
+    ],
+    "diff_fingerprint": "sha256:ddda2f935eb1b2f9a6a03cb208278e16e1008162bffd75dd944c7bf1fd6519bc",
+    "head": "HEAD",
+    "head_sha": "c3a7859a",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 5,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 7,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 9,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix PR #1577 audit P1 preview cache key bug and P3 stale legacy preview cleanup; leave P2 E2E scope out.",
+  "persona": "implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1650,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-13T21:16:08.200677Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-13T21:26:57.396083Z",
+      "diff_fingerprint": "sha256:ddda2f935eb1b2f9a6a03cb208278e16e1008162bffd75dd944c7bf1fd6519bc",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1649-pr1577-preview-cache-legacy-cleanup",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-13T21:03:46.394773Z",
+      "pattern": "src/scistudio/previewers/fallbacks.py",
+      "reason": "P3 stale legacy cleanup also touches core array fallback comments and its provider test comment."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T21:03:46.394792Z",
+      "pattern": "tests/previewers/test_fallback_array.py",
+      "reason": "P3 stale legacy cleanup also touches core array fallback comments and its provider test comment."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-13T21:03:58.096443Z",
+      "pattern": "tests/previewers/test_preview_session_cache_key.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "d73e58f0-1754-477d-a495-77411307d545",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-06-13T21:03:58.096561Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T21:03:58.096566Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_session_cache_key.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-13T21:03:58.096569Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_fallback_array.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

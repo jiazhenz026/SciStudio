@@ -135,6 +135,13 @@ class TestGetInMemoryData:
         obj = Array(axes=["y", "x"], shape=(5, 5), dtype="float64", data=arr)
         assert obj.get_in_memory_data() is arr
 
+    def test_series_normalizes_transient_values_to_arrow_table(self):
+        obj = Series(value_name="signal", length=3, data=np.array([1.0, 2.0, 3.0]))
+        table = obj.get_in_memory_data()
+        assert isinstance(table, pa.Table)
+        assert table.column_names == ["signal"]
+        assert table.column("signal").to_pylist() == [1.0, 2.0, 3.0]
+
     def test_raises_when_no_transient_and_no_storage_ref(self):
         obj = Array(axes=["y", "x"], shape=(5, 5), dtype="float64")
         with pytest.raises(ValueError, match="no in-memory data"):

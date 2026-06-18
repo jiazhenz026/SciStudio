@@ -28,10 +28,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -59,6 +61,7 @@ _INVALID_REQUEST = -32600
 _METHOD_NOT_FOUND = -32601
 _INVALID_PARAMS = -32602
 _INTERNAL_ERROR = -32603
+_POSIX_SOCKET_PATH_LIMIT_BYTES = 100
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ class MCPServer:
     project_dir: Path
 
     def __init__(self, socket_path: Path, project_dir: Path) -> None:
+        self._requested_socket_path = socket_path
         self.socket_path = socket_path
         self.project_dir = project_dir
         self._server: asyncio.AbstractServer | None = None
@@ -125,11 +129,17 @@ class MCPServer:
                 port_file.parent.mkdir(parents=True, exist_ok=True)
                 port_file.write_text(str(self._port), encoding="utf-8")
         else:
-            # Remove stale socket from a prior crashed run.
-            with contextlib.suppress(OSError):
-                if self.socket_path.exists():
-                    os.unlink(self.socket_path)
-            self._server = await asyncio.start_unix_server(self._handle_client, path=str(self.socket_path))
+            requested_socket_path = self._requested_socket_path
+            socket_path = _posix_bind_socket_path(requested_socket_path)
+            _unlink_if_present(requested_socket_path)
+            if socket_path != requested_socket_path:
+                pointer_path = _posix_socket_pointer_path(requested_socket_path)
+                _unlink_if_present(pointer_path)
+                socket_path.parent.mkdir(parents=True, exist_ok=True)
+                _unlink_if_present(socket_path)
+                pointer_path.write_text(str(socket_path), encoding="utf-8")
+            self.socket_path = socket_path
+            self._server = await asyncio.start_unix_server(self._handle_client, path=str(socket_path))
 
         logger.info(
             "MCPServer: listening on %s (project_dir=%s)",
@@ -147,9 +157,13 @@ class MCPServer:
         except Exception:  # pragma: no cover - defensive
             logger.warning("MCPServer.stop: wait_closed raised", exc_info=True)
         if sys.platform != "win32":
-            with contextlib.suppress(OSError):
-                if self.socket_path.exists():
-                    os.unlink(self.socket_path)
+            actual_socket_path = self.socket_path
+            requested_socket_path = self._requested_socket_path
+            _unlink_if_present(actual_socket_path)
+            if actual_socket_path != requested_socket_path:
+                _unlink_if_present(_posix_socket_pointer_path(requested_socket_path))
+                _unlink_if_present(requested_socket_path)
+            self.socket_path = requested_socket_path
         else:
             port_file = self.socket_path.with_suffix(self.socket_path.suffix + ".port")
             with contextlib.suppress(OSError):
@@ -324,6 +338,23 @@ def _ok(req_id: int | str | None, result: dict) -> dict:
 
 def _error_response(req_id: int | str | None, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+def _posix_socket_pointer_path(socket_path: Path) -> Path:
+    return socket_path.with_suffix(socket_path.suffix + ".path")
+
+
+def _posix_bind_socket_path(socket_path: Path) -> Path:
+    if len(str(socket_path).encode("utf-8")) <= _POSIX_SOCKET_PATH_LIMIT_BYTES:
+        return socket_path
+    digest = hashlib.sha1(str(socket_path).encode("utf-8")).hexdigest()[:12]
+    return Path(tempfile.gettempdir()) / f"scistudio-mcp-{os.getpid()}-{digest}.sock"
+
+
+def _unlink_if_present(path: Path) -> None:
+    with contextlib.suppress(OSError):
+        if path.exists() or path.is_symlink():
+            os.unlink(path)
 
 
 def _serialise_result(result: object) -> object:

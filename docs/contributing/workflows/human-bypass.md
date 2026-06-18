@@ -41,8 +41,7 @@ the final quality boundary.
 Recommended local checks for human-authored changes are:
 
 ```bash
-ruff check .
-ruff format --check .
+PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --mode local
 pytest <targeted-tests-or-test-directory>
 python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 ```
@@ -62,8 +61,7 @@ whether the submitted checks and CI signal are sufficient.
 2. Prefer running the standard human check set:
 
 ```bash
-ruff check .
-ruff format --check .
+PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --mode local
 pytest <targeted-tests-or-test-directory>
 python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 ```
@@ -97,8 +95,7 @@ Closes #1234
 ```text
 Human-authored PR. Requesting human-authored label for AI-only gate bypass.
 Quality checks run:
-- ruff check .
-- ruff format --check .
+- gate_record check --mode local
 - pytest ...
 - full audit ...
 Local hooks skipped: yes/no
@@ -109,8 +106,8 @@ Local hooks skipped: yes/no
    Reviewers decide whether the submitted check evidence is sufficient.
 6. If the PR contains AI-authored commits, `Assisted-by` trailers, or an active
    AI gate record, `human-authored` alone is not enough. Either provide normal
-   AI gate evidence or request an administrator override such as
-   `admin-approved:ai-override`.
+   AI gate evidence or request the `admin-approved:bypass` administrator
+   override.
 
 ## 6. Administrator Override Procedure
 
@@ -119,7 +116,7 @@ Use administrator overrides only for narrow recovery cases.
 1. Record the reason in the PR body or review comment.
 2. Apply the specific label:
    - `human-authored` for human-authored PRs;
-   - `admin-approved:ai-override` for one-off AI harness override;
+   - `admin-approved:bypass` for one-off AI gate workflow override;
    - `admin-approved:core-change` for protected core changes;
    - `admin-approved:merge` for approved merge automation.
 3. Ensure CI verifies the actor who applied the label.
@@ -156,8 +153,7 @@ Closes #1301
 
 Human-authored PR. Requesting human-authored label for AI-only gate bypass.
 Quality checks run:
-- ruff check .
-- ruff format --check .
+- gate_record check --mode local
 - pytest tests/qa/test_example.py
 - python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 Local hooks skipped: yes

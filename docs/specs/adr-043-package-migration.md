@@ -724,7 +724,7 @@ owner-provided scenario against the integrated umbrella branch.
 
 **Per-PR verification (every Phase A/B PR):**
 
-- `ruff check .` + `ruff format --check .`.
+- `python -m scistudio.qa.governance.gate_record check --mode local`.
 - Targeted `pytest` against new test files (with `--timeout=60`).
 - ADR-043 §9 package validity scan on the affected package.
 - `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
@@ -751,7 +751,7 @@ owner-provided scenario against the integrated umbrella branch.
 
 **CI gates:**
 
-- Pre-commit hooks: `python -m scistudio.qa.governance.gate_record pre-commit --staged`.
+- Pre-commit hooks: `python -m scistudio.qa.governance.gate_record check --mode pre-commit`.
 - Commit-msg hook: trailers present (`Gate-Record:`, `Task-Kind:`, `Issue:`,
   `Assisted-by:`).
 - Pre-push hook: validate gate record.

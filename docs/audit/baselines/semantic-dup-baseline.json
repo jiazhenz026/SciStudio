@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-05-22T21:50:00+00:00",
+  "captured_at": "2026-06-10T00:00:00+00:00",
   "config": {
     "root": "src/scistudio",
     "model": "BAAI/bge-small-en-v1.5",
@@ -8,18 +8,18 @@
     "min_loc": 5
   },
   "current": {
-    "functions_scanned": 1302,
-    "clusters": 88,
-    "duplicate_loc": 5038,
-    "total_loc": 35829,
-    "duplicate_pct": 14.06,
-    "max_cluster_size": 10
+    "functions_scanned": 1522,
+    "clusters": 94,
+    "duplicate_loc": 5427,
+    "total_loc": 41222,
+    "duplicate_pct": 13.17,
+    "max_cluster_size": 8
   },
   "ratchet": {
-    "max_clusters": 92,
-    "max_duplicate_pct": 14.77,
-    "max_cluster_size": 10,
-    "max_duplicate_loc": 5290
+    "max_clusters": 99,
+    "max_duplicate_pct": 13.83,
+    "max_cluster_size": 8,
+    "max_duplicate_loc": 5699
   },
-  "ratchet_policy": "Bumped 2026-05-22 to absorb ADR-045 (#1401) entity-class version-vector wrappers in scistudio.api.runtime (bump_/mark_/is_recent_/current_ workflow vs entity-generic pairs). Each pair clusters tightly under the cosine 0.92 threshold but represents intentional abstraction sugar — callers using workflow_id get path resolution for free. Headroom of ~5% on counts + LOC, max_cluster_size still pinned at 10. Follow-up: track wrapper consolidation under [[ADR-045 follow-up]]."
+  "ratchet_policy": "Bumped 2026-06-10 to absorb ADR-048 SPEC 1 (#1574) — the new scistudio.previewers subsystem ships 9 structurally-similar core fallback providers (each assembles a PreviewEnvelope with the 6 metadata flags + payload), which cluster tightly under the cosine 0.92 threshold. The duplicate PERCENTAGE improved (14.06% -> 13.17%) because the codebase grew; only the absolute count/LOC ratchets moved (88->94 clusters, 5038->5427 LOC) and max_cluster_size tightened 10->8. Headroom ~5% on counts + LOC + pct, max_cluster_size pinned at current 8. Follow-up: consolidate the provider envelope-building boilerplate and re-ratchet DOWN under #1578. Prior bump (2026-05-22) absorbed ADR-045 (#1401) version-vector wrappers."
 }

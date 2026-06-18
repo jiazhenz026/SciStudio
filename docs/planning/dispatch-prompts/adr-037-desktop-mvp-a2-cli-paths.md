@@ -27,7 +27,7 @@ language_source: en
 You own only:
 
 - src/scistudio/cli/main.py
-- src/scistudio/paths.py
+- src/scistudio/desktop/paths.py
 - tests/cli/test_cli.py
 
 You must not touch:
@@ -38,7 +38,7 @@ You must not touch:
 
 ## Work To Do
 
-1. Add `scistudio.paths` with platformdirs-backed user/resource directory
+1. Add `scistudio.desktop.paths` with platformdirs-backed user/resource directory
    helpers and stdlib fallback.
 2. Extend `scistudio gui` with `--bundled` and ephemeral port support.
 3. Emit exactly one JSON ready line for Electron:

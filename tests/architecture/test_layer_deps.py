@@ -6,7 +6,11 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 2  blocks/
     Layer 3  engine/
     Layer 4  ai/           (the scistudio.ai services package, NOT blocks/ai/)
+    Layer 4  previewers/   (the ADR-048 preview subsystem, consumed by api/)
     Layer 5  api/
+
+``previewers/`` is a subsystem the API layer mounts; it may depend on core but
+must never import up into ``scistudio.api`` (ADR-048 / #1598).
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
 but core/ still must not import workflow/.
@@ -153,6 +157,12 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
             "scistudio.api",
         ],
     ),
+    (
+        "previewers",
+        [
+            "scistudio.api",
+        ],
+    ),
 ]
 
 
@@ -181,5 +191,5 @@ def test_layer_does_not_import_forbidden(layer: str, forbidden: list[str]) -> No
 def test_layer_rules_cover_all_source_layers() -> None:
     """Sanity check: every non-cross-cutting source directory appears in at least one rule."""
     checked_layers = {rule[0] for rule in LAYER_RULES}
-    expected = {"core", "blocks", "engine", "ai"}
+    expected = {"core", "blocks", "engine", "ai", "previewers"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"

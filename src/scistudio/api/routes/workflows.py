@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -15,10 +16,12 @@ from pydantic import BaseModel, Field
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes import workflow_watcher
 from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime, WorkflowRun
+from scistudio.api.runtime._runs import WorkflowAlreadyRunningError
 from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
     ExecuteFromResponse,
+    ExecuteWorkflowRequest,
     WorkflowCreate,
     WorkflowEdge,
     WorkflowExecutionResponse,
@@ -32,6 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
+_NO_ACTIVE_PROJECT_MESSAGE = "No project is currently open."
 
 
 def _yaml_error_detail(workflow_id: str, exc: yaml.YAMLError) -> dict[str, Any]:
@@ -91,15 +95,27 @@ def _get_run_or_404(runtime: ApiRuntime, workflow_id: str) -> WorkflowRun:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+def _workflow_session_error(exc: RuntimeError) -> HTTPException:
+    status_code = 409 if str(exc) == _NO_ACTIVE_PROJECT_MESSAGE else 400
+    return HTTPException(status_code=status_code, detail=str(exc))
+
+
+def _bind_engine_api_url(request: Request) -> None:
+    """Publish this API process URL so worker subprocesses can call back."""
+    os.environ["SCISTUDIO_ENGINE_API_URL"] = str(request.base_url).rstrip("/")
+
+
 def _request_source_id(request: Request, body: Any | None = None) -> str | None:
     body_source_id = getattr(body, "source_id", None)
     if isinstance(body_source_id, str):
         return body_source_id
-    return request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
+    header_source_id = request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
+    return header_source_id if isinstance(header_source_id, str) else None
 
 
 def _request_source(request: Request, *, changed_by: str | None = None, default: str = "canvas") -> str:
-    explicit = request.headers.get("X-Workflow-Source") or request.headers.get("X-Source")
+    header_source = request.headers.get("X-Workflow-Source") or request.headers.get("X-Source")
+    explicit = header_source if isinstance(header_source, str) else None
     if explicit in _API_SOURCES:
         return explicit
     if changed_by and changed_by not in {"api", "canvas"}:
@@ -188,7 +204,7 @@ async def list_workflows(runtime: RuntimeDep) -> list[str]:
     try:
         return runtime.list_project_workflows()
     except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _workflow_session_error(exc) from exc
 
 
 @router.post("/import", response_model=VersionedWorkflowResponse)
@@ -299,7 +315,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _workflow_session_error(exc) from exc
 
     source_id = _request_source_id(request, body)
     source = _request_source(request)
@@ -377,6 +393,8 @@ async def update_workflow(
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise _workflow_session_error(exc) from exc
 
     # changed_by: prefer an explicit ``X-Changed-By`` header (set by the MCP
     # tool / the embedded agent), else fall back to a generic "api" tag.
@@ -431,18 +449,53 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
 
 
 @router.delete("/{workflow_id}", status_code=204)
-async def delete_workflow(workflow_id: str, runtime: RuntimeDep) -> None:
-    """Delete a workflow."""
-    runtime.delete_workflow(workflow_id)
+async def delete_workflow(workflow_id: str, runtime: RuntimeDep, request: Request) -> None:
+    """Delete a workflow.
+
+    #1462 / ADR-045 §3.4: after the unlink, emit a versioned
+    ``workflow.changed`` event with ``kind="deleted"`` attributed to
+    ``source="canvas"`` (or the ``X-Source`` header) so other clients see a
+    user-initiated delete rather than the FS-watcher's ``source="external"``
+    echo. ``_emit_workflow_changed`` also marks the write first-party so the
+    watcher suppresses the redundant FS-driven event.
+    """
+    deleted = runtime.delete_workflow(workflow_id)
+    if not deleted:
+        return
+    changed_by = request.headers.get("X-Changed-By", "api")
+    source_id = _request_source_id(request)
+    source = _request_source(request, changed_by=changed_by)
+    await _emit_workflow_changed(
+        runtime,
+        workflow_id=workflow_id,
+        changed_by=changed_by,
+        source=source,
+        source_id=source_id,
+        kind="deleted",
+        path=f"workflows/{workflow_id}.yaml",
+    )
 
 
 @router.post("/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
-async def execute_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowExecutionResponse:
+async def execute_workflow(
+    workflow_id: str,
+    runtime: RuntimeDep,
+    request: Request,
+    body: ExecuteWorkflowRequest | None = None,
+) -> WorkflowExecutionResponse:
     """Start execution of a workflow."""
     try:
-        result = runtime.start_workflow(workflow_id)
+        _bind_engine_api_url(request)
+        result = runtime.start_workflow(
+            workflow_id,
+            overwrite_node_ids=set(body.overwrite_node_ids) if body is not None else None,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except WorkflowAlreadyRunningError as exc:
+        # #1525: a live run already exists; reject instead of silently
+        # orphaning it by starting a second scheduler.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
 
 
@@ -501,6 +554,7 @@ async def execute_from_workflow(
     workflow_id: str,
     body: ExecuteFromRequest,
     runtime: RuntimeDep,
+    request: Request,
 ) -> ExecuteFromResponse:
     """Re-run a workflow from a specific block using checkpointed inputs.
 
@@ -530,13 +584,19 @@ async def execute_from_workflow(
                 exc_info=True,
             )
     try:
+        _bind_engine_api_url(request)
         result = runtime.start_workflow(
             workflow_id,
             execute_from=body.block_id,
             parent_run_id=parent_run_id,
+            overwrite_node_ids=set(body.overwrite_node_ids),
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except WorkflowAlreadyRunningError as exc:
+        # #1525: a live run already exists; reject instead of silently
+        # orphaning it by starting a second scheduler.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ExecuteFromResponse(**result)

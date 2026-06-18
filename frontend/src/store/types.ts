@@ -1,7 +1,7 @@
 import type {
   BlockSchemaResponse,
   BlockSummary,
-  DataPreviewResponse,
+  PreviewEnvelope,
   GitBranch,
   GitCommit,
   GitHistoryFilter,
@@ -177,10 +177,13 @@ export interface UISlice {
 }
 
 export interface PreviewSlice {
-  previewCache: Record<string, DataPreviewResponse>;
-  previewLoading: Record<string, boolean>;
-  cachePreview: (payload: DataPreviewResponse) => void;
-  setPreviewLoading: (ref: string, loading: boolean) => void;
+  // ADR-048 SPEC 1 — routed session-envelope cache (FR-021). Keyed by the
+  // composite key built from data/collection ref + previewer id + session id +
+  // query (slice/page/sort/slot/item) + data version when available. Values
+  // are UI-only; the backend stays authoritative for routing/sessions.
+  previewEnvelopeCache: Record<string, PreviewEnvelope>;
+  cachePreviewEnvelope: (key: string, envelope: PreviewEnvelope) => void;
+  clearPreviewEnvelopeCache: () => void;
 }
 
 export interface PaletteSlice {
@@ -343,7 +346,7 @@ export interface FileTab {
   id: string;
   filePath: string;
   displayName: string;
-  language: "python" | "yaml" | "json" | "text" | "markdown";
+  language: "python" | "r" | "yaml" | "json" | "text" | "markdown";
   content: string;
   contentLoadedAt: number;
   baseVersion?: number | null;

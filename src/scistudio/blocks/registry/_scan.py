@@ -121,7 +121,19 @@ def _scan_builtins(registry: BlockRegistry) -> None:
 
 
 def _scan_tier1(registry: BlockRegistry) -> None:
-    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses."""
+    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
+
+    Security boundary (issue #1531): drop-in files are executed as Python
+    modules in the server process.  Only files from trusted project- or
+    user-controlled directories should be registered via
+    :meth:`BlockRegistry.add_scan_dir`.  Hostile or corrupt drop-ins are
+    isolated by the try/except below — a failing module is logged as a
+    warning and skipped without crashing the palette refresh.
+
+    TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
+      Out of scope per issue #1531 (contained hardening only for this PR).
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1531
+    """
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
 
@@ -131,6 +143,13 @@ def _scan_tier1(registry: BlockRegistry) -> None:
         for py_file in scan_dir.glob("*.py"):
             if py_file.name.startswith("_"):
                 continue
+            # Issue #1531: emit a security warning before executing any
+            # drop-in so operators can audit which files run in-process.
+            logger.warning(
+                "SECURITY: executing drop-in block module from %s in the server process. "
+                "Only add trusted directories via BlockRegistry.add_scan_dir.",
+                py_file,
+            )
             try:
                 mtime = py_file.stat().st_mtime
                 mod_name = f"_scistudio_dropin_{py_file.stem}_{int(mtime)}"
@@ -138,7 +157,22 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 if spec is None or spec.loader is None:
                     continue
                 module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+                # Issue #1531: wrap exec_module in its own try/except so a
+                # failing or hostile drop-in cannot crash the palette refresh.
+                try:
+                    spec.loader.exec_module(module)
+                except Exception:
+                    # #1531: skip-don't-crash on a failing/hostile drop-in.
+                    # Keep the historical "Failed to import block from" wording
+                    # (asserted by the registry-logging contract test) so the
+                    # hardening does not change the observable error log.
+                    logger.warning(
+                        "Failed to import block from %s: drop-in module raised "
+                        "during import; skipping (it contributes no blocks).",
+                        py_file,
+                        exc_info=True,
+                    )
+                    continue
 
                 for attr_name in dir(module):
                     obj = getattr(module, attr_name)
@@ -291,8 +325,8 @@ def _scan_tier2(registry: BlockRegistry) -> None:
 
 
 @contextlib.contextmanager
-def _temporary_sys_path(path: Path) -> Iterator[None]:
-    """Temporarily prepend *path* to ``sys.path`` for source-package import."""
+def _prepended_sys_path(path: Path) -> Iterator[None]:
+    """Prepend *path* to ``sys.path`` for one source-package import."""
     path_str = str(path)
     original = list(sys.path)
     if path_str in sys.path:
@@ -400,7 +434,7 @@ def _process_package_protocol_result(
 def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, module_name: str, source: str) -> None:
     """Import one ``scistudio_blocks_*`` package and register its block classes."""
     try:
-        with _temporary_sys_path(src_dir):
+        with _prepended_sys_path(src_dir):
             existing = sys.modules.get(module_name)
             existing_file = Path(getattr(existing, "__file__", "") or "")
             if existing is not None and not existing_file.is_relative_to(src_dir):
@@ -425,8 +459,8 @@ def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, modul
 def _scan_package_src_dirs(registry: BlockRegistry) -> None:
     """Tier 3: scan hard-installed ``packages/*/src`` source packages.
 
-    This MVP path does not install dependencies or query package indexes. It
-    temporarily imports already-present ``scistudio_blocks_*`` source packages
+    This desktop package path does not install dependencies or query package
+    indexes. It imports already-present ``scistudio_blocks_*`` source packages
     through the existing ADR-025 package protocol so ADR-043 capability
     validation remains the registry's single source of truth.
     """

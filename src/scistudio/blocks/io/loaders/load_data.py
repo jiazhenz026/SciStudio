@@ -24,6 +24,20 @@ The helper symbols are re-imported below so legacy callers that do
 ``from scistudio.blocks.io.loaders.load_data import _LOAD_CAPABILITIES``
 (test code, mostly) continue to work without change. The load side has
 no streaming sibling: pyarrow readers already operate batch-by-batch.
+
+Security — pickle is remote code execution (#1545 / BUG-10)
+----------------------------------------------------------
+``.pkl`` / ``.pickle`` inputs are deserialised with :func:`pickle.load`,
+which **executes arbitrary code** embedded in the byte stream. Because
+the ``allow_pickle`` opt-in lives in the block config (persisted in the
+workflow YAML), a *shared or untrusted* workflow that sets
+``allow_pickle: true`` on a ``LoadData`` block pointed at a crafted
+``.pkl`` turns "open someone's project and press Run" into code
+execution on the opener's machine. The gate (:func:`_check_pickle_allowed`)
+keeps the default ``False`` (hard refusal unless explicitly enabled) and
+emits a loud ``WARNING`` whenever the opt-in is honoured so the run is
+auditable. Per #1545 we do not change the default behavior here; a richer
+UI acknowledgement is tracked on that issue.
 """
 
 from __future__ import annotations
@@ -58,6 +72,7 @@ from scistudio.blocks.io.loaders._helpers import (
     _check_pickle_allowed,
     _resolve_path,
 )
+from scistudio.core.meta.framework import FrameworkMeta
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
@@ -66,6 +81,12 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+
+
+def _source_framework(path: Path) -> FrameworkMeta:
+    """Return framework metadata that preserves the boundary source path."""
+
+    return FrameworkMeta(source=str(path))
 
 
 class LoadData(IOBlock):
@@ -130,11 +151,6 @@ class LoadData(IOBlock):
                 "ui_priority": 0,
             },
             # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            "allow_pickle": {
-                "type": "boolean",
-                "default": False,
-                "ui_priority": 2,
-            },
         },
         "required": ["core_type"],
     }
@@ -173,7 +189,11 @@ class LoadData(IOBlock):
         block produces a Collection rather than a bare DataObject.
         """
         type_name = self.config.get("core_type", "DataFrame")
-        cls = _CORE_TYPE_MAP.get(type_name, DataFrame)
+        cls = _CORE_TYPE_MAP.get(type_name)
+        if cls is None:
+            from scistudio.blocks.io._unified_dispatch import resolve_type_class
+
+            cls = resolve_type_class(str(type_name)) or DataObject
         is_multi = isinstance(self.config.get("path"), list)
         return [OutputPort(name="data", accepted_types=[cls], is_collection=is_multi)]
 
@@ -200,6 +220,13 @@ class LoadData(IOBlock):
         object return behavior is preserved.
         """
         type_name = config.get("core_type", "DataFrame")
+        if type_name not in _CORE_TYPE_MAP:
+            from scistudio.blocks.io._unified_dispatch import delegate_load, resolve_type_class
+
+            if resolve_type_class(str(type_name)) is None:
+                raise ValueError(f"Unknown core_type: {type_name}")
+
+            return delegate_load(config=config, output_dir=output_dir, core_type=str(type_name))
 
         # ADR-031: dispatch table. Functions that don't need output_dir
         # are wrapped with lambdas to accept and ignore the parameter,
@@ -322,6 +349,12 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
     fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE in
+        # the byte stream. We only reach here when the workflow explicitly
+        # set allow_pickle=True; _check_pickle_allowed already raised
+        # otherwise and logged a loud WARNING. A shared/untrusted workflow
+        # enabling allow_pickle is a remote-code-execution vector — only
+        # load .pkl files you trust. See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
@@ -335,6 +368,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -347,6 +381,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -363,6 +398,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -389,6 +425,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(ndim)],
             shape=shape,
             dtype=dtype,
+            framework=_source_framework(path),
             storage_ref=ref,
         )
 
@@ -406,6 +443,7 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
             axes=[f"axis_{i}" for i in range(arr.ndim)],
             shape=tuple(arr.shape),
             dtype=str(arr.dtype),
+            framework=_source_framework(path),
         )
         result._data = arr  # type: ignore[attr-defined]
         return result
@@ -441,6 +479,9 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
     fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE.
+        # Reached only on an explicit allow_pickle=True opt-in (the gate
+        # raised + warned otherwise). See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
@@ -461,6 +502,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -472,6 +514,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -499,6 +542,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
         df = DataFrame(
             columns=list(table.column_names),
             row_count=int(table.num_rows),
+            framework=_source_framework(path),
         )
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
@@ -530,6 +574,9 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
     fmt = _resolve_format(path, detector)
 
     if _check_pickle_allowed(path, config):
+        # SECURITY (#1545 / BUG-10): pickle.load EXECUTES ARBITRARY CODE.
+        # Reached only on an explicit allow_pickle=True opt-in (the gate
+        # raised + warned otherwise). See the module docstring.
         import pickle
 
         with path.open("rb") as fh:
@@ -550,6 +597,8 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
                 f"got {len(df.columns) if df.columns else 0} columns in {path}"
             )
         # ADR-031: persist the arrow table to storage to fix payload loss.
+        # Direct in-process calls without output_dir still carry the transient
+        # table so smoke harnesses and unit tests do not observe an empty Series.
         table = getattr(df, "_arrow_table", None)
         storage_ref = None
         if table is not None and block is not None and output_dir:
@@ -558,7 +607,9 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
             index_name=None,
             value_name=df.columns[0],
             length=df.row_count,
+            framework=_source_framework(path),
             storage_ref=storage_ref,
+            data=None if storage_ref is not None else table,
         )
 
     raise ValueError(
@@ -603,6 +654,7 @@ def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
         content=content,
         format=_TEXT_FORMAT_MAP[suffix],
         encoding="utf-8",
+        framework=_source_framework(path),
     )
 
 
@@ -626,6 +678,7 @@ def _load_artifact(config: BlockConfig) -> Artifact:
         file_path=path,
         mime_type=mime,
         description=path.name,
+        framework=_source_framework(path),
     )
 
     sidecar = path.with_suffix(path.suffix + ".meta.json")
@@ -730,4 +783,4 @@ def _load_composite_data(config: BlockConfig, block: Any = None, output_dir: str
                 del slot_obj._arrow_table  # type: ignore[attr-defined]
         loaded_slots[slot_name] = slot_obj
 
-    return CompositeData(slots=loaded_slots)
+    return CompositeData(slots=loaded_slots, framework=_source_framework(path))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.resources as importlib_resources
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -42,8 +42,49 @@ def _port_response(port: Any, *, direction: str) -> BlockPortResponse:
     )
 
 
-def _config_schema_for_block(spec: Any) -> dict[str, Any]:
-    return spec.config_schema or {"type": "object", "properties": {}}
+def _type_names_for_io_direction(
+    registry: Any,
+    type_registry: Any,
+    *,
+    direction: str,
+) -> list[str]:
+    """Return all registered type names, with IO-capable types first."""
+    registered = set(type_registry.all_types().keys())
+    capable = {capability.data_type.__name__ for capability in registry.list_format_capabilities(direction=direction)}
+    core_order = ["Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"]
+    ordered = [name for name in core_order if name in registered]
+    ordered.extend(sorted(capable - set(ordered)))
+    ordered.extend(sorted(registered - set(ordered)))
+    return ordered
+
+
+def _config_schema_for_block(spec: Any, registry: Any = None, type_registry: Any = None) -> dict[str, Any]:
+    schema = spec.config_schema or {"type": "object", "properties": {}}
+    if registry is None or type_registry is None:
+        return schema
+    if spec.type_name not in {"load_data", "save_data"}:
+        return schema
+
+    import copy
+
+    direction = "load" if spec.type_name == "load_data" else "save"
+    merged = copy.deepcopy(schema)
+    properties = merged.setdefault("properties", {})
+    properties.pop("allow_pickle", None)
+    type_names = _type_names_for_io_direction(registry, type_registry, direction=direction)
+    properties["core_type"] = {
+        **properties.get("core_type", {}),
+        "title": "Type",
+        "enum": type_names,
+        "default": "DataFrame" if "DataFrame" in type_names else (type_names[0] if type_names else ""),
+        "ui_priority": 1,
+    }
+    if "path" in properties:
+        properties["path"]["title"] = "Path"
+        properties["path"]["ui_priority"] = 0
+        properties["path"]["ui_widget"] = "file_browser" if spec.type_name == "load_data" else "directory_browser"
+    merged["required"] = ["path", "core_type"]
+    return merged
 
 
 def _map_source(raw: str) -> str:
@@ -89,6 +130,67 @@ def _format_capability_response(capability: Any) -> FormatCapabilityResponse:
     )
 
 
+def _artifact_any_response(direction: str, template: FormatCapabilityResponse) -> FormatCapabilityResponse:
+    fidelity = template.metadata_fidelity
+    return FormatCapabilityResponse(
+        id=f"core.artifact.any.{direction}",
+        direction=direction,
+        data_type="Artifact",
+        format_id="any",
+        extensions=[],
+        label="Any",
+        block_type=template.block_type,
+        handler=template.handler,
+        is_default=True,
+        priority=template.priority,
+        roundtrip_group=None,
+        metadata_fidelity=MetadataFidelityResponse(
+            level=fidelity.level,
+            typed_meta_reads=list(fidelity.typed_meta_reads),
+            typed_meta_writes=list(fidelity.typed_meta_writes),
+            format_metadata_reads=list(fidelity.format_metadata_reads),
+            format_metadata_writes=list(fidelity.format_metadata_writes),
+            notes=fidelity.notes,
+        ),
+        is_synthesized=False,
+        migration_scaffold=False,
+    )
+
+
+def _collapse_artifact_capabilities_for_core_io(
+    capabilities: list[FormatCapabilityResponse],
+    *,
+    direction: str,
+) -> list[FormatCapabilityResponse]:
+    """Expose Artifact IO as one opaque Any choice in core Load/Save."""
+    collapsed: list[FormatCapabilityResponse] = []
+    artifact_template: FormatCapabilityResponse | None = None
+    artifact_inserted = False
+    for capability in capabilities:
+        if capability.data_type != "Artifact":
+            collapsed.append(capability)
+            continue
+        if artifact_template is None:
+            artifact_template = capability
+        if not artifact_inserted:
+            collapsed.append(_artifact_any_response(direction, capability))
+            artifact_inserted = True
+    return collapsed
+
+
+def _format_capability_responses_for_spec(spec: Any, registry: Any = None) -> list[FormatCapabilityResponse]:
+    if registry is not None:
+        capabilities = _all_format_capabilities_for_core_io(registry, spec)
+    else:
+        capabilities = list(getattr(spec, "format_capabilities", []))
+    responses = [_format_capability_response(capability) for capability in capabilities]
+    if spec.type_name == "load_data":
+        return _collapse_artifact_capabilities_for_core_io(responses, direction="load")
+    if spec.type_name == "save_data":
+        return _collapse_artifact_capabilities_for_core_io(responses, direction="save")
+    return responses
+
+
 def _is_plugin_package(name: str) -> bool:
     """Return True if *name* looks like an external plugin package.
 
@@ -101,7 +203,15 @@ def _is_plugin_package(name: str) -> bool:
     return name.startswith("scistudio-blocks-")
 
 
-def _summary(spec: Any) -> BlockSummary:
+def _all_format_capabilities_for_core_io(registry: Any, spec: Any) -> list[Any]:
+    if spec.type_name == "load_data":
+        return cast(list[Any], registry.list_format_capabilities(direction="load"))
+    if spec.type_name == "save_data":
+        return cast(list[Any], registry.list_format_capabilities(direction="save"))
+    return list(getattr(spec, "format_capabilities", []))
+
+
+def _summary(spec: Any, registry: Any = None) -> BlockSummary:
     raw_pkg = getattr(spec, "package_name", "") or ""
     # Only keep the package_name for genuine plugin packages so the
     # frontend groups core blocks together under "SciStudio Core".
@@ -120,16 +230,36 @@ def _summary(spec: Any) -> BlockSummary:
         package_name=package_name,
         variadic_inputs=bool(getattr(spec, "variadic_inputs", False)),
         variadic_outputs=bool(getattr(spec, "variadic_outputs", False)),
-        format_capabilities=[
-            _format_capability_response(capability) for capability in getattr(spec, "format_capabilities", [])
-        ],
+        format_capabilities=_format_capability_responses_for_spec(spec, registry),
     )
+
+
+def _is_replaced_io_palette_block(spec: Any) -> bool:
+    """Hide package-specific IO blocks now represented by core Load/Save."""
+    if spec.type_name in {"load_data", "save_data"}:
+        return False
+    if getattr(spec, "direction", "") not in {"input", "output"}:
+        return False
+    return bool(getattr(spec, "format_capabilities", []))
+
+
+def _dynamic_ports_for_core_io(spec: Any, registry: Any, type_registry: Any) -> dict[str, Any] | None:
+    if spec.type_name not in {"load_data", "save_data"}:
+        return cast(dict[str, Any] | None, spec.dynamic_ports)
+    direction = "load" if spec.type_name == "load_data" else "save"
+    type_names = _type_names_for_io_direction(registry, type_registry, direction=direction)
+    enum_map = {name: [name] for name in type_names}
+    if spec.type_name == "load_data":
+        return {"source_config_key": "core_type", "output_port_mapping": {"data": enum_map}}
+    return {"source_config_key": "core_type", "input_port_mapping": {"data": enum_map}}
 
 
 @router.get("/", response_model=BlockListResponse)
 async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
     """Return the full block palette available in the current registry."""
-    blocks = [_summary(spec) for spec in registry.all_specs().values()]
+    blocks = [
+        _summary(spec, registry) for spec in registry.all_specs().values() if not _is_replaced_io_palette_block(spec)
+    ]
     blocks.sort(key=lambda item: (item.base_category, item.subcategory, item.name))
     return BlockListResponse(blocks=blocks)
 
@@ -240,8 +370,8 @@ async def get_block_schema(
     if spec is None:
         raise HTTPException(status_code=404, detail=f"Unknown block type: {block_type}")
     return BlockSchemaResponse(
-        **_summary(spec).model_dump(),
-        config_schema=_config_schema_for_block(spec),
+        **_summary(spec, registry).model_dump(),
+        config_schema=_config_schema_for_block(spec, registry, type_registry),
         type_hierarchy=[
             TypeHierarchyEntry(
                 name=entry.name,
@@ -253,7 +383,7 @@ async def get_block_schema(
         # ADR-028 Addendum 1 D4 / D7: surface dynamic-port descriptor and IO
         # direction to the frontend so BlockNode.tsx can render dynamic-port
         # UI and IO-specific controls without hardcoded type checks.
-        dynamic_ports=spec.dynamic_ports,
+        dynamic_ports=_dynamic_ports_for_core_io(spec, registry, type_registry),
         # ADR-029 D11: variadic port type constraints for frontend port editor.
         allowed_input_types=list(getattr(spec, "allowed_input_types", []) or []),
         allowed_output_types=list(getattr(spec, "allowed_output_types", []) or []),

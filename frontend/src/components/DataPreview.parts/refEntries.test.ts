@@ -11,13 +11,19 @@ describe("extractRefEntries", () => {
 
   it("extracts a single entry from a top-level data_ref", () => {
     expect(extractRefEntries({ data_ref: "data-abc" })).toEqual([
-      { ref: "data-abc", displayName: "data-abc" },
+      {
+        id: "data-abc",
+        ref: "data-abc",
+        displayName: "data-abc",
+        outputPort: undefined,
+        target: { kind: "data_ref", ref: "data-abc" },
+      },
     ]);
   });
 
   it("falls back to truncated ref when no metadata source available", () => {
     expect(extractRefEntries({ data_ref: "data-abcdefghij-tail" })).toEqual([
-      { ref: "data-abcdefghij-tail", displayName: "data-abcde" },
+      expect.objectContaining({ ref: "data-abcdefghij-tail", displayName: "data-abcde" }),
     ]);
   });
 
@@ -26,7 +32,9 @@ describe("extractRefEntries", () => {
       data_ref: "data-xyz",
       metadata: { framework: { source: "/tmp/beads.tif" } },
     });
-    expect(result).toEqual([{ ref: "data-xyz", displayName: "beads.tif" }]);
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-xyz", displayName: "beads.tif" }),
+    ]);
   });
 
   it("falls back to metadata.meta.source_file when framework absent", () => {
@@ -34,7 +42,22 @@ describe("extractRefEntries", () => {
       data_ref: "data-xyz",
       metadata: { meta: { source_file: "/data/input.csv" } },
     });
-    expect(result).toEqual([{ ref: "data-xyz", displayName: "input.csv" }]);
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-xyz", displayName: "input.csv" }),
+    ]);
+  });
+
+  it("prefers source_file over package provenance framework source", () => {
+    const result = extractRefEntries({
+      data_ref: "data-xyz",
+      metadata: {
+        framework: { source: "scistudio-blocks-spectroscopy" },
+        meta: { source_file: "/data/Urd_01.txt" },
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-xyz", displayName: "Urd_01.txt" }),
+    ]);
   });
 
   it("falls back to metadata.meta.file_path when source_file absent", () => {
@@ -42,17 +65,40 @@ describe("extractRefEntries", () => {
       data_ref: "data-xyz",
       metadata: { meta: { file_path: "C:\\data\\sample.tif" } },
     });
-    expect(result).toEqual([{ ref: "data-xyz", displayName: "sample.tif" }]);
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-xyz", displayName: "sample.tif" }),
+    ]);
   });
 
-  it("handles collection kind by flattening its items", () => {
+  it("handles collection kind as one collection-first preview entry", () => {
     const result = extractRefEntries({
-      kind: "collection",
-      items: [{ data_ref: "data-1" }, { data_ref: "data-2" }],
+      images: {
+        kind: "collection",
+        item_type: "DataFrame",
+        items: [{ data_ref: "data-1", type_name: "DataFrame" }, { data_ref: "data-2" }],
+      },
     });
     expect(result).toEqual([
-      { ref: "data-1", displayName: "data-1" },
-      { ref: "data-2", displayName: "data-2" },
+      expect.objectContaining({
+        id: "collection:images",
+        ref: "collection:images",
+        displayName: "images (2)",
+        outputPort: "images",
+        target: expect.objectContaining({
+          kind: "collection_ref",
+          ref: "collection:images",
+          recorded_type: "DataFrame",
+          collection_item_type: "DataFrame",
+        }),
+        initialQuery: expect.objectContaining({
+          _collection_count: 2,
+          _collection_item_type: "DataFrame",
+          _collection_items: [
+            { data_ref: "data-1", type_name: "DataFrame" },
+            { data_ref: "data-2" },
+          ],
+        }),
+      }),
     ]);
   });
 

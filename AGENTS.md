@@ -135,24 +135,55 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
 - AI-authored work must use
   `docs/ai-developer/specific_rules/gated-workflow.md`.
 
-- Gate records must be created and updated with:
-  `python -m scistudio.qa.governance.gate_record`.
+- Supported task kinds: `hotfix`, `bugfix`, `feature`, `refactor`, `docs`,
+  `maintenance`, `manager`, `guided`. The `guided` task kind is for
+  owner-directed live implementation sessions; its default persona is
+  `live_implementer` and its specific rule is
+  `docs/ai-developer/specific_rules/guided-work.md`.
 
-- Local candidate receipts must be generated or validated with:
-  `python -m scistudio.qa.governance.gate_receipt`.
+- Supported personas: `manager`, `implementer`, `adr_author`,
+  `audit_reviewer`, `test_engineer`, `live_implementer`. The
+  `live_implementer` persona guide is at
+  `docs/ai-developer/personas/live-implementer.md`.
+
+- Gate records must be created and updated with the gate record ledger CLI:
+  `python -m scistudio.qa.governance.gate_record`.
+  The gate record is the single source of truth (ADR-042 Addendum 6).
+  Receipt behavior is folded into the ledger. There is no separate
+  `gate_receipt` command; use `gate_record check --mode pre-pr` and
+  `gate_record finalize` instead.
+
+- The primary workflow commands are `init`, `plan`, `amend`, `check`, and
+  `finalize`. `check` observes the git diff, infers tier-selected
+  CI-equivalent checks, runs them, records sanitized ledger events, and
+  reports unsatisfied obligations. `finalize` has a pre-PR mode (before the
+  PR exists) and a post-PR mode (after the PR URL or number is known).
 
 - AI-authored PRs must use the gate-aware wrapper
-  `python scripts/scistudio_pr_create.py` per ADR-042 Addendum 5.
+  `python scripts/scistudio_pr_create.py`.
   Direct `gh pr create` invocations may pass the open-PR step but typically
   trigger more CI fix-and-push cycles.
 
 - The worktree write guard PreToolUse hook
-  (`scripts/hooks/check-worktree-write-guard.sh`) blocks AI Edit/Write outside
-  the active branch's committed gate scope. Use `gate_record amend` before
-  touching newly discovered files.
+  (`scripts/hooks/check-worktree-write-guard.sh`) blocks AI Edit/Write when
+  the agent is operating in the main repository working tree, which means the
+  agent forgot to create a dedicated worktree. It allows all writes inside
+  linked git worktrees and writes outside the repository entirely (for example
+  to memory files). The guard does not depend on the current working directory;
+  it checks whether the target file path is inside the main checkout vs. a
+  linked worktree. Use `gate_record amend` before touching files outside the
+  original plan when working inside a worktree.
+
+- `docs/ai-developer/**` is a governance surface (ADR-042 Addendum 6 §7.8).
+  Editing rules, persona guides, specific rules, dispatch templates, or skills
+  under `docs/ai-developer/` requires a `governance_touch` declaration in the
+  gate ledger, focused scope, and owner review.
 
 - The AI-facing gate command set is indexed in
-  `docs/ai-developer/rules.md#5-gate-cli-command-set`.
+  `docs/ai-developer/rules.md#5-gate-cli-command-set`. The full consolidated
+  reference (every argument table, the `--mode` family, exit codes, strictness
+  tiers, per-task-kind and per-persona profiles, and a soft-routing decision
+  guide) is `docs/ai-developer/gate-cli-command-set.md`.
 
 ### 3.8 Hotfix Mode
 
@@ -178,7 +209,14 @@ If any item is missing, the task is not complete.
   repository.
 
 - Use `docs/ai-developer/rules.md#5-gate-cli-command-set` for the canonical
-  AI-facing gate record and local receipt commands.
+  AI-facing gate ledger CLI commands (`init`, `plan`, `amend`, `check`,
+  `finalize`). There is no separate `gate_receipt` command; receipt behavior
+  is folded into the ledger as of ADR-042 Addendum 6.
+
+- Use `docs/ai-developer/gate-cli-command-set.md` for the full consolidated
+  gate CLI reference: every argument table, the `--mode` family, exit codes,
+  strictness tiers, per-task-kind and per-persona obligation profiles, and a
+  soft-routing decision guide an agent can follow to self-route a task.
 
 - Use `docs/ai-developer/specific_rules/gated-workflow.md` if you are doing
   AI-authored work that needs gate evidence.
@@ -190,6 +228,9 @@ If any item is missing, the task is not complete.
 
 - Use `docs/ai-developer/specific_rules/hotfix.md` if the owner explicitly
   authorizes hotfix mode.
+
+- Use `docs/ai-developer/specific_rules/guided-work.md` if you are carrying out
+  owner-directed live implementation (task kind `guided`).
 
 - Use `docs/ai-developer/specific_rules/docs-change.md` if you are changing
   documentation.
@@ -211,6 +252,11 @@ If any item is missing, the task is not complete.
 
 - Use `docs/ai-developer/personas/audit-reviewer.md` if you are auditing code,
   docs, behavior, or claimed work.
+
+- Use `docs/ai-developer/personas/live-implementer.md` if you are the
+  `live_implementer` persona carrying out a `guided` task kind. This persona
+  guide explains directive ledger events, dynamic scope rules, and mandatory
+  final checks before PR readiness.
 
 - Use `docs/ai-developer/templates/agent-dispatch-checklist-template.md` if you
   are creating a manager checklist.

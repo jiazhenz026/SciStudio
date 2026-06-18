@@ -6,6 +6,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 from scistudio.qa.audit.governed import display_path, governed_file_matches, load_governed_documents
+from scistudio.qa.audit.planned_governance import planned_surface_findings
 from scistudio.qa.schemas.facts import FactsRegistry
 from scistudio.qa.schemas.frontmatter import ADRFrontmatter, GovernedSurfaces, SpecFrontmatter
 from scistudio.qa.schemas.maintainers import Maintainers
@@ -75,47 +76,57 @@ def check_bidirectional(
         )
 
     for document in governed_docs:
-        if not _active_governance(document.frontmatter):
-            continue
-        governs = _governs(document.frontmatter)
         doc_path = display_path(document.path, root)
-        modules.update(governs.modules)
-        contracts.update(governs.contracts)
-        for module in governs.modules:
-            if not _module_resolves(module, symbol_subjects):
-                findings.append(
-                    Finding(
-                        rule_id="closure.unresolved-module-claim",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed module claim does not resolve: {module}",
-                        symbol=module,
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+        if _active_governance(document.frontmatter):
+            governs = _governs(document.frontmatter)
+            modules.update(governs.modules)
+            contracts.update(governs.contracts)
+            for module in governs.modules:
+                if not _module_resolves(module, symbol_subjects):
+                    findings.append(
+                        Finding(
+                            rule_id="closure.unresolved-module-claim",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed module claim does not resolve: {module}",
+                            symbol=module,
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
-        for contract in governs.contracts:
-            if contract not in symbol_subjects:
-                findings.append(
-                    Finding(
-                        rule_id="closure.unresolved-contract-claim",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed contract claim does not resolve: {contract}",
-                        symbol=contract,
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+            for contract in governs.contracts:
+                if contract not in symbol_subjects:
+                    findings.append(
+                        Finding(
+                            rule_id="closure.unresolved-contract-claim",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed contract claim does not resolve: {contract}",
+                            symbol=contract,
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
-        for pattern in governs.files:
-            if not governed_file_matches(root, pattern):
-                findings.append(
-                    Finding(
-                        rule_id="closure.unresolved-file-claim",
-                        severity=Severity.ERROR,
-                        file=doc_path,
-                        message=f"governed file claim does not resolve: {pattern}",
-                        drift_class=DriftClass.PHANTOM_REFERENCE,
+            for pattern in governs.files:
+                if not governed_file_matches(root, pattern):
+                    findings.append(
+                        Finding(
+                            rule_id="closure.unresolved-file-claim",
+                            severity=Severity.ERROR,
+                            file=doc_path,
+                            message=f"governed file claim does not resolve: {pattern}",
+                            drift_class=DriftClass.PHANTOM_REFERENCE,
+                        )
                     )
-                )
+
+        findings.extend(
+            planned_surface_findings(
+                document.frontmatter,
+                doc_path=doc_path,
+                rule_prefix="closure",
+                module_exists=lambda claim: _module_resolves(claim, symbol_subjects),
+                contract_exists=lambda claim: claim in symbol_subjects,
+                file_exists=lambda claim: bool(governed_file_matches(root, claim)),
+            )
+        )
 
     maintainer_covered_symbols = 0
     for subject in sorted(symbol_subjects):
@@ -138,7 +149,7 @@ def check_bidirectional(
 
     return AuditReport(
         tool="closure",
-        status=AuditStatus.FAIL if findings else AuditStatus.PASS,
+        status=AuditStatus.FAIL if any(f.severity == Severity.ERROR for f in findings) else AuditStatus.PASS,
         source_sha=facts.source_sha,
         findings=findings,
         summary={

@@ -19,13 +19,14 @@ governs:
     - scistudio.qa.governance
     - scistudio.qa.governance.gate_record
   contracts:
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-    - scistudio.qa.governance.gate_record.validation.check_pre_push
-    - scistudio.qa.governance.gate_record.validation.check_pr_ready
-    - scistudio.qa.governance.gate_record.validation.check_pr
-    - scistudio.qa.governance.gate_record.workflow.run_ci
-    - scistudio.qa.governance.core_change_guard.check
-    - scistudio.qa.governance.human_bypass_guard.check
+    # Restructured by ADR-042 Addendum 6: the standalone ``validation`` and
+    # ``workflow`` modules (per-stage validators and ``run_ci``) collapsed into
+    # the single shared ``evaluator.reconcile`` entry point, and the guard
+    # modules moved under ``gate_record.guards``. The contract paths below
+    # point to the canonical definition sites in that layout.
+    - scistudio.qa.governance.gate_record.evaluator.reconcile
+    - scistudio.qa.governance.gate_record.guards.core_change_guard.check
+    - scistudio.qa.governance.gate_record.guards.human_bypass_guard.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum5.md
@@ -73,15 +74,27 @@ translations: []
 
 ## 1. Decision Summary
 
+> **Note (ADR-042 Addendum 6):** The implementation symbols this addendum
+> governs were restructured by Addendum 6. The per-stage `validation`
+> validators and `workflow.run_ci` collapsed into the single shared
+> `evaluator.reconcile` entry point, and the guard modules moved under
+> `gate_record.guards`. The `gate_receipt` module was also folded into the
+> gate-record ledger. The `governs` block has been repointed to the surviving
+> symbols.
+
 This addendum accepts a stricter local gate model for AI-authored SciStudio
 work. The model closes the gap between local claims and CI evidence by making
 the exact push candidate prove its required checks before `git push` or PR
 creation.
 
-The implementation is tracked by issue #1492. The initial implementation adds
-`gate_receipt`, shared `gate_record ci` orchestration, scoped local bypass
-semantics, PR-wrapper receipt validation, push/PR hook receipt validation, and
-AI write-guard provisioning.
+The implementation is tracked by issue #1492. This addendum's original command
+surface was superseded by the ADR-042 Addendum 6 gate-ledger runtime: current
+AI-authored work uses `gate_record check` and `gate_record finalize`, with
+receipt behavior stored as ledger events rather than a separate `gate_receipt`
+command. The historical implementation described below added `gate_receipt`,
+shared `gate_record ci` orchestration, scoped local bypass semantics,
+PR-wrapper receipt validation, push/PR hook receipt validation, and AI
+write-guard provisioning.
 
 | Decision | Change | Enforcement target | Detailed section |
 |---|---|---|---|
@@ -165,7 +178,7 @@ Override labels are not interchangeable.
 | `human-authored` | AI-only harness checks after authorized label provenance is verified | Repository quality checks, CI, issue closure when required by PR policy |
 | `admin-approved:core-change` | Protected core path authorization only | Scope include/exclude, issue linkage, docs landing, full audit, receipt validity, required checks, CI parity |
 | `admin-approved:merge` | AI-initiated merge automation only | Test, docs, audit, receipt, and workflow-gate correctness |
-| `admin-approved:ai-override` | Explicit one-off AI gate override | Branch protection, normal CI quality checks, owner review |
+| `admin-approved:bypass` | Explicit one-off AI gate override | Branch protection, normal CI quality checks, owner review |
 
 Local hook bypass handling must be guard-specific. A valid
 `admin-approved:core-change` signal may satisfy `core_change_guard`, but the

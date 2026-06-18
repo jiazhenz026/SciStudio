@@ -196,7 +196,7 @@ If a legitimate code addition causes the ratchet to fail and the maintainer
 decides the new duplication is acceptable (e.g. platform-branch code,
 parallel reader implementations that must stay split for licensing
 reasons), the addition follows the existing override-label workflow under
-ADR-042 §5: the PR gains an `admin-approved:ai-override` label with a
+ADR-042 §5: the PR gains an `admin-approved:bypass` label with a
 written rationale.
 
 ## 5. CI Integration and Full Audit Integration

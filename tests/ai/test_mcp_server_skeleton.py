@@ -26,14 +26,20 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
-#   phase. This file's assertions encode the ADR-033-era MCPServer
-#   shape (hand-rolled asyncio JSON-RPC, 25-tool registry, etc.) which
-#   is replaced by FastMCP in I40a Phase 2a. Re-author against the new
-#   shape there. Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-#   Followup: #1012.
+# TODO(#1539): This file encodes ADR-033-era MCPServer shape assertions
+#   (hand-rolled asyncio JSON-RPC, 25-tool registry, MCPServer class, etc.)
+#   that are permanently superseded by the FastMCP migration (ADR-040 §3.1,
+#   I40a Phase 2a). The replacement contract tests live in
+#   tests/ai/test_mcp_fastmcp.py (27 tools, strict inputSchema, result
+#   models, finish_ai_block, etc.). This file cannot be restored against the
+#   current shape without a full re-author, which is tracked by #1012.
+#   Followup: https://github.com/zjzcpj/SciStudio/issues/1539
 pytestmark = pytest.mark.skip(
-    reason="S40a skeleton — ADR-033-era shape assertions superseded by FastMCP migration. TODO(#1012): I40a Phase 2a re-authors."
+    reason=(
+        "ADR-033-era MCPServer shape permanently superseded by FastMCP (ADR-040 §3.1). "
+        "Replacement coverage is in test_mcp_fastmcp.py. "
+        "Re-author tracked by #1012 / #1539."
+    )
 )
 
 _MCP_SUBMODULES: tuple[str, ...] = (

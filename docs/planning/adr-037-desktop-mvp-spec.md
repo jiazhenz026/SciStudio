@@ -122,7 +122,7 @@ are present in the bundled Python environment. It does not install dependencies.
 
 ### 5.3 Path Resolver
 
-- Add `src/scistudio/paths.py`:
+- Add `src/scistudio/desktop/paths.py`:
   - `config_dir()`, `cache_dir()`, `logs_dir()`, `plugins_dir()`,
     `shared_model_cache()`, `desktop_resources_dir()`, `bundled_resource()`,
     and `bundled_packages_dir()`;

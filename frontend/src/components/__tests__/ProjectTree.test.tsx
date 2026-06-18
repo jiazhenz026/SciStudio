@@ -5,7 +5,7 @@
  * action:
  *   - workflows/<name>.yaml -> onLoadWorkflow
  *   - blocks/<name>.py      -> onReloadBlocks AND store.openFileTab
- *   - <name>.{py,md,json,csv,txt} anywhere -> store.openFileTab
+ *   - <name>.{py,r,md,json,csv,txt} anywhere -> store.openFileTab
  *   - <name>.tiff (not in editable set) -> NO action
  */
 
@@ -103,6 +103,7 @@ describe("ProjectTree — ADR-036 §3.5 double-click wiring (I36c)", () => {
     ["data.json", "data.json"],
     ["table.csv", "table.csv"],
     ["readme.txt", "readme.txt"],
+    ["render.R", "render.R"],
   ])("double-click on %s opens %s in the editor", async (name, expectedPath) => {
     const openFileTab = vi.fn();
     useAppStore.setState({ openFileTab });

@@ -57,7 +57,9 @@ language_source: en
 
 - MUST run the targeted test that proves the bug is fixed.
 
-- MUST run the checks required by the gate plan.
+- MUST run `gate_record check` to run the tier-selected CI-equivalent checks
+  required for the observed diff. Do not run ruff, mypy, pytest, or full audit
+  separately; `check` derives and runs the full set.
 
 ## 5. Deferral Rules
 
@@ -81,6 +83,10 @@ Use these rules with:
 - `docs/ai-developer/personas/adr-author.md` when the fix requires ADR/spec
   text
 
-ADR-042 Addendum 5 receipt and the `scripts/scistudio_pr_create.py` wrapper
-are mandatory for every bug-fix PR; see
+The `scripts/scistudio_pr_create.py` wrapper is mandatory for every bug-fix PR.
+`gate_record check --mode pre-pr` and pre-PR `finalize` replace the old
+`gate_receipt` tooling; see
 `docs/ai-developer/specific_rules/gated-workflow.md` §3.6 and §3.7.
+
+`bugfix` is a Tier 2 task. The full task-kind CLI argument profile is in
+ADR-042 Addendum 6 §7.7.4.
