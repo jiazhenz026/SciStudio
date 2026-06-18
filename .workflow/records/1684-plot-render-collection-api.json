@@ -987,6 +987,147 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-18T18:03:25.982087Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:03:26.691054Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:03:27.307462Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-18T18:03:31.285751Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:03:31.837171Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:03:31.888153Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-18T18:05:28.187865Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:07:26.704307Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:07:34.714079Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac04c47e9ea3b1910cf9550b3f3a5b75a0cf272ff0176d442cffd22698834651",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -1017,6 +1158,16 @@
     {
       "at": "2026-06-18T07:13:33.480819Z",
       "owner_directive": "Complete #1684 per spec: context-free render API for Python/R, no compatibility layer, core-base collection helpers, native conversions, memory guard, docs/tests updated.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-06-18T17:56:52.900378Z",
+      "owner_directive": "Fix the two Codex review comments on PR 1685 and push one commit back to the PR branch.",
+      "reason": "Address PR 1685 Codex review threads: enforce cumulative collection.items.open() input cap in Python/R and avoid blank R base-device artifact for path returns."
+    },
+    {
+      "at": "2026-06-18T17:56:53.079209Z",
+      "owner_directive": "Implement PR 1685 Codex review fixes in the plot harness with regression coverage.",
       "reason": "plan"
     }
   ],
@@ -1051,6 +1202,22 @@
       "kind": "path",
       "path": "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:56:52.900654Z",
+      "class": "review-fix",
+      "kind": "na",
+      "path": null,
+      "rationale": "No documentation change; this tightens the existing documented memory cap and artifact promotion behavior.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:56:53.079369Z",
+      "class": "review-fix",
+      "kind": "na",
+      "path": null,
+      "rationale": "No public contract text changes required for these review fixes.",
       "verified_in_diff": null
     }
   ],
@@ -1601,6 +1768,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.790791Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.801954Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.812618Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.823231Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.833401Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.844158Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.854997Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.869401Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.881467Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:07:34.902483Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1613,7 +1862,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "b6083ceabb7b390a30d5d111c49491d9c8bd60cb",
+    "base": "origin/main",
     "base_sha": "b6083cea",
     "changed_files": [
       ".workflow/records/1684-plot-render-collection-api.json",
@@ -1631,9 +1880,9 @@
       "tests/api/test_plot_preview_wiring.py",
       "tests/api/test_preview_plot_jobs.py"
     ],
-    "diff_fingerprint": "sha256:b759834a46fe77f95515c9a9ab826f5798a62013a470dff009eb2789f454e786",
+    "diff_fingerprint": "sha256:012bd235c01edf715d3956b4abc53ba3cd666cff53d8a843c9c4c3dd97d85c72",
     "head": "HEAD",
-    "head_sha": "4d5f2560",
+    "head_sha": "104b3112",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -1727,13 +1976,31 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-18T18:07:34.902529Z",
+      "diff_fingerprint": "sha256:012bd235c01edf715d3956b4abc53ba3cd666cff53d8a843c9c4c3dd97d85c72",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1684-plot-render-collection-api",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
     "docs": [
       "docs_required_or_na"
     ],
@@ -1767,6 +2034,30 @@
       "at": "2026-06-18T07:45:01.746563Z",
       "pattern": "tests/api/test_plot_preview_wiring.py",
       "reason": "Add API plot preview wiring regression tests updated for context-free render API."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:56:52.900631Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+      "reason": "Address PR 1685 Codex review threads: enforce cumulative collection.items.open() input cap in Python/R and avoid blank R base-device artifact for path returns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:56:52.900637Z",
+      "pattern": "tests/ai/test_mcp_tools_plot.py",
+      "reason": "Address PR 1685 Codex review threads: enforce cumulative collection.items.open() input cap in Python/R and avoid blank R base-device artifact for path returns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:56:53.079354Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/_harness.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:56:53.079360Z",
+      "pattern": "tests/ai/test_mcp_tools_plot.py",
+      "reason": "plan"
     }
   ],
   "session_id": "4ec3190d-1a3a-4451-9e43-4d85cd93c7fc",
@@ -1794,6 +2085,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_plot_preview_wiring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:56:52.900925Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:56:53.079377Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_plot.py",
       "rationale": null,
       "verified_in_diff": null
     }

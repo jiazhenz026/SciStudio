@@ -130,6 +130,52 @@ def _guard_file_or_dir(path, limit, label):
         _guard_nbytes(_directory_size(p), limit, label)
 
 
+def _path_nbytes(path):
+    if not path:
+        return None
+    p = Path(path)
+    if p.is_file():
+        return p.stat().st_size
+    if p.is_dir():
+        return _directory_size(p)
+    return None
+
+
+def _ref_nbytes(ref):
+    typ = ref.get("type") or "DataObject"
+    if typ == "Artifact":
+        return 0
+    if typ == "CompositeData":
+        md = ref.get("metadata")
+        slots = md.get("slots") if isinstance(md, dict) else None
+        if not isinstance(slots, dict):
+            return 0
+        total = 0
+        found = False
+        for slot_ref in slots.values():
+            if isinstance(slot_ref, dict):
+                nbytes = _ref_nbytes(slot_ref)
+                if nbytes is not None:
+                    total += int(nbytes)
+                    found = True
+        return total if found else None
+    estimated = _metadata_estimated_nbytes(ref)
+    if estimated is not None:
+        return estimated
+    if typ in {"Array", "DataFrame", "Series", "Text"}:
+        return _path_nbytes(ref.get("_path"))
+    return None
+
+
+def _guard_collection_nbytes(refs, limit, label):
+    total = 0
+    for ref in refs:
+        nbytes = _ref_nbytes(ref)
+        if nbytes is not None:
+            total += int(nbytes)
+            _guard_nbytes(total, limit, label)
+
+
 def _read_array(ref, limit):
     raw_path = ref.get("_path")
     if not raw_path:
@@ -295,6 +341,7 @@ class _PlotItem:
 class _PlotItems:
     def __init__(self, refs, max_input_bytes):
         self._items = [_PlotItem(ref, max_input_bytes) for ref in refs]
+        self._max_input_bytes = int(max_input_bytes)
 
     def __len__(self):
         return len(self._items)
@@ -309,6 +356,7 @@ class _PlotItems:
         items = self._items
         if max_items is not None:
             items = items[: int(max_items)]
+        _guard_collection_nbytes([item._ref for item in items], self._max_input_bytes, "collection.items.open()")
         return [item.open() for item in items]
 
     def open_one(self):
@@ -462,9 +510,20 @@ guard_bytes <- function(nbytes, label) {
 }
 
 guard_path <- function(path, label) {
-  if (file.exists(path) && !dir.exists(path)) {
-    guard_bytes(file.info(path)$size, label)
+  guard_bytes(path_nbytes(path), label)
+}
+
+path_nbytes <- function(path) {
+  if (is.null(path) || !file.exists(path)) return(NA_real_)
+  if (dir.exists(path)) {
+    files <- list.files(path, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE)
+    files <- files[file.exists(files) & !dir.exists(files)]
+    if (length(files) == 0) return(0)
+    sizes <- file.info(files)$size
+    if (all(is.na(sizes))) return(NA_real_)
+    return(sum(sizes, na.rm = TRUE))
   }
+  file.info(path)$size
 }
 
 dtype_size <- function(dtype) {
@@ -493,6 +552,42 @@ metadata_nbytes <- function(ref) {
 
 guard_ref <- function(ref, label) {
   guard_bytes(metadata_nbytes(ref), label)
+}
+
+ref_nbytes <- function(ref) {
+  typ <- ref$type
+  if (is.null(typ)) typ <- "DataObject"
+  if (typ == "Artifact") return(0)
+  if (typ == "CompositeData") {
+    slots <- ref$metadata$slots
+    if (is.null(slots) || !is.list(slots)) return(0)
+    total <- 0
+    found <- FALSE
+    for (name in names(slots)) {
+      nbytes <- ref_nbytes(slots[[name]])
+      if (!is.na(nbytes)) {
+        total <- total + nbytes
+        found <- TRUE
+      }
+    }
+    if (found) return(total)
+    return(NA_real_)
+  }
+  estimated <- metadata_nbytes(ref)
+  if (!is.na(estimated)) return(estimated)
+  if (typ %in% c("Array", "DataFrame", "Series", "Text")) return(path_nbytes(ref$`_path`))
+  NA_real_
+}
+
+guard_refs <- function(refs, label) {
+  total <- 0
+  for (ref in refs) {
+    nbytes <- ref_nbytes(ref)
+    if (!is.na(nbytes)) {
+      total <- total + nbytes
+      guard_bytes(total, label)
+    }
+  }
 }
 
 public_metadata <- function(ref) {
@@ -583,8 +678,10 @@ make_items <- function(refs) {
   hidden <- lapply(refs, make_item)
   items$._items <- hidden
   items$open <- function(max_items = NULL) {
-    selected <- hidden
-    if (!is.null(max_items)) selected <- selected[seq_len(min(as.integer(max_items), length(hidden)))]
+    selected_indices <- seq_along(hidden)
+    if (!is.null(max_items)) selected_indices <- seq_len(min(as.integer(max_items), length(hidden)))
+    selected <- hidden[selected_indices]
+    guard_refs(refs[selected_indices], "collection$items$open()")
     lapply(selected, function(item) item$open())
   }
   items$open_one <- function() {
@@ -611,10 +708,14 @@ make_collection <- function(envelope) {
   if (is.null(left)) right else left
 }
 
+normalise_existing_path <- function(path) {
+  tryCatch(normalizePath(path, mustWork = TRUE, winslash = "/"), error = function(e) NA_character_)
+}
+
 safe_artifact_path <- function(path) {
   candidate <- if (grepl("^([A-Za-z]:)?[\\\\/]", path)) path else file.path(out_dir, path)
-  resolved <- normalizePath(candidate, mustWork = TRUE, winslash = "/", unset = NA)
-  root <- normalizePath(out_dir, mustWork = TRUE, winslash = "/", unset = NA)
+  resolved <- normalise_existing_path(candidate)
+  root <- normalise_existing_path(out_dir)
   if (is.na(resolved) || !startsWith(resolved, root)) {
     stop("returned artifact path escapes the plot working directory")
   }
@@ -654,6 +755,11 @@ device_filename <- function() {
   paste0("figure.", suffix)
 }
 
+device_temp_filename <- function() {
+  suffix <- if (preferred == "jpeg") "jpg" else preferred
+  paste0(".scistudio-base-device.", suffix)
+}
+
 open_device <- function(path) {
   ext <- check_format(path)
   if (ext == "svg") grDevices::svg(path)
@@ -662,21 +768,35 @@ open_device <- function(path) {
   else grDevices::jpeg(path)
 }
 
+close_device <- function(device_id) {
+  devices <- grDevices::dev.list()
+  if (!is.null(devices) && device_id %in% as.integer(devices)) {
+    grDevices::dev.off(device_id)
+  }
+}
+
 result <- tryCatch({
   envelope <- jsonlite::fromJSON(inputs_json, simplifyVector = FALSE)
   collection <- make_collection(envelope)
   source(script_name, local = TRUE)
   render_fn <- get(entrypoint)
 
-  device_file <- file.path(out_dir, device_filename())
+  device_file <- file.path(out_dir, device_temp_filename())
   open_device(device_file)
-  before_pages <- grDevices::dev.cur()
+  base_device <- grDevices::dev.cur()
   rendered <- render_fn(collection)
-  grDevices::dev.off()
+  close_device(base_device)
 
   artifacts <- collect_returned(rendered)
   if (length(artifacts) == 0 && file.exists(device_file) && file.info(device_file)$size > 0) {
-    artifacts <- basename(device_file)
+    final_device_file <- file.path(out_dir, device_filename())
+    if (!file.rename(device_file, final_device_file)) {
+      file.copy(device_file, final_device_file, overwrite = TRUE)
+      unlink(device_file)
+    }
+    artifacts <- basename(final_device_file)
+  } else if (file.exists(device_file)) {
+    unlink(device_file)
   }
   if (length(artifacts) == 0) stop("render(collection) produced no plot artifact")
   list(ok = TRUE, artifacts = artifacts)

@@ -629,6 +629,55 @@ def test_open_enforces_input_memory_guard(project: Path, csv_output: Path) -> No
     assert any("memory cap" in e for e in res.errors)
 
 
+def test_collection_open_enforces_cumulative_input_memory_guard(project: Path, tmp_path: Path) -> None:
+    first = tmp_path / "measurements_a.csv"
+    second = tmp_path / "measurements_b.csv"
+    first.write_text("x,y\n1,2\n3,4\n", encoding="utf-8")
+    second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
+    metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
+    runtime = _make_runtime(project)
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "_collection": True,
+                    "item_type": "DataFrame",
+                    "items": [
+                        {
+                            "backend": "filesystem",
+                            "path": str(first),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                        {
+                            "backend": "filesystem",
+                            "path": str(second),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                    ],
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="too_big_collection", target_id=tid, language="python"))
+    manifest = project / "plots" / "too_big_collection" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("max_input_bytes: 67108864", "max_input_bytes: 300"),
+        encoding="utf-8",
+    )
+    _write_render(
+        project,
+        "too_big_collection",
+        ("def render(collection):\n    collection.items.open()\n    return None\n"),
+    )
+    res = _run(run_plot_job(plot_id="too_big_collection"))
+    assert res.status == "failed"
+    assert any("memory cap" in e for e in res.errors)
+
+
 def test_run_python_sanitized_failure(project: Path, csv_output: Path) -> None:
     _set_ctx(_make_runtime(project, with_output_csv=csv_output))
     tid = _target_id(project)
@@ -821,3 +870,85 @@ def test_run_r_ggplot2(project: Path, csv_output: Path) -> None:
     assert res.status in {"succeeded", "failed"}
     if res.status == "succeeded":
         assert any(p.endswith(".svg") for p in res.artifact_paths)
+
+
+@pytest.mark.requires_r
+def test_run_r_collection_open_enforces_cumulative_input_memory_guard(project: Path, tmp_path: Path) -> None:
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    first = tmp_path / "measurements_a.csv"
+    second = tmp_path / "measurements_b.csv"
+    first.write_text("x,y\n1,2\n3,4\n", encoding="utf-8")
+    second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
+    metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
+    runtime = _make_runtime(project)
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "_collection": True,
+                    "item_type": "DataFrame",
+                    "items": [
+                        {
+                            "backend": "filesystem",
+                            "path": str(first),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                        {
+                            "backend": "filesystem",
+                            "path": str(second),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                    ],
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="r_too_big_collection", target_id=tid, language="r"))
+    manifest = project / "plots" / "r_too_big_collection" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("max_input_bytes: 67108864", "max_input_bytes: 300"),
+        encoding="utf-8",
+    )
+    (project / "plots" / "r_too_big_collection" / "render.R").write_text(
+        "render <- function(collection) {\n  collection$items$open()\n  NULL\n}\n",
+        encoding="utf-8",
+    )
+    res = _run(run_plot_job(plot_id="r_too_big_collection"))
+    assert res.status == "failed"
+    assert any("memory cap" in e for e in res.errors)
+
+
+@pytest.mark.requires_r
+def test_run_r_returned_path_does_not_count_blank_base_device(project: Path, csv_output: Path) -> None:
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    _set_ctx(_make_runtime(project, with_output_csv=csv_output))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="r_path_return", target_id=tid, language="r"))
+    manifest = project / "plots" / "r_path_return" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8")
+        .replace("preferred_format: svg", "preferred_format: pdf")
+        .replace("max_files: 8", "max_files: 1"),
+        encoding="utf-8",
+    )
+    (project / "plots" / "r_path_return" / "render.R").write_text(
+        (
+            "render <- function(collection) {\n"
+            "  grDevices::pdf('custom.pdf')\n"
+            "  plot(c(1, 2, 3), c(1, 4, 9))\n"
+            "  grDevices::dev.off()\n"
+            "  'custom.pdf'\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+    res = _run(run_plot_job(plot_id="r_path_return"))
+    assert res.status == "succeeded", res.errors
+    assert len(res.artifact_paths) == 1
+    assert Path(res.artifact_paths[0]).name == "current.pdf"
