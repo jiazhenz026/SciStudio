@@ -59,6 +59,14 @@
       "path": "docs/audit/2026-06-18-adr-050-canvas-node-readability-no-context.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:33:01.602139Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-050-canvas-node-readability.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,

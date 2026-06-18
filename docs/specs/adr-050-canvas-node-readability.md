@@ -95,16 +95,13 @@ governs:
     - frontend/src/components/WorkflowCanvas.parts/useFlowCallbacks.ts
     - frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts
     - frontend/src/components/nodes/BlockNode.tsx
-    - frontend/src/components/nodes/BlockNode.parts/AddPortDialog.tsx
-    - frontend/src/components/nodes/BlockNode.parts/ErrorMessage.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineCapabilitySelector.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineConfigField.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineTextInputField.tsx
-    - frontend/src/components/nodes/BlockNode.parts/PausedToast.tsx
-    - frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx
-    - frontend/src/components/nodes/BlockNode.parts/StatusBadge.tsx
-    - frontend/src/components/nodes/BlockNode.parts/badgeStyles.ts
-    - frontend/src/components/nodes/BlockNode.parts/inlineConfigHelpers.ts
+    # ADR-050 implementation deletes the inline-config / status-footer parts
+    # (InlineConfigField, InlineTextInputField, InlineCapabilitySelector,
+    # inlineConfigHelpers, ErrorMessage, StatusBadge, PausedToast) and adds the
+    # square-node parts (NodeStatusSurface, NodeActionToolbar, nodeGeometry).
+    # Governed via a glob so the manifest tracks the directory, not a frozen
+    # file list that drifts when parts are added/removed.
+    - frontend/src/components/nodes/BlockNode.parts/**
     - frontend/src/components/BottomPanel.tsx
     - frontend/src/components/BottomPanel.parts/ConfigPanel.tsx
     - frontend/src/components/BottomPanel.parts/FormatCapabilityConfig.tsx
