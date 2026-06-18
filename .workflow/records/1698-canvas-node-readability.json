@@ -383,6 +383,14 @@
       "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/applyFocus.test.ts",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:29:18.971124Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/e2e/specs/adr050-canvas-readability.spec.ts",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
