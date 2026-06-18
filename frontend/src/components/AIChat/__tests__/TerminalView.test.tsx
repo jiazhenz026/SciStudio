@@ -124,6 +124,7 @@ describe("TerminalView", () => {
     );
     await waitForTerm();
     expect(xtermState.lastInstance).toBeInstanceOf(FakeTerm);
+    expect(xtermState.lastInstance?.opts).toMatchObject({ convertEol: false });
     // fit + search + web-links + canvas (hotfix #1320: canvas renderer
     // replaces the default DOM renderer to fix alt-screen scroll ghosting).
     expect(xtermState.loadedAddons).toHaveLength(4);
@@ -146,6 +147,8 @@ describe("TerminalView", () => {
     expect(url).toContain("/api/ai/pty/abc");
     expect(url).toContain("dangerous=true");
     expect(url).toContain("provider=claude-code");
+    expect(url).toContain("cols=80");
+    expect(url).toContain("rows=24");
   });
 
   it("writes server stdout into the terminal", async () => {

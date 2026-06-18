@@ -69,6 +69,17 @@ def test_desktop_main_checks_windows_pty_python_dependency() -> None:
     assert "SCISTUDIO_DESKTOP_PYTHON" in main_js
 
 
+def test_desktop_runtime_env_adds_common_user_cli_paths() -> None:
+    """Dock/Finder-launched desktop sessions must still find user CLIs."""
+    main_js = (DESKTOP_DIR / "main.js").read_text(encoding="utf-8")
+
+    assert "commonUserCliDirs" in main_js
+    assert 'path.join(userHome, ".local", "bin")' in main_js
+    assert 'path.join(userHome, ".npm-global", "bin")' in main_js
+    assert '"/opt/homebrew/bin"' in main_js
+    assert '"/usr/local/bin"' in main_js
+
+
 def test_desktop_has_portable_python_runtime_builder() -> None:
     """The desktop MVP must have a reproducible self-contained Python builder."""
     script = DESKTOP_DIR / "scripts" / "build-python-runtime.ps1"

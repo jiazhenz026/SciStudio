@@ -7,17 +7,95 @@
  */
 import type { StoreApi } from "zustand";
 
-import type { BlockSummary, WorkflowEdge } from "../../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  BlockSummary,
+  WorkflowEdge,
+} from "../../types/api";
 import type { AppStore, WorkflowSlice } from "../types";
 import { markDirty, mergeNodeConfig, pushHistory } from "./workflowHelpers";
 
 type Setter = StoreApi<AppStore>["setState"];
+type Direction = "input" | "output";
+type VariadicPortParam = { name: string; types: string[] };
+
+function portsFor(schema: Partial<BlockSchemaResponse>, direction: Direction): BlockPortResponse[] {
+  return direction === "input" ? (schema.input_ports ?? []) : (schema.output_ports ?? []);
+}
+
+function minPortsFor(schema: Partial<BlockSchemaResponse>, direction: Direction): number | null {
+  const value = direction === "input" ? schema.min_input_ports : schema.min_output_ports;
+  return typeof value === "number" && value > 0 ? value : null;
+}
+
+function isVariadic(schema: Partial<BlockSchemaResponse>, direction: Direction): boolean {
+  return direction === "input"
+    ? schema.variadic_inputs === true
+    : schema.variadic_outputs === true;
+}
+
+function defaultTypesFor(schema: Partial<BlockSchemaResponse>, direction: Direction): string[] {
+  const allowedTypes =
+    direction === "input" ? (schema.allowed_input_types ?? []) : (schema.allowed_output_types ?? []);
+  return allowedTypes.length > 0 ? [allowedTypes[0]] : ["DataObject"];
+}
+
+function minimumVariadicPorts(
+  schema: Partial<BlockSchemaResponse>,
+  direction: Direction,
+): VariadicPortParam[] {
+  if (!isVariadic(schema, direction)) return [];
+  const minPorts = minPortsFor(schema, direction);
+  if (minPorts == null) return [];
+
+  const staticPorts = portsFor(schema, direction);
+  if (staticPorts.length >= minPorts) return [];
+
+  const fallbackTypes = defaultTypesFor(schema, direction);
+  return Array.from({ length: minPorts }, (_, index) => {
+    const staticPort = staticPorts[index];
+    const acceptedTypes =
+      staticPort?.accepted_types && staticPort.accepted_types.length > 0
+        ? staticPort.accepted_types
+        : fallbackTypes;
+    return {
+      name: staticPort?.name || `${direction}_${index + 1}`,
+      types: [...acceptedTypes],
+    };
+  });
+}
+
+export function createInitialNodeParams(
+  block: BlockSummary,
+  schema: BlockSchemaResponse | undefined,
+  defaultParams?: Record<string, unknown>,
+): Record<string, unknown> {
+  const params: Record<string, unknown> = { ...(defaultParams ?? {}) };
+  const source = (schema ?? block) as Partial<BlockSchemaResponse>;
+
+  for (const direction of ["input", "output"] as const) {
+    const key = direction === "input" ? "input_ports" : "output_ports";
+    const current = params[key];
+    if (Array.isArray(current) && current.length > 0) continue;
+    const seededPorts = minimumVariadicPorts(source, direction);
+    if (seededPorts.length > 0) {
+      params[key] = seededPorts;
+    }
+  }
+
+  return params;
+}
 
 export function createAddNode(set: Setter): WorkflowSlice["addNode"] {
   return (block: BlockSummary, position, defaultParams) =>
     set((state) => {
       const nodeId = `${block.type_name}-${Date.now()}`;
-      const params: Record<string, unknown> = { ...(defaultParams ?? {}) };
+      const params = createInitialNodeParams(
+        block,
+        (state as AppStore).blockSchemas[block.type_name],
+        defaultParams,
+      );
 
       // Auto-fill output_dir for AppBlock-category blocks with the
       // project exchange directory so users see the default path.

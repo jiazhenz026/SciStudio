@@ -12,7 +12,7 @@
  */
 import "@xterm/xterm/css/xterm.css";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
 
@@ -38,6 +38,9 @@ export function TerminalView({
   // closure can reach them without re-rendering.
   const termRef = useRef<unknown>(null);
   const fitRef = useRef<{ fit: () => void } | null>(null);
+  const [initialSize, setInitialSize] = useState<{ cols: number; rows: number } | null>(null);
+  const ptyOpenRef = useRef(false);
+  const lastSentResizeRef = useRef<{ cols: number; rows: number } | null>(null);
   // Buffer stdout that arrives before xterm finishes its async dynamic-import
   // bootstrap. Without this, the PTY's startup banner (claude-code prints
   // several KB immediately on spawn) gets silently dropped, leaving the TUI
@@ -54,6 +57,9 @@ export function TerminalView({
 
   useEffect(() => {
     sawExitRef.current = false;
+    ptyOpenRef.current = false;
+    lastSentResizeRef.current = null;
+    setInitialSize(null);
   }, [tabId, projectDir, provider, dangerous]);
 
   const { send } = usePtyWebSocket({
@@ -61,6 +67,9 @@ export function TerminalView({
     projectDir,
     provider,
     dangerous,
+    enabled: initialSize !== null,
+    initialCols: initialSize?.cols ?? null,
+    initialRows: initialSize?.rows ?? null,
     onMessage: (frame) => {
       if (frame.type === "stdout") {
         const t = termRef.current as { write?: (data: string) => void } | null;
@@ -76,7 +85,11 @@ export function TerminalView({
         onErrorRef.current(frame.message);
       }
     },
+    onOpen: () => {
+      ptyOpenRef.current = true;
+    },
     onClose: (ev) => {
+      ptyOpenRef.current = false;
       if (sawExitRef.current) {
         return;
       }
@@ -102,6 +115,22 @@ export function TerminalView({
     } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+
+    const rememberInitialSize = () => {
+      if (!term || term.cols <= 0 || term.rows <= 0) return;
+      const next = { cols: term.cols, rows: term.rows };
+      lastSentResizeRef.current = next;
+      setInitialSize(next);
+    };
+
+    const sendResizeIfChanged = () => {
+      if (!ptyOpenRef.current || !term || term.cols <= 0 || term.rows <= 0) return;
+      const previous = lastSentResizeRef.current;
+      if (previous?.cols === term.cols && previous.rows === term.rows) return;
+      const next = { cols: term.cols, rows: term.rows };
+      lastSentResizeRef.current = next;
+      send({ type: "resize", cols: next.cols, rows: next.rows });
+    };
 
     void (async () => {
       // Dynamic import so SSR / Vitest can mock the module without polluting
@@ -138,7 +167,10 @@ export function TerminalView({
         fontFamily: "Consolas, Menlo, monospace",
         fontSize: 14,
         cursorBlink: true,
-        convertEol: true,
+        // PTY-backed TUIs own their cursor movement and redraw protocol.
+        // Converting LF to CRLF is useful for plain logs, but it corrupts
+        // full-screen redraws such as Claude Code's startup/status repaint.
+        convertEol: false,
       }) as typeof term;
 
       const fit = new FitAddon();
@@ -167,19 +199,17 @@ export function TerminalView({
         // fit can throw if the container has zero dims; ignore — the resize
         // observer will fire once layout settles.
       }
+      rememberInitialSize();
 
-      // Flush stdout that arrived during the async xterm bootstrap, then
-      // notify the PTY of the post-fit viewport so subsequent output is
-      // laid out against the real cols/rows rather than the 120x30 default.
+      // Flush stdout that arrived during the async xterm bootstrap.
+      // Normally there is none now: the PTY WebSocket waits for initialSize
+      // so the backend can spawn the process at the fitted viewport.
       const pending = pendingWritesRef.current;
       if (pending.length > 0) {
         for (const chunk of pending) {
           term!.write(chunk);
         }
         pendingWritesRef.current = [];
-      }
-      if (term!.cols > 0 && term!.rows > 0) {
-        send({ type: "resize", cols: term!.cols, rows: term!.rows });
       }
 
       onDataDisposable = term!.onData((data: string) => {
@@ -193,8 +223,10 @@ export function TerminalView({
         resizeObserver = new ResizeObserver(() => {
           try {
             fit.fit();
-            if (term && term.cols > 0 && term.rows > 0) {
-              send({ type: "resize", cols: term.cols, rows: term.rows });
+            if (!lastSentResizeRef.current) {
+              rememberInitialSize();
+            } else {
+              sendResizeIfChanged();
             }
           } catch {
             // Ignore transient layout glitches.

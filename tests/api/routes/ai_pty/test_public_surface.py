@@ -87,14 +87,14 @@ def test_spawn_signature_unchanged() -> None:
     """``_spawn`` test seam must keep the exact kwargs the fakes use.
 
     Tests call ``_spawn(provider=..., project_dir=..., dangerous=...,
-    extra_env=...)``; a signature drift would make the fake replacement
-    accept wrong arguments and mask real bugs.
+    cols=..., rows=..., extra_env=...)``; a signature drift would make
+    the fake replacement accept wrong arguments and mask real bugs.
     """
     from scistudio.api.routes.ai_pty import _spawn
 
     sig = inspect.signature(_spawn)
-    assert list(sig.parameters) == ["provider", "project_dir", "dangerous", "extra_env"]
-    for name in ("provider", "project_dir", "dangerous", "extra_env"):
+    assert list(sig.parameters) == ["provider", "project_dir", "dangerous", "cols", "rows", "extra_env"]
+    for name in ("provider", "project_dir", "dangerous", "cols", "rows", "extra_env"):
         assert sig.parameters[name].kind == inspect.Parameter.KEYWORD_ONLY
 
 

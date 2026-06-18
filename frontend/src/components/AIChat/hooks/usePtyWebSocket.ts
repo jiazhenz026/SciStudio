@@ -35,6 +35,11 @@ export interface UsePtyWebSocketParams {
   projectDir: string | null;
   provider: "claude-code" | "codex";
   dangerous: boolean;
+  /** Delay launch until the terminal has enough layout state to spawn cleanly. */
+  enabled?: boolean;
+  /** Optional initial PTY dimensions, sent in the spawn handshake. */
+  initialCols?: number | null;
+  initialRows?: number | null;
   /** Called for each parsed server-side frame. */
   onMessage: (frame: PtyServerFrame) => void;
   /** Called once when the underlying socket opens. */
@@ -55,12 +60,16 @@ export function buildPtyUrl({
   projectDir,
   provider,
   dangerous,
+  cols,
+  rows,
   baseOrigin,
 }: {
   tabId: string;
   projectDir: string;
   provider: string;
   dangerous: boolean;
+  cols?: number | null;
+  rows?: number | null;
   baseOrigin?: string;
 }): string {
   // Derive ws:// or wss:// from window.location.protocol; in tests fall back
@@ -77,6 +86,12 @@ export function buildPtyUrl({
     provider,
     dangerous: dangerous ? "true" : "false",
   });
+  if (Number.isFinite(cols) && cols && cols > 0) {
+    params.set("cols", String(Math.trunc(cols)));
+  }
+  if (Number.isFinite(rows) && rows && rows > 0) {
+    params.set("rows", String(Math.trunc(rows)));
+  }
   return `${origin}/api/ai/pty/${encodeURIComponent(tabId)}?${params.toString()}`;
 }
 
@@ -90,7 +105,18 @@ export function buildPtyUrl({
  * not flipping params during a live session.
  */
 export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketResult {
-  const { tabId, projectDir, provider, dangerous, onMessage, onOpen, onClose } = params;
+  const {
+    tabId,
+    projectDir,
+    provider,
+    dangerous,
+    enabled = true,
+    initialCols,
+    initialRows,
+    onMessage,
+    onOpen,
+    onClose,
+  } = params;
 
   const wsRef = useRef<WebSocket | null>(null);
   const readyStateRef = useRef<number>(WebSocket.CLOSED);
@@ -103,67 +129,73 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!projectDir) {
+    if (!enabled || !projectDir) {
       // No working dir -> cannot launch a PTY. Caller is in setup or closed
       // state; do nothing.
       return undefined;
     }
-    const url = buildPtyUrl({ tabId, projectDir, provider, dangerous });
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    readyStateRef.current = ws.readyState;
-
     // `disposed` guards against late-firing onerror/onclose after an
     // intentional cleanup (StrictMode double-mount in dev, or any caller-
     // triggered teardown). Without this guard, the browser's close-side
     // `onerror` propagates upward as a fake "WebSocket error" frame and
     // tears the user's tab into the closed state on every mount.
     let disposed = false;
+    let ws: WebSocket | null = null;
+    const url = buildPtyUrl({ tabId, projectDir, provider, dangerous, cols: initialCols, rows: initialRows });
+    const connectTimer = window.setTimeout(() => {
+      if (disposed) return;
+      ws = new WebSocket(url);
+      wsRef.current = ws;
+      readyStateRef.current = ws.readyState;
 
-    ws.onopen = () => {
-      if (disposed) return;
-      readyStateRef.current = ws.readyState;
-      onOpenRef.current?.();
-    };
-    ws.onmessage = (ev) => {
-      if (disposed) return;
-      // Server always sends JSON-encoded text frames. Anything else is a
-      // protocol violation and surfaced as an error frame so the UI shows it.
-      try {
-        const data = typeof ev.data === "string" ? ev.data : "";
-        if (!data) return;
-        const frame = JSON.parse(data) as PtyServerFrame;
-        onMessageRef.current(frame);
-      } catch (err) {
-        onMessageRef.current({
-          type: "error",
-          message: `Malformed server frame: ${(err as Error).message}`,
-        });
-      }
-    };
-    ws.onerror = () => {
-      if (disposed) return;
-      // Browser WebSocket errors are intentionally opaque and are normally
-      // followed by close. Let the close handler surface the actionable code
-      // instead of replacing the real PTY/server error with "WebSocket error".
-    };
-    ws.onclose = (ev) => {
-      if (disposed) return;
-      readyStateRef.current = ws.readyState;
-      onCloseRef.current?.(ev);
-    };
+      ws.onopen = () => {
+        if (disposed || !ws) return;
+        readyStateRef.current = ws.readyState;
+        onOpenRef.current?.();
+      };
+      ws.onmessage = (ev) => {
+        if (disposed) return;
+        // Server always sends JSON-encoded text frames. Anything else is a
+        // protocol violation and surfaced as an error frame so the UI shows it.
+        try {
+          const data = typeof ev.data === "string" ? ev.data : "";
+          if (!data) return;
+          const frame = JSON.parse(data) as PtyServerFrame;
+          onMessageRef.current(frame);
+        } catch (err) {
+          onMessageRef.current({
+            type: "error",
+            message: `Malformed server frame: ${(err as Error).message}`,
+          });
+        }
+      };
+      ws.onerror = () => {
+        if (disposed) return;
+        // Browser WebSocket errors are intentionally opaque and are normally
+        // followed by close. Let the close handler surface the actionable code
+        // instead of replacing the real PTY/server error with "WebSocket error".
+      };
+      ws.onclose = (ev) => {
+        if (disposed || !ws) return;
+        readyStateRef.current = ws.readyState;
+        onCloseRef.current?.(ev);
+      };
+    }, 0);
 
     return () => {
       disposed = true;
+      window.clearTimeout(connectTimer);
       readyStateRef.current = WebSocket.CLOSING;
-      try {
-        ws.close();
-      } catch {
-        // Already closed.
+      if (ws) {
+        try {
+          ws.close();
+        } catch {
+          // Already closed.
+        }
       }
       wsRef.current = null;
     };
-  }, [tabId, projectDir, provider, dangerous]);
+  }, [tabId, projectDir, provider, dangerous, enabled, initialCols, initialRows]);
 
   const send = useCallback((frame: PtyClientFrame) => {
     const ws = wsRef.current;

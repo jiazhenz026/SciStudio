@@ -16,8 +16,9 @@ from scistudio.desktop.package_installer import LocalPackageInstallResult
 class _Registry:
     def all_specs(self) -> dict[str, object]:
         return {
-            "probe": SimpleNamespace(source="package_src", module_path="scistudio_blocks_probe"),
-            "builtin": SimpleNamespace(source="builtin", module_path="scistudio.blocks.io"),
+            "probe": SimpleNamespace(source="entry_point", module_path="scistudio_blocks_probe.blocks"),
+            "near_prefix": SimpleNamespace(source="entry_point", module_path="scistudio_blocks_probe_extra.blocks"),
+            "builtin": SimpleNamespace(source="builtin", module_path="scistudio_blocks_probe.blocks"),
         }
 
 

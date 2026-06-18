@@ -58,13 +58,22 @@ class FakeWebSocket {
 const originalWs = global.WebSocket;
 
 beforeEach(() => {
+  vi.useFakeTimers();
   FakeWebSocket.instances = [];
   (global as unknown as { WebSocket: typeof FakeWebSocket }).WebSocket = FakeWebSocket;
 });
 
 afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
   (global as unknown as { WebSocket: typeof WebSocket }).WebSocket = originalWs;
 });
+
+function flushConnectTimer() {
+  act(() => {
+    vi.runOnlyPendingTimers();
+  });
+}
 
 describe("buildPtyUrl", () => {
   it("encodes project_dir, provider, dangerous, and tab_id", () => {
@@ -89,10 +98,14 @@ describe("buildPtyUrl", () => {
       projectDir: "/p",
       provider: "codex",
       dangerous: false,
+      cols: 101,
+      rows: 33,
       baseOrigin: "ws://h",
     });
     expect(url).toContain("dangerous=false");
     expect(url).toContain("provider=codex");
+    expect(url).toContain("cols=101");
+    expect(url).toContain("rows=33");
   });
 });
 
@@ -108,6 +121,7 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
     expect(FakeWebSocket.instances).toHaveLength(1);
     const ws = FakeWebSocket.instances[0];
     expect(ws.url).toContain("/api/ai/pty/t1");
@@ -127,6 +141,23 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
+    expect(FakeWebSocket.instances).toHaveLength(0);
+  });
+
+  it("does not open a socket while disabled", () => {
+    const onMessage = vi.fn();
+    renderHook(() =>
+      usePtyWebSocket({
+        tabId: "t1",
+        projectDir: "/p",
+        provider: "claude-code",
+        dangerous: false,
+        enabled: false,
+        onMessage,
+      }),
+    );
+    flushConnectTimer();
     expect(FakeWebSocket.instances).toHaveLength(0);
   });
 
@@ -141,6 +172,7 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
     const ws = FakeWebSocket.instances[0];
     act(() => ws.open());
     act(() => ws.message(JSON.stringify({ type: "stdout", data: "hello" })));
@@ -160,6 +192,7 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
     const ws = FakeWebSocket.instances[0];
     act(() => ws.open());
     act(() => ws.message("not json"));
@@ -181,6 +214,7 @@ describe("usePtyWebSocket", () => {
         onClose,
       }),
     );
+    flushConnectTimer();
     const ws = FakeWebSocket.instances[0];
     act(() => ws.open());
     act(() => ws.onerror?.());
@@ -200,6 +234,7 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
     const ws = FakeWebSocket.instances[0];
     // Before open, send is dropped silently.
     act(() => result.current.send({ type: "stdin", data: "x" }));
@@ -224,9 +259,28 @@ describe("usePtyWebSocket", () => {
         onMessage,
       }),
     );
+    flushConnectTimer();
     const ws = FakeWebSocket.instances[0];
     expect(ws.closed).toBe(false);
     unmount();
     expect(ws.closed).toBe(true);
+  });
+
+  it("cancels a pending socket open when unmounted before the next tick", () => {
+    const onMessage = vi.fn();
+    const { unmount } = renderHook(() =>
+      usePtyWebSocket({
+        tabId: "t1",
+        projectDir: "/p",
+        provider: "claude-code",
+        dangerous: false,
+        onMessage,
+      }),
+    );
+
+    unmount();
+    flushConnectTimer();
+
+    expect(FakeWebSocket.instances).toHaveLength(0);
   });
 });

@@ -16,6 +16,7 @@ working — pre-existing test contract.
 from __future__ import annotations
 
 import asyncio
+import codecs
 import contextlib
 import logging
 import threading
@@ -40,6 +41,8 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     provider = params.get("provider", "")
     project_dir_raw = params.get("project_dir", "")
     dangerous_raw = params.get("dangerous", "false").lower()
+    initial_cols = _parse_initial_size(params.get("cols"), default=120, min_value=1, max_value=1000)
+    initial_rows = _parse_initial_size(params.get("rows"), default=30, min_value=1, max_value=500)
 
     if provider not in _pkg._VALID_PROVIDERS:
         await _send_error(
@@ -104,7 +107,13 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
         # ---- Spawn PTY -----------------------------------------------------
         try:
-            pty = _pkg._spawn(provider=provider, project_dir=project_dir, dangerous=dangerous)
+            pty = _pkg._spawn(
+                provider=provider,
+                project_dir=project_dir,
+                dangerous=dangerous,
+                cols=initial_cols,
+                rows=initial_rows,
+            )
         except FileNotFoundError as exc:
             # claude / codex binary missing on PATH — actionable error.
             await _send_error(websocket, f"Provider binary not found: {exc}")
@@ -125,26 +134,20 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     async def pump_pty_to_ws() -> None:
         """Forward PTY stdout to WS as ``{type:stdout,data:...}`` frames."""
+        decoder = codecs.getincrementaldecoder("utf-8")("replace")
         try:
             while not stop.is_set():
                 # Use an executor — :meth:`PtyProcess.read` blocks up to
                 # ~100 ms which would stall the event loop otherwise.
                 data = await loop.run_in_executor(None, pty.read, 0.1)
-                if data:
-                    if websocket.client_state != WebSocketState.CONNECTED:
-                        # Client closed already (StrictMode dev double-mount,
-                        # tab close, etc.) — abort cleanly instead of letting
-                        # send_json explode with "after websocket.close".
-                        break
-                    try:
-                        await websocket.send_json({"type": "stdout", "data": data.decode("utf-8", errors="replace")})
-                    except RuntimeError:
-                        # ASGI race: client_state can flip between the check
-                        # above and the send when uvicorn flushes a close
-                        # frame concurrently. Treat as a graceful end.
-                        break
+                # PTY reads are arbitrary byte chunks. Decode incrementally so
+                # multibyte UTF-8 glyphs used by TUIs can span reads without
+                # being replaced by U+FFFD.
+                if data and not await _send_stdout_frame(websocket, decoder.decode(data)):
+                    break
                 if not pty.is_alive():
                     break
+            await _send_stdout_frame(websocket, decoder.decode(b"", final=True))
         except WebSocketDisconnect:
             return
         except Exception:  # pragma: no cover - logged, swallowed to trigger cleanup
@@ -256,3 +259,31 @@ async def _send_error(websocket: WebSocket, message: str) -> None:
         await websocket.send_json({"type": "error", "message": message})
     except Exception:  # pragma: no cover
         logger.debug("Failed to send error frame", exc_info=True)
+
+
+async def _send_stdout_frame(websocket: WebSocket, text: str) -> bool:
+    """Best-effort send of a stdout frame, returning false after close races."""
+    if not text:
+        return True
+    if websocket.client_state != WebSocketState.CONNECTED:
+        # Client closed already (StrictMode dev double-mount, tab close, etc.)
+        # — abort cleanly instead of letting send_json explode.
+        return False
+    try:
+        await websocket.send_json({"type": "stdout", "data": text})
+    except RuntimeError:
+        # ASGI race: client_state can flip between the check above and the send
+        # when uvicorn flushes a close frame concurrently.
+        return False
+    return True
+
+
+def _parse_initial_size(value: str | None, *, default: int, min_value: int, max_value: int) -> int:
+    """Parse optional initial PTY dimensions from the frontend handshake."""
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(parsed, max_value))

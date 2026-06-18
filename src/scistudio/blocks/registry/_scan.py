@@ -439,6 +439,9 @@ def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, modul
         with _prepended_sys_path(src_dir):
             stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
             for name in stale_modules:
+                # Keep DataObject type modules stable across block-package refreshes.
+                if name.endswith(".types"):
+                    continue
                 sys.modules.pop(name, None)
             importlib.invalidate_caches()
             module = importlib.import_module(module_name)
