@@ -37,9 +37,9 @@ export function ProjectsDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="toolbar" size="toolbar" type="button">
+        <Button variant="toolbar" size="toolbar" type="button" aria-label="Projects">
           <FolderOpen className="size-3.5" />
-          Projects
+          <span className="hidden xl:inline">Projects</span>
           <ChevronDown className="size-3" />
         </Button>
       </DropdownMenuTrigger>

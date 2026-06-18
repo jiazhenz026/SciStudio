@@ -29,6 +29,7 @@ import importlib.util
 import inspect
 import logging
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -320,6 +321,157 @@ def _scan_tier2(registry: BlockRegistry) -> None:
                 exc_info=True,
             )
             continue
+
+
+@contextlib.contextmanager
+def _prepended_sys_path(path: Path) -> Iterator[None]:
+    """Prepend *path* to ``sys.path`` for one source-package import."""
+    path_str = str(path)
+    original = list(sys.path)
+    if path_str in sys.path:
+        sys.path.remove(path_str)
+    sys.path.insert(0, path_str)
+    try:
+        importlib.invalidate_caches()
+        yield
+    finally:
+        sys.path[:] = original
+        importlib.invalidate_caches()
+
+
+def _iter_package_src_dirs(package_dir: Path) -> Iterator[Path]:
+    """Yield import roots from a packages dir, package root, or src dir."""
+    expanded = package_dir.expanduser()
+    if expanded.name == "src" and expanded.is_dir():
+        yield expanded
+        return
+
+    direct_src = expanded / "src"
+    if direct_src.is_dir():
+        yield direct_src
+        return
+
+    if not expanded.is_dir():
+        return
+
+    if any(expanded.glob("scistudio_blocks_*/__init__.py")):
+        yield expanded
+
+    for child in sorted(expanded.iterdir()):
+        if not child.is_dir():
+            continue
+        child_src = child / "src"
+        if child_src.is_dir():
+            yield child_src
+        elif any(child.glob("scistudio_blocks_*/__init__.py")):
+            yield child
+
+
+def _iter_source_package_modules(src_dir: Path) -> Iterator[str]:
+    """Yield ``scistudio_blocks_*`` modules visible in a package import root."""
+    for package_init in sorted(src_dir.glob("scistudio_blocks_*/__init__.py")):
+        yield package_init.parent.name
+
+
+def _desktop_resource_package_dirs() -> list[Path]:
+    """Return package directories implied by desktop/resource environment."""
+    try:
+        from scistudio.desktop.paths import candidate_package_dirs
+
+        return candidate_package_dirs()
+    except Exception:
+        logger.debug("Failed to resolve desktop package directories", exc_info=True)
+        return []
+
+
+def _process_package_protocol_result(
+    registry: BlockRegistry,
+    *,
+    module_name: str,
+    result: Any,
+    source: str,
+) -> None:
+    """Register block classes returned by a source package protocol hook."""
+    from scistudio.blocks.base.block import Block
+    from scistudio.blocks.base.package_info import PackageInfo
+    from scistudio.blocks.registry._spec import _spec_from_class
+
+    info: PackageInfo | None = None
+    block_classes: list[type] = []
+    if isinstance(result, tuple) and len(result) == 2:
+        first, second = result
+        if isinstance(first, PackageInfo) and isinstance(second, list):
+            info = first
+            block_classes = second
+        else:
+            logger.warning("Package '%s' returned unexpected tuple format", module_name)
+            return
+    elif isinstance(result, list):
+        block_classes = result
+    else:
+        logger.warning(
+            "Package '%s' returned unsupported type: %s",
+            module_name,
+            type(result).__name__,
+        )
+        return
+
+    pkg_name = info.name if info is not None else module_name
+    if info is not None:
+        registry._packages[info.name] = info
+
+    for cls in block_classes:
+        if not (isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls)):
+            logger.warning("Package '%s' contained non-concrete Block item: %s", module_name, cls)
+            continue
+        block_spec = _spec_from_class(cls, source=source)
+        block_spec.module_path = cls.__module__
+        block_spec.class_name = cls.__name__
+        block_spec.package_name = pkg_name
+        if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
+            continue
+        _register_spec(registry, block_spec)
+
+
+def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, module_name: str, source: str) -> None:
+    """Import one ``scistudio_blocks_*`` package and register its block classes."""
+    try:
+        with _prepended_sys_path(src_dir):
+            stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
+            for name in stale_modules:
+                sys.modules.pop(name, None)
+            importlib.invalidate_caches()
+            module = importlib.import_module(module_name)
+            result: Any | None = None
+            if hasattr(module, "get_block_package") and callable(module.get_block_package):
+                result = module.get_block_package()
+            elif hasattr(module, "get_blocks") and callable(module.get_blocks):
+                result = module.get_blocks()
+            else:
+                return
+            _process_package_protocol_result(registry, module_name=module_name, result=result, source=source)
+    except Exception:
+        logger.warning("Failed to import source plugin package '%s' from %s", module_name, src_dir, exc_info=True)
+
+
+def _scan_package_src_dirs(registry: BlockRegistry) -> None:
+    """Tier 3: scan hard-installed ``packages/*/src`` source packages.
+
+    This desktop package path does not install dependencies or query package
+    indexes. It imports already-present ``scistudio_blocks_*`` source packages
+    through the existing ADR-025 package protocol so ADR-043 capability
+    validation remains the registry's single source of truth.
+    """
+    package_dirs = [*registry._package_src_dirs, *_desktop_resource_package_dirs()]
+    seen_src_dirs: set[Path] = set()
+    for package_dir in package_dirs:
+        for src_dir in _iter_package_src_dirs(package_dir):
+            resolved = src_dir.resolve()
+            if resolved in seen_src_dirs:
+                continue
+            seen_src_dirs.add(resolved)
+            for module_name in _iter_source_package_modules(resolved):
+                _scan_source_package_module(registry, src_dir=resolved, module_name=module_name, source="package_src")
 
 
 def _scan_monorepo_packages(registry: BlockRegistry) -> None:

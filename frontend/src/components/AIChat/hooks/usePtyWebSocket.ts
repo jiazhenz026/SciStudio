@@ -143,10 +143,9 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
     };
     ws.onerror = () => {
       if (disposed) return;
-      // The browser fires 'error' just before 'close'; report it as an error
-      // frame so the terminal can surface it. The actual close handler will
-      // also fire.
-      onMessageRef.current({ type: "error", message: "WebSocket error" });
+      // Browser WebSocket errors are intentionally opaque and are normally
+      // followed by close. Let the close handler surface the actionable code
+      // instead of replacing the real PTY/server error with "WebSocket error".
     };
     ws.onclose = (ev) => {
       if (disposed) return;

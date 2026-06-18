@@ -148,6 +148,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
   const projectPath = useAppStore((s) => s.currentProject?.path ?? null);
   const launchTerminalTab = useAppStore((s) => s.launchTerminalTab);
   const markTerminalTabExited = useAppStore((s) => s.markTerminalTabExited);
+  const markTerminalTabErrored = useAppStore((s) => s.markTerminalTabErrored);
   const closeTerminalTab = useAppStore((s) => s.closeTerminalTab);
   const reopenTerminalTab = useAppStore((s) => s.reopenTerminalTab);
 
@@ -171,16 +172,13 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
 
   const handleError = useCallback(
     (message: string) => {
-      // Map errors to an immediate close with synthetic code -1 and store
-      // the message so the closed-screen can show it. We piggy-back on
-      // exitCode -1 == reload / error; a richer model can ship later.
-      // Surfaced via the console for now so smoke testers can see it.
-      // TODO: build a structured error model (separate exit-vs-error states, surface in tab UI instead of console).
+      // Preserve the actionable PTY failure instead of collapsing it into
+      // the reload-only synthetic exit state.
       // eslint-disable-next-line no-console
       console.error(`[TerminalTab ${tabId}] WS error:`, message);
-      markTerminalTabExited(tabId, -1);
+      markTerminalTabErrored(tabId, message);
     },
-    [markTerminalTabExited, tabId],
+    [markTerminalTabErrored, tabId],
   );
 
   if (!tab) {
@@ -235,17 +233,18 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
 
   // closed
   const code = tab.exitCode ?? 0;
-  const reloadSynthetic = code === -1;
+  const reloadSynthetic = code === -1 && !tab.errorMessage;
+  const closedMessage = tab.errorMessage
+    ? `Terminal failed: ${tab.errorMessage}`
+    : reloadSynthetic
+      ? "Terminal exited (page reload - subprocess did not survive)."
+      : `Terminal exited (code ${code}).`;
   return (
     <div
       className="flex h-full flex-col items-center justify-center gap-3 px-6 text-sm"
       data-testid={`terminal-tab-closed-${tabId}`}
     >
-      <p className="text-stone-600">
-        {reloadSynthetic
-          ? "Terminal exited (page reload — subprocess did not survive)."
-          : `Terminal exited (code ${code}).`}
-      </p>
+      <p className="text-stone-600">{closedMessage}</p>
       <div className="flex gap-2">
         <button
           type="button"

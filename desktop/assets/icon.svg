@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SciStudio">
+  <defs>
+    <linearGradient id="bgC" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="sC" x1="170" y1="150" x2="342" y2="362" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#C084FC"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgC)"/>
+
+  <!-- "S" drawn as a workflow path connecting nodes -->
+  <path d="M338 176
+           C338 142 308 124 268 124
+           C214 124 178 150 178 196
+           C178 244 226 254 256 260
+           C292 268 334 276 334 320
+           C334 366 296 392 244 392
+           C200 392 170 372 170 336"
+        stroke="url(#sC)" stroke-width="26" stroke-linecap="round" fill="none"/>
+
+  <!-- Nodes along the path -->
+  <g fill="#FFFFFF">
+    <circle cx="338" cy="176" r="20"/>
+    <circle cx="256" cy="260" r="18"/>
+    <circle cx="170" cy="336" r="20"/>
+  </g>
+</svg>

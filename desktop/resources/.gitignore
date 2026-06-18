@@ -1,0 +1,13 @@
+frontend/
+app/
+backend/
+
+packages/*
+!packages/.gitkeep
+!packages/README.md
+
+git/*
+!git/.gitkeep
+
+python/*
+!python/.gitkeep

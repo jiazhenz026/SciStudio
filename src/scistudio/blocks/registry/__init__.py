@@ -151,17 +151,28 @@ class BlockRegistry:
         self._registry: dict[str, BlockSpec] = {}
         self._aliases: dict[str, str] = {}
         self._scan_dirs: list[Path] = []
+        self._package_src_dirs: list[Path] = []
         self._packages: dict[str, PackageInfo] = {}
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Add a directory to the Tier 1 scan path."""
         self._scan_dirs.append(Path(directory))
 
+    def add_package_src_dir(self, directory: str | Path) -> None:
+        """Add a hard-installed source-package directory to the Tier 3 scan path.
+
+        ``directory`` may be a ``packages`` directory containing ``*/src``
+        package sources, a single package root with a ``src`` child, or an
+        already-resolved ``src`` directory.
+        """
+        self._package_src_dirs.append(Path(directory))
+
     def scan(self, *, include_monorepo: bool = False) -> None:
         """Discover block classes from entry-points and drop-in directories."""
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
+        self._scan_package_src_dirs()
         if include_monorepo:
             self._scan_monorepo_packages()
 
@@ -178,16 +189,20 @@ class BlockRegistry:
         _scan_builtins(self)
 
     def _scan_tier1(self) -> None:
-        """Tier 1: scan configured directories for ``.py`` drop-in files."""
         from scistudio.blocks.registry._scan import _scan_tier1
 
         _scan_tier1(self)
 
     def _scan_tier2(self) -> None:
-        """Tier 2: scan ``scistudio.blocks`` entry-points (ADR-025 callable protocol)."""
         from scistudio.blocks.registry._scan import _scan_tier2
 
         _scan_tier2(self)
+
+    def _scan_package_src_dirs(self) -> None:
+        """Tier 3: scan hard-installed source package directories."""
+        from scistudio.blocks.registry._scan import _scan_package_src_dirs
+
+        _scan_package_src_dirs(self)
 
     def _scan_monorepo_packages(self) -> None:
         """Development fallback for plugin packages living in the monorepo."""

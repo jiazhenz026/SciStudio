@@ -38,7 +38,7 @@ export interface WorkflowGroupsProps {
 function ExecutionControls(props: WorkflowGroupsProps) {
   const { currentProject, workflowId, isRunning, onRun, onStop, onReset } = props;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
         icon={isRunning ? Loader2 : Play}
         label={isRunning ? "Running" : "Run"}
@@ -72,7 +72,7 @@ function EditOperations(props: WorkflowGroupsProps) {
     onViewSource,
   } = props;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton icon={Trash2} label="Delete" disabled={!selectedNodeId} onClick={onDelete} />
       <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
       <ToolbarButton
@@ -103,9 +103,9 @@ function EditOperations(props: WorkflowGroupsProps) {
 export function WorkflowGroups(props: WorkflowGroupsProps) {
   return (
     <>
-      <Separator orientation="vertical" className="mx-1 h-8" />
+      <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
       <ExecutionControls {...props} />
-      <Separator orientation="vertical" className="mx-1 h-8" />
+      <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
       <EditOperations {...props} />
     </>
   );

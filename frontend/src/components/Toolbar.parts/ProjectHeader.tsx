@@ -12,11 +12,14 @@ export interface ProjectHeaderProps {
 
 export function ProjectHeader({ currentProject, workflowName, workflowDirty }: ProjectHeaderProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="rounded-[1.4rem] bg-ink px-4 py-2.5 text-stone-50">
+    <div
+      className="flex min-w-fit shrink-0 items-center gap-3"
+      data-testid="toolbar-project-header"
+    >
+      <div className="shrink-0 rounded-[1.4rem] bg-ink px-3 py-2 text-stone-50 xl:px-4 xl:py-2.5">
         <p className="font-display text-lg leading-tight">SciStudio</p>
       </div>
-      <div className="w-[200px] shrink-0">
+      <div className="hidden min-w-0 shrink xl:block xl:w-[160px] 2xl:w-[200px]">
         <p
           className="truncate font-display text-base leading-tight text-ink"
           title={currentProject?.name ?? undefined}
@@ -44,10 +47,10 @@ export function ProjectHeader({ currentProject, workflowName, workflowDirty }: P
 /**
  * Connection indicator pill.
  *
- * #177: when ``status`` is supplied it drives a three-way visual —
- * connected (green), reconnecting/connecting (amber, animated pulse),
- * or disconnected (grey). When ``status`` is absent it falls back to the
- * boolean ``connected`` so older call sites keep working.
+ * #177: when `status` is supplied it drives a three-way visual:
+ * connected, reconnecting/connecting, or disconnected. When `status` is
+ * absent it falls back to the boolean `connected` so older call sites keep
+ * working.
  */
 export function StatusPill({
   connected,
@@ -71,7 +74,7 @@ export function StatusPill({
   } else if (isReconnecting) {
     pillClass = "bg-amber-100 text-amber-700";
     dotClass = "bg-amber-500 animate-pulse";
-    title = `${label}: ${effective === "connecting" ? "connecting" : "reconnecting"}…`;
+    title = `${label}: ${effective === "connecting" ? "connecting" : "reconnecting"}...`;
   }
 
   return (
@@ -81,7 +84,7 @@ export function StatusPill({
       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${pillClass}`}
     >
       <span className={`h-2 w-2 rounded-full ${dotClass}`} />
-      {label}
+      <span className="hidden xl:inline">{label}</span>
     </span>
   );
 }

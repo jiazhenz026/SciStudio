@@ -192,6 +192,21 @@ class TestCLIGui:
         assert result.exit_code == 0
         assert len(browser_calls) == 0
 
+    def test_gui_bundled_uses_loopback_and_emits_ready_json(self, monkeypatch: object) -> None:
+        calls: dict[str, object] = {}
+
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+            calls.update({"app_target": app_target, "host": host, "port": port, "factory": factory})
+
+        monkeypatch.setattr("uvicorn.run", fake_run)  # type: ignore[union-attr]
+        result = runner.invoke(app, ["gui", "--bundled", "--port", "0"])
+        assert result.exit_code == 0
+        assert calls["host"] == "127.0.0.1"
+        assert isinstance(calls["port"], int)
+        assert calls["port"] != 0
+        assert '{"event":"scistudio.ready"' in result.output
+        assert '"url":"http://127.0.0.1:' in result.output
+
 
 class TestCLIValidate:
     """Tests for the ``scistudio validate`` command."""

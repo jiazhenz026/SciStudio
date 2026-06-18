@@ -11,8 +11,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
-import type { AiBlockStatus, TerminalTab } from "../../../store/types";
-import { AiBlockStatusBadge, MarkDoneButton } from "../TerminalTab";
+import type { AiBlockStatus, TerminalTab as TerminalTabState } from "../../../store/types";
+import { AiBlockStatusBadge, MarkDoneButton, TerminalTab } from "../TerminalTab";
 
 vi.mock("../../../hooks/useWebSocket", () => ({
   sendWebSocketMessage: vi.fn(),
@@ -20,8 +20,8 @@ vi.mock("../../../hooks/useWebSocket", () => ({
 
 import { sendWebSocketMessage } from "../../../hooks/useWebSocket";
 
-function seedTab(partial: Partial<TerminalTab> & { id: string }) {
-  const tab: TerminalTab = {
+function seedTab(partial: Partial<TerminalTabState> & { id: string }) {
+  const tab: TerminalTabState = {
     title: "🤖 demo",
     provider: "claude-code",
     permissionMode: "safe",
@@ -118,5 +118,24 @@ describe("MarkDoneButton", () => {
     render(<MarkDoneButton tabId="btn-no-run" />);
     fireEvent.click(screen.getByTestId("mark-done-btn-btn-no-run"));
     expect(sendWebSocketMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("TerminalTab closed state", () => {
+  it("shows the preserved PTY error instead of the reload-only message", () => {
+    seedTab({
+      id: "closed-error",
+      source: "user",
+      state: "closed",
+      exitCode: -2,
+      errorMessage: "Failed to spawn PTY: codex not found",
+    });
+    render(<TerminalTab tabId="closed-error" />);
+    expect(screen.getByTestId("terminal-tab-closed-closed-error").textContent).toContain(
+      "Terminal failed: Failed to spawn PTY: codex not found",
+    );
+    expect(screen.getByTestId("terminal-tab-closed-closed-error").textContent).not.toContain(
+      "page reload",
+    );
   });
 });

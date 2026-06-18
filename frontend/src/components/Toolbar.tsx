@@ -1,8 +1,10 @@
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useState } from "react";
 
 import type { ConnectionStatus } from "../hooks/connectionState";
 import type { ProjectResponse } from "../types/api";
+import { PackageInstallerDialog } from "./PackageInstallerDialog";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
 import { ProjectHeader, StatusPill } from "./Toolbar.parts/ProjectHeader";
 import { ProjectsDropdown } from "./Toolbar.parts/ProjectsDropdown";
@@ -106,6 +108,7 @@ export function Toolbar(props: ToolbarProps) {
   void onResume;
   void onStartFromSelected;
   const isFileTab = activeTabKind === "file";
+  const [packageInstallerOpen, setPackageInstallerOpen] = useState(false);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -113,7 +116,7 @@ export function Toolbar(props: ToolbarProps) {
         // ADR-039 §3.5 (#972) — Git affordances moved to the Git tab; the
         // toolbar no longer overflows. `overflow-x-auto` is kept as a
         // defensive fallback.
-        className="flex items-center gap-3 overflow-x-auto border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur"
+        className="flex min-w-0 items-center gap-2 overflow-hidden border-b border-stone-200 bg-white/85 px-3 py-3 backdrop-blur xl:gap-3 xl:px-5"
       >
         <ProjectHeader
           currentProject={currentProject}
@@ -121,7 +124,7 @@ export function Toolbar(props: ToolbarProps) {
           workflowDirty={workflowDirty}
         />
 
-        <Separator orientation="vertical" className="mx-1 h-8" />
+        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
 
         <ProjectsDropdown
           currentProject={currentProject}
@@ -133,7 +136,7 @@ export function Toolbar(props: ToolbarProps) {
           onCloseProject={onCloseProject}
         />
 
-        <Separator orientation="vertical" className="mx-1 h-8" />
+        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
 
         <FileOperationsGroup
           currentProject={currentProject}
@@ -142,6 +145,7 @@ export function Toolbar(props: ToolbarProps) {
           onNewCustomBlock={onNewCustomBlock}
           onNewNote={onNewNote}
           onNewPlot={onNewPlot}
+          onInstallPackage={() => setPackageInstallerOpen(true)}
           onImport={onImport}
           onSave={onSave}
           onSaveAs={onSaveAs}
@@ -174,6 +178,10 @@ export function Toolbar(props: ToolbarProps) {
           <StatusPill connected={sseConnected} status={sseStatus} label="Logs" />
         </div>
       </header>
+      <PackageInstallerDialog
+        onClose={() => setPackageInstallerOpen(false)}
+        open={packageInstallerOpen}
+      />
     </TooltipProvider>
   );
 }

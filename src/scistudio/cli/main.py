@@ -362,12 +362,22 @@ def serve(host: str = "0.0.0.0", port: int = 8000) -> None:
     uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True)
 
 
+def _ephemeral_port(host: str) -> int:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
 @app.command()
 def gui(
     port: int = typer.Option(8000, help="Port for the API server"),
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not open browser automatically"),
+    bundled: bool = typer.Option(False, "--bundled", help="Run in desktop bundled mode"),
 ) -> None:
     """Launch SciStudio GUI in your default browser."""
+    import json
     import logging
     import os
     import threading
@@ -386,13 +396,34 @@ def gui(
         force=True,
     )
 
-    url = f"http://localhost:{port}"
-    typer.echo(f"Starting SciStudio GUI on {url} ...")
+    server_host = "127.0.0.1" if bundled else "0.0.0.0"
+    public_host = "127.0.0.1" if bundled else "localhost"
+    bound_port = _ephemeral_port(public_host) if port == 0 else port
+    url = f"http://{public_host}:{bound_port}"
+    if bundled:
+        os.environ.setdefault("SCISTUDIO_BUNDLED", "1")
+        typer.echo(
+            json.dumps(
+                {
+                    "event": "scistudio.ready",
+                    "host": public_host,
+                    "port": bound_port,
+                    "url": url,
+                },
+                separators=(",", ":"),
+            )
+        )
+    else:
+        typer.echo(f"Starting SciStudio GUI on {url} ...")
     # ADR-035 §3.10: workers spawned by the engine call back via this URL to
     # request PTY tabs. The engine alone knows the bound port at startup, so
     # export it here before uvicorn forks any worker. Companion to
     # SCISTUDIO_ENGINE_IPC_TOKEN (set in api.app:lifespan).
-    os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://127.0.0.1:{port}")
-    if not no_browser:
+    os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://127.0.0.1:{bound_port}")
+    if not no_browser and not bundled:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
-    uvicorn.run("scistudio.api.app:create_app", host="0.0.0.0", port=port, factory=True)
+    uvicorn.run("scistudio.api.app:create_app", host=server_host, port=bound_port, factory=True)
+
+
+if __name__ == "__main__":
+    app()

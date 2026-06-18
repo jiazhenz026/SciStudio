@@ -15,11 +15,14 @@ PTY and asserts the bytes round-trip.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
 
-from scistudio.ai.agent.terminal import PtyProcess
+import pytest
+
+from scistudio.ai.agent.terminal import PtyProcess, _build_child_env, resolve_windows_executable
 
 
 def _python_print_env_argv(var: str) -> list[str]:
@@ -74,8 +77,6 @@ def test_pty_process_extra_env_overrides_inherited(tmp_path: Path) -> None:
     rule a stale ``SCISTUDIO_AI_BLOCK_RUN_DIR`` from a prior block run could
     leak into the next block's PTY.
     """
-    import os
-
     sentinel_var = "SCISTUDIO_TEST_EXTRA_ENV_OVERRIDE_884"
     os.environ[sentinel_var] = "inherited-value"
     try:
@@ -94,3 +95,62 @@ def test_pty_process_extra_env_overrides_inherited(tmp_path: Path) -> None:
             pty.kill_tree()
     finally:
         os.environ.pop(sentinel_var, None)
+
+
+def test_pty_child_env_removes_electron_node_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Desktop Electron's Node-mode launch variable must not reach agent CLIs."""
+    monkeypatch.setenv("ELECTRON_RUN_AS_NODE", "1")
+
+    child_env = _build_child_env()
+
+    assert "ELECTRON_RUN_AS_NODE" not in child_env
+    assert child_env["TERM"] == "xterm-256color"
+    assert child_env["COLORTERM"] == "truecolor"
+    assert child_env["FORCE_COLOR"] == "3"
+
+
+def test_pty_child_env_blocks_extra_env_electron_node_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Per-PTY env may override normal keys, but not desktop-only launch keys."""
+    monkeypatch.delenv("ELECTRON_RUN_AS_NODE", raising=False)
+
+    child_env = _build_child_env(
+        {
+            "ELECTRON_RUN_AS_NODE": "1",
+            "SCISTUDIO_AI_BLOCK_RUN_DIR": "run-xyz",
+        }
+    )
+
+    assert "ELECTRON_RUN_AS_NODE" not in child_env
+    assert child_env["SCISTUDIO_AI_BLOCK_RUN_DIR"] == "run-xyz"
+
+
+def test_pty_process_does_not_inherit_electron_node_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: desktop runtime env must not break PTY-hosted Node CLIs."""
+    monkeypatch.setenv("ELECTRON_RUN_AS_NODE", "1")
+    pty = PtyProcess(
+        _python_print_env_argv("ELECTRON_RUN_AS_NODE"),
+        cwd=tmp_path,
+        cols=80,
+        rows=24,
+    )
+    try:
+        out = _read_until(pty, b"<unset>", deadline_s=5.0)
+        assert b"<unset>" in out
+        assert b"\n1" not in out
+    finally:
+        pty.kill_tree()
+
+
+def test_resolve_windows_executable_checks_user_cli_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explorer-launched desktop sessions may miss user CLI dirs on PATH."""
+    import scistudio.ai.agent.terminal as terminal_mod
+
+    cli_dir = tmp_path / "AppData" / "Roaming" / "npm"
+    cli_dir.mkdir(parents=True)
+    launcher = cli_dir / "codex.cmd"
+    launcher.write_text("@echo off\n", encoding="utf-8")
+
+    monkeypatch.setattr(terminal_mod.sys, "platform", "win32")
+    monkeypatch.setattr(terminal_mod, "_windows_user_cli_dirs", lambda: [cli_dir])
+
+    assert resolve_windows_executable("codex", which=lambda _name: None) == str(launcher)

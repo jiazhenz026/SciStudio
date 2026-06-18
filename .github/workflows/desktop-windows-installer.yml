@@ -1,0 +1,63 @@
+name: Desktop Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-windows-installer-${{ github.event.pull_request.number || github.event.inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm --prefix desktop ci
+
+      - name: Build portable Python runtime
+        run: npm --prefix desktop run build:python
+
+      - name: Stage resources
+        run: npm --prefix desktop run stage
+
+      - name: Build Windows installer
+        run: npm --prefix desktop run dist:win
+
+      - name: Verify installer artifact exists
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path desktop/dist -Filter *.exe -File | Select-Object -First 1
+          if (-not $installer) {
+            throw "Expected a Windows installer .exe under desktop/dist"
+          }
+          Get-ChildItem -Path desktop/dist -File | Select-Object FullName, Length
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: scistudio-windows-installer
+          path: desktop/dist/*.exe
+          if-no-files-found: error

@@ -36,6 +36,7 @@ import { dataApi } from "./api/data";
 import { filesystemApi } from "./api/filesystem";
 import { gitApi } from "./api/git";
 import { lineageApi } from "./api/lineage";
+import { packagesApi } from "./api/packages";
 import { projectsApi } from "./api/projects";
 import { workflowsApi } from "./api/workflows";
 
@@ -60,5 +61,6 @@ export const api = {
   ...filesystemApi,
   ...codeApi,
   ...lineageApi,
+  ...packagesApi,
   ...gitApi,
 };

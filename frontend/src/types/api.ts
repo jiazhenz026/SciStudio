@@ -530,6 +530,15 @@ export interface TreeResponse {
   entries: TreeEntry[];
 }
 
+export interface LocalPackageInstallResponse {
+  package_name: string;
+  version: string;
+  install_path: string;
+  modules: string[];
+  blocks_count: number;
+  replaced: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // ADR-039 — Git versioning API types
 // ---------------------------------------------------------------------------

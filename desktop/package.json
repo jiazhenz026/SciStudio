@@ -1,0 +1,73 @@
+{
+  "name": "scistudio-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SciStudio ADR-037 desktop MVP shell",
+  "author": "SciStudio",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "build:frontend": "npm --prefix ../frontend run build",
+    "build:python": "powershell -ExecutionPolicy Bypass -File ./scripts/build-python-runtime.ps1",
+    "build:python:mac": "bash ./scripts/build-python-runtime-macos.sh",
+    "stage": "powershell -ExecutionPolicy Bypass -File ./scripts/stage-resources.ps1",
+    "stage:sh": "sh ./scripts/stage-resources.sh",
+    "start": "node scripts/start-electron.js",
+    "dev": "node scripts/start-dev.js",
+    "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir",
+    "dist:win": "powershell -ExecutionPolicy Bypass -Command \"if (Test-Path 'dist\\win-unpacked') { Remove-Item -LiteralPath 'dist\\win-unpacked' -Recurse -Force }; if (Test-Path 'dist') { Get-ChildItem -Path 'dist' -Filter '*.exe' -File -ErrorAction SilentlyContinue | Remove-Item -Force }\" && electron-builder --win nsis --x64",
+    "dist:dmg": "electron-builder --mac dmg --x64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "42.2.0",
+    "electron-builder": "26.8.1"
+  },
+  "build": {
+    "appId": "org.scistudio.desktop",
+    "productName": "SciStudio",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "assets/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "dir",
+        "nsis"
+      ],
+      "icon": "icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "icon.icns",
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    }
+  }
+}

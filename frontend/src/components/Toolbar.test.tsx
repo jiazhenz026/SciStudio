@@ -190,3 +190,12 @@ describe("Toolbar — ADR-036 §3.4 View source button (I36c)", () => {
     expect(screen.queryByRole("button", { name: /view source/i })).toBeNull();
   });
 });
+
+describe("Toolbar responsive layout", () => {
+  it("keeps the SciStudio brand from shrinking under the Projects control", () => {
+    render(<Toolbar {...makeProps()} />);
+    const header = screen.getByTestId("toolbar-project-header");
+    expect(header.className).toContain("shrink-0");
+    expect(header.className).toContain("min-w-fit");
+  });
+});
