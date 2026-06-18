@@ -98,6 +98,7 @@ def test_desktop_has_macos_dmg_builder() -> None:
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
+    assert "push:\n    branches:\n      - main" in workflow_text
     assert "pull_request:" in workflow_text
     assert "runs-on: macos-15-intel" in workflow_text
     assert "npm --prefix desktop run build:python:mac" in workflow_text
@@ -125,6 +126,7 @@ def test_desktop_has_windows_installer_builder() -> None:
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-windows-installer.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
+    assert "push:\n    branches:\n      - main" in workflow_text
     assert "runs-on: windows-latest" in workflow_text
     assert "npm --prefix desktop run build:python" in workflow_text
     assert "npm --prefix desktop run stage" in workflow_text

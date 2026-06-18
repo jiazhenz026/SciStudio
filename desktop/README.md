@@ -39,7 +39,8 @@ npm --prefix desktop run dist:dmg
 ```
 
 The GitHub Actions build chain validates both packaged artifacts for desktop
-changes: `.github/workflows/desktop-windows-installer.yml` uploads
+changes in PRs and builds fresh artifacts after every push to `main`, including
+merged PRs. `.github/workflows/desktop-windows-installer.yml` uploads
 `scistudio-windows-installer`, and `.github/workflows/desktop-macos-dmg.yml`
 uploads `scistudio-macos-dmg`.
 

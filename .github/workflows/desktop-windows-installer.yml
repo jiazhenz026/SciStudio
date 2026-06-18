@@ -1,6 +1,9 @@
 name: Desktop Windows Installer
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main

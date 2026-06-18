@@ -1026,6 +1026,177 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T17:59:46.391468Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T17:59:47.242651Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T17:59:47.310885Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-18T17:59:50.967519Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:00:03.077879Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:00:03.379694Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:00:03.417030Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-18T18:03:31.071548Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:04:31.221991Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-18T18:04:33.994225Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-18T18:04:46.635031Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e8708afbb59b5b1e85d7da816e2d33aad064b9bb6cc611e73a7f9f60c494651",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1059,6 +1230,11 @@
       "at": "2026-06-18T07:25:11.379745Z",
       "owner_directive": "Owner instructed: fix the P1/P2 Codex audit comments, fix frontend CI, wire all build chains, and finish the PR.",
       "reason": "Owner directed fixing PR audit comments, frontend CI, and completing desktop installer build chains before PR completion."
+    },
+    {
+      "at": "2026-06-18T17:58:55.079244Z",
+      "owner_directive": "Owner instructed: add automatic package installer creation on merge.",
+      "reason": "Owner directed automatic installer artifacts after PRs merge to main."
     }
   ],
   "docs_events": [
@@ -1116,6 +1292,14 @@
       "kind": "na",
       "path": null,
       "rationale": "macOS runner label changed from retired macos-13 to supported macos-15-intel; no user-facing docs change beyond existing desktop build-chain docs.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:58:55.079275Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/README.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -2541,6 +2725,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:46.753858Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_scan.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:46.807907Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:46.860342Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:46.913639Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:46.969359Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:47.026832Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:47.090577Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:47.143957Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:47.199161Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T18:04:47.253000Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2627,9 +2936,9 @@
       "tests/desktop/test_package_installer.py",
       "tests/packaging/test_desktop_mvp_resources.py"
     ],
-    "diff_fingerprint": "sha256:c12c64ee123ce5e1bf3305d6b8299415fa3b6a1c3f1fe6db8062ff3c1db21ece",
+    "diff_fingerprint": "sha256:19ad03f35107b57f93c2e1dab30b3ddf2966defa8f3b74682346dbdd756ff892",
     "head": "HEAD",
-    "head_sha": "dda50f27",
+    "head_sha": "48ecef16",
     "surfaces": {
       "docs": 10,
       "frontend": 19,
@@ -2702,6 +3011,14 @@
     {
       "at": "2026-06-18T08:05:02.852693Z",
       "diff_fingerprint": "sha256:c12c64ee123ce5e1bf3305d6b8299415fa3b6a1c3f1fe6db8062ff3c1db21ece",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-18T18:04:47.253044Z",
+      "diff_fingerprint": "sha256:19ad03f35107b57f93c2e1dab30b3ddf2966defa8f3b74682346dbdd756ff892",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
@@ -3061,6 +3378,30 @@
       "at": "2026-06-18T07:59:24.070576Z",
       "pattern": "tests/packaging/test_desktop_mvp_resources.py",
       "reason": "Update macOS desktop workflow from retired macos-13 runner to the supported Intel runner required for x64 DMG builds."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:58:55.079261Z",
+      "pattern": ".github/workflows/desktop-macos-dmg.yml",
+      "reason": "Owner directed automatic installer artifacts after PRs merge to main."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:58:55.079266Z",
+      "pattern": ".github/workflows/desktop-windows-installer.yml",
+      "reason": "Owner directed automatic installer artifacts after PRs merge to main."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:58:55.079268Z",
+      "pattern": "tests/packaging/test_desktop_mvp_resources.py",
+      "reason": "Owner directed automatic installer artifacts after PRs merge to main."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T17:58:55.079270Z",
+      "pattern": "desktop/README.md",
+      "reason": "Owner directed automatic installer artifacts after PRs merge to main."
     }
   ],
   "session_id": "86d9a26a-7bf2-4f01-95fb-a6e9d42724f5",
@@ -3157,6 +3498,14 @@
     },
     {
       "at": "2026-06-18T07:59:24.070616Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_desktop_mvp_resources.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T17:58:55.079280Z",
       "class": null,
       "kind": "path",
       "path": "tests/packaging/test_desktop_mvp_resources.py",
