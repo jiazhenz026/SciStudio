@@ -18,6 +18,10 @@ from scistudio.core.types.base import DataObject
 class Series(DataObject):
     """One-dimensional indexed data (time series, chromatogram, spectrum).
 
+    Persisted Series payloads use the Arrow/Parquet backend. In-memory
+    payloads are normalised to a ``pyarrow.Table`` at the persistence boundary
+    so ``to_memory()`` remains table-shaped after worker reconstruction.
+
     Attributes:
         index_name: Label for the index axis (e.g. ``"wavenumber"``,
             ``"mz"``, ``"time"``).
@@ -51,6 +55,11 @@ class Series(DataObject):
         self.length = length
         if data is not None:
             self._transient_data = data
+
+    def get_in_memory_data(self) -> Any:
+        if self._storage_ref is not None:
+            return self.to_memory()
+        return _series_table_payload(self._transient_data, self.value_name, type(self).__name__)
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
@@ -130,3 +139,14 @@ class Series(DataObject):
             "value_name": obj.value_name,
             "length": obj.length,
         }
+
+
+def _series_table_payload(data: Any, value_name: str | None, type_name: str) -> Any:
+    if data is None:
+        raise ValueError(f"{type_name} has no in-memory data to persist.")
+
+    import pyarrow as pa
+
+    if isinstance(data, pa.Table):
+        return data
+    return pa.table({value_name or "value": pa.array(data)})

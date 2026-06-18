@@ -10,6 +10,7 @@ from typing import ClassVar
 
 import pytest
 
+from scistudio.core.storage.arrow_backend import ArrowBackend
 from scistudio.core.storage.backend_router import BackendRouter, get_router
 from scistudio.core.storage.zarr_backend import ZarrBackend
 from scistudio.core.types.array import Array
@@ -29,6 +30,14 @@ class TestResolveDirectType:
         name, backend = router.resolve(Array)
         assert name == "zarr"
         assert isinstance(backend, ZarrBackend)
+
+    def test_resolve_series_type_to_arrow(self) -> None:
+        from scistudio.core.types.series import Series
+
+        router = get_router()
+        name, backend = router.resolve(Series)
+        assert name == "arrow"
+        assert isinstance(backend, ArrowBackend)
 
 
 class TestResolveSubclassViaMRO:
@@ -80,6 +89,12 @@ class TestExtensionFor:
         router = get_router()
         assert router.extension_for(DataFrame) == ".parquet"
 
+    def test_extension_for_series(self) -> None:
+        from scistudio.core.types.series import Series
+
+        router = get_router()
+        assert router.extension_for(Series) == ".parquet"
+
     def test_extension_for_text(self) -> None:
         from scistudio.core.types.text import Text
 
@@ -105,6 +120,12 @@ class TestBackendNameFor:
 
         router = get_router()
         assert router.backend_name_for(DataFrame) == "arrow"
+
+    def test_backend_name_for_series(self) -> None:
+        from scistudio.core.types.series import Series
+
+        router = get_router()
+        assert router.backend_name_for(Series) == "arrow"
 
     def test_backend_name_for_text(self) -> None:
         from scistudio.core.types.text import Text

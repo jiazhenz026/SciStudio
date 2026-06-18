@@ -1,9 +1,10 @@
-"""Bounded data-access helpers for previewers (ADR-048 FR-009 / FR-010).
+"""Data-access helpers for previewers (ADR-048 FR-009 / FR-010).
 
 :class:`PreviewDataAccess` is the *only* surface a previewer provider may use
-to read payload bytes. Every method enforces a row / byte / item / tile /
-dimension budget so a preview of a multi-GB Zarr/TIFF/Parquet never
-materializes the whole object (FR-010, SC-004).
+to read payload bytes. Tabular page, text, collection, and raster helpers keep
+the row / byte / item / tile / dimension budgets promised by their preview
+semantics. Series/curve helpers return the complete plottable point set so line
+previews and point exports are true to the stored data.
 
 The implementation reuses the proven streaming logic from two
 previewer-owned helper modules (ADR-048 / #1598 — these were moved down out of
@@ -23,6 +24,7 @@ rather than ``arr[...]`` so only the requested plane/tile is read into RAM.
 from __future__ import annotations
 
 import base64
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -118,11 +120,25 @@ class ArrayTile:
 
 @dataclass(frozen=True)
 class SeriesPoints:
-    """A bounded (decimated) set of (x, y) chart points."""
+    """The complete finite set of (x, y) chart points for a Series preview."""
 
     points: list[dict[str, float]]
     total: int
     truncated: bool
+    nonnumeric: int = 0
+
+
+@dataclass(frozen=True)
+class TableXYPoints:
+    """The complete finite set of (x, y) points from two table columns."""
+
+    columns: list[str]
+    x_column: str
+    y_column: str
+    points: list[dict[str, float]]
+    total: int
+    truncated: bool
+    nonnumeric: int
 
 
 @dataclass(frozen=True)
@@ -163,11 +179,12 @@ class CollectionSample:
 
 
 class PreviewDataAccess:
-    """Narrow, budget-enforcing read surface for preview providers.
+    """Narrow read surface for preview providers.
 
-    The class never exposes raw storage paths to frontend code; providers
-    receive typed bounded results and place only JSON-safe payloads into
-    their envelopes.
+    The class never exposes raw storage paths to frontend code. Providers
+    receive typed results and place only JSON-safe payloads into their
+    envelopes. Methods with page/chunk/tile names are intentionally bounded;
+    methods returning chart points are complete.
     """
 
     def __init__(
@@ -187,7 +204,9 @@ class PreviewDataAccess:
         self.max_tile = max(1, int(max_tile))
         self.max_dim = max(1, int(max_dim))
         self.text_chars = max(1, int(text_chars))
-        self.max_series_points = max(1, int(series_points))
+        # ``series_points`` is a legacy constructor argument. It is now only a
+        # batch-size hint for complete curve reads, not a display cap.
+        self.series_batch_size = max(1, int(series_points))
 
     # -- DataFrame ----------------------------------------------------------
 
@@ -242,6 +261,63 @@ class PreviewDataAccess:
             sort_by=effective_sort_by,
             sort_dir=effective_sort_dir if effective_sort_by else None,
             truncated=total_rows > effective_page_size,
+        )
+
+    def table_xy_points(
+        self,
+        ref: StorageReference,
+        *,
+        x_column: str | None = None,
+        y_column: str | None = None,
+    ) -> TableXYPoints:
+        """Return all finite x/y points from two Parquet table columns."""
+        path = Path(ref.path)
+        if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
+            raise ValueError("Table x/y preview expects Arrow/Parquet storage; got Zarr/directory storage")
+
+        import pyarrow.parquet as pq
+
+        pf = pq.ParquetFile(path)
+        columns = list(pf.schema_arrow.names)
+        resolved_x = x_column if x_column in columns else (columns[0] if columns else None)
+        resolved_y = y_column if y_column in columns else (columns[1] if len(columns) > 1 else None)
+        if resolved_x is None or resolved_y is None:
+            raise ValueError("Table x/y preview requires at least two columns")
+
+        total = int(pf.metadata.num_rows)
+        if total <= 0:
+            return TableXYPoints(
+                columns=columns,
+                x_column=resolved_x,
+                y_column=resolved_y,
+                points=[],
+                total=0,
+                truncated=False,
+                nonnumeric=0,
+            )
+
+        points: list[dict[str, float]] = []
+        nonnumeric = 0
+        batch_size = max(1, self.series_batch_size)
+        for batch in pf.iter_batches(batch_size=batch_size, columns=[resolved_x, resolved_y]):
+            xs = batch.column(0).to_pylist()
+            ys = batch.column(1).to_pylist()
+            for raw_x, raw_y in zip(xs, ys, strict=True):
+                x_val = self._finite_number(raw_x)
+                y_val = self._finite_number(raw_y)
+                if x_val is not None and y_val is not None:
+                    points.append({"x": x_val, "y": y_val})
+                else:
+                    nonnumeric += 1
+
+        return TableXYPoints(
+            columns=columns,
+            x_column=resolved_x,
+            y_column=resolved_y,
+            points=points,
+            total=total,
+            truncated=False,
+            nonnumeric=nonnumeric,
         )
 
     # -- Array --------------------------------------------------------------
@@ -397,42 +473,82 @@ class PreviewDataAccess:
     # -- Series -------------------------------------------------------------
 
     def series_points(self, ref: StorageReference, metadata: dict[str, Any]) -> SeriesPoints:
-        """Return decimated chart points for a Series (FR-015).
+        """Return complete chart points for a Series (FR-015).
 
-        Prefers ``metadata['values']`` (cheap in-memory preview written by the
-        worker). Falls back to a bounded parquet read of the first column.
-        Values are decimated to ``series_points`` so a million-point series
-        never serializes in full.
+        Prefers ``metadata['values']`` when the worker provided an in-memory
+        sidecar. Falls back to a complete Parquet read. If the persisted table
+        has both Series axis columns, both are used; otherwise the first value
+        column is plotted against row index.
         """
+        path = Path(ref.path)
+        if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
+            raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")
+
         values: list[Any] = []
         if isinstance(metadata, dict):
             raw = metadata.get("values")
             if isinstance(raw, list):
                 values = raw
 
-        if not values:
-            path = Path(ref.path)
-            if path.exists() and path.suffix.lower() == ".parquet":
-                import pyarrow.parquet as pq
+        if values:
+            return self._series_points_from_values(values)
 
-                pf = pq.ParquetFile(path)
-                collected: list[Any] = []
-                for batch in pf.iter_batches(batch_size=self.max_series_points, columns=[pf.schema_arrow.names[0]]):
-                    collected.extend(batch.column(0).to_pylist())
-                    if len(collected) >= self.max_series_points:
-                        break
-                values = collected
+        if path.exists() and path.suffix.lower() == ".parquet":
+            import pyarrow.parquet as pq
 
-        total = len(values)
-        if total > self.max_series_points:
-            step = max(1, total // self.max_series_points)
-            sampled = values[::step][: self.max_series_points]
-            points = [{"x": float(i * step), "y": float(v)} for i, v in enumerate(sampled)]
-            return SeriesPoints(points=points, total=total, truncated=True)
-        points = [{"x": float(i), "y": float(v)} for i, v in enumerate(values)]
-        return SeriesPoints(points=points, total=total, truncated=False)
+            pf = pq.ParquetFile(path)
+            columns = list(pf.schema_arrow.names)
+            if not columns:
+                return self._series_points_from_values([])
+
+            index_name = metadata.get("index_name") if isinstance(metadata, dict) else None
+            value_name = metadata.get("value_name") if isinstance(metadata, dict) else None
+            if (
+                isinstance(index_name, str)
+                and isinstance(value_name, str)
+                and index_name in columns
+                and value_name in columns
+            ):
+                xy = self.table_xy_points(ref, x_column=index_name, y_column=value_name)
+                return SeriesPoints(
+                    points=xy.points,
+                    total=xy.total,
+                    truncated=False,
+                    nonnumeric=xy.nonnumeric,
+                )
+            if len(columns) >= 2:
+                xy = self.table_xy_points(ref, x_column=columns[0], y_column=columns[1])
+                return SeriesPoints(points=xy.points, total=xy.total, truncated=False, nonnumeric=xy.nonnumeric)
+
+            collected: list[Any] = []
+            for batch in pf.iter_batches(batch_size=max(1, self.series_batch_size), columns=[columns[0]]):
+                collected.extend(batch.column(0).to_pylist())
+            return self._series_points_from_values(collected)
+
+        return self._series_points_from_values([])
+
+    def _series_points_from_values(self, values: list[Any]) -> SeriesPoints:
+        """Build indexed y-values from in-memory/Parquet Series values."""
+        points: list[dict[str, float]] = []
+        nonnumeric = 0
+        for i, value in enumerate(values):
+            y_val = self._finite_number(value)
+            if y_val is None:
+                nonnumeric += 1
+                continue
+            points.append({"x": float(i), "y": y_val})
+        return SeriesPoints(points=points, total=len(values), truncated=False, nonnumeric=nonnumeric)
 
     # -- Text ---------------------------------------------------------------
+
+    @staticmethod
+    def _finite_number(value: Any) -> float | None:
+        """Return a finite float for numeric preview cells, else ``None``."""
+        try:
+            out = float(value)
+        except (TypeError, ValueError):
+            return None
+        return out if math.isfinite(out) else None
 
     def text_chunk(self, ref: StorageReference) -> TextChunk:
         """Return a bounded text chunk + truncation marker (FR-016).

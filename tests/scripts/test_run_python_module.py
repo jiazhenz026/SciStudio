@@ -93,7 +93,13 @@ class TestLocalEnvVarParity:
         if result.returncode != 0:
             pytest.skip("git rev-parse --local-env-vars unavailable")
         actual = set(result.stdout.split())
-        assert set(mod._GIT_LOCAL_ENV_VARS) == actual, (
-            "_GIT_LOCAL_ENV_VARS is out of sync with `git rev-parse --local-env-vars`; "
+        configured = set(mod._GIT_LOCAL_ENV_VARS)
+        allowed_compat_extras = {"GIT_INTERNAL_SUPER_PREFIX"}
+        assert actual <= configured, (
+            "_GIT_LOCAL_ENV_VARS does not cover `git rev-parse --local-env-vars`; "
             "update scripts/hooks/run_python_module.py."
+        )
+        assert configured - actual <= allowed_compat_extras, (
+            "_GIT_LOCAL_ENV_VARS contains unexpected extras not reported by this Git version; "
+            "remove stale entries or add a documented compatibility allowance."
         )

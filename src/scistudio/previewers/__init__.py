@@ -9,7 +9,8 @@ Public surface:
 
 * Models — :class:`PreviewerSpec`, :class:`PreviewTarget`,
   :class:`PreviewEnvelope`, :class:`PreviewSession`, :class:`FrontendManifest`,
-  the :data:`PreviewProvider` callable protocol, and the typed error hierarchy.
+  the :data:`PreviewProvider` / :data:`PreviewResourceProvider` callable
+  protocols, and the typed error hierarchy.
 * :class:`PreviewerRegistry`, :class:`PreviewRouter`,
   :class:`PreviewSessionManager`, :class:`PreviewDataAccess`.
 * :func:`build_preview_service` / :func:`get_preview_service` — a
@@ -48,6 +49,7 @@ from scistudio.previewers.models import (
     PreviewProvider,
     PreviewRequest,
     PreviewResource,
+    PreviewResourceProvider,
     PreviewSession,
     PreviewSource,
     PreviewTarget,
@@ -146,6 +148,7 @@ __all__ = [
     "PreviewProvider",
     "PreviewRequest",
     "PreviewResource",
+    "PreviewResourceProvider",
     "PreviewRouter",
     "PreviewService",
     "PreviewSession",

@@ -87,11 +87,12 @@ def _try_connect_attached(project_dir: Path) -> socket_mod.socket | None:
             s.settimeout(None)
             return s
         else:
-            if not sock_path.exists():
+            connect_path = _posix_socket_connect_path(sock_path)
+            if not connect_path.exists():
                 return None
             s = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
             s.settimeout(2.0)
-            s.connect(str(sock_path))
+            s.connect(str(connect_path))
             s.settimeout(None)
             return s
     except OSError as exc:
@@ -263,6 +264,7 @@ def run(socket: str | None) -> int:
                     )
                     return 2
             else:
+                explicit_path = _posix_socket_connect_path(explicit_path)
                 sock_obj = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
                 sock_obj.connect(str(explicit_path))
         except OSError as exc:
@@ -290,6 +292,17 @@ def run(socket: str | None) -> int:
         return asyncio.run(_run_standalone(project_dir))
     except KeyboardInterrupt:
         return 0
+
+
+def _posix_socket_connect_path(socket_path: Path) -> Path:
+    pointer_path = socket_path.with_suffix(socket_path.suffix + ".path")
+    if not pointer_path.exists():
+        return socket_path
+    try:
+        target = Path(pointer_path.read_text(encoding="utf-8").strip())
+    except OSError:
+        return socket_path
+    return target if target.exists() else socket_path
 
 
 def _typer_command(

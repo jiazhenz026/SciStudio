@@ -15,6 +15,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
+from scistudio.blocks.base.ports import InputPort
+from scistudio.blocks.registry import BlockSpec
+from scistudio.core.types.array import Array
 
 
 def _cyclic_payload() -> dict:
@@ -51,6 +54,25 @@ def test_save_workflow_allows_valid_graph(runtime: ApiRuntime, opened_project: P
     definition = runtime.save_workflow(payload)
     assert definition.id == "linear_wf"
     assert runtime.workflow_path("linear_wf").exists()
+
+
+def test_save_workflow_allows_dangling_required_inputs_in_draft(runtime: ApiRuntime, opened_project: Path) -> None:
+    runtime.block_registry._registry["needs_input"] = BlockSpec(
+        name="needs_input",
+        input_ports=[InputPort(name="in", accepted_types=[Array], required=True)],
+    )
+    payload = {
+        "id": "draft_missing_input",
+        "nodes": [{"id": "B", "block_type": "needs_input"}],
+        "edges": [],
+    }
+
+    definition = runtime.save_workflow(payload)
+
+    assert definition.id == "draft_missing_input"
+    assert runtime.workflow_path("draft_missing_input").exists()
+    with pytest.raises(ValueError, match="required input port 'in' has no incoming connection"):
+        runtime.start_workflow("draft_missing_input")
 
 
 def test_create_workflow_route_returns_422_on_cycle(client: TestClient, opened_project: Path) -> None:

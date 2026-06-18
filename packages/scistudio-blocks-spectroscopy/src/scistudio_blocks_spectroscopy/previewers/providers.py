@@ -1,6 +1,6 @@
 """Functional preview providers for Spectrum and SpectralDataset (ADR-048).
 
-These providers are NOT stubs: they read payload through the bounded
+These providers are NOT stubs: they read payload through the
 ``request.data_access`` surface, build a JSON-safe envelope, and return typed
 error envelopes on failure (never raise). ``Spectrum`` degrades to the core
 ``SERIES`` renderer; ``SpectralDataset`` degrades to the core ``COMPOSITE``
@@ -10,10 +10,9 @@ Spec coverage:
 
 - ``spectrum_provider`` — FR-018/FR-019/FR-020/FR-021 + US1 acceptance #2/#3.
   A ``Spectrum`` is a two-column table (``lambda``, ``intensity``); both columns
-  are read with a bounded ``dataframe_page`` so the preview carries true
-  ``(x, y)`` points (``series_points`` would only read one column). Honest
-  sampling/truncation flags come from the bounded read; a missing-unit / empty /
-  nonnumeric diagnostic is reported but the plot still renders.
+  are read completely so the preview carries the real ``(x, y)`` points. A
+  missing-unit / empty / nonnumeric diagnostic is reported but the plot still
+  renders.
 - ``spectral_dataset_provider`` — FR-022..FR-029. The ``index`` slot is read as
   a paginated table; the ``spectra`` slot is read with the same bounded access
   policy to provide diagnostics and lightweight explorer plot payloads.
@@ -26,6 +25,9 @@ shape inspection, and integrity (join/schema/unit/numeric/alignment) checks.
 
 from __future__ import annotations
 
+import base64
+import csv
+import io
 import json
 import logging
 from pathlib import Path
@@ -38,6 +40,7 @@ from scistudio.previewers.models import (
     PreviewMetadata,
     PreviewRequest,
     PreviewResource,
+    ProviderError,
 )
 
 logger = logging.getLogger(__name__)
@@ -129,75 +132,128 @@ def _spectrum_units(record_md: dict[str, Any]) -> tuple[str | None, str | None, 
     Reads only scalar fields from ``_record_metadata`` (the worker-stamped
     catalog record); never materializes a typed ``Meta`` model.
     """
-
-    def _scalar(key: str) -> str | None:
-        value = record_md.get(key)
-        return value if isinstance(value, str) and value else None
-
     return (
-        _scalar("lambda_unit"),
-        _scalar("intensity_unit"),
-        _scalar("lambda_kind"),
-        _scalar("modality"),
+        _metadata_scalar(record_md, "lambda_unit"),
+        _metadata_scalar(record_md, "intensity_unit"),
+        _metadata_scalar(record_md, "lambda_kind"),
+        _metadata_scalar(record_md, "modality"),
     )
 
 
+def _metadata_scalar(record_md: dict[str, Any], key: str) -> str | None:
+    nested_meta = record_md.get("meta")
+    meta = nested_meta if isinstance(nested_meta, dict) else {}
+    value = record_md.get(key)
+    if value in (None, ""):
+        value = meta.get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def _spectrum_axis_names(record_md: dict[str, Any]) -> tuple[str, str]:
+    x_name = _metadata_scalar(record_md, "index_name") or _LAMBDA
+    y_name = _metadata_scalar(record_md, "value_name") or _INTENSITY
+    source_names = _source_axis_names(record_md)
+    if source_names is not None:
+        if x_name == _LAMBDA:
+            x_name = source_names[0]
+        if y_name == _INTENSITY:
+            y_name = source_names[1]
+    return x_name, y_name
+
+
+def _source_axis_names(record_md: dict[str, Any]) -> tuple[str, str] | None:
+    source_file = _metadata_scalar(record_md, "source_file")
+    if not source_file:
+        return None
+    path = Path(source_file)
+    if not path.is_file():
+        return None
+    try:
+        for raw_line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line or line[0] in "#%;":
+                continue
+            fields = line.replace(",", " ").replace("\t", " ").split()
+            if len(fields) < 2:
+                continue
+            try:
+                float(fields[0])
+                float(fields[1])
+            except ValueError:
+                return fields[0], fields[1]
+            return None
+    except OSError:
+        return None
+    return None
+
+
+def _display_axis_name(name: str) -> str:
+    return name.replace("_", "-")
+
+
+def _axis_label(name: str, unit: str | None) -> str:
+    display = _display_axis_name(name)
+    if unit and unit.lower() not in display.lower():
+        return f"{display} ({unit})"
+    return display
+
+
+def _axis_override(query: dict[str, Any], key: str, axis: str) -> str | None:
+    raw = query.get(key)
+    if not isinstance(raw, dict) or axis not in raw:
+        return None
+    value = raw.get(axis)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _is_arrow_table_ref(ref: StorageReference) -> bool:
+    """Return true when the Spectrum payload is stored as an Arrow/Parquet table."""
+    suffix = Path(ref.path).suffix.lower()
+    fmt = ref.format.lower() if isinstance(ref.format, str) else None
+    if ref.backend == "zarr" or fmt == "zarr" or suffix == ".zarr":
+        return False
+    return ref.backend == "arrow" or fmt in {"arrow", "parquet"} or suffix == ".parquet"
+
+
 def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
-    """Preview a single ``Spectrum`` as a decimated 2-D line series.
+    """Preview a single ``Spectrum`` as a complete 2-D line series.
 
     A ``Spectrum`` is stored as a two-column table (``lambda``, ``intensity``).
-    Both columns are read through a bounded ``dataframe_page`` so the preview
-    carries true ``(x, y)`` points rather than only the first column. The
+    Both columns are read through ``PreviewDataAccess.table_xy_points`` so the
+    preview carries true ``(x, y)`` points rather than only the first column. The
     envelope kind is ``SERIES`` so it degrades cleanly to the core series
     renderer when the package viewer asset is unavailable (FR-018/FR-026).
     """
     ref = _ref_for(request)
     record_md = _record_metadata(request)
-    page_size = _page_size(request)
     lambda_unit, intensity_unit, lambda_kind, modality = _spectrum_units(record_md)
+    x_axis_name, y_axis_name = _spectrum_axis_names(record_md)
 
     points: list[dict[str, float]] = []
     total = 0
-    truncated = False
     nonnumeric = 0
     diagnostics: list[str] = []
 
-    try:
-        page = request.data_access.dataframe_page(ref, page=1, page_size=page_size)
-        columns = list(page.columns)
-        rows = list(page.rows)
-        total = int(getattr(page, "total_rows", len(rows)) or len(rows))
-        truncated = bool(getattr(page, "truncated", total > len(rows)))
-        x_name = _LAMBDA if _LAMBDA in columns else (columns[0] if columns else None)
-        y_name = _INTENSITY if _INTENSITY in columns else (columns[1] if len(columns) > 1 else None)
-        for row in rows:
-            if x_name is None or y_name is None or not isinstance(row, dict):
-                continue
-            x_val = _finite_float(row.get(x_name))
-            y_val = _finite_float(row.get(y_name))
-            if x_val is not None and y_val is not None:
-                points.append({"x": x_val, "y": y_val})
-            else:
-                nonnumeric += 1
-    except Exception as exc:
-        # Fallback: the cheaper single-column series read so a Spectrum without
-        # a readable second column still previews as an indexed line. When the
-        # fallback also recovers nothing the payload is genuinely unreadable, so
-        # return a typed error envelope rather than a misleading empty plot.
-        logger.debug("spectrum dataframe_page failed for %s", ref.path, exc_info=True)
-        try:
-            series = request.data_access.series_points(ref, record_md)
-        except Exception as inner:
-            logger.debug("spectrum series fallback failed for %s", ref.path, exc_info=True)
-            return _error_envelope(request, f"spectrum preview failed: {exc}; fallback: {inner}")
-        if not series.points:
-            return _error_envelope(request, f"spectrum preview failed: {exc}")
-        points = [{"x": float(p["x"]), "y": float(p["y"])} for p in series.points]
-        total = int(series.total)
-        truncated = bool(series.truncated)
-        diagnostics.append("read both-column table failed; showing decimated single column")
+    if not _is_arrow_table_ref(ref):
+        return _error_envelope(
+            request,
+            "spectrum preview failed: Spectrum storage must be Arrow/Parquet "
+            f"(backend={ref.backend!r}, format={ref.format!r})",
+        )
 
-    # Honest diagnostics (FR-019 unit display, US1 acceptance #3; FR-020 sampling).
+    try:
+        sample = request.data_access.table_xy_points(ref, x_column=_LAMBDA, y_column=_INTENSITY)
+    except Exception as exc:
+        logger.debug("spectrum x/y table sampling failed for %s", ref.path, exc_info=True)
+        return _error_envelope(request, f"spectrum preview failed: {exc}")
+
+    total = int(sample.total)
+    nonnumeric = int(sample.nonnumeric)
+    points = list(sample.points)
+
+    # Honest diagnostics (FR-019 unit display, US1 acceptance #3).
     if lambda_unit is None or intensity_unit is None:
         missing = [
             name for name, val in (("lambda_unit", lambda_unit), ("intensity_unit", intensity_unit)) if val is None
@@ -207,12 +263,20 @@ def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
         diagnostics.append("empty data: no numeric (lambda, intensity) points to plot")
     if nonnumeric:
         diagnostics.append(f"skipped {nonnumeric} nonnumeric row(s)")
-    if truncated:
-        diagnostics.append(f"showing {len(points)} sampled point(s) of {total} (bounded read)")
 
     table_rows = [{_LAMBDA: p["x"], _INTENSITY: p["y"]} for p in points]
-    x_label = f"{lambda_kind or _LAMBDA}" + (f" ({lambda_unit})" if lambda_unit else "")
-    y_label = _INTENSITY + (f" ({intensity_unit})" if intensity_unit else "")
+    x_base_name = x_axis_name if x_axis_name != _LAMBDA else (lambda_kind or x_axis_name)
+    y_base_name = y_axis_name
+    x_label_override = _axis_override(request.query, "axis_labels", "x")
+    y_label_override = _axis_override(request.query, "axis_labels", "y")
+    x_unit_override = _axis_override(request.query, "axis_units", "x")
+    y_unit_override = _axis_override(request.query, "axis_units", "y")
+    x_name = x_label_override or x_base_name
+    y_name = y_label_override or y_base_name
+    x_unit = x_unit_override if x_unit_override is not None else lambda_unit
+    y_unit = y_unit_override if y_unit_override is not None else intensity_unit
+    x_label = _axis_label(x_name, x_unit or None)
+    y_label = _axis_label(y_name, y_unit or None)
 
     resources = (
         *(
@@ -229,8 +293,8 @@ def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
             resource_id="export_points_csv",
             kind="asset",
             media_type="text/csv",
-            description="export the visible (decimated) spectrum points as CSV",
-            params={"format": "csv", "target": "visible_points"},
+            description="export the complete spectrum points as CSV",
+            params={"format": "csv", "target": "points"},
         ),
     )
 
@@ -243,8 +307,8 @@ def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
             "table": {"columns": [_LAMBDA, _INTENSITY], "rows": table_rows},
             "total": total,
             "axes": {
-                "x": {"name": _LAMBDA, "kind": lambda_kind, "unit": lambda_unit, "label": x_label},
-                "y": {"name": _INTENSITY, "unit": intensity_unit, "label": y_label},
+                "x": {"name": x_name, "kind": lambda_kind, "unit": x_unit, "label": x_label},
+                "y": {"name": y_name, "unit": y_unit, "label": y_label},
             },
             "modality": modality,
             "capabilities": list(_SPECTRUM_CAPABILITIES),
@@ -253,9 +317,9 @@ def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
         resources=resources,
         diagnostics=tuple(diagnostics),
         metadata=PreviewMetadata(
-            sampled=truncated,
-            truncated=truncated,
-            complete=not truncated and bool(points),
+            sampled=False,
+            truncated=False,
+            complete=nonnumeric == 0 and bool(points),
             extra={
                 "total": total,
                 "shown": len(points),
@@ -266,6 +330,130 @@ def spectrum_provider(request: PreviewRequest) -> PreviewEnvelope:
             },
         ),
     )
+
+
+def spectrum_resource_provider(request: PreviewRequest, resource_id: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Serve package-owned Spectrum export resources through the preview session."""
+    envelope = spectrum_provider(request)
+    resource = next((item for item in envelope.resources if item.resource_id == resource_id), None)
+    if resource is None:
+        raise ProviderError(
+            f"unknown spectrum resource id {resource_id!r}",
+            detail={"resource_id": resource_id, "previewer_id": request.spec.previewer_id},
+        )
+    merged = dict(resource.params)
+    merged.update({str(key): value for key, value in params.items()})
+    fmt = str(merged.get("format") or "").lower().lstrip(".")
+    target = str(merged.get("target") or "")
+    if fmt == "csv" or resource_id.endswith("_csv"):
+        return _export_spectrum_csv(envelope, resource_id, request.limits.max_bytes)
+    if target == "figure" or resource_id.startswith("export_figure_"):
+        return _export_spectrum_figure(
+            envelope, resource_id, fmt or resource_id.rsplit("_", 1)[-1], request.limits.max_bytes
+        )
+    raise ProviderError(
+        f"unsupported spectrum export resource {resource_id!r}",
+        detail={"resource_id": resource_id, "format": fmt, "target": target},
+    )
+
+
+def _export_spectrum_csv(envelope: PreviewEnvelope, resource_id: str, max_bytes: int) -> dict[str, Any]:
+    payload = envelope.payload if isinstance(envelope.payload, dict) else {}
+    table = payload.get("table") if isinstance(payload.get("table"), dict) else {}
+    columns = [str(column) for column in table.get("columns", [])] or [_LAMBDA, _INTENSITY]
+    rows = [row for row in table.get("rows", []) if isinstance(row, dict)]
+    if not rows:
+        rows = [
+            {_LAMBDA: point.get("x"), _INTENSITY: point.get("y")}
+            for point in payload.get("points", [])
+            if isinstance(point, dict)
+        ]
+    out = io.StringIO(newline="")
+    writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({column: row.get(column, "") for column in columns})
+    data = out.getvalue().encode("utf-8")
+    _check_export_budget(data, max_bytes, resource_id)
+    return {
+        "format": "csv",
+        "mime_type": "text/csv",
+        "filename": "spectrum_points.csv",
+        "size_bytes": len(data),
+        "data_uri": _data_uri("text/csv", data),
+    }
+
+
+def _export_spectrum_figure(envelope: PreviewEnvelope, resource_id: str, fmt: str, max_bytes: int) -> dict[str, Any]:
+    if fmt not in _FIGURE_FORMATS:
+        raise ProviderError(
+            f"unsupported spectrum figure export format: {fmt or '<none>'}",
+            detail={"resource_id": resource_id, "format": fmt},
+        )
+    payload = envelope.payload if isinstance(envelope.payload, dict) else {}
+    points = _finite_points(payload.get("points", []))
+    if not points:
+        raise ProviderError("spectrum figure export has no plottable points", detail={"resource_id": resource_id})
+    axes = payload.get("axes") if isinstance(payload.get("axes"), dict) else {}
+    x_axis = axes.get("x") if isinstance(axes.get("x"), dict) else {}
+    y_axis = axes.get("y") if isinstance(axes.get("y"), dict) else {}
+    x_label = str(x_axis.get("label") or x_axis.get("name") or _LAMBDA)
+    y_label = str(y_axis.get("label") or y_axis.get("name") or _INTENSITY)
+    data = _render_line_figure(points, x_label, y_label, fmt)
+    if fmt == "svg":
+        from scistudio.previewers.fallbacks import sanitize_svg
+
+        sanitized, _removed = sanitize_svg(data.decode("utf-8", errors="replace"))
+        data = sanitized.encode("utf-8")
+    _check_export_budget(data, max_bytes, resource_id)
+    return {
+        "format": fmt,
+        "mime_type": _FIGURE_MEDIA[fmt],
+        "filename": f"spectrum.{fmt}",
+        "size_bytes": len(data),
+        "data_uri": _data_uri(_FIGURE_MEDIA[fmt], data),
+    }
+
+
+def _render_line_figure(points: list[dict[str, float]], x_label: str, y_label: str, fmt: str) -> bytes:
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=(7.2, 3.2), dpi=150)
+    ax = fig.subplots()
+    ax.plot([point["x"] for point in points], [point["y"] for point in points], linewidth=1.4)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.grid(True, color="#edf0f5", linewidth=0.8)
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format=fmt, bbox_inches="tight")
+    return buffer.getvalue()
+
+
+def _finite_points(values: Any) -> list[dict[str, float]]:
+    points: list[dict[str, float]] = []
+    for point in values if isinstance(values, list) else []:
+        if not isinstance(point, dict):
+            continue
+        x_val = point.get("x")
+        y_val = point.get("y")
+        if isinstance(x_val, (int, float)) and isinstance(y_val, (int, float)):
+            points.append({"x": float(x_val), "y": float(y_val)})
+    return points
+
+
+def _data_uri(mime_type: str, payload: bytes) -> str:
+    return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
+
+
+def _check_export_budget(payload: bytes, max_bytes: int, resource_id: str) -> None:
+    if len(payload) > max_bytes:
+        raise ProviderError(
+            "spectrum export exceeds preview byte budget",
+            detail={"resource_id": resource_id, "size_bytes": len(payload), "max_bytes": max_bytes},
+        )
 
 
 # ---------------------------------------------------------------------------

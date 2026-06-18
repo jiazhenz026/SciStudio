@@ -2,8 +2,8 @@
  * #898 — derive human-friendly pill labels from output payloads.
  *
  * Every output dict in ``blockOutputs[block_id]`` already carries
- * ``metadata.framework.source`` (full source file path stamped by
- * LoadImage and other IO blocks). Walk the payload and pair each
+ * ``metadata.meta.source_file`` / ``metadata.framework.source`` (full source
+ * file path stamped by IO blocks). Walk the payload and pair each
  * ``data_ref`` with a display name so the pill labels read e.g.
  * ``beads.tif`` instead of ``data-873de``.
  *
@@ -31,23 +31,29 @@ export function deriveDisplayName(ref: string, dataItem: Record<string, unknown>
   const md = dataItem.metadata;
   if (md && typeof md === "object") {
     const mdRec = md as Record<string, unknown>;
-    // 1. framework.source — set by IO loaders (LoadImage etc.)
-    const framework = mdRec.framework;
-    if (framework && typeof framework === "object") {
-      const src = (framework as Record<string, unknown>).source;
-      if (typeof src === "string" && src) return basename(src);
-    }
-    // 2. meta.source_file — typed Image.Meta
+    // 1. Typed source-file metadata. Imaging and spectroscopy loaders both
+    // use this when the framework source is package provenance rather than a
+    // user-facing filename.
+    const directSourceFile = mdRec.source_file;
+    if (typeof directSourceFile === "string" && directSourceFile) return basename(directSourceFile);
+    const directFilePath = mdRec.file_path;
+    if (typeof directFilePath === "string" && directFilePath) return basename(directFilePath);
     const meta = mdRec.meta;
     if (meta && typeof meta === "object") {
       const sourceFile = (meta as Record<string, unknown>).source_file;
       if (typeof sourceFile === "string" && sourceFile) return basename(sourceFile);
-      // 3. meta.file_path — Artifact
       const filePath = (meta as Record<string, unknown>).file_path;
       if (typeof filePath === "string" && filePath) return basename(filePath);
     }
+    // 2. framework.source — set by IO loaders (LoadImage etc.). Package names
+    // such as "scistudio-blocks-spectroscopy" are provenance, not filenames.
+    const framework = mdRec.framework;
+    if (framework && typeof framework === "object") {
+      const src = (framework as Record<string, unknown>).source;
+      if (typeof src === "string" && src && /[\\/]/.test(src)) return basename(src);
+    }
   }
-  // 4. Fallback: truncated ref (today's behavior)
+  // 3. Fallback: truncated ref (today's behavior)
   return ref.slice(0, 10);
 }
 

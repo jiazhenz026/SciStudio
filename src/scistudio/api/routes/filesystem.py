@@ -547,11 +547,22 @@ def _native_dialog_macos(
         return []
 
     def _hfs_to_posix(hfs: str) -> str:
-        """Convert an HFS alias string to a POSIX path."""
+        """Convert an AppleScript alias/file result to a POSIX path."""
         text = hfs.strip()
-        if text.startswith("alias "):
-            text = text[len("alias ") :]
+        for prefix in ("alias ", "file "):
+            if text.startswith(prefix):
+                text = text[len(prefix) :]
+                break
+        if text.startswith("POSIX file "):
+            text = text[len("POSIX file ") :].strip()
+            if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+                text = text[1:-1]
+            return text
+        if "/" in text and ":" not in text:
+            return text
         parts = text.split(":")
+        if len(parts) <= 1:
+            return text
         posix = "/" + "/".join(parts[1:])
         return posix.rstrip("/") or "/"
 
@@ -560,7 +571,9 @@ def _native_dialog_macos(
         aliases = selected.split(", alias ")
         # First item already has 'alias ' prefix; subsequent ones don't after split
         return [_hfs_to_posix(aliases[0])] + [_hfs_to_posix("alias " + a) for a in aliases[1:]]
-    if selected.startswith("alias "):
+    if "|" in selected:
+        return [p for p in selected.split("|") if p]
+    if selected.startswith(("alias ", "file ", "POSIX file ")):
         return [_hfs_to_posix(selected)]
     return [selected]
 

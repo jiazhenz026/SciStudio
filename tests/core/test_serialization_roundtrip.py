@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pyarrow as pa
 import pytest
 
 from scistudio.core.types.array import Array
@@ -51,9 +52,8 @@ def _make_array(tmp_path: Path) -> Array:
 def _make_series(tmp_path: Path) -> Series:
     """3-element series."""
     s = Series(index_name="wavenumber", value_name="intensity", length=3)
-    s._data = np.array([10.0, 20.0, 30.0])  # type: ignore[attr-defined]
-    # Series routes to zarr backend, so provide numpy data
-    s.save(str(tmp_path / "series.zarr"))
+    s._arrow_table = pa.table({"intensity": [10.0, 20.0, 30.0]})  # type: ignore[attr-defined]
+    s.save(str(tmp_path / "series.parquet"))
     return s
 
 

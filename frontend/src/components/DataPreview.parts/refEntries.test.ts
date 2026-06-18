@@ -47,6 +47,19 @@ describe("extractRefEntries", () => {
     ]);
   });
 
+  it("prefers source_file over package provenance framework source", () => {
+    const result = extractRefEntries({
+      data_ref: "data-xyz",
+      metadata: {
+        framework: { source: "scistudio-blocks-spectroscopy" },
+        meta: { source_file: "/data/Urd_01.txt" },
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-xyz", displayName: "Urd_01.txt" }),
+    ]);
+  });
+
   it("falls back to metadata.meta.file_path when source_file absent", () => {
     const result = extractRefEntries({
       data_ref: "data-xyz",

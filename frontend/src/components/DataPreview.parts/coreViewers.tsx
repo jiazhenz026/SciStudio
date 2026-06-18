@@ -511,7 +511,7 @@ export function ArrayLegend({ vmin, vmax }: { vmin: number; vmax: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Series (FR-015) — chart + table modes, data already decimated by backend
+// Series (FR-015) — chart + table modes, data supplied by the backend
 // ---------------------------------------------------------------------------
 
 export function SeriesViewer({ envelope }: { envelope: PreviewEnvelope }) {

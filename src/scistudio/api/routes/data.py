@@ -259,6 +259,8 @@ async def save_preview_resource(
 ) -> PreviewResourceSaveResponse:
     """Save a bounded provider resource to a path selected by the native dialog."""
     _validate_resource_param_value(payload.params)
+    if not Path(payload.destination_path).is_absolute():
+        raise HTTPException(status_code=400, detail="save destination must be an absolute file path")
     try:
         destination = _resolve_safe_path(payload.destination_path)
     except ValueError as exc:

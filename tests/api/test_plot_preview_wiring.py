@@ -328,6 +328,46 @@ def test_plot_preview_resource_save_writes_export_to_user_selected_path(
     assert "<svg" in destination.read_text(encoding="utf-8")
 
 
+def test_plot_preview_resource_save_rejects_relative_destination_path(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Save/export must not treat malformed native-dialog paths as cwd-relative files."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    run = client.post("/api/plots/run", json={"plot_id": "p1"})
+    assert run.status_code == 200, run.text
+    body = run.json()
+    session = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "plot_artifact",
+                "ref": body["data_ref"],
+                "recorded_type": body["recorded_type"],
+                "type_chain": body["type_chain"],
+                "source": body["source"],
+            },
+            "query": {},
+        },
+    )
+    assert session.status_code == 200, session.text
+    sid = session.json()["session_id"]
+
+    save = client.post(
+        f"/api/previews/sessions/{sid}/resources/export/save",
+        json={
+            "destination_path": "file Macintosh HD:Users:jiazhenz:Desktop:spectrum.svg",
+            "params": {"format": "svg"},
+        },
+    )
+
+    assert save.status_code == 400
+    assert "absolute file path" in save.json()["detail"]
+
+
 def test_registered_plot_artifact_classifies_as_plot_target(
     client: TestClient,
     runtime: ApiRuntime,

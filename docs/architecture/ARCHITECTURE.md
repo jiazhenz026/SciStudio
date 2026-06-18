@@ -404,11 +404,17 @@ to load only the data they actually need.
 | Base type | Primary backend | Rationale |
 |---|---|---|
 | `Array` | Zarr | Chunked, compressed, cloud-compatible storage for large numeric data. |
-| `Series` | Zarr or Parquet | Efficient storage for long one-dimensional values. |
+| `Series` | Apache Arrow / Parquet | Columnar storage for indexed one-dimensional values while preserving label/value schema. |
 | `DataFrame` | Apache Arrow / Parquet | Columnar storage for filtering, aggregation, and memory mapping. |
 | `Text` | In memory or filesystem | Small textual payloads can usually travel directly. |
 | `Artifact` | Filesystem | Original files are preserved for interoperability. |
 | `CompositeData` | Directory of slot backends | Each slot uses the backend appropriate to its own type. |
+
+`Series` storage is table-shaped even when the logical value is one-dimensional.
+Generic `Series` values normally persist as a one-column Arrow table named by
+`value_name`; domain-specific `Series` subclasses may use additional columns
+when their type contract requires explicit coordinates, such as `Spectrum`
+storing `lambda` and `intensity`.
 
 #### 4.3.2 Canonical Zone And Boundary Formats
 

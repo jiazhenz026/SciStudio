@@ -24,29 +24,96 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
-function exportButton(host, resourceId, filename, format, label) {
-  return el(
+const CONTROL_FONT = "12px system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+
+function buttonStyle(active = false) {
+  return [
+    `font:${CONTROL_FONT}`,
+    "display:inline-flex",
+    "align-items:center",
+    "justify-content:center",
+    "min-height:28px",
+    "padding:4px 10px",
+    "border-radius:4px",
+    `border:1px solid ${active ? "#2b7de9" : "#b8c0cc"}`,
+    `background:${active ? "#e7f1ff" : "#fff"}`,
+    `color:${active ? "#174ea6" : "#1f2933"}`,
+    "cursor:pointer",
+    "box-sizing:border-box",
+  ].join(";");
+}
+
+function selectStyle() {
+  return [
+    `font:${CONTROL_FONT}`,
+    "min-height:28px",
+    "padding:3px 28px 3px 8px",
+    "border:1px solid #b8c0cc",
+    "border-radius:4px",
+    "background:#fff",
+    "color:#1f2933",
+    "box-sizing:border-box",
+  ].join(";");
+}
+
+function inputStyle(width = "112px") {
+  return [
+    `font:${CONTROL_FONT}`,
+    `width:${width}`,
+    "min-height:28px",
+    "padding:3px 8px",
+    "border:1px solid #b8c0cc",
+    "border-radius:4px",
+    "background:#fff",
+    "color:#1f2933",
+    "box-sizing:border-box",
+  ].join(";");
+}
+
+function runExport(host, spec) {
+  try {
+    const p = host.exportArtifact({ resourceId: spec.resourceId, filename: spec.filename, format: spec.format });
+    if (p && typeof p.catch === "function") {
+      p.catch((err) => host.reportError("export failed", { error: String(err) }));
+    }
+  } catch (err) {
+    host.reportError("export failed", { error: String(err) });
+  }
+}
+
+function exportControls(host, options) {
+  const specs = Array.isArray(options) ? options.filter((option) => option && option.resourceId) : [];
+  if (!specs.length) return null;
+  const byId = new Map(specs.map((spec) => [spec.resourceId, spec]));
+  const select = el("select", { style: selectStyle(), "aria-label": "Export format" });
+  for (const spec of specs) {
+    select.appendChild(el("option", { value: spec.resourceId, text: spec.label }));
+  }
+  const button = el(
     "button",
     {
-      style: "font:12px sans-serif;margin:2px 4px 2px 0;padding:3px 8px;cursor:pointer",
-      onclick: () => {
-        try {
-          const p = host.exportArtifact({ resourceId, filename, format });
-          if (p && typeof p.catch === "function") {
-            p.catch((err) => host.reportError("export failed", { error: String(err) }));
-          }
-        } catch (err) {
-          host.reportError("export failed", { error: String(err) });
-        }
-      },
+      type: "button",
+      style: buttonStyle(),
+      onclick: () => runExport(host, byId.get(select.value) || specs[0]),
     },
-    label,
+    "Export",
+  );
+  return el(
+    "div",
+    { style: "display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px" },
+    select,
+    button,
   );
 }
 
 function patchQuery(host, patch, label) {
   try {
-    if (host.session && typeof host.session.patchQuery === "function") host.session.patchQuery(patch);
+    if (host.session && typeof host.session.patchQuery === "function") {
+      const p = host.session.patchQuery(patch);
+      if (p && typeof p.catch === "function") {
+        p.catch((err) => host.reportError(`${label} failed`, { error: String(err) }));
+      }
+    }
   } catch (err) {
     host.reportError(`${label} failed`, { error: String(err) });
   }
@@ -64,11 +131,12 @@ function diagnosticsPanel(messages) {
   return box;
 }
 
-function svgText(parent, x, y, content, anchor) {
+function svgText(parent, x, y, content, anchor, size = 13, weight = "400") {
   const node = document.createElementNS(SVG_NS, "text");
   node.setAttribute("x", String(x));
   node.setAttribute("y", String(y));
-  node.setAttribute("font-size", "11");
+  node.setAttribute("font-size", String(size));
+  node.setAttribute("font-weight", weight);
   node.setAttribute("fill", "#555");
   node.setAttribute("text-anchor", anchor || "start");
   node.textContent = content;
@@ -100,13 +168,93 @@ function numericBounds(seriesList) {
   };
 }
 
+function formatTick(value) {
+  if (!Number.isFinite(value)) return "";
+  if (Math.abs(value - Math.round(value)) < 1e-9) return String(Math.round(value));
+  const abs = Math.abs(value);
+  if (abs >= 10000 || (abs > 0 && abs < 0.01)) return value.toExponential(2);
+  if (abs >= 100) return value.toFixed(0);
+  if (abs >= 10) return value.toFixed(1).replace(/\.0$/, "");
+  return value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function niceIntegerStep(span, count) {
+  if (!Number.isFinite(span) || span <= 0) return 1;
+  const raw = span / Math.max(1, count - 1);
+  if (!Number.isFinite(raw) || raw <= 1) return 1;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const scaled = raw / power;
+  const nice = scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 5 ? 5 : 10;
+  return Math.max(1, Math.round(nice * power));
+}
+
+function tickValues(min, max, count = 5, integer = false) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || count < 2) return [];
+  if (min === max) return [min];
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  if (integer) {
+    const step = niceIntegerStep(hi - lo, count);
+    const start = Math.ceil(lo / step) * step;
+    const end = Math.floor(hi / step) * step;
+    const ticks = [];
+    for (let value = start; value <= end + step * 1e-9; value += step) {
+      ticks.push(Object.is(value, -0) ? 0 : value);
+      if (ticks.length > count + 4) break;
+    }
+    if (ticks.length) return ticks;
+    const candidate = Math.round((lo + hi) / 2);
+    return candidate >= lo && candidate <= hi ? [candidate] : [];
+  }
+  const step = (max - min) / (count - 1);
+  return Array.from({ length: count }, (_, idx) => min + step * idx);
+}
+
+function axisEditor(host, axes) {
+  const xAxis = axes.x || {};
+  const yAxis = axes.y || {};
+  const xLabel = el("input", { type: "text", "aria-label": "X label", style: inputStyle("140px") });
+  const xUnit = el("input", { type: "text", "aria-label": "X unit", style: inputStyle("76px") });
+  const yLabel = el("input", { type: "text", "aria-label": "Y label", style: inputStyle("140px") });
+  const yUnit = el("input", { type: "text", "aria-label": "Y unit", style: inputStyle("76px") });
+  xLabel.value = xAxis.name || xAxis.label || "lambda";
+  xUnit.value = xAxis.unit || "";
+  yLabel.value = yAxis.name || yAxis.label || "intensity";
+  yUnit.value = yAxis.unit || "";
+  const apply = () => {
+    patchQuery(
+      host,
+      {
+        axis_labels: { x: xLabel.value.trim(), y: yLabel.value.trim() },
+        axis_units: { x: xUnit.value.trim(), y: yUnit.value.trim() },
+      },
+      "axis update",
+    );
+  };
+  for (const input of [xLabel, xUnit, yLabel, yUnit]) {
+    input.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") apply();
+    });
+  }
+  const labelStyle = `font:${CONTROL_FONT};color:#52606d;display:inline-flex;align-items:center;gap:4px`;
+  return el(
+    "div",
+    { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0" },
+    el("label", { style: labelStyle }, "X", xLabel),
+    el("label", { style: labelStyle }, "unit", xUnit),
+    el("label", { style: labelStyle }, "Y", yLabel),
+    el("label", { style: labelStyle }, "unit", yUnit),
+    el("button", { type: "button", style: buttonStyle(), onclick: apply }, "Apply"),
+  );
+}
+
 function renderInteractiveLines(container, seriesList, axes, options = {}) {
-  const width = options.width || 620;
-  const height = options.height || 240;
-  const padL = 52;
-  const padB = 28;
-  const padT = 12;
-  const padR = 16;
+  const width = options.width || 720;
+  const height = options.height || 260;
+  const padL = 64;
+  const padB = 44;
+  const padT = 18;
+  const padR = 20;
   const colors = ["#2b7de9", "#e8590c", "#2f9e44", "#9c36b5", "#0b7285", "#f08c00", "#495057"];
   const bounds = numericBounds(seriesList);
 
@@ -119,14 +267,38 @@ function renderInteractiveLines(container, seriesList, axes, options = {}) {
   let mode = "pan";
   let drag = null;
 
-  const toolbar = el("div", { style: "font:12px sans-serif;margin:4px 0" });
-  const addButton = (label, fn) => toolbar.appendChild(el("button", { style: "margin-right:4px", onclick: fn }, label));
+  const toolbar = el("div", {
+    style: `font:${CONTROL_FONT};display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0`,
+  });
+  const modeButtons = {};
+  const syncToolbar = () => {
+    for (const [key, button] of Object.entries(modeButtons)) {
+      button.setAttribute("style", buttonStyle(mode === key));
+    }
+  };
+  const addButton = (label, fn, key = null) => {
+    const button = el(
+      "button",
+      {
+        type: "button",
+        style: buttonStyle(key ? mode === key : false),
+        onclick: () => {
+          fn();
+          syncToolbar();
+        },
+      },
+      label,
+    );
+    if (key) modeButtons[key] = button;
+    toolbar.appendChild(button);
+    return button;
+  };
   addButton("Pan", () => {
     mode = "pan";
-  });
+  }, "pan");
   addButton("Box zoom", () => {
     mode = "box";
-  });
+  }, "box");
   addButton("Zoom in", () => zoomAt(0.75, width / 2, height / 2));
   addButton("Zoom out", () => zoomAt(1.33, width / 2, height / 2));
   addButton("Reset", () => {
@@ -139,17 +311,33 @@ function renderInteractiveLines(container, seriesList, axes, options = {}) {
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("style", "border:1px solid #ddd;background:#fff;cursor:crosshair;touch-action:none");
+  svg.setAttribute(
+    "style",
+    "border:1px solid #d6dce5;background:#fff;cursor:crosshair;touch-action:none;max-width:100%;height:auto;display:block",
+  );
+  const clipId = `spectroscopy-plot-clip-${Math.random().toString(36).slice(2)}`;
+  const defs = document.createElementNS(SVG_NS, "defs");
+  const clipPath = document.createElementNS(SVG_NS, "clipPath");
+  const clipRect = document.createElementNS(SVG_NS, "rect");
+  clipPath.setAttribute("id", clipId);
+  clipRect.setAttribute("x", String(padL));
+  clipRect.setAttribute("y", String(padT));
+  clipRect.setAttribute("width", String(width - padL - padR));
+  clipRect.setAttribute("height", String(height - padT - padB));
+  clipPath.appendChild(clipRect);
+  defs.appendChild(clipPath);
   const plotGroup = document.createElementNS(SVG_NS, "g");
   const marker = document.createElementNS(SVG_NS, "circle");
   const zoomBox = document.createElementNS(SVG_NS, "rect");
   marker.setAttribute("r", "3");
   marker.setAttribute("fill", "#e8590c");
   marker.setAttribute("visibility", "hidden");
+  marker.setAttribute("clip-path", `url(#${clipId})`);
   zoomBox.setAttribute("fill", "rgba(43,125,233,0.12)");
   zoomBox.setAttribute("stroke", "#2b7de9");
   zoomBox.setAttribute("stroke-dasharray", "4 3");
   zoomBox.setAttribute("visibility", "hidden");
+  svg.appendChild(defs);
   svg.appendChild(plotGroup);
   svg.appendChild(marker);
   svg.appendChild(zoomBox);
@@ -180,24 +368,52 @@ function renderInteractiveLines(container, seriesList, axes, options = {}) {
   function zoomAt(factor, px, py) {
     const cx = dataX(px);
     const cy = dataY(py);
-    const xHalf = ((view.xMax - view.xMin) * factor) / 2;
-    const yHalf = ((view.yMax - view.yMin) * factor) / 2;
-    view = { xMin: cx - xHalf, xMax: cx + xHalf, yMin: cy - yHalf, yMax: cy + yHalf };
+    view = {
+      xMin: cx - (cx - view.xMin) * factor,
+      xMax: cx + (view.xMax - cx) * factor,
+      yMin: cy - (cy - view.yMin) * factor,
+      yMax: cy + (view.yMax - cy) * factor,
+    };
     redraw();
   }
-  function axis(x1, y1, x2, y2) {
+  function lineNode(x1, y1, x2, y2, stroke = "#b8c0cc", widthValue = "1") {
     const line = document.createElementNS(SVG_NS, "line");
     line.setAttribute("x1", String(x1));
     line.setAttribute("y1", String(y1));
     line.setAttribute("x2", String(x2));
     line.setAttribute("y2", String(y2));
-    line.setAttribute("stroke", "#bbb");
+    line.setAttribute("stroke", stroke);
+    line.setAttribute("stroke-width", widthValue);
     plotGroup.appendChild(line);
+    return line;
+  }
+  function axis(x1, y1, x2, y2) {
+    lineNode(x1, y1, x2, y2, "#a8b0bb", "1.1");
+  }
+  function drawTicks() {
+    for (const tick of tickValues(view.xMin, view.xMax, 6, true)) {
+      const x = sx(tick);
+      if (x < padL - 0.5 || x > width - padR + 0.5) continue;
+      lineNode(x, padT, x, height - padB, "#edf0f5");
+      lineNode(x, height - padB, x, height - padB + 5, "#8f9aa8");
+      svgText(plotGroup, x, height - padB + 19, formatTick(tick), "middle", 12);
+    }
+    for (const tick of tickValues(view.yMin, view.yMax, 5, true)) {
+      const y = sy(tick);
+      if (y < padT - 0.5 || y > height - padB + 0.5) continue;
+      lineNode(padL, y, width - padR, y, "#edf0f5");
+      lineNode(padL - 5, y, padL, y, "#8f9aa8");
+      svgText(plotGroup, padL - 8, y + 4, formatTick(tick), "end", 12);
+    }
   }
   function redraw() {
     plotGroup.replaceChildren();
+    drawTicks();
     axis(padL, height - padB, width - padR, height - padB);
     axis(padL, padT, padL, height - padB);
+    const dataGroup = document.createElementNS(SVG_NS, "g");
+    dataGroup.setAttribute("clip-path", `url(#${clipId})`);
+    plotGroup.appendChild(dataGroup);
     for (const [i, series] of seriesList.entries()) {
       const points = (series.points || []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
       if (!points.length) continue;
@@ -208,11 +424,11 @@ function renderInteractiveLines(container, seriesList, axes, options = {}) {
       line.setAttribute("stroke", colors[i % colors.length]);
       line.setAttribute("stroke-width", series.selected ? "2.4" : "1.4");
       line.setAttribute("opacity", series.dimmed ? "0.35" : "1");
-      plotGroup.appendChild(line);
+      dataGroup.appendChild(line);
     }
-    svgText(plotGroup, width / 2, height - 4, axes.x || "lambda", "middle");
-    const yLabel = svgText(plotGroup, 12, height / 2, axes.y || "intensity", "middle");
-    yLabel.setAttribute("transform", `rotate(-90 12 ${height / 2})`);
+    svgText(plotGroup, width / 2, height - 8, axes.x || "lambda", "middle", 14, "600");
+    const yLabel = svgText(plotGroup, 16, height / 2, axes.y || "intensity", "middle", 14, "600");
+    yLabel.setAttribute("transform", `rotate(-90 16 ${height / 2})`);
   }
   function nearestPoint(px) {
     let nearest = null;
@@ -232,7 +448,9 @@ function renderInteractiveLines(container, seriesList, axes, options = {}) {
   svg.addEventListener("wheel", (evt) => {
     evt.preventDefault();
     const p = pointer(evt);
-    zoomAt(evt.deltaY < 0 ? 0.82 : 1.22, p.x, p.y);
+    const primaryDelta = Math.abs(evt.deltaY) >= Math.abs(evt.deltaX) ? evt.deltaY : evt.deltaX;
+    if (primaryDelta === 0) return;
+    zoomAt(primaryDelta < 0 ? 0.82 : 1.22, p.x, p.y);
   });
   svg.addEventListener("mousedown", (evt) => {
     const p = pointer(evt);
@@ -310,12 +528,15 @@ function renderSpectrum(container, payload, host, diagnostics) {
 
   renderInteractiveLines(container, [{ spectrum_id: "spectrum", points }], { x: xAxis.label, y: yAxis.label });
 
-  const actions = el("div", { style: "margin-top:6px" });
-  actions.appendChild(exportButton(host, "export_figure_svg", "spectrum.svg", "svg", "Export figure (SVG)"));
-  actions.appendChild(exportButton(host, "export_figure_png", "spectrum.png", "png", "PNG"));
-  actions.appendChild(exportButton(host, "export_figure_pdf", "spectrum.pdf", "pdf", "PDF"));
-  actions.appendChild(exportButton(host, "export_points_csv", "spectrum_points.csv", "csv", "Export points (CSV)"));
-  container.appendChild(actions);
+  container.appendChild(axisEditor(host, axes));
+
+  const actions = exportControls(host, [
+    { resourceId: "export_figure_svg", filename: "spectrum.svg", format: "svg", label: "Figure SVG" },
+    { resourceId: "export_figure_png", filename: "spectrum.png", format: "png", label: "Figure PNG" },
+    { resourceId: "export_figure_pdf", filename: "spectrum.pdf", format: "pdf", label: "Figure PDF" },
+    { resourceId: "export_points_csv", filename: "spectrum_points.csv", format: "csv", label: "Points CSV" },
+  ]);
+  if (actions) container.appendChild(actions);
 }
 
 function drawDatasetPlot(container, plot, mode) {
@@ -396,7 +617,7 @@ function renderDataset(container, payload, host, diagnostics) {
   const controlBar = el("div", {
     style: "font:12px sans-serif;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0",
   });
-  const modeSelect = el("select", { style: "font:12px sans-serif" });
+  const modeSelect = el("select", { style: selectStyle() });
   for (const mode of plotModes) modeSelect.appendChild(el("option", { value: mode, text: mode }));
   modeSelect.value = controls.plot_mode || plot.mode || "overlay";
   modeSelect.addEventListener("change", () => {
@@ -404,8 +625,8 @@ function renderDataset(container, payload, host, diagnostics) {
     patchQuery(host, { plot_mode: modeSelect.value }, "plot mode change");
   });
 
-  const groupSelect = el("select", { style: "font:12px sans-serif" }, el("option", { value: "", text: "no group" }));
-  const colorSelect = el("select", { style: "font:12px sans-serif" }, el("option", { value: "", text: "no color" }));
+  const groupSelect = el("select", { style: selectStyle() }, el("option", { value: "", text: "no group" }));
+  const colorSelect = el("select", { style: selectStyle() }, el("option", { value: "", text: "no color" }));
   for (const col of groupable) {
     groupSelect.appendChild(el("option", { value: col, text: col }));
     colorSelect.appendChild(el("option", { value: col, text: col }));
@@ -415,14 +636,14 @@ function renderDataset(container, payload, host, diagnostics) {
   groupSelect.addEventListener("change", () => patchQuery(host, { group_by: groupSelect.value || null }, "group change"));
   colorSelect.addEventListener("change", () => patchQuery(host, { color_by: colorSelect.value || null }, "color change"));
 
-  const filterSelect = el("select", { style: "font:12px sans-serif" }, el("option", { value: "", text: "no filter" }));
+  const filterSelect = el("select", { style: selectStyle() }, el("option", { value: "", text: "no filter" }));
   for (const col of filterable) filterSelect.appendChild(el("option", { value: col, text: col }));
   filterSelect.value = firstFilter.column || "";
   const filterInput = el("input", {
     type: "search",
     placeholder: "filter value",
     value: firstFilter.value || "",
-    style: "font:12px sans-serif;padding:2px 4px;width:120px",
+    style: `${selectStyle()};width:120px;padding-right:8px`,
   });
   const applyFilter = () =>
     patchQuery(
@@ -436,9 +657,10 @@ function renderDataset(container, payload, host, diagnostics) {
   filterInput.addEventListener("keydown", (evt) => {
     if (evt.key === "Enter") applyFilter();
   });
-  const filterButton = el("button", { style: "font:12px sans-serif", onclick: applyFilter }, "Apply");
+  const filterButton = el("button", { type: "button", style: buttonStyle(), onclick: applyFilter }, "Apply");
   const clearFilterButton = el("button", {
-    style: "font:12px sans-serif",
+    type: "button",
+    style: buttonStyle(),
     onclick: () => {
       filterSelect.value = "";
       filterInput.value = "";
@@ -449,7 +671,7 @@ function renderDataset(container, payload, host, diagnostics) {
   const searchInput = el("input", {
     type: "search",
     placeholder: "search index",
-    style: "font:12px sans-serif;padding:2px 4px",
+    style: `${selectStyle()};padding-right:8px`,
     oninput: () => {
       search = searchInput.value.toLowerCase();
       drawTable();
@@ -552,14 +774,25 @@ function renderDataset(container, payload, host, diagnostics) {
     );
   }
 
-  const actions = el("div", { style: "margin-top:6px" });
-  actions.appendChild(exportButton(host, "export_figure_svg", "dataset.svg", "svg", "Export figure (SVG)"));
-  actions.appendChild(exportButton(host, "export_figure_png", "dataset.png", "png", "PNG"));
-  actions.appendChild(exportButton(host, "export_figure_pdf", "dataset.pdf", "pdf", "PDF"));
-  actions.appendChild(exportButton(host, "export_visible_spectra_csv", "visible_spectra.csv", "csv", "Export visible spectra (CSV)"));
-  actions.appendChild(exportButton(host, "export_selected_rows_csv", "selected_rows.csv", "csv", "Export selected rows (CSV)"));
-  actions.appendChild(exportButton(host, "export_grouped_summary_csv", "grouped_summary.csv", "csv", "Export grouped summary (CSV)"));
-  container.appendChild(actions);
+  const actions = exportControls(host, [
+    { resourceId: "export_figure_svg", filename: "dataset.svg", format: "svg", label: "Figure SVG" },
+    { resourceId: "export_figure_png", filename: "dataset.png", format: "png", label: "Figure PNG" },
+    { resourceId: "export_figure_pdf", filename: "dataset.pdf", format: "pdf", label: "Figure PDF" },
+    {
+      resourceId: "export_visible_spectra_csv",
+      filename: "visible_spectra.csv",
+      format: "csv",
+      label: "Visible spectra CSV",
+    },
+    { resourceId: "export_selected_rows_csv", filename: "selected_rows.csv", format: "csv", label: "Selected rows CSV" },
+    {
+      resourceId: "export_grouped_summary_csv",
+      filename: "grouped_summary.csv",
+      format: "csv",
+      label: "Grouped summary CSV",
+    },
+  ]);
+  if (actions) container.appendChild(actions);
 }
 
 export default {

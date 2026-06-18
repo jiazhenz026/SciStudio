@@ -267,6 +267,10 @@ def test_load_single_column_csv_to_series(tmp_path: Path) -> None:
     assert isinstance(s, Series)
     assert s.value_name == "intensity"
     assert s.length == 3
+    table = s.get_in_memory_data()
+    assert isinstance(table, pa.Table)
+    assert table.column_names == ["intensity"]
+    assert table.column("intensity").to_pylist() == [10, 20, 30]
 
 
 def test_load_multi_column_csv_as_series_rejected(tmp_path: Path) -> None:

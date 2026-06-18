@@ -597,6 +597,8 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
                 f"got {len(df.columns) if df.columns else 0} columns in {path}"
             )
         # ADR-031: persist the arrow table to storage to fix payload loss.
+        # Direct in-process calls without output_dir still carry the transient
+        # table so smoke harnesses and unit tests do not observe an empty Series.
         table = getattr(df, "_arrow_table", None)
         storage_ref = None
         if table is not None and block is not None and output_dir:
@@ -607,6 +609,7 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
             length=df.row_count,
             framework=_source_framework(path),
             storage_ref=storage_ref,
+            data=None if storage_ref is not None else table,
         )
 
     raise ValueError(
