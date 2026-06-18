@@ -28,7 +28,6 @@ import importlib.metadata
 import importlib.util
 import inspect
 import logging
-import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -341,7 +340,7 @@ def _prepended_sys_path(path: Path) -> Iterator[None]:
 
 
 def _iter_package_src_dirs(package_dir: Path) -> Iterator[Path]:
-    """Yield ``src`` directories from a packages dir, package root, or src dir."""
+    """Yield import roots from a packages dir, package root, or src dir."""
     expanded = package_dir.expanduser()
     if expanded.name == "src" and expanded.is_dir():
         yield expanded
@@ -355,31 +354,34 @@ def _iter_package_src_dirs(package_dir: Path) -> Iterator[Path]:
     if not expanded.is_dir():
         return
 
-    for src_dir in sorted(expanded.glob("*/src")):
-        if src_dir.is_dir():
-            yield src_dir
+    if any(expanded.glob("scistudio_blocks_*/__init__.py")):
+        yield expanded
+
+    for child in sorted(expanded.iterdir()):
+        if not child.is_dir():
+            continue
+        child_src = child / "src"
+        if child_src.is_dir():
+            yield child_src
+        elif any(child.glob("scistudio_blocks_*/__init__.py")):
+            yield child
 
 
 def _iter_source_package_modules(src_dir: Path) -> Iterator[str]:
-    """Yield ``scistudio_blocks_*`` modules visible in a source ``src`` dir."""
+    """Yield ``scistudio_blocks_*`` modules visible in a package import root."""
     for package_init in sorted(src_dir.glob("scistudio_blocks_*/__init__.py")):
         yield package_init.parent.name
 
 
 def _desktop_resource_package_dirs() -> list[Path]:
     """Return package directories implied by desktop/resource environment."""
-    dirs: list[Path] = []
-    env_dirs = os.environ.get("SCISTUDIO_PLUGIN_PACKAGE_DIRS", "")
-    dirs.extend(Path(raw) for raw in env_dirs.split(os.pathsep) if raw)
+    try:
+        from scistudio.desktop.paths import candidate_package_dirs
 
-    resources = os.environ.get("SCISTUDIO_DESKTOP_RESOURCES")
-    if resources:
-        dirs.append(Path(resources) / "packages")
-
-    # ``__file__`` sits at ``src/scistudio/blocks/registry/_scan.py``.
-    repo_root = Path(__file__).resolve().parents[4]
-    dirs.append(repo_root / "desktop" / "packages")
-    return dirs
+        return candidate_package_dirs()
+    except Exception:
+        logger.debug("Failed to resolve desktop package directories", exc_info=True)
+        return []
 
 
 def _process_package_protocol_result(

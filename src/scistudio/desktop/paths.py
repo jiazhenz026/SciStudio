@@ -72,6 +72,10 @@ def plugins_dir() -> Path:
     return _user_dir("data") / "plugins"
 
 
+def installed_packages_dir() -> Path:
+    return plugins_dir() / "packages"
+
+
 def shared_model_cache() -> Path:
     if sys.platform == "win32":
         return Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / APP_NAME / "models"
@@ -111,6 +115,7 @@ def candidate_package_dirs() -> list[Path]:
     for item in env.split(os.pathsep):
         if item:
             dirs.append(Path(item).resolve())
+    dirs.append(installed_packages_dir())
     dirs.append(bundled_packages_dir())
     root = repo_root()
     if root is not None:

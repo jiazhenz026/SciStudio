@@ -1,8 +1,10 @@
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useState } from "react";
 
 import type { ConnectionStatus } from "../hooks/connectionState";
 import type { ProjectResponse } from "../types/api";
+import { PackageInstallerDialog } from "./PackageInstallerDialog";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
 import { ProjectHeader, StatusPill } from "./Toolbar.parts/ProjectHeader";
 import { ProjectsDropdown } from "./Toolbar.parts/ProjectsDropdown";
@@ -106,6 +108,7 @@ export function Toolbar(props: ToolbarProps) {
   void onResume;
   void onStartFromSelected;
   const isFileTab = activeTabKind === "file";
+  const [packageInstallerOpen, setPackageInstallerOpen] = useState(false);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -142,6 +145,7 @@ export function Toolbar(props: ToolbarProps) {
           onNewCustomBlock={onNewCustomBlock}
           onNewNote={onNewNote}
           onNewPlot={onNewPlot}
+          onInstallPackage={() => setPackageInstallerOpen(true)}
           onImport={onImport}
           onSave={onSave}
           onSaveAs={onSaveAs}
@@ -174,6 +178,10 @@ export function Toolbar(props: ToolbarProps) {
           <StatusPill connected={sseConnected} status={sseStatus} label="Logs" />
         </div>
       </header>
+      <PackageInstallerDialog
+        onClose={() => setPackageInstallerOpen(false)}
+        open={packageInstallerOpen}
+      />
     </TooltipProvider>
   );
 }

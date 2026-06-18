@@ -91,12 +91,12 @@ def _map_source(raw: str) -> str:
     """Map internal source labels to palette-friendly values.
 
     tier1 -> "custom" (project-local hot-loaded blocks)
-    entry_point / monorepo -> "package" (installed plugin blocks)
+    entry_point / monorepo / package_src -> "package" (installed plugin blocks)
     builtin -> "builtin" (core blocks)
     """
     if raw == "tier1":
         return "custom"
-    if raw in ("entry_point", "monorepo"):
+    if raw in ("entry_point", "monorepo", "package_src"):
         return "package"
     if raw == "builtin":
         return "builtin"

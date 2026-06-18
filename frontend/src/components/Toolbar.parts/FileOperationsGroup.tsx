@@ -9,6 +9,7 @@ import {
   FilePlus2,
   FileText,
   Import,
+  PackagePlus,
   Save,
   SaveAll,
   Workflow,
@@ -32,6 +33,7 @@ export interface FileOperationsGroupProps {
   onNewCustomBlock?: () => void;
   onNewNote?: () => void;
   onNewPlot?: () => void;
+  onInstallPackage: () => void;
   onImport: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -44,6 +46,7 @@ export function FileOperationsGroup({
   onNewCustomBlock,
   onNewNote,
   onNewPlot,
+  onInstallPackage,
   onImport,
   onSave,
   onSaveAs,
@@ -90,6 +93,7 @@ export function FileOperationsGroup({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <ToolbarButton icon={PackagePlus} label="Package" onClick={onInstallPackage} />
       <ToolbarButton icon={Import} label="Import" disabled={!currentProject} onClick={onImport} />
       <ToolbarButton
         icon={Save}

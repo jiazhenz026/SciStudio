@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from scistudio.blocks.registry import BlockRegistry
 
 
@@ -46,7 +48,7 @@ def _write_source_package(
     return package_root / "src"
 
 
-def test_scan_discovers_env_package_dirs(monkeypatch, tmp_path: Path) -> None:
+def test_scan_discovers_env_package_dirs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     packages_dir = tmp_path / "env-packages"
     src_dir = _write_source_package(
         packages_dir,
@@ -69,7 +71,7 @@ def test_scan_discovers_env_package_dirs(monkeypatch, tmp_path: Path) -> None:
     assert str(src_dir) not in sys.path
 
 
-def test_scan_discovers_desktop_resource_packages(monkeypatch, tmp_path: Path) -> None:
+def test_scan_discovers_desktop_resource_packages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     resources_dir = tmp_path / "resources"
     packages_dir = resources_dir / "packages"
     _write_source_package(
@@ -108,3 +110,40 @@ def test_add_package_src_dir_accepts_resolved_src_directory(tmp_path: Path) -> N
     assert spec is not None
     assert spec.source == "package_src"
     assert spec.package_name == "Manual Probe"
+
+
+def test_add_package_src_dir_accepts_flat_installed_package(tmp_path: Path) -> None:
+    packages_dir = tmp_path / "installed-packages"
+    package_root = packages_dir / "scistudio-blocks-flatprobe-0.1.0"
+    module_dir = package_root / "scistudio_blocks_flatprobe"
+    module_dir.mkdir(parents=True)
+    (module_dir / "__init__.py").write_text(
+        "from typing import Any\n"
+        "\n"
+        "from scistudio.blocks.base.config import BlockConfig\n"
+        "from scistudio.blocks.base.package_info import PackageInfo\n"
+        "from scistudio.blocks.base.block import Block\n"
+        "\n"
+        "class FlatProbeBlock(Block):\n"
+        '    name = "FlatProbeBlock"\n'
+        "    input_ports = []\n"
+        "    output_ports = []\n"
+        '    config_schema = {"type": "object", "properties": {}}\n'
+        "\n"
+        "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+        "        return {}\n"
+        "\n"
+        "def get_block_package():\n"
+        '    return PackageInfo(name="Flat Probe", version="0.1.0"), [FlatProbeBlock]\n',
+        encoding="utf-8",
+    )
+
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+
+    spec = registry.get_spec("FlatProbeBlock")
+    assert spec is not None
+    assert spec.source == "package_src"
+    assert spec.module_path == "scistudio_blocks_flatprobe"
+    assert spec.package_name == "Flat Probe"

@@ -189,13 +189,11 @@ class BlockRegistry:
         _scan_builtins(self)
 
     def _scan_tier1(self) -> None:
-        """Tier 1: scan configured directories for ``.py`` drop-in files."""
         from scistudio.blocks.registry._scan import _scan_tier1
 
         _scan_tier1(self)
 
     def _scan_tier2(self) -> None:
-        """Tier 2: scan ``scistudio.blocks`` entry-points (ADR-025 callable protocol)."""
         from scistudio.blocks.registry._scan import _scan_tier2
 
         _scan_tier2(self)

@@ -45,3 +45,18 @@ SciStudio without installing Python first.
 
 On macOS, `build:python:mac` stages a standalone Python under
 `resources/python/bin/python3` before `dist:dmg` builds the DMG.
+
+## Local Package Installer
+
+The desktop app exposes a local package installer from the toolbar. Use it to
+select a local wheel, source archive, or source directory that contains a
+`scistudio_blocks_*` Python package. The installer copies or extracts the
+package into the user-scoped plugin directory:
+
+```text
+<user data dir>/SciStudio/plugins/packages/
+```
+
+After installation the backend refreshes the block registry, so package blocks
+appear in the palette without a remote package index. This path is strictly
+local: it does not download dependencies or query PyPI.
