@@ -1,0 +1,117 @@
+{
+  "branch": "feat/1698-canvas-node-readability",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-18T22:07:35.205577Z",
+      "owner_directive": "Dispatch FE-1 (square node), FE-2 (focus/tidy/store), FE-3 (bottompanel config), BE (contract tests); manager integrates into umbrella, updates ARCHITECTURE.md, runs browser e2e.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-18T22:07:35.205746Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-050-canvas-node-readability-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1698,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager: deliver full ADR-050 frontend refactor (square canvas nodes, unified status surface, focus mode, tidy layout) per docs/specs/adr-050-canvas-node-readability.md via dispatched agents; integrate into one umbrella PR; run browser e2e; flip [DO NOT MERGE] to [READY TO REVIEW]. Owner working autonomously overnight.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1698-canvas-node-readability",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205708Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205716Z",
+      "pattern": "frontend/package.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205720Z",
+      "pattern": "frontend/package-lock.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205722Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205723Z",
+      "pattern": "tests/blocks/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205724Z",
+      "pattern": "tests/packaging/test_adr043_package_capabilities.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205725Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205726Z",
+      "pattern": "docs/planning/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "40d4bc1e-ea27-4c82-ab48-7f52fedbed0b",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-06-18T22:07:35.205773Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager-coordination commit; implementation tests land via dispatched agent branches FE-1/FE-2/FE-3/BE in the umbrella diff",
+      "verified_in_diff": null
+    }
+  ]
+}
