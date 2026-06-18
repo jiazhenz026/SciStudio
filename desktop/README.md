@@ -38,11 +38,14 @@ npm --prefix desktop run stage:sh
 npm --prefix desktop run dist:dmg
 ```
 
-The GitHub Actions build chain validates both packaged artifacts for desktop
-changes in PRs and builds fresh artifacts after every push to `main`, including
-merged PRs. `.github/workflows/desktop-windows-installer.yml` uploads
-`scistudio-windows-installer`, and `.github/workflows/desktop-macos-dmg.yml`
-uploads `scistudio-macos-dmg`.
+The GitHub Actions build chain for packaged artifacts is intentionally manual
+because the installer jobs are slow. Run `.github/workflows/desktop-windows-installer.yml`
+to upload `scistudio-windows-installer`, and run
+`.github/workflows/desktop-macos-dmg.yml` to upload `scistudio-macos-dmg`.
+
+The packaged app uses the SciStudio icon assets in `desktop/assets`: `icon.svg`
+is the source, `icon.png` is the runtime window icon, and `icon.ico`/`icon.icns`
+are the Windows and macOS packaging icons.
 
 ## Runtime Python
 

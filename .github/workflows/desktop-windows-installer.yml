@@ -1,18 +1,6 @@
 name: Desktop Windows Installer
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/desktop-windows-installer.yml"
-      - "desktop/**"
-      - "frontend/**"
-      - "src/**"
-      - "pyproject.toml"
   workflow_dispatch:
     inputs:
       ref:

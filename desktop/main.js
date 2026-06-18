@@ -70,6 +70,10 @@ function repoRoot() {
   return path.resolve(__dirname, "..");
 }
 
+function appIconPath() {
+  return path.join(__dirname, "assets", "icon.png");
+}
+
 function pythonCandidates() {
   const resources = resourcesDir();
   const candidates = [];
@@ -446,6 +450,7 @@ function createWindow(url) {
     minWidth: 1024,
     minHeight: 720,
     title: "SciStudio",
+    icon: appIconPath(),
     backgroundColor: "#f7f8fb",
     show: false,
     webPreferences: {

@@ -27,12 +27,14 @@
     "appId": "org.scistudio.desktop",
     "productName": "SciStudio",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "assets"
     },
     "files": [
       "main.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "assets/icon.png"
     ],
     "extraResources": [
       {
@@ -48,6 +50,7 @@
         "dir",
         "nsis"
       ],
+      "icon": "icon.ico",
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -61,6 +64,7 @@
       "target": [
         "dmg"
       ],
+      "icon": "icon.icns",
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": false,
       "gatekeeperAssess": false

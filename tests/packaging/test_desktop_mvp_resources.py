@@ -98,8 +98,9 @@ def test_desktop_has_macos_dmg_builder() -> None:
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
-    assert "push:\n    branches:\n      - main" in workflow_text
-    assert "pull_request:" in workflow_text
+    assert "workflow_dispatch:" in workflow_text
+    assert "pull_request:" not in workflow_text
+    assert "push:" not in workflow_text
     assert "runs-on: macos-15-intel" in workflow_text
     assert "npm --prefix desktop run build:python:mac" in workflow_text
     assert "npm --prefix desktop run dist:dmg" in workflow_text
@@ -126,13 +127,53 @@ def test_desktop_has_windows_installer_builder() -> None:
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-windows-installer.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
-    assert "push:\n    branches:\n      - main" in workflow_text
+    assert "workflow_dispatch:" in workflow_text
+    assert "pull_request:" not in workflow_text
+    assert "push:" not in workflow_text
     assert "runs-on: windows-latest" in workflow_text
     assert "npm --prefix desktop run build:python" in workflow_text
     assert "npm --prefix desktop run stage" in workflow_text
     assert "npm --prefix desktop run dist:win" in workflow_text
     assert "desktop/dist/*.exe" in workflow_text
     assert "scistudio-windows-installer" in workflow_text
+
+
+def test_desktop_declares_packaged_app_icons() -> None:
+    """The desktop shell should not ship with the default Electron icon."""
+    package_data = _desktop_package_json()
+    build = package_data["build"]
+    assert isinstance(build, dict)
+
+    directories = build["directories"]
+    assert isinstance(directories, dict)
+    assert directories["buildResources"] == "assets"
+
+    files = build["files"]
+    assert isinstance(files, list)
+    assert "assets/icon.png" in files
+
+    win_config = build["win"]
+    assert isinstance(win_config, dict)
+    assert win_config["icon"] == "icon.ico"
+
+    mac_config = build["mac"]
+    assert isinstance(mac_config, dict)
+    assert mac_config["icon"] == "icon.icns"
+
+    assets_dir = DESKTOP_DIR / "assets"
+    for filename in ("icon.svg", "icon.png", "icon.ico", "icon.icns"):
+        asset = assets_dir / filename
+        assert asset.is_file()
+        assert asset.stat().st_size > 0
+
+    source_svg = (assets_dir / "icon.svg").read_text(encoding="utf-8")
+    assert "<svg" in source_svg
+    assert 'aria-label="SciStudio"' in source_svg
+
+    main_js = (DESKTOP_DIR / "main.js").read_text(encoding="utf-8")
+    assert "function appIconPath()" in main_js
+    assert '"assets", "icon.png"' in main_js
+    assert "icon: appIconPath()" in main_js
 
 
 def test_portable_git_scripts_use_scistudio_skip_env_var() -> None:

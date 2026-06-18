@@ -1,18 +1,6 @@
 name: Desktop macOS DMG
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/desktop-macos-dmg.yml"
-      - "desktop/**"
-      - "frontend/**"
-      - "src/**"
-      - "pyproject.toml"
   workflow_dispatch:
     inputs:
       ref:
