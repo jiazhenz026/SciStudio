@@ -1697,28 +1697,42 @@ terminal session is open.
 
 ### 9.5 Block Nodes And Ports
 
-Block nodes are compact cards with a category icon, display label, action
-buttons, inline configuration, typed ports, and a status footer.
+Per ADR-050, block nodes on the workflow canvas are fixed-size **square
+topology glyphs** (default 104×104 CSS px; width equals height). The node body
+shows block identity only — a block-kind category mark, the display label
+(capped to two visual lines), and a single unified status surface. The body
+never grows for config fields, port count, runtime messages, errors, warnings,
+or action buttons. Run/restart/delete actions float outside the square in a
+hover/selected toolbar and do not change the node's measured geometry.
 
 ```
-┌────────────────────────────────────┐
-│ 📦 Cellpose Segmentation   ▶ ↻ ×  │
-├────────────────────────────────────┤
-│ Format: TIFF image                 │
-│ Model:  cyto2                      │
-│ Diameter: 30                       │
-├────────────────────────────────────┤
-│ ✅ Done                            │
-└────────────────────────────────────┘
+┌──────────────┐
+│ P        [!] │  ← category mark + unified status surface
+│              │
+│   Cellpose   │  ← display label (max 2 lines, truncated)
+│   Segment    │
+└──────────────┘
+  fixed 104×104; ports on left/right rails; +/- for variadic topology
 ```
 
-| Node area | Current behavior |
+| Node area | Behavior |
 |---|---|
-| **Header** | Shows category icon, display name, run, restart, and delete actions. |
-| **Inline config** | Shows the top configuration fields by UI priority; format capability selection appears when the schema provides capabilities. |
-| **Ports** | Input ports sit on the left, output ports on the right, and align with the inline-config area. Dynamic ports resolve from the active configuration value. |
-| **Variadic ports** | Blocks with configurable port counts expose small add/remove controls; removing a connected port asks before disconnecting edges. |
-| **Status footer** | Shows idle, ready, running, paused, done, error, cancelled, or skipped state. Error state exposes the summary inline and routes details to Logs. |
+| **Body** | Square, fixed-size. Shows the category mark, the two-line display label, and the unified status surface only. No inline configuration, no status footer, no inline error/warning text. |
+| **Action toolbar** | Run, restart, and delete float outside the square on hover/selected; they do not consume body space or change geometry. |
+| **Ports** | Input ports on the left rail, output ports on the right rail, colored by accepted type. Rails may extend beyond the square for port-heavy blocks; the body stays fixed. Dynamic ports resolve from the active configuration value. Port labels render outside the body (hover/selected/zoom/accessibility). |
+| **Variadic ports** | Blocks with configurable port counts keep the canvas add/remove (`+`/`-`) controls (ADR-029); removing a connected port preserves the existing disconnect confirmation. Full port naming/type editing lives in the BottomPanel port editor. |
+| **Unified status surface** | One fixed-geometry surface for runtime state (idle, ready, running, paused, done, error, cancelled, skipped) and problem severity (none, warning, error). Error has highest priority and routes to Logs; warning routes to the BottomPanel Config detail. Status rendering never changes node width or height. |
+
+Computational configuration — schema-driven fields, capability selectors,
+file/directory pickers, CodeBlock config, full variadic port editing, and
+lossy-save/validation detail — is owned by the **BottomPanel Config** tab, not
+the node body (ADR-050 §2.3). Selecting a node opens its config there.
+
+The canvas also provides two readability controls (ADR-050 §3): **focus mode**,
+a frontend-only view state that dims or hides nodes outside the selected node's
+neighborhood without changing the workflow definition, and a **tidy** action
+that computes deterministic left-to-right positions through a layered
+graph-layout adapter (`elkjs`) and writes only `node.layout` metadata.
 
 Port colors come from the frontend type-color map plus backend-supplied type
 hierarchy. Known scientific types use stable colors; plugin or unknown types use

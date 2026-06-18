@@ -58,7 +58,7 @@ export interface UseFlowNodesOpts {
    * sites compile before the integration merge wires it through
    * `useFlowCallbacks`. Defaults to undefined ⇒ no warning click handler.
    */
-  makeOnWarningClick?: (nodeId: string) => () => void;
+  makeOnWarningClick?: (nodeId: string) => (() => void) | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

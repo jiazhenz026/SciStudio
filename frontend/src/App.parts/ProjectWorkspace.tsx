@@ -272,6 +272,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     onUpdateNodeConfig,
     setPanelSize,
     blockOutputs,
+    workflowEdges,
     selectedNodeLabel,
   } = props;
 
@@ -339,6 +340,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
             >
               <BottomPanel
                 activeTab={activeBottomTab}
+                blockOutputs={blockOutputs}
+                edges={workflowEdges}
                 logEntries={logEntries}
                 onTabChange={onBottomTabChange}
                 onTogglePin={toggleBottomPanelPinned}

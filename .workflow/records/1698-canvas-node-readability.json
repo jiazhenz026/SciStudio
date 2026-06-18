@@ -35,6 +35,22 @@
       "path": null,
       "rationale": "Test-only ADR-050 contract verification; no behavior or public-doc change. ARCHITECTURE.md owned by manager umbrella.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258370Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258522Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/PROJECT_TREE.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -325,6 +341,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/packaging/test_adr043_package_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258526Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258530Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/autoLayout.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258531Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks.py",
       "rationale": null,
       "verified_in_diff": null
     }

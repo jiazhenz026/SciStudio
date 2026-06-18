@@ -510,10 +510,10 @@ scistudio/                               # ← repo root
 │       │   │       ├── interactions.ts      # Hover preview, click→diff/checkout, virtualization
 │       │   │       └── integration.ts       # gitSlice consumption, filter state, theme
 │       │   │
-│       │   ├── nodes/                  # Custom ReactFlow node components
-│       │   │   └── BlockNode.tsx       # 3-part node: header (icon+name+run/restart),
-│       │   │                           #   inline config (top 3 params by ui_priority),
-│       │   │                           #   footer (state badge). Per-port type colouring.
+│       │   ├── nodes/                  # Custom ReactFlow node components (ADR-050 square glyphs)
+│       │   │   └── BlockNode.tsx       # Fixed 104×104 square topology glyph: category mark +
+│       │   │                           #   2-line label + unified status surface. No body config
+│       │   │                           #   (lives in BottomPanel); ports on L/R rails, variadic +/-.
 │       │   │
 │       │   └── ui/                     # shadcn/ui component library (Radix UI primitives)
 │       │       ├── button.tsx          # Button with toolbar/toolbar-dark variants

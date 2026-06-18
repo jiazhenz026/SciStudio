@@ -31,7 +31,7 @@ language_source: en
     merge back into the umbrella branch via the manager.
 - Protected branch: `main`
 - Umbrella branch: `feat/1698-canvas-node-readability`
-- Umbrella PR: `#<pending>`
+- Umbrella PR: `#1699`
 - Umbrella PR title: `[DO NOT MERGE] ADR-050 canvas node readability refactor`
 - Final PR target: `main` (final readiness = flip title to
   `[READY TO REVIEW]`; manager does NOT merge — no merge authorization).
@@ -216,6 +216,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-18 | manager | — | dispatch baseline | — |
+| 2026-06-18 | FE-2 | Added `App.parts/useCanvasReadability.ts` (new file) not named in write set | Accepted: App-wiring hook extracted to keep `App.tsx` under the 400-line CI cap; within recorded `frontend/src/**` gate scope; mirrors existing `use*` extraction pattern | none |
+| 2026-06-18 | manager | Integration seams | Fixed `useFlowNodes` `makeOnWarningClick` return type (allow undefined) + wired `blockOutputs`/`edges` into `<BottomPanel>` (FR-014); updated ARCHITECTURE.md §9.5 + PROJECT_TREE.md node annotation | none |
+| 2026-06-18 | owner | Directive update | ALL no-context audit findings P1–P3 must be fixed before flipping to READY TO REVIEW (not only P1) | tracked in §7.5 + audit loop |
 
 ## 10. Final Readiness
 
