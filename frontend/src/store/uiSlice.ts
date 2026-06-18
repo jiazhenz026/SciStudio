@@ -5,6 +5,8 @@ import type { AppStore, UISlice } from "./types";
 export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get) => ({
   selectedNodeId: null,
   activeBottomTab: "config",
+  // ADR-050 §3.1 — focus mode is frontend-only view state, off by default.
+  focusMode: { enabled: false, selectedIds: [], depth: 1 },
   paletteCollapsed: false,
   previewCollapsed: false,
   bottomPanelCollapsed: false,
@@ -22,6 +24,27 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   unreadLogsCount: 0,
   projectTreeRefreshCounter: 0,
   setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
+  // ADR-050 §3.1 — enter/exit focus mode. Pure view state: these actions never
+  // touch workflow nodes, edges, config, or the dirty flag (FR-018).
+  enterFocusMode: (selectedIds, depth) =>
+    set((state) => {
+      if (selectedIds.length === 0) return {};
+      return {
+        focusMode: {
+          enabled: true,
+          selectedIds: [...selectedIds],
+          depth: depth ?? state.focusMode.depth,
+        },
+      };
+    }),
+  exitFocusMode: () =>
+    set((state) => ({
+      focusMode: { enabled: false, selectedIds: [], depth: state.focusMode.depth },
+    })),
+  setFocusDepth: (depth) =>
+    set((state) => ({
+      focusMode: { ...state.focusMode, depth: Math.max(0, depth) },
+    })),
   setActiveBottomTab: (tab) => {
     const patch: Record<string, unknown> = { activeBottomTab: tab };
     if (tab === "logs") patch.unreadLogsCount = 0;

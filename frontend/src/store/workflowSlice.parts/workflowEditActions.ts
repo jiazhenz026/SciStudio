@@ -103,6 +103,32 @@ export function createUpdateNodeLayout(set: Setter): WorkflowSlice["updateNodeLa
     }));
 }
 
+/**
+ * ADR-050 §3.2 / FR-022 / FR-024 — batch layout update for the tidy action.
+ *
+ * Applies many node positions in a SINGLE store mutation so tidy moves the
+ * whole (or focused) graph as one history entry rather than one-per-node.
+ * Writes ONLY `node.layout`: ids, block types, config, ports, edges, and
+ * runtime state are left untouched. Nodes absent from `positions` keep their
+ * current layout, so a focus-scoped tidy never disturbs hidden nodes
+ * (ADR-050 §3.2). A no-op call (no matching nodes) does not push history or
+ * mark the workflow dirty.
+ */
+export function createUpdateNodeLayoutBatch(set: Setter): WorkflowSlice["updateNodeLayoutBatch"] {
+  return (positions) =>
+    set((state) => {
+      const hasChange = state.workflowNodes.some((node) => node.id in positions);
+      if (!hasChange) return {};
+      return {
+        ...pushHistory(state),
+        ...markDirty(state),
+        workflowNodes: state.workflowNodes.map((node) =>
+          node.id in positions ? { ...node, layout: positions[node.id] } : node,
+        ),
+      };
+    });
+}
+
 export function createConnectNodes(set: Setter): WorkflowSlice["connectNodes"] {
   return (edge: WorkflowEdge) =>
     set((state) => ({

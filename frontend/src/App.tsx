@@ -37,6 +37,7 @@ import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
 import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
 import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
+import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { useProjectActions } from "./App.parts/useProjectActions";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
@@ -159,6 +160,7 @@ export default function App() {
     setSelectedNodeId,
     setActiveBottomTab,
   });
+  const readability = useCanvasReadability(handleNodeSelect); // ADR-050 §3 wiring.
 
   const { connected: wsConnected, status: wsStatus } = useWorkflowWebSocket(
     Boolean(currentProject),
@@ -373,9 +375,7 @@ export default function App() {
             onResume={() => void resumeWorkflow()}
             onStop={() => void cancelWorkflow()}
             onReset={() => resetExecution()}
-            onDelete={() => {
-              if (selectedNodeId) removeNode(selectedNodeId);
-            }}
+            onDelete={() => selectedNodeId && removeNode(selectedNodeId)}
             onReloadBlocks={() => void refreshBlocks()}
             onStartFromSelected={() => void startFromSelected()}
             onAddAnnotation={() =>
@@ -432,6 +432,7 @@ export default function App() {
               onSelectNode={handleNodeSelect}
               onUpdateNodeConfig={updateNodeConfig}
               onUpdateNodePosition={updateNodeLayout}
+              readability={readability}
               bottomPanelRef={bottomPanelRef}
               bottomPanelPinned={bottomPanelPinned}
               toggleBottomPanelPinned={toggleBottomPanelPinned}
