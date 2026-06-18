@@ -12,6 +12,11 @@
       "at": "2026-06-18T22:07:35.205577Z",
       "owner_directive": "Dispatch FE-1 (square node), FE-2 (focus/tidy/store), FE-3 (bottompanel config), BE (contract tests); manager integrates into umbrella, updates ARCHITECTURE.md, runs browser e2e.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-18T22:18:15.804316Z",
+      "owner_directive": "BE test_engineer: strengthen package->registry->API block-schema contract tests (BlockSpec/BlockSummary/BlockSchemaResponse) for core + package blocks (imaging, spectroscopy, LCMS, SRS) per ADR-050 FR-027..FR-033, SC-010..SC-012.",
+      "reason": "plan"
     }
   ],
   "docs_events": [
@@ -22,10 +27,101 @@
       "path": "docs/planning/adr-050-canvas-node-readability-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804612Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Test-only ADR-050 contract verification; no behavior or public-doc change. ARCHITECTURE.md owned by manager umbrella.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-18T22:26:07.884213Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.904578Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.925797Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.947094Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.969191Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.987349Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.002468Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.020290Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.040779Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.070802Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -35,18 +131,75 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "ae552015",
+    "changed_files": [
+      ".workflow/records/1698-canvas-node-readability.json",
+      "docs/planning/adr-050-canvas-node-readability-checklist.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/BE-contract-tests.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-1-square-node.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-2-focus-tidy-store.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-3-bottompanel-config.md",
+      "tests/api/test_blocks.py",
+      "tests/blocks/test_dynamic_ports.py",
+      "tests/blocks/test_registry.py",
+      "tests/blocks/test_registry_package_layout.py",
+      "tests/packaging/test_adr043_package_capabilities.py"
+    ],
+    "diff_fingerprint": "sha256:bb704fe0d6770c45bdf5914313ae5ae414729dcb24ff75cba5d14a4017376988",
+    "head": "HEAD",
+    "head_sha": "7d5a308f",
+    "surfaces": {
+      "docs": 5,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 5,
+      "test": 5,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Manager: deliver full ADR-050 frontend refactor (square canvas nodes, unified status surface, focus mode, tidy layout) per docs/specs/adr-050-canvas-node-readability.md via dispatched agents; integrate into one umbrella PR; run browser e2e; flip [DO NOT MERGE] to [READY TO REVIEW]. Owner working autonomously overnight.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-18T22:26:08.070872Z",
+      "diff_fingerprint": "sha256:bb704fe0d6770c45bdf5914313ae5ae414729dcb24ff75cba5d14a4017376988",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1698-canvas-node-readability",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format",
+      "python_tests",
+      "semantic_dup"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
@@ -99,10 +252,40 @@
       "at": "2026-06-18T22:07:35.205726Z",
       "pattern": "docs/planning/**",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804562Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804574Z",
+      "pattern": "tests/blocks/test_registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804578Z",
+      "pattern": "tests/blocks/test_dynamic_ports.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804581Z",
+      "pattern": "tests/blocks/test_registry_package_layout.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804584Z",
+      "pattern": "tests/packaging/test_adr043_package_capabilities.py",
+      "reason": "plan"
     }
   ],
   "session_id": "40d4bc1e-ea27-4c82-ab48-7f52fedbed0b",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "manager",
   "test_events": [
     {
@@ -111,6 +294,38 @@
       "kind": "na",
       "path": null,
       "rationale": "manager-coordination commit; implementation tests land via dispatched agent branches FE-1/FE-2/FE-3/BE in the umbrella diff",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804630Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804636Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804639Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry_package_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804642Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_adr043_package_capabilities.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]

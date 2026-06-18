@@ -353,3 +353,125 @@ class TestBlockValidateUsesEffectivePorts:
         # Validation against effective ports should accept the per-instance "dyn_in".
         with pytest.raises(ValueError, match="dyn_in"):
             block.validate(inputs={})  # missing required dyn_in input
+
+
+# ---------------------------------------------------------------------------
+# ADR-050 canvas-node-readability — package BlockSpec contract (issue #1698)
+#
+# Complements the API-level tests in tests/api/test_blocks.py by asserting the
+# registry-level contract: the live BlockRegistry resolves representative
+# package blocks (imaging, spectroscopy, LCMS, SRS) into BlockSpec objects that
+# still carry every field the square node + BottomPanel consume — base
+# category/subcategory, typed ports, dynamic_ports, variadic flags + allowed
+# types + min/max limits, format_capabilities, and config_schema. These are the
+# upstream source of the API payloads, so a regression here would silently break
+# the new node model. No package source is touched.
+#
+# Spec: docs/specs/adr-050-canvas-node-readability.md FR-027/FR-030/FR-033,
+# SC-010/SC-011/SC-012.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _scanned_registry():  # type: ignore[no-untyped-def]
+    """A scanned BlockRegistry with the installed package entry points."""
+    registry = BlockRegistry()
+    registry.scan()
+    return registry
+
+
+def _spec_by_type_name(registry: BlockRegistry, type_name: str):  # type: ignore[no-untyped-def]
+    for spec in registry.all_specs().values():
+        if spec.type_name == type_name:
+            return spec
+    raise AssertionError(f"package block {type_name!r} not registered")
+
+
+class TestAdr050PackageBlockSpecContract:
+    """Representative package blocks resolve to fully-populated BlockSpecs."""
+
+    # (type_name, package_name) per domain — one process/analysis block each so
+    # typed ports are exercised across imaging, spectroscopy, LCMS, and SRS.
+    _PACKAGE_BLOCKS = (
+        ("imaging.axis_merge", "scistudio-blocks-imaging"),
+        ("spectroscopy.find_peaks", "scistudio-blocks-spectroscopy"),
+        ("lcms.pool_size_normalize", "scistudio-blocks-lcms"),
+        ("srs.pca", "scistudio-blocks-srs"),
+    )
+
+    @pytest.mark.parametrize(("type_name", "package_name"), _PACKAGE_BLOCKS)
+    def test_block_spec_preserves_category_port_and_config_contract(
+        self,
+        _scanned_registry: BlockRegistry,
+        type_name: str,
+        package_name: str,
+    ) -> None:
+        """SC-010/SC-011: BlockSpec keeps category, typed ports, and config schema."""
+        spec = _spec_by_type_name(_scanned_registry, type_name)
+
+        assert spec.package_name == package_name
+        # base_category feeds the square-node block-kind mark; subcategory feeds
+        # palette grouping (FR-028).
+        assert spec.base_category in {"io", "process", "code", "app", "ai", "subworkflow"}
+        assert isinstance(spec.subcategory, str)
+
+        # Typed ports remain on the spec for canvas rendering / TypeLegend.
+        all_ports = [*spec.input_ports, *spec.output_ports]
+        assert all_ports, f"{type_name} lost all declared ports"
+        for port in all_ports:
+            assert isinstance(port.name, str) and port.name
+            assert port.accepted_types, f"{type_name} port {port.name} lost accepted_types"
+
+        # config_schema stays an object schema so BottomPanel can render Config.
+        assert isinstance(spec.config_schema, dict)
+        assert isinstance(spec.config_schema.get("properties", {}), dict)
+
+        # Variadic + dynamic-port + format-capability fields are present and the
+        # right shape (FR-030).
+        assert isinstance(spec.variadic_inputs, bool)
+        assert isinstance(spec.variadic_outputs, bool)
+        assert spec.dynamic_ports is None or isinstance(spec.dynamic_ports, dict)
+        assert isinstance(spec.allowed_input_types, list)
+        assert isinstance(spec.allowed_output_types, list)
+        assert isinstance(spec.format_capabilities, list)
+        for limit in (spec.min_input_ports, spec.max_input_ports, spec.min_output_ports, spec.max_output_ports):
+            assert limit is None or isinstance(limit, int)
+
+    def test_variadic_package_block_spec_keeps_variadic_flag(self, _scanned_registry: BlockRegistry) -> None:
+        """FR-030/SC-011: a variadic package block keeps variadic_inputs on its spec."""
+        spec = _spec_by_type_name(_scanned_registry, "spectroscopy.merge_spectral_dataset")
+        assert spec.variadic_inputs is True
+        assert isinstance(spec.allowed_input_types, list)
+
+    def test_package_io_block_spec_keeps_format_capabilities(self, _scanned_registry: BlockRegistry) -> None:
+        """FR-030/SC-011: package IO loaders keep non-empty format_capabilities."""
+        for type_name in ("spectroscopy.load_spectrum", "lcms.load_mzml_files"):
+            spec = _spec_by_type_name(_scanned_registry, type_name)
+            assert spec.format_capabilities, f"{type_name} lost format_capabilities on its spec"
+
+    def test_package_config_schema_round_trips_through_block_schema_response(
+        self,
+        _scanned_registry: BlockRegistry,
+    ) -> None:
+        """SC-010: a package config_schema with ui metadata survives BlockSchemaResponse.
+
+        The API serializes BlockSpec into BlockSchemaResponse; this proves the
+        Pydantic model preserves ``ui_priority`` / ``ui_widget`` on package
+        config fields rather than dropping them as legacy node UI (FR-029).
+        """
+        spec = _spec_by_type_name(_scanned_registry, "lcms.pool_size_normalize")
+        response = BlockSchemaResponse(
+            name=spec.name,
+            type_name=spec.type_name,
+            base_category=spec.base_category,
+            subcategory=spec.subcategory,
+            config_schema=spec.config_schema,
+            variadic_inputs=spec.variadic_inputs,
+            variadic_outputs=spec.variadic_outputs,
+            dynamic_ports=spec.dynamic_ports,
+        )
+        props = response.model_dump()["config_schema"]["properties"]
+        assert props, "config properties dropped during BlockSchemaResponse round-trip"
+        assert all("ui_priority" in prop for prop in props.values()), (
+            "BlockSchemaResponse dropped ui_priority from package config fields"
+        )
