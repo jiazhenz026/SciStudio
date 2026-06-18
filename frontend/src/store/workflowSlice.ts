@@ -13,6 +13,7 @@ import {
   createSetWorkflowDescription,
   createUpdateNodeConfig,
   createUpdateNodeLayout,
+  createUpdateNodeLayoutBatch,
 } from "./workflowSlice.parts/workflowEditActions";
 import { markDirty, snapshot, stateVersionOf } from "./workflowSlice.parts/workflowHelpers";
 import {
@@ -71,6 +72,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
     addGroupNode: createAddGroupNode(set),
     updateNodeConfig: createUpdateNodeConfig(set),
     updateNodeLayout: createUpdateNodeLayout(set),
+    updateNodeLayoutBatch: createUpdateNodeLayoutBatch(set),
     connectNodes: createConnectNodes(set),
     removeNode: createRemoveNode(set),
     removeEdge: createRemoveEdge(set),

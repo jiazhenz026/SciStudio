@@ -100,6 +100,11 @@ export interface WorkflowSlice {
   addGroupNode: (position: { x: number; y: number }) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   updateNodeLayout: (nodeId: string, position: { x: number; y: number }) => void;
+  /**
+   * ADR-050 §3.2 / FR-022 / FR-024 — apply many node layout positions in one
+   * history entry. Writes ONLY `node.layout`; used by the tidy action.
+   */
+  updateNodeLayoutBatch: (positions: Record<string, { x: number; y: number }>) => void;
   connectNodes: (edge: WorkflowEdge) => void;
   removeNode: (nodeId: string) => void;
   removeEdge: (edge: WorkflowEdge) => void;
@@ -137,9 +142,25 @@ export interface ExecutionSlice {
   setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
 }
 
+/**
+ * ADR-050 §3.1 — frontend-only focus-mode view state (FR-017/FR-018).
+ *
+ * This state is never persisted to workflow YAML and never mutates workflow
+ * nodes/edges/config. `selectedIds` is the snapshot of the selection captured
+ * when focus was entered; `depth` controls how many neighbor hops are kept
+ * visible (1 = the spec default of immediate upstream/downstream neighbors).
+ */
+export interface FocusModeState {
+  enabled: boolean;
+  selectedIds: string[];
+  depth: number;
+}
+
 export interface UISlice {
   selectedNodeId: string | null;
   activeBottomTab: BottomTab;
+  /** ADR-050 §3.1 — focus-mode view state (frontend-only, not persisted). */
+  focusMode: FocusModeState;
   paletteCollapsed: boolean;
   previewCollapsed: boolean;
   bottomPanelCollapsed: boolean;
@@ -165,6 +186,15 @@ export interface UISlice {
   projectTreeRefreshCounter: number;
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
+  /**
+   * ADR-050 §3.1 — enter focus mode around the given selection. A no-op when
+   * `selectedIds` is empty (focus mode is unavailable without a selection).
+   */
+  enterFocusMode: (selectedIds: string[], depth?: number) => void;
+  /** ADR-050 §3.1 — exit focus mode and restore normal canvas visibility. */
+  exitFocusMode: () => void;
+  /** ADR-050 §3.1 — set the focus neighbor depth (expand/collapse controls). */
+  setFocusDepth: (depth: number) => void;
   bumpUnreadLogs: () => void;
   bumpProjectTreeRefresh: () => void;
   togglePalette: () => void;
