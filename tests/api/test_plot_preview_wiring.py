@@ -129,11 +129,12 @@ def _write_workflow_and_plot(client: TestClient, project: Path) -> None:
     )
     (plot_dir / "render.py").write_text(
         (
-            "def render(collection, context):\n"
-            "    df = context.to_dataframe(collection, max_rows=1000)\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    df = collection.items.open_one()\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.scatter(df['x'], df['y'], s=4)\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
         encoding="utf-8",
     )
@@ -229,7 +230,7 @@ def test_plot_list_route_filters_manifests_to_selected_block(
         "  entrypoint: render\n",
         encoding="utf-8",
     )
-    (plot_dir / "render.py").write_text("def render(collection, context):\n    return None\n", encoding="utf-8")
+    (plot_dir / "render.py").write_text("def render(collection):\n    return None\n", encoding="utf-8")
 
     resp = client.get("/api/plots", params={"workflow_id": "main", "node_id": "node_a"})
 
@@ -279,7 +280,9 @@ def test_plot_create_route_scaffolds_manifest_and_render_script(
     assert "id: quick_plot" in manifest_text
     assert "title: Quick Plot" in manifest_text
     assert "node_id:" in manifest_text
-    assert "def render(collection, context):" in script.read_text(encoding="utf-8")
+    script_text = script.read_text(encoding="utf-8")
+    assert "def render(collection):" in script_text
+    assert "context" not in script_text
 
 
 def test_plot_preview_resource_save_writes_export_to_user_selected_path(
@@ -422,7 +425,7 @@ def test_failed_plot_run_returns_status_without_data_ref(
     _write_workflow_and_plot(client, opened_project)
     # Overwrite the render with one that raises.
     (opened_project / "plots" / "p1" / "render.py").write_text(
-        "def render(collection, context):\n    raise ValueError('boom')\n",
+        "def render(collection):\n    raise ValueError('boom')\n",
         encoding="utf-8",
     )
     run = client.post("/api/plots/run", json={"plot_id": "p1"})

@@ -1,60 +1,62 @@
 """Curated plot examples for matplotlib / seaborn / ggplot2 (ADR-048 SPEC 2 FR-019).
 
-Each example is a complete ``render`` function an agent can adapt. The Python
-examples target the ``context.plt`` / ``context.save_figure`` helpers; the R
-example targets ``context$to_dataframe`` / ``context$save_plot`` (FR-014, FR-015,
-FR-018).
+Each example is a complete ``render`` function an agent can adapt. Examples use
+the context-free collection wrapper, open data into ordinary scientific objects,
+and return familiar matplotlib / ggplot2 plot objects.
 """
 
 from __future__ import annotations
 
 from scistudio.ai.agent.mcp.tools_plot.models import PlotExample
 
-_MATPLOTLIB_SCATTER = '''def render(collection, context):
-    """Scatter plot with matplotlib (FR-014)."""
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+_MATPLOTLIB_SCATTER = '''def render(collection):
+    """Scatter plot with matplotlib."""
+    import matplotlib.pyplot as plt
+
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     ax.scatter(df["x"], df["y"], s=6)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    return context.save_figure(fig, "figure.svg")
+    return fig
 '''
 
-_MATPLOTLIB_HIST = '''def render(collection, context):
+_MATPLOTLIB_HIST = '''def render(collection):
     """Histogram of one numeric column with matplotlib."""
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+    import matplotlib.pyplot as plt
+
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     ax.hist(df["value"], bins=30)
     ax.set_xlabel("value")
     ax.set_ylabel("count")
-    return context.save_figure(fig, "figure.png")
+    return fig
 '''
 
-_SEABORN_BOX = '''def render(collection, context):
-    """Boxplot with seaborn (uses the project environment's seaborn if present)."""
+_SEABORN_BOX = '''def render(collection):
+    """Boxplot with seaborn."""
+    import matplotlib.pyplot as plt
     import seaborn as sns
 
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     sns.boxplot(data=df, x="group", y="value", ax=ax)
-    return context.save_figure(fig, "figure.svg")
+    return fig
 '''
 
-_GGPLOT2_POINT = """render <- function(collection, context) {
-  # ggplot2 scatter (FR-013, FR-015). Requires R + ggplot2 in the project env.
-  df <- context$to_dataframe(collection, max_rows = 10000)
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
+_GGPLOT2_POINT = """render <- function(collection) {
+  # ggplot2 scatter. Requires R + ggplot2 in the project environment.
+  df <- collection$items$open_one()
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
     ggplot2::geom_point()
-  context$save_plot(p, "figure.pdf")
 }
 """
 
-_GGPLOT2_BAR = """render <- function(collection, context) {
+_GGPLOT2_BAR = """render <- function(collection) {
   # ggplot2 bar chart of a categorical count.
-  df <- context$to_dataframe(collection, max_rows = 10000)
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = category)) +
+  df <- collection$items$open_one()
+  ggplot2::ggplot(df, ggplot2::aes(x = category)) +
     ggplot2::geom_bar()
-  context$save_plot(p, "figure.svg")
 }
 """
 
@@ -65,7 +67,7 @@ _EXAMPLES: tuple[PlotExample, ...] = (
         language="python",
         library="matplotlib",
         title="Scatter plot",
-        description="Two-column scatter using context.plt + context.save_figure → SVG.",
+        description="Two-column scatter using collection.items.open_one() and matplotlib.",
         source=_MATPLOTLIB_SCATTER,
         output_formats=["svg"],
     ),
@@ -74,7 +76,7 @@ _EXAMPLES: tuple[PlotExample, ...] = (
         language="python",
         library="matplotlib",
         title="Histogram",
-        description="Single-column histogram saved as PNG.",
+        description="Single-column histogram using collection.items.open_one() and matplotlib.",
         source=_MATPLOTLIB_HIST,
         output_formats=["png"],
     ),
@@ -83,7 +85,7 @@ _EXAMPLES: tuple[PlotExample, ...] = (
         language="python",
         library="seaborn",
         title="Boxplot",
-        description="Grouped boxplot via seaborn over a matplotlib Figure → SVG.",
+        description="Grouped boxplot via seaborn over a matplotlib Figure.",
         source=_SEABORN_BOX,
         output_formats=["svg"],
     ),
@@ -92,7 +94,7 @@ _EXAMPLES: tuple[PlotExample, ...] = (
         language="r",
         library="ggplot2",
         title="ggplot2 scatter",
-        description="Scatter via ggplot2 + context$save_plot → PDF.",
+        description="Scatter via collection$items$open_one() and ggplot2.",
         source=_GGPLOT2_POINT,
         output_formats=["pdf"],
     ),
@@ -101,7 +103,7 @@ _EXAMPLES: tuple[PlotExample, ...] = (
         language="r",
         library="ggplot2",
         title="ggplot2 bar chart",
-        description="Categorical bar chart via ggplot2 → SVG.",
+        description="Categorical bar chart via collection$items$open_one() and ggplot2.",
         source=_GGPLOT2_BAR,
         output_formats=["svg"],
     ),

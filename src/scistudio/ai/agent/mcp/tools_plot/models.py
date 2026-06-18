@@ -26,9 +26,10 @@ PlotStatus = Literal["succeeded", "failed", "cancelled", "timed_out"]
 # raise the caps beyond the safe envelope.
 DEFAULT_TIMEOUT_SECONDS: float = 30.0
 ABSOLUTE_MAX_TIMEOUT_SECONDS: float = 300.0
-DEFAULT_MAX_ROWS: int = 10000
 DEFAULT_MAX_OUTPUT_BYTES: int = 10 * 1024 * 1024  # 10 MiB
 ABSOLUTE_MAX_OUTPUT_BYTES: int = 64 * 1024 * 1024  # 64 MiB
+DEFAULT_MAX_INPUT_BYTES: int = 64 * 1024 * 1024  # 64 MiB
+ABSOLUTE_MAX_INPUT_BYTES: int = 512 * 1024 * 1024  # 512 MiB
 DEFAULT_MAX_FILES: int = 8
 ABSOLUTE_MAX_FILES: int = 32
 LOG_TRUNCATE_BYTES: int = 16 * 1024  # 16 KiB per stream (FR-029)
@@ -140,7 +141,7 @@ class PlotManifestLimits(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    max_rows: int = Field(default=DEFAULT_MAX_ROWS, gt=0)
+    max_input_bytes: int = Field(default=DEFAULT_MAX_INPUT_BYTES, gt=0)
     max_output_bytes: int = Field(default=DEFAULT_MAX_OUTPUT_BYTES, gt=0)
     max_files: int = Field(default=DEFAULT_MAX_FILES, gt=0)
 
@@ -332,11 +333,12 @@ class PlotRunResult(BaseModel):
 
 __all__ = [
     "ABSOLUTE_MAX_FILES",
+    "ABSOLUTE_MAX_INPUT_BYTES",
     "ABSOLUTE_MAX_OUTPUT_BYTES",
     "ABSOLUTE_MAX_TIMEOUT_SECONDS",
     "DEFAULT_MAX_FILES",
+    "DEFAULT_MAX_INPUT_BYTES",
     "DEFAULT_MAX_OUTPUT_BYTES",
-    "DEFAULT_MAX_ROWS",
     "DEFAULT_TIMEOUT_SECONDS",
     "LOG_TRUNCATE_BYTES",
     "ListPlotExamplesResult",

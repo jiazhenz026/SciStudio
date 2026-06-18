@@ -36,53 +36,69 @@ What ``collection`` means:
   is bound to. If the block output is one table, the collection contains one
   table-like item. If the block output is a collection of five arrays, it
   contains five array items. Treat it as input data, not as workflow state.
-
-What ``context`` means:
-  ``context`` is the small plot-runtime helper object SciStudio gives this
-  script. It loads bounded input data, exposes matplotlib as ``context.plt``,
-  and saves the final artifact. It is not the workflow engine context and it
-  should not mutate blocks, nodes, files, or lineage records.
 """
 
 from __future__ import annotations
 
 
-def render(collection, context):
-    """Draw a figure from ``collection`` and return the saved artifact path.
+def render(collection):
+    """Draw a figure from ``collection`` and return a matplotlib Figure.
 
-    Available context helpers:
-      * context.to_dataframe(collection, max_rows=...) -> pandas.DataFrame
-      * context.items(collection, max_items=...)        -> bounded iterator
-      * context.plt                                      -> matplotlib.pyplot
-      * context.save_figure(fig, "figure.svg")           -> save PNG/JPEG/SVG/PDF
+    Available collection helpers:
+      * collection.types                  -> tuple[str, ...]
+      * collection.items                  -> sequence of item wrappers
+      * len(collection.items)             -> number of items
+      * collection.items.open()           -> list of native values
+      * collection.items.open(max_items=n)-> list of at most n native values
+      * collection.items.open_one()       -> first native value
+      * collection.items[index].type      -> normalized core base type
+      * collection.items[index].metadata  -> read-only non-storage metadata
+      * collection.items[index].open()    -> one native value
 
     Minimal examples you can paste over the default plot:
 
-      # Example A: collection contains up to 5 NumPy .npy arrays; draw each
-      # flattened value distribution.
+      # Example A: collection contains up to 5 arrays; draw each flattened
+      # value distribution.
       # import numpy as np
-      # fig, ax = context.plt.subplots()
-      # for index, item in enumerate(context.items(collection, max_items=5)):
-      #     path = item.get("path")
-      #     if not path:
-      #         continue
-      #     array = np.load(path)
+      # import matplotlib.pyplot as plt
+      # fig, ax = plt.subplots()
+      # for index, array in enumerate(collection.items.open(max_items=5)):
       #     ax.hist(np.asarray(array).ravel(), bins=64, alpha=0.35, label="array " + str(index + 1))
       # ax.legend()
-      # return context.save_figure(fig, "figure.svg")
+      # return fig
 
       # Example B: collection contains one dataframe; draw a box plot from the
       # 2nd and 3rd dataframe columns.
-      # df = context.to_dataframe(collection, max_rows=10000)
-      # fig, ax = context.plt.subplots()
+      # import matplotlib.pyplot as plt
+      # df = collection.items.open_one()
+      # fig, ax = plt.subplots()
       # df.iloc[:, [1, 2]].plot(kind="box", ax=ax)
-      # return context.save_figure(fig, "figure.svg")
+      # return fig
     """
-    df = context.to_dataframe(collection, max_rows={max_rows})
-    fig, ax = context.plt.subplots()
-    # EDIT HERE: replace with your plot. Example: ax.scatter(df["x"], df["y"], s=6)
-    ax.plot(range(len(df)))
-    return context.save_figure(fig, "figure.{ext}")
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    data = collection.items.open_one()
+    fig, ax = plt.subplots()
+
+    if hasattr(data, "select_dtypes"):
+        numeric = data.select_dtypes(include="number")
+        if len(numeric.columns) >= 2:
+            ax.scatter(numeric.iloc[:, 0], numeric.iloc[:, 1], s=6)
+            ax.set_xlabel(str(numeric.columns[0]))
+            ax.set_ylabel(str(numeric.columns[1]))
+        elif len(numeric.columns) == 1:
+            ax.plot(numeric.iloc[:, 0].to_numpy())
+            ax.set_ylabel(str(numeric.columns[0]))
+        else:
+            ax.text(0.5, 0.5, "No numeric columns", ha="center", va="center")
+    else:
+        array = np.asarray(data)
+        if array.ndim >= 2:
+            ax.imshow(array.squeeze())
+        else:
+            ax.plot(array.ravel())
+    return fig
 '''
 
 _R_TEMPLATE = """# Render script created by SciStudio.
@@ -94,52 +110,57 @@ _R_TEMPLATE = """# Render script created by SciStudio.
 #   `collection` is the read-only data passed from the workflow output this plot
 #   is bound to. If the block output is one table, the collection contains one
 #   table-like item. If the block output is a collection of five arrays, it
-#   contains five array items. In R it is a list of item references; each item
-#   usually has fields such as `path`, `format`, and metadata.
+#   contains five array items. Treat it as input data, not as workflow state.
 #
-# What `context` means:
-#   `context` is the small plot-runtime helper object SciStudio gives this
-#   script. It loads bounded input data and saves the final artifact. It is not
-#   the workflow engine context and it should not mutate blocks, nodes, files,
-#   or lineage records.
-#
-# Available context helpers:
-#   * context$to_dataframe(collection, max_rows = ...) -> data.frame
-#   * context$save_plot(plot_or_grob, "figure.pdf")    -> save PNG/JPEG/SVG/PDF
+# Available collection helpers:
+#   * collection$types                      -> character vector
+#   * collection$items                      -> sequence-like item wrapper
+#   * length(collection$items)              -> number of items
+#   * collection$items$open()               -> list of native values
+#   * collection$items$open(max_items = n)  -> list of at most n native values
+#   * collection$items$open_one()           -> first native value
+#   * collection$items[[index]]$type        -> normalized core base type
+#   * collection$items[[index]]$metadata    -> non-storage metadata
+#   * collection$items[[index]]$open()      -> one native value
 #
 # Minimal examples you can paste over the default plot:
 #
 #   # Example A: collection contains one dataframe; draw a box plot from the
 #   # 2nd and 3rd dataframe columns.
-#   # df <- context$to_dataframe(collection, max_rows = 10000)
+#   # df <- collection$items$open_one()
 #   # value_cols <- names(df)[2:3]
 #   # long <- stack(df[value_cols])
 #   # p <- ggplot2::ggplot(long, ggplot2::aes(x = ind, y = values)) +
 #   #   ggplot2::geom_boxplot()
-#   # context$save_plot(p, "figure.pdf")
+#   # p
 #
-#   # Example B: collection contains several CSV tables; draw each first-column
-#   # distribution.
-#   # frames <- list()
-#   # for (item in collection) {{
-#   #   if (!is.null(item$path) && tools::file_ext(item$path) == "csv") {{
-#   #     frames[[length(frames) + 1]] <- utils::read.csv(item$path)
-#   #   }}
-#   # }}
+#   # Example B: collection contains several tables; draw each first-column
+#   # distribution with ggplot2.
+#   # frames <- collection$items$open(max_items = 5)
 #   # values <- data.frame()
-#   # for (index in seq_along(frames)) {{
+#   # for (index in seq_along(frames)) {
 #   #   values <- rbind(values, data.frame(value = frames[[index]][[1]], source = paste("table", index)))
-#   # }}
+#   # }
 #   # p <- ggplot2::ggplot(values, ggplot2::aes(x = value, fill = source)) +
 #   #   ggplot2::geom_histogram(bins = 40, alpha = 0.35, position = "identity")
-#   # context$save_plot(p, "figure.pdf")
+#   # p
 
-render <- function(collection, context) {{
-  df <- context$to_dataframe(collection, max_rows = {max_rows})
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = seq_along(df[[1]]), y = df[[1]])) +
-    ggplot2::geom_line()
-  context$save_plot(p, "figure.{ext}")
-}}
+render <- function(collection) {
+  data <- collection$items$open_one()
+  if (is.data.frame(data)) {
+    numeric_cols <- names(data)[vapply(data, is.numeric, logical(1))]
+    if (length(numeric_cols) >= 2) {
+      plot(data[[numeric_cols[[1]]]], data[[numeric_cols[[2]]]], xlab = numeric_cols[[1]], ylab = numeric_cols[[2]])
+    } else if (length(numeric_cols) == 1) {
+      plot(data[[numeric_cols[[1]]]], type = "l", ylab = numeric_cols[[1]])
+    } else {
+      plot.new()
+      text(0.5, 0.5, "No numeric columns")
+    }
+  } else {
+    plot(as.vector(data), type = "l")
+  }
+}
 """
 
 _SCRIPT_FILENAME: dict[PlotLanguage, str] = {"python": "render.py", "r": "render.R"}
@@ -201,13 +222,12 @@ def render_manifest_yaml(manifest: PlotManifest) -> str:
     return yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
 
 
-def render_script_template(language: PlotLanguage, max_rows: int) -> str:
+def render_script_template(language: PlotLanguage) -> str:
     """Return the language-specific render-script template body (FR-012/FR-013)."""
-    ext = _default_format(language)
     if language == "python":
-        return _PYTHON_TEMPLATE.format(max_rows=max_rows, ext=ext)
+        return _PYTHON_TEMPLATE
     if language == "r":
-        return _R_TEMPLATE.format(max_rows=max_rows, ext="pdf")
+        return _R_TEMPLATE
     raise PlotScaffoldError(f"unsupported language: {language!r}")  # pragma: no cover
 
 
@@ -235,7 +255,7 @@ def scaffold_plot_files(
 
     plot_dir.mkdir(parents=True, exist_ok=True)
     manifest_text = render_manifest_yaml(manifest)
-    script_text = render_script_template(language, manifest.limits.max_rows)
+    script_text = render_script_template(language)
     manifest_path.write_text(manifest_text, encoding="utf-8")
     script_path.write_text(script_text, encoding="utf-8")
     bytes_written = len(manifest_text.encode("utf-8")) + len(script_text.encode("utf-8"))

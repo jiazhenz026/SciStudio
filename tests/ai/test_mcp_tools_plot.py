@@ -32,6 +32,7 @@ from scistudio.ai.agent.mcp.tools_plot import (
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
+np = pytest.importorskip("numpy")
 
 _T = TypeVar("_T")
 
@@ -80,6 +81,19 @@ class _DynamicBlockRegistry(_StubBlockRegistry):
         if type_name != "demo.dynamic":
             raise KeyError(type_name)
         return _DynamicBlock(config or {})
+
+
+@dataclass
+class _StubTypeSpec:
+    base_type: str
+
+
+class _StubTypeRegistry:
+    def __init__(self, specs: dict[str, str]) -> None:
+        self._specs = {name: _StubTypeSpec(base_type=base_type) for name, base_type in specs.items()}
+
+    def all_types(self) -> dict[str, _StubTypeSpec]:
+        return dict(self._specs)
 
 
 class _StubScheduler:
@@ -298,6 +312,9 @@ def test_scaffold_creates_python_plot(project: Path) -> None:
     assert (project / "plots" / "cell_scatter" / "plot.yaml").is_file()
     assert (project / "plots" / "cell_scatter" / "render.py").is_file()
     body = (project / "plots" / "cell_scatter" / "render.py").read_text(encoding="utf-8")
+    assert "def render(collection):" in body
+    assert "context" not in body
+    assert "collection.items.open_one()" in body
     assert "ADR-048" not in body
 
 
@@ -307,9 +324,9 @@ def test_scaffold_creates_r_plot(project: Path) -> None:
     _run(scaffold_plot(plot_id="r_plot", target_id=tid, language="r"))
     assert (project / "plots" / "r_plot" / "render.R").is_file()
     body = (project / "plots" / "r_plot" / "render.R").read_text(encoding="utf-8")
-    assert "render <- function(collection, context)" in body
+    assert "render <- function(collection)" in body
     assert "What `collection` means" in body
-    assert "What `context` means" in body
+    assert "context" not in body
     assert "Minimal examples" in body
     assert "ADR-048" not in body
 
@@ -359,6 +376,18 @@ def test_list_examples_filter_by_language(project: Path) -> None:
     assert all(e.language == "r" for e in res.examples)
 
 
+def test_list_examples_are_context_free(project: Path) -> None:
+    _set_ctx(_make_runtime(project))
+    res = _run(list_plot_examples())
+    assert res.examples
+    for example in res.examples:
+        assert "context" not in example.source
+        if example.language == "python":
+            assert "def render(collection):" in example.source
+        if example.language == "r":
+            assert "render <- function(collection)" in example.source
+
+
 # ---------------------------------------------------------------------------
 # read_plot_source (FR-020).
 # ---------------------------------------------------------------------------
@@ -374,7 +403,8 @@ def test_read_requires_exactly_one_selector(project: Path) -> None:
         _run(read_plot_source(plot_id="readme", path="plots/readme/plot.yaml"))
     res = _run(read_plot_source(plot_id="readme"))
     assert res.plot_id == "readme"
-    assert "def render(collection, context)" in res.script_source
+    assert "def render(collection):" in res.script_source
+    assert "context" not in res.script_source
 
 
 def test_read_rejects_manifest_script_path_traversal(project: Path, tmp_path: Path) -> None:
@@ -383,7 +413,7 @@ def test_read_rejects_manifest_script_path_traversal(project: Path, tmp_path: Pa
     tid = _target_id(project)
     _run(scaffold_plot(plot_id="escaped_read", target_id=tid, language="python"))
     outside = tmp_path / "outside_render.py"
-    outside.write_text("def render(collection, context):\n    return None\n", encoding="utf-8")
+    outside.write_text("def render(collection):\n    return None\n", encoding="utf-8")
     manifest = project / "plots" / "escaped_read" / "plot.yaml"
     manifest.write_text(
         manifest.read_text(encoding="utf-8").replace("path: render.py", "path: ../../../outside_render.py"),
@@ -405,6 +435,32 @@ def test_validate_success(project: Path) -> None:
     res = _run(validate_plot(plot_id="good"))
     assert res.valid, res.errors
     assert res.manifest is not None
+
+
+def test_validate_rejects_python_context_signature(project: Path) -> None:
+    _set_ctx(_make_runtime(project))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="oldpy", target_id=tid, language="python"))
+    (project / "plots" / "oldpy" / "render.py").write_text(
+        "def render(collection, context):\n    return None\n",
+        encoding="utf-8",
+    )
+    res = _run(validate_plot(plot_id="oldpy"))
+    assert not res.valid
+    assert any("def render(collection)" in e and "context" in e for e in res.errors)
+
+
+def test_validate_rejects_r_context_signature(project: Path) -> None:
+    _set_ctx(_make_runtime(project))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="oldr", target_id=tid, language="r"))
+    (project / "plots" / "oldr" / "render.R").write_text(
+        "render <- function(collection, context) {\n  NULL\n}\n",
+        encoding="utf-8",
+    )
+    res = _run(validate_plot(plot_id="oldr"))
+    assert not res.valid
+    assert any("render <- function(collection)" in e and "context" in e for e in res.errors)
 
 
 def test_validate_broken_target(project: Path) -> None:
@@ -465,11 +521,20 @@ def test_run_python_svg_success(project: Path, csv_output: Path) -> None:
         project,
         "scatter",
         (
-            "def render(collection, context):\n"
-            "    df = context.to_dataframe(collection, max_rows=1000)\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    assert collection.types == ('DataFrame',)\n"
+            "    assert len(collection.items) == 1\n"
+            "    assert collection.items[0].type == 'DataFrame'\n"
+            "    assert 'path' not in collection.items[0].metadata\n"
+            "    assert 'format' not in collection.items[0].metadata\n"
+            "    assert 'type_chain' not in collection.items[0].metadata\n"
+            "    assert collection.items[0:1][0].type == 'DataFrame'\n"
+            "    df = collection.items.open_one()\n"
+            "    assert len(collection.items.open(max_items=1)) == 1\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.scatter(df['x'], df['y'], s=4)\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
     )
     res = _run(run_plot_job(plot_id="scatter"))
@@ -491,6 +556,128 @@ def test_run_python_svg_success(project: Path, csv_output: Path) -> None:
     assert res.metadata_path and Path(res.metadata_path).is_file()
 
 
+def test_run_normalizes_package_array_subclass_to_array(project: Path, tmp_path: Path) -> None:
+    array_path = tmp_path / "image.npy"
+    np.save(array_path, np.arange(9, dtype="float32").reshape(3, 3))
+    runtime = _make_runtime(project)
+    runtime.type_registry = _StubTypeRegistry({"Image": "Array"})
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "backend": "filesystem",
+                    "path": str(array_path),
+                    "format": "npy",
+                    "item_type": "Image",
+                    "metadata": {
+                        "shape": [3, 3],
+                        "dtype": "float32",
+                        "path": "should-not-leak",
+                        "format": "npy",
+                    },
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="image_plot", target_id=tid, language="python"))
+    _write_render(
+        project,
+        "image_plot",
+        (
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    assert collection.types == ('Array',)\n"
+            "    item = collection.items[0]\n"
+            "    assert item.type == 'Array'\n"
+            "    assert 'type_chain' not in item.metadata\n"
+            "    assert 'path' not in item.metadata\n"
+            "    array = item.open()\n"
+            "    assert array.shape == (3, 3)\n"
+            "    fig, ax = plt.subplots()\n"
+            "    ax.imshow(array)\n"
+            "    return fig\n"
+        ),
+    )
+    res = _run(run_plot_job(plot_id="image_plot"))
+    assert res.status == "succeeded", res.errors
+
+
+def test_open_enforces_input_memory_guard(project: Path, csv_output: Path) -> None:
+    runtime = _make_runtime(project, with_output_csv=csv_output)
+    runtime.workflow_runs["run_1"].scheduler._block_outputs["node_a"]["measurements"]["metadata"] = {
+        "type_chain": ["DataFrame"],
+        "shape": [10000, 10000],
+        "dtype": "float64",
+    }
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="too_big", target_id=tid, language="python"))
+    manifest = project / "plots" / "too_big" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("max_input_bytes: 67108864", "max_input_bytes: 64"),
+        encoding="utf-8",
+    )
+    _write_render(
+        project,
+        "too_big",
+        ("def render(collection):\n    collection.items.open_one()\n    return None\n"),
+    )
+    res = _run(run_plot_job(plot_id="too_big"))
+    assert res.status == "failed"
+    assert any("memory cap" in e for e in res.errors)
+
+
+def test_collection_open_enforces_cumulative_input_memory_guard(project: Path, tmp_path: Path) -> None:
+    first = tmp_path / "measurements_a.csv"
+    second = tmp_path / "measurements_b.csv"
+    first.write_text("x,y\n1,2\n3,4\n", encoding="utf-8")
+    second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
+    metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
+    runtime = _make_runtime(project)
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "_collection": True,
+                    "item_type": "DataFrame",
+                    "items": [
+                        {
+                            "backend": "filesystem",
+                            "path": str(first),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                        {
+                            "backend": "filesystem",
+                            "path": str(second),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                    ],
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="too_big_collection", target_id=tid, language="python"))
+    manifest = project / "plots" / "too_big_collection" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("max_input_bytes: 67108864", "max_input_bytes: 300"),
+        encoding="utf-8",
+    )
+    _write_render(
+        project,
+        "too_big_collection",
+        ("def render(collection):\n    collection.items.open()\n    return None\n"),
+    )
+    res = _run(run_plot_job(plot_id="too_big_collection"))
+    assert res.status == "failed"
+    assert any("memory cap" in e for e in res.errors)
+
+
 def test_run_python_sanitized_failure(project: Path, csv_output: Path) -> None:
     _set_ctx(_make_runtime(project, with_output_csv=csv_output))
     tid = _target_id(project)
@@ -498,7 +685,7 @@ def test_run_python_sanitized_failure(project: Path, csv_output: Path) -> None:
     _write_render(
         project,
         "boom",
-        ("def render(collection, context):\n    raise RuntimeError('kaboom')\n"),
+        ("def render(collection):\n    raise RuntimeError('kaboom')\n"),
     )
     res = _run(run_plot_job(plot_id="boom"))
     assert res.status == "failed"
@@ -516,10 +703,11 @@ def test_run_rejects_manifest_script_path_traversal(project: Path, csv_output: P
     outside = tmp_path / "outside_render.py"
     outside.write_text(
         (
-            "def render(collection, context):\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.plot([1, 2, 3])\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
         encoding="utf-8",
     )
@@ -541,10 +729,11 @@ def test_run_overwrites_current(project: Path, csv_output: Path) -> None:
         project,
         "rerun",
         (
-            "def render(collection, context):\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.plot([1, 2, 3])\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
     )
     first = _run(run_plot_job(plot_id="rerun"))
@@ -556,10 +745,11 @@ def test_run_overwrites_current(project: Path, csv_output: Path) -> None:
         project,
         "rerun",
         (
-            "def render(collection, context):\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.bar([0, 1, 2], [3, 2, 1])\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
     )
     second = _run(run_plot_job(plot_id="rerun"))
@@ -579,15 +769,16 @@ def test_run_failed_rerun_records_failure_state(project: Path, csv_output: Path)
         project,
         "flip",
         (
-            "def render(collection, context):\n"
-            "    fig, ax = context.plt.subplots()\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    fig, ax = plt.subplots()\n"
             "    ax.plot([1, 2, 3])\n"
-            "    return context.save_figure(fig, 'figure.svg')\n"
+            "    return fig\n"
         ),
     )
     ok = _run(run_plot_job(plot_id="flip"))
     assert ok.status == "succeeded"
-    _write_render(project, "flip", "def render(collection, context):\n    raise ValueError('nope')\n")
+    _write_render(project, "flip", "def render(collection):\n    raise ValueError('nope')\n")
     bad = _run(run_plot_job(plot_id="flip"))
     assert bad.status == "failed"
     assert bad.metadata_path is not None
@@ -609,12 +800,16 @@ def test_run_enforces_file_count_cap(project: Path, csv_output: Path) -> None:
         project,
         "manyfiles",
         (
-            "def render(collection, context):\n"
+            "def render(collection):\n"
+            "    import matplotlib.pyplot as plt\n"
+            "    paths = []\n"
             "    for i in range(3):\n"
-            "        fig, ax = context.plt.subplots()\n"
+            "        fig, ax = plt.subplots()\n"
             "        ax.plot([1, 2, 3])\n"
-            "        context.save_figure(fig, f'figure_{i}.svg')\n"
-            "    return None\n"
+            "        path = f'figure_{i}.svg'\n"
+            "        fig.savefig(path)\n"
+            "        paths.append(path)\n"
+            "    return paths\n"
         ),
     )
     res = _run(run_plot_job(plot_id="manyfiles"))
@@ -630,7 +825,7 @@ def test_run_timeout(project: Path, csv_output: Path) -> None:
     _write_render(
         project,
         "slow",
-        ("import time\n\ndef render(collection, context):\n    time.sleep(5)\n    return None\n"),
+        ("import time\n\ndef render(collection):\n    time.sleep(5)\n    return None\n"),
     )
     res = _run(run_plot_job(plot_id="slow", timeout_seconds=1.0))
     assert res.status == "timed_out"
@@ -654,7 +849,7 @@ def test_r_manifest_validates_without_runner(project: Path) -> None:
 
 @pytest.mark.requires_r
 def test_run_r_ggplot2(project: Path, csv_output: Path) -> None:
-    """SC-007: real R + ggplot2 run produces a PDF artifact (skipped without Rscript)."""
+    """SC-007: real R + ggplot2 run produces an artifact (skipped without Rscript)."""
     if shutil.which("Rscript") is None:
         pytest.skip("Rscript not on PATH")
     _set_ctx(_make_runtime(project, with_output_csv=csv_output))
@@ -662,10 +857,9 @@ def test_run_r_ggplot2(project: Path, csv_output: Path) -> None:
     _run(scaffold_plot(plot_id="rrun", target_id=tid, language="r"))
     (project / "plots" / "rrun" / "render.R").write_text(
         (
-            "render <- function(collection, context) {\n"
-            "  df <- context$to_dataframe(collection, max_rows = 100)\n"
-            "  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) + ggplot2::geom_point()\n"
-            "  context$save_plot(p, 'figure.pdf')\n"
+            "render <- function(collection) {\n"
+            "  df <- collection$items$open_one()\n"
+            "  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) + ggplot2::geom_point()\n"
             "}\n"
         ),
         encoding="utf-8",
@@ -675,4 +869,86 @@ def test_run_r_ggplot2(project: Path, csv_output: Path) -> None:
     # clear error (not a crash).
     assert res.status in {"succeeded", "failed"}
     if res.status == "succeeded":
-        assert any(p.endswith(".pdf") for p in res.artifact_paths)
+        assert any(p.endswith(".svg") for p in res.artifact_paths)
+
+
+@pytest.mark.requires_r
+def test_run_r_collection_open_enforces_cumulative_input_memory_guard(project: Path, tmp_path: Path) -> None:
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    first = tmp_path / "measurements_a.csv"
+    second = tmp_path / "measurements_b.csv"
+    first.write_text("x,y\n1,2\n3,4\n", encoding="utf-8")
+    second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
+    metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
+    runtime = _make_runtime(project)
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "_collection": True,
+                    "item_type": "DataFrame",
+                    "items": [
+                        {
+                            "backend": "filesystem",
+                            "path": str(first),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                        {
+                            "backend": "filesystem",
+                            "path": str(second),
+                            "format": "csv",
+                            "metadata": dict(metadata),
+                        },
+                    ],
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="r_too_big_collection", target_id=tid, language="r"))
+    manifest = project / "plots" / "r_too_big_collection" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("max_input_bytes: 67108864", "max_input_bytes: 300"),
+        encoding="utf-8",
+    )
+    (project / "plots" / "r_too_big_collection" / "render.R").write_text(
+        "render <- function(collection) {\n  collection$items$open()\n  NULL\n}\n",
+        encoding="utf-8",
+    )
+    res = _run(run_plot_job(plot_id="r_too_big_collection"))
+    assert res.status == "failed"
+    assert any("memory cap" in e for e in res.errors)
+
+
+@pytest.mark.requires_r
+def test_run_r_returned_path_does_not_count_blank_base_device(project: Path, csv_output: Path) -> None:
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    _set_ctx(_make_runtime(project, with_output_csv=csv_output))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="r_path_return", target_id=tid, language="r"))
+    manifest = project / "plots" / "r_path_return" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8")
+        .replace("preferred_format: svg", "preferred_format: pdf")
+        .replace("max_files: 8", "max_files: 1"),
+        encoding="utf-8",
+    )
+    (project / "plots" / "r_path_return" / "render.R").write_text(
+        (
+            "render <- function(collection) {\n"
+            "  grDevices::pdf('custom.pdf')\n"
+            "  plot(c(1, 2, 3), c(1, 4, 9))\n"
+            "  grDevices::dev.off()\n"
+            "  'custom.pdf'\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+    res = _run(run_plot_job(plot_id="r_path_return"))
+    assert res.status == "succeeded", res.errors
+    assert len(res.artifact_paths) == 1
+    assert Path(res.artifact_paths[0]).name == "current.pdf"

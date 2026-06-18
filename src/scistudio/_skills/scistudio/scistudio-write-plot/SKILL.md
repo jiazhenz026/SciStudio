@@ -1,25 +1,25 @@
 ---
 name: scistudio-write-plot
 description: |
-  Use when the user wants a QUICK PREVIEW PLOT — a matplotlib, seaborn, or
-  ggplot2 figure drawn from a block OUTPUT collection and shown in the
+  Use when the user wants a QUICK PREVIEW PLOT: a matplotlib, seaborn, base R,
+  or ggplot2 figure drawn from a block OUTPUT collection and shown in the
   preview panel (e.g. "scatter the measurements from my segment-cells node",
   "show me a histogram of that output"). A plot job lives in
   ``<project>/plots/<plot_id>/`` and renders a display-only artifact.
 
-  NOT for authoring a reusable processing BLOCK — that is
-  scistudio-write-block (a Python class under ``blocks/<name>.py`` that
-  becomes a workflow node). NOT for adding a node to a workflow YAML — that
-  is scistudio-build-workflow. A plot job NEVER becomes a workflow DAG node,
-  NEVER edits workflow YAML, and NEVER produces downstream data or lineage.
+  NOT for authoring a reusable processing BLOCK: that is scistudio-write-block
+  (a Python class under ``blocks/<name>.py`` that becomes a workflow node).
+  NOT for adding a node to a workflow YAML: that is scistudio-build-workflow.
+  A plot job NEVER becomes a workflow DAG node, NEVER edits workflow YAML, and
+  NEVER produces downstream data or lineage.
 ---
 
 # scistudio-write-plot
 
 A **plot job** is a preview-only figure. You bind it to one block **output
-port**, write a `render(collection, context)` script, run it, and the
-resulting PNG / JPEG / SVG / PDF appears in the preview panel through the core
-`PlotPreviewer`. It is **not** a workflow block and **not** a DAG node.
+port**, write a `render(collection)` script, run it, and the resulting PNG /
+JPEG / SVG / PDF appears in the preview panel through the core `PlotPreviewer`.
+It is **not** a workflow block and **not** a DAG node.
 
 The single most important rule: **never bind a plot by a human block label.**
 Block labels repeat and drift. Always discover a stable `target_id` with
@@ -38,7 +38,7 @@ mcp__scistudio__list_plot_examples(language="python", library="matplotlib")
 
 mcp__scistudio__scaffold_plot(
     plot_id="cell_scatter",
-    target_id="tgt_...",          # from list_plot_targets — NOT a label
+    target_id="tgt_...",          # from list_plot_targets; NOT a label
     language="python"             # or "r"
 )
 # Creates plots/cell_scatter/plot.yaml + render.py (or render.R).
@@ -48,14 +48,15 @@ mcp__scistudio__scaffold_plot(
 
 mcp__scistudio__validate_plot(plot_id="cell_scatter")
 # Catches broken targets, schema errors, path traversal, bad output formats,
-# missing entrypoint. R runner unavailability is a WARNING, not an error.
+# missing or wrong render(collection) entrypoint. R runner unavailability is a
+# WARNING, not an error.
 
 mcp__scistudio__run_plot_job(plot_id="cell_scatter")
 # Renders preview-side, writes current.* + current.json to the preview cache.
-# Re-running OVERWRITES current.* — it never appends a workflow node.
+# Re-running OVERWRITES current.*; it never appends a workflow node.
 ```
 
-## 2. plot.yaml — the manifest
+## 2. plot.yaml: the manifest
 
 Strict, versioned. Binding identity is `target.node_id` + `target.output_port`;
 `display_label` is metadata only.
@@ -67,7 +68,7 @@ title: Cell Scatter
 target:
   workflow_path: workflows/main.yaml
   workflow_id: main
-  node_id: node_8f3a2c          # the binding key — never a label
+  node_id: node_8f3a2c          # the binding key; never a label
   output_port: measurements
   display_label: Segment Cells / measurements
 script:
@@ -80,41 +81,82 @@ outputs:
 runtime:
   timeout_seconds: 30
 limits:
-  max_rows: 10000
+  max_input_bytes: 67108864
   max_output_bytes: 10485760    # 10 MiB
   max_files: 8
 ```
 
 ## 3. The render contract
 
-**Python** — `render(collection, context)`:
+**Python** - `render(collection)`:
 
 ```python
-def render(collection, context):
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+def render(collection):
+    import matplotlib.pyplot as plt
+
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     ax.scatter(df["x"], df["y"], s=6)
-    return context.save_figure(fig, "figure.svg")
+    return fig
 ```
 
-**R** — `render <- function(collection, context)`:
+**R** - `render <- function(collection)`:
 
 ```r
-render <- function(collection, context) {
-  df <- context$to_dataframe(collection, max_rows = 10000)
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
+render <- function(collection) {
+  df <- collection$items$open_one()
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
     ggplot2::geom_point()
-  context$save_plot(p, "figure.pdf")
 }
 ```
 
-`context` helpers (preview-only — there are **no** workflow-mutation APIs):
+Collection helpers are preview-only; there are **no** workflow-mutation APIs.
 
-- `context.to_dataframe(collection, max_rows=...)` — bounded DataFrame.
-- `context.items(collection, max_items=...)` — bounded iteration over refs.
-- `context.plt` — `matplotlib.pyplot` (Agg backend).
-- `context.save_figure(fig, "figure.svg")` / `context.save_plot(...)` —
-  save PNG / JPEG / SVG / PDF. SVG is sanitized before display.
+Python helpers:
+
+- `collection.types`
+- `collection.items`
+- `len(collection.items)`
+- `for item in collection.items`
+- `collection.items[index]`
+- `collection.items[start:stop]`
+- `collection.items.open()`
+- `collection.items.open(max_items=n)`
+- `collection.items.open_one()`
+- `item.type`
+- `item.metadata`
+- `item.open()`
+
+R helpers:
+
+- `collection$types`
+- `collection$items`
+- `length(collection$items)`
+- `collection$items[[index]]`
+- `collection$items$open()`
+- `collection$items$open(max_items = n)`
+- `collection$items$open_one()`
+- `collection$items[[index]]$type`
+- `collection$items[[index]]$metadata`
+- `collection$items[[index]]$open()`
+
+Core base conversions:
+
+| Core base type | Python `open()` result | R `open()` result |
+|---|---|---|
+| `Array` | `numpy.ndarray` | `matrix` for 2-D data, `array` otherwise |
+| `DataFrame` | `pandas.DataFrame` | `data.frame` |
+| `Series` | `pandas.Series` | atomic vector |
+| `Text` | `str` | character scalar |
+| `Artifact` | `pathlib.Path` | character scalar path |
+| `CompositeData` | `dict[str, native]` recursively | named list recursively |
+
+Package subclasses are folded back to supported core base types before user
+code sees them. For example, package `Image` and `Mask` subclasses of `Array`
+appear as `Array`.
+
+`open()` materializes data and has a memory guard. It is not lazy loading. For
+large inputs, write an explicit storage-aware reader in the plot script.
 
 seaborn works when the project environment provides it (`import seaborn`).
 ggplot2 works when R + ggplot2 are installed.
@@ -125,13 +167,13 @@ ggplot2 works when R + ggplot2 are installed.
 
 ```
 .scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/
-    current.svg        # (or current.png / current.pdf / current.jpeg)
+    current.svg        # or current.png / current.pdf / current.jpeg
     current.json       # run record: manifest, script hash, target, inputs,
                        # run id, runner, created time, outputs, status, error
 ```
 
 Re-running overwrites `current.*` and `current.json`. The preview cache is
-**not** a scientific result path — to keep a figure, export/save it explicitly.
+**not** a scientific result path; to keep a figure, export/save it explicitly.
 
 ## 5. Mandatory rules
 
@@ -148,9 +190,11 @@ Re-running overwrites `current.*` and `current.json`. The preview cache is
 ## 6. Anti-patterns
 
 - Binding a plot by block label instead of a discovered `target_id`.
+- Writing old `render(collection, context)` scripts. There is no compatibility
+  layer for the removed context API.
 - Treating a plot job as a workflow block (use `scistudio-write-block`) or a
   workflow node (use `scistudio-build-workflow`).
-- Editing `workflows/*.yaml` from a plot task — plots never touch the DAG.
+- Editing `workflows/*.yaml` from a plot task; plots never touch the DAG.
 - Saving an unsupported format (only svg / pdf / png / jpeg are accepted).
 - Skipping `validate_plot` and running a plot bound to a deleted node/port.
-- Expecting `current.*` to persist as a result — it is overwritten on re-run.
+- Expecting `current.*` to persist as a result; it is overwritten on re-run.

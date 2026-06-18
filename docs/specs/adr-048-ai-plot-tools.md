@@ -114,9 +114,9 @@ Acceptance Scenarios:
 
 1. Given a valid target ID, when `scaffold_plot` runs with `language=python`,
    then it creates `plots/<plot_id>/plot.yaml` and `render.py`.
-2. Given the scaffolded script uses `context.plt.subplots()` and
-   `context.save_figure(fig, "figure.svg")`, when `run_plot_job` runs, then it
-   returns success and an SVG artifact path.
+2. Given the scaffolded script opens data with `collection.items.open_one()`
+   and returns a matplotlib figure, when `run_plot_job` runs, then it returns
+   success and an SVG artifact path.
 3. Given the plot is rerun, when a new artifact is written, then the
    `current.*` files are overwritten and `current.json` records the new run.
 
@@ -126,14 +126,14 @@ As a user with R installed, I need the same plot-job workflow to support
 ggplot2 and vector PDF/SVG output.
 
 Independent Test: Scaffold an R plot, validate the entrypoint, run it through an
-R-capable runner when available, and verify PDF output. In CI environments
+R-capable runner when available, and verify plot output. In CI environments
 without R, runner integration may be skipped with explicit skip reason while
 manifest validation remains tested.
 
 Acceptance Scenarios:
 
 1. Given `language=r`, when `scaffold_plot` runs, then it creates `render.R`
-   with `render <- function(collection, context)`.
+   with `render <- function(collection)`.
 2. Given R and ggplot2 are available, when `run_plot_job` runs, then it writes a
    PDF, SVG, PNG, or JPEG artifact accepted by `PlotPreviewer`.
 3. Given R is unavailable, when validation runs, then it can still validate the
@@ -223,19 +223,20 @@ Acceptance Scenarios:
   title, target, script, outputs, runtime, and limits fields.
 - FR-011: The manifest target must store workflow path, stable node ID, and
   output port. Human labels may be stored only as display metadata.
-- FR-012: Python render scripts must expose `render(collection, context)`.
-- FR-013: R render scripts must expose `render <- function(collection, context)`.
-- FR-014: The Python context must support matplotlib through `context.plt` and
-  must allow seaborn usage when the project environment provides it.
-- FR-015: The R context must support ggplot2 plot saving when R and ggplot2 are
-  available.
+- FR-012: Python render scripts must expose exactly `render(collection)`.
+- FR-013: R render scripts must expose exactly `render <- function(collection)`.
+- FR-014: Python scripts must open data through the collection helper surface
+  and may use familiar libraries such as matplotlib or seaborn directly.
+- FR-015: R scripts must open data through the collection helper surface and
+  may use familiar libraries such as base R plotting or ggplot2 directly.
 - FR-016: Plot scripts must receive the selected block output collection and
   must not receive direct workflow mutation APIs.
-- FR-017: Plot context helpers must include bounded conversions such as
-  `to_dataframe(collection, max_rows=...)` and bounded iteration over collection
-  items.
-- FR-018: Plot context helpers must include save functions for PNG, JPEG, SVG,
-  and PDF outputs.
+- FR-017: Collection helpers must include `collection.items.open()`,
+  `collection.items.open_one()`, item indexing, item metadata, and equivalent
+  R helpers.
+- FR-018: Plot outputs must be produced by returning a matplotlib figure,
+  ggplot object, path string, or list of supported return values. R base plots
+  may be captured from the active device.
 - FR-019: `list_plot_examples` must return curated examples for matplotlib,
   seaborn, and ggplot2.
 - FR-020: `read_plot_source` must read either by `plot_id` or manifest path, but
@@ -320,7 +321,7 @@ outputs:
 runtime:
   timeout_seconds: 30
 limits:
-  max_rows: 10000
+  max_input_bytes: 67108864
   max_output_bytes: 10485760
   max_files: 8
 ```
@@ -328,21 +329,22 @@ limits:
 Python template:
 
 ```python
-def render(collection, context):
-    df = context.to_dataframe(collection, max_rows=10000)
-    fig, ax = context.plt.subplots()
+def render(collection):
+    import matplotlib.pyplot as plt
+
+    df = collection.items.open_one()
+    fig, ax = plt.subplots()
     ax.scatter(df["x"], df["y"], s=4)
-    return context.save_figure(fig, "figure.svg")
+    return fig
 ```
 
 R template:
 
 ```r
-render <- function(collection, context) {
-  df <- context$to_dataframe(collection, max_rows = 10000)
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
+render <- function(collection) {
+  df <- collection$items$open_one()
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
     ggplot2::geom_point()
-  context$save_plot(p, "figure.pdf")
 }
 ```
 
