@@ -33,10 +33,3 @@ export const SIBLING_GAP = 48;
  * `elk.spacing.edgeNode` / `elk.layered.spacing.edgeNodeBetweenLayers`.
  */
 export const HIGH_DEGREE_CLEARANCE = 32;
-
-/**
- * Optional spacing reserved for group / subworkflow containers
- * (ADR-050 §3.2). Reserved for future compound layout; kept here so the
- * tidy spacing surface is centralized and deterministic.
- */
-export const GROUP_PADDING = 24;

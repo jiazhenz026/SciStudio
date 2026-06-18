@@ -1,4 +1,4 @@
-import { Background, Controls, ReactFlow, type Edge, type Node, useReactFlow } from "@xyflow/react";
+import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useMemo, useState } from "react";
 
@@ -11,6 +11,7 @@ import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
 import { TypedEdge } from "./TypedEdge";
 import { TypeLegend } from "./TypeLegend";
+import { applyFocusToEdges, applyFocusToNodes } from "./WorkflowCanvas.parts/applyFocus";
 import { computeAutoLayout } from "./WorkflowCanvas.parts/autoLayout";
 import { CanvasReadabilityControls } from "./WorkflowCanvas.parts/CanvasReadabilityControls";
 import { parsePortRef, resolveVariadicPorts } from "./WorkflowCanvas.parts/flowNodeBuilder";
@@ -222,40 +223,6 @@ function useFlowEdges(
       };
     });
   }, [edges, nodes, schemas]);
-}
-
-/**
- * ADR-050 §3.1 / FR-018 — apply the focus result to the ReactFlow node array
- * by post-processing (dispatch checklist §4.3). Out-of-focus block nodes are
- * dimmed via `className` + `style` (opacity). Workflow state is never mutated:
- * this only sets ReactFlow display props on the derived node objects.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFocusToNodes(flowNodes: Array<Node<any>>, focus: FocusResult): Array<Node<any>> {
-  if (!focus.active) return flowNodes;
-  return flowNodes.map((node) => {
-    // Annotation / group nodes are not part of the block graph; leave them
-    // visible so the focus view keeps its spatial context.
-    const isDimmed = focus.dimmedNodeIds.has(node.id);
-    if (!isDimmed) return node;
-    return {
-      ...node,
-      className: [node.className, "scistudio-focus-dimmed"].filter(Boolean).join(" "),
-      style: { ...(node.style ?? {}), opacity: 0.18, pointerEvents: "none" as const },
-    };
-  });
-}
-
-/** ADR-050 §3.1 — dim edges that touch the focus boundary. */
-function applyFocusToEdges(flowEdges: Edge[], focus: FocusResult): Edge[] {
-  if (!focus.active) return flowEdges;
-  return flowEdges.map((edge) => {
-    if (!focus.dimmedEdgeIds.has(edge.id)) return edge;
-    return {
-      ...edge,
-      style: { ...(edge.style ?? {}), opacity: 0.12 },
-    };
-  });
 }
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {

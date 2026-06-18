@@ -51,6 +51,14 @@
       "path": "docs/architecture/PROJECT_TREE.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:12:04.349131Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-18-adr-050-canvas-node-readability-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -365,6 +373,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:12:04.349293Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/applyFocus.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

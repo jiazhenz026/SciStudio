@@ -76,8 +76,7 @@ interface AnnotationOpts {
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildAnnotationNode(opts: AnnotationOpts): Node<any> {
+export function buildAnnotationNode(opts: AnnotationOpts): Node {
   const { node, position, params, selectedNodeId, onUpdateNodeConfig } = opts;
   return {
     id: node.id,
@@ -103,8 +102,7 @@ interface GroupOpts {
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildGroupNode(opts: GroupOpts): Node<any> {
+export function buildGroupNode(opts: GroupOpts): Node {
   const { node, position, params, selectedNodeId, onUpdateNodeConfig } = opts;
   const groupW =
     ((node.config.style as Record<string, unknown> | undefined)?.width as number) ?? 400;
@@ -215,8 +213,7 @@ interface BlockOpts {
   selectedNodeId: string | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildBlockNode(opts: BlockOpts): Node<any> {
+export function buildBlockNode(opts: BlockOpts): Node {
   const {
     node,
     position,

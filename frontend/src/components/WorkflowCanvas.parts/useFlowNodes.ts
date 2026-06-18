@@ -61,8 +61,7 @@ export interface UseFlowNodesOpts {
   makeOnWarningClick?: (nodeId: string) => (() => void) | undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
+export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
   const {
     nodes,
     edges,
