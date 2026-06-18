@@ -30,14 +30,14 @@ function minPortsFor(schema: Partial<BlockSchemaResponse>, direction: Direction)
 }
 
 function isVariadic(schema: Partial<BlockSchemaResponse>, direction: Direction): boolean {
-  return direction === "input"
-    ? schema.variadic_inputs === true
-    : schema.variadic_outputs === true;
+  return direction === "input" ? schema.variadic_inputs === true : schema.variadic_outputs === true;
 }
 
 function defaultTypesFor(schema: Partial<BlockSchemaResponse>, direction: Direction): string[] {
   const allowedTypes =
-    direction === "input" ? (schema.allowed_input_types ?? []) : (schema.allowed_output_types ?? []);
+    direction === "input"
+      ? (schema.allowed_input_types ?? [])
+      : (schema.allowed_output_types ?? []);
   return allowedTypes.length > 0 ? [allowedTypes[0]] : ["DataObject"];
 }
 

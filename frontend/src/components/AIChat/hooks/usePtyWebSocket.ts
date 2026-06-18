@@ -141,7 +141,14 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
     // tears the user's tab into the closed state on every mount.
     let disposed = false;
     let ws: WebSocket | null = null;
-    const url = buildPtyUrl({ tabId, projectDir, provider, dangerous, cols: initialCols, rows: initialRows });
+    const url = buildPtyUrl({
+      tabId,
+      projectDir,
+      provider,
+      dangerous,
+      cols: initialCols,
+      rows: initialRows,
+    });
     const connectTimer = window.setTimeout(() => {
       if (disposed) return;
       ws = new WebSocket(url);
