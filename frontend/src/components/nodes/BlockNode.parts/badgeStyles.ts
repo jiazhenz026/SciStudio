@@ -1,6 +1,13 @@
-// Extracted from BlockNode.tsx as part of the #1422 god-file split.
-// Category icon map + status badge style table — pure-data lookups consumed
-// by the BlockNode header (category icon) and StatusBadge (badge styling).
+// ADR-050 §2.1 — block-kind category icon table.
+//
+// The square canvas node body shows the block category as a compact mark
+// (ADR-050 §2.1 / FR-006), sourced from `data.category`. This is the only
+// lookup the square node needs from this module.
+//
+// The former runtime-status badge style table (`badgeStyles` / `BadgeStyle`)
+// was removed under ADR-050: runtime/problem state now renders exclusively
+// through `NodeStatusSurface`, which owns its own style table. There is no
+// inline status pill in the node body anymore.
 
 export const categoryIcons: Record<string, string> = {
   io: "📁",
@@ -10,43 +17,4 @@ export const categoryIcons: Record<string, string> = {
   ai: "✨",
   subworkflow: "📦",
   custom: "🧩",
-};
-
-export interface BadgeStyle {
-  icon: string;
-  label: string;
-  bg: string;
-  text: string;
-  spin?: boolean;
-  italic?: boolean;
-  clickable?: boolean;
-}
-
-export const badgeStyles: Record<string, BadgeStyle> = {
-  idle: { icon: "○", label: "Idle", bg: "rgba(156,163,175,0.15)", text: "#9CA3AF" },
-  ready: { icon: "◉", label: "Ready", bg: "rgba(59,130,246,0.15)", text: "#3B82F6" },
-  running: {
-    icon: "⟳",
-    label: "Running",
-    bg: "rgba(59,130,246,0.15)",
-    text: "#3B82F6",
-    spin: true,
-  },
-  paused: { icon: "⏸", label: "Paused", bg: "rgba(245,158,11,0.15)", text: "#F59E0B" },
-  done: { icon: "✅", label: "Done", bg: "rgba(34,197,94,0.15)", text: "#22C55E" },
-  error: {
-    icon: "❌",
-    label: "Error",
-    bg: "rgba(239,68,68,0.15)",
-    text: "#EF4444",
-    clickable: true,
-  },
-  cancelled: { icon: "⊘", label: "Cancelled", bg: "rgba(249,115,22,0.15)", text: "#F97316" },
-  skipped: {
-    icon: "⊘",
-    label: "Skipped",
-    bg: "rgba(156,163,175,0.15)",
-    text: "#9CA3AF",
-    italic: true,
-  },
 };

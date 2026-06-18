@@ -1,11 +1,14 @@
 // Extracted from BlockNode.tsx as part of the #1422 god-file split.
 //
 // PortHandles — renders the input + output ReactFlow `Handle`s for a block
-// node along with the variadic add/remove controls. Behaviour preserved
-// verbatim from the inline implementation:
+// node along with the variadic add/remove controls.
 //
-//   - Each port is laid out by `portStartY + index * 20` so the first port
-//     centers on the first inline-config row (#578 / ADR-028).
+//   - ADR-050 §2.4: input ports sit on the left rail, output ports on the
+//     right rail of the fixed 104px square. Each handle's Y comes from
+//     `portRailOffset(index, count)` in `nodeGeometry.ts` so rails align to
+//     the square; rails MAY extend below the square for many ports but the
+//     body stays fixed (ADR-050 §2.4). The handles hang just OUTSIDE the body
+//     edge (`left: -7` / `right: -7`).
 //   - Port colour is resolved from `accepted_types` + `typeHierarchy` via
 //     the shared `resolveTypeColor` helpers; "Any"-typed ports get a
 //     dashed grey ring.
@@ -37,6 +40,7 @@ import {
 } from "../../BottomPanel.parts/codeBlockPorts";
 
 import { AddPortDialog } from "./AddPortDialog";
+import { addPortRailOffset, portRailOffset } from "./nodeGeometry";
 
 type Direction = "input" | "output";
 
@@ -62,7 +66,8 @@ function computePortStyle(
 interface PortRowProps {
   port: BlockPortResponse;
   index: number;
-  portStartY: number;
+  /** Total ports on this rail — drives `portRailOffset` centring. */
+  portCount: number;
   typeHierarchy: BlockSchemaResponse["type_hierarchy"] | undefined;
   direction: Direction;
   handleType: HandleType;
@@ -74,7 +79,7 @@ interface PortRowProps {
 function PortRow({
   port,
   index,
-  portStartY,
+  portCount,
   typeHierarchy,
   direction,
   handleType,
@@ -83,7 +88,9 @@ function PortRow({
   onRemove,
 }: PortRowProps) {
   const { fillColor, borderColor, anyType, typeName } = computePortStyle(port, typeHierarchy);
-  const portTop = portStartY + index * 20;
+  // ADR-050 §2.4 — Y comes from the square's port-rail geometry, not from a
+  // measured inline-config row (the inline config strip no longer exists).
+  const portTop = portRailOffset(index, portCount);
   const side = direction === "input" ? { left: -7 } : { right: -7 };
   const removeStyle =
     direction === "input" ? { left: 6, top: portTop - 1 } : { right: 6, top: portTop - 1 };
@@ -120,14 +127,14 @@ function PortRow({
 
 interface AddPortButtonProps {
   direction: Direction;
-  portStartY: number;
   portCount: number;
   onAdd: () => void;
 }
 
-function AddPortButton({ direction, portStartY, portCount, onAdd }: AddPortButtonProps) {
+function AddPortButton({ direction, portCount, onAdd }: AddPortButtonProps) {
   // translate(±50%, -50%) matches React Flow's <Handle> convention so the
-  // button center aligns with the port-handle column.
+  // button center aligns with the port-handle column. The `+` sits one stride
+  // past the last port on the rail (ADR-050 §2.4 — append affordance).
   const side =
     direction === "input"
       ? { left: -7, transform: "translate(-50%, -50%)" }
@@ -137,7 +144,7 @@ function AddPortButton({ direction, portStartY, portCount, onAdd }: AddPortButto
       type="button"
       className="nodrag absolute flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-100 text-[9px] text-stone-500 transition-colors hover:bg-ember hover:text-white"
       title={direction === "input" ? "Add input port" : "Add output port"}
-      style={{ top: portStartY + portCount * 20, ...side }}
+      style={{ top: addPortRailOffset(portCount), ...side }}
       onClick={onAdd}
     >
       +
@@ -150,7 +157,6 @@ interface PortHandlesProps {
   data: BlockNodeData;
   effectiveInputPorts: BlockPortResponse[];
   effectiveOutputPorts: BlockPortResponse[];
-  portStartY: number;
   isVariadicInputs: boolean;
   isVariadicOutputs: boolean;
   canAddInput: boolean;
@@ -164,7 +170,6 @@ export function PortHandles({
   data,
   effectiveInputPorts,
   effectiveOutputPorts,
-  portStartY,
   isVariadicInputs,
   isVariadicOutputs,
   canAddInput,
@@ -294,7 +299,7 @@ export function PortHandles({
           key={port.name}
           port={port}
           index={index}
-          portStartY={portStartY}
+          portCount={effectiveInputPorts.length}
           typeHierarchy={typeHierarchy}
           direction="input"
           handleType="target"
@@ -306,7 +311,6 @@ export function PortHandles({
       {isVariadicInputs && canAddInput && (
         <AddPortButton
           direction="input"
-          portStartY={portStartY}
           portCount={effectiveInputPorts.length}
           onAdd={() => setAddPortDirection("input")}
         />
@@ -316,7 +320,7 @@ export function PortHandles({
           key={port.name}
           port={port}
           index={index}
-          portStartY={portStartY}
+          portCount={effectiveOutputPorts.length}
           typeHierarchy={typeHierarchy}
           direction="output"
           handleType="source"
@@ -328,7 +332,6 @@ export function PortHandles({
       {isVariadicOutputs && canAddOutput && (
         <AddPortButton
           direction="output"
-          portStartY={portStartY}
           portCount={effectiveOutputPorts.length}
           onAdd={() => setAddPortDirection("output")}
         />

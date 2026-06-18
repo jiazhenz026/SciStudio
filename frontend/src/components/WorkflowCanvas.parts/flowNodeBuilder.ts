@@ -7,14 +7,19 @@
  */
 import type { Node } from "@xyflow/react";
 
+import { lossyOmeFields } from "../../api/capabilities";
 import type {
   BlockPortResponse,
   BlockSchemaResponse,
   BlockSummary,
+  FormatCapabilityResponse,
   WorkflowEdge,
   WorkflowNode,
 } from "../../types/api";
+import type { BlockNodeData } from "../../types/ui";
 import { collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
+
+import { NODE_SIZE } from "../nodes/BlockNode.parts/nodeGeometry";
 
 /**
  * For variadic blocks, merge config-driven ports with schema-level ports.
@@ -153,6 +158,46 @@ export interface BlockNodeCallbacks {
   onDelete: () => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onErrorClick: () => void;
+  /**
+   * ADR-050 §2.5 / FR-013 — warning-status activation: select node + open
+   * BottomPanel Config detail. OPTIONAL so FE-2's existing call sites compile
+   * before the integration merge wires `makeOnWarningClick`.
+   */
+  onWarningClick?: () => void;
+}
+
+/**
+ * ADR-050 §2.5 — compute the highest-priority problem signal for a node.
+ *
+ * Priority: an `error` runtime status is always "error". Otherwise, for a
+ * save-direction IO node that has upstream OME fields and a selected (or
+ * single) capability whose `metadata_fidelity` would drop any of those fields,
+ * the severity is "warning" (the lossy-save signal — verbose detail lives in
+ * BottomPanel Config, FR-014). Everything else is "none".
+ */
+export function computeProblemSeverity(opts: {
+  status: string;
+  category: string;
+  schema?: BlockSchemaResponse;
+  config: Record<string, unknown>;
+  upstreamOmeFields: string[] | undefined;
+}): BlockNodeData["problemSeverity"] {
+  const { status, category, schema, config, upstreamOmeFields } = opts;
+  if (status === "error") return "error";
+
+  const isSaveIo =
+    category === "io" && (schema?.direction === "output" || schema?.direction === "save");
+  if (!isSaveIo || !upstreamOmeFields || upstreamOmeFields.length === 0) return "none";
+
+  const capabilities = schema?.format_capabilities ?? [];
+  const selectedId = config.capability_id;
+  const selectedCap: FormatCapabilityResponse | undefined =
+    capabilities.find((cap) => typeof selectedId === "string" && cap.id === selectedId) ??
+    (capabilities.length === 1 ? capabilities[0] : undefined);
+  if (!selectedCap) return "none";
+
+  const dropped = lossyOmeFields(upstreamOmeFields, selectedCap.metadata_fidelity);
+  return dropped.length > 0 ? "warning" : "none";
 }
 
 interface BlockOpts {
@@ -186,17 +231,29 @@ export function buildBlockNode(opts: BlockOpts): Node<any> {
     upstreamOmeFields,
     selectedNodeId,
   } = opts;
+  const category = summary?.base_category ?? schema?.base_category ?? "custom";
+  // ADR-050 §2.5 — highest-priority problem signal, surfaced by the node's
+  // unified NodeStatusSurface (error from runtime status, warning from the
+  // lossy-save check). Verbose detail stays in Logs / BottomPanel.
+  const problemSeverity = computeProblemSeverity({
+    status,
+    category,
+    schema,
+    config: params,
+    upstreamOmeFields,
+  });
   return {
     id: node.id,
     type: "block",
     position,
-    // Block nodes are fixed-width 280px (ARCHITECTURE §9.5).
-    initialWidth: 280,
-    initialHeight: 180,
+    // ADR-050 §2.1 / FR-001-FR-002 — fixed 104×104 square topology glyph
+    // (replaces the old 280×180 card). MUST equal nodeGeometry.NODE_SIZE.
+    initialWidth: NODE_SIZE,
+    initialHeight: NODE_SIZE,
     data: {
       label,
       blockType: node.block_type,
-      category: summary?.base_category ?? schema?.base_category ?? "custom",
+      category,
       summary,
       schema,
       config: params,
@@ -215,12 +272,14 @@ export function buildBlockNode(opts: BlockOpts): Node<any> {
       status,
       errorMessage,
       errorSummary,
+      problemSeverity,
       selected: selectedNodeId === node.id,
       onRun: callbacks.onRun,
       onRestart: callbacks.onRestart,
       onDelete: callbacks.onDelete,
       onUpdateConfig: callbacks.onUpdateConfig,
       onErrorClick: callbacks.onErrorClick,
+      onWarningClick: callbacks.onWarningClick,
       upstreamOmeFields,
     },
     selected: selectedNodeId === node.id,
