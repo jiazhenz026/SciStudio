@@ -437,14 +437,10 @@ def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, modul
     """Import one ``scistudio_blocks_*`` package and register its block classes."""
     try:
         with _prepended_sys_path(src_dir):
-            existing = sys.modules.get(module_name)
-            existing_file = Path(getattr(existing, "__file__", "") or "")
-            if existing is not None and not existing_file.is_relative_to(src_dir):
-                stale_modules = [
-                    name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")
-                ]
-                for name in stale_modules:
-                    sys.modules.pop(name, None)
+            stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
+            for name in stale_modules:
+                sys.modules.pop(name, None)
+            importlib.invalidate_caches()
             module = importlib.import_module(module_name)
             result: Any | None = None
             if hasattr(module, "get_block_package") and callable(module.get_block_package):

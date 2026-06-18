@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,12 +29,22 @@ class LocalPackageInstallResponse(BaseModel):
     replaced: bool
 
 
+def _is_bundled_desktop_run() -> bool:
+    return os.environ.get("SCISTUDIO_BUNDLED", "").strip().lower() in {"1", "true", "yes"}
+
+
 @router.post("/local", response_model=LocalPackageInstallResponse)
 async def install_local_package_route(
     body: LocalPackageInstallRequest,
     runtime: RuntimeDep,
 ) -> LocalPackageInstallResponse:
     """Install a local package and refresh the block registry."""
+
+    if not _is_bundled_desktop_run():
+        raise HTTPException(
+            status_code=403,
+            detail="Local package installation is only available in bundled desktop runs.",
+        )
 
     try:
         result = install_local_package(body.path)

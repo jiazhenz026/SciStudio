@@ -34,6 +34,7 @@ def test_desktop_package_declares_mvp_scripts() -> None:
         "stage:sh",
         "start",
         "dist:dir",
+        "dist:win",
         "dist:dmg",
     ):
         assert script in scripts
@@ -97,10 +98,39 @@ def test_desktop_has_macos_dmg_builder() -> None:
 
     workflow = REPO_ROOT / ".github" / "workflows" / "desktop-macos-dmg.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
+    assert "pull_request:" in workflow_text
     assert "runs-on: macos-13" in workflow_text
     assert "npm --prefix desktop run build:python:mac" in workflow_text
     assert "npm --prefix desktop run dist:dmg" in workflow_text
     assert "desktop/dist/*.dmg" in workflow_text
+
+
+def test_desktop_has_windows_installer_builder() -> None:
+    """The Windows chain must build a real installer, not only win-unpacked."""
+    package_data = _desktop_package_json()
+    scripts = package_data["scripts"]
+    assert isinstance(scripts, dict)
+    assert "--win nsis --x64" in scripts["dist:win"]
+
+    build = package_data["build"]
+    assert isinstance(build, dict)
+    win_config = build["win"]
+    assert isinstance(win_config, dict)
+    assert "nsis" in win_config["target"]
+    assert win_config["signAndEditExecutable"] is False
+    nsis_config = build["nsis"]
+    assert isinstance(nsis_config, dict)
+    assert nsis_config["oneClick"] is False
+    assert nsis_config["allowToChangeInstallationDirectory"] is True
+
+    workflow = REPO_ROOT / ".github" / "workflows" / "desktop-windows-installer.yml"
+    workflow_text = workflow.read_text(encoding="utf-8")
+    assert "runs-on: windows-latest" in workflow_text
+    assert "npm --prefix desktop run build:python" in workflow_text
+    assert "npm --prefix desktop run stage" in workflow_text
+    assert "npm --prefix desktop run dist:win" in workflow_text
+    assert "desktop/dist/*.exe" in workflow_text
+    assert "scistudio-windows-installer" in workflow_text
 
 
 def test_portable_git_scripts_use_scistudio_skip_env_var() -> None:

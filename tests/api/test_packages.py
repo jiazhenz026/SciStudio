@@ -31,6 +31,7 @@ class _Runtime:
 
 
 def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
     install_path = tmp_path / "installed" / "scistudio-blocks-probe-0.1.0"
 
     def fake_install(path: str) -> LocalPackageInstallResult:
@@ -62,3 +63,25 @@ def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.Monk
         "blocks_count": 1,
         "replaced": False,
     }
+
+
+def test_install_local_package_route_rejects_non_bundled_runs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("SCISTUDIO_BUNDLED", raising=False)
+
+    def fail_install(path: str) -> LocalPackageInstallResult:
+        raise AssertionError(f"installer must not run outside bundled desktop mode: {path}")
+
+    monkeypatch.setattr(package_routes, "install_local_package", fail_install)
+    runtime = _Runtime()
+    app = FastAPI()
+    app.state.runtime = runtime
+    app.include_router(package_routes.router)
+
+    response = TestClient(app).post("/api/packages/local", json={"path": str(tmp_path / "probe.whl")})
+
+    assert response.status_code == 403
+    assert runtime.refreshed is False
+    assert response.json()["detail"] == "Local package installation is only available in bundled desktop runs."

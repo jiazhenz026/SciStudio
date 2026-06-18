@@ -43,6 +43,7 @@ export function TerminalView({
   // several KB immediately on spawn) gets silently dropped, leaving the TUI
   // mid-render with no prior screen state.
   const pendingWritesRef = useRef<string[]>([]);
+  const sawExitRef = useRef(false);
 
   // Keep callbacks fresh without re-mounting the WS (which would tear down
   // the PTY subprocess).
@@ -50,6 +51,10 @@ export function TerminalView({
   const onErrorRef = useRef(onError);
   onExitRef.current = onExit;
   onErrorRef.current = onError;
+
+  useEffect(() => {
+    sawExitRef.current = false;
+  }, [tabId, projectDir, provider, dangerous]);
 
   const { send } = usePtyWebSocket({
     tabId,
@@ -65,12 +70,16 @@ export function TerminalView({
           pendingWritesRef.current.push(frame.data);
         }
       } else if (frame.type === "exit") {
+        sawExitRef.current = true;
         onExitRef.current(frame.code);
       } else if (frame.type === "error") {
         onErrorRef.current(frame.message);
       }
     },
     onClose: (ev) => {
+      if (sawExitRef.current) {
+        return;
+      }
       const reason = ev.reason ? `: ${ev.reason}` : "";
       onErrorRef.current(`WebSocket closed before PTY exit (code ${ev.code}${reason})`);
     },

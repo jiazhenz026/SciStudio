@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -147,3 +148,38 @@ def test_add_package_src_dir_accepts_flat_installed_package(tmp_path: Path) -> N
     assert spec.source == "package_src"
     assert spec.module_path == "scistudio_blocks_flatprobe"
     assert spec.package_name == "Flat Probe"
+
+
+def test_scan_reloads_reinstalled_package_from_same_source_path(tmp_path: Path) -> None:
+    packages_dir = tmp_path / "installed-packages"
+    dist_name = "scistudio-blocks-reloadprobe-0.1.0"
+    module_name = "scistudio_blocks_reloadprobe"
+    package_root = packages_dir / dist_name
+
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name=module_name,
+        block_name="ReloadProbeBlockV1",
+        package_name="Reload Probe",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+    assert registry.get_spec("ReloadProbeBlockV1") is not None
+    assert registry.get_spec("ReloadProbeBlockV2") is None
+
+    shutil.rmtree(package_root)
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name=module_name,
+        block_name="ReloadProbeBlockV2",
+        package_name="Reload Probe",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+
+    assert registry.get_spec("ReloadProbeBlockV1") is None
+    assert registry.get_spec("ReloadProbeBlockV2") is not None

@@ -21,6 +21,15 @@ npm --prefix desktop run stage
 npm --prefix desktop run dist:dir
 ```
 
+The Windows installer uses the same staged resources and emits an unsigned NSIS
+installer under `desktop/dist`:
+
+```powershell
+npm --prefix desktop run build:python
+npm --prefix desktop run stage
+npm --prefix desktop run dist:win
+```
+
 The macOS DMG build runs on macOS:
 
 ```bash
@@ -28,6 +37,11 @@ npm --prefix desktop run build:python:mac
 npm --prefix desktop run stage:sh
 npm --prefix desktop run dist:dmg
 ```
+
+The GitHub Actions build chain validates both packaged artifacts for desktop
+changes: `.github/workflows/desktop-windows-installer.yml` uploads
+`scistudio-windows-installer`, and `.github/workflows/desktop-macos-dmg.yml`
+uploads `scistudio-macos-dmg`.
 
 ## Runtime Python
 
@@ -59,4 +73,5 @@ package into the user-scoped plugin directory:
 
 After installation the backend refreshes the block registry, so package blocks
 appear in the palette without a remote package index. This path is strictly
-local: it does not download dependencies or query PyPI.
+local: it does not download dependencies or query PyPI. The install endpoint is
+enabled only when the backend is running in bundled desktop mode.

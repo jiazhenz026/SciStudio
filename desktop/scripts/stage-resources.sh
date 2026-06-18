@@ -38,7 +38,7 @@ mkdir -p "$RESOURCES_ROOT/packages" "$RESOURCES_ROOT/git" "$RESOURCES_ROOT/pytho
 : > "$RESOURCES_ROOT/git/.gitkeep"
 : > "$RESOURCES_ROOT/python/.gitkeep"
 cat > "$RESOURCES_ROOT/packages/README.md" <<'EOF'
-Place hard-installed SciStudio source packages here for the ADR-037 MVP.
+Place bundled SciStudio source packages here for desktop builds.
 
 Expected shape:
 
@@ -47,8 +47,11 @@ packages/
     pyproject.toml
     src/scistudio_blocks_example/__init__.py
 
-The MVP does not install dependencies. Packages placed here must be compatible
-with the bundled Python environment.
+The GUI local package installer writes user-installed packages to the
+user-scoped plugin directory instead of this bundled resources directory.
+Both locations are scanned by the same package discovery path. Neither path
+downloads dependencies; packages must be compatible with the bundled Python
+environment.
 EOF
 
 echo "Staged desktop resources under $RESOURCES_ROOT"

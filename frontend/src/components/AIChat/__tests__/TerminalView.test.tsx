@@ -245,4 +245,27 @@ describe("TerminalView", () => {
     ws.failClose(1006);
     expect(onError).toHaveBeenCalledWith("WebSocket closed before PTY exit (code 1006)");
   });
+
+  it("ignores a socket close that happens after a PTY exit frame", async () => {
+    const onExit = vi.fn();
+    const onError = vi.fn();
+    render(
+      <TerminalView
+        tabId="t1"
+        projectDir="/p"
+        provider="claude-code"
+        dangerous={false}
+        onExit={onExit}
+        onError={onError}
+      />,
+    );
+    await waitForTerm();
+    await waitFor(() => expect(FakeWebSocket.instances[0]).toBeDefined());
+    const ws = FakeWebSocket.instances[0];
+    ws.open();
+    ws.message(JSON.stringify({ type: "exit", code: 0 }));
+    ws.failClose(1000);
+    expect(onExit).toHaveBeenCalledWith(0);
+    expect(onError).not.toHaveBeenCalled();
+  });
 });

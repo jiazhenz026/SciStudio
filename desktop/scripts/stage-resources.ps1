@@ -56,7 +56,7 @@ Ensure-Directory (Join-Path $ResourcesRoot "python")
 "" | Set-Content -NoNewline -Encoding ASCII (Join-Path $ResourcesRoot "python\.gitkeep")
 
 @"
-Place hard-installed SciStudio source packages here for the ADR-037 MVP.
+Place bundled SciStudio source packages here for desktop builds.
 
 Expected shape:
 
@@ -65,8 +65,11 @@ packages/
     pyproject.toml
     src/scistudio_blocks_example/__init__.py
 
-The MVP does not install dependencies. Packages placed here must be compatible
-with the bundled Python environment.
+The GUI local package installer writes user-installed packages to the
+user-scoped plugin directory instead of this bundled resources directory.
+Both locations are scanned by the same package discovery path. Neither path
+downloads dependencies; packages must be compatible with the bundled Python
+environment.
 "@ | Set-Content -Encoding ASCII (Join-Path $ResourcesRoot "packages\README.md")
 
 Write-Host "Staged desktop resources under $ResourcesRoot"

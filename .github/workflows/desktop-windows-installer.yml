@@ -1,11 +1,11 @@
-name: Desktop macOS DMG
+name: Desktop Windows Installer
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - ".github/workflows/desktop-macos-dmg.yml"
+      - ".github/workflows/desktop-windows-installer.yml"
       - "desktop/**"
       - "frontend/**"
       - "src/**"
@@ -21,13 +21,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-macos-dmg-${{ github.event.pull_request.number || github.event.inputs.ref || github.ref }}
+  group: desktop-windows-installer-${{ github.event.pull_request.number || github.event.inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-dmg:
-    name: Build macOS DMG
-    runs-on: macos-13
+  build-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
@@ -47,22 +47,26 @@ jobs:
         run: npm --prefix desktop ci
 
       - name: Build portable Python runtime
-        run: npm --prefix desktop run build:python:mac
+        run: npm --prefix desktop run build:python
 
       - name: Stage resources
-        run: npm --prefix desktop run stage:sh
+        run: npm --prefix desktop run stage
 
-      - name: Build DMG
-        run: npm --prefix desktop run dist:dmg
+      - name: Build Windows installer
+        run: npm --prefix desktop run dist:win
 
-      - name: Verify DMG artifact exists
+      - name: Verify installer artifact exists
+        shell: pwsh
         run: |
-          test -n "$(find desktop/dist -maxdepth 1 -name '*.dmg' -print -quit)"
-          find desktop/dist -maxdepth 1 -type f -print
+          $installer = Get-ChildItem -Path desktop/dist -Filter *.exe -File | Select-Object -First 1
+          if (-not $installer) {
+            throw "Expected a Windows installer .exe under desktop/dist"
+          }
+          Get-ChildItem -Path desktop/dist -File | Select-Object FullName, Length
 
-      - name: Upload DMG artifact
+      - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v7
         with:
-          name: scistudio-macos-dmg
-          path: desktop/dist/*.dmg
+          name: scistudio-windows-installer
+          path: desktop/dist/*.exe
           if-no-files-found: error
