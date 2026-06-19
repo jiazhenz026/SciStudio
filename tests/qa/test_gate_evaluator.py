@@ -711,6 +711,81 @@ def test_parity_gap_check_event_reports_distinctly_not_as_code_failure(
     assert not any(item.startswith("checks.") for item in result.unsatisfied)
 
 
+def test_pre_pr_skip_execution_accepts_current_check_evidence(git_repo: Path) -> None:
+    _add_change(git_repo, "docs/notes.md")
+    changed = io.changed_files(git_repo, "HEAD~1", "HEAD")
+    diff_fp = io.diff_fingerprint(git_repo, "HEAD~1", "HEAD")
+    input_fp = io.fingerprint_paths(changed)
+    ledger = _ledger(
+        task_kind="docs",
+        persona="adr_author",
+        declared_scope=DeclaredScope(include=["docs/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+        docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
+        test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_events=[
+            CheckEvent(
+                name="full_audit",
+                command="python -m scistudio.qa.audit.full_audit",
+                covered_surface="governance",
+                input_fingerprint=input_fp,
+                exit_code=0,
+                status="pass",
+                summary="clean",
+            )
+        ],
+    )
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        pr_body="Closes #1509",
+        run_checks=False,
+    )
+
+    assert diff_fp is not None
+    assert not any(item.startswith("checks.") for item in result.unsatisfied)
+    assert [event.name for event in result.check_events] == ["full_audit"]
+
+
+def test_pre_pr_skip_execution_rejects_stale_check_evidence(git_repo: Path) -> None:
+    _add_change(git_repo, "docs/notes.md")
+    ledger = _ledger(
+        task_kind="docs",
+        persona="adr_author",
+        declared_scope=DeclaredScope(include=["docs/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+        docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
+        test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_events=[
+            CheckEvent(
+                name="full_audit",
+                command="python -m scistudio.qa.audit.full_audit",
+                covered_surface="governance",
+                input_fingerprint="sha256:stale",
+                exit_code=0,
+                status="pass",
+                summary="clean",
+            )
+        ],
+    )
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        pr_body="Closes #1509",
+        run_checks=False,
+    )
+
+    assert "checks.full_audit" in result.unsatisfied
+
+
 def test_genuine_check_failure_still_reads_as_code_failure(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from scistudio.qa.governance.gate_record import checks
 

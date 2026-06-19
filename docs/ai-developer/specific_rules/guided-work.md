@@ -170,7 +170,8 @@ language_source: en
   ```
 
 - Run `finalize` in two stages:
-  - Pre-PR (before opening the PR):
+  - Pre-PR (before opening the PR). This reuses current check evidence by
+    default; run `check --mode pre-pr` once before this step:
 
     ```bash
     python -m scistudio.qa.governance.gate_record finalize \
@@ -181,7 +182,8 @@ language_source: en
       --closes "#<issue>"
     ```
 
-  - Post-PR (after the PR is created):
+  - Post-PR (after the PR is created). This records PR provenance locally;
+    CI validates label actor/permission provenance:
 
     ```bash
     python -m scistudio.qa.governance.gate_record finalize \
@@ -298,9 +300,10 @@ A `guided` session is done only when all of the following are true:
 4. Required documentation is updated or explicitly marked N/A with rationale.
 5. Required tests are present in the observed diff, or N/A is explicitly
    recorded.
-6. `gate_record check` passes at the tier selected for this task (Tier 2
-   default, Tier 1 if escalated).
-7. `gate_record finalize` (pre-PR) confirms the candidate is PR-ready.
+6. `gate_record check --mode pre-pr` passes at the tier selected for this task
+   (Tier 2 default, Tier 1 if escalated) and records current check evidence.
+7. `gate_record finalize` (pre-PR) confirms the candidate is PR-ready by
+   reusing that evidence.
 8. PR is opened, post-PR finalize is run, and CI passes.
 
 ## 13. Route

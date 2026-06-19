@@ -958,6 +958,70 @@ def test_finalize_pre_pr_records_commit_and_closes(git_repo: Path, tmp_path: Pat
     assert rc in (workflow.EXIT_OK, workflow.EXIT_FAIL, workflow.EXIT_TOOL)
 
 
+def test_finalize_reuses_check_evidence_by_default(
+    git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.qa.governance.gate_record.ledger import RequiredObligations
+    from scistudio.qa.schemas.report import AuditReport, AuditStatus
+
+    _init(git_repo)
+    body = tmp_path / "body.md"
+    body.write_text("Closes #1509\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def _fake_reconcile(**kwargs: object) -> evaluator.ReconcileResult:
+        seen["run_checks"] = kwargs["run_checks"]
+        return evaluator.ReconcileResult(
+            report=AuditReport(tool="gate_record", status=AuditStatus.PASS, source_sha="test"),
+            strictness_tier=2,
+            required_obligations=RequiredObligations(),
+        )
+
+    monkeypatch.setattr(workflow.evaluator, "reconcile", _fake_reconcile)
+
+    rc = _run(git_repo, "finalize", "--commit", "abc123", "--pr-body-file", str(body), "--closes", "1509")
+
+    assert rc == workflow.EXIT_OK
+    assert seen["run_checks"] is False
+
+
+def test_finalize_force_checks_executes_checks(
+    git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.qa.governance.gate_record.ledger import RequiredObligations
+    from scistudio.qa.schemas.report import AuditReport, AuditStatus
+
+    _init(git_repo)
+    body = tmp_path / "body.md"
+    body.write_text("Closes #1509\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def _fake_reconcile(**kwargs: object) -> evaluator.ReconcileResult:
+        seen["run_checks"] = kwargs["run_checks"]
+        return evaluator.ReconcileResult(
+            report=AuditReport(tool="gate_record", status=AuditStatus.PASS, source_sha="test"),
+            strictness_tier=2,
+            required_obligations=RequiredObligations(),
+        )
+
+    monkeypatch.setattr(workflow.evaluator, "reconcile", _fake_reconcile)
+
+    rc = _run(
+        git_repo,
+        "finalize",
+        "--commit",
+        "abc123",
+        "--pr-body-file",
+        str(body),
+        "--closes",
+        "1509",
+        "--force-checks",
+    )
+
+    assert rc == workflow.EXIT_OK
+    assert seen["run_checks"] is True
+
+
 # ---------------------------------------------------------------------------
 # --no-record: the git-hook form gates without persisting the ledger (#1609).
 # ---------------------------------------------------------------------------

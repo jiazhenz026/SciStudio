@@ -3,11 +3,13 @@
 
 Thin caller of the single shared evaluator (ADR-042 Addendum 6 §6): it extracts
 the PR body and base from the ``gh pr create`` argv, then runs
-``gate_record check --mode pre-pr --pr-body-file <body>`` once. The evaluator
-owns scope, issue-closure, label/bypass, docs/test, check execution, and guard
-orchestration. PR-state-impossible findings (core-change / merge / bypass label
-provenance) are classified internally by the evaluator's pre-PR mode — there is
-no caller-side finding filter and no separate receipt step.
+``gate_record check --mode pre-pr --skip-execution --pr-body-file <body>`` once.
+The evaluator owns scope, issue-closure, label/bypass, docs/test, evidence
+freshness, and guard orchestration. The wrapper does not execute the full local
+check mirror; run ``gate_record check --mode pre-pr`` once before PR creation to
+produce reusable evidence. PR-state-impossible findings (core-change / merge /
+bypass label provenance) are classified internally by the evaluator's pre-PR
+mode — there is no caller-side finding filter and no separate receipt step.
 
 Usage::
 
@@ -95,7 +97,7 @@ def resolve_base_ref(base: str | None) -> str:
 
 
 def run_pre_pr_check(repo_root: Path, body_file: Path, *, base: str = "origin/main") -> int:
-    """Invoke ``gate_record check --mode pre-pr`` and return its exit code.
+    """Invoke fast ``gate_record check --mode pre-pr`` reuse and return its exit code.
 
     The evaluator streams its own findings/repair hints; the wrapper forwards
     them so the agent sees exactly what CI's ``--mode ci`` run would surface.
@@ -113,6 +115,7 @@ def run_pre_pr_check(repo_root: Path, body_file: Path, *, base: str = "origin/ma
         "HEAD",
         "--pr-body-file",
         str(body_file),
+        "--skip-execution",
     ]
     env = os.environ.copy()
     src_dir = repo_root / "src"
@@ -190,7 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         if exit_code != 0:
             print(
                 "\n-> pre-flight failed. Fix the unsatisfied obligations above before "
-                "creating the PR (CI `--mode ci` will reject the same findings).",
+                "creating the PR. If check evidence is missing or stale, run "
+                "`gate_record check --mode pre-pr` once, then retry.",
                 file=sys.stderr,
             )
             return 1

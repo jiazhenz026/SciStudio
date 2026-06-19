@@ -228,12 +228,13 @@ python -m scistudio.qa.governance.gate_record check \
 | `--check-na` | no | yes | Record accepted N/A rationale for a check (see §9 for the ci.yml-owned caveat) |
 | `--admin-label` | no | yes | Requested/expected admin label (local records intent only; CI verifies provenance) |
 | `--only` | no | yes | Run only selected checks for recovery; reconciliation still reports missing obligations |
-| `--skip-execution` | no | no | Reconcile without running commands; never sufficient for final PR readiness when required evidence is absent or stale |
+| `--skip-execution` | no | no | Reconcile without running commands; sufficient for final PR readiness only when every required check has current passing evidence |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 `check` automatically: (1) observes the current git diff; (2) infers required
 checks from changed files, task kind, persona, plan, and CI configuration;
 (3) runs all required local commands unless `--only` / `--skip-execution`;
+with `--skip-execution`, validates existing check evidence for the current diff;
 (4) writes raw transcripts only under ignored local paths (`.workflow/local/**`);
 (5) records sanitized check events in the committed ledger; (6) runs all
 applicable guards through the shared evaluator; (7) records a reconciliation
@@ -270,7 +271,8 @@ python -m scistudio.qa.governance.gate_record finalize \
   [--issue <number>] \
   [--docs-updated <path>] [--docs-na "<class>:<rationale>"] \
   [--test-path <path>] [--test-na "<class>:<rationale>"] \
-  [--admin-label <label>]
+  [--admin-label <label>] \
+  [--force-checks]
 ```
 
 **Post-PR finalize** (after the PR is created) requires `--pr`, must not be
@@ -280,7 +282,9 @@ required before PR creation:
 python -m scistudio.qa.governance.gate_record finalize \
   --commit <sha> \
   --pr <url-or-number> \
-  --pr-body-file .workflow/local/pr-body.md
+  --pr-body-file .workflow/local/pr-body.md \
+  [--pr-context-file <path>] \
+  [--force-checks]
 ```
 
 | Argument | Required | Repeatable | Meaning |
@@ -290,6 +294,7 @@ python -m scistudio.qa.governance.gate_record finalize \
 | `--commit` | yes | yes | Commit SHA included in the candidate or PR |
 | `--pr` | conditional | no | PR URL or number; required only for post-PR finalize |
 | `--pr-body-file` | conditional | no | Intended/actual PR body for issue-closure validation; required before PR creation |
+| `--pr-context-file` | no | no | CI-only PR metadata with label actor/permission provenance |
 | `--closes` | no | yes | Issue closure token, e.g. `#1234` |
 | `--owner-directive` | no | yes | Final owner instruction or rationale |
 | `--include` / `--exclude` | no | yes | Last scope additions before reconciliation |
@@ -297,14 +302,19 @@ python -m scistudio.qa.governance.gate_record finalize \
 | `--docs-updated` / `--docs-na` | no | yes | Record docs landing / N/A before final reconciliation |
 | `--test-path` / `--test-na` | no | yes | Record test evidence / N/A before final reconciliation |
 | `--admin-label` | no | yes | Expected admin label (authoritative only when CI observes it) |
+| `--force-checks` | no | no | Execute tier-selected checks during finalize instead of reusing existing evidence |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 Pre-PR `finalize` re-observes the diff, validates the intended PR body's issue
-closure, and reruns reconciliation without requiring a PR URL/number. Post-PR
-`finalize` records the PR URL or number and reruns reconciliation with PR
-metadata; it fails when checks are stale, required issue closure is missing from
-the PR body, required docs/tests are absent, or tier-selected check obligations
-are unsatisfied.
+closure, records commit provenance, and reuses existing check evidence by
+default without requiring a PR URL/number. Post-PR `finalize` records the PR URL
+or number and reruns reconciliation using the same evidence-reuse path. Local
+post-PR finalize does not prove CI-only label actor/permission facts; the
+workflow-gate CI job validates those from PR context. `finalize` fails when
+checks are stale, required issue closure is missing from the PR body, required
+docs/tests are absent, or tier-selected check obligations are unsatisfied. Pass
+`--force-checks` only when finalize itself must execute the tier-selected check
+set.
 
 After post-PR `finalize`, commit and push the ledger update. CI-mode ledger
 discovery includes finalized ledgers so the committed PR provenance is still
@@ -640,9 +650,11 @@ tier, and the command sequence. `<base>` defaults to
 
 Open the PR with the gate-aware wrapper
 `python scripts/scistudio_pr_create.py --title "<type>(#<issue>): <summary>" --body "<body>"`,
-which runs `gate_record check --mode pre-pr` (or pre-PR `finalize`) before
-invoking `gh pr create`. The PR body must close every gate-listed issue with a
-GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
+which runs `gate_record check --mode pre-pr --skip-execution` before invoking
+`gh pr create`. The wrapper validates that a full pre-PR check already produced
+current passing evidence; it does not execute that full check mirror again. The
+PR body must close every gate-listed issue with a GitHub closing keyword
+(`Closes #N` / `Fixes #N` / `Resolves #N`).
 
 ## 9. Behaviors To Know
 
@@ -689,11 +701,13 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
   check or rely on CI. `--check-na` does waive task-specific / non-`ci.yml`-owned
   checks.
 
-- **`--only` / `--skip-execution` are recovery-only.** They run a subset (or no)
-  checks for recovery and print a "RECOVERY MODE … NOT final PR readiness"
-  banner listing the mandatory tier-selected checks not run this invocation. In
-  `pre-pr` / `ci` modes recovery cannot create final readiness. A final PR-ready
-  `check` must run or validate the complete tier-selected check set.
+- **`--only` is recovery-only; `--skip-execution` is evidence reuse.** `--only`
+  runs a subset for recovery and cannot create final readiness. `--skip-execution`
+  runs no commands; in `pre-pr` it is final-readiness capable only when all
+  required checks already have current passing evidence for the observed diff.
+  If evidence is absent or stale, the command prints a "RECOVERY MODE … NOT
+  final PR readiness" banner and tells the agent to run the full pre-PR check
+  once.
 
 - **Default base is the merge-base.** When `--base` is omitted, the diff base is
   `git merge-base origin/main HEAD`, falling back to raw `origin/main` if the

@@ -528,6 +528,62 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
     return excerpt.encode("ascii", "replace").decode("ascii")
 
 
+def _check_input_fingerprint(changed_files: Sequence[str], diff_fingerprint: str | None) -> str | None:
+    """Return the check input fingerprint using the current check-event contract."""
+
+    covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
+    return io.fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint
+
+
+def _valid_prior_check_event(
+    ledger: GateLedger,
+    *,
+    name: str,
+    input_fingerprint: str | None,
+) -> CheckEvent | None:
+    """Return the newest passing event for ``name`` that still covers this diff."""
+
+    for event in reversed(ledger.check_events):
+        if event.name == name and checks.event_is_valid_for(event, input_fingerprint=input_fingerprint):
+            return event
+    return None
+
+
+def _validate_prior_check_events(
+    ledger: GateLedger,
+    *,
+    required_names: Sequence[str],
+    na_names: set[str],
+    only: Sequence[str] | None,
+    pr_readiness_mode: bool,
+    input_fingerprint: str | None,
+) -> tuple[list[CheckEvent], list[str], list[str]]:
+    """Validate reusable check evidence for the current candidate."""
+
+    validated: list[CheckEvent] = []
+    unsatisfied: list[str] = []
+    repair_hints: list[str] = []
+    to_validate = [name for name in required_names if name not in na_names]
+    if only is not None:
+        to_validate = [name for name in to_validate if name in set(only)]
+    for name in to_validate:
+        prior = _valid_prior_check_event(ledger, name=name, input_fingerprint=input_fingerprint)
+        if prior is not None:
+            validated.append(prior)
+            continue
+        if not pr_readiness_mode:
+            continue
+        unsatisfied.append(f"checks.{name}")
+        repair_hints.append(
+            f"- checks.{name}\n"
+            "  Required check evidence is missing or stale for the current diff.\n"
+            "  Run the full pre-PR check once, then retry this command:\n"
+            "  gate_record check --mode pre-pr --base origin/main --head HEAD "
+            "--pr-body-file .workflow/local/pr-body.md"
+        )
+    return validated, unsatisfied, repair_hints
+
+
 def reconcile(
     *,
     ledger: GateLedger,
@@ -746,6 +802,23 @@ def reconcile(
                 if excerpt:
                     hint += f"\n  --- {name} output (tail) ---\n{excerpt}"
                 repair_hints.append(hint)
+    elif mode not in ("commit-msg",):
+        # Reuse previously recorded passing check evidence instead of executing
+        # the full local mirror again. This is the fast path used by finalize and
+        # PR creation: it is only PR-ready when every required check has current
+        # evidence for the observed diff fingerprint.
+        input_fp = _check_input_fingerprint(observed_files, fingerprint)
+        validated, evidence_gaps, evidence_hints = _validate_prior_check_events(
+            ledger,
+            required_names=selection.required,
+            na_names=na_names,
+            only=only,
+            pr_readiness_mode=pr_readiness_mode,
+            input_fingerprint=input_fp,
+        )
+        check_events.extend(validated)
+        unsatisfied.extend(evidence_gaps)
+        repair_hints.extend(evidence_hints)
 
     # Docs/test obligations unsatisfied when no verified evidence and no N/A.
     # These are PR-readiness obligations: local and pre-pr/ci enforce them, but

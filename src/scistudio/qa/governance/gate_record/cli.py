@@ -110,7 +110,13 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--commit", action="append", default=[])
     finalize.add_argument("--pr")
     finalize.add_argument("--pr-body-file")
+    finalize.add_argument("--pr-context-file")
     finalize.add_argument("--closes", action="append", default=[])
+    finalize.add_argument(
+        "--force-checks",
+        action="store_true",
+        help="Execute tier-selected checks during finalize instead of reusing existing evidence.",
+    )
     _add_field_flags(finalize)
 
     # Compatibility aliases (§5.8): delegate to the new code -----------------
