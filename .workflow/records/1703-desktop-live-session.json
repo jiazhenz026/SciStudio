@@ -1117,6 +1117,11 @@
       "at": "2026-06-19T23:26:00.738257Z",
       "owner_directive": "Make gate_record check default to incremental evidence reuse; explicit --force-checks reruns all selected checks; fix current CI Frontend and Lint & Format failures.",
       "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "at": "2026-06-19T23:32:22.342841Z",
+      "owner_directive": "Fix the CI/local validation gap by making the gate frontend check run the same lint, Prettier format, typecheck, test, and build sequence as the CI Frontend job.",
+      "reason": "Align local frontend gate command with CI frontend job"
     }
   ],
   "docs_events": [
@@ -3947,6 +3952,30 @@
       "at": "2026-06-19T23:26:00.738432Z",
       "pattern": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
       "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:32:22.343041Z",
+      "pattern": "frontend/package.json",
+      "reason": "Align local frontend gate command with CI frontend job"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:32:22.343047Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/checks.py",
+      "reason": "Align local frontend gate command with CI frontend job"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:32:22.343050Z",
+      "pattern": "tests/qa/test_gate_evaluator.py",
+      "reason": "Align local frontend gate command with CI frontend job"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:32:22.343051Z",
+      "pattern": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "reason": "Align local frontend gate command with CI frontend job"
     }
   ],
   "session_id": "4625aa43-d5d9-480d-9ba8-901998130e0d",
@@ -4187,6 +4216,22 @@
     },
     {
       "at": "2026-06-19T23:26:00.738451Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:32:22.343057Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:32:22.343062Z",
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",

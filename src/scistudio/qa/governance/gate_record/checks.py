@@ -113,7 +113,7 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
     ),
     "frontend": CheckSpec(
         name="frontend",
-        command=("npm", "run", "lint"),
+        command=("npm", "run", "check:ci"),
         covered_surface="frontend",
         ci_job="ci.yml/Frontend",
         cwd="frontend",

@@ -1161,8 +1161,8 @@ def test_frontend_check_runs_in_frontend_working_directory(git_repo: Path, monke
     )
 
     assert event.status == "pass"
-    assert event.command == "(cd frontend && npm run lint)"
-    assert calls == [(["npm", "run", "lint"], git_repo / "frontend")]
+    assert event.command == "(cd frontend && npm run check:ci)"
+    assert calls == [(["npm", "run", "check:ci"], git_repo / "frontend")]
 
 
 # ---------------------------------------------------------------------------

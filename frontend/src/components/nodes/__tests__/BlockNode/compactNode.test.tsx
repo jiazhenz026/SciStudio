@@ -174,7 +174,9 @@ describe("BlockNode — block-kind mark (FR-006)", () => {
     (category) => {
       const { container } = renderNode({ category });
       // Identity-only body: exactly one category mark; status is a separate corner surface.
-      expect(bodyOf(container).querySelectorAll('[data-testid="block-node-category-icon"]')).toHaveLength(1);
+      expect(
+        bodyOf(container).querySelectorAll('[data-testid="block-node-category-icon"]'),
+      ).toHaveLength(1);
     },
   );
 
