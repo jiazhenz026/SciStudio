@@ -161,7 +161,9 @@ export function NodeStatusSurface({
           className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold leading-none shadow-sm"
           style={{ backgroundColor: style.bg, color: style.color }}
         >
-          <span className={style.spin ? "inline-block animate-spin" : undefined}>{style.glyph}</span>
+          <span className={style.spin ? "inline-block animate-spin" : undefined}>
+            {style.glyph}
+          </span>
         </span>
       </button>
     );

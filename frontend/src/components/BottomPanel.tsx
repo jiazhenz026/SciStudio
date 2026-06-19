@@ -1,9 +1,4 @@
-import type {
-  BlockSchemaResponse,
-  LogEntry,
-  WorkflowEdge,
-  WorkflowNode,
-} from "../types/api";
+import type { BlockSchemaResponse, LogEntry, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 
 import { TerminalTabs } from "./AIChat/TerminalTabs";

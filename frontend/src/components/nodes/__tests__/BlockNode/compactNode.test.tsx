@@ -126,7 +126,11 @@ describe("BlockNode — identity-only body (FR-003/FR-004)", () => {
   });
 
   it("does not render inline error text even when status=error and a message is set", () => {
-    renderNode({ status: "error", errorMessage: "Division by zero", errorSummary: "Division by zero" });
+    renderNode({
+      status: "error",
+      errorMessage: "Division by zero",
+      errorSummary: "Division by zero",
+    });
     // The verbose error text must not appear as a body text row (it lives in
     // Logs / the status-surface tooltip only).
     expect(screen.queryByText("Division by zero")).toBeNull();
@@ -143,9 +147,7 @@ describe("BlockNode — label cap (FR-005)", () => {
   it("truncates a long label to two lines and exposes full text via title", () => {
     const longLabel = "A very long block label that should be capped to two visual lines on canvas";
     const { container } = renderNode({ label: longLabel });
-    const label = container.querySelector(
-      '[data-testid="block-node-label"]',
-    ) as HTMLElement | null;
+    const label = container.querySelector('[data-testid="block-node-label"]') as HTMLElement | null;
     expect(label).not.toBeNull();
     expect(label?.className).toContain("line-clamp-2");
     expect(label?.getAttribute("title")).toBe(longLabel);

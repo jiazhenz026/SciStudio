@@ -19,8 +19,14 @@ export interface FlowCallbacksOpts {
 }
 
 export function useFlowCallbacks(opts: FlowCallbacksOpts) {
-  const { onRunBlock, onRestartBlock, onDeleteNode, onErrorClick, onUpdateNodeConfig, onWarningClick } =
-    opts;
+  const {
+    onRunBlock,
+    onRestartBlock,
+    onDeleteNode,
+    onErrorClick,
+    onUpdateNodeConfig,
+    onWarningClick,
+  } = opts;
   const makeOnRun = useCallback((nodeId: string) => () => onRunBlock(nodeId), [onRunBlock]);
   const makeOnRestart = useCallback(
     (nodeId: string) => () => onRestartBlock(nodeId),

@@ -10,10 +10,7 @@ import type {
 } from "../../types/api";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
 import { lossyOmeFields } from "../../api/capabilities";
-import {
-  LossySaveWarning,
-  collectUpstreamOmeFields,
-} from "../WorkflowEditor/LossySaveWarning";
+import { LossySaveWarning, collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
 import { FileBrowserModal } from "../nodes/BlockNode.parts/FileBrowserModal";
 
 import { CaretPreservingTextInput } from "./CaretPreservingTextInput";
@@ -343,8 +340,7 @@ function selectedSaveCapability(
 
 function isSaveDirectionIoNode(schema: BlockSchemaResponse): boolean {
   return (
-    schema.base_category === "io" &&
-    (schema.direction === "output" || schema.direction === "save")
+    schema.base_category === "io" && (schema.direction === "output" || schema.direction === "save")
   );
 }
 

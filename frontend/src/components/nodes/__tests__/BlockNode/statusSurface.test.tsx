@@ -78,7 +78,9 @@ describe("NodeStatusSurface — activation (FR-012 / FR-013)", () => {
 
   it("calls onWarningClick when the warning surface is activated", () => {
     const onWarningClick = vi.fn();
-    render(<NodeStatusSurface status="done" problemSeverity="warning" onWarningClick={onWarningClick} />);
+    render(
+      <NodeStatusSurface status="done" problemSeverity="warning" onWarningClick={onWarningClick} />,
+    );
     fireEvent.click(screen.getByTestId("node-status-surface-button"));
     expect(onWarningClick).toHaveBeenCalledTimes(1);
   });
@@ -106,7 +108,9 @@ describe("NodeStatusSurface — activation (FR-012 / FR-013)", () => {
   });
 
   it("surfaces the error detail through the tooltip, not a body row", () => {
-    render(<NodeStatusSurface status="error" errorSummary="Division by zero" onErrorClick={vi.fn()} />);
+    render(
+      <NodeStatusSurface status="error" errorSummary="Division by zero" onErrorClick={vi.fn()} />,
+    );
     const button = screen.getByTestId("node-status-surface-button");
     expect(button.getAttribute("title")).toBe("Division by zero");
     // The detail text is not present as a standalone text node.

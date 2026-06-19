@@ -314,8 +314,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   // positions then writes only `node.layout` through the batch store action.
   const runTidy = async (scope: "focus" | "whole"): Promise<void> => {
     if (!onTidyLayout) return;
-    const scopeNodeIds =
-      scope === "focus" && focusActive ? focus.visibleNodeIds : undefined;
+    const scopeNodeIds = scope === "focus" && focusActive ? focus.visibleNodeIds : undefined;
     const positions = await computeAutoLayout({ nodes, edges, scopeNodeIds });
     if (Object.keys(positions).length > 0) onTidyLayout(positions);
   };
