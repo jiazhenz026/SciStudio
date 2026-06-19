@@ -122,7 +122,10 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
       className="flex h-full min-h-0 flex-col overflow-hidden px-4 py-3"
       data-testid={`setup-screen-${tabId}`}
     >
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1" data-testid="setup-scroll-body">
+      <div
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+        data-testid="setup-scroll-body"
+      >
         <h3 className="text-base font-semibold text-ink">New chat — Setup</h3>
 
         {statusError ? (

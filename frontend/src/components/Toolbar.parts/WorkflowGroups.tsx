@@ -2,15 +2,7 @@
  * Workflow-only toolbar groups (Run/Pause/Stop/Reload + Note/Group/
  * View-source). Hidden when a file tab is active. Extracted in #1413.
  */
-import {
-  BoxSelect,
-  Eye,
-  Loader2,
-  Play,
-  RefreshCw,
-  Square,
-  StickyNote,
-} from "lucide-react";
+import { BoxSelect, Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -59,13 +51,7 @@ function ExecutionControls(props: WorkflowGroupsProps) {
 }
 
 function EditOperations(props: WorkflowGroupsProps) {
-  const {
-    currentProject,
-    workflowId,
-    onAddAnnotation,
-    onAddGroup,
-    onViewSource,
-  } = props;
+  const { currentProject, workflowId, onAddAnnotation, onAddGroup, onViewSource } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
