@@ -19,7 +19,7 @@
 // contracts as before, minus the deleted inline-config path.
 
 import { type Node, type NodeProps } from "@xyflow/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
@@ -27,12 +27,15 @@ import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
 import { NodeActionToolbar } from "./BlockNode.parts/NodeActionToolbar";
 import { NodeStatusSurface } from "./BlockNode.parts/NodeStatusSurface";
 import { PortHandles } from "./BlockNode.parts/PortHandles";
-import { categoryIcons } from "./BlockNode.parts/badgeStyles";
+import { getCategoryVisual } from "./BlockNode.parts/categoryVisuals";
 import { NODE_BORDER_RADIUS, NODE_SIZE } from "./BlockNode.parts/nodeGeometry";
 
 export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
-  // ADR-050 §2.1 — block-kind mark from the package-provided category.
-  const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
+  // ADR-050 §2.1 — block-kind mark + macaron body colour from the base
+  // category (lucide line icon; per-block custom icons need a backend field,
+  // tracked as follow-up — see categoryVisuals.ts).
+  const visual = getCategoryVisual(data.category);
+  const CategoryIcon = visual.Icon;
 
   // ADR-028 Addendum 1 §D4 — compute effective ports from the dynamic-port
   // descriptor + driving config value so dynamic blocks (LoadData / SaveData)
@@ -71,15 +74,43 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
 
   // Action toolbar visibility is local hover state OR ReactFlow `selected`.
   // It is a floating overlay outside the square, so it never affects geometry.
+  //
+  // The toolbar floats ABOVE the square with a small gap; moving the cursor
+  // from the node up to the toolbar briefly crosses that gap (leaving the
+  // shell's bounds), which would hide the toolbar before it can be clicked.
+  // A short hide DELAY (cancelled on re-enter, including re-enter onto the
+  // toolbar itself, which is a shell descendant) lets the user reach it
+  // without first selecting the node (#1698 canvas UX).
   const [hovered, setHovered] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showActions = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setHovered(true);
+  };
+  const scheduleHideActions = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      setHovered(false);
+      hideTimer.current = null;
+    }, 450);
+  };
+  useEffect(
+    () => () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    },
+    [],
+  );
   const actionsVisible = hovered || selected === true;
 
   return (
     <div
       data-testid="block-node-shell"
       className="relative"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={showActions}
+      onMouseLeave={scheduleHideActions}
     >
       {/* Floating actions — outside the square body (ADR-050 §2.2). */}
       <NodeActionToolbar
@@ -96,30 +127,20 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       {/* ----------------------------------------------------------------- */}
       <div
         data-testid="block-node-body"
-        className={`relative flex flex-col items-center justify-center gap-1.5 border bg-white px-2 text-center shadow-sm ${
-          selected ? "border-ember shadow-panel" : "border-stone-200"
+        className={`relative flex items-center justify-center border shadow-sm ${
+          selected ? "border-ember shadow-panel" : ""
         }`}
         style={{
           width: NODE_SIZE,
           height: NODE_SIZE,
           borderRadius: NODE_BORDER_RADIUS,
+          backgroundColor: visual.bg,
+          borderColor: selected ? undefined : visual.border,
         }}
       >
-        {/* Block-kind mark (category icon). */}
-        <span className="text-2xl leading-none" aria-hidden="true">
-          {categoryIcon}
-        </span>
-
-        {/* Block label — capped to two visual lines; overflow truncates with
-            ellipsis and exposes the full text via the title tooltip. The
-            `line-clamp-2` + fixed body height guarantee no geometry change. */}
-        <span
-          data-testid="block-node-label"
-          className="line-clamp-2 w-full overflow-hidden font-display text-xs font-semibold leading-tight text-ink"
-          title={data.label}
-        >
-          {data.label}
-        </span>
+        {/* Block-kind mark — single lucide line icon in the category accent
+            colour (n8n-style glyph; the body shows identity, nothing else). */}
+        <CategoryIcon size={48} color={visual.fg} strokeWidth={1.75} aria-hidden="true" />
 
         {/* Unified status surface — corner glyph, zero geometry impact. */}
         <NodeStatusSurface
@@ -148,6 +169,19 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           canRemoveOutput={canRemoveOutput}
         />
       </div>
+
+      {/* Block label BELOW the square (n8n-style): the body stays a pure
+          glyph and the name reads underneath, where it may be a little wider
+          than the square. Absolute + `top-full` keeps it out of layout flow
+          (zero geometry impact); two-line clamp + ellipsis bound long names,
+          full text in the title tooltip. */}
+      <span
+        data-testid="block-node-label"
+        className="pointer-events-none absolute left-1/2 top-full mt-1.5 line-clamp-2 w-[140px] -translate-x-1/2 text-center font-display text-[13px] font-semibold leading-tight text-ink"
+        title={data.label}
+      >
+        {data.label}
+      </span>
     </div>
   );
 }

@@ -125,7 +125,7 @@ export function NodeStatusSurface({
       // Absolute corner placement: the surface is laid out relative to the
       // square body and overlaps its top-right corner. It contributes ZERO to
       // the node's measured geometry (FR-004/FR-011).
-      className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold leading-none shadow-sm"
+      className="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold leading-none shadow-sm"
       style={{ backgroundColor: style.bg, color: style.color }}
     >
       <span className={style.spin ? "inline-block animate-spin" : undefined}>{style.glyph}</span>
@@ -145,7 +145,7 @@ export function NodeStatusSurface({
         data-testid="node-status-surface-button"
         aria-label={kind === "error" ? "Open error logs" : "Open warning detail"}
         title={detail}
-        className="nodrag absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+        className="nodrag absolute right-1 top-1 h-5 w-5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
         onClick={(event) => {
           event.stopPropagation();
           activate();

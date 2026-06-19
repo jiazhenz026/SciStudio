@@ -26,9 +26,9 @@ export const NODE_BORDER_RADIUS = 8;
 export const PORT_RAIL_STRIDE = 22;
 
 /**
- * Vertical inset from the top of the square to the FIRST port handle, in CSS
- * pixels. Keeps port row 1 clear of the rounded top corner and the block-kind
- * mark.
+ * Vertical offset (CSS px) of the FIRST port handle — the top quarter of the
+ * square (NODE_SIZE / 4). Ports march downward from here (see
+ * `portRailOffset`), so a node's first port is always at the same height.
  */
 export const PORT_RAIL_TOP_INSET = 26;
 
@@ -36,28 +36,31 @@ export const PORT_RAIL_TOP_INSET = 26;
  * Y offset (CSS px, node-local coordinates) of the port handle at `index` on a
  * rail, given the total number of ports on that rail.
  *
- * The rail is centred vertically on the square when the ports fit within the
- * body height; when there are more ports than fit, the rail extends below the
- * square (ADR-050 §2.4 — the body stays fixed, the rail may overflow). Both
- * rails use the same helper so input and output handles stay aligned.
+ * Top-anchored: the first handle sits at the top-quarter inset
+ * (`PORT_RAIL_TOP_INSET` = NODE_SIZE / 4) and handles march downward at a fixed
+ * stride — no vertical centring, so a node's first port is always at the same
+ * height regardless of port count. The rail may extend below the square for
+ * many ports (ADR-050 §2.4 — the body stays fixed, the rail overflows). Both
+ * rails share this helper so input and output handles stay aligned.
  */
 export function portRailOffset(index: number, portCount: number): number {
-  if (portCount <= 0) return NODE_SIZE / 2;
-  const railHeight = (portCount - 1) * PORT_RAIL_STRIDE;
-  // Centre the rail in the available vertical space below the top inset when
-  // it fits; otherwise anchor at the top inset and let it overflow downward.
-  const available = NODE_SIZE - PORT_RAIL_TOP_INSET;
-  const start =
-    railHeight <= available
-      ? PORT_RAIL_TOP_INSET + (available - railHeight) / 2
-      : PORT_RAIL_TOP_INSET;
-  return start + index * PORT_RAIL_STRIDE;
+  if (portCount <= 0) return PORT_RAIL_TOP_INSET;
+  return PORT_RAIL_TOP_INSET + index * PORT_RAIL_STRIDE;
 }
 
 /**
- * Y offset (CSS px) of the trailing `+` add-port control on a rail. It sits one
- * stride past the last port so it reads as "append to this rail".
+ * Y offset (CSS px) of the trailing `+` add-port control on a rail. It sits
+ * exactly one full `PORT_RAIL_STRIDE` past the LAST port on the rail, computed
+ * from the SAME `portCount` centring the ports use, so the `+` never overlaps
+ * the last handle.
+ *
+ * The earlier form `portRailOffset(portCount, portCount + 1)` re-centred the
+ * rail as if it had `portCount + 1` elements, which shifted the rail start and
+ * left the `+` only ~half a stride below the last port (visual overlap, #1698
+ * canvas polish). Anchoring off the last port's own offset keeps the gap equal
+ * to the port-to-port spacing.
  */
 export function addPortRailOffset(portCount: number): number {
-  return portRailOffset(portCount, portCount + 1);
+  if (portCount <= 0) return portRailOffset(0, 1);
+  return portRailOffset(portCount - 1, portCount) + PORT_RAIL_STRIDE;
 }

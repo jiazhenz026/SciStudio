@@ -159,20 +159,43 @@ describe("BlockNode — label cap (FR-005)", () => {
 });
 
 describe("BlockNode — block-kind mark (FR-006)", () => {
-  it.each([
-    ["io", "📁"],
-    ["process", "⚙️"],
-    ["code", "💻"],
-    ["app", "🖥️"],
-    ["ai", "✨"],
-    ["subworkflow", "📦"],
-  ])("renders the %s category mark", (category, mark) => {
-    const { container } = renderNode({ category });
-    expect(bodyOf(container).textContent).toContain(mark);
+  // ADR-050 canvas polish (#1698): the mark is now a lucide LINE ICON (an
+  // <svg>) tinted by base category, not an emoji text node. Assertions avoid
+  // lucide's version-coupled internal class names and instead verify that a
+  // single icon svg renders, differs per category, and falls back to custom.
+  function iconHtmlOf(container: HTMLElement): string {
+    const svg = bodyOf(container).querySelector("svg");
+    if (!svg) throw new Error("category icon svg not found");
+    return svg.outerHTML;
+  }
+
+  it.each(["io", "process", "code", "app", "ai", "subworkflow"])(
+    "renders a single line-icon mark for category=%s",
+    (category) => {
+      const { container } = renderNode({ category });
+      // Identity-only body: exactly one icon svg (the category mark).
+      expect(bodyOf(container).querySelectorAll("svg")).toHaveLength(1);
+    },
+  );
+
+  it("renders a distinct mark per category (io ≠ process ≠ ai)", () => {
+    const io = renderNode({ category: "io" });
+    const ioHtml = iconHtmlOf(io.container);
+    cleanup();
+    const proc = renderNode({ category: "process" });
+    const procHtml = iconHtmlOf(proc.container);
+    cleanup();
+    const ai = renderNode({ category: "ai" });
+    const aiHtml = iconHtmlOf(ai.container);
+    expect(new Set([ioHtml, procHtml, aiHtml]).size).toBe(3);
   });
 
   it("falls back to the custom mark for an unknown category", () => {
-    const { container } = renderNode({ category: "totally-unknown" });
-    expect(bodyOf(container).textContent).toContain("🧩");
+    const unknown = renderNode({ category: "totally-unknown" });
+    const unknownHtml = iconHtmlOf(unknown.container);
+    cleanup();
+    const custom = renderNode({ category: "custom" });
+    const customHtml = iconHtmlOf(custom.container);
+    expect(unknownHtml).toBe(customHtml);
   });
 });
