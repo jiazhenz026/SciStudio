@@ -188,7 +188,11 @@ checks alone; the manager fixes integration seams on merge.
 - [ ] Output reviewed · [ ] Scope compliance · [ ] Merged into umbrella
 
 ### 7.4 BE Contract Tests — Integration
-- [ ] Output reviewed · [ ] Scope compliance · [ ] Merged into umbrella
+- **REVERTED (out of scope).** The dispatched backend package→registry contract
+  tests failed core CI deterministically (core CI installs no block packages by
+  design) and coupled a package-free core job to packages. Per owner decision,
+  all five backend test files were reverted to `main` and ADR-050 + spec were
+  trimmed to frontend-only. See PR body "Scope correction" and audit §9.
 
 ### 7.5 Manager-owned
 - [ ] `docs/architecture/ARCHITECTURE.md` §9.5 updated (no inline-config card /
@@ -204,7 +208,7 @@ checks alone; the manager fixes integration seams on merge.
 | Frontend tests | `npm --prefix frontend test` | `[ ]` | |
 | Typecheck | `npm --prefix frontend run typecheck` | `[ ]` | |
 | Build | `npm --prefix frontend run build` | `[ ]` | |
-| Backend contract tests | `PYTHONPATH=src pytest tests/api/test_blocks.py tests/blocks/ tests/packaging/test_adr043_package_capabilities.py` | `[ ]` | |
+| Backend contract tests | _N/A — reverted as out of scope (frontend-only ADR); see §7.4_ | `[—]` | |
 | Full audit | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/local/full-audit.json` | `[ ]` | |
 | Gate check (pre-PR) | `gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[ ]` | |
 | Browser e2e | manual (spec §4.4) | `[ ]` | |

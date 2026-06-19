@@ -264,3 +264,23 @@ jsdom `localStorage`/Node-20 env gap): `npm run typecheck` clean, `npm run build
 OK, `eslint` clean on all touched files, frontend suite **783/783 pass**,
 in-scope backend contract suites **163/163 pass**. SC-013 gate reconciliation is
 run by the manager/gate workflow separately.
+
+## 9. Scope Correction (post-CI, owner-directed)
+
+PR #1699 CI surfaced that the dispatched **backend package→registry contract
+tests** (`tests/api/test_blocks.py`, `tests/blocks/test_dynamic_ports.py`,
+`tests/blocks/test_registry.py`, `tests/blocks/test_registry_package_layout.py`,
+`tests/packaging/test_adr043_package_capabilities.py` additions) failed
+deterministically on Python 3.11/3.13: the core CI job installs **no block
+packages** by design (only `-e ".[dev]"`; the four ADR-043 packages and their
+heavy deps such as skimage/scipy/sklearn are absent), so a
+`BlockRegistry().scan()` never registers package blocks there. The tests passed
+locally (packages installed) but coupled the package-free core CI to packages.
+
+The owner ruled this out of scope for a **frontend-only** ADR (no backend or
+package source is edited by this PR). Resolution: all five backend test files were
+**reverted to `main`**, and ADR-050 + its spec were **trimmed to frontend-only**
+— SC-010 reframed from "backend contract tests prove…" to "contract preserved by
+construction, covered by existing backend tests on `main`"; FR-033/SC-011 reframed
+as the package-agnostic frontend render path. The earlier "163/163 backend
+contract" figure no longer applies; this PR adds no backend tests.
