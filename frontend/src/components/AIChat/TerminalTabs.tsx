@@ -17,7 +17,7 @@
  *     PTY; the WS handshake reuses it by tab_id).
  *   - See `handleBlockPtyOpened` / `handleBlockPtyClosed` stubs below.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { sendWebSocketMessage } from "../../hooks/useWebSocket";
 import { useAppStore } from "../../store";
@@ -31,22 +31,25 @@ import { TabStrip } from "./TerminalTabs.parts/TabStrip";
 export { handleBlockPtyClosed, handleBlockPtyOpened } from "./blockPtyHandlers";
 
 interface ShortcutHandlers {
-  addTerminalTab: () => string;
+  addPrimaryTab: () => string;
   setActiveTerminalTab: (id: string) => void;
   requestCloseTab: (id: string) => void;
   activeTabId: string | null;
   tabs: TerminalTabModel[];
+  active: boolean;
 }
 
 function useTabKeyboardShortcuts({
-  addTerminalTab,
+  addPrimaryTab,
   setActiveTerminalTab,
   requestCloseTab,
   activeTabId,
   tabs,
+  active,
 }: ShortcutHandlers) {
   // Keyboard shortcuts (window-level, capture phase so Ctrl+W beats Chrome).
   useEffect(() => {
+    if (!active) return;
     const handler = (ev: KeyboardEvent) => {
       const ctrl = ev.ctrlKey || ev.metaKey;
       if (!ctrl) return;
@@ -54,7 +57,7 @@ function useTabKeyboardShortcuts({
       if (key === "t" && !ev.shiftKey) {
         ev.preventDefault();
         ev.stopPropagation();
-        addTerminalTab();
+        addPrimaryTab();
         return;
       }
       if (key === "w" && !ev.shiftKey) {
@@ -75,7 +78,7 @@ function useTabKeyboardShortcuts({
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [activeTabId, addTerminalTab, requestCloseTab, setActiveTerminalTab, tabs]);
+  }, [active, activeTabId, addPrimaryTab, requestCloseTab, setActiveTerminalTab, tabs]);
 }
 
 interface CloseConfirmProps {
@@ -102,7 +105,20 @@ function PendingCloseDialog({ pendingClose, tabs, onConfirm, onCancel }: CloseCo
   );
 }
 
-export function TerminalTabs() {
+export type TerminalSurface = "mixed" | "chat" | "terminal";
+
+export interface TerminalTabsProps {
+  surface?: TerminalSurface;
+  active?: boolean;
+}
+
+function tabBelongsToSurface(tab: TerminalTabModel, surface: TerminalSurface): boolean {
+  if (surface === "mixed") return true;
+  const isUserTerminal = tab.provider === "user-terminal";
+  return surface === "terminal" ? isUserTerminal : !isUserTerminal;
+}
+
+export function TerminalTabs({ surface = "mixed", active = true }: TerminalTabsProps = {}) {
   const tabs = useAppStore((s) => s.terminalTabs);
   const activeTabId = useAppStore((s) => s.activeTerminalTabId);
   const addTerminalTab = useAppStore((s) => s.addTerminalTab);
@@ -114,16 +130,40 @@ export function TerminalTabs() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [pendingClose, setPendingClose] = useState<string | null>(null);
+  const initializedSurfaceRef = useRef(false);
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => tabBelongsToSurface(tab, surface)),
+    [surface, tabs],
+  );
+  const visibleActiveTabId = useMemo(
+    () =>
+      visibleTabs.some((tab) => tab.id === activeTabId)
+        ? activeTabId
+        : (visibleTabs[0]?.id ?? null),
+    [activeTabId, visibleTabs],
+  );
+  const addPrimaryTab = useCallback(
+    () => (surface === "terminal" ? addUserTerminalTab() : addTerminalTab()),
+    [addTerminalTab, addUserTerminalTab, surface],
+  );
+  const primaryAddLabel = surface === "terminal" ? "New terminal tab" : "New chat tab";
 
-  // Auto-create a tab on first mount when none exist. Effect-driven so it
-  // never runs in the reducer (which would break SSR / Vitest).
+  // Auto-create the first tab only when the surface is first activated. The
+  // terminal surface creates a user shell; the chat surface creates a provider
+  // setup tab. Hidden surfaces remain mounted without spawning new processes.
+  // Once initialized, closing the final tab leaves the surface empty until the
+  // user explicitly opens another tab.
   useEffect(() => {
-    if (tabs.length === 0) {
-      addTerminalTab();
+    if (!active) return;
+    if (visibleTabs.length > 0) {
+      initializedSurfaceRef.current = true;
+      return;
     }
-    // intentional one-shot
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!initializedSurfaceRef.current) {
+      initializedSurfaceRef.current = true;
+      addPrimaryTab();
+    }
+  }, [active, addPrimaryTab, visibleTabs.length]);
 
   const requestCloseTab = useCallback(
     (id: string) => {
@@ -138,11 +178,12 @@ export function TerminalTabs() {
   );
 
   useTabKeyboardShortcuts({
-    addTerminalTab,
+    addPrimaryTab,
     setActiveTerminalTab,
     requestCloseTab,
-    activeTabId,
-    tabs,
+    activeTabId: visibleActiveTabId,
+    tabs: visibleTabs,
+    active,
   });
 
   const commitRename = useCallback(() => {
@@ -183,8 +224,8 @@ export function TerminalTabs() {
   return (
     <div className="flex h-full flex-col" data-testid="terminal-tabs">
       <TabStrip
-        tabs={tabs}
-        activeTabId={activeTabId}
+        tabs={visibleTabs}
+        activeTabId={visibleActiveTabId}
         renamingId={renamingId}
         renameDraft={renameDraft}
         onSelect={setActiveTerminalTab}
@@ -193,29 +234,29 @@ export function TerminalTabs() {
         onRenameCommit={commitRename}
         onRenameCancel={cancelRename}
         onRequestClose={requestCloseTab}
-        onAdd={() => {
-          addTerminalTab();
-        }}
+        onAdd={addPrimaryTab}
+        primaryAddLabel={primaryAddLabel}
+        showUserTerminalButton={surface === "mixed"}
         onAddUserTerminal={() => {
           addUserTerminalTab();
         }}
       />
 
       <div className="min-h-0 flex-1">
-        {/* Render every tab and hide non-active ones via CSS. Conditional
-            rendering would unmount the inactive TerminalTab whenever the
-            user switches tabs, which tears down the WS and kills the PTY
-            subprocess — every tab switch would lose the conversation. */}
-        {tabs.map((tab) => (
+        {/* Render every tab in this surface and hide non-active ones via CSS.
+            Conditional rendering would unmount the inactive TerminalTab
+            whenever the user switches tabs, which tears down the WS and kills
+            the PTY subprocess — every tab switch would lose the conversation. */}
+        {visibleTabs.map((tab) => (
           <div
             key={tab.id}
-            className={`h-full ${tab.id === activeTabId ? "" : "hidden"}`}
+            className={`h-full ${tab.id === visibleActiveTabId ? "" : "hidden"}`}
             data-testid={`terminal-tab-host-${tab.id}`}
           >
             <TerminalTab tabId={tab.id} />
           </div>
         ))}
-        {tabs.length === 0 || !activeTabId ? (
+        {visibleTabs.length === 0 || !visibleActiveTabId ? (
           <div className="flex h-full items-center justify-center text-sm text-stone-400">
             No active tab. Press <kbd className="mx-1 rounded bg-stone-200 px-1">Ctrl</kbd>+
             <kbd className="mx-1 rounded bg-stone-200 px-1">T</kbd> to open one.

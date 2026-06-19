@@ -11,8 +11,11 @@ import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api
  * ADR-039 was developed in parallel and still referenced `"jobs"` on its
  * track; the integration takes the ADR-038 removal and adds the ADR-039
  * `"git"` tab on top.
+ *
+ * Hotfix: terminal sessions are a first-class surface instead of being nested
+ * under the AI Chat tab.
  */
-export type BottomTab = "ai" | "config" | "logs" | "lineage" | "git";
+export type BottomTab = "ai" | "terminal" | "config" | "logs" | "lineage" | "git";
 
 export interface BlockNodeData extends Record<string, unknown> {
   label: string;

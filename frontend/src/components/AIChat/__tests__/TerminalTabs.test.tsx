@@ -59,6 +59,17 @@ describe("TerminalTabs", () => {
     expect(useAppStore.getState().activeTerminalTabId).toBe(tab.id);
   });
 
+  it("auto-creates a user terminal when the terminal surface is active", async () => {
+    render(<TerminalTabs surface="terminal" />);
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
+    const tab = useAppStore.getState().terminalTabs[0];
+    expect(tab.title).toBe("Terminal 1");
+    expect(tab.provider).toBe("user-terminal");
+    expect(tab.permissionMode).toBe("safe");
+    expect(tab.state).toBe("running");
+    expect(screen.queryByTestId("terminal-tabs-add-user-terminal")).toBeNull();
+  });
+
   it("adds a new tab when the + button is clicked", async () => {
     render(<TerminalTabs />);
     await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
@@ -164,6 +175,23 @@ describe("TerminalTabs", () => {
     const rehydrated = rehydrateTerminalTabs(persisted);
     expect(rehydrated[0].state).toBe("closed");
     expect(rehydrated[0].exitCode).toBe(-1);
+  });
+
+  it("rehydrate drops stale user-terminal invalid-provider tabs", async () => {
+    const { rehydrateTerminalTabs } = await import("../../../store/terminalTabsSlice");
+    const rehydrated = rehydrateTerminalTabs([
+      {
+        id: "bad-terminal",
+        title: "Terminal 1",
+        provider: "user-terminal",
+        permissionMode: "safe",
+        state: "closed",
+        exitCode: -2,
+        errorMessage: "Invalid provider 'user-terminal'; expected one of ('claude-code', 'codex').",
+      },
+    ]);
+
+    expect(rehydrated).toEqual([]);
   });
 
   // ADR-035 §3.10 — engine-initiated AI Block tabs.

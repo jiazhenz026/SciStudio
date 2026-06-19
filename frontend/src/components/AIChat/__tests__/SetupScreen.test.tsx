@@ -63,6 +63,29 @@ describe("SetupScreen", () => {
     expect(screen.getByTestId("setup-permission-dangerous")).toBeInTheDocument();
   });
 
+  it("keeps Cancel and Launch outside the scrollable setup body", async () => {
+    mockStatusOnce({
+      providers: [
+        { name: "claude-code", available: true, version: "2.1.0", logged_in: true },
+        { name: "codex", available: true, version: "0.118.0", logged_in: true },
+      ],
+    });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+
+    const launch = await screen.findByTestId("setup-launch");
+    const root = screen.getByTestId("setup-screen-t1");
+    const scrollBody = screen.getByTestId("setup-scroll-body");
+    const actions = screen.getByTestId("setup-actions");
+
+    expect(root.className).toContain("overflow-hidden");
+    expect(scrollBody.className).toContain("overflow-y-auto");
+    expect(actions.className).toContain("shrink-0");
+    expect(actions.className).not.toContain("bg-white");
+    expect(scrollBody.contains(actions)).toBe(false);
+    expect(actions.contains(screen.getByTestId("setup-cancel"))).toBe(true);
+    expect(actions.contains(launch)).toBe(true);
+  });
+
   it("disables the Launch button until provider AND permission are chosen", async () => {
     mockStatusOnce({
       providers: [

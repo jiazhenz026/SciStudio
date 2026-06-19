@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog, session } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
@@ -15,6 +15,7 @@ const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
 let mainWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
+let cachedMacLoginShellEnv = null;
 
 function installPipeGuard(stream) {
   if (!stream || typeof stream.on !== "function") {
@@ -138,23 +139,89 @@ function commonUserCliDirs(userHome) {
   return dirs;
 }
 
+function parseNullSeparatedEnv(payload) {
+  const env = {};
+  for (const record of payload.split("\0")) {
+    if (!record) {
+      continue;
+    }
+    const equalsAt = record.indexOf("=");
+    if (equalsAt <= 0) {
+      continue;
+    }
+    const key = record.slice(0, equalsAt);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      continue;
+    }
+    env[key] = record.slice(equalsAt + 1);
+  }
+  return env;
+}
+
+function macLoginShellEnv() {
+  if (process.platform !== "darwin") {
+    return {};
+  }
+  if (cachedMacLoginShellEnv !== null) {
+    return cachedMacLoginShellEnv;
+  }
+
+  cachedMacLoginShellEnv = {};
+  const userInfo = (() => {
+    try {
+      return os.userInfo();
+    } catch {
+      return {};
+    }
+  })();
+  const shell = process.env.SHELL || userInfo.shell || "/bin/zsh";
+  const marker = "__SCISTUDIO_ENV_START__\0";
+  const script = "printf '__SCISTUDIO_ENV_START__\\0'; /usr/bin/env -0";
+
+  try {
+    const result = spawnSync(shell, ["-l", "-c", script], {
+      cwd: os.homedir(),
+      env: process.env,
+      encoding: "utf8",
+      timeout: 3000,
+      windowsHide: true
+    });
+    if (result.error || result.status !== 0 || !result.stdout) {
+      return cachedMacLoginShellEnv;
+    }
+    const markerAt = result.stdout.indexOf(marker);
+    const payload =
+      markerAt >= 0 ? result.stdout.slice(markerAt + marker.length) : result.stdout;
+    cachedMacLoginShellEnv = parseNullSeparatedEnv(payload);
+  } catch (error) {
+    safeError(`[scistudio] Failed to read macOS login shell environment: ${error.message}`);
+  }
+  return cachedMacLoginShellEnv;
+}
+
 function runtimeEnv() {
   const resources = resourcesDir();
   const stagedSrc = path.join(resources, "backend", "src");
   const checkoutSrc = path.join(repoRoot(), "src");
   const pythonPathEntries = [stagedSrc, checkoutSrc].filter(Boolean);
-  const existingPythonPath = process.env.PYTHONPATH;
-  const userHome = process.env.USERPROFILE || process.env.HOME || "";
+  const loginShellEnv = macLoginShellEnv();
+  const baseEnv = {
+    ...loginShellEnv,
+    ...process.env
+  };
+  const existingPythonPath = baseEnv.PYTHONPATH;
+  const userHome = baseEnv.USERPROFILE || baseEnv.HOME || os.homedir() || "";
   const pathEntries = [];
 
   if (existingPythonPath) {
     pythonPathEntries.push(existingPythonPath);
   }
   pathEntries.push(...commonUserCliDirs(userHome));
+  pathEntries.push(loginShellEnv.PATH || "");
   pathEntries.push(process.env.PATH || "");
 
   const env = {
-    ...process.env,
+    ...baseEnv,
     PATH: pathEntries.filter(Boolean).join(path.delimiter),
     PYTHONPATH: pythonPathEntries.join(path.delimiter),
     SCISTUDIO_BUNDLED: "1",

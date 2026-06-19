@@ -89,14 +89,14 @@ export const useAppStore = create<AppStore>()(
         if (!state) return;
         // ADR-038 §3.8 + ADR-039 §3.5 — `activeBottomTab` valid values
         // after integration are exactly the BottomTab union members
-        // ("ai", "config", "logs", "lineage", "git"). The historical
+        // ("ai", "terminal", "config", "logs", "lineage", "git"). The historical
         // "jobs" placeholder was removed by ADR-038 §3.8 (run history
         // now lives in Lineage). Older persisted snapshots may still
         // carry "jobs", "problems", or other retired values; coerce
         // anything not in the current union back to "lineage" — the
         // semantic replacement for the run-history surface Jobs used
         // to occupy. This also covers any future tab removals.
-        const validTabs = new Set<string>(["ai", "config", "logs", "lineage", "git"]);
+        const validTabs = new Set<string>(["ai", "terminal", "config", "logs", "lineage", "git"]);
         if (typeof state.activeBottomTab !== "string" || !validTabs.has(state.activeBottomTab)) {
           state.activeBottomTab = "lineage";
         }

@@ -212,18 +212,27 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
  * `onRehydrateStorage`.
  */
 export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
-  return tabs.map((t) => {
-    if (t.state !== "running") return t;
-    // PTY didn't survive page unload. AI-Block tabs additionally get their
-    // blockStatus downgraded to "cancelled" — the workflow run is gone too.
-    return {
-      ...t,
-      state: "closed" as const,
-      exitCode: -1,
-      errorMessage: undefined,
-      ...(t.source === "ai-block" ? { blockStatus: "cancelled" as const } : {}),
-    };
-  });
+  return tabs
+    .filter(
+      (t) =>
+        !(
+          t.provider === "user-terminal" &&
+          t.state === "closed" &&
+          t.errorMessage?.includes("Invalid provider 'user-terminal'")
+        ),
+    )
+    .map((t) => {
+      if (t.state !== "running") return t;
+      // PTY didn't survive page unload. AI-Block tabs additionally get their
+      // blockStatus downgraded to "cancelled" — the workflow run is gone too.
+      return {
+        ...t,
+        state: "closed" as const,
+        exitCode: -1,
+        errorMessage: undefined,
+        ...(t.source === "ai-block" ? { blockStatus: "cancelled" as const } : {}),
+      };
+    });
 }
 
 // Re-export for convenience.

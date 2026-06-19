@@ -62,6 +62,13 @@ describe("ConfigPanel", () => {
     apiMocks.openNativeDialog.mockReset();
   });
 
+  it("uses user-friendly empty state copy", () => {
+    render(<ConfigPanel onUpdateConfig={() => {}} selectedNode={null} />);
+
+    expect(screen.getByText("Select a node to edit its settings.")).toBeInTheDocument();
+    expect(screen.queryByText(/JSON|schema/i)).toBeNull();
+  });
+
   it("uses the native dialog first from the config Browse button", async () => {
     const onUpdateConfig = vi.fn();
     apiMocks.openNativeDialog.mockResolvedValueOnce({

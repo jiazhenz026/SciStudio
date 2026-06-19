@@ -301,7 +301,7 @@ export function ConfigPanel({
   if (!selectedNode || !schema) {
     return (
       <div className="text-sm text-stone-500">
-        Select a node to edit its JSON-schema-driven configuration.
+        Select a node to edit its settings.
       </div>
     );
   }

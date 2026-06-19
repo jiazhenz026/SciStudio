@@ -46,7 +46,11 @@ def test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper(monkeypatc
     monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
     monkeypatch.setattr(ai_route.subprocess, "run", fake_run)
 
-    assert ai_route._binary_status("codex") == (True, "codex 0.1.0")
+    assert ai_route._binary_status("codex") == (
+        "C:/Users/dev/AppData/Roaming/npm/codex.cmd",
+        True,
+        "codex 0.1.0",
+    )
     assert calls == [["C:/Users/dev/AppData/Roaming/npm/codex.cmd", "--version"]]
 
 

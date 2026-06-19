@@ -146,8 +146,8 @@ export interface UISlice {
   /**
    * When true, the bottom panel does not auto-collapse on canvas-pane
    * clicks. Toggled via the pin button in the BottomPanel tab strip.
-   * Useful when the user is actively chatting in the AI Chat tab and
-   * doesn't want a stray canvas click to fold the panel closed.
+   * Useful when the user is actively chatting in the AI Chat tab, working in
+   * Terminal, and doesn't want a stray canvas click to fold the panel closed.
    */
   bottomPanelPinned: boolean;
   panelSizes: { palette: number; preview: number; bottom: number };
