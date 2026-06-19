@@ -5,6 +5,8 @@
  * lines. State (renaming draft, active id, etc.) lives in the parent and
  * flows in via props.
  */
+import { Plus, Terminal as TerminalIcon } from "lucide-react";
+
 import type { TerminalTab as TerminalTabModel } from "../../../store/types";
 import { AiBlockStatusBadge } from "../TerminalTab";
 import { TabStripItem } from "./TabStripItem";
@@ -21,6 +23,7 @@ export interface TabStripProps {
   onRenameCancel: () => void;
   onRequestClose: (id: string) => void;
   onAdd: () => void;
+  onAddUserTerminal: () => void;
 }
 
 export function TabStrip(props: TabStripProps) {
@@ -54,7 +57,17 @@ export function TabStrip(props: TabStripProps) {
         aria-label="New chat tab"
         data-testid="terminal-tabs-add"
       >
-        +
+        <Plus size={16} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="ml-1 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-200 hover:text-stone-800"
+        onClick={props.onAddUserTerminal}
+        aria-label="New Python terminal"
+        data-testid="terminal-tabs-add-user-terminal"
+      >
+        <TerminalIcon size={14} aria-hidden="true" />
+        <span>Terminal</span>
       </button>
     </div>
   );

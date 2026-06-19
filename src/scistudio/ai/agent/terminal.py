@@ -71,7 +71,13 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Public re-exports for the route layer.
-__all__ = ["PtyProcess", "resolve_windows_executable", "spawn_claude", "spawn_codex"]
+__all__ = [
+    "PtyProcess",
+    "resolve_windows_executable",
+    "spawn_claude",
+    "spawn_codex",
+    "spawn_user_terminal",
+]
 
 _WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
 _PTY_BLOCKED_ENV_VARS = frozenset({"ELECTRON_RUN_AS_NODE"})
@@ -627,6 +633,54 @@ def spawn_codex(
         cleanup_paths=[],
         extra_env=extra_env,
     )
+
+
+def spawn_user_terminal(
+    *,
+    project_dir: Path,
+    dangerous: bool,
+    cols: int = 120,
+    rows: int = 30,
+    extra_env: dict[str, str] | None = None,
+    _spawn_argv: list[str] | None = None,
+) -> PtyProcess:
+    """Spawn a desktop user shell with SciStudio's user dependency env."""
+    del dangerous
+    from scistudio.desktop.paths import user_python_terminal_env
+
+    env = user_python_terminal_env(sys.executable)
+    if extra_env:
+        env.update(extra_env)
+
+    return PtyProcess(
+        list(_spawn_argv or _user_shell_argv()),
+        cwd=project_dir,
+        cols=cols,
+        rows=rows,
+        cleanup_paths=[],
+        extra_env=env,
+    )
+
+
+def _user_shell_argv() -> list[str]:
+    if sys.platform == "win32":
+        for name, args in (
+            ("pwsh", ["-NoLogo"]),
+            ("powershell", ["-NoLogo"]),
+            ("cmd", []),
+        ):
+            resolved = resolve_windows_executable(name)
+            if resolved:
+                return [resolved, *args]
+        return ["cmd"]
+
+    shell = os.environ.get("SHELL")
+    if shell and Path(shell).is_file():
+        return [shell]
+    for candidate in ("/bin/zsh", "/bin/bash", "/bin/sh"):
+        if Path(candidate).is_file():
+            return [candidate]
+    return ["sh"]
 
 
 def _codex_mcp_config_overrides(project_dir: Path) -> list[str]:

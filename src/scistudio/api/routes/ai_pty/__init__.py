@@ -2,7 +2,7 @@
 
 This package exposes a single endpoint:
 
-    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<claude-code|codex>&dangerous=<true|false>``
+    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<claude-code|codex|user-terminal>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
 
 The route validates query parameters, spawns the appropriate PTY via
 :mod:`scistudio.ai.agent.terminal`, runs two concurrent pump tasks
@@ -70,7 +70,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex
+from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex, spawn_user_terminal
 
 # ---------------------------------------------------------------------------
 # Public router
@@ -94,7 +94,12 @@ MAX_ACTIVE_PTYS = 16
 _active_ptys: dict[str, PtyProcess] = {}
 _active_lock = asyncio.Lock()
 
-_VALID_PROVIDERS = ("claude-code", "codex")
+_VALID_PROVIDERS = ("claude-code", "codex", "user-terminal")
+_PROVIDER_SPAWNERS = {
+    "claude-code": spawn_claude,
+    "codex": spawn_codex,
+    "user-terminal": spawn_user_terminal,
+}
 
 # ADR-035 §3.10 — engine-initiated tab tracking.
 # Map tab_id → block_run_id so completion notifies can resolve back.
@@ -142,26 +147,14 @@ def _spawn(
     provider: str,
     project_dir: Path,
     dangerous: bool,
+    cols: int = 120,
+    rows: int = 30,
     extra_env: dict[str, str] | None = None,
 ) -> PtyProcess:
-    """Dispatch to the right factory for ``provider``.
-
-    Test hook: callers may monkeypatch this function (via
-    ``monkeypatch.setattr(ai_pty, "_spawn", fake)``) to inject a fake
-    PTY that runs an echo subprocess instead of the real claude / codex
-    binary (the WS integration tests rely on this seam).
-
-    ``extra_env`` lets engine-initiated callers thread per-AI-Block env
-    (e.g. ``SCISTUDIO_AI_BLOCK_RUN_DIR`` for ``finish_ai_block``, ADR-035
-    §3.5 path a) into the spawned PTY without polluting the engine's
-    global env.
-    """
-    if provider == "claude-code":
-        return spawn_claude(project_dir=project_dir, dangerous=dangerous, extra_env=extra_env)
-    if provider == "codex":
-        return spawn_codex(project_dir=project_dir, dangerous=dangerous, extra_env=extra_env)
-    # Defensive — guarded earlier in the route too.
-    raise ValueError(f"Unknown provider {provider!r}")
+    spawner = _PROVIDER_SPAWNERS.get(provider)
+    if spawner is None:
+        raise ValueError(f"Unknown provider {provider!r}")
+    return spawner(project_dir=project_dir, dangerous=dangerous, cols=cols, rows=rows, extra_env=extra_env)
 
 
 # ---------------------------------------------------------------------------

@@ -76,6 +76,24 @@ package into the user-scoped plugin directory:
 ```
 
 After installation the backend refreshes the block registry, so package blocks
-appear in the palette without a remote package index. This path is strictly
-local: it does not download dependencies or query PyPI. The install endpoint is
-enabled only when the backend is running in bundled desktop mode.
+appear in the palette without a remote package browser. The installer uses the
+bundled Python interpreter to install the selected package's Python runtime
+dependencies into that package's user-scoped plugin directory. It does not rely
+on a user-installed Python and does not mutate the application bundle. The
+install endpoint is enabled only when the backend is running in bundled desktop
+mode.
+
+## User Python Terminal
+
+The AI chat panel also exposes a desktop terminal tab for manual dependency
+installation. It opens in the current project and puts SciStudio's user Python
+wrappers first on `PATH`, so `python` and `pip` use the bundled Python while
+manual installs land in the user-scoped dependency runtime:
+
+```text
+<user data dir>/SciStudio/plugins/python/site-packages/
+```
+
+That runtime is added to `PYTHONPATH` for trusted custom-block discovery and
+worker subprocesses. It does not mutate the application bundle or require a
+system Python install.

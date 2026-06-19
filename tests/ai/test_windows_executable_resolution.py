@@ -8,6 +8,7 @@ from typing import Any
 
 from scistudio.ai.agent import terminal
 from scistudio.api.routes import ai as ai_route
+from scistudio.desktop import paths as desktop_paths
 
 
 def _npm_shim_which(name: str) -> str | None:
@@ -64,6 +65,18 @@ def test_spawn_codex_uses_cmd_when_windows_which_finds_bare_wrapper(
     monkeypatch.setattr(terminal.sys, "platform", "win32")
     monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
     monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(
+        terminal,
+        "_codex_mcp_config_overrides",
+        lambda project_dir: [
+            "-c",
+            f"mcp_servers.scistudio.command={json.dumps(sys.executable)}",
+            "-c",
+            'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]',
+            "-c",
+            f"mcp_servers.scistudio.env={{SCISTUDIO_PROJECT_DIR={json.dumps(str(project_dir))}}}",
+        ],
+    )
 
     terminal.spawn_codex(project_dir=tmp_path, dangerous=True)
 
@@ -152,3 +165,31 @@ def test_spawn_codex_injects_project_mcp_config_overrides(monkeypatch: Any, tmp_
     assert f"mcp_servers.scistudio.command={json.dumps(sys.executable)}" in argv
     assert 'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]' in argv
     assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in argv[-1]
+
+
+def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path: Path) -> None:
+    spawned: dict[str, Any] = {}
+
+    class FakePtyProcess:
+        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+            spawned["argv"] = argv
+            spawned["args"] = args
+            spawned["kwargs"] = kwargs
+
+    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "_user_shell_argv", lambda: ["shell"])
+    monkeypatch.setattr(
+        desktop_paths,
+        "user_python_terminal_env",
+        lambda python_executable: {
+            "SCISTUDIO_PYTHON": str(python_executable),
+            "SCISTUDIO_USER_PYTHON_SITE": str(tmp_path / "deps"),
+        },
+    )
+
+    terminal.spawn_user_terminal(project_dir=tmp_path, dangerous=False, extra_env={"EXTRA": "1"})
+
+    assert spawned["argv"] == ["shell"]
+    assert spawned["kwargs"]["extra_env"]["SCISTUDIO_PYTHON"] == sys.executable
+    assert spawned["kwargs"]["extra_env"]["SCISTUDIO_USER_PYTHON_SITE"] == str(tmp_path / "deps")
+    assert spawned["kwargs"]["extra_env"]["EXTRA"] == "1"

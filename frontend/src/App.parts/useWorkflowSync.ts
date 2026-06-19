@@ -72,12 +72,12 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
 
   const refreshBlocks = useCallback(async () => {
     const payload = await api.listBlocks();
-    startTransition(() => setBlocks(payload.blocks));
     const schemas = await Promise.all(
       payload.blocks.map((block) => api.getBlockSchema(block.type_name)),
     );
     startTransition(() => {
       schemas.forEach((schema) => setBlockSchema(schema));
+      setBlocks(payload.blocks);
     });
   }, [setBlocks, setBlockSchema]);
 

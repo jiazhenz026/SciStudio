@@ -112,6 +112,32 @@ function pythonCandidates() {
   return candidates;
 }
 
+function commonUserCliDirs(userHome) {
+  const dirs = [];
+  if (userHome) {
+    dirs.push(
+      path.join(userHome, ".local", "bin"),
+      path.join(userHome, "bin"),
+      path.join(userHome, ".npm-global", "bin"),
+      path.join(userHome, ".volta", "bin"),
+      path.join(userHome, ".bun", "bin"),
+      path.join(userHome, "AppData", "Roaming", "npm")
+    );
+  }
+
+  if (process.platform !== "win32") {
+    dirs.push(
+      "/opt/homebrew/bin",
+      "/opt/homebrew/sbin",
+      "/usr/local/bin",
+      "/usr/local/sbin",
+      "/opt/local/bin",
+      "/opt/local/sbin"
+    );
+  }
+  return dirs;
+}
+
 function runtimeEnv() {
   const resources = resourcesDir();
   const stagedSrc = path.join(resources, "backend", "src");
@@ -124,12 +150,7 @@ function runtimeEnv() {
   if (existingPythonPath) {
     pythonPathEntries.push(existingPythonPath);
   }
-  if (userHome) {
-    pathEntries.push(
-      path.join(userHome, ".local", "bin"),
-      path.join(userHome, "AppData", "Roaming", "npm")
-    );
-  }
+  pathEntries.push(...commonUserCliDirs(userHome));
   pathEntries.push(process.env.PATH || "");
 
   const env = {

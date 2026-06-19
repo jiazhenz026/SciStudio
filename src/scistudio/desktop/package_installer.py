@@ -6,6 +6,8 @@ import json
 import os
 import re
 import shutil
+import subprocess
+import sys
 import tarfile
 import tempfile
 import tomllib
@@ -46,6 +48,8 @@ def install_local_package(
     source: str | Path,
     *,
     install_root: str | Path | None = None,
+    install_dependencies: bool = False,
+    python_executable: str | Path | None = None,
 ) -> LocalPackageInstallResult:
     """Install a local SciStudio block package into the user plugin area."""
 
@@ -60,17 +64,23 @@ def install_local_package(
     with tempfile.TemporaryDirectory(prefix=".scistudio-install-", dir=str(root)) as stage_name:
         stage_dir = Path(stage_name)
         prepared_dir = stage_dir / "prepared"
+        install_source: Path
+        dependencies: tuple[str, ...] = ()
 
         if resolved_source.is_dir():
             package_root = _find_source_root(resolved_source)
             if package_root is None:
                 raise PackageInstallError(f"No SciStudio block package found in {resolved_source}")
             metadata = _source_metadata(package_root)
+            dependencies = _source_dependencies(package_root)
             shutil.copytree(package_root, prepared_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            install_source = prepared_dir
         elif _is_wheel(resolved_source):
             metadata = _wheel_metadata(resolved_source)
+            dependencies = _wheel_dependencies(resolved_source)
             prepared_dir.mkdir()
             _extract_zip(resolved_source, prepared_dir)
+            install_source = resolved_source
         elif _is_supported_archive(resolved_source):
             extract_dir = stage_dir / "archive"
             extract_dir.mkdir()
@@ -82,7 +92,9 @@ def install_local_package(
             if package_root is None:
                 raise PackageInstallError(f"No SciStudio block package found in {resolved_source}")
             metadata = _source_metadata(package_root)
+            dependencies = _source_dependencies(package_root)
             shutil.copytree(package_root, prepared_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            install_source = prepared_dir
         else:
             suffixes = "".join(resolved_source.suffixes) or resolved_source.suffix
             raise PackageInstallError(f"Unsupported package file type: {suffixes or resolved_source.name}")
@@ -92,6 +104,14 @@ def install_local_package(
             raise PackageInstallError("Package does not contain a scistudio_blocks_* module with an __init__.py file.")
 
         target_dir = root / _install_dir_name(metadata)
+        if install_dependencies:
+            _install_runtime_package(
+                install_source,
+                dependencies=dependencies,
+                target_dir=prepared_dir / paths.PACKAGE_SITE_DIR_NAME,
+                python_executable=python_executable,
+            )
+
         manifest_path = prepared_dir / _MANIFEST_NAME
         manifest_path.write_text(
             json.dumps(
@@ -199,6 +219,33 @@ def _wheel_metadata(wheel_path: Path) -> _PackageMetadata:
     raise PackageInstallError(f"Wheel metadata is missing a package name: {wheel_path}")
 
 
+def _source_dependencies(package_root: Path) -> tuple[str, ...]:
+    pyproject = package_root / "pyproject.toml"
+    if not pyproject.is_file():
+        return ()
+    try:
+        parsed = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise PackageInstallError(f"Invalid pyproject.toml in {package_root}: {exc}") from exc
+    project = parsed.get("project", {}) if isinstance(parsed, dict) else {}
+    dependencies = project.get("dependencies") if isinstance(project, dict) else None
+    if not isinstance(dependencies, list):
+        return ()
+    return tuple(dep for dep in dependencies if isinstance(dep, str) and dep.strip())
+
+
+def _wheel_dependencies(wheel_path: Path) -> tuple[str, ...]:
+    with zipfile.ZipFile(wheel_path) as archive:
+        metadata_names = [
+            name for name in archive.namelist() if name.endswith(".dist-info/METADATA") and not name.startswith("/")
+        ]
+        if not metadata_names:
+            return ()
+        raw = archive.read(metadata_names[0]).decode("utf-8", errors="replace")
+    message = Parser().parsestr(raw)
+    return tuple(dep for dep in message.get_all("Requires-Dist", []) if isinstance(dep, str) and dep.strip())
+
+
 def _find_source_root(root: Path) -> Path | None:
     if _looks_like_source_package(root):
         return root
@@ -228,6 +275,92 @@ def _discover_block_modules(package_root: Path) -> list[str]:
 def _candidate_import_roots(package_root: Path) -> tuple[Path, ...]:
     src_dir = package_root / "src"
     return (src_dir, package_root) if src_dir.is_dir() else (package_root,)
+
+
+def _install_runtime_package(
+    install_source: Path,
+    *,
+    dependencies: tuple[str, ...],
+    target_dir: Path,
+    python_executable: str | Path | None,
+) -> None:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    python = str(Path(python_executable)) if python_executable is not None else sys.executable
+    _run_pip(
+        [
+            python,
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--no-input",
+            "--no-warn-script-location",
+            "--target",
+            str(target_dir),
+            "--no-deps",
+            str(install_source),
+        ]
+    )
+    runtime_dependencies = tuple(dep for dep in dependencies if not _is_core_runtime_dependency(dep))
+    if runtime_dependencies:
+        _run_pip(
+            [
+                python,
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--no-input",
+                "--no-warn-script-location",
+                "--target",
+                str(target_dir),
+                *runtime_dependencies,
+            ]
+        )
+    _remove_core_runtime_shadow(target_dir)
+
+
+def _run_pip(command: list[str]) -> None:
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        raise PackageInstallError(f"Failed to launch pip for package dependency installation: {exc}") from exc
+    if completed.returncode != 0:
+        output = "\n".join(part for part in (completed.stdout.strip(), completed.stderr.strip()) if part)
+        tail = "\n".join(output.splitlines()[-20:]) if output else "pip produced no output"
+        raise PackageInstallError(
+            "Failed to install package dependencies into the bundled Python plugin environment. "
+            f"pip exited with code {completed.returncode}:\n{tail}"
+        )
+
+
+def _is_core_runtime_dependency(requirement: str) -> bool:
+    return _requirement_name(requirement) == "scistudio"
+
+
+def _requirement_name(requirement: str) -> str:
+    try:
+        from packaging.requirements import Requirement
+    except Exception:
+        raw_name = re.split(r"[\s<>=!~;\[]", requirement.strip(), maxsplit=1)[0]
+    else:
+        try:
+            raw_name = Requirement(requirement).name
+        except Exception:
+            raw_name = re.split(r"[\s<>=!~;\[]", requirement.strip(), maxsplit=1)[0]
+    return re.sub(r"[-_.]+", "-", raw_name).lower()
+
+
+def _remove_core_runtime_shadow(target_dir: Path) -> None:
+    for candidate in (
+        target_dir / "scistudio",
+        *target_dir.glob("scistudio-*.dist-info"),
+        *target_dir.glob("scistudio-*.egg-info"),
+    ):
+        if candidate.is_dir():
+            shutil.rmtree(candidate)
+        elif candidate.exists():
+            candidate.unlink()
 
 
 def _extract_zip(source: Path, destination: Path) -> None:

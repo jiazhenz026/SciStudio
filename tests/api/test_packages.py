@@ -16,8 +16,9 @@ from scistudio.desktop.package_installer import LocalPackageInstallResult
 class _Registry:
     def all_specs(self) -> dict[str, object]:
         return {
-            "probe": SimpleNamespace(source="package_src", module_path="scistudio_blocks_probe"),
-            "builtin": SimpleNamespace(source="builtin", module_path="scistudio.blocks.io"),
+            "probe": SimpleNamespace(source="entry_point", module_path="scistudio_blocks_probe.blocks"),
+            "near_prefix": SimpleNamespace(source="entry_point", module_path="scistudio_blocks_probe_extra.blocks"),
+            "builtin": SimpleNamespace(source="builtin", module_path="scistudio_blocks_probe.blocks"),
         }
 
 
@@ -34,7 +35,10 @@ def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.Monk
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
     install_path = tmp_path / "installed" / "scistudio-blocks-probe-0.1.0"
 
-    def fake_install(path: str) -> LocalPackageInstallResult:
+    install_kwargs: dict[str, object] = {}
+
+    def fake_install(path: str, **kwargs: object) -> LocalPackageInstallResult:
+        install_kwargs.update(kwargs)
         return LocalPackageInstallResult(
             package_name="scistudio-blocks-probe",
             version="0.1.0",
@@ -55,6 +59,7 @@ def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.Monk
 
     assert response.status_code == 200
     assert runtime.refreshed is True
+    assert install_kwargs == {"install_dependencies": True}
     assert response.json() == {
         "package_name": "scistudio-blocks-probe",
         "version": "0.1.0",

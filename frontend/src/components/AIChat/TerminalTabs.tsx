@@ -106,6 +106,7 @@ export function TerminalTabs() {
   const tabs = useAppStore((s) => s.terminalTabs);
   const activeTabId = useAppStore((s) => s.activeTerminalTabId);
   const addTerminalTab = useAppStore((s) => s.addTerminalTab);
+  const addUserTerminalTab = useAppStore((s) => s.addUserTerminalTab);
   const closeTerminalTab = useAppStore((s) => s.closeTerminalTab);
   const renameTerminalTab = useAppStore((s) => s.renameTerminalTab);
   const setActiveTerminalTab = useAppStore((s) => s.setActiveTerminalTab);
@@ -194,6 +195,9 @@ export function TerminalTabs() {
         onRequestClose={requestCloseTab}
         onAdd={() => {
           addTerminalTab();
+        }}
+        onAddUserTerminal={() => {
+          addUserTerminalTab();
         }}
       />
 

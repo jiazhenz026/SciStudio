@@ -53,9 +53,11 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Non
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        cols: int = 80,
+        rows: int = 24,
         extra_env: dict[str, str] | None = None,
     ) -> PtyProcess:
-        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty, "_spawn", fake)
     _active_ptys.clear()
@@ -112,6 +114,60 @@ def test_pty_ws_lifecycle(client: TestClient, opened_project: Path) -> None:
     assert not _active_ptys, f"PTY not cleaned up: {list(_active_ptys)}"
 
 
+def test_pty_ws_preserves_utf8_split_across_reads(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UTF-8 glyphs split across PTY reads must reach xterm intact."""
+
+    banner = "READY ────────────────────\n"
+    raw = banner.encode("utf-8")
+
+    class SplitUtf8Pty:
+        def __init__(self) -> None:
+            self._chunks = [raw[:7], raw[7:]]
+            self._alive = True
+
+        def read(self, _timeout: float) -> bytes:
+            if not self._chunks:
+                self._alive = False
+                return b""
+            chunk = self._chunks.pop(0)
+            if not self._chunks:
+                self._alive = False
+            return chunk
+
+        def is_alive(self) -> bool:
+            return self._alive
+
+        def write(self, _data: bytes) -> None:
+            return None
+
+        def resize(self, *, cols: int, rows: int) -> None:
+            return None
+
+        def kill_tree(self) -> None:
+            self._alive = False
+
+    monkeypatch.setattr(
+        ai_pty,
+        "_spawn",
+        lambda **_kwargs: SplitUtf8Pty(),
+    )
+
+    collected = ""
+    with client.websocket_connect(_ws_url("tab-utf8", opened_project)) as ws:
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and banner not in collected:
+            frame = ws.receive_json()
+            if frame["type"] == "stdout":
+                collected += frame.get("data", "")
+
+    assert banner in collected
+    assert "\ufffd" not in collected
+
+
 def test_pty_ws_resize_no_error(client: TestClient, opened_project: Path) -> None:
     """Sending a resize frame must not produce an error frame."""
     with client.websocket_connect(_ws_url("tab-resize", opened_project)) as ws:
@@ -128,6 +184,72 @@ def test_pty_ws_resize_no_error(client: TestClient, opened_project: Path) -> Non
             if frame["type"] == "stdout" and "x" in frame.get("data", ""):
                 saw_x = True
         assert saw_x
+
+
+def test_pty_ws_spawn_uses_initial_size_query(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The PTY should spawn at xterm's fitted size, before first TUI paint."""
+
+    captured: dict[str, int] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        cols: int = 120,
+        rows: int = 30,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        captured["cols"] = cols
+        captured["rows"] = rows
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty, "_spawn", fake)
+
+    with client.websocket_connect(f"{_ws_url('tab-size', opened_project)}&cols=101&rows=33") as ws:
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            frame = ws.receive_json()
+            if frame["type"] == "stdout" and "READY" in frame.get("data", ""):
+                break
+
+    assert captured == {"cols": 101, "rows": 33}
+
+
+def test_pty_ws_accepts_user_terminal_provider(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The desktop user terminal reuses the PTY WS with its own provider key."""
+    captured: dict[str, str] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        cols: int = 120,
+        rows: int = 30,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        captured["provider"] = provider
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty, "_spawn", fake)
+
+    with client.websocket_connect(_ws_url("tab-user-terminal", opened_project, provider="user-terminal")) as ws:
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            frame = ws.receive_json()
+            if frame["type"] == "stdout" and "READY" in frame.get("data", ""):
+                break
+
+    assert captured == {"provider": "user-terminal"}
 
 
 def test_pty_ws_invalid_provider(client: TestClient, opened_project: Path) -> None:

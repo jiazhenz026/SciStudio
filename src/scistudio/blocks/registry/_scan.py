@@ -159,7 +159,8 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 # Issue #1531: wrap exec_module in its own try/except so a
                 # failing or hostile drop-in cannot crash the palette refresh.
                 try:
-                    spec.loader.exec_module(module)
+                    with _prepended_sys_paths(_desktop_user_python_import_roots()):
+                        spec.loader.exec_module(module)
                 except Exception:
                     # #1531: skip-don't-crash on a failing/hostile drop-in.
                     # Keep the historical "Failed to import block from" wording
@@ -326,11 +327,19 @@ def _scan_tier2(registry: BlockRegistry) -> None:
 @contextlib.contextmanager
 def _prepended_sys_path(path: Path) -> Iterator[None]:
     """Prepend *path* to ``sys.path`` for one source-package import."""
-    path_str = str(path)
+    with _prepended_sys_paths([path]):
+        yield
+
+
+@contextlib.contextmanager
+def _prepended_sys_paths(paths: list[Path]) -> Iterator[None]:
+    """Prepend paths to ``sys.path`` for one source-package import."""
     original = list(sys.path)
-    if path_str in sys.path:
-        sys.path.remove(path_str)
-    sys.path.insert(0, path_str)
+    for path in reversed(paths):
+        path_str = str(path)
+        if path_str in sys.path:
+            sys.path.remove(path_str)
+        sys.path.insert(0, path_str)
     try:
         importlib.invalidate_caches()
         yield
@@ -382,6 +391,49 @@ def _desktop_resource_package_dirs() -> list[Path]:
     except Exception:
         logger.debug("Failed to resolve desktop package directories", exc_info=True)
         return []
+
+
+def _source_package_import_roots(src_dir: Path) -> list[Path]:
+    """Return scan-local import roots for a source package and its runtime deps."""
+    try:
+        from scistudio.desktop.paths import package_import_roots
+    except Exception:
+        return [src_dir]
+
+    package_root = src_dir.parent if src_dir.name == "src" else src_dir
+    roots = [src_dir]
+    roots.extend(path for path in package_import_roots(package_root) if path != src_dir)
+    return roots
+
+
+def _desktop_user_python_import_roots() -> list[Path]:
+    """Return shared user dependency roots for trusted drop-in imports."""
+    try:
+        from scistudio.desktop.paths import user_python_import_roots
+    except Exception:
+        return []
+    return user_python_import_roots()
+
+
+def _activate_desktop_package_import_roots(package_dirs: list[Path]) -> None:
+    """Expose user-installed package roots to registry and worker imports."""
+    try:
+        from scistudio.desktop.paths import activate_pythonpath_entries, package_import_roots
+    except Exception:
+        logger.debug("Failed to activate desktop package import roots", exc_info=True)
+        return
+
+    import_roots: list[Path] = []
+    for package_dir in package_dirs:
+        expanded = package_dir.expanduser()
+        import_roots.extend(package_import_roots(expanded))
+        if expanded.is_dir():
+            for child in sorted(expanded.iterdir()):
+                if child.is_dir():
+                    import_roots.extend(package_import_roots(child))
+        for src_dir in _iter_package_src_dirs(expanded):
+            import_roots.extend(_source_package_import_roots(src_dir))
+    activate_pythonpath_entries(import_roots)
 
 
 def _process_package_protocol_result(
@@ -436,9 +488,12 @@ def _process_package_protocol_result(
 def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, module_name: str, source: str) -> None:
     """Import one ``scistudio_blocks_*`` package and register its block classes."""
     try:
-        with _prepended_sys_path(src_dir):
+        with _prepended_sys_paths(_source_package_import_roots(src_dir)):
             stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
             for name in stale_modules:
+                # Keep DataObject type modules stable across block-package refreshes.
+                if name.endswith(".types"):
+                    continue
                 sys.modules.pop(name, None)
             importlib.invalidate_caches()
             module = importlib.import_module(module_name)
@@ -457,12 +512,12 @@ def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, modul
 def _scan_package_src_dirs(registry: BlockRegistry) -> None:
     """Tier 3: scan hard-installed ``packages/*/src`` source packages.
 
-    This desktop package path does not install dependencies or query package
-    indexes. It imports already-present ``scistudio_blocks_*`` source packages
-    through the existing ADR-025 package protocol so ADR-043 capability
-    validation remains the registry's single source of truth.
+    This desktop package path imports already-present ``scistudio_blocks_*``
+    source packages through the existing ADR-025 package protocol so ADR-043
+    capability validation remains the registry's single source of truth.
     """
     package_dirs = [*registry._package_src_dirs, *_desktop_resource_package_dirs()]
+    _activate_desktop_package_import_roots(package_dirs)
     seen_src_dirs: set[Path] = set()
     for package_dir in package_dirs:
         for src_dir in _iter_package_src_dirs(package_dir):
