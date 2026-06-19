@@ -1,4 +1,4 @@
-import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
+import type { BlockSchemaResponse, LogEntry, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 
 import { TerminalTabs } from "./AIChat/TerminalTabs";
@@ -16,6 +16,20 @@ interface BottomPanelProps {
   logEntries: LogEntry[];
   onTabChange: (tab: BottomTab) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
+  /**
+   * ADR-050 FR-014 — ``blockId -> output payload`` map forwarded to the
+   * Config tab so it can compute the upstream OME fields used by the
+   * selected save node's lossy-save warning detail. OPTIONAL; FE-2's
+   * App-level wiring supplies it. When absent the Config tab simply omits
+   * the lossy detail (graceful degradation).
+   */
+  blockOutputs?: Record<string, Record<string, unknown>>;
+  /**
+   * ADR-050 FR-014 — workflow edges forwarded to the Config tab to resolve
+   * which upstream blocks feed the selected node. OPTIONAL for the same
+   * reason as ``blockOutputs``.
+   */
+  edges?: WorkflowEdge[];
   // Unread counter for the Logs tab badge. Defaults to 0; the badge
   // renders only when > 0. (The Problems tab was removed — block errors
   // are already represented by an inline badge on the BlockNode itself
@@ -45,6 +59,8 @@ export function BottomPanel({
   logEntries,
   onTabChange,
   onUpdateConfig,
+  blockOutputs,
+  edges,
   unreadLogsCount = 0,
   pinned = false,
   onTogglePin,
@@ -84,6 +100,8 @@ export function BottomPanel({
             onUpdateConfig={onUpdateConfig}
             schema={selectedSchema}
             selectedNode={selectedNode}
+            blockOutputs={blockOutputs}
+            edges={edges}
           />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />

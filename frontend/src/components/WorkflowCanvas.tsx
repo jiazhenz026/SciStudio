@@ -11,7 +11,11 @@ import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
 import { TypedEdge } from "./TypedEdge";
 import { TypeLegend } from "./TypeLegend";
+import { applyFocusToEdges, applyFocusToNodes } from "./WorkflowCanvas.parts/applyFocus";
+import { computeAutoLayout } from "./WorkflowCanvas.parts/autoLayout";
+import { CanvasReadabilityControls } from "./WorkflowCanvas.parts/CanvasReadabilityControls";
 import { parsePortRef, resolveVariadicPorts } from "./WorkflowCanvas.parts/flowNodeBuilder";
+import { computeFocusSet, type FocusResult } from "./WorkflowCanvas.parts/focusMode";
 import { useCanvasHandlers } from "./WorkflowCanvas.parts/useCanvasHandlers";
 import { useFlowCallbacks } from "./WorkflowCanvas.parts/useFlowCallbacks";
 import { useFlowNodes } from "./WorkflowCanvas.parts/useFlowNodes";
@@ -48,10 +52,27 @@ interface WorkflowCanvasProps {
   onRunBlock: (blockId: string) => void;
   onRestartBlock: (blockId: string) => void;
   onErrorClick: (blockId: string) => void;
+  /**
+   * ADR-050 FR-013 — warning-status click handler. Selects the node and opens
+   * the BottomPanel Config detail. Optional so existing call sites compile.
+   */
+  onWarningClick?: (blockId: string) => void;
   /** Fires on empty-canvas click. App.tsx folds the bottom panel here. */
   onPaneClick?: () => void;
   /** ADR-043 FR-014 — `blockId -> output payload` for LossySaveWarning chip. */
   blockOutputs?: Record<string, Record<string, unknown>>;
+  // --- ADR-050 §3 focus mode + tidy layout (all optional) ----------------
+  /** Focus-mode view state from the UI slice (FR-017/FR-018). */
+  focusMode?: { enabled: boolean; selectedIds: string[]; depth: number };
+  /** Enter focus mode around the current selection. */
+  onEnterFocusMode?: (selectedIds: string[]) => void;
+  /** Exit focus mode and restore normal canvas visibility. */
+  onExitFocusMode?: () => void;
+  /**
+   * ADR-050 §3.2 / FR-022 / FR-024 — apply a batch of node layout positions in
+   * one history entry. Writes only `node.layout`. Used by the tidy action.
+   */
+  onTidyLayout?: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
 interface UseActiveTypesResult {
@@ -220,6 +241,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onDeleteEdge,
     onDeleteNode,
     onErrorClick,
+    onWarningClick,
     onPaneClick,
     onRestartBlock,
     onRunBlock,
@@ -228,6 +250,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onUpdateNodePosition,
     selectedNodeId,
     blockOutputs,
+    focusMode,
+    onEnterFocusMode,
+    onExitFocusMode,
+    onTidyLayout,
   } = props;
 
   const { activeTypes, mergedTypeHierarchy } = useActiveTypes(nodes, schemas);
@@ -241,9 +267,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onDeleteNode,
     onErrorClick,
     onUpdateNodeConfig,
+    onWarningClick,
   });
 
-  const flowNodes = useFlowNodes({
+  const baseFlowNodes = useFlowNodes({
     nodes,
     edges,
     blocks,
@@ -258,7 +285,39 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     ...flowCallbacks,
   });
 
-  const flowEdges = useFlowEdges(edges, nodes, schemas);
+  const baseFlowEdges = useFlowEdges(edges, nodes, schemas);
+
+  // ADR-050 §3.1 — derive the focus set from the captured selection + edges.
+  // Pure read; never mutates workflow state (FR-018).
+  const focus = useMemo<FocusResult>(
+    () =>
+      computeFocusSet({
+        selectedIds: focusMode?.enabled ? focusMode.selectedIds : [],
+        allNodeIds: nodes.map((node) => node.id),
+        edges,
+        depth: focusMode?.depth ?? 1,
+      }),
+    [focusMode?.enabled, focusMode?.selectedIds, focusMode?.depth, nodes, edges],
+  );
+  const focusActive = (focusMode?.enabled ?? false) && focus.active;
+
+  const flowNodes = useMemo(
+    () => (focusActive ? applyFocusToNodes(baseFlowNodes, focus) : baseFlowNodes),
+    [baseFlowNodes, focus, focusActive],
+  );
+  const flowEdges = useMemo(
+    () => (focusActive ? applyFocusToEdges(baseFlowEdges, focus) : baseFlowEdges),
+    [baseFlowEdges, focus, focusActive],
+  );
+
+  // ADR-050 §3.2 / FR-020..FR-023 — explicit tidy. Computes deterministic
+  // positions then writes only `node.layout` through the batch store action.
+  const runTidy = async (scope: "focus" | "whole"): Promise<void> => {
+    if (!onTidyLayout) return;
+    const scopeNodeIds = scope === "focus" && focusActive ? focus.visibleNodeIds : undefined;
+    const positions = await computeAutoLayout({ nodes, edges, scopeNodeIds });
+    if (Object.keys(positions).length > 0) onTidyLayout(positions);
+  };
 
   const handlers = useCanvasHandlers({
     reactFlow,
@@ -272,6 +331,8 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onUpdateNodePosition,
     setDragPositions,
   });
+
+  const showReadabilityControls = Boolean(onTidyLayout || onEnterFocusMode);
 
   return (
     <div
@@ -299,6 +360,20 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         {minimapVisible && <WorkflowMiniMap />}
         <Controls />
         <Background color="#d8d2c4" gap={20} size={1.2} />
+        {showReadabilityControls ? (
+          <CanvasReadabilityControls
+            focusActive={focusActive}
+            canFocus={Boolean(selectedNodeId)}
+            hiddenNodeCount={focus.hiddenNodeCount}
+            hiddenEdgeCount={focus.hiddenEdgeCount}
+            onEnterFocus={() => {
+              if (selectedNodeId) onEnterFocusMode?.([selectedNodeId]);
+            }}
+            onExitFocus={() => onExitFocusMode?.()}
+            onTidy={() => void runTidy("focus")}
+            onTidyWhole={() => void runTidy("whole")}
+          />
+        ) : null}
       </ReactFlow>
       <TypeLegend activeTypes={activeTypes} typeHierarchy={mergedTypeHierarchy} />
     </div>

@@ -2,6 +2,10 @@ dist/
 node_modules/
 coverage/
 package-lock.json
+# Playwright e2e run outputs (transient artifacts; not committed, ADR-050 #1698).
+test-results/
+playwright-report/
+e2e/artifacts/
 # Nested git worktrees from sub-agent dispatch should never be linted
 # as part of the manager worktree (#1426 main-merge hygiene).
 .claude/

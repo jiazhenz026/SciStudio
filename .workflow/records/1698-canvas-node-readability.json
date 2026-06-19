@@ -1,0 +1,556 @@
+{
+  "branch": "feat/1698-canvas-node-readability",
+  "check_events": [],
+  "check_na": [],
+  "commit": {
+    "sha": "8f8d7a03d19e6f310c3b29ffc290a1120e952602",
+    "shas": [
+      "8f8d7a03d19e6f310c3b29ffc290a1120e952602"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-18T22:07:35.205577Z",
+      "owner_directive": "Dispatch FE-1 (square node), FE-2 (focus/tidy/store), FE-3 (bottompanel config), BE (contract tests); manager integrates into umbrella, updates ARCHITECTURE.md, runs browser e2e.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-06-18T22:18:15.804316Z",
+      "owner_directive": "BE test_engineer: strengthen package->registry->API block-schema contract tests (BlockSpec/BlockSummary/BlockSchemaResponse) for core + package blocks (imaging, spectroscopy, LCMS, SRS) per ADR-050 FR-027..FR-033, SC-010..SC-012.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-18T22:07:35.205746Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-050-canvas-node-readability-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804612Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Test-only ADR-050 contract verification; no behavior or public-doc change. ARCHITECTURE.md owned by manager umbrella.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258370Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258522Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/PROJECT_TREE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:12:04.349131Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-18-adr-050-canvas-node-readability-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:33:01.602139Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-050-canvas-node-readability.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-18T22:26:07.884213Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.904578Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.925797Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.947094Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.969191Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:07.987349Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.002468Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.020290Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.040779Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-18T22:26:08.070802Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.924513Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.934005Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.943048Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.953020Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.961903Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.971687Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.980784Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.989741Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:48.998452Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-19T04:14:49.022093Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1698,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "ae552015125ac67b3c23a1d51327e470df95a1e6",
+    "base_sha": "ae552015",
+    "changed_files": [
+      ".gitignore",
+      ".workflow/records/1698-canvas-node-readability.json",
+      "docs/adr/ADR-050.md",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/architecture/PROJECT_TREE.md",
+      "docs/audit/2026-06-18-adr-050-canvas-node-readability-no-context.md",
+      "docs/planning/adr-050-canvas-node-readability-checklist.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/BE-contract-tests.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-1-square-node.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-2-focus-tidy-store.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-3-bottompanel-config.md",
+      "docs/specs/adr-050-canvas-node-readability.md",
+      "frontend/.prettierignore",
+      "frontend/e2e/specs/adr050-canvas-readability.spec.ts",
+      "frontend/package-lock.json",
+      "frontend/package.json",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/App.parts/useCanvasReadability.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BottomPanel.parts/ConfigPanel.test.tsx",
+      "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
+      "frontend/src/components/BottomPanel.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/CanvasReadabilityControls.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/WorkflowMiniMap.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/applyFocus.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/autoLayout.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/focusMode.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/layoutConstants.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/applyFocus.ts",
+      "frontend/src/components/WorkflowCanvas.parts/autoLayout.ts",
+      "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "frontend/src/components/WorkflowCanvas.parts/focusMode.ts",
+      "frontend/src/components/WorkflowCanvas.parts/layoutConstants.ts",
+      "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
+      "frontend/src/components/WorkflowCanvas.parts/useFlowCallbacks.ts",
+      "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/ErrorMessage.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/InlineCapabilitySelector.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/InlineConfigField.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/InlineTextInputField.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/NodeActionToolbar.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/NodeStatusSurface.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/PausedToast.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/StatusBadge.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/badgeStyles.ts",
+      "frontend/src/components/nodes/BlockNode.parts/inlineConfigHelpers.ts",
+      "frontend/src/components/nodes/BlockNode.parts/nodeGeometry.ts",
+      "frontend/src/components/nodes/BlockNode.test.tsx",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/capabilities.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/caret.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/errors.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/hooks1420.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/inlineConfigHelpers.test.ts",
+      "frontend/src/components/nodes/__tests__/BlockNode/nativeDialog.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/ports.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/statusSurface.test.tsx",
+      "frontend/src/store/__tests__/workflowSlice.layoutBatch.test.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/uiSlice.ts",
+      "frontend/src/store/workflowSlice.parts/workflowEditActions.ts",
+      "frontend/src/store/workflowSlice.ts",
+      "frontend/src/types/ui.ts"
+    ],
+    "diff_fingerprint": "sha256:bb0901b3d77ebf0acfc2875fad9bf34391f78b3cb46c01266ad42375235dee59",
+    "head": "HEAD",
+    "head_sha": "8f8d7a03",
+    "surfaces": {
+      "docs": 10,
+      "frontend": 54,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 54,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 58,
+      "test": 17,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Manager: deliver full ADR-050 frontend refactor (square canvas nodes, unified status surface, focus mode, tidy layout) per docs/specs/adr-050-canvas-node-readability.md via dispatched agents; integrate into one umbrella PR; run browser e2e; flip [DO NOT MERGE] to [READY TO REVIEW]. Owner working autonomously overnight.",
+  "persona": "manager",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1699,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-18T22:26:08.070872Z",
+      "diff_fingerprint": "sha256:bb704fe0d6770c45bdf5914313ae5ae414729dcb24ff75cba5d14a4017376988",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-19T04:14:49.022135Z",
+      "diff_fingerprint": "sha256:bb0901b3d77ebf0acfc2875fad9bf34391f78b3cb46c01266ad42375235dee59",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1698-canvas-node-readability",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205708Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205716Z",
+      "pattern": "frontend/package.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205720Z",
+      "pattern": "frontend/package-lock.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205722Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205723Z",
+      "pattern": "tests/blocks/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205724Z",
+      "pattern": "tests/packaging/test_adr043_package_capabilities.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205725Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:07:35.205726Z",
+      "pattern": "docs/planning/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804562Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804574Z",
+      "pattern": "tests/blocks/test_registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804578Z",
+      "pattern": "tests/blocks/test_dynamic_ports.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804581Z",
+      "pattern": "tests/blocks/test_registry_package_layout.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-18T22:18:15.804584Z",
+      "pattern": "tests/packaging/test_adr043_package_capabilities.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "40d4bc1e-ea27-4c82-ab48-7f52fedbed0b",
+  "strictness_tier": 3,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-06-18T22:07:35.205773Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager-coordination commit; implementation tests land via dispatched agent branches FE-1/FE-2/FE-3/BE in the umbrella diff",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804630Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804636Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804639Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry_package_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:18:15.804642Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_adr043_package_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258526Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258530Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/autoLayout.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T22:45:49.258531Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:12:04.349293Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/applyFocus.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-18T23:29:18.971124Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/e2e/specs/adr050-canvas-readability.spec.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

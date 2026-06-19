@@ -25,23 +25,46 @@ export interface BlockNodeData extends Record<string, unknown> {
   outputPorts: BlockPortResponse[];
   status?: string;
   /** Short error message populated when status is 'error'. Sourced from the
-   *  BLOCK_ERROR WebSocket event's \`data.error\` field. */
+   *  BLOCK_ERROR WebSocket event's \`data.error\` field. Surfaced ONLY through
+   *  the unified `NodeStatusSurface` (ADR-050 §2.5); never rendered as inline
+   *  text inside the square node body. */
   errorMessage?: string;
   /** Concise summary extracted from the error traceback (last line, max 120 chars).
-   *  Preferred over errorMessage for inline display on the block node. */
+   *  Surfaced ONLY through `NodeStatusSurface` tooltip detail (ADR-050 §2.5);
+   *  not rendered inline in the node body. */
   errorSummary?: string;
+  /**
+   * ADR-050 §2.5 — highest-priority problem signal for the node, independent
+   * of runtime `status`. Computed in `flowNodeBuilder` from runtime status
+   * (`error` ⇒ "error") and the lossy-save check (⇒ "warning"). Rendered by
+   * the unified `NodeStatusSurface`; never changes node geometry.
+   */
+  problemSeverity?: "none" | "warning" | "error";
   outputPreviewLabel?: string;
   selected?: boolean;
   onRun?: () => void;
   onRestart?: () => void;
   onDelete?: () => void;
+  /** Kept on the type for BottomPanel/test compatibility, but the square node
+   *  body MUST NOT render any config editor (ADR-050 §2.3 / FR-003). */
   onUpdateConfig?: (patch: Record<string, unknown>) => void;
+  /** ADR-050 §2.5 / FR-012 — error-status activation: select node + open Logs.
+   *  Emitted by `NodeStatusSurface`; wired by FE-2's App-level handler. */
   onErrorClick?: () => void;
+  /**
+   * ADR-050 §2.5 / FR-013 — warning-status activation: select node + open the
+   * BottomPanel Config detail. OPTIONAL so existing call sites compile before
+   * integration; wired by FE-2 through `useFlowCallbacks` + `makeOnWarningClick`
+   * and emitted by the `NodeStatusSurface` warning affordance.
+   */
+  onWarningClick?: () => void;
   /**
    * ADR-043 FR-014 — Optional list of dotted OME field paths present on
    * the upstream source object. When set on a Save-direction IO node with
-   * a selected capability whose `metadata_fidelity` cannot persist some
-   * of these fields, the node footer renders a `LossySaveWarning` chip.
+   * a selected capability whose `metadata_fidelity` cannot persist some of
+   * these fields, `flowNodeBuilder` raises `problemSeverity` to "warning"
+   * (ADR-050 §2.5). The verbose dropped-field detail lives in BottomPanel
+   * Config (FR-014), not in the node body.
    *
    * Left undefined for nodes that have no upstream connection, no OME
    * metadata, or are not Save-direction IO blocks. Populated by the

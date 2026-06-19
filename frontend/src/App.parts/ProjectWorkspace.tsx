@@ -33,6 +33,16 @@ import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 
 type BottomTabValue = ReturnType<typeof useAppStore.getState>["activeBottomTab"];
 
+/** ADR-050 §3 — focus mode + tidy layout wiring passed to the canvas. */
+export interface CanvasReadabilityWiring {
+  focusMode: { enabled: boolean; selectedIds: string[]; depth: number };
+  /** ADR-050 FR-013 — warning status → select node + open Config detail. */
+  onWarningClick: (blockId: string) => void;
+  onEnterFocusMode: (selectedIds: string[]) => void;
+  onExitFocusMode: () => void;
+  onTidyLayout: (positions: Record<string, { x: number; y: number }>) => void;
+}
+
 export interface ProjectWorkspaceProps {
   // Project / workflow context
   currentProject: ProjectResponse;
@@ -80,6 +90,8 @@ export interface ProjectWorkspaceProps {
   onSelectNode: (nodeId: string | null) => void;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
+  /** ADR-050 §3 — focus-mode + tidy-layout wiring, grouped into one prop. */
+  readability: CanvasReadabilityWiring;
   // Bottom panel
   bottomPanelRef: RefObject<PanelImperativeHandle | null>;
   bottomPanelPinned: boolean;
@@ -178,6 +190,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     onUpdateNodeConfig,
     onUpdateNodePosition,
     blockSchemas,
+    readability,
   } = props;
 
   if (activeFileTab) {
@@ -222,6 +235,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       onDeleteEdge={onCanvasDeleteEdge}
       onDeleteNode={onCanvasDeleteNode}
       onErrorClick={onErrorClick}
+      onWarningClick={readability.onWarningClick}
       onPaneClick={onCanvasPaneClick}
       onRunBlock={onRunBlock}
       onRestartBlock={onRestartBlock}
@@ -230,6 +244,10 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       onUpdateNodePosition={onUpdateNodePosition}
       schemas={blockSchemas}
       selectedNodeId={selectedNodeId}
+      focusMode={readability.focusMode}
+      onEnterFocusMode={readability.onEnterFocusMode}
+      onExitFocusMode={readability.onExitFocusMode}
+      onTidyLayout={readability.onTidyLayout}
     />
   );
 }
@@ -254,6 +272,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     onUpdateNodeConfig,
     setPanelSize,
     blockOutputs,
+    workflowEdges,
     selectedNodeLabel,
   } = props;
 
@@ -321,6 +340,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
             >
               <BottomPanel
                 activeTab={activeBottomTab}
+                blockOutputs={blockOutputs}
+                edges={workflowEdges}
                 logEntries={logEntries}
                 onTabChange={onBottomTabChange}
                 onTogglePin={toggleBottomPanelPinned}

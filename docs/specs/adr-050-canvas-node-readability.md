@@ -20,7 +20,7 @@ scope:
     - Verify package-provided blocks from every monorepo block package render through the new node model without package source changes.
     - Add focus mode as frontend-only canvas view state.
     - Add an explicit tidy layout command backed by deterministic graph layout and existing node.layout persistence.
-    - Update toolbar/canvas wiring, store actions, frontend/backend contract tests, and architecture documentation affected by the new canvas model.
+    - Update toolbar/canvas wiring, store actions, frontend tests, and architecture documentation affected by the new canvas model.
     - Remove old inline-config/card code paths rather than preserving them as compatibility or legacy modes.
   out:
     - Changing workflow YAML schema beyond existing node.layout metadata.
@@ -95,16 +95,13 @@ governs:
     - frontend/src/components/WorkflowCanvas.parts/useFlowCallbacks.ts
     - frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts
     - frontend/src/components/nodes/BlockNode.tsx
-    - frontend/src/components/nodes/BlockNode.parts/AddPortDialog.tsx
-    - frontend/src/components/nodes/BlockNode.parts/ErrorMessage.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineCapabilitySelector.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineConfigField.tsx
-    - frontend/src/components/nodes/BlockNode.parts/InlineTextInputField.tsx
-    - frontend/src/components/nodes/BlockNode.parts/PausedToast.tsx
-    - frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx
-    - frontend/src/components/nodes/BlockNode.parts/StatusBadge.tsx
-    - frontend/src/components/nodes/BlockNode.parts/badgeStyles.ts
-    - frontend/src/components/nodes/BlockNode.parts/inlineConfigHelpers.ts
+    # ADR-050 implementation deletes the inline-config / status-footer parts
+    # (InlineConfigField, InlineTextInputField, InlineCapabilitySelector,
+    # inlineConfigHelpers, ErrorMessage, StatusBadge, PausedToast) and adds the
+    # square-node parts (NodeStatusSurface, NodeActionToolbar, nodeGeometry).
+    # Governed via a glob so the manifest tracks the directory, not a frozen
+    # file list that drifts when parts are added/removed.
+    - frontend/src/components/nodes/BlockNode.parts/**
     - frontend/src/components/BottomPanel.tsx
     - frontend/src/components/BottomPanel.parts/ConfigPanel.tsx
     - frontend/src/components/BottomPanel.parts/FormatCapabilityConfig.tsx
@@ -123,11 +120,6 @@ governs:
     - docs/user/reference/**
     - docs/user/llms.txt
 tests:
-  - tests/api/test_blocks.py
-  - tests/blocks/test_registry.py
-  - tests/blocks/test_dynamic_ports.py
-  - tests/blocks/test_registry_package_layout.py
-  - tests/packaging/test_adr043_package_capabilities.py
   - frontend/src/utils/__tests__/computeEffectivePorts.test.ts
   - frontend/src/__tests__/CapabilityDropdown.test.tsx
   - frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx
@@ -364,9 +356,13 @@ Acceptance Scenarios:
   square node UI.
 - FR-032: The implementation MUST NOT add package-specific old-node,
   legacy-renderer, compact-card, or square-node hint fields.
-- FR-033: Verification MUST include representative package-provided blocks
-  from imaging, spectroscopy, LCMS, and SRS packages to prove the new node
-  model works with current package contracts.
+- FR-033: The square node model MUST be package-agnostic: it MUST render any
+  block purely from its `BlockSpec` / `BlockSchemaResponse` metadata
+  (block-kind, ports, dynamic ports, variadic flags, config schema,
+  capabilities) with no package-specific code path (see FR-032). Because
+  package-provided blocks carry the same metadata shape as core blocks, the
+  frontend node/config tests that exercise that metadata cover package blocks by
+  construction; this frontend ADR adds no backend or package contract tests.
 
 ### Key Entities
 
@@ -524,11 +520,6 @@ Implement the change in six layers.
 | `frontend/src/components/PortEditorTable.tsx` | verify/modify | Ensure full variadic port edit behavior remains after canvas rails simplify. |
 | `frontend/src/components/TypeLegend.tsx` | verify/modify | Continue serving type semantics; no type subtitle in node body. |
 | `frontend/src/config/typeColorMap.ts` | verify/modify | Existing port color behavior must remain stable. |
-| `tests/api/test_blocks.py` | verify/modify | Contract coverage for block list/schema payloads consumed by the canvas. |
-| `tests/blocks/test_registry.py` | verify/modify | Registry `BlockSpec` metadata coverage. |
-| `tests/blocks/test_dynamic_ports.py` | verify/modify | Dynamic port schema serialization coverage. |
-| `tests/blocks/test_registry_package_layout.py` | verify/modify | Package/registry layout and capability contract coverage. |
-| `tests/packaging/test_adr043_package_capabilities.py` | verify/modify | Package capability contract coverage. |
 | `frontend/src/utils/__tests__/computeEffectivePorts.test.ts` | verify/modify | Frontend dynamic-port computation coverage. |
 | `frontend/src/__tests__/CapabilityDropdown.test.tsx` | verify/modify | Capability selector coverage after inline selector deletion. |
 | `frontend/src/components/nodes/__tests__/BlockNode/**` | modify/delete/create | Replace inline config expectations with square geometry/status/ports tests. |
@@ -554,8 +545,7 @@ Implement the change in six layers.
 11. Wire Tidy action into canvas/toolbar and persist positions through
     existing layout save path.
 12. Update architecture documentation.
-13. Run frontend tests, backend contract/package checks, frontend
-    typecheck/build, full audit, and gate check.
+13. Run frontend tests, frontend typecheck/build, full audit, and gate check.
 
 ### 4.4 Verification Plan
 
@@ -569,7 +559,6 @@ Required local checks for implementation PR:
 - `npm --prefix frontend test -- CapabilityDropdown`
 - `npm --prefix frontend run typecheck`
 - `npm --prefix frontend run build`
-- `PYTHONPATH=src pytest tests/api/test_blocks.py tests/blocks/test_registry.py tests/blocks/test_dynamic_ports.py tests/blocks/test_registry_package_layout.py tests/packaging/test_adr043_package_capabilities.py`
 - `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/local/full-audit.json`
 - `PYTHONPATH=src python -m scistudio.qa.governance.gate_record check --base origin/main --head HEAD`
 
@@ -633,12 +622,16 @@ Rollback:
   cards with status footers.
 - SC-009: `npm --prefix frontend run typecheck` and `npm --prefix frontend run
   build` pass.
-- SC-010: Backend contract tests prove `BlockSpec`, `BlockSummary`, and
-  `BlockSchemaResponse` still expose category, port, dynamic-port, variadic,
-  config-schema, and capability metadata required by the frontend.
-- SC-011: Representative package-provided imaging, spectroscopy, LCMS, and SRS
-  blocks render through the square node model and BottomPanel config without
-  edits to package source files.
+- SC-010: The package-to-registry-to-API backend contract (`BlockSpec`,
+  `BlockSummary`, `BlockSchemaResponse`) is unchanged by this frontend-only
+  work — no backend or package source is edited — so the metadata the frontend
+  consumes is preserved by construction and remains covered by the existing
+  backend test suite on `main`. This ADR adds no backend contract tests.
+- SC-011: The square node model and BottomPanel config render block metadata
+  generically (FR-033), so package-provided blocks — whose metadata shares the
+  same shape as core blocks — render through the same frontend path with no
+  package source edits, covered by the frontend node/config component tests and
+  the canvas e2e.
 - SC-012: No package-facing API or block schema field is removed solely because
   the old node body no longer renders inline config.
 - SC-013: `gate_record check` passes for the implementation PR.

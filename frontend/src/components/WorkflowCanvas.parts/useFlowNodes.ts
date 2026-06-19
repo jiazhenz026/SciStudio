@@ -52,10 +52,16 @@ export interface UseFlowNodesOpts {
   makeOnDelete: (nodeId: string) => () => void;
   makeOnErrorClick: (nodeId: string) => () => void;
   makeOnUpdateConfig: (nodeId: string) => (patch: Record<string, unknown>) => void;
+  /**
+   * ADR-050 §2.5 / FR-013 — factory for the warning-status activation handler
+   * (select node + open BottomPanel Config). OPTIONAL so FE-2's existing call
+   * sites compile before the integration merge wires it through
+   * `useFlowCallbacks`. Defaults to undefined ⇒ no warning click handler.
+   */
+  makeOnWarningClick?: (nodeId: string) => (() => void) | undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
+export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
   const {
     nodes,
     edges,
@@ -73,6 +79,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
     makeOnDelete,
     makeOnErrorClick,
     makeOnUpdateConfig,
+    makeOnWarningClick,
   } = opts;
 
   return useMemo(() => {
@@ -126,6 +133,9 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
           onDelete: makeOnDelete(node.id),
           onUpdateConfig: makeOnUpdateConfig(node.id),
           onErrorClick: makeOnErrorClick(node.id),
+          // ADR-050 §2.5 — optional warning-status handler; undefined until
+          // FE-2 wires `makeOnWarningClick` at integration.
+          onWarningClick: makeOnWarningClick?.(node.id),
         },
       });
     });
@@ -142,6 +152,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
     makeOnRestart,
     makeOnRun,
     makeOnUpdateConfig,
+    makeOnWarningClick,
     nodes,
     onUpdateNodeConfig,
     schemas,

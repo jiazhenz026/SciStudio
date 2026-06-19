@@ -5,7 +5,6 @@ import type { Connection, Edge, Node, NodeChange, useReactFlow } from "@xyflow/r
 import { useCallback } from "react";
 
 import type { BlockSummary, WorkflowEdge } from "../../types/api";
-import type { BlockNodeData } from "../../types/ui";
 
 export interface CanvasHandlersOpts {
   reactFlow: ReturnType<typeof useReactFlow>;
@@ -39,7 +38,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
   } = opts;
 
   const handleNodesChange = useCallback(
-    (changes: NodeChange<Node<BlockNodeData>>[]) => {
+    (changes: NodeChange[]) => {
       const positionUpdates: Record<string, { x: number; y: number }> = {};
       for (const change of changes) {
         if (change.type === "position" && change.position) {
@@ -110,8 +109,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
   );
 
   const handleNodeDragStop = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (_: unknown, node: Node<any>) => {
+    (_: unknown, node: Node) => {
       onUpdateNodePosition(node.id, node.position);
       setDragPositions((prev) => {
         const next = { ...prev };
@@ -128,14 +126,12 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
   }, []);
 
   const handleNodeClick = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (_: unknown, node: Node<any>) => onSelectNode(node.id),
+    (_: unknown, node: Node) => onSelectNode(node.id),
     [onSelectNode],
   );
 
   const handleNodesDelete = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (deleted: Node<any>[]) => deleted.forEach((node) => onDeleteNode(node.id)),
+    (deleted: Node[]) => deleted.forEach((node) => onDeleteNode(node.id)),
     [onDeleteNode],
   );
 

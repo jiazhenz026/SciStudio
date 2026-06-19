@@ -1,20 +1,16 @@
 // BlockNode top-level smoke tests.
 //
-// Behavior-specific test groups live under __tests__/BlockNode/ after the
-// #1422 god-file refactor:
-//   - capabilities.test.tsx — ADR-043 format capabilities + #1307 filter +
-//     hidden direction field for IO blocks.
-//   - ports.test.tsx — ADR-028 §D4 dynamic port live-update + #467 Browse
-//     button removal.
-//   - errors.test.tsx — #422 inline error message rendering.
-//   - caret.test.tsx — #710 caret preservation + audit follow-up.
-//   - nativeDialog.test.tsx — #678 native-dialog status-aware fallback.
-//   - hooks1420.test.tsx — #1420 InlineTextInputField hook order
-//     (Wave 1) preserved through the Wave 2 split.
+// ADR-050 (#1698) rewrote BlockNode into a fixed square topology glyph.
+// Behavior-specific test groups live under __tests__/BlockNode/:
+//   - compactNode.test.tsx — fixed 104×104 geometry, no body config, label
+//     truncation, block-kind mark.
+//   - statusSurface.test.tsx — unified status surface + error/warning click.
+//   - ports.test.tsx — ADR-028 §D4 dynamic-port live-update + ADR-029
+//     variadic +/- min/max + port type colours/titles.
 //
 // This file keeps only the sanity smoke tests so a reader who opens
-// BlockNode.test.tsx still sees a quick "does this thing render at all"
-// check next to the component file.
+// BlockNode.test.tsx still sees a quick "does this thing render at all" check
+// next to the component file.
 
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen } from "@testing-library/react";
@@ -27,14 +23,17 @@ afterEach(() => {
 });
 
 describe("BlockNode — sanity smoke", () => {
-  it("renders the block label in the header", () => {
+  it("renders the block label", () => {
+    // ADR-050 canvas polish (#1698): the label renders below the square body.
     renderNode({ label: "My Test Block" });
-    expect(screen.getByText("My Test Block")).toBeInTheDocument();
+    expect(screen.getByTestId("block-node-label")).toHaveTextContent("My Test Block");
   });
 
-  it("renders the io category icon for io blocks", () => {
+  it("renders a category icon (lucide svg) for io blocks", () => {
     const { container } = renderNode({ category: "io" });
-    // Icon is the folder emoji "📁" (U+1F4C1) — check it appears somewhere.
-    expect(container.textContent).toContain("📁");
+    // ADR-050 canvas polish (#1698): the block-kind mark is now a lucide line
+    // icon (an <svg>) in the body, not an emoji text node.
+    const body = container.querySelector('[data-testid="block-node-body"]');
+    expect(body?.querySelector("svg")).not.toBeNull();
   });
 });

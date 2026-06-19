@@ -85,6 +85,11 @@ frontend/tsconfig.tsbuildinfo
 # Built frontend served by Python backend (not committed, created by CI)
 src/scistudio/api/static/
 
+# Playwright e2e run outputs (transient; specs are committed, artifacts are not)
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e/artifacts/
+
 
 # Workflow gate state files (local per-developer)
 .workflow/active/

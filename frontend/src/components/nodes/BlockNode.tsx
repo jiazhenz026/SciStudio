@@ -1,143 +1,52 @@
-// BlockNode — canvas node for a SciStudio block instance.
+// BlockNode — fixed square topology glyph for a SciStudio block instance.
 //
-// Refactored under #1422 to delegate to focused sub-modules in
-// ./BlockNode.parts/. The discriminator for inline-config widgets, the
-// status badge, the lazy file-picker modal, and the port-rendering logic
-// all live in dedicated files. This module owns:
-//   - the top-level BlockNode component (header / footer JSX, schema-driven
-//     port-row layout measurement),
-//   - per-instance computations that drive the sub-modules (effective ports,
-//     capability filtering, port-row start Y measurement).
+// ADR-050 §2 rewrite (#1698): the canvas node is a fixed 104×104 square whose
+// body shows block IDENTITY ONLY — the block-kind category mark and the block
+// label (capped to two visual lines). Computational configuration moved
+// entirely to the BottomPanel Config tab; the node body renders NO config
+// fields, NO data-type/role subtitle, NO status footer, NO inline error text,
+// NO warning chip, and NO paused toast. The body never grows for any reason
+// (FR-001..FR-007, FR-011).
 //
-// Wave 1 (#1420/#1421) discipline preserved:
-//   - InlineConfigField's default branch is delegated to
-//     `InlineTextInputField`, keeping every hook chain at the top level of
-//     its own component (rules-of-hooks).
-//   - The two useLayoutEffect calls below carry the same eslint-disable
-//     rationale as before — the inline measurement effect only depends on
-//     list lengths, not on the node's full render output.
+// Runtime state, warnings, and errors render through the single unified
+// `NodeStatusSurface` corner glyph. Run/restart/delete float OUTSIDE the
+// square in `NodeActionToolbar` on hover/selected. Port handles + ADR-029
+// variadic +/- controls stay on the left/right rails via `PortHandles`,
+// aligned to the square through `nodeGeometry`.
+//
+// This module owns the per-instance computations that drive the sub-modules
+// (effective ports for dynamic blocks, variadic min/max limits) — the same
+// contracts as before, minus the deleted inline-config path.
 
 import { type Node, type NodeProps } from "@xyflow/react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { FormatCapabilityResponse, TypeHierarchyEntry } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
-import { LossySaveWarning } from "../WorkflowEditor/LossySaveWarning";
 
-import { ErrorMessage } from "./BlockNode.parts/ErrorMessage";
-import { InlineCapabilitySelector } from "./BlockNode.parts/InlineCapabilitySelector";
-import { InlineConfigField } from "./BlockNode.parts/InlineConfigField";
-import { PausedToast } from "./BlockNode.parts/PausedToast";
+import { NodeActionToolbar } from "./BlockNode.parts/NodeActionToolbar";
+import { NodeStatusSurface } from "./BlockNode.parts/NodeStatusSurface";
 import { PortHandles } from "./BlockNode.parts/PortHandles";
-import { StatusBadge } from "./BlockNode.parts/StatusBadge";
-import { categoryIcons } from "./BlockNode.parts/badgeStyles";
-import { getTopConfigProperties } from "./BlockNode.parts/inlineConfigHelpers";
-
-function ancestorTypeNames(typeName: string, typeHierarchy: TypeHierarchyEntry[]): Set<string> {
-  const ancestors = new Set<string>();
-  if (!typeName) return ancestors;
-  ancestors.add(typeName);
-  const index = new Map(typeHierarchy.map((entry) => [entry.name, entry]));
-  let current = index.get(typeName);
-  while (current?.base_type && !ancestors.has(current.base_type)) {
-    ancestors.add(current.base_type);
-    current = index.get(current.base_type);
-  }
-  return ancestors;
-}
-
-function capabilitiesForType(
-  capabilities: FormatCapabilityResponse[],
-  selectedType: string | null,
-  typeHierarchy: TypeHierarchyEntry[],
-): FormatCapabilityResponse[] {
-  if (!selectedType) return capabilities;
-  const acceptedTypes = ancestorTypeNames(selectedType, typeHierarchy);
-  const filtered = capabilities.filter((capability) => acceptedTypes.has(capability.data_type));
-  if (!acceptedTypes.has("Artifact")) return filtered;
-  let artifactInserted = false;
-  return filtered.flatMap((capability) => {
-    if (capability.data_type !== "Artifact") return [capability];
-    if (artifactInserted) return [];
-    artifactInserted = true;
-    return [
-      {
-        ...capability,
-        id: `core.artifact.any.${capability.direction}`,
-        data_type: "Artifact",
-        format_id: "any",
-        extensions: [],
-        label: "Any",
-        is_default: true,
-        roundtrip_group: null,
-        is_synthesized: false,
-        migration_scaffold: false,
-      },
-    ];
-  });
-}
-
-function coreTypeFromConfig(
-  configProps: ReturnType<typeof getTopConfigProperties>,
-  config: BlockNodeData["config"],
-): string | null {
-  const coreTypeConfig = configProps.find((prop) => prop.key === "core_type")?.schema;
-  if (typeof config?.core_type === "string") return config.core_type;
-  if (typeof coreTypeConfig?.default === "string") return coreTypeConfig.default;
-  return null;
-}
-
-function dynamicPortConfigValue(
-  configProps: ReturnType<typeof getTopConfigProperties>,
-  config: BlockNodeData["config"],
-  sourceConfigKey: string | undefined,
-): string | undefined {
-  if (sourceConfigKey == null) return undefined;
-  const configured = config?.[sourceConfigKey];
-  if (typeof configured === "string" && configured) return configured;
-  const schemaDefault = configProps.find((prop) => prop.key === sourceConfigKey)?.schema.default;
-  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
-}
+import { getCategoryVisual } from "./BlockNode.parts/categoryVisuals";
+import { NODE_BORDER_RADIUS, NODE_SIZE } from "./BlockNode.parts/nodeGeometry";
 
 export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
-  // ADR-028 Addendum 1 §B fix #2 / §C11: hide the ``direction`` config
-  // field for any IO block (not just the legacy abstract-base type_name).
-  // ``direction`` is a ClassVar on the IOBlock subclass — it is not a
-  // user-editable runtime config field — so it must not be rendered in
-  // any IO block's inline config strip.
-  const configProps = getTopConfigProperties(data.schema?.config_schema).filter(
-    (prop) => !(data.category === "io" && prop.key === "direction"),
-  );
-  // Fix #1307: when the block has a ``core_type`` driving config (LoadData /
-  // SaveData), the inline Format dropdown MUST only show capabilities whose
-  // ``data_type`` matches the active core_type, otherwise the user can pick
-  // illegal combinations (e.g. core_type=Series + capability_id=
-  // ``core.dataframe.csv.save``) that produce undefined runtime behaviour.
-  // Blocks without a ``core_type`` field (e.g. imaging.threshold) are
-  // unaffected because the filter is a no-op when ``coreType`` is null.
-  const allFormatCapabilities = data.schema?.format_capabilities ?? [];
-  const coreType = coreTypeFromConfig(configProps, data.config);
-  const formatCapabilities = capabilitiesForType(
-    allFormatCapabilities,
-    coreType,
-    data.schema?.type_hierarchy ?? [],
-  );
-  const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
-  // ADR-028 Addendum 1 §B fix #3 / §C8: read ``direction`` from the schema
-  // (class-level ClassVar, populated by the backend at scan time) instead
-  // of from ``data.config?.direction``. After ADR-028 there is no runtime
-  // ``direction`` config value — reading the old path always returned
-  // undefined, breaking the Save Block directory picker.
-  // ADR-028 Addendum 1 §D4 / spec §d step 4: compute effective ports from
-  // the dynamic-port descriptor + driving config value. Static blocks pay
-  // zero cost (the helper returns ``basePorts`` by reference). Dynamic
-  // blocks (e.g. ``LoadData``) get per-instance ``accepted_types`` so the
-  // port colour resolved by ``resolveTypeColor()`` updates live as the
-  // user changes the dropdown.
+  // ADR-050 §2.1 — block-kind mark + macaron body colour from the base
+  // category (lucide line icon; per-block custom icons need a backend field,
+  // tracked as follow-up — see categoryVisuals.ts).
+  const visual = getCategoryVisual(data.category);
+  const CategoryIcon = visual.Icon;
+
+  // ADR-028 Addendum 1 §D4 — compute effective ports from the dynamic-port
+  // descriptor + driving config value so dynamic blocks (LoadData / SaveData)
+  // get per-instance accepted_types and correct port colours. Static blocks
+  // pay zero cost (the helper returns basePorts by reference). The driving
+  // config value is read directly from `data.config`; the node body no longer
+  // renders an editor for it (config lives in BottomPanel), but the value the
+  // user picked there still drives the port type shown on the canvas.
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
-  const drivingConfigValue = dynamicPortConfigValue(configProps, data.config, sourceConfigKey);
+  const drivingConfigValue = resolveDrivingConfigValue(data, sourceConfigKey);
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
@@ -151,48 +60,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
     "output",
   );
 
-  // Measure the header height so port handles can hang off the LEFT/RIGHT
-  // edges starting just below the first horizontal divider (i.e. aligned
-  // with the inline-config rows) instead of being stacked below the entire
-  // config block. The previous "below config" layout left the lower half
-  // of the node empty when there were 1–3 ports, wasting vertical space.
-  // Ports stick into the block by only 7px (handle is positioned at
-  // ``left: -7`` / ``right: -7``) which sits inside the config rows'
-  // ``px-3`` padding margin without overlapping the input widgets.
-  //
-  // We measure the config section's ``offsetTop`` (= bottom edge of the
-  // header) and add 14px so port row 1 lands roughly on the vertical
-  // centre of the first inline-config field. Subsequent ports stride by
-  // 20px so 3 ports cover the typical 3-row inline-config strip.
-  //
-  // Variadic blocks (DataRouter etc.) usually have no inline-config rows
-  // and may render 5+ ports. Those ports cascade down from the top; if
-  // their count exceeds the natural block height, they extend past the
-  // footer just like they did under the previous layout — handle this in
-  // the PortEditor in the BottomPanel rather than dynamically resizing
-  // the node here.
-  const configSectionRef = useRef<HTMLDivElement>(null);
-  const [portStartY, setPortStartY] = useState(50);
-  useLayoutEffect(() => {
-    if (configSectionRef.current) {
-      // ``offsetTop`` is the header-bottom Y in the node's local
-      // coordinate system (unaffected by ReactFlow's zoom transform).
-      // Add 14px to centre port row 1 on the first config row.
-      const offset = configSectionRef.current.offsetTop + 14;
-      setPortStartY(offset);
-    }
-    // Re-measure only when config properties or port lists change, not on
-    // every render (which causes port jitter during edge dragging).
-  }, [configProps.length, effectiveInputPorts.length, effectiveOutputPorts.length]);
-
-  const handleConfigChange = (key: string, value: unknown) => {
-    data.onUpdateConfig?.(
-      key === sourceConfigKey ? { [key]: value, capability_id: null } : { [key]: value },
-    );
-  };
-
-  // ADR-029 D2: variadic port UI — [+] and [-] controls.
-  // ADR-029 Addendum 1: min/max port count limits.
+  // ADR-029 D2 / Addendum 1 — variadic port UI: [+] / [-] controls + min/max.
   const isVariadicInputs = data.schema?.variadic_inputs === true;
   const isVariadicOutputs = data.schema?.variadic_outputs === true;
   const minInputPorts = data.schema?.min_input_ports ?? null;
@@ -204,162 +72,135 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   const canAddOutput = maxOutputPorts == null || effectiveOutputPorts.length < maxOutputPorts;
   const canRemoveOutput = minOutputPorts == null || effectiveOutputPorts.length > minOutputPorts;
 
+  // Action toolbar visibility is local hover state OR ReactFlow `selected`.
+  // It is a floating overlay outside the square, so it never affects geometry.
+  //
+  // The toolbar floats ABOVE the square with a small gap; moving the cursor
+  // from the node up to the toolbar briefly crosses that gap (leaving the
+  // shell's bounds), which would hide the toolbar before it can be clicked.
+  // A short hide DELAY (cancelled on re-enter, including re-enter onto the
+  // toolbar itself, which is a shell descendant) lets the user reach it
+  // without first selecting the node (#1698 canvas UX).
+  const [hovered, setHovered] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showActions = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setHovered(true);
+  };
+  const scheduleHideActions = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      setHovered(false);
+      hideTimer.current = null;
+    }, 450);
+  };
+  useEffect(
+    () => () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    },
+    [],
+  );
+  const actionsVisible = hovered || selected === true;
+
   return (
     <div
-      className={`w-[280px] rounded-xl border bg-white shadow-sm ${
-        selected ? "border-ember shadow-panel" : "border-stone-200"
-      }`}
+      data-testid="block-node-shell"
+      className="relative"
+      onMouseEnter={showActions}
+      onMouseLeave={scheduleHideActions}
     >
-      {/* ----------------------------------------------------------------- */}
-      {/* Header                                                            */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="flex items-center justify-between gap-2 border-b border-stone-100 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="text-base leading-none">{categoryIcon}</span>
-          <span className="truncate font-display text-sm font-semibold text-ink">{data.label}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            className="nodrag rounded p-1 text-stone-400 transition-colors hover:bg-stone-100 hover:text-ink"
-            title="Run block"
-            onClick={() => data.onRun?.()}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4 2.5v11l9-5.5z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="nodrag rounded p-1 text-stone-400 transition-colors hover:bg-stone-100 hover:text-ink"
-            title="Restart block"
-            onClick={() => data.onRestart?.()}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v2.5h-2.5" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="nodrag rounded p-1 text-stone-400 transition-colors hover:bg-red-50 hover:text-red-500"
-            title="Remove block"
-            onClick={() => data.onDelete?.()}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Inline config                                                     */}
-      {/* ----------------------------------------------------------------- */}
-      <div
-        ref={configSectionRef}
-        className="nodrag nowheel space-y-2 overflow-hidden border-b border-stone-100 px-3 py-2"
-      >
-        {configProps.length > 0
-          ? configProps.map((prop) => (
-              <InlineConfigField
-                key={prop.key}
-                prop={prop}
-                value={data.config?.[prop.key]}
-                onChange={handleConfigChange}
-              />
-            ))
-          : null}
-        {formatCapabilities.length > 0 ? (
-          <InlineCapabilitySelector
-            capabilities={formatCapabilities}
-            value={data.config?.capability_id}
-            onChange={(capabilityId) => data.onUpdateConfig?.({ capability_id: capabilityId })}
-          />
-        ) : configProps.length === 0 ? (
-          <p className="text-center text-[11px] italic text-stone-400">No parameters</p>
-        ) : null}
-      </div>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Port handles (positioned absolutely by React Flow)                */}
-      {/* ----------------------------------------------------------------- */}
-      {/* Use effective ports so dynamic blocks (LoadData, SaveData) get   */}
-      {/* per-instance accepted_types resolved from data.schema?.dynamic_ports */}
-      {/* + the current driving config value (ADR-028 Addendum 1 §D4).      */}
-      <PortHandles
-        nodeId={nodeId}
-        data={data}
-        effectiveInputPorts={effectiveInputPorts}
-        effectiveOutputPorts={effectiveOutputPorts}
-        portStartY={portStartY}
-        isVariadicInputs={isVariadicInputs}
-        isVariadicOutputs={isVariadicOutputs}
-        canAddInput={canAddInput}
-        canRemoveInput={canRemoveInput}
-        canAddOutput={canAddOutput}
-        canRemoveOutput={canRemoveOutput}
+      {/* Floating actions — outside the square body (ADR-050 §2.2). */}
+      <NodeActionToolbar
+        visible={actionsVisible}
+        onRun={data.onRun}
+        onRestart={data.onRestart}
+        onDelete={data.onDelete}
       />
 
       {/* ----------------------------------------------------------------- */}
-      {/* Footer                                                            */}
+      {/* Fixed 104×104 square body — identity only (ADR-050 §2.1)          */}
+      {/* Width === height and never grows; status/actions/ports overlay    */}
+      {/* via absolute positioning and do not change measured geometry.     */}
       {/* ----------------------------------------------------------------- */}
-      <div className="border-t border-stone-100 px-3 py-2">
-        <div className="flex min-w-0 items-center">
-          <StatusBadge status={data.status} onErrorClick={data.onErrorClick} />
-          {data.status === "error" && (data.errorSummary ?? data.errorMessage) ? (
-            <ErrorMessage message={data.errorSummary ?? data.errorMessage!} />
-          ) : null}
-        </div>
-        {/* ADR-043 FR-014 — lossy-save warning chip. Only rendered for
-            save-direction IO blocks where the parent has supplied
-            `upstreamOmeFields` AND a capability is selected whose
-            `metadata_fidelity` would drop any of those fields. The
-            LossySaveWarning component itself returns null when the
-            dropped-field set is empty, so this branch is cheap when
-            there is no warning to surface. */}
-        {data.category === "io" &&
-          (data.schema?.direction === "output" || data.schema?.direction === "save") &&
-          data.upstreamOmeFields &&
-          data.upstreamOmeFields.length > 0 &&
-          (() => {
-            const selectedId = data.config?.capability_id;
-            const selectedCap =
-              formatCapabilities.find(
-                (c) => typeof selectedId === "string" && c.id === selectedId,
-              ) ?? (formatCapabilities.length === 1 ? formatCapabilities[0] : undefined);
-            if (!selectedCap) return null;
-            return (
-              <div className="mt-1">
-                <LossySaveWarning
-                  sourceOmeFields={data.upstreamOmeFields}
-                  targetCapabilityFidelity={selectedCap.metadata_fidelity}
-                />
-              </div>
-            );
-          })()}
-        {data.status === "paused" && data.category === "app" && (
-          <PausedToast outputDir={String(data.config?.output_dir ?? "")} />
-        )}
-        {data.status === "paused" && data.category !== "app" && (
-          <div className="mt-1 flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] text-blue-700">
-            Waiting for user input...
-          </div>
-        )}
+      <div
+        data-testid="block-node-body"
+        className={`relative flex items-center justify-center border shadow-sm ${
+          selected ? "border-ember shadow-panel" : ""
+        }`}
+        style={{
+          width: NODE_SIZE,
+          height: NODE_SIZE,
+          borderRadius: NODE_BORDER_RADIUS,
+          backgroundColor: visual.bg,
+          borderColor: selected ? undefined : visual.border,
+        }}
+      >
+        {/* Block-kind mark — single lucide line icon in the category accent
+            colour (n8n-style glyph; the body shows identity, nothing else). */}
+        <CategoryIcon size={48} color={visual.fg} strokeWidth={1.75} aria-hidden="true" />
+
+        {/* Unified status surface — corner glyph, zero geometry impact. */}
+        <NodeStatusSurface
+          status={data.status}
+          problemSeverity={data.problemSeverity}
+          errorSummary={data.errorSummary}
+          errorMessage={data.errorMessage}
+          onErrorClick={data.onErrorClick}
+          onWarningClick={data.onWarningClick}
+        />
+
+        {/* Port handles + variadic +/- controls on the left/right rails.
+            Rendered inside the square body so ReactFlow positions handles
+            relative to the node origin; rails may overflow below the square
+            for many ports, but the body stays fixed (ADR-050 §2.4). */}
+        <PortHandles
+          nodeId={nodeId}
+          data={data}
+          effectiveInputPorts={effectiveInputPorts}
+          effectiveOutputPorts={effectiveOutputPorts}
+          isVariadicInputs={isVariadicInputs}
+          isVariadicOutputs={isVariadicOutputs}
+          canAddInput={canAddInput}
+          canRemoveInput={canRemoveInput}
+          canAddOutput={canAddOutput}
+          canRemoveOutput={canRemoveOutput}
+        />
       </div>
+
+      {/* Block label BELOW the square (n8n-style): the body stays a pure
+          glyph and the name reads underneath, where it may be a little wider
+          than the square. Absolute + `top-full` keeps it out of layout flow
+          (zero geometry impact); two-line clamp + ellipsis bound long names,
+          full text in the title tooltip. */}
+      <span
+        data-testid="block-node-label"
+        className="pointer-events-none absolute left-1/2 top-full mt-1.5 line-clamp-2 w-[140px] -translate-x-1/2 text-center font-display text-[13px] font-semibold leading-tight text-ink"
+        title={data.label}
+      >
+        {data.label}
+      </span>
     </div>
   );
+}
+
+/**
+ * Read the dynamic-port driving config value (e.g. LoadData `core_type`) from
+ * the node config, falling back to the schema default. The user edits this in
+ * BottomPanel Config; the node body only reads it to colour ports.
+ */
+function resolveDrivingConfigValue(
+  data: BlockNodeData,
+  sourceConfigKey: string | undefined,
+): string | undefined {
+  if (sourceConfigKey == null) return undefined;
+  const configured = data.config?.[sourceConfigKey];
+  if (typeof configured === "string" && configured) return configured;
+  const properties = data.schema?.config_schema?.properties as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  const schemaDefault = properties?.[sourceConfigKey]?.default;
+  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
 }

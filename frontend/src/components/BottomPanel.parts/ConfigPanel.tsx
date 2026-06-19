@@ -5,9 +5,12 @@ import type {
   BlockSchemaResponse,
   FormatCapabilityResponse,
   TypeHierarchyEntry,
+  WorkflowEdge,
   WorkflowNode,
 } from "../../types/api";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
+import { lossyOmeFields } from "../../api/capabilities";
+import { LossySaveWarning, collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
 import { FileBrowserModal } from "../nodes/BlockNode.parts/FileBrowserModal";
 
 import { CaretPreservingTextInput } from "./CaretPreservingTextInput";
@@ -285,14 +288,84 @@ function orderedConfigEntries(
     }) as Array<[string, Record<string, unknown>]>;
 }
 
+/**
+ * ADR-050 FR-014 — collect the union of upstream OME field paths that feed
+ * the selected node, by walking every edge whose target is this node back to
+ * the source block's cached outputs. Mirrors
+ * ``flowNodeBuilder.computeUpstreamOmeFields`` but lives here so the
+ * BottomPanel Config detail does not depend on a WorkflowCanvas-owned file
+ * (the canvas no longer renders the lossy-save chip per ADR-050 §2.3/§2.5).
+ *
+ * Edge endpoints carry a ``"<nodeId>:<port>"`` suffix; the node id is the
+ * portion before the first ``:``.
+ */
+function upstreamOmeFieldsFor(
+  nodeId: string,
+  edges: WorkflowEdge[] | undefined,
+  blockOutputs: Record<string, Record<string, unknown>> | undefined,
+): string[] {
+  if (!edges || !blockOutputs) return [];
+  const sourceIds = edges
+    .filter((edge) => edge.target.split(":")[0] === nodeId)
+    .map((edge) => edge.source.split(":")[0]);
+  if (sourceIds.length === 0) return [];
+  const collected = new Set<string>();
+  for (const sourceId of sourceIds) {
+    const outputs = blockOutputs[sourceId];
+    if (!outputs) continue;
+    for (const field of collectUpstreamOmeFields(outputs)) {
+      collected.add(field);
+    }
+  }
+  return Array.from(collected);
+}
+
+/**
+ * ADR-050 FR-014 — resolve the capability whose ``metadata_fidelity`` governs
+ * the lossy-save check for the selected save node: the explicitly pinned
+ * ``capability_id`` when present, otherwise the sole capability when exactly
+ * one matches. Returns ``undefined`` when the selection is ambiguous.
+ */
+function selectedSaveCapability(
+  capabilities: FormatCapabilityResponse[],
+  capabilityId: unknown,
+): FormatCapabilityResponse | undefined {
+  if (typeof capabilityId === "string") {
+    const pinned = capabilities.find((capability) => capability.id === capabilityId);
+    if (pinned) return pinned;
+  }
+  if (capabilities.length === 1) return capabilities[0];
+  return undefined;
+}
+
+function isSaveDirectionIoNode(schema: BlockSchemaResponse): boolean {
+  return (
+    schema.base_category === "io" && (schema.direction === "output" || schema.direction === "save")
+  );
+}
+
 export function ConfigPanel({
   selectedNode,
   schema,
   onUpdateConfig,
+  blockOutputs,
+  edges,
 }: {
   selectedNode: WorkflowNode | null;
   schema?: BlockSchemaResponse;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
+  /**
+   * ADR-050 FR-014 — ``blockId -> output payload`` map used to compute the
+   * upstream OME fields that feed the selected save node. OPTIONAL so the
+   * panel type-checks standalone and degrades gracefully (no lossy detail)
+   * when FE-2's wiring has not supplied it yet.
+   */
+  blockOutputs?: Record<string, Record<string, unknown>>;
+  /**
+   * ADR-050 FR-014 — workflow edges used to resolve which upstream blocks
+   * feed the selected node. OPTIONAL for the same reason as ``blockOutputs``.
+   */
+  edges?: WorkflowEdge[];
 }) {
   const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ??
     {}) as Record<string, unknown>;
@@ -342,6 +415,35 @@ export function ConfigPanel({
       />
     ) : null;
 
+  // ADR-050 FR-014 — lossy-save warning detail. The canvas square node no
+  // longer renders this chip (ADR-050 §2.5); BottomPanel Config is the sole
+  // surface for the validation detail. Only IO save-direction nodes whose
+  // selected capability would drop upstream OME fields surface a warning;
+  // LossySaveWarning itself returns null when the dropped-field set is empty.
+  const lossySaveDetail = (() => {
+    if (!isSaveDirectionIoNode(schema)) return null;
+    const upstreamOmeFields = upstreamOmeFieldsFor(selectedNode.id, edges, blockOutputs);
+    if (upstreamOmeFields.length === 0) return null;
+    const selectedCapability = selectedSaveCapability(
+      visibleFormatCapabilities,
+      params.capability_id,
+    );
+    if (!selectedCapability) return null;
+    // Gate the wrapper on the actual dropped-field set so we render no empty
+    // detail container when the capability round-trips everything (lossless).
+    if (lossyOmeFields(upstreamOmeFields, selectedCapability.metadata_fidelity).length === 0) {
+      return null;
+    }
+    return (
+      <div className="mb-4 max-w-2xl" data-testid="config-lossy-save-detail">
+        <LossySaveWarning
+          sourceOmeFields={upstreamOmeFields}
+          targetCapabilityFidelity={selectedCapability.metadata_fidelity}
+        />
+      </div>
+    );
+  })();
+
   return (
     <div>
       {isVariadicInputs && (
@@ -369,6 +471,7 @@ export function ConfigPanel({
       {!hasCoreTypeField && formatSelector ? (
         <div className="mb-4 max-w-2xl">{formatSelector}</div>
       ) : null}
+      {lossySaveDetail}
       <div className={hasCoreTypeField ? "grid max-w-2xl gap-4" : "grid gap-4 md:grid-cols-2"}>
         {ordered.map(([key, value]) => {
           const currentValue = params[key] ?? value.default ?? "";
