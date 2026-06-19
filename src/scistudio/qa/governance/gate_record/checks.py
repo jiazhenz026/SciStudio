@@ -389,6 +389,7 @@ def run_check(
     *,
     changed_files: Sequence[str],
     diff_fingerprint: str | None,
+    input_fingerprint: str | None = None,
 ) -> CheckEvent:
     """Run a single check in the parity environment, returning a CheckEvent.
 
@@ -402,7 +403,7 @@ def run_check(
     command_text = " ".join(spec.command)
     repo_relative_command = command_text if spec.cwd == "." else f"(cd {spec.cwd} && {command_text})"
     covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
-    input_fp = fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint
+    input_fp = input_fingerprint or (fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint)
 
     argv, env = _resolve_execution(repo_root, spec)
     env = _with_check_env(name, env)

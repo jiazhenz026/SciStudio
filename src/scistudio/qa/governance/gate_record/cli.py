@@ -93,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--pr-context-file")
     check.add_argument("--only", action="append", default=[])
     check.add_argument("--skip-execution", action="store_true")
+    check.add_argument(
+        "--force-checks",
+        action="store_true",
+        help="Execute all selected checks even when current passing evidence already exists.",
+    )
     # Run checks/guards and report pass/fail WITHOUT persisting the ledger. Used
     # by the pre-commit/commit-msg git hooks: under the pre-commit framework a
     # hook that modifies a tracked file (the ledger) fails the commit with "files
@@ -163,6 +168,7 @@ def _add_mode_alias(sub: argparse._SubParsersAction, name: str, mode: str) -> No
     alias.add_argument("--pr-context-file")
     alias.add_argument("--only", action="append", default=[])
     alias.add_argument("--skip-execution", action="store_true")
+    alias.add_argument("--force-checks", action="store_true")
     _add_field_flags(alias)
     alias.set_defaults(_alias_to="check", _alias_mode=mode)
 

@@ -140,7 +140,13 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       >
         {/* Block-kind mark — single lucide line icon in the category accent
             colour (n8n-style glyph; the body shows identity, nothing else). */}
-        <CategoryIcon size={48} color={visual.fg} strokeWidth={1.75} aria-hidden="true" />
+        <CategoryIcon
+          data-testid="block-node-category-icon"
+          size={48}
+          color={visual.fg}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
 
         {/* Unified status surface — corner glyph, zero geometry impact. */}
         <NodeStatusSurface

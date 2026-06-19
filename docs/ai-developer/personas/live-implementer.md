@@ -141,7 +141,8 @@ Keep it current throughout the session, not only at the end.
 The `guided` task kind's default is Tier 2. The evaluator will automatically
 escalate to Tier 1 if the observed diff touches protected core paths, governance
 surfaces, or constitutes broad cross-module work. You do not choose the tier.
-When escalated, the full local CI mirror runs; plan for it.
+When escalated, the full local CI mirror is required; current passing evidence
+is reused and missing or stale checks run. Plan for that cost.
 
 ## 7. Final Checks Before PR Readiness
 

@@ -227,14 +227,16 @@ python -m scistudio.qa.governance.gate_record check \
 | `--check` | no | yes | Add a task-specific required check before inference |
 | `--check-na` | no | yes | Record accepted N/A rationale for a check (see §9 for the ci.yml-owned caveat) |
 | `--admin-label` | no | yes | Requested/expected admin label (local records intent only; CI verifies provenance) |
-| `--only` | no | yes | Run only selected checks for recovery; reconciliation still reports missing obligations |
+| `--only` | no | yes | Run only selected missing/stale checks for recovery; reconciliation still reports missing obligations |
 | `--skip-execution` | no | no | Reconcile without running commands; sufficient for final PR readiness only when every required check has current passing evidence |
+| `--force-checks` | no | no | Rerun all selected checks even when current passing evidence already exists |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 `check` automatically: (1) observes the current git diff; (2) infers required
 checks from changed files, task kind, persona, plan, and CI configuration;
-(3) runs all required local commands unless `--only` / `--skip-execution`;
-with `--skip-execution`, validates existing check evidence for the current diff;
+(3) reuses current passing check evidence and runs only missing or stale
+required checks unless `--force-checks` is passed; with `--skip-execution`,
+validates existing check evidence for the current diff;
 (4) writes raw transcripts only under ignored local paths (`.workflow/local/**`);
 (5) records sanitized check events in the committed ledger; (6) runs all
 applicable guards through the shared evaluator; (7) records a reconciliation
@@ -374,7 +376,7 @@ Baseline tier by task kind:
 
 | Tier | Baseline task kinds | Meaning |
 |---|---|---|
-| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must run a full local mirror of merge-blocking CI command surfaces |
+| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must prove the full local mirror of merge-blocking CI command surfaces; current evidence is reused and missing/stale checks run |
 | Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before PR readiness |
 | Tier 3 (Lightweight) | `docs`, `manager` | May start with a sparse plan. `check` runs only mandatory checks for the observed diff |
 
@@ -400,7 +402,7 @@ Per-concern tier behavior:
 | `init` | Issue (when known), branch, owner directive, persona, task kind, and initial scope | Branch, owner directive, persona, task kind; issue/scope may be completed later | Branch, owner directive, persona, task kind; issue/scope may be completed later |
 | `plan` | Required before implementation; declare expected docs/tests/checks or N/A | Required before final check; may be partial during debugging | Optional unless the evaluator needs early docs/tests/scope guidance |
 | `amend` | Allowed; every scope/obligation correction needs a `--reason` | Normal way to add discovered scope/tests/docs/issues | Normal way to record live directives and late fields |
-| `check` | Full merge-blocking CI mirror; `--only`/`--skip-execution` recovery-only | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
+| `check` | Full merge-blocking CI mirror evidence; default incremental execution; `--force-checks` reruns all selected checks | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
 | `finalize` | Fails if any plan/test/docs/check/issue field is missing | Fails if observed diff lacks issue/test/docs/check reconciliation | Fails if observed diff lacks issue/test/docs/check reconciliation |
 | Admin label | Required for protected core, gate bypass, or merge automation | Same | Same |
 
@@ -467,7 +469,8 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
   initial feature scope (`--include` required at init).
 - **Obligations**: implementation tests required; docs/spec/ADR required when
   contracts, schemas, runtime behavior, API, UI semantics, or storage change;
-  full local CI mirror required; PR closes the feature issue.
+  full local CI mirror evidence required; default check execution reuses current
+  evidence and runs missing/stale checks; PR closes the feature issue.
 - **CLI profile**:
   - `init --task-kind feature --persona <persona> --runtime <id> --branch <branch> --owner-directive "<feature directive>" --issue <n> --include <path>`
   - `plan --include <implementation-path> --test-path <test-path> --docs-updated <doc-or-spec-path> [--check <name>] [--admin-label <label>]`
@@ -480,7 +483,9 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive, issue,
   refactor scope.
 - **Obligations**: tests must cover affected contracts, or an N/A must explain
-  how unchanged behavior is otherwise proven; full local CI mirror required;
+  how unchanged behavior is otherwise proven; full local CI mirror evidence
+  required; default check execution reuses current evidence and runs
+  missing/stale checks;
   docs only when architecture or public shape changes; PR states
   behavior-preserving intent and closes the issue.
 - **CLI profile**:
@@ -511,8 +516,9 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive, issue,
   maintenance surface.
 - **Obligations**: Tier 2 baseline plus changed-surface checks; escalates to
-  full local CI mirror when the diff touches protected/governance/runtime/
-  workflow surfaces; governance weakening / protected checks when applicable;
+  full local CI mirror evidence when the diff touches protected/governance/
+  runtime/workflow surfaces; default check execution reuses current evidence and
+  runs missing/stale checks; governance weakening / protected checks when applicable;
   tests for tooling behavior when implementation changes; PR closes the issue.
 - **CLI profile**:
   - `init --task-kind maintenance --persona <persona> --runtime <id> --branch <branch> --owner-directive "<maintenance directive>" --issue <n> --include <path> [--governance-touch true]`
@@ -544,7 +550,8 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
   governance / broad-refactor work.
 - **Obligations**: before PR readiness the actual diff must be explainable by
   recorded owner-directive events; Tier 2 baseline plus changed-surface checks
-  by default, or full local CI mirror when escalated to Tier 1; PR cannot open
+  by default, or full local CI mirror evidence when escalated to Tier 1; default
+  check execution reuses current evidence and runs missing/stale checks; PR cannot open
   until current diff, issue linkage, docs/tests/checks, and closure intent
   reconcile.
 - **CLI profile**:
@@ -651,8 +658,8 @@ tier, and the command sequence. `<base>` defaults to
 Open the PR with the gate-aware wrapper
 `python scripts/scistudio_pr_create.py --title "<type>(#<issue>): <summary>" --body "<body>"`,
 which runs `gate_record check --mode pre-pr --skip-execution` before invoking
-`gh pr create`. The wrapper validates that a full pre-PR check already produced
-current passing evidence; it does not execute that full check mirror again. The
+`gh pr create`. The wrapper validates that required checks already produced
+current passing evidence; it does not execute local checks again. The
 PR body must close every gate-listed issue with a GitHub closing keyword
 (`Closes #N` / `Fixes #N` / `Resolves #N`).
 
@@ -701,13 +708,14 @@ PR body must close every gate-listed issue with a GitHub closing keyword
   check or rely on CI. `--check-na` does waive task-specific / non-`ci.yml`-owned
   checks.
 
-- **`--only` is recovery-only; `--skip-execution` is evidence reuse.** `--only`
-  runs a subset for recovery and cannot create final readiness. `--skip-execution`
-  runs no commands; in `pre-pr` it is final-readiness capable only when all
-  required checks already have current passing evidence for the observed diff.
-  If evidence is absent or stale, the command prints a "RECOVERY MODE … NOT
-  final PR readiness" banner and tells the agent to run the full pre-PR check
-  once.
+- **Default check execution is incremental.** Current passing evidence is reused;
+  only missing or stale checks run. `--force-checks` intentionally reruns all
+  selected checks. `--only` runs a subset for recovery and cannot create final
+  readiness for the whole candidate. `--skip-execution` runs no commands; in
+  `pre-pr` it is final-readiness capable only when all required checks already
+  have current passing evidence for the observed diff. If evidence is absent or
+  stale, the command prints a "RECOVERY MODE … NOT final PR readiness" banner
+  and tells the agent to run the pre-PR check once.
 
 - **Default base is the merge-base.** When `--base` is omitted, the diff base is
   `git merge-base origin/main HEAD`, falling back to raw `origin/main` if the

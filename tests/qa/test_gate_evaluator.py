@@ -70,6 +70,18 @@ def _add_change(repo: Path, rel: str, content: str = "x\n") -> None:
     _git(repo, "commit", "-q", "-m", f"add {rel}")
 
 
+def _current_check_fingerprint(repo: Path, name: str = "full_audit") -> str | None:
+    return evaluator._check_input_fingerprint(
+        repo,
+        name,
+        base="HEAD~1",
+        head="HEAD",
+        staged=False,
+        changed_files=io.changed_files(repo, "HEAD~1", "HEAD"),
+        diff_fingerprint=io.diff_fingerprint(repo, "HEAD~1", "HEAD"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Ledger discovery and post-PR finalize behavior.
 # ---------------------------------------------------------------------------
@@ -713,9 +725,8 @@ def test_parity_gap_check_event_reports_distinctly_not_as_code_failure(
 
 def test_pre_pr_skip_execution_accepts_current_check_evidence(git_repo: Path) -> None:
     _add_change(git_repo, "docs/notes.md")
-    changed = io.changed_files(git_repo, "HEAD~1", "HEAD")
     diff_fp = io.diff_fingerprint(git_repo, "HEAD~1", "HEAD")
-    input_fp = io.fingerprint_paths(changed)
+    input_fp = _current_check_fingerprint(git_repo)
     ledger = _ledger(
         task_kind="docs",
         persona="adr_author",
@@ -784,6 +795,157 @@ def test_pre_pr_skip_execution_rejects_stale_check_evidence(git_repo: Path) -> N
     )
 
     assert "checks.full_audit" in result.unsatisfied
+
+
+def test_default_check_execution_reuses_current_evidence(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _add_change(git_repo, "docs/notes.md")
+    input_fp = _current_check_fingerprint(git_repo)
+    ledger = _ledger(
+        task_kind="docs",
+        persona="adr_author",
+        declared_scope=DeclaredScope(include=["docs/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+        docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
+        test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_events=[
+            CheckEvent(
+                name="full_audit",
+                command="python -m scistudio.qa.audit.full_audit",
+                covered_surface="governance",
+                input_fingerprint=input_fp,
+                exit_code=0,
+                status="pass",
+                summary="clean",
+            )
+        ],
+    )
+
+    def _unexpected_run_check(repo_root: Path, name: str, **_kw: object) -> CheckEvent:
+        raise AssertionError(f"unexpected check execution: {name}")
+
+    monkeypatch.setattr(checks, "run_check", _unexpected_run_check)
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        pr_body="Closes #1509",
+        run_checks=True,
+    )
+
+    assert not any(item.startswith("checks.") for item in result.unsatisfied)
+    assert [event.name for event in result.check_events] == ["full_audit"]
+
+
+def test_force_checks_reruns_current_evidence(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.qa.governance.gate_record import parity
+
+    _add_change(git_repo, "docs/notes.md")
+    input_fp = _current_check_fingerprint(git_repo)
+    ledger = _ledger(
+        task_kind="docs",
+        persona="adr_author",
+        declared_scope=DeclaredScope(include=["docs/**"]),
+        issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
+        docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
+        test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_events=[
+            CheckEvent(
+                name="full_audit",
+                command="python -m scistudio.qa.audit.full_audit",
+                covered_surface="governance",
+                input_fingerprint=input_fp,
+                exit_code=0,
+                status="pass",
+                summary="clean",
+            )
+        ],
+    )
+    ran: list[str] = []
+
+    def _fake_run_check(repo_root: Path, name: str, **kw: object) -> CheckEvent:
+        assert kw["input_fingerprint"] == input_fp
+        ran.append(name)
+        return CheckEvent(
+            name=name,
+            command="python -m scistudio.qa.audit.full_audit",
+            covered_surface="governance",
+            input_fingerprint=input_fp,
+            exit_code=0,
+            status="pass",
+            summary="clean",
+        )
+
+    monkeypatch.setattr(checks, "run_check", _fake_run_check)
+    monkeypatch.setattr(parity, "assess_parity", lambda *_a, **_kw: parity.ParityReport(importable=True))
+
+    result = evaluator.reconcile(
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        pr_body="Closes #1509",
+        run_checks=True,
+        force_checks=True,
+    )
+
+    assert ran == ["full_audit"]
+    assert not any(item.startswith("checks.") for item in result.unsatisfied)
+
+
+def test_check_fingerprint_ignores_gate_ledger_content(git_repo: Path) -> None:
+    _add_change(git_repo, "docs/notes.md")
+    before = _current_check_fingerprint(git_repo)
+
+    record = git_repo / ".workflow" / "records" / "1509-x.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text('{"schema_version":2,"record_id":"1509-x"}\n', encoding="utf-8")
+    _git(git_repo, "add", ".workflow/records/1509-x.json")
+    _git(git_repo, "commit", "-q", "-m", "record evidence")
+
+    after = evaluator._check_input_fingerprint(
+        git_repo,
+        "full_audit",
+        base="HEAD~2",
+        head="HEAD",
+        staged=False,
+        changed_files=io.changed_files(git_repo, "HEAD~2", "HEAD"),
+        diff_fingerprint=io.diff_fingerprint(git_repo, "HEAD~2", "HEAD"),
+    )
+
+    assert after == before
+
+
+def test_check_fingerprint_is_scoped_to_check_inputs(git_repo: Path) -> None:
+    _add_change(git_repo, "docs/notes.md")
+    before = _current_check_fingerprint(git_repo, "lint_format")
+
+    _add_change(git_repo, "docs/more-notes.md")
+    after_docs = evaluator._check_input_fingerprint(
+        git_repo,
+        "lint_format",
+        base="HEAD~2",
+        head="HEAD",
+        staged=False,
+        changed_files=io.changed_files(git_repo, "HEAD~2", "HEAD"),
+        diff_fingerprint=io.diff_fingerprint(git_repo, "HEAD~2", "HEAD"),
+    )
+    assert after_docs == before
+
+    _add_change(git_repo, "src/scistudio/new_module.py")
+    after_python = evaluator._check_input_fingerprint(
+        git_repo,
+        "lint_format",
+        base="HEAD~3",
+        head="HEAD",
+        staged=False,
+        changed_files=io.changed_files(git_repo, "HEAD~3", "HEAD"),
+        diff_fingerprint=io.diff_fingerprint(git_repo, "HEAD~3", "HEAD"),
+    )
+    assert after_python != before
 
 
 def test_genuine_check_failure_still_reads_as_code_failure(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:

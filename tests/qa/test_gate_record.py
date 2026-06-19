@@ -855,7 +855,7 @@ def test_incremental_check_validity_by_covered_surface() -> None:
 
 
 def test_parity_fails_closed_for_pr_readiness(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scistudio.qa.governance.gate_record import parity
+    from scistudio.qa.governance.gate_record import checks, parity
 
     _commit(git_repo, "src/scistudio/x.py")
     ledger = GateLedger.model_validate(
@@ -881,8 +881,26 @@ def test_parity_fails_closed_for_pr_readiness(git_repo: Path, monkeypatch: pytes
             importable=False, gaps=["cannot create isolated per-worktree venv: simulated"]
         ),
     )
+    monkeypatch.setattr(
+        checks,
+        "run_check",
+        lambda _repo, name, **_k: CheckEvent(
+            name=name,
+            command="ruff check .",
+            covered_surface="python",
+            input_fingerprint="sha256:test",
+            exit_code=0,
+            status="pass",
+        ),
+    )
     result = evaluator.reconcile(
-        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="pre-pr", run_checks=True, only=["__none__"]
+        ledger=ledger,
+        repo_root=git_repo,
+        base="HEAD~1",
+        head="HEAD",
+        mode="pre-pr",
+        run_checks=True,
+        only=["lint_format"],
     )
     # Fail closed: a parity gap is an unsatisfied obligation in PR-readiness mode.
     assert result.parity_gaps
@@ -985,9 +1003,7 @@ def test_finalize_reuses_check_evidence_by_default(
     assert seen["run_checks"] is False
 
 
-def test_finalize_force_checks_executes_checks(
-    git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_finalize_force_checks_executes_checks(git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from scistudio.qa.governance.gate_record.ledger import RequiredObligations
     from scistudio.qa.schemas.report import AuditReport, AuditStatus
 

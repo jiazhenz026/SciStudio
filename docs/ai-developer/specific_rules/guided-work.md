@@ -66,8 +66,8 @@ language_source: en
     reconcile before PR readiness.
 
 - When escalated to Tier 1:
-  - `check` must run the full local mirror of the merge-blocking CI command
-    surface.
+  - `check` must prove the full local mirror of the merge-blocking CI command
+    surface, reusing current evidence and running missing or stale checks.
   - Missing plan fields are hard failures before PR readiness.
 
 ## 4. Scope Expansion Through Owner Directive Events
@@ -244,8 +244,9 @@ when the obligation is recorded.
   commands one by one. `check` derives the full set and records sanitized
   evidence.
 
-- When escalated to Tier 1, `check` runs the full local mirror of the
-  merge-blocking CI surface.
+- When escalated to Tier 1, `check` proves the full local mirror of the
+  merge-blocking CI surface. Current passing evidence is reused; missing or
+  stale checks run.
 
 - When running at Tier 2 (default for `guided`), `check` runs the common
   governance/lint/audit baseline plus all CI jobs relevant to the observed diff.

@@ -223,10 +223,11 @@ python -m scistudio.qa.governance.gate_record check \
    declarations).
 2. Infers the tier-selected CI-equivalent check set from the CI workflow graph
    using the same path filters CI uses.
-3. Runs all required local commands at CI-resolved tool versions in a
-   CI-equivalent importable environment (without `pip install -e .`), unless
-   `--skip-execution` is explicitly used to validate already-recorded current
-   check evidence.
+3. Reuses current passing check evidence by default, and runs only missing or
+   stale required checks at CI-resolved tool versions in a CI-equivalent
+   importable environment (without `pip install -e .`). `--force-checks` reruns
+   the full selected set; `--skip-execution` validates evidence without running
+   commands.
 4. Writes raw transcripts only to ignored local paths under
    `.workflow/local/**`.
 5. Records sanitized check events in the committed ledger.
@@ -239,7 +240,7 @@ The `--mode` argument dispatches behavior for different callers:
 
 | Mode | Caller | Behavior |
 |---|---|---|
-| `local` | Manual `gate_record check` | Full local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
+| `local` | Manual `gate_record check` | Incremental local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on staged diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers |
 | `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand; the installed pre-push hook is a fast allow shim |
@@ -251,15 +252,19 @@ has real PR metadata and verifies label-actor provenance, while local modes
 record those as known pre-PR gaps.
 
 `--only` is a recovery aid, not a final readiness mode. A final PR-ready
-`check` must run or validate the complete tier-selected check set.
+`check` must run or validate the complete tier-selected check set. By default,
+`check` is incremental: current passing evidence is reused, and only missing or
+stale checks execute. Pass `--force-checks` to intentionally rerun the full
+selected set.
 `--skip-execution` is PR-ready only when every required check already has
 passing, current evidence for the observed diff; otherwise it reports stale or
-missing evidence and tells the agent to run the full pre-PR check once.
+missing evidence and tells the agent to run the pre-PR check once.
 
 Tier-selected check breadth:
 
-- **Tier 1**: runs a full local mirror of the merge-blocking CI command surface,
-  whether or not the observed diff appears to need every job.
+- **Tier 1**: requires evidence for the full local mirror of the merge-blocking
+  CI command surface, whether or not the observed diff appears to need every
+  job. Existing current passing evidence is reused; missing or stale checks run.
 - **Tier 2**: runs the common governance/lint/audit baseline plus all CI jobs
   relevant to the observed diff.
 - **Tier 3**: runs only mandatory checks for the observed diff and repository
@@ -659,9 +664,9 @@ python scripts/scistudio_pr_create.py \
 ```
 
 The wrapper runs `gate_record check --mode pre-pr --skip-execution` locally
-before invoking `gh pr create`; it reuses the full pre-PR check evidence that
-must already exist for the current diff. It does not execute the full local
-mirror again. Pre-PR-impossible findings (core-change label provenance,
+before invoking `gh pr create`; it validates that required checks already have
+current passing evidence for the current diff. It does not execute local checks
+again. Pre-PR-impossible findings (core-change label provenance,
 merge-guard) are handled internally by the evaluator's pre-PR mode rather than
 by a caller-side filter. `--dry-run` runs the pre-flight without invoking `gh`.
 Set `SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency one-off escapes; CI will

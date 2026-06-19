@@ -1112,6 +1112,11 @@
       "at": "2026-06-19T23:05:37.356941Z",
       "owner_directive": "Optimize governance flow so full pre-PR checks run once, while finalize and PR wrapper reuse current check evidence; local post-PR finalize should not prove CI-only label provenance.",
       "reason": "Owner directed gate workflow optimization after PR submission proved repeated full checks too slow"
+    },
+    {
+      "at": "2026-06-19T23:26:00.738257Z",
+      "owner_directive": "Make gate_record check default to incremental evidence reuse; explicit --force-checks reruns all selected checks; fix current CI Frontend and Lint & Format failures.",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
     }
   ],
   "docs_events": [
@@ -1277,6 +1282,46 @@
     },
     {
       "at": "2026-06-19T23:05:37.357140Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/personas/live-implementer.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738436Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738442Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738443Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738444Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/guided-work.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738445Z",
       "class": null,
       "kind": "path",
       "path": "docs/ai-developer/personas/live-implementer.md",
@@ -3866,6 +3911,42 @@
       "at": "2026-06-19T23:05:37.357127Z",
       "pattern": "docs/ai-developer/**",
       "reason": "Owner directed gate workflow optimization after PR submission proved repeated full checks too slow"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738423Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/**",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738427Z",
+      "pattern": "tests/qa/test_gate_*.py",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738428Z",
+      "pattern": "tests/scripts/test_scistudio_pr_create.py",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738429Z",
+      "pattern": "docs/ai-developer/**",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738431Z",
+      "pattern": "frontend/src/components/nodes/BlockNode.tsx",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:26:00.738432Z",
+      "pattern": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "reason": "Owner directed default incremental gate checks and CI failure repair"
     }
   ],
   "session_id": "4625aa43-d5d9-480d-9ba8-901998130e0d",
@@ -4077,6 +4158,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/scripts/test_scistudio_pr_create.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738448Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738449Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738450Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_scistudio_pr_create.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:26:00.738451Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
