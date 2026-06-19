@@ -135,6 +135,10 @@ class BlockSpec:
     supported_extensions: dict[str, str] = field(default_factory=dict)
     # ADR-043: normalized IO format capability records captured at scan time.
     format_capabilities: list[FormatCapability] = field(default_factory=list)
+    # Desktop package blocks may need import roots that are intentionally not
+    # exposed to the core process globally. The runner passes these to the
+    # worker payload for block-local imports.
+    runtime_import_roots: list[str] = field(default_factory=list)
 
 
 class BlockRegistry:
@@ -169,12 +173,6 @@ class BlockRegistry:
 
     def scan(self, *, include_monorepo: bool = False) -> None:
         """Discover block classes from entry-points and drop-in directories."""
-        from scistudio.blocks.registry._scan import (
-            _activate_desktop_package_import_roots,
-            _desktop_resource_package_dirs,
-        )
-
-        _activate_desktop_package_import_roots(_desktop_resource_package_dirs())
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
@@ -183,13 +181,6 @@ class BlockRegistry:
             self._scan_monorepo_packages()
 
     def _scan_builtins(self) -> None:
-        """Register built-in core blocks used by the API/frontend.
-
-        Bound here (rather than only as a module-level function in
-        ``_scan.py``) so the pytest conftest can monkey-patch this
-        method to inject test-only fixtures (``NoopBlock`` /
-        ``NoopIOBlock``).
-        """
         from scistudio.blocks.registry._scan import _scan_builtins
 
         _scan_builtins(self)
@@ -254,19 +245,23 @@ class BlockRegistry:
         if spec is None:
             raise KeyError(f"Block '{name}' is not registered.")
 
-        # For Tier 1 (file-based), re-import with mtime.
-        if spec.file_path:
-            path = Path(spec.file_path)
-            mtime = path.stat().st_mtime
-            mod_name = f"_scistudio_dropin_{path.stem}_{int(mtime)}"
-            mod_spec = importlib.util.spec_from_file_location(mod_name, path)
-            if mod_spec is None or mod_spec.loader is None:
-                raise ImportError(f"Cannot load block from {spec.file_path}")
-            module = importlib.util.module_from_spec(mod_spec)
-            mod_spec.loader.exec_module(module)
-        else:
-            # For Tier 2, standard import.
-            module = importlib.import_module(spec.module_path)
+        from scistudio.desktop.paths import prepended_sys_paths
+
+        runtime_import_roots = [Path(root) for root in spec.runtime_import_roots]
+        with prepended_sys_paths(runtime_import_roots):
+            # For Tier 1 (file-based), re-import with mtime.
+            if spec.file_path:
+                path = Path(spec.file_path)
+                mtime = path.stat().st_mtime
+                mod_name = f"_scistudio_dropin_{path.stem}_{int(mtime)}"
+                mod_spec = importlib.util.spec_from_file_location(mod_name, path)
+                if mod_spec is None or mod_spec.loader is None:
+                    raise ImportError(f"Cannot load block from {spec.file_path}")
+                module = importlib.util.module_from_spec(mod_spec)
+                mod_spec.loader.exec_module(module)
+            else:
+                # For Tier 2, standard import.
+                module = importlib.import_module(spec.module_path)
 
         cls = getattr(module, spec.class_name)
         # #706: this is a *fresh* class object (re-imported from the file) so
@@ -276,6 +271,9 @@ class BlockRegistry:
         if spec.file_path:
             with contextlib.suppress(AttributeError, TypeError):
                 cls._scistudio_file_path = spec.file_path
+        if spec.runtime_import_roots:
+            with contextlib.suppress(AttributeError, TypeError):
+                cls._scistudio_runtime_import_roots = tuple(spec.runtime_import_roots)
         return cls(config=config)
 
     def hot_reload(self) -> None:

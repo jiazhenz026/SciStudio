@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from scistudio.core.storage.ref import StorageReference
+from scistudio.previewers.data_access import ArrayPlane, SliceAxis
 from scistudio.previewers.models import (
     PREVIEWER_API_VERSION,
     EnvelopeKind,
@@ -141,6 +142,167 @@ def _coerce_int(value: object, default: int) -> int:
     return default
 
 
+def _is_core_array_storage(ref: StorageReference) -> bool:
+    path = Path(ref.path)
+    backend = str(ref.backend or "").lower()
+    fmt = str(ref.format or "").lower()
+    return backend == "zarr" or fmt == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir()
+
+
+def _image_axes(ref: StorageReference, shape: tuple[int, ...]) -> list[str]:
+    axes_raw = ref.metadata.get("axes") if ref.metadata else None
+    if isinstance(axes_raw, list) and len(axes_raw) == len(shape):
+        return [str(axis) for axis in axes_raw]
+    if len(shape) == 2:
+        return ["y", "x"]
+    if len(shape) == 3 and int(shape[-1]) in {3, 4}:
+        return ["y", "x", "c"]
+    axes = [f"axis {idx}" for idx in range(len(shape))]
+    if len(shape) >= 2:
+        axes[-2] = "y"
+        axes[-1] = "x"
+    return axes
+
+
+def _pillow_mode_bytes(mode: str) -> int:
+    if mode.startswith("I;16"):
+        return 2
+    if mode in {"I", "F"}:
+        return 4
+    return 1
+
+
+def _load_package_image_array(ref: StorageReference, *, max_bytes: int) -> Any:
+    path = Path(ref.path)
+    suffix = path.suffix.lower()
+    fmt = str(ref.format or "").lower()
+
+    if suffix in {".tif", ".tiff"} or fmt in {"tif", "tiff", "ome_tiff", "ome-tiff"}:
+        import numpy as np
+        import tifffile
+
+        with tifffile.TiffFile(str(path)) as tf:
+            page = tf.pages[0]
+            try:
+                page_nbytes = int(page.size) * int(page.dtype.itemsize) if page.dtype is not None else 0
+            except (AttributeError, TypeError):
+                page_nbytes = 0
+            if page_nbytes and page_nbytes > max_bytes:
+                try:
+                    return np.asarray(tifffile.memmap(str(path), page=0, mode="r"))
+                except (ValueError, OSError, MemoryError) as exc:
+                    raise ValueError("TIFF page exceeds preview cap and is not memmappable") from exc
+            return np.asarray(page.asarray())
+
+    if suffix in {".png", ".jpg", ".jpeg"} or fmt in {"png", "jpg", "jpeg"}:
+        import numpy as np
+        from PIL import Image as PILImage
+
+        with PILImage.open(path) as image:
+            width, height = image.size
+            bands = max(1, len(image.getbands()))
+            estimated_nbytes = int(width) * int(height) * bands * _pillow_mode_bytes(image.mode)
+            if estimated_nbytes > max_bytes:
+                raise ValueError("image exceeds preview cap")
+            return np.asarray(image)
+
+    raise ValueError(f"unsupported imaging preview format: {suffix or fmt or path.name}")
+
+
+def _finite_extent(matrix: Any) -> tuple[float | None, float | None]:
+    import numpy as np
+
+    arr = np.asarray(matrix, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return None, None
+    return float(finite.min()), float(finite.max())
+
+
+def _json_matrix(matrix: Any) -> list[list[float | None]]:
+    import math
+
+    import numpy as np
+
+    arr = np.asarray(matrix, dtype=float)
+    return [[(float(v) if math.isfinite(float(v)) else None) for v in row] for row in arr.tolist()]
+
+
+def _downsample(matrix: Any, *, max_dim: int) -> Any:
+    import numpy as np
+
+    arr = np.asarray(matrix)
+    h, w = int(arr.shape[0]), int(arr.shape[1])
+    if max(h, w) <= max_dim:
+        return arr
+    new_h = max(1, int(h * (max_dim / max(h, w))))
+    new_w = max(1, int(w * (max_dim / max(h, w))))
+    row_idx = np.linspace(0, h - 1, new_h, dtype=int)
+    col_idx = np.linspace(0, w - 1, new_w, dtype=int)
+    return arr[np.ix_(row_idx, col_idx)]
+
+
+def _package_image_plane(ref: StorageReference, *, slice_index: int, max_dim: int, max_bytes: int) -> ArrayPlane:
+    import numpy as np
+
+    arr = np.asarray(_load_package_image_array(ref, max_bytes=max_bytes))
+    if arr.size * arr.dtype.itemsize > max_bytes:
+        raise ValueError("image array exceeds preview cap")
+    full_shape = [int(dim) for dim in arr.shape]
+    ndim = len(full_shape)
+    axes = _image_axes(ref, tuple(arr.shape))
+    slice_axes: list[SliceAxis] = []
+
+    if ndim == 0:
+        plane = arr.reshape(1, 1)
+    elif ndim == 1:
+        plane = arr.reshape(1, int(arr.shape[0]))
+    elif axes and "y" in axes and "x" in axes:
+        y_idx = axes.index("y")
+        x_idx = axes.index("x")
+        selectors: list[Any] = [slice(None)] * ndim
+        extra_dims = [idx for idx in range(ndim) if idx not in (y_idx, x_idx)]
+        for extra in extra_dims:
+            size = int(full_shape[extra])
+            idx = max(0, min(int(slice_index), size - 1)) if size > 0 else 0
+            selectors[extra] = idx
+            slice_axes.append(SliceAxis(axis=extra, name=axes[extra], size=size, index=idx))
+        plane = np.asarray(arr[tuple(selectors)])
+        if y_idx > x_idx:
+            plane = plane.T
+    else:
+        plane = np.asarray(arr)
+        while plane.ndim > 2:
+            size = int(plane.shape[0])
+            idx = max(0, min(int(slice_index), size - 1)) if size > 0 else 0
+            slice_axes.append(SliceAxis(axis=len(slice_axes), name=f"axis {len(slice_axes)}", size=size, index=idx))
+            plane = plane[idx]
+
+    if plane.ndim == 0:
+        plane = plane.reshape(1, 1)
+    elif plane.ndim == 1:
+        plane = plane.reshape(1, int(plane.shape[0]))
+    while plane.ndim > 2:
+        plane = plane[0]
+    first = slice_axes[0] if slice_axes else None
+    downsampled = _downsample(plane, max_dim=max_dim)
+    vmin, vmax = _finite_extent(plane)
+    return ArrayPlane(
+        shape=full_shape,
+        axes=axes,
+        dtype=str(arr.dtype),
+        slice_axis_name=first.name if first is not None else None,
+        slice_axis_size=first.size if first is not None else None,
+        slice_index=first.index if first is not None else None,
+        slice_axes=slice_axes,
+        matrix=_json_matrix(downsampled),
+        vmin=vmin,
+        vmax=vmax,
+        truncated=max(int(plane.shape[0]), int(plane.shape[1])) > max_dim if plane.ndim >= 2 else False,
+        ndim=ndim,
+    )
+
+
 def _image_metadata_panel(record_md: dict[str, Any]) -> dict[str, Any]:
     """Extract a bounded, JSON-safe OME/channel metadata panel.
 
@@ -220,8 +382,17 @@ def image_provider(request: PreviewRequest) -> PreviewEnvelope:
     """
     ref = _ref_for(request)
     slice_index = _coerce_int(request.query.get("slice_index"), 0)
+    uses_core_array_storage = _is_core_array_storage(ref)
     try:
-        plane = request.data_access.array_plane(ref, slice_index=slice_index)
+        if uses_core_array_storage:
+            plane = request.data_access.array_plane(ref, slice_index=slice_index)
+        else:
+            plane = _package_image_plane(
+                ref,
+                slice_index=slice_index,
+                max_dim=request.limits.max_dim,
+                max_bytes=request.limits.max_bytes,
+            )
     except Exception as exc:
         logger.debug("imaging image preview failed for %s", ref.path, exc_info=True)
         return _error_envelope(request, f"image preview failed: {exc}")
@@ -230,22 +401,27 @@ def image_provider(request: PreviewRequest) -> PreviewEnvelope:
     record_md = _record_metadata(request)
     info_panel = _image_metadata_panel(record_md)
 
-    resources = (
-        PreviewResource(
-            resource_id="tile",
-            kind="tile",
-            media_type="application/json",
-            description="bounded image tile read",
-            params={"slice_index": plane.slice_index or 0},
-        ),
+    resources_list: list[PreviewResource] = []
+    if uses_core_array_storage:
+        resources_list.append(
+            PreviewResource(
+                resource_id="tile",
+                kind="tile",
+                media_type="application/json",
+                description="bounded image tile read",
+                params={"slice_index": plane.slice_index or 0},
+            )
+        )
+    resources_list.append(
         PreviewResource(
             resource_id="export",
             kind="asset",
             media_type="image/png",
             description="export the displayed image plane as PNG",
             params={"format": "png", "slice_index": plane.slice_index or 0},
-        ),
+        )
     )
+    resources = tuple(resources_list)
 
     extra: dict[str, Any] = {
         "shape": plane.shape,

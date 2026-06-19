@@ -42,15 +42,28 @@ import importlib
 import importlib.metadata
 import importlib.util
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
+from scistudio.desktop.paths import (
+    candidate_package_dirs,
+    iter_source_package_module_candidates,
+    prepended_sys_paths,
+)
+
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
+    if os.environ.get("SCISTUDIO_BUNDLED") != "1":
+        return ()
+    return tuple(candidate_package_dirs())
 
 
 @dataclass
@@ -88,6 +101,7 @@ class TypeRegistry:
         # :attr:`BlockRegistry._scan_dirs`. Populated via :meth:`add_scan_dir`
         # and consumed by :meth:`scan_all` (after entry-points / monorepo).
         self._scan_dirs: list[Path] = []
+        self._package_src_dirs: list[Path] = []
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Add a directory to the filesystem scan path (issue #1332).
@@ -108,6 +122,10 @@ class TypeRegistry:
         calls before invoking :meth:`scan_all`.
         """
         self._scan_dirs.append(Path(directory))
+
+    def add_package_src_dir(self, directory: str | Path) -> None:
+        """Add a desktop/source package directory for ``get_types()`` discovery."""
+        self._package_src_dirs.append(Path(directory))
 
     def register(self, name: str, spec: TypeSpec) -> None:
         """Register *spec* under *name*."""
@@ -464,9 +482,55 @@ class TypeRegistry:
         """
         self.scan_builtins()
         self._scan_entrypoint_types()
+        self._scan_package_src_dirs()
         if include_monorepo:
             self._scan_monorepo_types()
         self._scan_filesystem_dirs()
+
+    def _scan_package_src_dirs(self) -> None:
+        """Discover desktop source-package types through conventional ``get_types()``."""
+        package_dirs = [*self._package_src_dirs, *_bundled_candidate_package_dirs()]
+        for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
+            try:
+                with prepended_sys_paths(import_roots):
+                    module = importlib.import_module(module_name)
+            except Exception:
+                logger.warning("Failed to import source plugin types from '%s'", module_name, exc_info=True)
+                continue
+
+            get_types = getattr(module, "get_types", None)
+            if not callable(get_types):
+                continue
+
+            try:
+                type_classes = get_types()
+            except Exception:
+                logger.warning("Source plugin '%s' get_types() raised", module_name, exc_info=True)
+                continue
+
+            if not isinstance(type_classes, (list, tuple)):
+                logger.warning(
+                    "Source plugin '%s' get_types() returned %s instead of list[type]",
+                    module_name,
+                    type(type_classes).__name__,
+                )
+                continue
+
+            for cls in type_classes:
+                if not isinstance(cls, type):
+                    logger.warning("Source plugin '%s' returned non-type item %r", module_name, cls)
+                    continue
+                if cls.__name__ in self._registry:
+                    continue
+                try:
+                    self.register_class(cls)
+                except Exception:
+                    logger.warning(
+                        "Failed to register source plugin type %r from '%s'",
+                        cls,
+                        module_name,
+                        exc_info=True,
+                    )
 
     def _scan_filesystem_dirs(self) -> None:
         """Walk each registered scan directory and register drop-in types.

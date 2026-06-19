@@ -12,6 +12,7 @@ on PATH) plus an always-on R manifest-validation test.
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 from collections.abc import Coroutine, Generator
 from dataclasses import dataclass, field
@@ -554,6 +555,45 @@ def test_run_python_svg_success(project: Path, csv_output: Path) -> None:
     }
     # current.json written.
     assert res.metadata_path and Path(res.metadata_path).is_file()
+
+
+def test_run_python_applies_publication_matplotlib_defaults(project: Path, csv_output: Path) -> None:
+    _set_ctx(_make_runtime(project, with_output_csv=csv_output))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="publication_style", target_id=tid, language="python"))
+    _write_render(
+        project,
+        "publication_style",
+        (
+            "def render(collection):\n"
+            "    import json\n"
+            "    from pathlib import Path\n"
+            "    import matplotlib as mpl\n"
+            "    from matplotlib.colors import to_hex\n"
+            "    assert mpl.rcParams['font.family'] == ['sans-serif']\n"
+            "    assert list(mpl.rcParams['font.sans-serif'])[:3] == ['Arial', 'Helvetica', 'DejaVu Sans']\n"
+            "    assert mpl.rcParams['font.size'] == 7\n"
+            "    assert mpl.rcParams['axes.titlesize'] == 7\n"
+            "    assert mpl.rcParams['legend.fontsize'] == 6\n"
+            "    assert mpl.rcParams['axes.linewidth'] == 0.5\n"
+            "    assert mpl.rcParams['axes.spines.top'] is False\n"
+            "    assert mpl.rcParams['axes.spines.right'] is False\n"
+            "    assert mpl.rcParams['axes.grid'] is False\n"
+            "    assert mpl.rcParams['figure.constrained_layout.use'] is True\n"
+            "    assert mpl.rcParams['savefig.bbox'] is None\n"
+            "    colors = [to_hex(c).lower() for c in mpl.rcParams['axes.prop_cycle'].by_key()['color']]\n"
+            "    assert colors == ['#000000', '#e69f00', '#56b4e9', '#009e73', '#f0e442', '#0072b2', '#d55e00', '#cc79a7']\n"
+            "    class SpyFigure:\n"
+            "        def savefig(self, path, **kwargs):\n"
+            "            Path(path).write_text(json.dumps(kwargs, sort_keys=True), encoding='utf-8')\n"
+            "    return SpyFigure()\n"
+        ),
+    )
+    res = _run(run_plot_job(plot_id="publication_style"))
+    assert res.status == "succeeded", res.errors
+    assert res.artifact_paths
+    savefig_kwargs = json.loads(Path(res.artifact_paths[0]).read_text(encoding="utf-8"))
+    assert savefig_kwargs == {"format": "svg"}
 
 
 def test_run_normalizes_package_array_subclass_to_array(project: Path, tmp_path: Path) -> None:

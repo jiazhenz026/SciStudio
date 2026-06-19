@@ -19,6 +19,7 @@ dependencies = [
     "fastapi>=0.110,<0.136",  # Keep API route path contract stable; FastAPI 0.137/Starlette 1.3 drops router paths.
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
+    "numpy>=1.25",  # Core Array/storage/preview/plot paths import NumPy directly.
     "zarr>=3.0",
     "pyarrow>=15.0",
     "watchdog>=4.0",
@@ -31,7 +32,10 @@ dependencies = [
     "ruamel.yaml>=0.18",  # T-ECA-203: ruamel round-trip preserves comments/order in update_block_config
     "pywinpty>=2.0; sys_platform == 'win32'",  # ADR-034 Phase 1.2: PTY-based terminal embedding for claude/codex TUIs
     "platformdirs>=4.2",  # ADR-037 desktop/user-scoped config, cache, logs, and plugin directories
+    "packaging>=24.0",  # Desktop package installer parses plugin dependency requirements.
     "fastmcp>=3.1,<4",  # ADR-040 §3.1: FastMCP migration — replaces hand-rolled JSON-RPC MCP server with FastMCP 3.x.
+    "matplotlib>=3.8",  # ADR-048 SPEC 2: Python plot jobs import matplotlib in the core plot runtime.
+    "pandas>=2.2",  # ADR-048 SPEC 2: Python plot jobs open DataFrame/Series inputs with pandas.
 ]
 
 [project.optional-dependencies]
@@ -56,15 +60,9 @@ dev = [
     # and wheel_release_smoke do not fail as environment-parity gaps.
     "setuptools>=68.0",
     "build>=1.2",
-    # Several selected python_tests import tabular and TIFF preview/inspection
-    # paths. Keep the CI-equivalent dev environment complete without making
-    # these optional data-format helpers core runtime dependencies.
-    "pandas>=2.2",
+    # Monorepo plugin tests exercise the imaging package directly from source.
+    # Keep this test-only helper out of the core runtime dependency set.
     "tifffile>=2024.8",
-    # ADR-048 SPEC 2: the preview-side plot harness renders matplotlib figures
-    # (context.plt) and SC-006 requires the matplotlib SVG path tested end to
-    # end. matplotlib is a plot-job runtime helper, not a core dependency.
-    "matplotlib>=3.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
     "vulture>=2.11",

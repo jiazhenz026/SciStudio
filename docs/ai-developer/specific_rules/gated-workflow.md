@@ -240,7 +240,7 @@ The `--mode` argument dispatches behavior for different callers:
 | `local` | Manual `gate_record check` | Full local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on staged diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers |
-| `pre-push` | Pre-push hook | Pre-push reconciliation |
+| `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand; the installed pre-push hook is a fast allow shim |
 | `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; pre-PR-impossible findings handled internally |
 | `ci` | CI workflow | Authoritative mode with full PR context; verifies label provenance |
 
@@ -266,7 +266,7 @@ Compatibility aliases exposed by the current CLI:
 - `start` delegates to `init`
 - `pre-commit` delegates to `check --mode pre-commit`
 - `commit-msg <file>` delegates to `check --mode commit-msg <file>`
-- `pre-push` delegates to `check --mode pre-push`
+- `pre-push` delegates to `check --mode pre-push` when invoked manually; the installed pre-push hook does not invoke it
 - `pr-ready` delegates to `check --mode pre-pr`
 - `ci` delegates to `check --mode ci`
 
@@ -648,7 +648,8 @@ python scripts/scistudio_pr_create.py \
 ```
 
 The wrapper runs `gate_record check --mode pre-pr` (or pre-PR finalize)
-locally before invoking `gh pr create`. Pre-PR-impossible findings (core-change
+locally before invoking `gh pr create`; this is the single local hard gate
+after commit/push. Pre-PR-impossible findings (core-change
 label provenance, merge-guard) are handled internally by the evaluator's pre-PR
 mode rather than by a caller-side filter. `--dry-run` runs the pre-flight
 without invoking `gh`. Set `SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency

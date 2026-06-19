@@ -66,6 +66,28 @@ describe("NodeStatusSurface — §2.5 priority table", () => {
     expect(surface.getAttribute("data-surface-kind")).toBe("runtime");
     expect(surface.getAttribute("data-status")).toBe("paused");
   });
+
+  it("uses a translucent white circular badge background", () => {
+    render(<NodeStatusSurface status="running" problemSeverity="none" />);
+    const surface = screen.getByTestId("node-status-surface");
+    expect(surface.getAttribute("style")).toContain("background-color: rgba(255, 255, 255, 0.86)");
+    expect(surface.className).toContain("rounded-full");
+  });
+
+  it("renders done as a green check icon", () => {
+    render(<NodeStatusSurface status="done" problemSeverity="none" />);
+    const surface = screen.getByTestId("node-status-surface");
+    expect(surface.getAttribute("data-icon")).toBe("check");
+    expect(surface.getAttribute("style")).toContain("color: rgb(22, 163, 74)");
+  });
+
+  it("renders failed states as a red X icon", () => {
+    render(<NodeStatusSurface status="failed" problemSeverity="none" />);
+    const surface = screen.getByTestId("node-status-surface");
+    expect(surface.getAttribute("data-surface-kind")).toBe("error");
+    expect(surface.getAttribute("data-icon")).toBe("x");
+    expect(surface.getAttribute("style")).toContain("color: rgb(220, 38, 38)");
+  });
 });
 
 describe("NodeStatusSurface — activation (FR-012 / FR-013)", () => {

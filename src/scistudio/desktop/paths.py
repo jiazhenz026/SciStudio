@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import os
 import shlex
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 APP_NAME = "SciStudio"
@@ -101,6 +103,21 @@ def user_python_import_roots() -> list[Path]:
     return [site_dir] if site_dir.is_dir() else []
 
 
+def _resolve_existing_dirs(entries: Iterable[str | Path]) -> tuple[Path, ...]:
+    resolved: list[Path] = []
+    seen: set[str] = set()
+    for entry in entries:
+        path = Path(entry).expanduser()
+        if not path.is_dir():
+            continue
+        key = str(path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved.append(Path(key))
+    return tuple(resolved)
+
+
 def package_import_roots(package_root: str | Path) -> tuple[Path, ...]:
     """Return import roots for one user-installed desktop package."""
     root = Path(package_root).expanduser()
@@ -116,6 +133,103 @@ def package_import_roots(package_root: str | Path) -> tuple[Path, ...]:
     return tuple(roots)
 
 
+def looks_like_source_package_root(path: str | Path) -> bool:
+    """Return whether *path* looks like a SciStudio source package root."""
+    root = Path(path).expanduser()
+    return (root / "src").is_dir() or any(root.glob("scistudio_blocks_*/__init__.py"))
+
+
+def iter_package_roots(package_dir: str | Path) -> Iterator[Path]:
+    """Yield package roots from a packages dir, package root, or source dir."""
+    expanded = Path(package_dir).expanduser()
+    candidates = [expanded]
+    if expanded.name == "src" and expanded.is_dir():
+        yield expanded
+        return
+    if expanded.is_dir():
+        candidates.extend(child for child in sorted(expanded.iterdir()) if child.is_dir())
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate.is_dir() or not looks_like_source_package_root(candidate):
+            continue
+        key = str(candidate.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        yield candidate
+
+
+def source_package_import_roots(package_root: str | Path) -> tuple[Path, ...]:
+    root = Path(package_root).expanduser()
+    roots = [root] if root.name == "src" and root.is_dir() else []
+    return _resolve_existing_dirs([*roots, *package_import_roots(root.parent if root.name == "src" else root)])
+
+
+def iter_source_package_modules(import_root: str | Path) -> Iterator[str]:
+    """Yield ``scistudio_blocks_*`` modules visible in one import root."""
+    root = Path(import_root).expanduser()
+    if not root.is_dir():
+        return
+    for package_init in sorted(root.glob("scistudio_blocks_*/__init__.py")):
+        yield package_init.parent.name
+
+
+def iter_source_package_module_candidates(
+    package_dirs: Iterable[str | Path],
+    *,
+    module_suffixes: Iterable[str] = (),
+) -> Iterator[tuple[str, str, tuple[Path, ...]]]:
+    """Yield importable source-package module candidates for package dirs.
+
+    Returns ``(root_module, candidate_module, import_roots)``. For example,
+    with ``module_suffixes=("previewers",)`` an imaging package yields
+    ``("scistudio_blocks_imaging", "scistudio_blocks_imaging", roots)`` and
+    then ``("scistudio_blocks_imaging", "scistudio_blocks_imaging.previewers",
+    roots)``.
+    """
+    suffixes = tuple(s.strip(".") for s in module_suffixes if s)
+    seen_roots: set[str] = set()
+    seen_candidates: set[str] = set()
+    for package_dir in package_dirs:
+        for package_root in iter_package_roots(package_dir):
+            root_key = str(package_root.resolve())
+            if root_key in seen_roots:
+                continue
+            seen_roots.add(root_key)
+            import_roots = source_package_import_roots(package_root)
+            root_modules = sorted(
+                {
+                    module_name
+                    for import_root in import_roots
+                    for module_name in iter_source_package_modules(import_root)
+                }
+            )
+            for root_module in root_modules:
+                for candidate in (root_module, *(f"{root_module}.{suffix}" for suffix in suffixes)):
+                    if candidate in seen_candidates:
+                        continue
+                    seen_candidates.add(candidate)
+                    yield root_module, candidate, import_roots
+
+
+@contextlib.contextmanager
+def prepended_sys_paths(paths: Iterable[str | Path]) -> Iterator[None]:
+    """Prepend existing import roots to ``sys.path`` inside this context."""
+    original = list(sys.path)
+    for path in reversed(_resolve_existing_dirs(paths)):
+        path_str = str(path)
+        if path_str in sys.path:
+            sys.path.remove(path_str)
+        sys.path.insert(0, path_str)
+    try:
+        importlib.invalidate_caches()
+        yield
+    finally:
+        sys.path[:] = original
+        importlib.invalidate_caches()
+
+
 def installed_package_import_roots() -> list[Path]:
     """Return import roots for all user-installed desktop packages."""
     roots: list[Path] = user_python_import_roots()
@@ -128,6 +242,19 @@ def installed_package_import_roots() -> list[Path]:
     return roots
 
 
+def desktop_plugin_import_roots() -> tuple[Path, ...]:
+    """Return all desktop/plugin import roots that should not leak into core."""
+    roots: list[Path] = []
+    for package_dir in candidate_package_dirs():
+        expanded = package_dir.expanduser()
+        roots.extend(package_import_roots(expanded))
+        if expanded.is_dir():
+            for child in sorted(expanded.iterdir()):
+                if child.is_dir():
+                    roots.extend(package_import_roots(child))
+    return _resolve_existing_dirs(roots)
+
+
 def activate_pythonpath_entries(
     entries: Iterable[str | Path],
     *,
@@ -138,17 +265,7 @@ def activate_pythonpath_entries(
     ``update_sys_path`` is opt-in so registry scans can keep their historical
     no-leak behavior and use scoped import contexts for in-process imports.
     """
-    resolved: list[Path] = []
-    seen: set[str] = set()
-    for entry in entries:
-        path = Path(entry).expanduser()
-        if not path.is_dir():
-            continue
-        key = str(path.resolve())
-        if key in seen:
-            continue
-        seen.add(key)
-        resolved.append(Path(key))
+    resolved = list(_resolve_existing_dirs(entries))
     if not resolved:
         return ()
 

@@ -33,15 +33,12 @@ def _text(path: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_push_hook_calls_evaluator_pre_push_mode() -> None:
+def test_push_hook_is_fast_allow_shim() -> None:
     hook = _text("scripts/hooks/check-gate-before-push.sh")
-    assert "scistudio.qa.governance.gate_record check" in hook
-    assert "--mode pre-push" in hook
-    # No legacy bypass vocabulary / receipt step / protected-path list inline.
-    assert "admin-approved:ai-override" not in hook
-    assert "SCISTUDIO_GATE_BYPASS_LABELS" not in hook
+    assert 'permissionDecision":"allow' in hook
+    assert "scistudio.qa.governance.gate_record" not in hook
+    assert "--mode pre-push" not in hook
     assert "gate_receipt" not in hook
-    assert "validate" not in hook.lower().replace("validate the adr-042", "")
 
 
 def test_pr_hook_calls_evaluator_pre_pr_mode_with_body_file() -> None:

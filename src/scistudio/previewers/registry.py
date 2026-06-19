@@ -23,11 +23,17 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+import os
 import sys
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from scistudio.desktop.paths import (
+    candidate_package_dirs,
+    iter_source_package_module_candidates,
+    prepended_sys_paths,
+)
 from scistudio.previewers.models import (
     OwnerKind,
     PreviewerSpec,
@@ -39,6 +45,12 @@ PREVIEWER_ENTRY_POINT_GROUP = "scistudio.previewers"
 COMPANION_ENTRY_POINT_GROUPS = ("scistudio.blocks", "scistudio.types")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PACKAGES_DIR = _REPO_ROOT / "packages"
+
+
+def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
+    if os.environ.get("SCISTUDIO_BUNDLED") != "1":
+        return ()
+    return tuple(candidate_package_dirs())
 
 
 def _monorepo_package_module_names() -> list[str]:
@@ -141,6 +153,7 @@ class PreviewerRegistry:
         """Load package previewers from entry points + monorepo fallback (FR-002/FR-030)."""
         self._scan_entry_points()
         self._scan_companion_entry_point_packages()
+        self._scan_package_src_dirs()
         if include_monorepo:
             self._scan_monorepo_packages()
 
@@ -217,6 +230,43 @@ class PreviewerRegistry:
         for module_name in _monorepo_package_module_names():
             if factory := _previewer_factory_for(module_name):
                 self._register_from_factory(module_name, factory)
+
+    def _scan_package_src_dirs(self) -> None:
+        """Discover bundled desktop source-package previewers via ``get_previewers()``."""
+        package_dirs = _bundled_candidate_package_dirs()
+        registered_roots: set[str] = set()
+        candidates = iter_source_package_module_candidates(package_dirs, module_suffixes=("previewers",))
+        for root_name, module_name, import_roots in candidates:
+            if root_name in registered_roots:
+                continue
+            try:
+                with prepended_sys_paths(import_roots):
+                    module = importlib.import_module(module_name)
+            except ModuleNotFoundError as exc:
+                if exc.name != module_name:
+                    logger.debug(
+                        "Source package previewer import failed for '%s'",
+                        module_name,
+                        exc_info=True,
+                    )
+                continue
+            except Exception:
+                logger.debug(
+                    "Source package previewer import failed for '%s'",
+                    module_name,
+                    exc_info=True,
+                )
+                continue
+
+            factory = getattr(module, "get_previewers", None)
+            if not callable(factory):
+                continue
+            self._register_from_factory(
+                f"package_src:{module_name}",
+                factory,
+                skip_existing=True,
+            )
+            registered_roots.add(root_name)
 
     def _register_from_factory(self, source: str, factory: Any, *, skip_existing: bool = False) -> None:
         """Invoke a previewer entry-point/monorepo factory and register results."""

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import importlib.metadata
 import json
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -14,6 +15,15 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.storage.ref import StorageReference
+
+
+def _prefer_monorepo_imaging_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Load imaging previewers from this checkout, not a user-installed plugin."""
+    package_src = Path(__file__).resolve().parents[2] / "packages/scistudio-blocks-imaging/src"
+    monkeypatch.syspath_prepend(str(package_src))
+    for module_name in list(sys.modules):
+        if module_name == "scistudio_blocks_imaging" or module_name.startswith("scistudio_blocks_imaging."):
+            monkeypatch.delitem(sys.modules, module_name, raising=False)
 
 
 def _install_fake_zarr(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,6 +78,7 @@ def test_adr048_viewer_category_sweep(
     ``scistudio.previewers`` entry point rather than the monorepo fallback.
     """
     _install_fake_zarr(monkeypatch)
+    _prefer_monorepo_imaging_package(monkeypatch)
     monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
     imaging_ep = importlib.metadata.EntryPoint(
         name="imaging",
@@ -536,6 +547,7 @@ def test_collection_image_child_resource_uses_catalog_storage(
     import numpy as np
     import tifffile
 
+    _prefer_monorepo_imaging_package(monkeypatch)
     imaging_ep = importlib.metadata.EntryPoint(
         name="imaging",
         value="scistudio_blocks_imaging.previewers:get_previewers",
@@ -609,6 +621,7 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Imaging viewer assets remain available when previewer entry-point metadata is stale."""
+    _prefer_monorepo_imaging_package(monkeypatch)
     block_ep = importlib.metadata.EntryPoint(
         name="imaging",
         value="scistudio_blocks_imaging:get_block_package",

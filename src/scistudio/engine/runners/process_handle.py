@@ -150,6 +150,7 @@ def build_worker_payload(
     config: dict[str, Any],
     output_dir: str | None = None,
     block_file_path: str | None = None,
+    runtime_import_roots: list[str] | tuple[str, ...] | None = None,
 ) -> bytes:
     """Build the JSON payload sent to the worker subprocess via stdin.
 
@@ -167,6 +168,10 @@ def build_worker_payload(
         ``importlib.util.spec_from_file_location`` before resolving the
         class. When ``None`` (Tier-2 entry-point blocks / builtins), the
         worker uses the standard ``importlib.import_module`` path.
+    runtime_import_roots:
+        Optional block-local import roots. These are applied inside the
+        worker after core startup so plugin dependencies do not shadow core
+        dependencies while the worker imports SciStudio itself.
     """
     if isinstance(block_class, str):
         block_class_path = block_class
@@ -183,6 +188,8 @@ def build_worker_payload(
     # schema unchanged for the common Tier-2 / builtin case.
     if block_file_path is not None:
         payload_dict["block_file_path"] = block_file_path
+    if runtime_import_roots:
+        payload_dict["runtime_import_roots"] = list(runtime_import_roots)
 
     payload = json.dumps(payload_dict)
     return payload.encode("utf-8")
@@ -239,6 +246,7 @@ def spawn_block_process(
     output_dir: str | None = None,
     job_handle: Any | None = None,
     block_file_path: str | None = None,
+    runtime_import_roots: list[str] | tuple[str, ...] | None = None,
 ) -> ProcessHandle:
     """Single entry point for ALL subprocess creation (ADR-017, ADR-019).
 
@@ -274,6 +282,8 @@ def spawn_block_process(
     }
     if block_file_path is not None:
         payload_dict["block_file_path"] = block_file_path
+    if runtime_import_roots:
+        payload_dict["runtime_import_roots"] = list(runtime_import_roots)
     payload = json.dumps(payload_dict)
 
     # Configure Popen kwargs with platform-specific process group

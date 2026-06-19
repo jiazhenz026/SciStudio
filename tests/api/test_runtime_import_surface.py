@@ -18,6 +18,8 @@ Two failure modes are guarded:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 
 def test_public_symbols_importable() -> None:
     """Every previously-public name re-exports through the package root.
@@ -125,3 +127,24 @@ def test_apiruntime_is_single_class_with_all_methods() -> None:
 
     missing = {name for name in expected_methods if not hasattr(ApiRuntime, name)}
     assert not missing, f"ApiRuntime method-surface regression: {sorted(missing)}"
+
+
+def test_desktop_dependency_repair_only_runs_for_bundled_runtime(monkeypatch) -> None:
+    from scistudio.api import runtime
+    from scistudio.desktop import package_installer
+
+    calls = 0
+
+    def fake_repair():
+        nonlocal calls
+        calls += 1
+        return [SimpleNamespace(repaired=True, package_name="probe", version="0.1.0", reason="test")]
+
+    monkeypatch.setattr(package_installer, "repair_installed_package_dependencies", fake_repair)
+    monkeypatch.delenv("SCISTUDIO_BUNDLED", raising=False)
+    runtime._repair_desktop_package_dependencies()
+    assert calls == 0
+
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    runtime._repair_desktop_package_dependencies()
+    assert calls == 1

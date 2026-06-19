@@ -1,9 +1,9 @@
-"""SVG sanitization (FR-019) and TIFF bounded-read (FR-010/SC-004) tests.
+"""SVG sanitization (FR-019) and bounded core Array read tests.
 
 Covers the two audit P2 findings on the SPEC 1 umbrella: the SVG sanitizer must
 strip script blocks even with malformed/unterminated closers and active-scheme
-hrefs (defense-in-depth behind the frontend iframe sandbox), and the TIFF raster
-handle must read only the first IFD page rather than the whole multi-page stack.
+hrefs (defense-in-depth behind the frontend iframe sandbox), and core Array
+handles must remain bounded without depending on package-owned image decoders.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.data_access import PreviewDataAccess
@@ -66,18 +65,15 @@ def test_sanitize_svg_keeps_clean_svg_and_data_uris() -> None:
     assert removed is False
 
 
-def test_tiff_handle_reads_only_first_page(tmp_path: Path) -> None:
-    """FR-010/SC-004: a multi-page TIFF yields a single-page handle, not the stack."""
-    tifffile = pytest.importorskip("tifffile")
-    path = tmp_path / "multi.tif"
-    # Genuine multi-page TIFF: two separate 4x4 IFD pages (TiffWriter appends
-    # each write() as its own page). `imread(key=0)` must return only page 0.
-    with tifffile.TiffWriter(str(path)) as tw:
-        tw.write(np.zeros((4, 4), dtype=np.uint8))
-        tw.write(np.ones((4, 4), dtype=np.uint8))
-    ref = StorageReference(backend="filesystem", path=str(path), format="tiff")
+def test_zarr_handle_uses_lazy_core_array_storage(tmp_path: Path) -> None:
+    """FR-010/SC-004: core preview reads Zarr handles without image decoders."""
+    import zarr
+
+    path = tmp_path / "array.zarr"
+    z = zarr.open(str(path), mode="w", shape=(4, 4), chunks=(2, 2), dtype="uint8")
+    z[:] = np.ones((4, 4), dtype=np.uint8)
+    ref = StorageReference(backend="zarr", path=str(path), format="zarr")
     access = PreviewDataAccess()
     handle, shape, _dtype = access._open_array_handle(ref)
-    # Only the first page is read: shape is (4, 4), not a (2, 4, 4) stack.
     assert shape == [4, 4]
     assert tuple(getattr(handle, "shape", ())) == (4, 4)

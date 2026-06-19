@@ -22,19 +22,25 @@ Owns:
 
 from __future__ import annotations
 
-import contextlib
 import importlib
 import importlib.metadata
 import importlib.util
 import inspect
 import logging
 import sys
-from collections.abc import Iterator
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.io.capabilities import FormatCapability
 from scistudio.core.types.base import DataObject
+from scistudio.desktop.paths import (
+    candidate_package_dirs,
+    iter_source_package_module_candidates,
+    prepended_sys_paths,
+    source_package_import_roots,
+    user_python_import_roots,
+)
 
 if TYPE_CHECKING:
     from scistudio.blocks.registry import BlockRegistry, BlockSpec
@@ -43,7 +49,6 @@ logger = logging.getLogger(__name__)
 
 
 def _register_spec(registry: BlockRegistry, spec: BlockSpec) -> None:
-    """Register a spec under its display name and public type name."""
     _validate_capability_registration(registry, spec)
     registry._registry[spec.name] = spec
     if spec.type_name:
@@ -159,7 +164,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 # Issue #1531: wrap exec_module in its own try/except so a
                 # failing or hostile drop-in cannot crash the palette refresh.
                 try:
-                    with _prepended_sys_paths(_desktop_user_python_import_roots()):
+                    with prepended_sys_paths(_desktop_user_python_import_roots()):
                         spec.loader.exec_module(module)
                 except Exception:
                     # #1531: skip-don't-crash on a failing/hostile drop-in.
@@ -202,12 +207,13 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         # fall through; the worker will then fail loudly
                         # with the original ModuleNotFoundError rather
                         # than silently mis-dispatching.
-                        with contextlib.suppress(AttributeError, TypeError):
+                        with suppress(AttributeError, TypeError):
                             obj._scistudio_file_path = str(py_file)  # type: ignore[attr-defined]
                         block_spec = _spec_from_class(obj, source="tier1")
                         block_spec.file_path = str(py_file)
                         block_spec.file_mtime = mtime
                         block_spec.module_path = mod_name
+                        block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
                         _register_spec(registry, block_spec)
             except Exception:
                 logger.warning(
@@ -324,116 +330,14 @@ def _scan_tier2(registry: BlockRegistry) -> None:
             continue
 
 
-@contextlib.contextmanager
-def _prepended_sys_path(path: Path) -> Iterator[None]:
-    """Prepend *path* to ``sys.path`` for one source-package import."""
-    with _prepended_sys_paths([path]):
-        yield
-
-
-@contextlib.contextmanager
-def _prepended_sys_paths(paths: list[Path]) -> Iterator[None]:
-    """Prepend paths to ``sys.path`` for one source-package import."""
-    original = list(sys.path)
-    for path in reversed(paths):
-        path_str = str(path)
-        if path_str in sys.path:
-            sys.path.remove(path_str)
-        sys.path.insert(0, path_str)
-    try:
-        importlib.invalidate_caches()
-        yield
-    finally:
-        sys.path[:] = original
-        importlib.invalidate_caches()
-
-
-def _iter_package_src_dirs(package_dir: Path) -> Iterator[Path]:
-    """Yield import roots from a packages dir, package root, or src dir."""
-    expanded = package_dir.expanduser()
-    if expanded.name == "src" and expanded.is_dir():
-        yield expanded
-        return
-
-    direct_src = expanded / "src"
-    if direct_src.is_dir():
-        yield direct_src
-        return
-
-    if not expanded.is_dir():
-        return
-
-    if any(expanded.glob("scistudio_blocks_*/__init__.py")):
-        yield expanded
-
-    for child in sorted(expanded.iterdir()):
-        if not child.is_dir():
-            continue
-        child_src = child / "src"
-        if child_src.is_dir():
-            yield child_src
-        elif any(child.glob("scistudio_blocks_*/__init__.py")):
-            yield child
-
-
-def _iter_source_package_modules(src_dir: Path) -> Iterator[str]:
-    """Yield ``scistudio_blocks_*`` modules visible in a package import root."""
-    for package_init in sorted(src_dir.glob("scistudio_blocks_*/__init__.py")):
-        yield package_init.parent.name
-
-
 def _desktop_resource_package_dirs() -> list[Path]:
     """Return package directories implied by desktop/resource environment."""
-    try:
-        from scistudio.desktop.paths import candidate_package_dirs
-
-        return candidate_package_dirs()
-    except Exception:
-        logger.debug("Failed to resolve desktop package directories", exc_info=True)
-        return []
-
-
-def _source_package_import_roots(src_dir: Path) -> list[Path]:
-    """Return scan-local import roots for a source package and its runtime deps."""
-    try:
-        from scistudio.desktop.paths import package_import_roots
-    except Exception:
-        return [src_dir]
-
-    package_root = src_dir.parent if src_dir.name == "src" else src_dir
-    roots = [src_dir]
-    roots.extend(path for path in package_import_roots(package_root) if path != src_dir)
-    return roots
+    return candidate_package_dirs()
 
 
 def _desktop_user_python_import_roots() -> list[Path]:
     """Return shared user dependency roots for trusted drop-in imports."""
-    try:
-        from scistudio.desktop.paths import user_python_import_roots
-    except Exception:
-        return []
-    return user_python_import_roots()
-
-
-def _activate_desktop_package_import_roots(package_dirs: list[Path]) -> None:
-    """Expose user-installed package roots to registry and worker imports."""
-    try:
-        from scistudio.desktop.paths import activate_pythonpath_entries, package_import_roots
-    except Exception:
-        logger.debug("Failed to activate desktop package import roots", exc_info=True)
-        return
-
-    import_roots: list[Path] = []
-    for package_dir in package_dirs:
-        expanded = package_dir.expanduser()
-        import_roots.extend(package_import_roots(expanded))
-        if expanded.is_dir():
-            for child in sorted(expanded.iterdir()):
-                if child.is_dir():
-                    import_roots.extend(package_import_roots(child))
-        for src_dir in _iter_package_src_dirs(expanded):
-            import_roots.extend(_source_package_import_roots(src_dir))
-    activate_pythonpath_entries(import_roots)
+    return list(user_python_import_roots())
 
 
 def _process_package_protocol_result(
@@ -442,6 +346,7 @@ def _process_package_protocol_result(
     module_name: str,
     result: Any,
     source: str,
+    runtime_import_roots: list[Path] | None = None,
 ) -> None:
     """Register block classes returned by a source package protocol hook."""
     from scistudio.blocks.base.block import Block
@@ -480,15 +385,23 @@ def _process_package_protocol_result(
         block_spec.module_path = cls.__module__
         block_spec.class_name = cls.__name__
         block_spec.package_name = pkg_name
+        block_spec.runtime_import_roots = [str(path) for path in runtime_import_roots or []]
         if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
             continue
         _register_spec(registry, block_spec)
 
 
-def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, module_name: str, source: str) -> None:
+def _scan_source_package_module(
+    registry: BlockRegistry,
+    *,
+    import_roots: tuple[Path, ...],
+    module_name: str,
+    source: str,
+) -> None:
     """Import one ``scistudio_blocks_*`` package and register its block classes."""
     try:
-        with _prepended_sys_paths(_source_package_import_roots(src_dir)):
+        runtime_import_roots = tuple(import_roots)
+        with prepended_sys_paths(runtime_import_roots):
             stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
             for name in stale_modules:
                 # Keep DataObject type modules stable across block-package refreshes.
@@ -504,9 +417,15 @@ def _scan_source_package_module(registry: BlockRegistry, *, src_dir: Path, modul
                 result = module.get_blocks()
             else:
                 return
-            _process_package_protocol_result(registry, module_name=module_name, result=result, source=source)
+            _process_package_protocol_result(
+                registry,
+                module_name=module_name,
+                result=result,
+                source=source,
+                runtime_import_roots=list(runtime_import_roots),
+            )
     except Exception:
-        logger.warning("Failed to import source plugin package '%s' from %s", module_name, src_dir, exc_info=True)
+        logger.warning("Failed to import source plugin package '%s' from %s", module_name, import_roots, exc_info=True)
 
 
 def _scan_package_src_dirs(registry: BlockRegistry) -> None:
@@ -517,16 +436,13 @@ def _scan_package_src_dirs(registry: BlockRegistry) -> None:
     capability validation remains the registry's single source of truth.
     """
     package_dirs = [*registry._package_src_dirs, *_desktop_resource_package_dirs()]
-    _activate_desktop_package_import_roots(package_dirs)
-    seen_src_dirs: set[Path] = set()
-    for package_dir in package_dirs:
-        for src_dir in _iter_package_src_dirs(package_dir):
-            resolved = src_dir.resolve()
-            if resolved in seen_src_dirs:
-                continue
-            seen_src_dirs.add(resolved)
-            for module_name in _iter_source_package_modules(resolved):
-                _scan_source_package_module(registry, src_dir=resolved, module_name=module_name, source="package_src")
+    for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
+        _scan_source_package_module(
+            registry,
+            import_roots=import_roots,
+            module_name=module_name,
+            source="package_src",
+        )
 
 
 def _scan_monorepo_packages(registry: BlockRegistry) -> None:
@@ -548,10 +464,6 @@ def _scan_monorepo_packages(registry: BlockRegistry) -> None:
     after :func:`_scan_tier2` and skips any block type that is already
     registered.
     """
-    from scistudio.blocks.base.block import Block
-    from scistudio.blocks.base.package_info import PackageInfo
-    from scistudio.blocks.registry._spec import _spec_from_class
-
     # ``__file__`` of this module sits at
     # ``src/scistudio/blocks/registry/_scan.py``. The repo root is
     # therefore ``parents[4]`` (registry → blocks → scistudio → src → root).
@@ -564,50 +476,9 @@ def _scan_monorepo_packages(registry: BlockRegistry) -> None:
         src_dir = pkg_dir / "src"
         if not src_dir.is_dir():
             continue
-
-        src_dir_str = str(src_dir)
-        if src_dir_str not in sys.path:
-            sys.path.insert(0, src_dir_str)
-
-        module_name = pkg_dir.name.replace("-", "_")
-        try:
-            module = importlib.import_module(module_name)
-        except Exception:
-            logger.warning("Failed to import monorepo plugin package '%s'", module_name, exc_info=True)
-            continue
-
-        result: Any | None = None
-        if hasattr(module, "get_block_package") and callable(module.get_block_package):
-            result = module.get_block_package()
-        elif hasattr(module, "get_blocks") and callable(module.get_blocks):
-            result = module.get_blocks()
-        else:
-            continue
-
-        info: PackageInfo | None = None
-        block_classes: list[type] = []
-        if isinstance(result, tuple) and len(result) == 2:
-            first, second = result
-            if isinstance(first, PackageInfo) and isinstance(second, list):
-                info = first
-                block_classes = second
-        elif isinstance(result, list):
-            block_classes = result
-
-        if not block_classes:
-            continue
-
-        pkg_name = info.name if info is not None else module_name
-        if info is not None:
-            registry._packages[info.name] = info
-
-        for cls in block_classes:
-            if not (isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls)):
-                continue
-            block_spec = _spec_from_class(cls, source="monorepo")
-            block_spec.module_path = cls.__module__
-            block_spec.class_name = cls.__name__
-            block_spec.package_name = pkg_name
-            if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
-                continue
-            _register_spec(registry, block_spec)
+        _scan_source_package_module(
+            registry,
+            import_roots=source_package_import_roots(src_dir),
+            module_name=pkg_dir.name.replace("-", "_"),
+            source="monorepo",
+        )

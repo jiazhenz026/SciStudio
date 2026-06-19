@@ -6,8 +6,8 @@ raster load/downsample/encode pipeline (``_image_data_uri_from_matrix``,
 ``_load_preview_matrix``, ``_downsample_matrix``) down into
 ``scistudio.previewers._raster`` so the previewer subsystem no longer imports
 up into the API layer. The API-specific ``_infer_type_name_from_ref`` stays
-here — it infers a type name from API storage metadata and has no previewer
-consumer.
+here — it infers only core type names from API storage metadata and has no
+previewer consumer.
 """
 
 from __future__ import annotations
@@ -34,12 +34,6 @@ def _infer_type_name_from_ref(ref: StorageReference) -> str:
         return DataFrame.__name__
     if fmt in {"txt", "json", "yaml", "yml", "md"}:
         return Text.__name__
-    # T-006 / ADR-027 D2: ``Image`` lives in the imaging plugin, not
-    # core. Imaging payloads are modelled as generic ``Array`` with
-    # ``axes=["y", "x"]`` here; the frontend preview hook still handles
-    # the "image" kind via the TIFF/PNG data-URI path below.
-    if fmt in {"png", "jpg", "jpeg", "tif", "tiff"}:
-        return Array.__name__
     if fmt == "zarr":
         return Array.__name__
     return Artifact.__name__

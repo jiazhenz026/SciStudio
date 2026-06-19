@@ -18,6 +18,7 @@ restore the REAL implementation so we test it directly.
 from __future__ import annotations
 
 import os
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -115,11 +116,13 @@ def test_local_ci_tool_dependencies_are_in_dev_extra() -> None:
     assert "semantic_dup" in checks.CHECK_CATALOG
     assert "wheel_release_smoke" in checks.CHECK_CATALOG
     assert "python_tests" in checks.CHECK_CATALOG
+    project = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8")).get("project", {})
     dev_deps = parity._dev_extras(repo_root)
     normalized = [dep.lower() for dep in dev_deps]
+    runtime_or_dev = [*(str(dep).lower() for dep in project.get("dependencies", [])), *normalized]
     assert any(dep.lower().startswith("fastembed") for dep in dev_deps)
     assert any(dep.startswith("build") for dep in normalized)
-    assert any(dep.startswith("pandas") for dep in normalized)
+    assert any(dep.startswith("pandas") for dep in runtime_or_dev)
     assert any(dep.startswith("setuptools") for dep in normalized)
     assert any(dep.startswith("tifffile") for dep in normalized)
 

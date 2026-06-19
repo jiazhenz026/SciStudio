@@ -6,9 +6,9 @@ forcing the lower previewer layer to import *up* into the API layer. It now live
 here so ``previewers`` is self-contained; the API layer's legacy composite-preview
 path imports these *down* from previewers.
 
-Behavior is unchanged from the pre-move implementation. (The API-specific
-``_infer_type_name_from_ref`` stays in ``api.runtime._preview_image`` — it infers
-a type name from API storage metadata and has no previewer consumer.)
+The helper now stays inside core Array semantics: it may encode numeric matrices
+as browser-friendly PNG data URIs and load core-owned Zarr Array storage, but it
+does not decode package-owned image formats such as TIFF/PNG/JPEG.
 """
 
 from __future__ import annotations
@@ -56,14 +56,9 @@ def _image_data_uri_from_matrix(values: list[list[float]]) -> str:
 
 
 def _load_preview_matrix(ref: StorageReference) -> Any:
-    """Load a raster payload for preview generation."""
+    """Load a core Array payload for preview generation."""
     path = Path(ref.path)
     suffix = path.suffix.lower()
-
-    if suffix in {".tif", ".tiff"}:
-        import tifffile
-
-        return tifffile.imread(str(path))
 
     if suffix == ".zarr":
         import zarr
@@ -76,7 +71,7 @@ def _load_preview_matrix(ref: StorageReference) -> Any:
             return data_array[...]
         raise ValueError(f"Zarr preview store at {path} has no top-level array or 'data' dataset")
 
-    raise ValueError(f"Unsupported raster preview format for {path}")
+    raise ValueError(f"Unsupported core Array preview format for {path}")
 
 
 def _downsample_matrix(matrix: Any, max_dim: int = 256) -> Any:

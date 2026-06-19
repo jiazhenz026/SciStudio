@@ -15,47 +15,70 @@
 //   - Verbose error text / lossy-save detail / warning lists live in Logs,
 //     BottomPanel, or the tooltip `title`, never in the node body.
 
+import {
+  AlertTriangle,
+  Ban,
+  Check,
+  Circle,
+  CircleDot,
+  LoaderCircle,
+  Minus,
+  Pause,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 interface SurfaceStyle {
-  /** Glyph rendered inside the corner badge. */
-  glyph: string;
+  /** Icon rendered inside the corner badge. */
+  Icon: LucideIcon;
+  /** Stable icon identifier for tests and visual debugging. */
+  iconName: string;
   /** Foreground (glyph) colour. */
   color: string;
-  /** Background fill colour. */
-  bg: string;
   /** Accessible label for the surface. */
   label: string;
   /** Spin the glyph (running). */
   spin?: boolean;
 }
 
+const STATUS_BADGE_BACKGROUND = "rgba(255, 255, 255, 0.86)";
+const STATUS_BADGE_BORDER = "rgba(15, 23, 42, 0.14)";
+const ERROR_STATUSES = new Set(["error", "fail", "failed", "failure"]);
+
 const RUNTIME_STYLES: Record<string, SurfaceStyle> = {
-  idle: { glyph: "○", color: "#9CA3AF", bg: "rgba(156,163,175,0.18)", label: "Idle" },
-  ready: { glyph: "◉", color: "#3B82F6", bg: "rgba(59,130,246,0.18)", label: "Ready" },
+  idle: { Icon: Circle, iconName: "circle", color: "#8A94A6", label: "Idle" },
+  ready: { Icon: CircleDot, iconName: "circle-dot", color: "#2563EB", label: "Ready" },
   running: {
-    glyph: "⟳",
-    color: "#3B82F6",
-    bg: "rgba(59,130,246,0.18)",
+    Icon: LoaderCircle,
+    iconName: "loader-circle",
+    color: "#2563EB",
     label: "Running",
     spin: true,
   },
-  paused: { glyph: "⏸", color: "#F59E0B", bg: "rgba(245,158,11,0.18)", label: "Paused" },
-  done: { glyph: "✓", color: "#22C55E", bg: "rgba(34,197,94,0.18)", label: "Done" },
-  error: { glyph: "!", color: "#EF4444", bg: "rgba(239,68,68,0.18)", label: "Error" },
-  cancelled: { glyph: "⊘", color: "#F97316", bg: "rgba(249,115,22,0.18)", label: "Cancelled" },
-  skipped: { glyph: "⊘", color: "#9CA3AF", bg: "rgba(156,163,175,0.18)", label: "Skipped" },
+  paused: { Icon: Pause, iconName: "pause", color: "#D97706", label: "Paused" },
+  done: { Icon: Check, iconName: "check", color: "#16A34A", label: "Done" },
+  success: { Icon: Check, iconName: "check", color: "#16A34A", label: "Done" },
+  succeeded: { Icon: Check, iconName: "check", color: "#16A34A", label: "Done" },
+  completed: { Icon: Check, iconName: "check", color: "#16A34A", label: "Done" },
+  error: { Icon: X, iconName: "x", color: "#DC2626", label: "Error" },
+  fail: { Icon: X, iconName: "x", color: "#DC2626", label: "Error" },
+  failed: { Icon: X, iconName: "x", color: "#DC2626", label: "Error" },
+  failure: { Icon: X, iconName: "x", color: "#DC2626", label: "Error" },
+  cancelled: { Icon: Ban, iconName: "ban", color: "#EA580C", label: "Cancelled" },
+  skipped: { Icon: Minus, iconName: "minus", color: "#6B7280", label: "Skipped" },
 };
 
 const ERROR_STYLE: SurfaceStyle = {
-  glyph: "!",
-  color: "#EF4444",
-  bg: "rgba(239,68,68,0.18)",
+  Icon: X,
+  iconName: "x",
+  color: "#DC2626",
   label: "Error",
 };
 
 const WARNING_STYLE: SurfaceStyle = {
-  glyph: "!",
+  Icon: AlertTriangle,
+  iconName: "alert-triangle",
   color: "#B45309",
-  bg: "rgba(245,158,11,0.22)",
   label: "Warning",
 };
 
@@ -85,7 +108,7 @@ function resolveSurface(
   status: string,
   severity: ProblemSeverity,
 ): { style: SurfaceStyle; kind: "error" | "warning" | "runtime" } {
-  if (severity === "error" || status === "error") {
+  if (severity === "error" || ERROR_STATUSES.has(status)) {
     return { style: ERROR_STYLE, kind: "error" };
   }
   if (severity === "warning") {
@@ -104,6 +127,7 @@ export function NodeStatusSurface({
 }: NodeStatusSurfaceProps) {
   const runtime = status ?? "idle";
   const { style, kind } = resolveSurface(runtime, problemSeverity);
+  const Icon = style.Icon;
 
   // Tooltip carries the verbose detail that ADR-050 forbids in the body.
   const detail =
@@ -119,16 +143,26 @@ export function NodeStatusSurface({
       data-status={runtime}
       data-severity={problemSeverity}
       data-surface-kind={kind}
+      data-icon={style.iconName}
       role="img"
       aria-label={`${style.label} status`}
       title={detail}
       // Absolute corner placement: the surface is laid out relative to the
       // square body and overlaps its top-right corner. It contributes ZERO to
       // the node's measured geometry (FR-004/FR-011).
-      className="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold leading-none shadow-sm"
-      style={{ backgroundColor: style.bg, color: style.color }}
+      className="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm backdrop-blur-[1px]"
+      style={{
+        backgroundColor: STATUS_BADGE_BACKGROUND,
+        borderColor: STATUS_BADGE_BORDER,
+        color: style.color,
+      }}
     >
-      <span className={style.spin ? "inline-block animate-spin" : undefined}>{style.glyph}</span>
+      <Icon
+        aria-hidden="true"
+        className={style.spin ? "animate-spin" : undefined}
+        size={13}
+        strokeWidth={3}
+      />
     </span>
   );
 
@@ -156,14 +190,22 @@ export function NodeStatusSurface({
           data-status={runtime}
           data-severity={problemSeverity}
           data-surface-kind={kind}
+          data-icon={style.iconName}
           role="img"
           aria-label={`${style.label} status`}
-          className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold leading-none shadow-sm"
-          style={{ backgroundColor: style.bg, color: style.color }}
+          className="flex h-5 w-5 items-center justify-center rounded-full border shadow-sm backdrop-blur-[1px]"
+          style={{
+            backgroundColor: STATUS_BADGE_BACKGROUND,
+            borderColor: STATUS_BADGE_BORDER,
+            color: style.color,
+          }}
         >
-          <span className={style.spin ? "inline-block animate-spin" : undefined}>
-            {style.glyph}
-          </span>
+          <Icon
+            aria-hidden="true"
+            className={style.spin ? "animate-spin" : undefined}
+            size={13}
+            strokeWidth={3}
+          />
         </span>
       </button>
     );

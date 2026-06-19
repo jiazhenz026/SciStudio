@@ -3,15 +3,12 @@
 The public ``preview_data`` MCP tool is SciStudio's AI-agent data-inspection
 read surface. The removed REST preview APIs are unrelated to this MCP contract.
 These helpers return small ``PreviewDataResult``-shaped payloads and enforce the MCP
-response budget via bounded reads (Zarr slicing, TIFF memmap/skip guards,
-Parquet/CSV batch iteration) so previews never intentionally load a whole large
-payload.
+response budget via bounded reads (Zarr slicing, Parquet/CSV batch iteration)
+so previews never intentionally load a whole large payload.
 
 The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
 parent ``tools_inspection`` package at call time so tests that
-monkeypatch the package-level binding (see
-``test_mcp_tools_inspection.test_preview_data_tiff_oversize_does_not_load_full_page``) reach the real
-call sites.
+monkeypatch the package-level binding reach the real call sites.
 """
 
 from __future__ import annotations
@@ -142,35 +139,7 @@ def _preview_array(path: Path) -> dict[str, Any]:
     """Preview an array using chunked reads (8 MiB cap)."""
     max_bytes = _max_preview_bytes()
     suffix = path.suffix.lower()
-    if suffix in {".tif", ".tiff"}:
-        import tifffile
-
-        # PR #744 Codex P1 (discussion_r3231046699): never blindly call
-        # page.asarray() on multi-GB TIFFs — use memmap or skip.
-        with tifffile.TiffFile(str(path)) as tf:
-            page = tf.pages[0]
-            try:
-                page_nbytes = int(page.size) * int(page.dtype.itemsize) if page.dtype is not None else 0
-            except (AttributeError, TypeError):
-                page_nbytes = 0
-            arr: Any
-            if page_nbytes and page_nbytes > max_bytes:
-                try:
-                    arr = tifffile.memmap(str(path), page=0, mode="r")
-                except (ValueError, OSError, MemoryError):
-                    return {
-                        "fmt": "skipped",
-                        "payload": {
-                            "reason": "tiff_page_exceeds_cap_and_not_memmappable",
-                            "page_nbytes": page_nbytes,
-                            "cap_bytes": max_bytes,
-                            "shape": list(page.shape),
-                        },
-                        "truncated": True,
-                    }
-            else:
-                arr = page.asarray()
-    elif suffix == ".zarr" or path.is_dir():
+    if suffix == ".zarr" or path.is_dir():
         import zarr
 
         node: Any = zarr.open(str(path), mode="r")
@@ -181,7 +150,7 @@ def _preview_array(path: Path) -> dict[str, Any]:
         else:
             raise ValueError(f"Zarr store at {path} has no top-level array or 'data' dataset")
     else:
-        raise ValueError(f"Unsupported array format: {suffix}")
+        raise ValueError(f"Unsupported core Array preview format: {suffix or path.name}")
 
     import numpy as np
 

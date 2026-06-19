@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -127,6 +128,81 @@ def _derive_output_dir(block: Any, config: dict[str, Any]) -> str:
     return tempfile.mkdtemp(prefix="scistudio-worker-")
 
 
+def _runtime_import_roots_for_block(block: Any) -> tuple[str, ...]:
+    raw = getattr(block.__class__, "_scistudio_runtime_import_roots", ())
+    if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes)):
+        return ()
+    roots: list[str] = []
+    seen: set[str] = set()
+    for entry in raw:
+        if not isinstance(entry, (str, os.PathLike)):
+            continue
+        root = str(entry)
+        if not root or root in seen:
+            continue
+        seen.add(root)
+        roots.append(root)
+    return tuple(roots)
+
+
+def _desktop_plugin_import_root_keys() -> set[str]:
+    try:
+        from scistudio.desktop.paths import desktop_plugin_import_roots
+    except Exception:
+        logger.debug("Failed to resolve desktop plugin import roots", exc_info=True)
+        return set()
+    return {str(path.resolve()) for path in desktop_plugin_import_roots()}
+
+
+def _pythonpath_entry_key(entry: str, *, parent_cwd: Path) -> str:
+    path = Path(entry)
+    if not path.is_absolute():
+        path = parent_cwd / path
+    return str(path.resolve())
+
+
+def _worker_env(
+    *,
+    worker_cwd: str | None,
+    project_dir: str | None,
+) -> dict[str, str] | None:
+    parent_cwd = Path(os.getcwd())
+    env = dict(os.environ)
+    plugin_root_keys = _desktop_plugin_import_root_keys()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    sanitized_existing: list[str] = []
+    removed_plugin_path = False
+
+    for part in existing_pythonpath.split(os.pathsep):
+        if not part:
+            continue
+        if _pythonpath_entry_key(part, parent_cwd=parent_cwd) in plugin_root_keys:
+            removed_plugin_path = True
+            continue
+        if worker_cwd is not None:
+            path = Path(part)
+            part = str(path if path.is_absolute() else parent_cwd / path)
+        sanitized_existing.append(part)
+
+    pythonpath_parts: list[str] = []
+    if worker_cwd is not None:
+        pythonpath_parts.extend([str(parent_cwd), str(parent_cwd / "src")])
+    pythonpath_parts.extend(sanitized_existing)
+
+    if project_dir:
+        env["SCISTUDIO_PROJECT_DIR"] = str(Path(project_dir).resolve())
+
+    if pythonpath_parts or removed_plugin_path:
+        if pythonpath_parts:
+            env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(pythonpath_parts))
+        else:
+            env.pop("PYTHONPATH", None)
+
+    if worker_cwd is None and not project_dir and not removed_plugin_path:
+        return None
+    return env
+
+
 class LocalRunner:
     """Execute blocks as local subprocesses.
 
@@ -193,6 +269,7 @@ class LocalRunner:
         # parent process's ``sys.modules``). Tier-2 / builtin block classes
         # do not have this attribute and use the normal import path.
         block_file_path = getattr(block.__class__, "_scistudio_file_path", None)
+        runtime_import_roots = _runtime_import_roots_for_block(block)
 
         # Build the serialized payload for the worker subprocess.
         payload_bytes = build_worker_payload(
@@ -201,6 +278,7 @@ class LocalRunner:
             config=config,
             output_dir=output_dir,
             block_file_path=block_file_path,
+            runtime_import_roots=runtime_import_roots,
         )
 
         # Launch via asyncio.create_subprocess_exec to avoid os.fork()
@@ -227,17 +305,7 @@ class LocalRunner:
         # ``tests.fixtures.noop_io_block``) would then fail with
         # ``ModuleNotFoundError``. Preserve that import surface by adding
         # the parent's cwd and source tree to the worker's ``PYTHONPATH``.
-        worker_env: dict[str, str] | None = None
-        if worker_cwd is not None:
-            worker_env = dict(os.environ)
-            parent_cwd = Path(os.getcwd())
-            pythonpath_parts = [str(parent_cwd), str(parent_cwd / "src")]
-            for part in worker_env.get("PYTHONPATH", "").split(os.pathsep):
-                if not part:
-                    continue
-                path = Path(part)
-                pythonpath_parts.append(str(path if path.is_absolute() else parent_cwd / path))
-            worker_env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(pythonpath_parts))
+        project_dir_str = project_dir if isinstance(project_dir, str) and project_dir else None
         # #1365: propagate ``SCISTUDIO_PROJECT_DIR`` to the worker so the
         # worker-side :func:`scistudio.core.types.serialization._get_type_registry`
         # registers ``<project>/types`` as a TypeRegistry scan dir before the
@@ -256,10 +324,7 @@ class LocalRunner:
         # ``<project>/<project>/types`` and missing every drop-in.
         # ``Path(...).resolve()`` makes the env var an absolute path the
         # worker can interpret without depending on its own cwd.
-        if isinstance(project_dir, str) and project_dir:
-            if worker_env is None:
-                worker_env = dict(os.environ)
-            worker_env["SCISTUDIO_PROJECT_DIR"] = str(Path(project_dir).resolve())
+        worker_env = _worker_env(worker_cwd=worker_cwd, project_dir=project_dir_str)
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",

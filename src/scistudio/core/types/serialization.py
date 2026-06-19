@@ -121,6 +121,8 @@ def _get_type_registry() -> TypeRegistry:
         with contextlib.suppress(Exception):
             registry._scan_entrypoint_types()
         with contextlib.suppress(Exception):
+            registry._scan_package_src_dirs()
+        with contextlib.suppress(Exception):
             registry._scan_filesystem_dirs()
         _registry_instance = registry
     return _registry_instance

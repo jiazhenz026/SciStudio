@@ -63,7 +63,7 @@ language_source: en
   - Full gate may be incomplete during live owner-guided work.
   - Issue linkage, scope/directive coverage, regression/test evidence, docs
     impact, governance/lint/audit baseline, and changed-surface CI checks MUST
-    reconcile before commit, push, or PR readiness.
+    reconcile before PR readiness.
 
 - When escalated to Tier 1:
   - `check` must run the full local mirror of the merge-blocking CI command
@@ -153,7 +153,7 @@ language_source: en
     [--docs-na "<class>:<rationale>"]
   ```
 
-- Run `check` before commit, push, or PR creation. `check` is the main local
+- Run `check` before PR creation. `check` is the main local
   CI-equivalent preflight. The agent must not manually run individual lint,
   type, test, docs, audit, frontend, or guard commands; `check` derives and
   runs the full tier-selected set:

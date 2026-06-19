@@ -322,7 +322,7 @@ required now versus recorded as a pre-PR gap.
 | `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier. PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on the **staged** diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers; does not run checks |
-| `pre-push` | Pre-push hook | Pre-push reconciliation: scope/diff coherence and recorded-check freshness. Does **not** block a WIP push on PR-readiness obligations (issue link, docs/test landing) — those belong to `pre-pr` / `ci` |
+| `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand. The installed pre-push hook is a fast allow shim, so WIP pushes are not blocked; PR-readiness obligations belong to `pre-pr` / `ci` |
 | `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; issue/docs/test obligations are required-now; parity gaps fail closed |
 | `ci` | CI workflow (`workflow-gate.yml` / "Verify Workflow Compliance") | Authoritative governance + guard validation with real PR context and label-actor provenance |
 
@@ -365,7 +365,7 @@ Baseline tier by task kind:
 | Tier | Baseline task kinds | Meaning |
 |---|---|---|
 | Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must run a full local mirror of merge-blocking CI command surfaces |
-| Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before commit/push/PR |
+| Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before PR readiness |
 | Tier 3 (Lightweight) | `docs`, `manager` | May start with a sparse plan. `check` runs only mandatory checks for the observed diff |
 
 Escalation (raises to Tier 1 regardless of starting kind) triggers when the
@@ -425,7 +425,7 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive; issue
   and scope when known. Full gate may be incomplete during live diagnosis.
-- **Obligations**: before commit/push/PR the actual diff must be explained by
+- **Obligations**: before PR readiness the actual diff must be explained by
   directive/scope; targeted regression test or owner-approved N/A; Tier 2
   baseline plus changed-surface checks; docs landing or N/A; close every fixed
   issue (batch hotfix records the full issue list).
@@ -532,7 +532,7 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
   owner directive, issue/scope when known. Full gate may be incomplete during
   live owner-guided work. Escalates to Tier 1 for feature / core / runtime /
   governance / broad-refactor work.
-- **Obligations**: before commit/push/PR the actual diff must be explainable by
+- **Obligations**: before PR readiness the actual diff must be explainable by
   recorded owner-directive events; Tier 2 baseline plus changed-surface checks
   by default, or full local CI mirror when escalated to Tier 1; PR cannot open
   until current diff, issue linkage, docs/tests/checks, and closure intent
@@ -647,7 +647,7 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
 ## 9. Behaviors To Know
 
 - **Isolated per-worktree venv auto-provisioning (§7.10).** In its local
-  preflight modes (`local`, `pre-commit`, `pre-push`, `pre-pr`), `check`
+  preflight modes (`local`, `pre-commit`, manual `pre-push`, `pre-pr`), `check`
   **auto-provisions** a CI-equivalent environment before running checks: an
   isolated, gitignored, per-worktree venv at `<worktree>/.workflow/local/venv`
   with `-e ".[dev]"` installed at the CI-resolved tool versions. It prefers `uv`

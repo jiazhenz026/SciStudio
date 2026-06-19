@@ -88,7 +88,9 @@ language_source: en
 
 - MUST wait for CI to pass before treating the task as complete.
 
-- MUST run `gate_record check` before push or PR creation.
+- MUST run `gate_record check` before PR creation.
+  WIP pushes no longer run duplicate gate validation through the pre-push hook;
+  PR creation and CI remain the hard governance checkpoints.
   Receipt behavior is folded into the gate record ledger as of ADR-042
   Addendum 6; separate `gate_receipt` commands are replaced by
   `gate_record check --mode pre-pr` and `gate_record finalize --pr-body-file`.
@@ -151,8 +153,10 @@ Supported `--persona` values: `manager`, `implementer`, `adr_author`,
 `audit_reviewer`, `test_engineer`, `live_implementer`.
 
 Supported `--mode` values for `check`: `local` (default), `pre-push`,
-`pre-pr`, `ci`. The `check` command automatically observes the git diff,
-infers the tier-selected CI-equivalent check set, runs required commands,
+`pre-pr`, `ci`. `pre-push` remains available as a manual compatibility mode,
+but the installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
+hard governance checkpoints. The `check` command automatically observes the git
+diff, infers the tier-selected CI-equivalent check set, runs required commands,
 records sanitized ledger events, runs guard reconciliation, and exits nonzero
 when required obligations remain unsatisfied.
 

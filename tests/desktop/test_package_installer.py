@@ -148,6 +148,15 @@ def test_install_source_directory_installs_runtime_dependencies_with_selected_py
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(package_installer.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        package_installer,
+        "_python_runtime_info",
+        lambda python: package_installer._PythonRuntimeInfo(
+            executable=str(Path(python)),
+            version="3.11.9",
+            cache_tag="cpython-311",
+        ),
+    )
     bundled_python = tmp_path / "bundled-python"
 
     result = install_local_package(
@@ -170,6 +179,9 @@ def test_install_source_directory_installs_runtime_dependencies_with_selected_py
     assert runtime_dir.is_dir()
     assert not (runtime_dir / "scistudio").exists()
     assert not (runtime_dir / "scistudio-999.dist-info").exists()
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["dependency_runtime"]["cache_tag"] == "cpython-311"
+    assert "ome-types>=0.5,<0.6" in manifest["dependency_runtime"]["dependencies"]
 
 
 def test_user_python_terminal_env_creates_user_wrappers(
@@ -203,3 +215,131 @@ def test_install_archive_rejects_path_traversal(tmp_path: Path) -> None:
 
     with pytest.raises(PackageInstallError, match="outside its install root"):
         install_local_package(archive_path, install_root=tmp_path / "installed")
+
+
+def test_repair_installed_package_dependencies_reinstalls_mismatched_abi(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source_root = _write_source_package(
+        tmp_path / "source",
+        dist_name="scistudio-blocks-repairprobe",
+        module_name="scistudio_blocks_repairprobe",
+        block_name="RepairProbeBlock",
+        package_name="Repair Probe",
+        dependencies=("numpy>=1.24",),
+    )
+    install_root = tmp_path / "installed"
+    install_path = install_root / "scistudio-blocks-repairprobe-0.1.0"
+    site_dir = install_path / desktop_paths.PACKAGE_SITE_DIR_NAME
+    site_dir.mkdir(parents=True)
+    (site_dir / "native.cpython-312-darwin.so").write_bytes(b"")
+    manifest = {
+        "format": "source-directory",
+        "installed_at": "2026-06-19T00:00:00+00:00",
+        "modules": ["scistudio_blocks_repairprobe"],
+        "package_name": "scistudio-blocks-repairprobe",
+        "source_path": str(source_root),
+        "version": "0.1.0",
+        "dependency_runtime": {
+            "cache_tag": "cpython-312",
+            "dependencies": ["numpy>=1.24"],
+            "python_executable": "/old/python",
+            "python_version": "3.12.7",
+        },
+    }
+    (install_path / "scistudio-local-package.json").write_text(json.dumps(manifest), encoding="utf-8")
+    calls: list[tuple[Path, dict[str, object]]] = []
+
+    def fake_install(source: str | Path, **kwargs: object) -> package_installer.LocalPackageInstallResult:
+        calls.append((Path(source), kwargs))
+        return package_installer.LocalPackageInstallResult(
+            package_name="scistudio-blocks-repairprobe",
+            version="0.1.0",
+            install_path=install_path,
+            source_path=Path(source),
+            modules=("scistudio_blocks_repairprobe",),
+            manifest_path=install_path / "scistudio-local-package.json",
+            replaced=True,
+        )
+
+    monkeypatch.setattr(
+        package_installer,
+        "_python_runtime_info",
+        lambda python: package_installer._PythonRuntimeInfo(
+            executable=str(Path(python)),
+            version="3.11.9",
+            cache_tag="cpython-311",
+        ),
+    )
+    monkeypatch.setattr(package_installer, "install_local_package", fake_install)
+
+    results = package_installer.repair_installed_package_dependencies(
+        install_root=install_root,
+        python_executable=tmp_path / "python",
+    )
+
+    assert len(results) == 1
+    assert results[0].repaired is True
+    assert results[0].reason == "compiled dependency targets cpython-312-darwin"
+    assert calls == [
+        (
+            source_root,
+            {
+                "install_root": install_root,
+                "install_dependencies": True,
+                "python_executable": str(tmp_path / "python"),
+            },
+        )
+    ]
+
+
+def test_repair_installed_package_dependencies_skips_current_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source_root = _write_source_package(
+        tmp_path / "source",
+        dist_name="scistudio-blocks-currentprobe",
+        module_name="scistudio_blocks_currentprobe",
+        block_name="CurrentProbeBlock",
+        package_name="Current Probe",
+        dependencies=("numpy>=1.24",),
+    )
+    install_root = tmp_path / "installed"
+    install_path = install_root / "scistudio-blocks-currentprobe-0.1.0"
+    site_dir = install_path / desktop_paths.PACKAGE_SITE_DIR_NAME
+    site_dir.mkdir(parents=True)
+    (site_dir / "native.cpython-311-darwin.so").write_bytes(b"")
+    manifest = {
+        "format": "source-directory",
+        "installed_at": "2026-06-19T00:00:00+00:00",
+        "modules": ["scistudio_blocks_currentprobe"],
+        "package_name": "scistudio-blocks-currentprobe",
+        "source_path": str(source_root),
+        "version": "0.1.0",
+        "dependency_runtime": {
+            "cache_tag": "cpython-311",
+            "dependencies": ["numpy>=1.24"],
+            "python_executable": str(tmp_path / "python"),
+            "python_version": "3.11.9",
+        },
+    }
+    (install_path / "scistudio-local-package.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    monkeypatch.setattr(
+        package_installer,
+        "_python_runtime_info",
+        lambda python: package_installer._PythonRuntimeInfo(
+            executable=str(Path(python)),
+            version="3.11.9",
+            cache_tag="cpython-311",
+        ),
+    )
+
+    results = package_installer.repair_installed_package_dependencies(
+        install_root=install_root,
+        python_executable=tmp_path / "python",
+    )
+
+    assert results == []

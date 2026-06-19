@@ -18,6 +18,7 @@ from pytest import MonkeyPatch
 from scistudio.api.runtime import ApiRuntime, _infer_type_name_from_ref
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
 
 
 class _DirectUploadRuntime:
@@ -272,6 +273,12 @@ def test_infer_type_name_from_ref_falls_back_to_extension_without_type_chain() -
 
     ref_csv = StorageReference(backend="filesystem", path="/tmp/data.csv", format="csv")
     assert _infer_type_name_from_ref(ref_csv) == "DataFrame"
+
+    ref_tiff = StorageReference(backend="filesystem", path="/tmp/image.tif", format="tiff")
+    assert _infer_type_name_from_ref(ref_tiff) == Artifact.__name__
+
+    ref_png = StorageReference(backend="filesystem", path="/tmp/image.png", format="png")
+    assert _infer_type_name_from_ref(ref_png) == Artifact.__name__
 
 
 def test_register_output_payload_preserves_plugin_type_name(

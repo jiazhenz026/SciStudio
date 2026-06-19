@@ -216,19 +216,6 @@ def _read_array(ref, limit):
             raise ValueError("NPZ Array item contains no arrays")
         return np.asarray(loaded[first_key])
 
-    if suffix in {".tif", ".tiff"}:
-        _guard_file_or_dir(path, limit, "Array item")
-        import tifffile
-
-        return np.asarray(tifffile.imread(str(path)))
-
-    if suffix in {".png", ".jpeg", ".jpg"}:
-        _guard_file_or_dir(path, limit, "Array item")
-        from PIL import Image
-
-        with Image.open(path) as img:
-            return np.asarray(img)
-
     if suffix in {".csv", ".tsv", ".txt"}:
         _guard_file_or_dir(path, limit, "Array item")
         delimiter = "\t" if suffix == ".tsv" else ","
@@ -380,6 +367,80 @@ class _PlotCollection:
         self.items = _PlotItems(refs, max_input_bytes)
 
 
+def _apply_default_matplotlib_style(matplotlib):
+    from cycler import cycler
+
+    matplotlib.rcParams.update(
+        {
+            "font.family": ["sans-serif"],
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+            "font.size": 7,
+            "font.weight": "normal",
+            "axes.titlesize": 7,
+            "axes.titleweight": "normal",
+            "axes.labelsize": 7,
+            "axes.labelweight": "normal",
+            "xtick.labelsize": 7,
+            "ytick.labelsize": 7,
+            "legend.fontsize": 6,
+            "figure.titlesize": 7,
+            "figure.titleweight": "normal",
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "svg.fonttype": "none",
+            "text.usetex": False,
+            "axes.linewidth": 0.5,
+            "xtick.major.width": 0.5,
+            "ytick.major.width": 0.5,
+            "xtick.minor.width": 0.4,
+            "ytick.minor.width": 0.4,
+            "xtick.direction": "out",
+            "ytick.direction": "out",
+            "xtick.major.size": 2.0,
+            "ytick.major.size": 2.0,
+            "xtick.minor.size": 1.0,
+            "ytick.minor.size": 1.0,
+            "xtick.bottom": True,
+            "ytick.left": True,
+            "xtick.top": False,
+            "ytick.right": False,
+            "lines.linewidth": 1.0,
+            "lines.markersize": 3.0,
+            "patch.linewidth": 0.5,
+            "hatch.linewidth": 0.5,
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "black",
+            "axes.labelcolor": "black",
+            "xtick.color": "black",
+            "ytick.color": "black",
+            "text.color": "black",
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.grid": False,
+            "axes.prop_cycle": cycler(
+                "color",
+                [
+                    "#000000",
+                    "#E69F00",
+                    "#56B4E9",
+                    "#009E73",
+                    "#F0E442",
+                    "#0072B2",
+                    "#D55E00",
+                    "#CC79A7",
+                ],
+            ),
+            "savefig.bbox": "standard",
+            "savefig.pad_inches": 0.0,
+            "savefig.transparent": False,
+            "savefig.dpi": 600,
+            "figure.dpi": 150,
+            "figure.constrained_layout.use": True,
+        }
+    )
+
+
 def _artifact_name(index, preferred):
     suffix = "jpg" if preferred == "jpeg" else preferred
     return "figure." + suffix if index == 0 else "figure_" + str(index) + "." + suffix
@@ -389,7 +450,7 @@ def _save_matplotlib_figure(fig, out_dir, preferred, allowed, index):
     _check_allowed("figure." + preferred, allowed)
     out = Path(out_dir) / _artifact_name(index, preferred)
     fmt = "jpg" if preferred == "jpeg" else preferred
-    fig.savefig(out, format=fmt, bbox_inches="tight")
+    fig.savefig(out, format=fmt)
     try:
         import matplotlib.pyplot as plt
 
@@ -446,6 +507,7 @@ def main():
         import matplotlib
 
         matplotlib.use("Agg")
+        _apply_default_matplotlib_style(matplotlib)
         envelope = json.loads(Path(inputs_json).read_text(encoding="utf-8"))
         collection = _PlotCollection(envelope, max_input_bytes)
         render = _load_render(script_name, entrypoint)
