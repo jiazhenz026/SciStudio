@@ -164,7 +164,7 @@ describe("BlockNode — block-kind mark (FR-006)", () => {
   // lucide's version-coupled internal class names and instead verify that a
   // single icon svg renders, differs per category, and falls back to custom.
   function iconHtmlOf(container: HTMLElement): string {
-    const svg = bodyOf(container).querySelector("svg");
+    const svg = bodyOf(container).querySelector('[data-testid="block-node-category-icon"]');
     if (!svg) throw new Error("category icon svg not found");
     return svg.outerHTML;
   }
@@ -173,8 +173,10 @@ describe("BlockNode — block-kind mark (FR-006)", () => {
     "renders a single line-icon mark for category=%s",
     (category) => {
       const { container } = renderNode({ category });
-      // Identity-only body: exactly one icon svg (the category mark).
-      expect(bodyOf(container).querySelectorAll("svg")).toHaveLength(1);
+      // Identity-only body: exactly one category mark; status is a separate corner surface.
+      expect(
+        bodyOf(container).querySelectorAll('[data-testid="block-node-category-icon"]'),
+      ).toHaveLength(1);
     },
   );
 

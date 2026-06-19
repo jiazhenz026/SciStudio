@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from scistudio.engine.events import EventBus
 from scistudio.engine.runners.local import BlockStorageReferenceError, LocalRunner, _derive_output_dir
@@ -684,8 +687,6 @@ class TestLocalRunnerWorkerCwd:
         cwd MUST be added to PYTHONPATH so imports that previously resolved
         via ``sys.path[0]=''`` (e.g. ``tests.fixtures.noop_io_block``) still
         work. Regression for CI failure in PR #1310 first run."""
-        import os
-
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=203)
         runner = LocalRunner()
 
@@ -702,6 +703,59 @@ class TestLocalRunnerWorkerCwd:
         assert env is not None, "worker env must be set when cwd is overridden"
         pp = env.get("PYTHONPATH", "")
         assert parent_cwd_before in pp.split(os.pathsep)
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_worker_env_filters_desktop_plugin_roots_from_pythonpath(
+        self,
+        mock_create_sub: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        from scistudio.desktop import paths as desktop_paths
+
+        mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=205)
+        plugin_site = tmp_path / "plugin-site"
+        safe_site = tmp_path / "safe-site"
+        project_dir = tmp_path / "project-root"
+        plugin_site.mkdir()
+        safe_site.mkdir()
+        project_dir.mkdir()
+        monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(plugin_site), str(safe_site)]))
+        monkeypatch.setattr(desktop_paths, "desktop_plugin_import_roots", lambda: (plugin_site,))
+
+        runner = LocalRunner()
+
+        class FakeBlock:
+            pass
+
+        asyncio.run(runner.run(FakeBlock(), {}, {"project_dir": str(project_dir)}))
+
+        env = mock_create_sub.call_args.kwargs.get("env")
+        assert env is not None
+        pythonpath = env.get("PYTHONPATH", "").split(os.pathsep)
+        assert str(plugin_site) not in pythonpath
+        assert str(safe_site) in pythonpath
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_runtime_import_roots_are_sent_in_worker_payload(
+        self,
+        mock_create_sub: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=206)
+        runtime_root = tmp_path / "plugin-root"
+        runtime_root.mkdir()
+        runner = LocalRunner()
+
+        class PluginBlock:
+            pass
+
+        PluginBlock._scistudio_runtime_import_roots = (str(runtime_root),)  # type: ignore[attr-defined]
+
+        asyncio.run(runner.run(PluginBlock(), {}, {}))
+
+        payload = json.loads(mock_create_sub.return_value.communicate.call_args.kwargs["input"].decode())
+        assert payload["runtime_import_roots"] == [str(runtime_root)]
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_env_is_none_when_no_active_project(self, mock_create_sub: AsyncMock) -> None:

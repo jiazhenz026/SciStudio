@@ -88,7 +88,9 @@ language_source: en
 
 - MUST wait for CI to pass before treating the task as complete.
 
-- MUST run `gate_record check` before push or PR creation.
+- MUST run `gate_record check` before PR creation.
+  WIP pushes no longer run duplicate gate validation through the pre-push hook;
+  PR creation and CI remain the hard governance checkpoints.
   Receipt behavior is folded into the gate record ledger as of ADR-042
   Addendum 6; separate `gate_receipt` commands are replaced by
   `gate_record check --mode pre-pr` and `gate_record finalize --pr-body-file`.
@@ -139,7 +141,7 @@ self-route a task; this section is only the quick index.
 | Create or update the gate ledger for the current task | `python -m scistudio.qa.governance.gate_record init --task-kind <kind> --persona <persona> --runtime <runtime> --branch <branch> --owner-directive "<directive>" [--issue <n>] [--include <path>] [--exclude <path>] [--governance-touch true]` |
 | Record or update the plan (scope, docs, tests, checks) | `python -m scistudio.qa.governance.gate_record plan [--owner-directive "<update>"] [--include <path>] [--issue <n>] [--docs-updated <path>] [--docs-na "<class>:<rationale>"] [--test-path <path>] [--test-na "<class>:<rationale>"] [--check <name>]` |
 | Append a correction or scope change with rationale | `python -m scistudio.qa.governance.gate_record amend --reason "<why>" [--owner-directive "<directive>"] [--include <path>] [--issue <n>] [--test-path <path>] [--docs-updated <path>]` |
-| Run tier-selected local CI-equivalent checks and reconcile | `python -m scistudio.qa.governance.gate_record check [--base origin/main] [--head HEAD] [--mode local\|pre-push\|pre-pr\|ci] [--pr-body-file <path>] [--only <name>]` |
+| Run tier-selected local CI-equivalent checks and reconcile | `python -m scistudio.qa.governance.gate_record check [--base origin/main] [--head HEAD] [--mode local\|pre-push\|pre-pr\|ci] [--pr-body-file <path>] [--only <name>] [--skip-execution] [--force-checks]` |
 | Record commit provenance (pre-PR, before PR exists) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` |
 | Record PR provenance (post-PR, after PR is created) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url-or-number> --pr-body-file <path>` |
 | Open AI-authored PR via gate-aware wrapper | `python scripts/scistudio_pr_create.py --title "<title>" --body "<body>"` |
@@ -151,8 +153,10 @@ Supported `--persona` values: `manager`, `implementer`, `adr_author`,
 `audit_reviewer`, `test_engineer`, `live_implementer`.
 
 Supported `--mode` values for `check`: `local` (default), `pre-push`,
-`pre-pr`, `ci`. The `check` command automatically observes the git diff,
-infers the tier-selected CI-equivalent check set, runs required commands,
+`pre-pr`, `ci`. `pre-push` remains available as a manual compatibility mode,
+but the installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
+hard governance checkpoints. The `check` command automatically observes the git
+diff, infers the tier-selected CI-equivalent check set, runs required commands,
 records sanitized ledger events, runs guard reconciliation, and exits nonzero
 when required obligations remain unsatisfied.
 
@@ -171,6 +175,13 @@ linked worktree. Use `gate_record amend` before touching files outside the
 original plan when operating within a worktree. New worktrees are
 auto-provisioned with this hook via
 `src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`.
+
+`gate_record check --mode pre-pr` is the only local command that should execute
+PR-ready checks by default, and it is incremental: current passing evidence is
+reused while missing or stale checks run. `finalize` and the PR wrapper reuse
+existing current check evidence (`--skip-execution`) and fail fast when that
+evidence is missing or stale. Use `--force-checks` only when intentionally
+rerunning the full selected check set.
 
 ## 6. Routing
 

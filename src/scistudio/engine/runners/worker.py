@@ -36,6 +36,7 @@ import json
 import logging
 import sys
 import traceback
+from pathlib import Path
 from typing import Any
 
 from scistudio.blocks.base.exceptions import BlockCancelledByAppError
@@ -43,6 +44,34 @@ from scistudio.core.storage.errors import StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
 
 logger = logging.getLogger(__name__)
+
+
+def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
+    """Prepend block-local import roots after worker core startup."""
+    if not isinstance(raw_roots, list):
+        return ()
+
+    resolved: list[str] = []
+    seen: set[str] = set()
+    for raw_root in raw_roots:
+        if not isinstance(raw_root, str) or not raw_root:
+            continue
+        root = Path(raw_root).expanduser()
+        if not root.is_dir():
+            continue
+        key = str(root.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved.append(key)
+
+    for path in reversed(resolved):
+        if path in sys.path:
+            sys.path.remove(path)
+        sys.path.insert(0, path)
+    if resolved:
+        importlib.invalidate_caches()
+    return tuple(resolved)
 
 
 def _same_storage_ref(left: StorageReference | None, right: StorageReference) -> bool:
@@ -390,6 +419,10 @@ def main() -> None:
     inputs: dict[str, Any] = {}
     block_id: str | None = None
     try:
+        raw = sys.stdin.read()
+        payload = json.loads(raw)
+        _prepend_runtime_import_roots(payload.get("runtime_import_roots"))
+
         # ADR-027 D11: warm the TypeRegistry singleton so plugin-provided
         # DataObject subtypes can be resolved during reconstruct_inputs.
         # The singleton lives in scistudio.core.types.serialization; the
@@ -397,9 +430,6 @@ def main() -> None:
         from scistudio.core.types.serialization import _get_type_registry
 
         _get_type_registry()
-
-        raw = sys.stdin.read()
-        payload = json.loads(raw)
 
         block_class_path: str = payload["block_class"]
         config: dict[str, Any] = payload.get("config", {})

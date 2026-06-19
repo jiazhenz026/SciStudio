@@ -141,7 +141,8 @@ Keep it current throughout the session, not only at the end.
 The `guided` task kind's default is Tier 2. The evaluator will automatically
 escalate to Tier 1 if the observed diff touches protected core paths, governance
 surfaces, or constitutes broad cross-module work. You do not choose the tier.
-When escalated, the full local CI mirror runs; plan for it.
+When escalated, the full local CI mirror is required; current passing evidence
+is reused and missing or stale checks run. Plan for that cost.
 
 ## 7. Final Checks Before PR Readiness
 
@@ -162,16 +163,18 @@ any repository-wide quality obligation. Before committing and submitting the PR:
    behavior changes. Running tests without changing test files is not
    sufficient.
 
-5. Run `gate_record check` to confirm the full tier-selected check set passes.
+5. Run `gate_record check --mode pre-pr` once to confirm the full
+   tier-selected check set passes and records reusable evidence.
    The evaluator runs the required checks automatically; do not skip any
    obligation it reports.
 
 6. Run `gate_record finalize` pre-PR with `--commit`, `--pr-body-file`, and
-   `--closes` for each issue. Confirm the intended PR body closes every linked
-   issue with a closing keyword.
+   `--closes` for each issue. This reuses existing check evidence by default.
+   Confirm the intended PR body closes every linked issue with a closing keyword.
 
 7. Submit the PR using `python scripts/scistudio_pr_create.py`. This wrapper
-   validates the ledger before opening the PR. Address any finding it reports.
+   validates the ledger with evidence reuse before opening the PR. Address any
+   finding it reports.
 
 8. After the PR is created, run `gate_record finalize` post-PR to record the
    PR URL.

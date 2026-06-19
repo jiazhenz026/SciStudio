@@ -15,7 +15,7 @@ Sub-module layout:
 
 * ``_helpers``         — ``_now_iso``, ``_slugify``, ``_safe_parent_dir``, ``_rmtree_force``
 * ``_preview_cache``   — DataFrame preview cache + pyarrow IO helpers
-* ``_preview_image``   — raster preview helpers + ``_infer_type_name_from_ref``
+* ``_preview_image``   — API data type-name inference helper
 * ``_projects``        — project CRUD + registry refresh (free functions)
 * ``_workflows``       — workflow YAML I/O + upload (free functions)
 * ``_data``            — data catalog + preview routing (free functions)
@@ -81,6 +81,43 @@ def _env_int(name: str, default: int) -> int:
         logger.warning("%s=%d must be positive; using default %d", name, value, default)
         return default
     return value
+
+
+def _is_bundled_desktop_run() -> bool:
+    return os.environ.get("SCISTUDIO_BUNDLED", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _desktop_package_dependency_repair_enabled() -> bool:
+    raw = os.environ.get("SCISTUDIO_DESKTOP_REPAIR_PACKAGES", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _repair_desktop_package_dependencies() -> None:
+    if not _is_bundled_desktop_run() or not _desktop_package_dependency_repair_enabled():
+        return
+    try:
+        from scistudio.desktop.package_installer import repair_installed_package_dependencies
+
+        results = repair_installed_package_dependencies()
+    except Exception:
+        logger.warning("desktop package dependency repair failed before registry refresh", exc_info=True)
+        return
+    for result in results:
+        if result.repaired:
+            logger.info(
+                "desktop package dependency cache repaired for %s %s: %s",
+                result.package_name,
+                result.version,
+                result.reason,
+            )
+        else:
+            logger.warning(
+                "desktop package dependency cache repair skipped for %s %s: %s%s",
+                result.package_name,
+                result.version,
+                result.reason,
+                f" ({result.error})" if result.error else "",
+            )
 
 
 # #1551 / DSN-12: the per-session ``data_catalog`` and ``workflow_runs`` registries
@@ -408,6 +445,7 @@ class ApiRuntime:
         include_monorepo = os.environ.get("SCISTUDIO_DEV") == "1"
         if include_monorepo:
             logger.info("SCISTUDIO_DEV=1: monorepo package scan enabled")
+        _repair_desktop_package_dependencies()
         self.refresh_type_registry()
         self.refresh_block_registry()
 

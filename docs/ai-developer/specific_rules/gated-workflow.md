@@ -223,8 +223,11 @@ python -m scistudio.qa.governance.gate_record check \
    declarations).
 2. Infers the tier-selected CI-equivalent check set from the CI workflow graph
    using the same path filters CI uses.
-3. Runs all required local commands at CI-resolved tool versions in a
-   CI-equivalent importable environment (without `pip install -e .`).
+3. Reuses current passing check evidence by default, and runs only missing or
+   stale required checks at CI-resolved tool versions in a CI-equivalent
+   importable environment (without `pip install -e .`). `--force-checks` reruns
+   the full selected set; `--skip-execution` validates evidence without running
+   commands.
 4. Writes raw transcripts only to ignored local paths under
    `.workflow/local/**`.
 5. Records sanitized check events in the committed ledger.
@@ -237,11 +240,11 @@ The `--mode` argument dispatches behavior for different callers:
 
 | Mode | Caller | Behavior |
 |---|---|---|
-| `local` | Manual `gate_record check` | Full local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
+| `local` | Manual `gate_record check` | Incremental local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on staged diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers |
-| `pre-push` | Pre-push hook | Pre-push reconciliation |
-| `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; pre-PR-impossible findings handled internally |
+| `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand; the installed pre-push hook is a fast allow shim |
+| `pre-pr` | Manual pre-PR check and PR wrapper | Pre-PR readiness with `--pr-body-file`; PR wrapper uses `--skip-execution` to reuse current evidence; pre-PR-impossible findings handled internally |
 | `ci` | CI workflow | Authoritative mode with full PR context; verifies label provenance |
 
 Local and CI modes use the same evaluator. The only difference is that CI mode
@@ -249,13 +252,19 @@ has real PR metadata and verifies label-actor provenance, while local modes
 record those as known pre-PR gaps.
 
 `--only` is a recovery aid, not a final readiness mode. A final PR-ready
-`check` must run or validate the complete tier-selected check set.
-`--skip-execution` may only reconcile already-recorded valid check events.
+`check` must run or validate the complete tier-selected check set. By default,
+`check` is incremental: current passing evidence is reused, and only missing or
+stale checks execute. Pass `--force-checks` to intentionally rerun the full
+selected set.
+`--skip-execution` is PR-ready only when every required check already has
+passing, current evidence for the observed diff; otherwise it reports stale or
+missing evidence and tells the agent to run the pre-PR check once.
 
 Tier-selected check breadth:
 
-- **Tier 1**: runs a full local mirror of the merge-blocking CI command surface,
-  whether or not the observed diff appears to need every job.
+- **Tier 1**: requires evidence for the full local mirror of the merge-blocking
+  CI command surface, whether or not the observed diff appears to need every
+  job. Existing current passing evidence is reused; missing or stale checks run.
 - **Tier 2**: runs the common governance/lint/audit baseline plus all CI jobs
   relevant to the observed diff.
 - **Tier 3**: runs only mandatory checks for the observed diff and repository
@@ -266,7 +275,7 @@ Compatibility aliases exposed by the current CLI:
 - `start` delegates to `init`
 - `pre-commit` delegates to `check --mode pre-commit`
 - `commit-msg <file>` delegates to `check --mode commit-msg <file>`
-- `pre-push` delegates to `check --mode pre-push`
+- `pre-push` delegates to `check --mode pre-push` when invoked manually; the installed pre-push hook does not invoke it
 - `pr-ready` delegates to `check --mode pre-pr`
 - `ci` delegates to `check --mode ci`
 
@@ -289,7 +298,8 @@ python -m scistudio.qa.governance.gate_record finalize \
   [--docs-updated <path>] \
   [--docs-na "<class>:<rationale>"] \
   [--test-path <path>] \
-  [--test-na "<class>:<rationale>"]
+  [--test-na "<class>:<rationale>"] \
+  [--force-checks]
 ```
 
 **Post-PR finalize** (after the PR is created):
@@ -298,16 +308,21 @@ python -m scistudio.qa.governance.gate_record finalize \
 python -m scistudio.qa.governance.gate_record finalize \
   --commit <sha> \
   --pr <url-or-number> \
-  --pr-body-file .workflow/local/pr-body.md
+  --pr-body-file .workflow/local/pr-body.md \
+  [--pr-context-file <path>] \
+  [--force-checks]
 ```
 
 Pre-PR `finalize` re-observes the diff, validates the intended PR body's issue
-closure, and reruns reconciliation. It records that the candidate is ready to
-open a PR if all non-PR-state obligations pass.
+closure, and reruns reconciliation by reusing existing check evidence. It does
+not execute tier-selected checks unless `--force-checks` is passed. It records
+that the candidate is ready to open a PR if all non-PR-state obligations pass.
 
-Post-PR `finalize` records the PR URL or number and reruns reconciliation with
-PR metadata. It fails when checks are stale, required issue closure is missing
-from the PR body, required docs or tests are absent, or tier-selected check
+Post-PR `finalize` records the PR URL or number and reruns reconciliation by
+reusing existing check evidence. Local post-PR finalize records PR provenance
+only; CI mode validates label actor/permission provenance from the workflow PR
+context. It fails when checks are stale, required issue closure is missing from
+the PR body, required docs or tests are absent, or tier-selected check
 obligations are unsatisfied.
 
 CI mode still discovers and validates this post-PR finalized ledger after it is
@@ -635,7 +650,8 @@ python -m scistudio.qa.governance.gate_record finalize \
   --head HEAD \
   --commit <sha> \
   --pr-body-file .workflow/local/pr-body.md \
-  --closes "#<issue>"
+  --closes "#<issue>" \
+  [--force-checks]
 ```
 
 Push and open the PR using the gate-aware wrapper:
@@ -647,12 +663,14 @@ python scripts/scistudio_pr_create.py \
   --body "<body>"
 ```
 
-The wrapper runs `gate_record check --mode pre-pr` (or pre-PR finalize)
-locally before invoking `gh pr create`. Pre-PR-impossible findings (core-change
-label provenance, merge-guard) are handled internally by the evaluator's pre-PR
-mode rather than by a caller-side filter. `--dry-run` runs the pre-flight
-without invoking `gh`. Set `SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency
-one-off escapes; CI will still run the full evaluator in the cloud.
+The wrapper runs `gate_record check --mode pre-pr --skip-execution` locally
+before invoking `gh pr create`; it validates that required checks already have
+current passing evidence for the current diff. It does not execute local checks
+again. Pre-PR-impossible findings (core-change label provenance,
+merge-guard) are handled internally by the evaluator's pre-PR mode rather than
+by a caller-side filter. `--dry-run` runs the pre-flight without invoking `gh`.
+Set `SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency one-off escapes; CI will
+still run the full evaluator in the cloud.
 
 Direct `gh pr create` invocation remains supported for non-AI work or when the
 wrapper is unavailable, but AI-authored PRs that skip the wrapper should expect
@@ -664,7 +682,8 @@ After the PR is created, run post-PR finalize:
 python -m scistudio.qa.governance.gate_record finalize \
   --commit <sha> \
   --pr <url-or-number> \
-  --pr-body-file .workflow/local/pr-body.md
+  --pr-body-file .workflow/local/pr-body.md \
+  [--pr-context-file <path>]
 ```
 
 Commit and push the resulting ledger update. The CI workflow's

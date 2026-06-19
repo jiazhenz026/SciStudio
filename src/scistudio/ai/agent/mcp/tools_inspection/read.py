@@ -184,8 +184,7 @@ async def preview_data(
 
     Do NOT use to:
       - Read full datasets: this tool is capped at 8 MiB per response
-        and uses chunked reads (zarr iter_chunks, tifffile memmap) to
-        avoid OOM on multi-GB inputs.
+        and uses bounded core readers to avoid OOM on multi-GB inputs.
       - Inspect metadata only: use ``inspect_data``.
 
     Dispatch:
@@ -205,13 +204,14 @@ async def preview_data(
 
     md = ref.get("metadata") or {}
     type_chain = md.get("type_chain", []) if isinstance(md, dict) else []
+    type_names = {str(item) for item in type_chain if isinstance(item, str)}
     top = type_chain[-1] if type_chain else ""
     suffix = path.suffix.lower()
 
-    is_dataframe = top == "DataFrame" or suffix in {".csv", ".parquet"}
-    is_array = top in {"Array", "Image"} or suffix in {".tif", ".tiff", ".zarr"} or path.is_dir()
-    is_series = top in {"Series", "Spectrum"}
-    is_text = top == "Text" or suffix in {".txt", ".json", ".yaml", ".yml", ".md"}
+    is_dataframe = "DataFrame" in type_names or top == "DataFrame" or suffix in {".csv", ".parquet"}
+    is_array = "Array" in type_names or top == "Array" or suffix == ".zarr" or path.is_dir()
+    is_series = "Series" in type_names or top == "Series"
+    is_text = "Text" in type_names or top == "Text" or suffix in {".txt", ".json", ".yaml", ".yml", ".md"}
 
     if is_dataframe:
         result = _preview_dataframe(path)

@@ -44,6 +44,30 @@ def test_plugin_core_dependency_accepts_current_root_version() -> None:
         assert root_version in req.specifier, f"{plugin_file} does not accept core version {root_version}"
 
 
+def test_core_runtime_dependencies_cover_core_imports_without_image_decoders() -> None:
+    """Core ships direct runtime imports, but package image decoders stay out."""
+    pyproject = _load_toml(REPO_ROOT / "pyproject.toml")
+    dependencies = pyproject["project"]["dependencies"]
+    names = {Requirement(dep).name.lower() for dep in dependencies}
+
+    assert {"numpy", "packaging", "matplotlib", "pandas"}.issubset(names)
+    assert "tifffile" not in names
+    assert "pillow" not in names
+
+
+def test_core_source_does_not_import_package_owned_image_decoders() -> None:
+    """TIFF/Pillow decoding belongs to imaging package code, not core."""
+    forbidden = ("import tifffile", "from tifffile", "from PIL", "import PIL")
+    offenders: list[str] = []
+    for path in (REPO_ROOT / "src" / "scistudio").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        for needle in forbidden:
+            if needle in text:
+                offenders.append(f"{path.relative_to(REPO_ROOT)} contains {needle!r}")
+
+    assert offenders == []
+
+
 def test_readme_current_status_mentions_root_version() -> None:
     """README should advertise the same current version as package metadata."""
     pyproject = _load_toml(REPO_ROOT / "pyproject.toml")

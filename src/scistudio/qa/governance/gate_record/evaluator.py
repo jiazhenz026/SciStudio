@@ -13,6 +13,7 @@ sanitize committed events.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,6 +82,8 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
 # pre-pr / CI, and the governance guards + fast checks still run at commit time
 # (#1628).
 _PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests", "semantic_dup"})
+_CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
+_CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
 
 # Surface classes the evaluator records on the observed diff.
 _SURFACE_CLASSIFIERS = {
@@ -528,6 +531,198 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
     return excerpt.encode("ascii", "replace").decode("ascii")
 
 
+def _is_global_check_config_path(path: str) -> bool:
+    """Return True for files that can change the meaning of check execution."""
+
+    return path in {
+        ".pre-commit-config.yaml",
+        "pyproject.toml",
+        "setup.cfg",
+        "tox.ini",
+    } or path.startswith(".github/workflows/")
+
+
+def _is_python_check_input(path: str) -> bool:
+    return (
+        path.endswith((".py", ".pyi"))
+        or path.startswith(("src/", "tests/", "packages/", "scripts/"))
+        or path in {".codespellrc", "mypy.ini", "pyrightconfig.json", "setup.py"}
+        or _is_global_check_config_path(path)
+    )
+
+
+def _is_frontend_check_input(path: str) -> bool:
+    return (
+        path.startswith("frontend/")
+        or path in {"package.json", "package-lock.json", "pnpm-lock.yaml"}
+        or _is_global_check_config_path(path)
+    )
+
+
+def _is_architecture_check_input(path: str) -> bool:
+    return path.startswith(
+        ("src/", "tests/architecture/", "docs/architecture/", "docs/adr/", "docs/specs/")
+    ) or _is_global_check_config_path(path)
+
+
+def _is_packaging_check_input(path: str) -> bool:
+    return (
+        path.startswith(("src/", "packages/", "frontend/dist/"))
+        or surfaces.is_packaging_path(path)
+        or _is_global_check_config_path(path)
+    )
+
+
+def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
+    """Return changed files that can affect ``name``'s reusable evidence."""
+
+    normalized = sorted(
+        {
+            p
+            for p in (surfaces.normalize_path(path) for path in changed_files)
+            if p and not p.startswith(_CHECK_EVIDENCE_IGNORED_PREFIXES)
+        }
+    )
+    spec = checks.CHECK_CATALOG.get(name)
+    if spec is None:
+        return normalized
+    if name in {"full_audit", "deferral_discipline"}:
+        return normalized
+    if name == "semantic_dup":
+        return [
+            p
+            for p in normalized
+            if surfaces.sentrux_applies_to_changes([p])
+            or p.startswith("docs/audit/baselines/semantic-dup")
+            or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface == "python":
+        return [p for p in normalized if _is_python_check_input(p)]
+    if spec.covered_surface == "frontend":
+        return [p for p in normalized if _is_frontend_check_input(p)]
+    if spec.covered_surface == "architecture":
+        return [p for p in normalized if _is_architecture_check_input(p)]
+    if spec.covered_surface == "packaging":
+        return [p for p in normalized if _is_packaging_check_input(p)]
+    return normalized
+
+
+def _check_input_fingerprint(
+    repo_root: Path,
+    name: str,
+    *,
+    base: str,
+    head: str,
+    staged: bool,
+    changed_files: Sequence[str],
+    diff_fingerprint: str | None,
+) -> str | None:
+    """Return the content fingerprint used to validate reusable check evidence.
+
+    Gate ledger events are evidence ABOUT checks, not inputs TO source quality
+    checks. Excluding committed ledger files prevents the finalize/evidence
+    append loop from making every previously passing check stale. The remaining
+    input set is per-check, so unrelated source surfaces do not invalidate
+    evidence for a check they cannot affect.
+    """
+
+    covered_paths = _check_input_paths(name, changed_files)
+    diff_text = io.diff_text(repo_root, base, head, staged=staged, paths=covered_paths) if covered_paths else ""
+    input_text = diff_text if diff_text or not covered_paths else diff_fingerprint or ""
+    fingerprint_body = "\n".join(
+        [
+            _CHECK_FINGERPRINT_VERSION,
+            name,
+            *covered_paths,
+            "",
+            input_text,
+        ]
+    )
+    return "sha256:" + hashlib.sha256(fingerprint_body.encode("utf-8")).hexdigest()
+
+
+def _valid_prior_check_event(
+    ledger: GateLedger,
+    *,
+    name: str,
+    input_fingerprint: str | None,
+) -> CheckEvent | None:
+    """Return the newest passing event for ``name`` that still covers this diff."""
+
+    for event in reversed(ledger.check_events):
+        if event.name == name and checks.event_is_valid_for(event, input_fingerprint=input_fingerprint):
+            return event
+    return None
+
+
+def _validate_prior_check_events(
+    ledger: GateLedger,
+    *,
+    required_names: Sequence[str],
+    na_names: set[str],
+    only: Sequence[str] | None,
+    pr_readiness_mode: bool,
+    input_fingerprints: Mapping[str, str | None],
+) -> tuple[list[CheckEvent], list[str], list[str]]:
+    """Validate reusable check evidence for the current candidate."""
+
+    validated: list[CheckEvent] = []
+    unsatisfied: list[str] = []
+    repair_hints: list[str] = []
+    to_validate = [name for name in required_names if name not in na_names]
+    if only is not None:
+        to_validate = [name for name in to_validate if name in set(only)]
+    for name in to_validate:
+        prior = _valid_prior_check_event(ledger, name=name, input_fingerprint=input_fingerprints.get(name))
+        if prior is not None:
+            validated.append(prior)
+            continue
+        if not pr_readiness_mode:
+            continue
+        unsatisfied.append(f"checks.{name}")
+        repair_hints.append(
+            f"- checks.{name}\n"
+            "  Required check evidence is missing or stale for the current diff.\n"
+            "  Run the incremental pre-PR check once, then retry this command:\n"
+            "  gate_record check --mode pre-pr --base origin/main --head HEAD "
+            "--pr-body-file .workflow/local/pr-body.md"
+        )
+    return validated, unsatisfied, repair_hints
+
+
+def _select_checks_to_execute(
+    ledger: GateLedger,
+    *,
+    required_names: Sequence[str],
+    na_names: set[str],
+    only: Sequence[str] | None,
+    force_checks: bool,
+    input_fingerprints: Mapping[str, str | None],
+) -> tuple[list[str], list[CheckEvent]]:
+    """Split required checks into current evidence vs checks to execute."""
+
+    selected = [name for name in required_names if name not in na_names]
+    if only is not None:
+        selected = [name for name in selected if name in set(only)]
+    to_run: list[str] = []
+    current: list[CheckEvent] = []
+    for name in selected:
+        prior = (
+            None
+            if force_checks
+            else _valid_prior_check_event(
+                ledger,
+                name=name,
+                input_fingerprint=input_fingerprints.get(name),
+            )
+        )
+        if prior is None:
+            to_run.append(name)
+        else:
+            current.append(prior)
+    return to_run, current
+
+
 def reconcile(
     *,
     ledger: GateLedger,
@@ -538,6 +733,7 @@ def reconcile(
     pr_body: str | None = None,
     pr_context: dict[str, Any] | None = None,
     run_checks: bool = True,
+    force_checks: bool = False,
     only: Sequence[str] | None = None,
 ) -> ReconcileResult:
     """The single shared reconciliation entry point (spec §3.1)."""
@@ -685,25 +881,50 @@ def reconcile(
             "readiness; the N/A is recorded but ignored for this check. Fix the check or rely on CI."
         )
     if run_checks and mode not in ("commit-msg",):
+        input_fps = {
+            name: _check_input_fingerprint(
+                repo_root,
+                name,
+                base=base,
+                head=head,
+                staged=staged,
+                changed_files=observed_files,
+                diff_fingerprint=fingerprint,
+            )
+            for name in selection.required
+        }
+        to_run, current_events = _select_checks_to_execute(
+            ledger,
+            required_names=selection.required,
+            na_names=na_names,
+            only=only,
+            force_checks=force_checks,
+            input_fingerprints=input_fps,
+        )
+        check_events.extend(current_events)
         # §7.10: for LOCAL preflight modes this AUTO-PROVISIONS the isolated
         # per-worktree venv with CI-equivalent deps and validates importability
         # inside it, so the checks below run at CI tool versions in an equivalent
         # environment. CRITICAL: ``ci`` mode never provisions — ci.yml owns its
         # own quality matrix and environment — so we pass ``mode`` through and
         # only validate the PYTHONPATH=src fallback in CI mode.
-        parity_report = parity.assess_parity(repo_root, mode=mode)
-        if mode in ("pre-pr", "ci") and not parity_report.importable:
-            # Fail closed for PR readiness (exit 4 surfaced by the CLI).
-            parity_gaps.extend(parity_report.gaps)
-        elif parity_report.gaps:
-            # Non-PR-readiness local modes still surface provisioning failures so
-            # the agent sees them, but do not hard-fail a WIP invocation.
-            parity_gaps.extend(parity_report.gaps)
-        to_run = [name for name in selection.required if name not in na_names]
-        if only is not None:
-            to_run = [name for name in to_run if name in set(only)]
+        if to_run:
+            parity_report = parity.assess_parity(repo_root, mode=mode)
+            if mode in ("pre-pr", "ci") and not parity_report.importable:
+                # Fail closed for PR readiness (exit 4 surfaced by the CLI).
+                parity_gaps.extend(parity_report.gaps)
+            elif parity_report.gaps:
+                # Non-PR-readiness local modes still surface provisioning failures so
+                # the agent sees them, but do not hard-fail a WIP invocation.
+                parity_gaps.extend(parity_report.gaps)
         for name in to_run:
-            event = checks.run_check(repo_root, name, changed_files=observed_files, diff_fingerprint=fingerprint)
+            event = checks.run_check(
+                repo_root,
+                name,
+                changed_files=observed_files,
+                diff_fingerprint=fingerprint,
+                input_fingerprint=input_fps.get(name),
+            )
             check_events.append(event)
             ledger.check_events.append(event)
             if event.status == "skipped":
@@ -746,6 +967,34 @@ def reconcile(
                 if excerpt:
                     hint += f"\n  --- {name} output (tail) ---\n{excerpt}"
                 repair_hints.append(hint)
+    elif mode not in ("commit-msg",):
+        # Reuse previously recorded passing check evidence instead of executing
+        # local commands. This is the fast path used by finalize and PR
+        # creation: it is only PR-ready when every required check has current
+        # evidence for the observed diff fingerprint.
+        input_fps = {
+            name: _check_input_fingerprint(
+                repo_root,
+                name,
+                base=base,
+                head=head,
+                staged=staged,
+                changed_files=observed_files,
+                diff_fingerprint=fingerprint,
+            )
+            for name in selection.required
+        }
+        validated, evidence_gaps, evidence_hints = _validate_prior_check_events(
+            ledger,
+            required_names=selection.required,
+            na_names=na_names,
+            only=only,
+            pr_readiness_mode=pr_readiness_mode,
+            input_fingerprints=input_fps,
+        )
+        check_events.extend(validated)
+        unsatisfied.extend(evidence_gaps)
+        repair_hints.extend(evidence_hints)
 
     # Docs/test obligations unsatisfied when no verified evidence and no N/A.
     # These are PR-readiness obligations: local and pre-pr/ci enforce them, but

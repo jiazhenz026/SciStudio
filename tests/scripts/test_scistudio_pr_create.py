@@ -4,10 +4,11 @@
 The wrapper is now a thin caller of the single shared evaluator: it extracts the
 PR body/base from the ``gh pr create`` argv, verifies a current-branch gate
 ledger exists via the SHARED ``io.discover_ledger`` (no private ``find_gate_record``),
-then runs ``gate_record check --mode pre-pr --pr-body-file <body>`` once. There is
-no caller-side finding filter (``filter_findings`` is deleted — pre-PR-impossible
-findings are classified internally by the evaluator's pre-PR mode) and no separate
-receipt-validate step. ``--dry-run`` and ``SCISTUDIO_SKIP_PREFLIGHT`` are preserved.
+then runs ``gate_record check --mode pre-pr --skip-execution --pr-body-file <body>``
+once to reuse existing evidence. There is no caller-side finding filter
+(``filter_findings`` is deleted — pre-PR-impossible findings are classified
+internally by the evaluator's pre-PR mode) and no separate receipt-validate step.
+``--dry-run`` and ``SCISTUDIO_SKIP_PREFLIGHT`` are preserved.
 """
 
 from __future__ import annotations
@@ -120,6 +121,31 @@ def test_wrapper_has_no_private_discovery_or_filter(wrapper) -> None:
     assert not hasattr(wrapper, "run_gate_record_ci")
     assert not hasattr(wrapper, "run_gate_receipt_validate")
     assert hasattr(wrapper, "run_pre_pr_check")
+
+
+def test_run_pre_pr_check_reuses_existing_evidence(wrapper, monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(wrapper.subprocess, "run", _fake_run)
+    body = tmp_path / "body.md"
+    body.write_text("Closes #1\n", encoding="utf-8")
+
+    rc = wrapper.run_pre_pr_check(tmp_path, body, base="origin/main")
+
+    assert rc == 0
+    cmd = captured["cmd"]
+    assert "--mode" in cmd and "pre-pr" in cmd
+    assert "--skip-execution" in cmd
+    assert "--pr-body-file" in cmd
 
 
 # ---------------------------------------------------------------------------

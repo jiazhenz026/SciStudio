@@ -321,6 +321,40 @@ def test_image_provider_returns_valid_envelope_without_self_embedding(
     assert envelope.frontend_manifest is None
 
 
+def test_image_provider_reads_tiff_inside_imaging_package(tmp_path: Path) -> None:
+    """TIFF decoding is package-owned; the Image provider must not rely on core."""
+    import tifffile
+
+    from scistudio.previewers.data_access import PreviewDataAccess
+
+    spec = _image_spec()
+    image_path = tmp_path / "image.tif"
+    tifffile.imwrite(image_path, np.arange(64, dtype=np.uint8).reshape(8, 8))
+    request = PreviewRequest(
+        target=_data_target("Image", _IMAGE_CHAIN),
+        spec=spec,
+        query={
+            "_storage": {
+                "backend": "filesystem",
+                "path": str(image_path),
+                "format": "tiff",
+                "metadata": {"axes": ["y", "x"], "shape": [8, 8]},
+            }
+        },
+        data_access=PreviewDataAccess(),
+        limits=PreviewLimits(),
+        session_id=None,
+    )
+
+    envelope = image_provider(request)
+
+    assert envelope.kind is EnvelopeKind.ARRAY
+    assert envelope.payload["shape"] == [8, 8]
+    assert envelope.payload["src"].startswith("data:image/png;base64,")
+    assert {resource.resource_id for resource in envelope.resources} == {"export"}
+    assert envelope.error is None
+
+
 def test_session_manager_stamps_image_manifest_first_class(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Driven through PreviewSessionManager, the Image envelope carries the
     resolved spec's manifest first-class on ``envelope.frontend_manifest``."""

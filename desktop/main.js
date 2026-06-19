@@ -79,6 +79,12 @@ function pythonCandidates() {
   const resources = resourcesDir();
   const candidates = [];
 
+  const addExistingCandidate = (command, label) => {
+    if (command && fs.existsSync(command)) {
+      candidates.push({ command, argsPrefix: [], label });
+    }
+  };
+
   if (process.env.SCISTUDIO_DESKTOP_PYTHON) {
     candidates.push({
       command: process.env.SCISTUDIO_DESKTOP_PYTHON,
@@ -106,6 +112,18 @@ function pythonCandidates() {
       argsPrefix: [],
       label: "staged python root"
     });
+    if (process.platform === "darwin") {
+      addExistingCandidate("/opt/anaconda3/envs/scistudio/bin/python", "conda scistudio");
+      addExistingCandidate("/opt/anaconda3/envs/SciStudio/bin/python", "conda SciStudio");
+      addExistingCandidate(
+        path.join(os.homedir(), "anaconda3", "envs", "scistudio", "bin", "python"),
+        "home conda scistudio"
+      );
+      addExistingCandidate(
+        path.join(os.homedir(), "miniconda3", "envs", "scistudio", "bin", "python"),
+        "home miniconda scistudio"
+      );
+    }
     candidates.push({ command: "python3", argsPrefix: [], label: "python3" });
     candidates.push({ command: "python", argsPrefix: [], label: "python" });
   }

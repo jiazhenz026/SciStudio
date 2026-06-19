@@ -24,6 +24,7 @@ import Plot from "react-plotly.js";
 
 import type { EnvelopeKind, PreviewEnvelope, PreviewResource } from "../../types/api";
 
+import { PlotViewer } from "./PlotViewer";
 import { deriveDisplayName } from "./refEntries";
 import { TableViewer, type TableViewerInitial } from "./TableViewer";
 
@@ -736,75 +737,6 @@ export function CollectionViewer({
             </button>
           );
         })}
-      </div>
-      <MetadataBadges envelope={envelope} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Plot (FR-018 / FR-019) — PNG/JPEG/SVG/PDF, sandboxed SVG, export controls
-// ---------------------------------------------------------------------------
-
-export function PlotViewer({
-  envelope,
-  onExport,
-}: {
-  envelope: PreviewEnvelope;
-  onExport?: (resource: PreviewResource) => void;
-}) {
-  const payload = envelope.payload;
-  const format = asString(payload.format, "");
-  const mime = asString(payload.mime_type, "application/octet-stream");
-  const src = asString(payload.src);
-  const svg = asString(payload.svg);
-  const exportResource = envelope.resources.find((r) => r.resource_id === "export");
-
-  return (
-    <div data-testid="core-plot-viewer" className="space-y-2">
-      <DiagnosticsBanner diagnostics={envelope.diagnostics} />
-      <div className="rounded-[1rem] border border-stone-200 bg-white p-3">
-        {format === "svg" && svg ? (
-          // FR-019 — SVG is sanitized by the backend AND rendered in a
-          // sandboxed iframe (no scripts, no same-origin) so nothing executes
-          // in the app context even if sanitization missed something.
-          <iframe
-            data-testid="plot-svg-frame"
-            title="Plot SVG"
-            sandbox=""
-            srcDoc={svg}
-            className="h-72 w-full rounded border-0 bg-white"
-          />
-        ) : format === "pdf" && src ? (
-          <iframe
-            data-testid="plot-pdf-frame"
-            title="Plot PDF"
-            src={src}
-            className="h-96 w-full rounded border-0"
-          />
-        ) : src ? (
-          <img
-            alt={`Plot ${format}`}
-            data-testid="plot-image"
-            src={src}
-            className="max-h-96 w-full object-contain"
-          />
-        ) : (
-          <p className="text-xs text-stone-500">No renderable plot artifact.</p>
-        )}
-      </div>
-      <div className="flex items-center gap-2 text-xs text-stone-600">
-        <span className="uppercase tracking-wider text-stone-400">{format || mime}</span>
-        <button
-          type="button"
-          data-testid="plot-export-button"
-          aria-label={`Save plot as ${format || "file"}`}
-          disabled={!exportResource}
-          onClick={() => (exportResource && onExport ? onExport(exportResource) : undefined)}
-          className="ml-auto rounded border border-stone-300 bg-white px-3 py-0.5 disabled:opacity-50"
-        >
-          Save
-        </button>
       </div>
       <MetadataBadges envelope={envelope} />
     </div>

@@ -344,8 +344,6 @@ class PreviewDataAccess:
 
         For Zarr the array handle is sliced with explicit indices so only the
         requested plane is read — never the full N-D payload (FR-010 / SC-004).
-        For TIFF the first page is read via the existing helper (a single IFD,
-        already bounded for typical previews).
         """
         import numpy as np
 
@@ -653,27 +651,15 @@ class PreviewDataAccess:
     # -- internals ----------------------------------------------------------
 
     def _open_array_handle(self, ref: StorageReference) -> tuple[Any, list[int], str]:
-        """Open a raster handle WITHOUT reading the full payload.
+        """Open a core Array handle WITHOUT reading the full payload.
 
         Returns ``(handle, full_shape, dtype)`` where ``handle`` is sliceable
-        with numpy-style indexing. For Zarr the handle is the lazy array; for
-        TIFF the page array is read (single IFD). This is the boundary that
-        makes large-array previews bounded.
+        with numpy-style indexing. For Zarr the handle is the lazy array. This
+        is the boundary that makes large-array previews bounded while keeping
+        package-owned image decoders out of core.
         """
         path = Path(ref.path)
         suffix = path.suffix.lower()
-
-        if suffix in {".tif", ".tiff"}:
-            import tifffile
-
-            # FR-010/SC-004: read ONLY the first IFD page via ``key=0`` — never
-            # the whole multi-page stack that ``tifffile.imread(path)`` would
-            # materialize. Single-page and volumetric single-page TIFFs are
-            # unaffected (key=0 IS that page); genuine multi-page stacks are
-            # bounded to the first page. (Plain ``imread`` is kept — it is the
-            # call CI fixtures already exercise — just scoped to one page.)
-            arr = tifffile.imread(str(path), key=0)
-            return arr, [int(d) for d in arr.shape], str(getattr(arr, "dtype", "unknown"))
 
         if suffix == ".zarr" or path.is_dir():
             import numpy as np
@@ -698,7 +684,7 @@ class PreviewDataAccess:
             shape = [int(d) for d in shape_attr]
             return handle, shape, str(getattr(handle, "dtype", "unknown"))
 
-        raise ValueError(f"Unsupported raster preview format for {path}")
+        raise ValueError(f"Unsupported core Array preview format for {path}")
 
     def _read_bounded_plane(
         self,

@@ -307,9 +307,9 @@ def _unrun_mandatory_checks(
     """Return required tier-selected checks that were NOT actually run/validated.
 
     Used by the recovery-mode banner (§7.5): ``--only`` runs a subset and
-    ``--skip-execution`` runs none, so any required check whose run was skipped is
-    a mandatory check that this invocation did not establish. Checks with an
-    accepted N/A are not counted as unrun. The result is the gap between the
+    ``--skip-execution`` executes none, so any required check without current
+    evidence is a mandatory check this invocation did not establish. Checks with
+    an accepted N/A are not counted as unrun. The result is the gap between the
     inferred required check set and what this call actually executed/validated.
     """
 
@@ -332,9 +332,10 @@ def _recovery_banner(mode: str, unrun: list[str]) -> list[str]:
 
     return [
         "",
-        "RECOVERY MODE (--only / --skip-execution): NOT final PR readiness.",
+        "RECOVERY MODE (--only / missing evidence): NOT final PR readiness.",
         f"  Mandatory tier-selected checks not run/validated this invocation: {', '.join(unrun)}",
-        "  Run a full `gate_record check` (no --only/--skip-execution) for final readiness.",
+        "  Run `gate_record check --mode pre-pr` to execute only missing/stale checks,",
+        "  or add `--force-checks` to intentionally rerun the full selected set.",
     ]
 
 
@@ -446,6 +447,7 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         pr_body=pr_body,
         pr_context=pr_context,
         run_checks=not getattr(args, "skip_execution", False),
+        force_checks=bool(getattr(args, "force_checks", False)),
         only=getattr(args, "only", None) or None,
     )
 
@@ -545,10 +547,16 @@ def run_finalize(repo_root: Path, args: Any) -> int:
             pr.number = None
     ledger.pull_request = pr
 
-    mode = "ci" if is_post_pr else "pre-pr"
+    pr_context = _read_pr_context(repo_root, getattr(args, "pr_context_file", None))
+    # Local post-PR finalize records PR provenance but cannot prove CI-only
+    # label actor/permission facts. Keep it in pre-PR reconciliation unless a
+    # CI workflow explicitly supplies PR context; CI's workflow-gate owns the
+    # authoritative provenance check.
+    mode = "ci" if is_post_pr and pr_context is not None else "pre-pr"
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
     head = getattr(args, "head", "HEAD") or "HEAD"
     base = _resolve_base(repo_root, getattr(args, "base", None), head)
+    force_checks = bool(getattr(args, "force_checks", False))
     result = evaluator.reconcile(
         ledger=ledger,
         repo_root=repo_root,
@@ -556,7 +564,9 @@ def run_finalize(repo_root: Path, args: Any) -> int:
         head=head,
         mode=mode,  # type: ignore[arg-type]
         pr_body=pr_body,
-        run_checks=True,
+        pr_context=pr_context,
+        run_checks=force_checks,
+        force_checks=force_checks,
     )
     save_err = _save(repo_root, path, ledger)
     if save_err:

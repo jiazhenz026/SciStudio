@@ -23,6 +23,7 @@ import {
   formatCell,
   heatmapColor,
 } from "./coreViewers";
+import { PlotViewer } from "./PlotViewer";
 
 afterEach(cleanup);
 
@@ -48,6 +49,20 @@ function collectionEnvelope(payload: Record<string, unknown>): PreviewEnvelope {
     kind: "collection",
     payload,
     resources: [],
+    metadata: { sampled: false, truncated: false, cached: false, derived: false, complete: true },
+    diagnostics: [],
+    error: null,
+  } as unknown as PreviewEnvelope;
+}
+
+function plotEnvelope(payload: Record<string, unknown>): PreviewEnvelope {
+  return {
+    session_id: "pv-plot",
+    previewer_id: "core.plot.basic",
+    target: { kind: "plot_artifact", ref: "data-plot-1" },
+    kind: "plot",
+    payload,
+    resources: [{ resource_id: "export", kind: "asset", params: { format: payload.format } }],
     metadata: { sampled: false, truncated: false, cached: false, derived: false, complete: true },
     diagnostics: [],
     error: null,
@@ -249,5 +264,63 @@ describe("CollectionViewer", () => {
       "random_10x30x30x30_float32.npy",
     );
     expect(screen.queryByText("data-2330b123456789")).toBeNull();
+  });
+});
+
+describe("PlotViewer", () => {
+  it("wraps SVG plots in a fit-to-surface sandbox document", () => {
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "svg",
+          mime_type: "image/svg+xml",
+          svg: '<svg width="1600" height="1000" viewBox="0 0 1600 1000"></svg>',
+          sandboxed: true,
+        })}
+      />,
+    );
+
+    const surface = screen.getByTestId("plot-preview-surface");
+    expect(surface.className).toContain("overflow-hidden");
+    expect(surface.className).toContain("h-[min(62vh,36rem)]");
+
+    const frame = screen.getByTestId("plot-svg-frame") as HTMLIFrameElement;
+    expect(frame.getAttribute("sandbox")).toBe("");
+    const srcdoc = frame.getAttribute("srcdoc") ?? "";
+    expect(srcdoc).toContain("max-width: 100%");
+    expect(srcdoc).toContain("max-height: 100%");
+    expect(srcdoc).toContain('<svg width="1600" height="1000"');
+  });
+
+  it("contains raster plots within the preview surface", () => {
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "png",
+          mime_type: "image/png",
+          src: "data:image/png;base64,AAAA",
+        })}
+      />,
+    );
+
+    const image = screen.getByTestId("plot-image");
+    expect(image.className).toContain("h-full");
+    expect(image.className).toContain("w-full");
+    expect(image.className).toContain("object-contain");
+  });
+
+  it("asks browser PDF viewers to fit the page", () => {
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "pdf",
+          mime_type: "application/pdf",
+          src: "data:application/pdf;base64,JVBER",
+        })}
+      />,
+    );
+
+    const frame = screen.getByTestId("plot-pdf-frame") as HTMLIFrameElement;
+    expect(frame.getAttribute("src")).toBe("data:application/pdf;base64,JVBER#view=Fit");
   });
 });

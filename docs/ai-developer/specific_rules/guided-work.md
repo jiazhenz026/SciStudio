@@ -63,11 +63,11 @@ language_source: en
   - Full gate may be incomplete during live owner-guided work.
   - Issue linkage, scope/directive coverage, regression/test evidence, docs
     impact, governance/lint/audit baseline, and changed-surface CI checks MUST
-    reconcile before commit, push, or PR readiness.
+    reconcile before PR readiness.
 
 - When escalated to Tier 1:
-  - `check` must run the full local mirror of the merge-blocking CI command
-    surface.
+  - `check` must prove the full local mirror of the merge-blocking CI command
+    surface, reusing current evidence and running missing or stale checks.
   - Missing plan fields are hard failures before PR readiness.
 
 ## 4. Scope Expansion Through Owner Directive Events
@@ -153,7 +153,7 @@ language_source: en
     [--docs-na "<class>:<rationale>"]
   ```
 
-- Run `check` before commit, push, or PR creation. `check` is the main local
+- Run `check` before PR creation. `check` is the main local
   CI-equivalent preflight. The agent must not manually run individual lint,
   type, test, docs, audit, frontend, or guard commands; `check` derives and
   runs the full tier-selected set:
@@ -170,7 +170,8 @@ language_source: en
   ```
 
 - Run `finalize` in two stages:
-  - Pre-PR (before opening the PR):
+  - Pre-PR (before opening the PR). This reuses current check evidence by
+    default; run `check --mode pre-pr` once before this step:
 
     ```bash
     python -m scistudio.qa.governance.gate_record finalize \
@@ -181,7 +182,8 @@ language_source: en
       --closes "#<issue>"
     ```
 
-  - Post-PR (after the PR is created):
+  - Post-PR (after the PR is created). This records PR provenance locally;
+    CI validates label actor/permission provenance:
 
     ```bash
     python -m scistudio.qa.governance.gate_record finalize \
@@ -242,8 +244,9 @@ when the obligation is recorded.
   commands one by one. `check` derives the full set and records sanitized
   evidence.
 
-- When escalated to Tier 1, `check` runs the full local mirror of the
-  merge-blocking CI surface.
+- When escalated to Tier 1, `check` proves the full local mirror of the
+  merge-blocking CI surface. Current passing evidence is reused; missing or
+  stale checks run.
 
 - When running at Tier 2 (default for `guided`), `check` runs the common
   governance/lint/audit baseline plus all CI jobs relevant to the observed diff.
@@ -298,9 +301,10 @@ A `guided` session is done only when all of the following are true:
 4. Required documentation is updated or explicitly marked N/A with rationale.
 5. Required tests are present in the observed diff, or N/A is explicitly
    recorded.
-6. `gate_record check` passes at the tier selected for this task (Tier 2
-   default, Tier 1 if escalated).
-7. `gate_record finalize` (pre-PR) confirms the candidate is PR-ready.
+6. `gate_record check --mode pre-pr` passes at the tier selected for this task
+   (Tier 2 default, Tier 1 if escalated) and records current check evidence.
+7. `gate_record finalize` (pre-PR) confirms the candidate is PR-ready by
+   reusing that evidence.
 8. PR is opened, post-PR finalize is run, and CI passes.
 
 ## 13. Route

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -194,8 +195,60 @@ def test_scan_imports_source_package_with_per_package_runtime_dependencies(tmp_p
     assert spec is not None
     assert spec.description == "runtime-ok"
     assert spec.source == "package_src"
+    assert str(module_dir.parent.resolve()) in spec.runtime_import_roots
+    assert str(runtime_dir.resolve()) in spec.runtime_import_roots
     assert str(module_dir.parent) not in sys.path
     assert str(runtime_dir) not in sys.path
+
+
+def test_scan_does_not_leak_package_dependencies_to_global_pythonpath(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    packages_dir = tmp_path / "installed-packages"
+    package_root = packages_dir / "scistudio-blocks-envisolation-0.1.0"
+    module_dir = package_root / "src" / "scistudio_blocks_envisolation"
+    runtime_dir = package_root / "site-packages"
+    module_dir.mkdir(parents=True)
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "runtime_dep.py").write_text("VALUE = 'runtime-ok'\n", encoding="utf-8")
+    (package_root / "pyproject.toml").write_text(
+        '[project]\nname = "scistudio-blocks-envisolation"\nversion = "0.1.0"\n',
+        encoding="utf-8",
+    )
+    (module_dir / "__init__.py").write_text(
+        "from typing import Any\n"
+        "\n"
+        "import runtime_dep\n"
+        "from scistudio.blocks.base.config import BlockConfig\n"
+        "from scistudio.blocks.base.package_info import PackageInfo\n"
+        "from scistudio.blocks.base.block import Block\n"
+        "\n"
+        "class EnvIsolationBlock(Block):\n"
+        '    name = "EnvIsolationBlock"\n'
+        "    description = runtime_dep.VALUE\n"
+        "    input_ports = []\n"
+        "    output_ports = []\n"
+        '    config_schema = {"type": "object", "properties": {}}\n'
+        "\n"
+        "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+        "        return {}\n"
+        "\n"
+        "def get_block_package():\n"
+        '    return PackageInfo(name="Env Isolation", version="0.1.0"), [EnvIsolationBlock]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PYTHONPATH", "/core-only")
+
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+
+    spec = registry.get_spec("EnvIsolationBlock")
+    assert spec is not None
+    assert spec.description == "runtime-ok"
+    assert str(runtime_dir.resolve()) in spec.runtime_import_roots
+    assert os.environ["PYTHONPATH"] == "/core-only"
 
 
 def test_tier1_dropin_imports_shared_user_python_dependency(

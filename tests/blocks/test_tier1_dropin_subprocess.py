@@ -27,6 +27,7 @@ These tests exercise:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -169,6 +170,18 @@ class TestBuildWorkerPayload:
         payload = json.loads(payload_bytes.decode("utf-8"))
         assert payload["block_file_path"] == path_str
 
+    def test_payload_includes_runtime_import_roots_when_set(self, tmp_path: Path) -> None:
+        root = str(tmp_path / "plugin-root")
+        payload_bytes = build_worker_payload(
+            block_class="some.mod.Cls",
+            inputs_refs={},
+            config={},
+            output_dir=None,
+            runtime_import_roots=[root],
+        )
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        assert payload["runtime_import_roots"] == [root]
+
 
 # ---------------------------------------------------------------------------
 # End-to-end: spawn a real worker subprocess and feed it a Tier-1 payload.
@@ -234,6 +247,60 @@ class TestWorkerSubprocessRoundtrip:
         # metadata (environment, etc.).
         outputs = result.get("outputs", result)
         assert outputs.get("out") == "hello-706", f"Unexpected worker result: {result}"
+
+    def test_runtime_import_roots_are_applied_inside_fresh_worker(self, tmp_path: Path) -> None:
+        plugin_root = tmp_path / "plugin-root"
+        plugin_root.mkdir()
+        (plugin_root / "runtime_dep.py").write_text("VALUE = 'runtime-ok'\n", encoding="utf-8")
+        (plugin_root / "plugin_block.py").write_text(
+            "from typing import Any\n"
+            "\n"
+            "import runtime_dep\n"
+            "from scistudio.blocks.base.block import Block\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
+            "\n"
+            "class RuntimeRootBlock(Block):\n"
+            '    name = "RuntimeRootBlock"\n'
+            "    input_ports = []\n"
+            "    output_ports = []\n"
+            '    config_schema = {"type": "object", "properties": {}}\n'
+            "\n"
+            "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+            "        return {'out': runtime_dep.VALUE}\n",
+            encoding="utf-8",
+        )
+        payload_bytes = build_worker_payload(
+            block_class="plugin_block.RuntimeRootBlock",
+            inputs_refs={},
+            config={},
+            output_dir=None,
+            runtime_import_roots=[str(plugin_root)],
+        )
+        env = dict(os.environ)
+        existing = [
+            part
+            for part in env.get("PYTHONPATH", "").split(os.pathsep)
+            if part and Path(part).resolve() != plugin_root.resolve()
+        ]
+        if existing:
+            env["PYTHONPATH"] = os.pathsep.join(existing)
+        else:
+            env.pop("PYTHONPATH", None)
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
+            input=payload_bytes,
+            capture_output=True,
+            timeout=60,
+            env=env,
+        )
+
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        stderr = proc.stderr.decode("utf-8", errors="replace")
+        assert proc.returncode == 0, f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        result = json.loads(stdout)
+        assert "error" not in result, f"Worker reported error: {result.get('error')}"
+        assert result.get("outputs", {}).get("out") == "runtime-ok"
 
     def test_worker_without_block_file_path_still_works_for_importable_module(
         self,

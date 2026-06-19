@@ -152,40 +152,18 @@ def test_preview_data_array_thumbnail(ctx: _StubRuntime, tmp_path: Path) -> None
     assert thumb[0] <= 256 and thumb[1] <= 256
 
 
-def test_preview_data_tiff_oversize_does_not_load_full_page(
-    ctx: _StubRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Codex P1 regression — large TIFF must not call ``page.asarray()``.
-
-    Lower ``_MAX_PREVIEW_BYTES`` so even a small TIFF trips the
-    oversize branch. The fix in ``_preview_array`` either succeeds via
-    ``tifffile.memmap`` (uncompressed) or returns a structured "skipped"
-    payload — both prove the cap check fires BEFORE the eager
-    ``page.asarray()`` that previously consumed unbounded RAM on
-    multi-GB single-IFD TIFFs.
-    PR #744 discussion_r3231046699.
-    """
-    pytest.importorskip("tifffile")
-    import numpy as np
-    import tifffile
-
-    # Compressed TIFF — tifffile.memmap refuses to map compressed data,
-    # so when the page is "too large" the new code returns a structured
-    # "skipped" stub rather than blindly calling ``page.asarray()``.
+def test_preview_data_array_rejects_package_owned_tiff(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """TIFF decoding belongs to the imaging package, not core Array preview."""
     tif_path = tmp_path / "img.tif"
-    tifffile.imwrite(str(tif_path), np.ones((64, 64), dtype="uint8"), compression="zlib")
-    # Make the 4096-byte page look "oversized" relative to the cap so
-    # the new branch executes. Keep the cap above PNG-output sizes for
-    # any other tests that might fall through.
-    monkeypatch.setattr(tools_inspection, "_MAX_PREVIEW_BYTES", 1000)
+    tif_path.write_bytes(b"not-a-real-tiff")
+    ref = {
+        "backend": "filesystem",
+        "path": str(tif_path),
+        "metadata": {"type_chain": ["DataObject", "Array", "Image"]},
+    }
 
-    out = _run(tools_inspection.preview_data(ref={"backend": "filesystem", "path": str(tif_path)}, fmt="png_base64"))
-    # Forbidden outcome: the old path called ``page.asarray()`` blindly
-    # and then raised RuntimeError after PNG encoding. We expect the
-    # guard to return a structured "skipped" payload instead.
-    assert out.fmt == "skipped"
-    assert out.payload["reason"] == "tiff_page_exceeds_cap_and_not_memmappable"
-    assert out.truncated is True
+    with pytest.raises(ValueError, match="Unsupported core Array preview format"):
+        _run(tools_inspection.preview_data(ref=ref, fmt="png_base64"))
 
 
 def test_preview_data_missing_path_raises(ctx: _StubRuntime, tmp_path: Path) -> None:

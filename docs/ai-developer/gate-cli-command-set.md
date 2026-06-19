@@ -227,13 +227,16 @@ python -m scistudio.qa.governance.gate_record check \
 | `--check` | no | yes | Add a task-specific required check before inference |
 | `--check-na` | no | yes | Record accepted N/A rationale for a check (see §9 for the ci.yml-owned caveat) |
 | `--admin-label` | no | yes | Requested/expected admin label (local records intent only; CI verifies provenance) |
-| `--only` | no | yes | Run only selected checks for recovery; reconciliation still reports missing obligations |
-| `--skip-execution` | no | no | Reconcile without running commands; never sufficient for final PR readiness when required evidence is absent or stale |
+| `--only` | no | yes | Run only selected missing/stale checks for recovery; reconciliation still reports missing obligations |
+| `--skip-execution` | no | no | Reconcile without running commands; sufficient for final PR readiness only when every required check has current passing evidence |
+| `--force-checks` | no | no | Rerun all selected checks even when current passing evidence already exists |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 `check` automatically: (1) observes the current git diff; (2) infers required
 checks from changed files, task kind, persona, plan, and CI configuration;
-(3) runs all required local commands unless `--only` / `--skip-execution`;
+(3) reuses current passing check evidence and runs only missing or stale
+required checks unless `--force-checks` is passed; with `--skip-execution`,
+validates existing check evidence for the current diff;
 (4) writes raw transcripts only under ignored local paths (`.workflow/local/**`);
 (5) records sanitized check events in the committed ledger; (6) runs all
 applicable guards through the shared evaluator; (7) records a reconciliation
@@ -270,7 +273,8 @@ python -m scistudio.qa.governance.gate_record finalize \
   [--issue <number>] \
   [--docs-updated <path>] [--docs-na "<class>:<rationale>"] \
   [--test-path <path>] [--test-na "<class>:<rationale>"] \
-  [--admin-label <label>]
+  [--admin-label <label>] \
+  [--force-checks]
 ```
 
 **Post-PR finalize** (after the PR is created) requires `--pr`, must not be
@@ -280,7 +284,9 @@ required before PR creation:
 python -m scistudio.qa.governance.gate_record finalize \
   --commit <sha> \
   --pr <url-or-number> \
-  --pr-body-file .workflow/local/pr-body.md
+  --pr-body-file .workflow/local/pr-body.md \
+  [--pr-context-file <path>] \
+  [--force-checks]
 ```
 
 | Argument | Required | Repeatable | Meaning |
@@ -290,6 +296,7 @@ python -m scistudio.qa.governance.gate_record finalize \
 | `--commit` | yes | yes | Commit SHA included in the candidate or PR |
 | `--pr` | conditional | no | PR URL or number; required only for post-PR finalize |
 | `--pr-body-file` | conditional | no | Intended/actual PR body for issue-closure validation; required before PR creation |
+| `--pr-context-file` | no | no | CI-only PR metadata with label actor/permission provenance |
 | `--closes` | no | yes | Issue closure token, e.g. `#1234` |
 | `--owner-directive` | no | yes | Final owner instruction or rationale |
 | `--include` / `--exclude` | no | yes | Last scope additions before reconciliation |
@@ -297,14 +304,19 @@ python -m scistudio.qa.governance.gate_record finalize \
 | `--docs-updated` / `--docs-na` | no | yes | Record docs landing / N/A before final reconciliation |
 | `--test-path` / `--test-na` | no | yes | Record test evidence / N/A before final reconciliation |
 | `--admin-label` | no | yes | Expected admin label (authoritative only when CI observes it) |
+| `--force-checks` | no | no | Execute tier-selected checks during finalize instead of reusing existing evidence |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 Pre-PR `finalize` re-observes the diff, validates the intended PR body's issue
-closure, and reruns reconciliation without requiring a PR URL/number. Post-PR
-`finalize` records the PR URL or number and reruns reconciliation with PR
-metadata; it fails when checks are stale, required issue closure is missing from
-the PR body, required docs/tests are absent, or tier-selected check obligations
-are unsatisfied.
+closure, records commit provenance, and reuses existing check evidence by
+default without requiring a PR URL/number. Post-PR `finalize` records the PR URL
+or number and reruns reconciliation using the same evidence-reuse path. Local
+post-PR finalize does not prove CI-only label actor/permission facts; the
+workflow-gate CI job validates those from PR context. `finalize` fails when
+checks are stale, required issue closure is missing from the PR body, required
+docs/tests are absent, or tier-selected check obligations are unsatisfied. Pass
+`--force-checks` only when finalize itself must execute the tier-selected check
+set.
 
 After post-PR `finalize`, commit and push the ledger update. CI-mode ledger
 discovery includes finalized ledgers so the committed PR provenance is still
@@ -322,7 +334,7 @@ required now versus recorded as a pre-PR gap.
 | `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier. PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on the **staged** diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers; does not run checks |
-| `pre-push` | Pre-push hook | Pre-push reconciliation: scope/diff coherence and recorded-check freshness. Does **not** block a WIP push on PR-readiness obligations (issue link, docs/test landing) — those belong to `pre-pr` / `ci` |
+| `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand. The installed pre-push hook is a fast allow shim, so WIP pushes are not blocked; PR-readiness obligations belong to `pre-pr` / `ci` |
 | `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; issue/docs/test obligations are required-now; parity gaps fail closed |
 | `ci` | CI workflow (`workflow-gate.yml` / "Verify Workflow Compliance") | Authoritative governance + guard validation with real PR context and label-actor provenance |
 
@@ -364,8 +376,8 @@ Baseline tier by task kind:
 
 | Tier | Baseline task kinds | Meaning |
 |---|---|---|
-| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must run a full local mirror of merge-blocking CI command surfaces |
-| Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before commit/push/PR |
+| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must prove the full local mirror of merge-blocking CI command surfaces; current evidence is reused and missing/stale checks run |
+| Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before PR readiness |
 | Tier 3 (Lightweight) | `docs`, `manager` | May start with a sparse plan. `check` runs only mandatory checks for the observed diff |
 
 Escalation (raises to Tier 1 regardless of starting kind) triggers when the
@@ -390,7 +402,7 @@ Per-concern tier behavior:
 | `init` | Issue (when known), branch, owner directive, persona, task kind, and initial scope | Branch, owner directive, persona, task kind; issue/scope may be completed later | Branch, owner directive, persona, task kind; issue/scope may be completed later |
 | `plan` | Required before implementation; declare expected docs/tests/checks or N/A | Required before final check; may be partial during debugging | Optional unless the evaluator needs early docs/tests/scope guidance |
 | `amend` | Allowed; every scope/obligation correction needs a `--reason` | Normal way to add discovered scope/tests/docs/issues | Normal way to record live directives and late fields |
-| `check` | Full merge-blocking CI mirror; `--only`/`--skip-execution` recovery-only | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
+| `check` | Full merge-blocking CI mirror evidence; default incremental execution; `--force-checks` reruns all selected checks | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
 | `finalize` | Fails if any plan/test/docs/check/issue field is missing | Fails if observed diff lacks issue/test/docs/check reconciliation | Fails if observed diff lacks issue/test/docs/check reconciliation |
 | Admin label | Required for protected core, gate bypass, or merge automation | Same | Same |
 
@@ -425,7 +437,7 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive; issue
   and scope when known. Full gate may be incomplete during live diagnosis.
-- **Obligations**: before commit/push/PR the actual diff must be explained by
+- **Obligations**: before PR readiness the actual diff must be explained by
   directive/scope; targeted regression test or owner-approved N/A; Tier 2
   baseline plus changed-surface checks; docs landing or N/A; close every fixed
   issue (batch hotfix records the full issue list).
@@ -457,7 +469,8 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
   initial feature scope (`--include` required at init).
 - **Obligations**: implementation tests required; docs/spec/ADR required when
   contracts, schemas, runtime behavior, API, UI semantics, or storage change;
-  full local CI mirror required; PR closes the feature issue.
+  full local CI mirror evidence required; default check execution reuses current
+  evidence and runs missing/stale checks; PR closes the feature issue.
 - **CLI profile**:
   - `init --task-kind feature --persona <persona> --runtime <id> --branch <branch> --owner-directive "<feature directive>" --issue <n> --include <path>`
   - `plan --include <implementation-path> --test-path <test-path> --docs-updated <doc-or-spec-path> [--check <name>] [--admin-label <label>]`
@@ -470,7 +483,9 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive, issue,
   refactor scope.
 - **Obligations**: tests must cover affected contracts, or an N/A must explain
-  how unchanged behavior is otherwise proven; full local CI mirror required;
+  how unchanged behavior is otherwise proven; full local CI mirror evidence
+  required; default check execution reuses current evidence and runs
+  missing/stale checks;
   docs only when architecture or public shape changes; PR states
   behavior-preserving intent and closes the issue.
 - **CLI profile**:
@@ -501,8 +516,9 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
 - **`init` fields**: `task_kind`, `persona`, `branch`, owner directive, issue,
   maintenance surface.
 - **Obligations**: Tier 2 baseline plus changed-surface checks; escalates to
-  full local CI mirror when the diff touches protected/governance/runtime/
-  workflow surfaces; governance weakening / protected checks when applicable;
+  full local CI mirror evidence when the diff touches protected/governance/
+  runtime/workflow surfaces; default check execution reuses current evidence and
+  runs missing/stale checks; governance weakening / protected checks when applicable;
   tests for tooling behavior when implementation changes; PR closes the issue.
 - **CLI profile**:
   - `init --task-kind maintenance --persona <persona> --runtime <id> --branch <branch> --owner-directive "<maintenance directive>" --issue <n> --include <path> [--governance-touch true]`
@@ -532,9 +548,10 @@ shape across `plan` / `check` / `finalize`, and a concrete CLI argument profile.
   owner directive, issue/scope when known. Full gate may be incomplete during
   live owner-guided work. Escalates to Tier 1 for feature / core / runtime /
   governance / broad-refactor work.
-- **Obligations**: before commit/push/PR the actual diff must be explainable by
+- **Obligations**: before PR readiness the actual diff must be explainable by
   recorded owner-directive events; Tier 2 baseline plus changed-surface checks
-  by default, or full local CI mirror when escalated to Tier 1; PR cannot open
+  by default, or full local CI mirror evidence when escalated to Tier 1; default
+  check execution reuses current evidence and runs missing/stale checks; PR cannot open
   until current diff, issue linkage, docs/tests/checks, and closure intent
   reconcile.
 - **CLI profile**:
@@ -640,14 +657,16 @@ tier, and the command sequence. `<base>` defaults to
 
 Open the PR with the gate-aware wrapper
 `python scripts/scistudio_pr_create.py --title "<type>(#<issue>): <summary>" --body "<body>"`,
-which runs `gate_record check --mode pre-pr` (or pre-PR `finalize`) before
-invoking `gh pr create`. The PR body must close every gate-listed issue with a
-GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
+which runs `gate_record check --mode pre-pr --skip-execution` before invoking
+`gh pr create`. The wrapper validates that required checks already produced
+current passing evidence; it does not execute local checks again. The
+PR body must close every gate-listed issue with a GitHub closing keyword
+(`Closes #N` / `Fixes #N` / `Resolves #N`).
 
 ## 9. Behaviors To Know
 
 - **Isolated per-worktree venv auto-provisioning (§7.10).** In its local
-  preflight modes (`local`, `pre-commit`, `pre-push`, `pre-pr`), `check`
+  preflight modes (`local`, `pre-commit`, manual `pre-push`, `pre-pr`), `check`
   **auto-provisions** a CI-equivalent environment before running checks: an
   isolated, gitignored, per-worktree venv at `<worktree>/.workflow/local/venv`
   with `-e ".[dev]"` installed at the CI-resolved tool versions. It prefers `uv`
@@ -689,11 +708,14 @@ GitHub closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`).
   check or rely on CI. `--check-na` does waive task-specific / non-`ci.yml`-owned
   checks.
 
-- **`--only` / `--skip-execution` are recovery-only.** They run a subset (or no)
-  checks for recovery and print a "RECOVERY MODE … NOT final PR readiness"
-  banner listing the mandatory tier-selected checks not run this invocation. In
-  `pre-pr` / `ci` modes recovery cannot create final readiness. A final PR-ready
-  `check` must run or validate the complete tier-selected check set.
+- **Default check execution is incremental.** Current passing evidence is reused;
+  only missing or stale checks run. `--force-checks` intentionally reruns all
+  selected checks. `--only` runs a subset for recovery and cannot create final
+  readiness for the whole candidate. `--skip-execution` runs no commands; in
+  `pre-pr` it is final-readiness capable only when all required checks already
+  have current passing evidence for the observed diff. If evidence is absent or
+  stale, the command prints a "RECOVERY MODE … NOT final PR readiness" banner
+  and tells the agent to run the pre-PR check once.
 
 - **Default base is the merge-base.** When `--base` is omitted, the diff base is
   `git merge-base origin/main HEAD`, falling back to raw `origin/main` if the
