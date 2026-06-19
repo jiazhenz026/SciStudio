@@ -9,6 +9,6 @@ packages/
 
 The GUI local package installer writes user-installed packages to the
 user-scoped plugin directory instead of this bundled resources directory.
-Both locations are scanned by the same package discovery path. Neither path
-downloads dependencies; packages must be compatible with the bundled Python
-environment.
+Both locations are scanned by the same package discovery path. User-installed
+packages may resolve Python runtime dependencies with the bundled interpreter,
+but dependency files stay in the user-scoped plugin directory.

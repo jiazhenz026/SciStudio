@@ -224,11 +224,12 @@ export interface PaletteSlice {
  * transitions and remain interactive.
  */
 export type AiBlockStatus = "running" | "paused" | "done" | "error" | "cancelled";
+export type TerminalProvider = "claude-code" | "codex" | "user-terminal";
 
 export interface TerminalTab {
   id: string;
   title: string;
-  provider: "claude-code" | "codex" | null;
+  provider: TerminalProvider | null;
   permissionMode: "safe" | "dangerous" | null;
   state: "setup" | "running" | "closed";
   exitCode?: number;
@@ -258,11 +259,13 @@ export interface TerminalTabsSlice {
   activeTerminalTabId: string | null;
   /** Create a new tab in `setup` state and make it active. Returns its id. */
   addTerminalTab: () => string;
+  /** Create a user shell tab backed by the desktop Python dependency env. */
+  addUserTerminalTab: () => string;
   closeTerminalTab: (id: string) => void;
   renameTerminalTab: (id: string, title: string) => void;
   launchTerminalTab: (
     id: string,
-    provider: "claude-code" | "codex",
+    provider: TerminalProvider,
     permissionMode: "safe" | "dangerous",
   ) => void;
   markTerminalTabExited: (id: string, code: number) => void;

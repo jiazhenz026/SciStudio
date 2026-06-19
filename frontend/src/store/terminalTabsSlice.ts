@@ -32,6 +32,19 @@ function nextDefaultTitle(tabs: TerminalTab[]): string {
   return `Chat ${max + 1}`;
 }
 
+/** Compute the next default title ("Terminal N") given existing tabs. */
+function nextDefaultUserTerminalTitle(tabs: TerminalTab[]): string {
+  let max = 0;
+  for (const t of tabs) {
+    const m = /^Terminal (\d+)$/.exec(t.title);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n) && n > max) max = n;
+    }
+  }
+  return `Terminal ${max + 1}`;
+}
+
 export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTabsSlice> = (
   set,
 ) => ({
@@ -48,6 +61,26 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
         provider: null,
         permissionMode: null,
         state: "setup",
+      };
+      return {
+        terminalTabs: [...state.terminalTabs, tab],
+        activeTerminalTabId: id,
+      };
+    });
+    return id;
+  },
+
+  addUserTerminalTab: () => {
+    const id = newTabId();
+    set((state) => {
+      const title = nextDefaultUserTerminalTitle(state.terminalTabs);
+      const tab: TerminalTab = {
+        id,
+        title,
+        provider: "user-terminal",
+        permissionMode: "safe",
+        state: "running",
+        source: "user",
       };
       return {
         terminalTabs: [...state.terminalTabs, tab],
@@ -114,7 +147,14 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
   reopenTerminalTab: (id) =>
     set((state) => ({
       terminalTabs: state.terminalTabs.map((t) =>
-        t.id === id ? { ...t, state: "setup", exitCode: undefined, errorMessage: undefined } : t,
+        t.id === id
+          ? {
+              ...t,
+              state: t.provider === "user-terminal" ? "running" : "setup",
+              exitCode: undefined,
+              errorMessage: undefined,
+            }
+          : t,
       ),
     })),
 
@@ -190,4 +230,4 @@ export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
 export type { TerminalTab, TerminalTabsSlice };
 
 // Re-export internal helper for tests.
-export { newTabId, nextDefaultTitle };
+export { newTabId, nextDefaultTitle, nextDefaultUserTerminalTitle };

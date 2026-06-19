@@ -107,6 +107,17 @@ describe("buildPtyUrl", () => {
     expect(url).toContain("cols=101");
     expect(url).toContain("rows=33");
   });
+
+  it("allows the user-terminal provider", () => {
+    const url = buildPtyUrl({
+      tabId: "term",
+      projectDir: "/p",
+      provider: "user-terminal",
+      dangerous: false,
+      baseOrigin: "ws://h",
+    });
+    expect(url).toContain("provider=user-terminal");
+  });
 });
 
 describe("usePtyWebSocket", () => {

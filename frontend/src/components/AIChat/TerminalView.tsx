@@ -14,12 +14,13 @@ import "@xterm/xterm/css/xterm.css";
 
 import { useEffect, useRef, useState } from "react";
 
+import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
 
 export interface TerminalViewProps {
   tabId: string;
   projectDir: string;
-  provider: "claude-code" | "codex";
+  provider: TerminalProvider;
   dangerous: boolean;
   onExit: (code: number) => void;
   onError: (message: string) => void;

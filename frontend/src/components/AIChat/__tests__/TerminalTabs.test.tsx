@@ -67,6 +67,18 @@ describe("TerminalTabs", () => {
     expect(useAppStore.getState().terminalTabs[1].title).toBe("Chat 2");
   });
 
+  it("opens a user terminal tab from the terminal button", async () => {
+    render(<TerminalTabs />);
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
+    act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add-user-terminal")));
+    const tab = useAppStore.getState().terminalTabs[1];
+    expect(tab.title).toBe("Terminal 1");
+    expect(tab.provider).toBe("user-terminal");
+    expect(tab.permissionMode).toBe("safe");
+    expect(tab.state).toBe("running");
+    expect(useAppStore.getState().activeTerminalTabId).toBe(tab.id);
+  });
+
   it("closes a setup-state tab without confirm dialog", async () => {
     render(<TerminalTabs />);
     await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));

@@ -220,6 +220,38 @@ def test_pty_ws_spawn_uses_initial_size_query(
     assert captured == {"cols": 101, "rows": 33}
 
 
+def test_pty_ws_accepts_user_terminal_provider(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The desktop user terminal reuses the PTY WS with its own provider key."""
+    captured: dict[str, str] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        cols: int = 120,
+        rows: int = 30,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        captured["provider"] = provider
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty, "_spawn", fake)
+
+    with client.websocket_connect(_ws_url("tab-user-terminal", opened_project, provider="user-terminal")) as ws:
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            frame = ws.receive_json()
+            if frame["type"] == "stdout" and "READY" in frame.get("data", ""):
+                break
+
+    assert captured == {"provider": "user-terminal"}
+
+
 def test_pty_ws_invalid_provider(client: TestClient, opened_project: Path) -> None:
     """An unknown provider must yield an error frame and a close."""
     with client.websocket_connect(_ws_url("tab-bad", opened_project, provider="bogus")) as ws:

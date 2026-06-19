@@ -2,7 +2,7 @@
 
 This package exposes a single endpoint:
 
-    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<claude-code|codex>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
+    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<claude-code|codex|user-terminal>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
 
 The route validates query parameters, spawns the appropriate PTY via
 :mod:`scistudio.ai.agent.terminal`, runs two concurrent pump tasks
@@ -70,7 +70,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex
+from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex, spawn_user_terminal
 
 # ---------------------------------------------------------------------------
 # Public router
@@ -94,8 +94,12 @@ MAX_ACTIVE_PTYS = 16
 _active_ptys: dict[str, PtyProcess] = {}
 _active_lock = asyncio.Lock()
 
-_VALID_PROVIDERS = ("claude-code", "codex")
-_PROVIDER_SPAWNERS = {"claude-code": spawn_claude, "codex": spawn_codex}
+_VALID_PROVIDERS = ("claude-code", "codex", "user-terminal")
+_PROVIDER_SPAWNERS = {
+    "claude-code": spawn_claude,
+    "codex": spawn_codex,
+    "user-terminal": spawn_user_terminal,
+}
 
 # ADR-035 §3.10 — engine-initiated tab tracking.
 # Map tab_id → block_run_id so completion notifies can resolve back.

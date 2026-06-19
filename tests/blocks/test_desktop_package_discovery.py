@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.blocks.registry import BlockRegistry
+from scistudio.desktop import paths as desktop_paths
 
 
 def _write_source_package(
@@ -148,6 +149,93 @@ def test_add_package_src_dir_accepts_flat_installed_package(tmp_path: Path) -> N
     assert spec.source == "package_src"
     assert spec.module_path == "scistudio_blocks_flatprobe"
     assert spec.package_name == "Flat Probe"
+
+
+def test_scan_imports_source_package_with_per_package_runtime_dependencies(tmp_path: Path) -> None:
+    packages_dir = tmp_path / "installed-packages"
+    package_root = packages_dir / "scistudio-blocks-runtimeprobe-0.1.0"
+    module_dir = package_root / "src" / "scistudio_blocks_runtimeprobe"
+    runtime_dir = package_root / "site-packages"
+    module_dir.mkdir(parents=True)
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "runtime_dep.py").write_text("VALUE = 'runtime-ok'\n", encoding="utf-8")
+    (package_root / "pyproject.toml").write_text(
+        '[project]\nname = "scistudio-blocks-runtimeprobe"\nversion = "0.1.0"\n',
+        encoding="utf-8",
+    )
+    (module_dir / "__init__.py").write_text(
+        "from typing import Any\n"
+        "\n"
+        "import runtime_dep\n"
+        "from scistudio.blocks.base.config import BlockConfig\n"
+        "from scistudio.blocks.base.package_info import PackageInfo\n"
+        "from scistudio.blocks.base.block import Block\n"
+        "\n"
+        "class RuntimeProbeBlock(Block):\n"
+        '    name = "RuntimeProbeBlock"\n'
+        "    description = runtime_dep.VALUE\n"
+        "    input_ports = []\n"
+        "    output_ports = []\n"
+        '    config_schema = {"type": "object", "properties": {}}\n'
+        "\n"
+        "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+        "        return {}\n"
+        "\n"
+        "def get_block_package():\n"
+        '    return PackageInfo(name="Runtime Probe", version="0.1.0"), [RuntimeProbeBlock]\n',
+        encoding="utf-8",
+    )
+
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+
+    spec = registry.get_spec("RuntimeProbeBlock")
+    assert spec is not None
+    assert spec.description == "runtime-ok"
+    assert spec.source == "package_src"
+    assert str(module_dir.parent) not in sys.path
+    assert str(runtime_dir) not in sys.path
+
+
+def test_tier1_dropin_imports_shared_user_python_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(desktop_paths, "_platformdirs_dir", lambda kind: tmp_path / kind)
+    runtime_dir = desktop_paths.user_python_site_dir()
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "user_dep.py").write_text("VALUE = 'user-dep-ok'\n", encoding="utf-8")
+
+    scan_dir = tmp_path / "blocks"
+    scan_dir.mkdir()
+    (scan_dir / "user_dep_block.py").write_text(
+        "from typing import Any\n"
+        "\n"
+        "import user_dep\n"
+        "from scistudio.blocks.base.config import BlockConfig\n"
+        "from scistudio.blocks.base.block import Block\n"
+        "\n"
+        "class UserDepProbeBlock(Block):\n"
+        '    name = "UserDepProbeBlock"\n'
+        "    description = user_dep.VALUE\n"
+        "    input_ports = []\n"
+        "    output_ports = []\n"
+        '    config_schema = {"type": "object", "properties": {}}\n'
+        "\n"
+        "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+        "        return {}\n",
+        encoding="utf-8",
+    )
+
+    registry = BlockRegistry()
+    registry.add_scan_dir(scan_dir)
+    registry.scan()
+
+    spec = registry.get_spec("UserDepProbeBlock")
+    assert spec is not None
+    assert spec.description == "user-dep-ok"
+    assert str(runtime_dir) not in sys.path
 
 
 def test_scan_reloads_reinstalled_package_from_same_source_path(tmp_path: Path) -> None:

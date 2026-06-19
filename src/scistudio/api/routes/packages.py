@@ -48,7 +48,7 @@ async def install_local_package_route(
         )
 
     try:
-        result = install_local_package(body.path)
+        result = install_local_package(body.path, install_dependencies=True)
     except PackageInstallError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OSError as exc:

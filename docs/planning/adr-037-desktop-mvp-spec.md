@@ -85,11 +85,19 @@ or in an installed app layout:
     src/scistudio_blocks_imaging/...
 ```
 
-When the backend starts in bundled mode, it adds every `packages/*/src` folder
-to `sys.path` and asks `BlockRegistry.scan(include_monorepo=True)` to discover
-`scistudio_blocks_*` packages via the existing package protocol. This supports
-source packages that are already self-contained and whose Python dependencies
-are present in the bundled Python environment. It does not install dependencies.
+When the backend starts in bundled mode, it activates desktop package import
+roots for registry and worker subprocesses, then asks
+`BlockRegistry.scan(include_monorepo=True)` to discover `scistudio_blocks_*`
+packages via the existing package protocol. For user selected local packages,
+the installer may use the bundled Python interpreter to resolve that package's
+Python dependencies from the configured package index into a user-scoped plugin
+runtime. It must not rely on a user-installed system Python and must not install
+dependencies into the application bundle.
+
+As an advanced desktop user writing local custom blocks, I can open a SciStudio
+desktop terminal from the GUI. The terminal starts in the current project and
+routes `python`/`pip` commands through the bundled Python while installing
+manual dependencies into a shared user-scoped dependency runtime.
 
 ## 5. In Scope
 
@@ -125,7 +133,7 @@ are present in the bundled Python environment. It does not install dependencies.
 - Add `src/scistudio/desktop/paths.py`:
   - `config_dir()`, `cache_dir()`, `logs_dir()`, `plugins_dir()`,
     `shared_model_cache()`, `desktop_resources_dir()`, `bundled_resource()`,
-    and `bundled_packages_dir()`;
+    `bundled_packages_dir()`, and the user Python dependency runtime helpers;
   - use `platformdirs` when available;
   - keep a conservative stdlib fallback so tests can run before dependency
     installation;
@@ -141,10 +149,22 @@ are present in the bundled Python environment. It does not install dependencies.
 - For each `packages/*/src`, temporarily prepend to `sys.path`, import
   `scistudio_blocks_*`, and use existing `get_block_package()` or
   `get_blocks()` protocol.
-- This is source-package hard install only. No `pip install`, no `uv`, no PyPI
-  query, no dependency resolver.
+- This is source-package hard install plus per-package dependency resolution
+  using the bundled Python interpreter. Dependency installs are scoped to the
+  selected package's user plugin directory; they must not mutate the bundled
+  application runtime or the user's system Python.
 
-### 5.5 Staging Scripts
+### 5.5 Desktop User Terminal
+
+- Add a desktop terminal provider on the existing PTY WebSocket route.
+- The terminal starts a user shell in the current project directory.
+- `PATH`, `PYTHONPATH`, and pip-related environment are set so `python` and
+  `pip` use the bundled Python and shared user-scoped dependency runtime.
+- The shared user dependency import root is visible to trusted project drop-in
+  block scans and worker subprocesses without globally leaking package source
+  roots into the server process.
+
+### 5.6 Staging Scripts
 
 - Add cross-platform staging scripts:
   - build frontend to `frontend/dist`;
@@ -159,7 +179,7 @@ The following are ADR-037-compliant deferrals and must remain visible:
 
 - PyPI plugin search/browser.
 - Per-plugin venvs and bundled `uv` installation.
-- Heavy dependency download from GitHub Releases.
+- Heavy dependency prebundling in the DMG or download from GitHub Releases.
 - Plugin permission confirmation UI.
 - Plugin hot-upgrade quiescence and deletion.
 - First-run claude/codex/git-bash installer UI.

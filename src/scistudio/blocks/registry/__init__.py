@@ -169,6 +169,12 @@ class BlockRegistry:
 
     def scan(self, *, include_monorepo: bool = False) -> None:
         """Discover block classes from entry-points and drop-in directories."""
+        from scistudio.blocks.registry._scan import (
+            _activate_desktop_package_import_roots,
+            _desktop_resource_package_dirs,
+        )
+
+        _activate_desktop_package_import_roots(_desktop_resource_package_dirs())
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()

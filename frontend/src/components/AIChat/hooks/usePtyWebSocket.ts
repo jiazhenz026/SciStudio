@@ -4,7 +4,7 @@
  * Protocol (LOCKED — backend uses the same spec):
  *   URL: ws://host/api/ai/pty/{tab_id}
  *          ?project_dir=<urlencoded_abs_path>
- *          &provider=<claude-code|codex>
+ *          &provider=<claude-code|codex|user-terminal>
  *          &dangerous=<true|false>
  *
  *   Client -> Server (JSON, one frame per WS message):
@@ -33,7 +33,7 @@ export type PtyServerFrame =
 export interface UsePtyWebSocketParams {
   tabId: string;
   projectDir: string | null;
-  provider: "claude-code" | "codex";
+  provider: "claude-code" | "codex" | "user-terminal";
   dangerous: boolean;
   /** Delay launch until the terminal has enough layout state to spawn cleanly. */
   enabled?: boolean;
