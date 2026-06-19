@@ -23,14 +23,17 @@ afterEach(() => {
 });
 
 describe("BlockNode — sanity smoke", () => {
-  it("renders the block label in the square body", () => {
+  it("renders the block label", () => {
+    // ADR-050 canvas polish (#1698): the label renders below the square body.
     renderNode({ label: "My Test Block" });
-    expect(screen.getByText("My Test Block")).toBeInTheDocument();
+    expect(screen.getByTestId("block-node-label")).toHaveTextContent("My Test Block");
   });
 
-  it("renders the io category mark for io blocks", () => {
+  it("renders a category icon (lucide svg) for io blocks", () => {
     const { container } = renderNode({ category: "io" });
-    // Block-kind mark for `io` is the folder emoji "📁" (U+1F4C1).
-    expect(container.textContent).toContain("📁");
+    // ADR-050 canvas polish (#1698): the block-kind mark is now a lucide line
+    // icon (an <svg>) in the body, not an emoji text node.
+    const body = container.querySelector('[data-testid="block-node-body"]');
+    expect(body?.querySelector("svg")).not.toBeNull();
   });
 });
