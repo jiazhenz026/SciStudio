@@ -23,11 +23,19 @@ export interface TabStripProps {
   onRenameCancel: () => void;
   onRequestClose: (id: string) => void;
   onAdd: () => void;
+  primaryAddLabel?: string;
+  showUserTerminalButton?: boolean;
   onAddUserTerminal: () => void;
 }
 
 export function TabStrip(props: TabStripProps) {
-  const { tabs, activeTabId, onAdd } = props;
+  const {
+    tabs,
+    activeTabId,
+    onAdd,
+    primaryAddLabel = "New chat tab",
+    showUserTerminalButton = true,
+  } = props;
   return (
     <div
       className="flex shrink-0 items-center gap-1 border-b border-stone-200 bg-stone-50/60 px-2 py-1"
@@ -54,21 +62,23 @@ export function TabStrip(props: TabStripProps) {
         type="button"
         className="ml-1 rounded p-1 text-stone-500 hover:bg-stone-200 hover:text-stone-700"
         onClick={onAdd}
-        aria-label="New chat tab"
+        aria-label={primaryAddLabel}
         data-testid="terminal-tabs-add"
       >
         <Plus size={16} aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        className="ml-1 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-200 hover:text-stone-800"
-        onClick={props.onAddUserTerminal}
-        aria-label="New Python terminal"
-        data-testid="terminal-tabs-add-user-terminal"
-      >
-        <TerminalIcon size={14} aria-hidden="true" />
-        <span>Terminal</span>
-      </button>
+      {showUserTerminalButton ? (
+        <button
+          type="button"
+          className="ml-1 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-200 hover:text-stone-800"
+          onClick={props.onAddUserTerminal}
+          aria-label="New Python terminal"
+          data-testid="terminal-tabs-add-user-terminal"
+        >
+          <TerminalIcon size={14} aria-hidden="true" />
+          <span>Terminal</span>
+        </button>
+      ) : null}
     </div>
   );
 }

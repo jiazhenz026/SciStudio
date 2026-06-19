@@ -161,6 +161,22 @@ describe("BottomPanel", () => {
     expect(screen.queryByTestId("unread-badge-logs")).toBeNull();
   });
 
+  it("exposes Terminal as a top-level bottom-panel tab", () => {
+    const onTabChange = vi.fn();
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={onTabChange}
+        onUpdateConfig={() => {}}
+        selectedNode={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminal" }));
+    expect(onTabChange).toHaveBeenCalledWith("terminal");
+  });
+
   it("caps the unread badge at 99+", () => {
     render(
       <BottomPanel

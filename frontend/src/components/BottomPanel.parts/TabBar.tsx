@@ -1,4 +1,4 @@
-import { GitBranch, Pin, PinOff } from "lucide-react";
+import { GitBranch, Pin, PinOff, Terminal } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type { BottomTab } from "../../types/ui";
@@ -9,6 +9,12 @@ import type { BottomTab } from "../../types/ui";
 // renders inconsistently across OS font sets.
 const TAB_LABELS: Record<BottomTab, ReactNode> = {
   ai: "💬 AI Chat",
+  terminal: (
+    <span className="inline-flex items-center gap-1.5">
+      <Terminal className="h-4 w-4" aria-hidden="true" />
+      Terminal
+    </span>
+  ),
   config: "📋 Config",
   logs: "📜 Logs",
   // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
@@ -31,7 +37,8 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
 // rendered on the BlockNode itself by WorkflowCanvas.
 // ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
 // ADR-039 §3.5 (#972) — Git tab added.
-export const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "git"];
+// Hotfix: Terminal is promoted to a top-level tab alongside AI Chat.
+export const ALL_TABS: BottomTab[] = ["ai", "terminal", "config", "logs", "lineage", "git"];
 
 function formatBadge(n: number): string {
   return n > 99 ? "99+" : String(n);

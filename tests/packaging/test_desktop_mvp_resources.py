@@ -80,6 +80,29 @@ def test_desktop_runtime_env_adds_common_user_cli_paths() -> None:
     assert '"/usr/local/bin"' in main_js
 
 
+def test_desktop_runtime_env_imports_macos_login_shell_environment() -> None:
+    """macOS packaged apps must pass login-shell auth env to provider CLIs."""
+    main_js = (DESKTOP_DIR / "main.js").read_text(encoding="utf-8")
+
+    assert "spawnSync" in main_js
+    assert "function macLoginShellEnv()" in main_js
+    assert 'process.platform !== "darwin"' in main_js
+    assert "/usr/bin/env -0" in main_js
+    assert "__SCISTUDIO_ENV_START__" in main_js
+    assert "...loginShellEnv" in main_js
+    assert 'pathEntries.push(loginShellEnv.PATH || "")' in main_js
+
+
+def test_desktop_dev_runner_points_vite_proxy_at_runtime_port() -> None:
+    """Desktop dev must not proxy PTY WebSockets to an unrelated backend."""
+    start_dev_js = (DESKTOP_DIR / "scripts" / "start-dev.js").read_text(encoding="utf-8")
+
+    assert "const apiProxyTarget" in start_dev_js
+    assert "SCISTUDIO_API_PROXY" in start_dev_js
+    assert "`http://127.0.0.1:${runtimePort}`" in start_dev_js
+    assert "SCISTUDIO_API_PROXY: apiProxyTarget" in start_dev_js
+
+
 def test_desktop_has_portable_python_runtime_builder() -> None:
     """The desktop MVP must have a reproducible self-contained Python builder."""
     script = DESKTOP_DIR / "scripts" / "build-python-runtime.ps1"

@@ -119,47 +119,55 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
 
   return (
     <div
-      className="flex h-full flex-col gap-4 overflow-y-auto px-4 py-3"
+      className="flex h-full min-h-0 flex-col overflow-hidden px-4 py-3"
       data-testid={`setup-screen-${tabId}`}
     >
-      <h3 className="text-base font-semibold text-ink">New chat — Setup</h3>
-
-      {statusError ? (
-        <div
-          className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-          data-testid="setup-status-error"
-        >
-          Could not check provider status ({statusError}). Launch will be disabled until
-          /api/ai/status is reachable.
-        </div>
-      ) : null}
-
-      <ProviderPicker
-        tabId={tabId}
-        claudeStatus={providersByName["claude-code"]}
-        codexStatus={providersByName["codex"]}
-        statusLoading={statusLoading}
-        provider={provider}
-        onChange={setProvider}
-      />
-
-      <PermissionModePicker
-        tabId={tabId}
-        permissionMode={permissionMode}
-        onChange={setPermissionMode}
-      />
-
       <div
-        className="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600"
-        data-testid="setup-working-dir"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+        data-testid="setup-scroll-body"
       >
-        Working dir:{" "}
-        <span className="font-mono">
-          {projectPath ?? <em className="text-stone-400">(no project open)</em>}
-        </span>
+        <h3 className="text-base font-semibold text-ink">New chat — Setup</h3>
+
+        {statusError ? (
+          <div
+            className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            data-testid="setup-status-error"
+          >
+            Could not check provider status ({statusError}). Launch will be disabled until
+            /api/ai/status is reachable.
+          </div>
+        ) : null}
+
+        <ProviderPicker
+          tabId={tabId}
+          claudeStatus={providersByName["claude-code"]}
+          codexStatus={providersByName["codex"]}
+          statusLoading={statusLoading}
+          provider={provider}
+          onChange={setProvider}
+        />
+
+        <PermissionModePicker
+          tabId={tabId}
+          permissionMode={permissionMode}
+          onChange={setPermissionMode}
+        />
+
+        <div
+          className="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600"
+          data-testid="setup-working-dir"
+        >
+          Working dir:{" "}
+          <span className="font-mono">
+            {projectPath ?? <em className="text-stone-400">(no project open)</em>}
+          </span>
+        </div>
       </div>
 
-      <div className="mt-auto flex items-center justify-end gap-2 pt-2">
+      <div
+        className="flex shrink-0 items-center justify-end gap-2 border-t border-stone-200 pt-3"
+        data-testid="setup-actions"
+      >
         <button
           type="button"
           className="rounded-full border border-stone-300 px-4 py-2 text-sm text-stone-600 hover:bg-stone-50"

@@ -372,11 +372,7 @@ export function ConfigPanel({
   const ordered = orderedConfigEntries(schema, selectedNode);
 
   if (!selectedNode || !schema) {
-    return (
-      <div className="text-sm text-stone-500">
-        Select a node to edit its JSON-schema-driven configuration.
-      </div>
-    );
+    return <div className="text-sm text-stone-500">Select a node to edit its settings.</div>;
   }
 
   if (isCodeBlockConfigTarget(selectedNode, schema)) {

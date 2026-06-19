@@ -111,29 +111,66 @@ def test_status_codex_logged_in_via_auth_file(
     assert codex["logged_in"] is True
 
 
-def test_status_logged_in_via_macos_keychain(
+def test_status_claude_logged_in_via_provider_auth_status(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """On macOS, a Keychain hit must mark claude as logged in."""
+    """Claude login status should be delegated to the provider CLI."""
     fake_home = tmp_path / "discovery_home"
     fake_home.mkdir()
-    # Pretend we're on macOS and credentials.json is absent.
-    monkeypatch.setattr(ai_routes.sys, "platform", "darwin")
     monkeypatch.setattr(ai_routes.Path, "home", classmethod(lambda _cls: fake_home))
-    monkeypatch.setattr(ai_routes.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(ai_routes.shutil, "which", lambda name: f"/fake/bin/{name}")
 
-    def fake_security(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
-        # `security find-generic-password -s Claude Code-credentials` returns 0
-        # when the entry exists.
-        if "security" in argv[0]:
-            return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+    seen: list[list[str]] = []
+
+    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        seen.append(argv)
+        if argv == ["/fake/bin/claude", "--version"]:
+            return subprocess.CompletedProcess(argv, 0, stdout="2.1.141\n", stderr="")
+        if argv == ["/fake/bin/claude", "auth", "status", "--json"]:
+            return subprocess.CompletedProcess(argv, 0, stdout='{"loggedIn": true}\n', stderr="")
+        if argv == ["/fake/bin/codex", "--version"]:
+            return subprocess.CompletedProcess(argv, 0, stdout="0.118.0\n", stderr="")
+        if argv == ["/fake/bin/codex", "login", "status"]:
+            return subprocess.CompletedProcess(argv, 1, stdout="", stderr="not logged in")
         return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
 
-    monkeypatch.setattr(ai_routes.subprocess, "run", fake_security)
+    monkeypatch.setattr(ai_routes.subprocess, "run", fake_run)
 
     res = client.get("/api/ai/status")
     body = res.json()
     claude = next(p for p in body["providers"] if p["name"] == "claude-code")
     assert claude["logged_in"] is True
+    assert ["/fake/bin/claude", "auth", "status", "--json"] in seen
+    assert all("security" not in argv[0] for argv in seen)
+
+
+def test_status_codex_logged_in_via_provider_login_status(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Codex keychain/keyring auth should be delegated to the provider CLI."""
+    fake_home = tmp_path / "discovery_home"
+    fake_home.mkdir()
+    monkeypatch.setattr(ai_routes.Path, "home", classmethod(lambda _cls: fake_home))
+    monkeypatch.setattr(ai_routes.shutil, "which", lambda name: f"/fake/bin/{name}")
+
+    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        if argv == ["/fake/bin/claude", "--version"]:
+            return subprocess.CompletedProcess(argv, 0, stdout="2.1.141\n", stderr="")
+        if argv == ["/fake/bin/claude", "auth", "status", "--json"]:
+            return subprocess.CompletedProcess(argv, 1, stdout="", stderr="not logged in")
+        if argv == ["/fake/bin/codex", "--version"]:
+            return subprocess.CompletedProcess(argv, 0, stdout="0.118.0\n", stderr="")
+        if argv == ["/fake/bin/codex", "login", "status"]:
+            return subprocess.CompletedProcess(argv, 0, stdout="Logged in\n", stderr="")
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(ai_routes.subprocess, "run", fake_run)
+
+    res = client.get("/api/ai/status")
+    body = res.json()
+    codex = next(p for p in body["providers"] if p["name"] == "codex")
+    assert codex["logged_in"] is True

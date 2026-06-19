@@ -6,6 +6,7 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 const repoRoot = path.resolve(__dirname, "..", "..");
 const frontendUrl = process.env.SCISTUDIO_DESKTOP_FRONTEND_URL || "http://127.0.0.1:5173";
 const runtimePort = process.env.SCISTUDIO_DESKTOP_RUNTIME_PORT || "8000";
+const apiProxyTarget = process.env.SCISTUDIO_API_PROXY || `http://127.0.0.1:${runtimePort}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function spawnChild(command, args, options = {}) {
@@ -32,7 +33,12 @@ const vite = spawnChild(npmCommand, [
   "127.0.0.1",
   "--port",
   "5173",
-]);
+], {
+  env: {
+    ...process.env,
+    SCISTUDIO_API_PROXY: apiProxyTarget,
+  },
+});
 
 const electron = spawnChild(
   npmCommand,

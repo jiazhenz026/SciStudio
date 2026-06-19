@@ -3,8 +3,8 @@
  *
  * Verifies that:
  *   - When ``activeTabKind === "workflow"`` (default), the existing button
- *     set is rendered: Run / Stop / Reset / Reload / Delete /
- *     Note / Group are all present.
+ *     set is rendered: Run / Stop / Reload / Note / Group are all present,
+ *     while Reset / Delete are omitted.
  *   - When ``activeTabKind === "file"``, those workflow-only buttons are
  *     hidden; only New / Import / Save remain.
  */
@@ -60,7 +60,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof Toolbar>> = {}
 }
 
 describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
-  it("workflow tab: Run / Stop / Reset / Reload / Delete / Note / Group are visible", () => {
+  it("workflow tab: Run / Stop / Reload / Note / Group are visible without Reset or Delete", () => {
     render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
     // Group 2 (always present)
     expect(screen.getByRole("button", { name: /^new$/i })).toBeTruthy();
@@ -70,11 +70,29 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.getByRole("button", { name: /^run$/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^pause$/i })).toBeNull();
     expect(screen.getByRole("button", { name: /^stop$/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^reset$/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^delete$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^reload$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^reset$/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
     expect(screen.getByRole("button", { name: /^note$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^group$/i })).toBeTruthy();
+  });
+
+  it("workflow tab: Reload sits in the old Reset slot and calls reload blocks", () => {
+    const onReloadBlocks = vi.fn();
+    const onReset = vi.fn();
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", onReloadBlocks, onReset })} />);
+
+    const buttonLabels = screen
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label"))
+      .filter(Boolean);
+
+    expect(buttonLabels.indexOf("Reload")).toBeGreaterThan(buttonLabels.indexOf("Stop"));
+    expect(buttonLabels.indexOf("Reload")).toBeLessThan(buttonLabels.indexOf("Note"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^reload$/i }));
+    expect(onReloadBlocks).toHaveBeenCalledTimes(1);
+    expect(onReset).not.toHaveBeenCalled();
   });
 
   it("workflow tab: defaults to workflow when activeTabKind is omitted", () => {
@@ -192,10 +210,15 @@ describe("Toolbar — ADR-036 §3.4 View source button (I36c)", () => {
 });
 
 describe("Toolbar responsive layout", () => {
-  it("keeps the SciStudio brand from shrinking under the Projects control", () => {
+  it("bounds the project label without reserving fixed toolbar space", () => {
     render(<Toolbar {...makeProps()} />);
     const header = screen.getByTestId("toolbar-project-header");
+    const meta = screen.getByTestId("toolbar-project-meta");
     expect(header.className).toContain("shrink-0");
-    expect(header.className).toContain("min-w-fit");
+    expect(header.className).not.toContain("min-w-fit");
+    expect(meta.className).toContain("xl:max-w-[160px]");
+    expect(meta.className).toContain("2xl:max-w-[200px]");
+    expect(meta.className).not.toContain("xl:w-[160px]");
+    expect(meta.className).not.toContain("2xl:w-[200px]");
   });
 });

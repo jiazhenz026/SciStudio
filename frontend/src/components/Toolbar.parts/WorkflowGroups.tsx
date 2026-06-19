@@ -1,18 +1,8 @@
 /**
- * Workflow-only toolbar groups (Run/Pause/Stop/Reset + Delete/Reload/Note/
- * Group/View-source). Hidden when a file tab is active. Extracted in #1413.
+ * Workflow-only toolbar groups (Run/Pause/Stop/Reload + Note/Group/
+ * View-source). Hidden when a file tab is active. Extracted in #1413.
  */
-import {
-  BoxSelect,
-  Eye,
-  Loader2,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  Square,
-  StickyNote,
-  Trash2,
-} from "lucide-react";
+import { BoxSelect, Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -36,7 +26,7 @@ export interface WorkflowGroupsProps {
 }
 
 function ExecutionControls(props: WorkflowGroupsProps) {
-  const { currentProject, workflowId, isRunning, onRun, onStop, onReset } = props;
+  const { currentProject, workflowId, isRunning, onRun, onStop, onReloadBlocks } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -55,26 +45,15 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         disabled={!workflowId}
         onClick={onStop}
       />
-      <ToolbarButton icon={RotateCcw} label="Reset" disabled={!workflowId} onClick={onReset} />
+      <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
     </div>
   );
 }
 
 function EditOperations(props: WorkflowGroupsProps) {
-  const {
-    currentProject,
-    workflowId,
-    selectedNodeId,
-    onDelete,
-    onReloadBlocks,
-    onAddAnnotation,
-    onAddGroup,
-    onViewSource,
-  } = props;
+  const { currentProject, workflowId, onAddAnnotation, onAddGroup, onViewSource } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <ToolbarButton icon={Trash2} label="Delete" disabled={!selectedNodeId} onClick={onDelete} />
-      <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
       <ToolbarButton
         icon={StickyNote}
         label="Note"

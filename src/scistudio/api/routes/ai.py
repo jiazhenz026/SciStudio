@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -95,8 +94,8 @@ async def provider_status() -> dict[str, Any]:
 
 def _probe_claude() -> dict[str, Any]:
     """Probe ``claude`` binary + credentials."""
-    available, version = _binary_status("claude")
-    logged_in = _claude_logged_in()
+    binary, available, version = _binary_status("claude")
+    logged_in = _claude_logged_in(binary)
     return {
         "name": "claude-code",
         "available": available,
@@ -109,22 +108,22 @@ def _probe_codex() -> dict[str, Any]:
     """Probe ``codex`` binary + credentials.
 
     Codex stores its auth in ``~/.codex/auth.json`` after
-    ``codex login``; presence of that file is treated as "looks logged
-    in" for the frontend gate.  Codex may evolve its auth storage
-    format; if so this probe gets bumped.
+    ``codex login`` when file-based storage is selected. Current Codex
+    builds may also store credentials in the OS keychain/keyring, so we
+    ask the provider-owned ``codex login status`` command before falling
+    back to file presence.
     """
-    available, version = _binary_status("codex")
-    auth_file = Path.home() / ".codex" / "auth.json"
+    binary, available, version = _binary_status("codex")
     return {
         "name": "codex",
         "available": available,
         "version": version,
-        "logged_in": auth_file.is_file(),
+        "logged_in": _codex_logged_in(binary),
     }
 
 
-def _binary_status(name: str) -> tuple[bool, str | None]:
-    """Return ``(available, version_string_or_None)`` for ``name``.
+def _binary_status(name: str) -> tuple[str | None, bool, str | None]:
+    """Return ``(binary, available, version_string_or_None)`` for ``name``.
 
     Available iff ``shutil.which`` finds the binary AND ``<name> --version``
     completes within 2 s with non-empty stdout.  Version is the trimmed
@@ -132,7 +131,7 @@ def _binary_status(name: str) -> tuple[bool, str | None]:
     """
     binary = resolve_windows_executable(name, which=shutil.which)
     if not binary:
-        return False, None
+        return None, False, None
     try:
         result = subprocess.run(
             [binary, "--version"],
@@ -142,40 +141,51 @@ def _binary_status(name: str) -> tuple[bool, str | None]:
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):
-        return False, None
+        return binary, False, None
     version = (result.stdout or result.stderr or "").strip()
     if not version:
-        return False, None
-    return True, version
+        return binary, False, None
+    return binary, True, version
 
 
-def _claude_logged_in() -> bool:
+def _claude_logged_in(binary: str | None) -> bool:
     """Heuristic: does claude appear to have stored credentials?
 
     Order of probes:
 
     1. ``~/.claude/.credentials.json`` exists — covers Linux / Windows
        and the macOS file-fallback path.
-    2. On macOS, ``security find-generic-password`` against either of
-       the two known service names (``Claude Code-credentials`` is the
-       current name; ``claude-code`` was used briefly).  Bounded by a
-       2 s timeout so a slow Keychain doesn't hang the endpoint.
+    2. ``claude auth status --json`` exits 0 — asks the provider CLI to
+       inspect its own auth state instead of probing macOS Keychain
+       directly from SciStudio.
     """
     if (Path.home() / ".claude" / ".credentials.json").is_file():
         return True
-    if sys.platform != "darwin":
+    if not binary:
         return False
-    for service in ("Claude Code-credentials", "claude-code"):
-        try:
-            result = subprocess.run(
-                ["security", "find-generic-password", "-s", service],
-                capture_output=True,
-                text=True,
-                timeout=2,
-                check=False,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            continue
-        if result.returncode == 0:
-            return True
-    return False
+    return _auth_status_command_logged_in([binary, "auth", "status", "--json"])
+
+
+def _codex_logged_in(binary: str | None) -> bool:
+    """Heuristic: does codex appear to have stored credentials?"""
+    auth_file = Path.home() / ".codex" / "auth.json"
+    if auth_file.is_file():
+        return True
+    if not binary:
+        return False
+    return _auth_status_command_logged_in([binary, "login", "status"])
+
+
+def _auth_status_command_logged_in(argv: list[str]) -> bool:
+    """Run a provider-owned auth-status command with a short timeout."""
+    try:
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return result.returncode == 0

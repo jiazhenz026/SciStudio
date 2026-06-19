@@ -84,16 +84,23 @@ export function BottomPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
         {/* TerminalTabs must stay MOUNTED across bottom-panel tab switches
-            so the PTY subprocess survives (unmount fires the WS cleanup
-            hook which kills the child process tree). Hide via CSS when
-            another tab is active.
+            so PTY subprocesses survive (unmount fires the WS cleanup hook
+            which kills the child process tree). Hide via CSS when another
+            tab is active.
+
+            AI Chat owns provider/AI-block chat tabs; Terminal owns
+            user-terminal tabs. Each surface renders only its own tabs so a
+            running PTY is mounted exactly once.
 
             Hotfix #977: the inner white-card frame was removed so the
             active-tab body fills the available space without a nested
             scroll context. The lineage tab (ADR-038 §3.8) and git tab
             (ADR-039 §3.5, #972) both render inside this flat container. */}
         <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
-          <TerminalTabs />
+          <TerminalTabs active={activeTab === "ai"} surface="chat" />
+        </div>
+        <div className={`h-full ${activeTab === "terminal" ? "" : "hidden"}`}>
+          <TerminalTabs active={activeTab === "terminal"} surface="terminal" />
         </div>
         {activeTab === "config" ? (
           <ConfigPanel
@@ -117,7 +124,7 @@ export function BottomPanel({
           // conflict-state close guard must survive bottom-tab
           // switches; Codex P1 on PR #974).
           <GitTab />
-        ) : activeTab !== "ai" ? (
+        ) : activeTab !== "ai" && activeTab !== "terminal" ? (
           <PlaceholderTab />
         ) : null}
       </div>
