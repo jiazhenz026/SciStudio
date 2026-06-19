@@ -1122,6 +1122,11 @@
       "at": "2026-06-19T23:32:22.342841Z",
       "owner_directive": "Fix the CI/local validation gap by making the gate frontend check run the same lint, Prettier format, typecheck, test, and build sequence as the CI Frontend job.",
       "reason": "Align local frontend gate command with CI frontend job"
+    },
+    {
+      "at": "2026-06-19T23:41:11.331675Z",
+      "owner_directive": "Fix the CI semantic duplication ratchet failure by removing the duplicate gate input fingerprint wrapper rather than changing the semantic-dup baseline.",
+      "reason": "Resolve semantic duplication ratchet failure without loosening baseline"
     }
   ],
   "docs_events": [
@@ -3976,6 +3981,12 @@
       "at": "2026-06-19T23:32:22.343051Z",
       "pattern": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
       "reason": "Align local frontend gate command with CI frontend job"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-19T23:41:11.331899Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "reason": "Resolve semantic duplication ratchet failure without loosening baseline"
     }
   ],
   "session_id": "4625aa43-d5d9-480d-9ba8-901998130e0d",
@@ -4235,6 +4246,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/nodes/__tests__/BlockNode/compactNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-19T23:41:11.331914Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
       "rationale": null,
       "verified_in_diff": null
     }

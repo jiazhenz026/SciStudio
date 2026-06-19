@@ -723,32 +723,6 @@ def _select_checks_to_execute(
     return to_run, current
 
 
-def _check_input_fingerprints(
-    repo_root: Path,
-    *,
-    names: Sequence[str],
-    base: str,
-    head: str,
-    staged: bool,
-    changed_files: Sequence[str],
-    diff_fingerprint: str | None,
-) -> dict[str, str | None]:
-    """Return current input fingerprints for the requested check names."""
-
-    return {
-        name: _check_input_fingerprint(
-            repo_root,
-            name,
-            base=base,
-            head=head,
-            staged=staged,
-            changed_files=changed_files,
-            diff_fingerprint=diff_fingerprint,
-        )
-        for name in names
-    }
-
-
 def reconcile(
     *,
     ledger: GateLedger,
@@ -907,15 +881,18 @@ def reconcile(
             "readiness; the N/A is recorded but ignored for this check. Fix the check or rely on CI."
         )
     if run_checks and mode not in ("commit-msg",):
-        input_fps = _check_input_fingerprints(
-            repo_root,
-            names=selection.required,
-            base=base,
-            head=head,
-            staged=staged,
-            changed_files=observed_files,
-            diff_fingerprint=fingerprint,
-        )
+        input_fps = {
+            name: _check_input_fingerprint(
+                repo_root,
+                name,
+                base=base,
+                head=head,
+                staged=staged,
+                changed_files=observed_files,
+                diff_fingerprint=fingerprint,
+            )
+            for name in selection.required
+        }
         to_run, current_events = _select_checks_to_execute(
             ledger,
             required_names=selection.required,
@@ -995,15 +972,18 @@ def reconcile(
         # local commands. This is the fast path used by finalize and PR
         # creation: it is only PR-ready when every required check has current
         # evidence for the observed diff fingerprint.
-        input_fps = _check_input_fingerprints(
-            repo_root,
-            names=selection.required,
-            base=base,
-            head=head,
-            staged=staged,
-            changed_files=observed_files,
-            diff_fingerprint=fingerprint,
-        )
+        input_fps = {
+            name: _check_input_fingerprint(
+                repo_root,
+                name,
+                base=base,
+                head=head,
+                staged=staged,
+                changed_files=observed_files,
+                diff_fingerprint=fingerprint,
+            )
+            for name in selection.required
+        }
         validated, evidence_gaps, evidence_hints = _validate_prior_check_events(
             ledger,
             required_names=selection.required,
