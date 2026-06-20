@@ -33,3 +33,11 @@ export const SIBLING_GAP = 48;
  * `elk.spacing.edgeNode` / `elk.layered.spacing.edgeNodeBetweenLayers`.
  */
 export const HIGH_DEGREE_CLEARANCE = 32;
+
+/**
+ * Minimum gap between disconnected components (ADR-050 §3.2). Drives
+ * `elk.spacing.componentComponent`. ELK's default (20) packs unconnected
+ * nodes tight enough that their left/right port glyphs nearly overlap, so a
+ * roomier gap keeps tidied loose blocks visually separated.
+ */
+export const COMPONENT_GAP = 64;

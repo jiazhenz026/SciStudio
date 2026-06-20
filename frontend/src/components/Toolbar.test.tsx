@@ -3,7 +3,7 @@
  *
  * Verifies that:
  *   - When ``activeTabKind === "workflow"`` (default), the existing button
- *     set is rendered: Run / Stop / Reload / Note / Group are all present,
+ *     set is rendered: Run / Stop / Reload / Note are all present,
  *     while Reset / Delete are omitted.
  *   - When ``activeTabKind === "file"``, those workflow-only buttons are
  *     hidden; only New / Import / Save remain.
@@ -53,14 +53,13 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof Toolbar>> = {}
     onReloadBlocks: vi.fn(),
     onStartFromSelected: vi.fn(),
     onAddAnnotation: vi.fn(),
-    onAddGroup: vi.fn(),
     isRunning: false,
     ...overrides,
   } as React.ComponentProps<typeof Toolbar>;
 }
 
 describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
-  it("workflow tab: Run / Stop / Reload / Note / Group are visible without Reset or Delete", () => {
+  it("workflow tab: Run / Stop / Reload / Note are visible without Reset or Delete", () => {
     render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
     // Group 2 (always present)
     expect(screen.getByRole("button", { name: /^new$/i })).toBeTruthy();
@@ -74,7 +73,6 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.queryByRole("button", { name: /^reset$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
     expect(screen.getByRole("button", { name: /^note$/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^group$/i })).toBeTruthy();
   });
 
   it("workflow tab: Reload sits in the old Reset slot and calls reload blocks", () => {
@@ -216,9 +214,9 @@ describe("Toolbar responsive layout", () => {
     const meta = screen.getByTestId("toolbar-project-meta");
     expect(header.className).toContain("shrink-0");
     expect(header.className).not.toContain("min-w-fit");
-    expect(meta.className).toContain("xl:max-w-[160px]");
-    expect(meta.className).toContain("2xl:max-w-[200px]");
-    expect(meta.className).not.toContain("xl:w-[160px]");
-    expect(meta.className).not.toContain("2xl:w-[200px]");
+    expect(meta.className).toContain("xl:max-w-[80px]");
+    expect(meta.className).toContain("2xl:max-w-[100px]");
+    expect(meta.className).not.toContain("xl:w-[80px]");
+    expect(meta.className).not.toContain("2xl:w-[100px]");
   });
 });

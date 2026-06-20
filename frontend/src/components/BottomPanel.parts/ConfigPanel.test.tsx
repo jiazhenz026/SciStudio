@@ -544,7 +544,6 @@ describe("BottomPanel config surface — no inline-config imports (SC-002)", () 
     "WorkflowEditor/LossySaveWarning.tsx",
     "PortEditorTable.tsx",
     "PortEditor/CapabilityDropdown.tsx",
-    "TypeLegend.tsx",
   ];
 
   const forbidden = [

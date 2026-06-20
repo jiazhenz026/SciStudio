@@ -8,9 +8,7 @@ import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
-import { GroupNode } from "./nodes/GroupNode";
 import { TypedEdge } from "./TypedEdge";
-import { TypeLegend } from "./TypeLegend";
 import { applyFocusToEdges, applyFocusToNodes } from "./WorkflowCanvas.parts/applyFocus";
 import { computeAutoLayout } from "./WorkflowCanvas.parts/autoLayout";
 import { CanvasReadabilityControls } from "./WorkflowCanvas.parts/CanvasReadabilityControls";
@@ -24,7 +22,6 @@ import { WorkflowMiniMap } from "./WorkflowCanvas.parts/WorkflowMiniMap";
 const nodeTypes = {
   block: BlockNode,
   _annotation: AnnotationNode,
-  _group: GroupNode,
 };
 const edgeTypes = { typed: TypedEdge };
 
@@ -45,6 +42,7 @@ interface WorkflowCanvasProps {
     defaultParams?: Record<string, unknown>,
   ) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
+  onResizeNode: (nodeId: string, size: { width: number; height: number }) => void;
   onUpdateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   onConnect: (connection: WorkflowEdge) => Promise<void>;
   onDeleteNode: (nodeId: string) => void;
@@ -73,43 +71,6 @@ interface WorkflowCanvasProps {
    * one history entry. Writes only `node.layout`. Used by the tidy action.
    */
   onTidyLayout?: (positions: Record<string, { x: number; y: number }>) => void;
-}
-
-interface UseActiveTypesResult {
-  activeTypes: Set<string>;
-  mergedTypeHierarchy: BlockSchemaResponse["type_hierarchy"] | undefined;
-}
-
-function useActiveTypes(
-  nodes: WorkflowNode[],
-  schemas: Record<string, BlockSchemaResponse>,
-): UseActiveTypesResult {
-  const activeTypes = useMemo<Set<string>>(() => {
-    const types = new Set<string>();
-    for (const node of nodes) {
-      const schema = schemas[node.block_type];
-      if (!schema) continue;
-      for (const port of [...(schema.input_ports ?? []), ...(schema.output_ports ?? [])]) {
-        if (port.accepted_types.length === 0) {
-          types.add("Any");
-        } else {
-          for (const t of port.accepted_types) {
-            types.add(t);
-          }
-        }
-      }
-    }
-    return types;
-  }, [nodes, schemas]);
-
-  const mergedTypeHierarchy = useMemo(() => {
-    for (const schema of Object.values(schemas)) {
-      if (schema?.type_hierarchy?.length) return schema.type_hierarchy;
-    }
-    return undefined;
-  }, [schemas]);
-
-  return { activeTypes, mergedTypeHierarchy };
 }
 
 function useFlowEdges(
@@ -248,6 +209,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onSelectNode,
     onUpdateNodeConfig,
     onUpdateNodePosition,
+    onResizeNode,
     selectedNodeId,
     blockOutputs,
     focusMode,
@@ -256,10 +218,12 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onTidyLayout,
   } = props;
 
-  const { activeTypes, mergedTypeHierarchy } = useActiveTypes(nodes, schemas);
-
   // Track positions locally during drag so nodes follow the cursor smoothly.
   const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({});
+  // Live size during a NodeResizer drag, mirroring dragPositions. ReactFlow is
+  // controlled here, so the in-progress resize must be fed back through the
+  // derived nodes or the body stays locked at the persisted size until release.
+  const [dragSizes, setDragSizes] = useState<Record<string, { width: number; height: number }>>({});
 
   const flowCallbacks = useFlowCallbacks({
     onRunBlock,
@@ -281,6 +245,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     selectedNodeId,
     blockOutputs,
     dragPositions,
+    dragSizes,
     onUpdateNodeConfig,
     ...flowCallbacks,
   });
@@ -329,7 +294,9 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onSelectNode,
     onPaneClick,
     onUpdateNodePosition,
+    onResizeNode,
     setDragPositions,
+    setDragSizes,
   });
 
   const showReadabilityControls = Boolean(onTidyLayout || onEnterFocusMode);
@@ -375,7 +342,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           />
         ) : null}
       </ReactFlow>
-      <TypeLegend activeTypes={activeTypes} typeHierarchy={mergedTypeHierarchy} />
     </div>
   );
 }

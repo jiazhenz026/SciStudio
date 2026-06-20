@@ -20,7 +20,12 @@ export interface CanvasHandlersOpts {
   onSelectNode: (nodeId: string | null) => void;
   onPaneClick?: () => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
+  /** Persist a resizable node's size when a NodeResizer drag ends. */
+  onResizeNode?: (nodeId: string, size: { width: number; height: number }) => void;
   setDragPositions: React.Dispatch<React.SetStateAction<Record<string, { x: number; y: number }>>>;
+  setDragSizes: React.Dispatch<
+    React.SetStateAction<Record<string, { width: number; height: number }>>
+  >;
 }
 
 export function useCanvasHandlers(opts: CanvasHandlersOpts) {
@@ -34,7 +39,9 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     onSelectNode,
     onPaneClick,
     onUpdateNodePosition,
+    onResizeNode,
     setDragPositions,
+    setDragSizes,
   } = opts;
 
   const handleNodesChange = useCallback(
@@ -44,12 +51,48 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
         if (change.type === "position" && change.position) {
           positionUpdates[change.id] = change.position;
         }
+        // NodeResizer emits dimensions changes with `resizing: true` during the
+        // drag and a final `resizing: false` on release. ReactFlow is controlled
+        // here, so the live size must be fed back through dragSizes or the body
+        // stays locked at the persisted size until release. A top/left-anchored
+        // resize ALSO moves the origin (position changes that land in
+        // dragPositions). On release we persist the committed size + final
+        // position, then clear both overrides.
+        if (change.type === "dimensions" && change.dimensions) {
+          if (change.resizing) {
+            const { width, height } = change.dimensions;
+            setDragSizes((prev) => ({ ...prev, [change.id]: { width, height } }));
+          } else if (change.resizing === false) {
+            if (onResizeNode) {
+              onResizeNode(change.id, {
+                width: change.dimensions.width,
+                height: change.dimensions.height,
+              });
+            }
+            const node = reactFlow.getNode(change.id);
+            if (node) {
+              onUpdateNodePosition(change.id, node.position);
+            }
+            setDragPositions((prev) => {
+              if (!(change.id in prev)) return prev;
+              const next = { ...prev };
+              delete next[change.id];
+              return next;
+            });
+            setDragSizes((prev) => {
+              if (!(change.id in prev)) return prev;
+              const next = { ...prev };
+              delete next[change.id];
+              return next;
+            });
+          }
+        }
       }
       if (Object.keys(positionUpdates).length > 0) {
         setDragPositions((prev) => ({ ...prev, ...positionUpdates }));
       }
     },
-    [setDragPositions],
+    [onResizeNode, onUpdateNodePosition, reactFlow, setDragPositions, setDragSizes],
   );
 
   const handleConnect = useCallback(

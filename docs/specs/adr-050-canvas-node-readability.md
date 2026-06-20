@@ -107,7 +107,6 @@ governs:
     - frontend/src/components/BottomPanel.parts/FormatCapabilityConfig.tsx
     - frontend/src/components/BottomPanel.parts/TabBar.tsx
     - frontend/src/components/PortEditorTable.tsx
-    - frontend/src/components/TypeLegend.tsx
     - frontend/src/components/WorkflowEditor/LossySaveWarning.tsx
     - frontend/src/components/PortEditor/CapabilityDropdown.tsx
     - frontend/src/config/typeColorMap.ts

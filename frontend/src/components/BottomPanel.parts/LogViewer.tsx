@@ -10,9 +10,14 @@ export function LogViewer({ entries }: { entries: LogEntry[] }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-4 flex items-center gap-3">
+      {/*
+       * Live hotfix batch: Logs adopt the light Git-history list aesthetic
+       * (bordered rows on the panel background) instead of the old dark
+       * stone-950 console card.
+       */}
+      <div className="flex items-center gap-2 border-b border-stone-200 px-3 py-2">
         <select
-          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm"
+          className="rounded border border-stone-300 bg-white px-2 py-1 text-xs"
           onChange={(event) => setLevel(event.target.value)}
           value={level}
         >
@@ -21,39 +26,55 @@ export function LogViewer({ entries }: { entries: LogEntry[] }) {
           <option value="error">Error</option>
         </select>
       </div>
-      <div className="flex-1 overflow-auto rounded-[1.4rem] border border-stone-200 bg-stone-950 p-4">
-        {filtered.length ? (
-          filtered.map((entry) => (
-            <div
-              className="border-b border-stone-800 py-2 text-sm text-stone-100"
-              key={[
-                entry.timestamp,
-                entry.level,
-                entry.workflow_id ?? "workflow",
-                entry.block_id ?? "system",
-                entry.message,
-              ].join("|")}
-            >
-              <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
-                {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
-              </p>
-              <p className="mt-1 break-words">{entry.message}</p>
-              {entry.details && entry.details !== entry.message ? (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-xs font-medium text-stone-400 hover:text-stone-200">
-                    Show traceback
-                  </summary>
-                  <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-stone-800 bg-stone-900 p-3 text-xs leading-5 text-stone-300">
-                    {entry.details}
-                  </pre>
-                </details>
-              ) : null}
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-stone-500">No logs yet.</p>
-        )}
-      </div>
+      {filtered.length ? (
+        <ul role="list" className="min-h-0 flex-1 overflow-y-auto">
+          {filtered.map((entry) => {
+            // Error-level rows are tinted red (label + message) so a new error
+            // is eye-catching against the lighter info rows.
+            const isError = entry.level === "error";
+            return (
+              <li
+                className={`border-b border-stone-100 px-3 py-2 text-sm hover:bg-stone-50 ${
+                  isError ? "bg-red-50/60" : ""
+                }`}
+                data-level={entry.level}
+                key={[
+                  entry.timestamp,
+                  entry.level,
+                  entry.workflow_id ?? "workflow",
+                  entry.block_id ?? "system",
+                  entry.message,
+                ].join("|")}
+              >
+                <p
+                  className={`text-[11px] uppercase tracking-[0.3em] ${
+                    isError ? "text-red-500" : "text-stone-400"
+                  }`}
+                >
+                  {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
+                </p>
+                <p
+                  className={`mt-1 break-words ${isError ? "font-medium text-red-600" : "text-ink"}`}
+                >
+                  {entry.message}
+                </p>
+                {entry.details && entry.details !== entry.message ? (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-medium text-stone-500 hover:text-ink">
+                      Show traceback
+                    </summary>
+                    <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-stone-200 bg-stone-50 p-3 text-xs leading-5 text-stone-700">
+                      {entry.details}
+                    </pre>
+                  </details>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="px-3 py-4 text-xs text-stone-500">No logs yet.</p>
+      )}
     </div>
   );
 }

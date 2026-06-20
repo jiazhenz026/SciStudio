@@ -71,56 +71,32 @@ export function paramsOf(node: WorkflowNode): Record<string, unknown> {
 interface AnnotationOpts {
   node: WorkflowNode;
   position: { x: number; y: number };
+  /** Live size during an in-progress NodeResizer drag (overrides config.style). */
+  size?: { width: number; height: number };
   params: Record<string, unknown>;
   selectedNodeId: string | null;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
 }
 
 export function buildAnnotationNode(opts: AnnotationOpts): Node {
-  const { node, position, params, selectedNodeId, onUpdateNodeConfig } = opts;
+  const { node, position, size, params, selectedNodeId, onUpdateNodeConfig } = opts;
+  const style = node.config.style as Record<string, unknown> | undefined;
+  // Annotation notes are resizable (NodeResizer); the live drag size wins, then
+  // the persisted width/height in config.style, then a comfortable default.
+  const width = size?.width ?? (style?.width as number) ?? 240;
+  const height = size?.height ?? (style?.height as number) ?? 120;
   return {
     id: node.id,
     type: "_annotation",
     position,
     // ``initialWidth`` / ``initialHeight`` give the MiniMap a bounding box
     // to draw before ReactFlow's ResizeObserver populates ``measured``.
-    initialWidth: 200,
-    initialHeight: 80,
+    initialWidth: width,
+    initialHeight: height,
+    style: { width, height },
     data: {
       text: (params.text as string) ?? "Note",
       onUpdateText: (text: string) => onUpdateNodeConfig(node.id, { text }),
-    },
-    selected: selectedNodeId === node.id,
-  };
-}
-
-interface GroupOpts {
-  node: WorkflowNode;
-  position: { x: number; y: number };
-  params: Record<string, unknown>;
-  selectedNodeId: string | null;
-  onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
-}
-
-export function buildGroupNode(opts: GroupOpts): Node {
-  const { node, position, params, selectedNodeId, onUpdateNodeConfig } = opts;
-  const groupW =
-    ((node.config.style as Record<string, unknown> | undefined)?.width as number) ?? 400;
-  const groupH =
-    ((node.config.style as Record<string, unknown> | undefined)?.height as number) ?? 250;
-  return {
-    id: node.id,
-    type: "_group",
-    position,
-    initialWidth: groupW,
-    initialHeight: groupH,
-    style: { width: groupW, height: groupH },
-    data: {
-      title: (params.title as string) ?? "Group",
-      note: (params.note as string) ?? "",
-      color: (params.color as string) ?? "gray",
-      onUpdateTitle: (title: string) => onUpdateNodeConfig(node.id, { title }),
-      onUpdateNote: (note: string) => onUpdateNodeConfig(node.id, { note }),
     },
     selected: selectedNodeId === node.id,
   };

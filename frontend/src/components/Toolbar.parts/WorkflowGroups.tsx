@@ -1,8 +1,8 @@
 /**
- * Workflow-only toolbar groups (Run/Pause/Stop/Reload + Note/Group/
- * View-source). Hidden when a file tab is active. Extracted in #1413.
+ * Workflow-only toolbar groups (Run/Pause/Stop/Reload + Note/View-source).
+ * Hidden when a file tab is active. Extracted in #1413.
  */
-import { BoxSelect, Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
+import { Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -21,7 +21,6 @@ export interface WorkflowGroupsProps {
   onDelete: () => void;
   onReloadBlocks: () => void;
   onAddAnnotation: () => void;
-  onAddGroup: () => void;
   onViewSource?: () => void;
 }
 
@@ -51,7 +50,7 @@ function ExecutionControls(props: WorkflowGroupsProps) {
 }
 
 function EditOperations(props: WorkflowGroupsProps) {
-  const { currentProject, workflowId, onAddAnnotation, onAddGroup, onViewSource } = props;
+  const { currentProject, workflowId, onAddAnnotation, onViewSource } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -59,12 +58,6 @@ function EditOperations(props: WorkflowGroupsProps) {
         label="Note"
         disabled={!currentProject}
         onClick={onAddAnnotation}
-      />
-      <ToolbarButton
-        icon={BoxSelect}
-        label="Group"
-        disabled={!currentProject}
-        onClick={onAddGroup}
       />
       {/* ADR-036 §3.4 (I36c) — "View source" opens a read-only Monaco tab. */}
       {onViewSource && workflowId ? (

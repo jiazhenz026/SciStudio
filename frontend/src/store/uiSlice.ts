@@ -7,7 +7,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   activeBottomTab: "config",
   // ADR-050 §3.1 — focus mode is frontend-only view state, off by default.
   focusMode: { enabled: false, selectedIds: [], depth: 1 },
-  paletteCollapsed: false,
+  // Live hotfix batch: palette starts collapsed so opening a project shows
+  // the canvas first; the value is persisted, so a later user toggle sticks.
+  paletteCollapsed: true,
   previewCollapsed: false,
   bottomPanelCollapsed: false,
   bottomPanelPinned: false,

@@ -1,15 +1,17 @@
-import { type Node, type NodeProps } from "@xyflow/react";
+import { type Node, type NodeProps, NodeResizer } from "@xyflow/react";
+import { Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AnnotationNodeData } from "../../types/ui";
 
 /**
- * A lightweight text annotation node for the canvas.
+ * A lightweight, resizable text annotation node for the canvas.
  *
  * - No ports, no block header/border.
  * - Semi-transparent background for readability.
- * - Double-click to enter edit mode (textarea); blur/Enter to save.
- * - When selected: subtle blue ring.
+ * - Resizable via ReactFlow NodeResizer; the size is persisted in config.style.
+ * - Double-click (or the pencil button shown when selected) enters edit mode;
+ *   blur/Enter saves, Escape cancels.
  */
 export function AnnotationNode({ data, selected }: NodeProps<Node<AnnotationNodeData>>) {
   const [editing, setEditing] = useState(false);
@@ -31,7 +33,7 @@ export function AnnotationNode({ data, selected }: NodeProps<Node<AnnotationNode
     }
   }, [draft, data]);
 
-  const handleDoubleClick = useCallback(() => {
+  const startEdit = useCallback(() => {
     setEditing(true);
     // Focus the textarea on next tick after it renders.
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -53,18 +55,43 @@ export function AnnotationNode({ data, selected }: NodeProps<Node<AnnotationNode
 
   return (
     <div
-      className={`max-w-[240px] rounded-lg px-3 py-2 text-sm leading-relaxed transition-shadow ${
+      className={`group relative h-full w-full rounded-lg px-3 py-2 text-sm leading-relaxed transition-shadow ${
         selected ? "ring-2 ring-blue-400/60" : ""
       }`}
       style={{ backgroundColor: "rgba(255, 251, 235, 0.6)" }}
-      onDoubleClick={handleDoubleClick}
+      onDoubleClick={startEdit}
       data-testid="annotation-node"
     >
+      <NodeResizer
+        minWidth={120}
+        minHeight={60}
+        isVisible={selected ?? false}
+        lineClassName="!border-blue-400"
+        handleClassName="!h-3 !w-3 !rounded-full !border-2 !border-blue-400 !bg-white"
+      />
+
+      {/* Edit affordance: a pencil button surfaces on select/hover so the
+       * double-click-to-edit interaction is discoverable. It floats ABOVE the
+       * note so it never overlaps the NodeResizer corner handles. */}
+      {!editing ? (
+        <button
+          type="button"
+          aria-label="Edit note"
+          title="Edit note"
+          onClick={startEdit}
+          className={`nodrag absolute -top-7 right-0 rounded-md border border-stone-200 bg-white p-1 text-stone-500 shadow-sm transition-opacity hover:text-ink ${
+            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          data-testid="annotation-edit-button"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+
       {editing ? (
         <textarea
           ref={textareaRef}
-          className="nodrag nowheel w-full resize-none rounded border border-stone-200 bg-white px-1 py-0.5 text-sm text-ink focus:border-blue-400 focus:outline-none"
-          rows={3}
+          className="nodrag nowheel h-full w-full resize-none rounded border border-stone-200 bg-white px-1 py-0.5 text-sm text-ink focus:border-blue-400 focus:outline-none"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitEdit}
@@ -72,7 +99,10 @@ export function AnnotationNode({ data, selected }: NodeProps<Node<AnnotationNode
           data-testid="annotation-textarea"
         />
       ) : (
-        <p className="whitespace-pre-wrap text-stone-700" data-testid="annotation-text">
+        <p
+          className="h-full overflow-auto whitespace-pre-wrap text-stone-700"
+          data-testid="annotation-text"
+        >
           {data.text || "Double-click to edit"}
         </p>
       )}
