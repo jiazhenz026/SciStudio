@@ -30,6 +30,7 @@ import importlib.resources
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 _HOOKS_DIR_REL = ".claude/hooks"
@@ -69,12 +70,12 @@ def _load_template(filename: str) -> str:
 def _build_settings_json(hooks_dir_rel: str) -> dict:
     """Build the canonical ``.claude/settings.json`` content per ADR §3.6.
 
-    Hook command lines explicitly invoke ``python`` so the executable
-    bit is not required on Windows. Paths are project-relative via
-    ``$CLAUDE_PROJECT_DIR`` so the settings.json survives moving the
-    project directory.
+    Hook command lines explicitly invoke the Python executable running
+    SciStudio so they do not depend on a ``python`` shim being present on
+    PATH. Hook script paths are project-relative via ``$CLAUDE_PROJECT_DIR``
+    so the settings.json survives moving the project directory.
     """
-    py = "python"  # interpreter resolved by PATH in the user's shell
+    py = _quote_shell_path(sys.executable)
     # Codex P1 reconcile (PR #1047): include MultiEdit in every Edit|Write
     # matcher so multi-edit operations are not a bypass path. Claude Code
     # treats MultiEdit as a distinct tool name.
@@ -111,6 +112,51 @@ def _build_settings_json(hooks_dir_rel: str) -> dict:
     }
 
 
+def _quote_shell_path(path: str | Path) -> str:
+    """Quote an executable path for hook command strings."""
+    escaped = str(path).replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _legacy_python_hook_command(script: str, hooks_dir_rel: str) -> str:
+    return f'python "$CLAUDE_PROJECT_DIR/{hooks_dir_rel}/{script}"'
+
+
+def _upgrade_legacy_settings_commands(settings: dict, hooks_dir_rel: str) -> bool:
+    """Replace old PATH-dependent SciStudio hook commands in-place.
+
+    User-owned custom commands are preserved. Only the exact command strings
+    emitted by older SciStudio versions are upgraded.
+    """
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return False
+    scripts = {dest for _template, dest in _HOOK_FILES}
+    py = _quote_shell_path(sys.executable)
+    changed = False
+    for groups in hooks.values():
+        if not isinstance(groups, list):
+            continue
+        for entry in groups:
+            if not isinstance(entry, dict):
+                continue
+            handlers = entry.get("hooks")
+            if not isinstance(handlers, list):
+                continue
+            for handler in handlers:
+                if not isinstance(handler, dict):
+                    continue
+                command = handler.get("command")
+                if not isinstance(command, str):
+                    continue
+                for script in scripts:
+                    if command == _legacy_python_hook_command(script, hooks_dir_rel):
+                        handler["command"] = f'{py} "$CLAUDE_PROJECT_DIR/{hooks_dir_rel}/{script}"'
+                        changed = True
+                        break
+    return changed
+
+
 def write_hooks(
     project_dir: Path,
     *,
@@ -134,6 +180,14 @@ def write_hooks(
             encoding="utf-8",
         )
         written.append(_SETTINGS_REL)
+    else:
+        try:
+            existing = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = None
+        if isinstance(existing, dict) and _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL):
+            settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+            written.append(_SETTINGS_REL)
 
     for template_name, dest_name in _HOOK_FILES:
         dest = hooks_dir / dest_name

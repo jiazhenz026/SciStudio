@@ -42,7 +42,7 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     # Every entry references a python interpreter and a hook script path.
     for entry in pre + post:
         cmd = entry["hooks"][0]["command"]
-        assert "python" in cmd
+        assert sys.executable in cmd
         assert "$CLAUDE_PROJECT_DIR" in cmd
         assert ".claude/hooks/" in cmd
 
@@ -73,6 +73,39 @@ def test_write_hooks_idempotent_preserves_user_edits(tmp_project_dir: Path) -> N
     assert ".claude/settings.json" not in written
     data = json.loads((tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert data.get("hooks", {}).get("_custom") == "user-added"
+
+
+def test_write_hooks_upgrades_legacy_python_commands(tmp_project_dir: Path) -> None:
+    """Old generated hooks used PATH ``python``; reopen should repair them."""
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    legacy = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python "$CLAUDE_PROJECT_DIR/.claude/hooks/deny_scistudio_cli.py"',
+                        }
+                    ],
+                }
+            ],
+            "PostToolUse": [],
+            "_custom": "user-added",
+        }
+    }
+    settings_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".claude/settings.json" in written
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    cmd = data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert cmd.startswith(f'"{sys.executable}" ')
+    assert 'python "$CLAUDE_PROJECT_DIR' not in cmd
+    assert data["hooks"]["_custom"] == "user-added"
 
 
 def test_write_hooks_force_overwrites_settings_json(tmp_project_dir: Path) -> None:

@@ -358,8 +358,10 @@ class ApiRuntime:
         )
         # ADR-034: the MCP server's TCP/socket port is published into the
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
-        # subprocess can discover it.
+        # subprocess can discover it. POSIX transports publish a socket pointer;
+        # Windows publishes a loopback TCP port.
         self._mcp_port: int | None = None
+        self._mcp_socket_path: Path | None = None
         # ADR-040 Addendum 5 / #1488: the workflow id the GUI is currently
         # editing. Frontend POSTs to ``/api/ai/active-context`` on every
         # change; the value is persisted to
