@@ -330,6 +330,143 @@ def _registered_core_base(type_registry: Any | None, type_name: str) -> str | No
     return None
 
 
+# ---------------------------------------------------------------------------
+# R input materialization shim.
+#
+# The R plot harness can only read DataFrame/Series/Array storage in formats
+# base R understands without optional packages: csv / tsv / txt / json. SciStudio
+# persists DataFrame/Series as parquet and Array as npy/npz/zarr by default, and
+# parquet needs the R ``arrow`` package (not bundled) while npy/npz/zarr are
+# unreadable in R at all. Without this shim every R plot that ``open()``s such an
+# input fails with "unsupported ... storage for plot open()". Python is always
+# available preview-side (pandas/numpy/zarr), so we convert each R-unreadable
+# input to CSV here and repoint the harness item at it. Python plots are
+# unaffected; they read the original storage directly.
+# ---------------------------------------------------------------------------
+
+# Extensions base R reads without the optional ``arrow`` package.
+_R_NATIVE_INPUT_EXTS = frozenset({".csv", ".tsv", ".txt", ".json"})
+# Core types whose storage we can losslessly enough convert to CSV for R.
+_R_CONVERTIBLE_TYPES = frozenset({"DataFrame", "Series", "Array"})
+
+
+def _is_r_readable_path(path_str: str | None) -> bool:
+    """True when the path needs no conversion for the R harness (or is absent)."""
+    if not path_str:
+        return True
+    return Path(path_str).suffix.lower() in _R_NATIVE_INPUT_EXTS
+
+
+def _materialize_inputs_for_r(envelope: dict[str, Any], dest_dir: Path) -> dict[str, Any]:
+    """Convert R-unreadable input storage (parquet/npy/npz/zarr) to CSV in-place.
+
+    Walks the harness input envelope (including nested ``CompositeData`` slots)
+    and, for each DataFrame/Series/Array item whose ``_path`` is not a base-R
+    format, writes a CSV copy under ``dest_dir`` and repoints the item at it.
+    Conversion failures fall back to the original path so behaviour is never
+    worse than before the shim.
+    """
+    collection = envelope.get("collection")
+    if not isinstance(collection, dict):
+        return envelope
+    items = collection.get("items")
+    if not isinstance(items, list):
+        return envelope
+    counter = [0]
+    for item in items:
+        _convert_item_for_r(item, dest_dir, counter)
+    return envelope
+
+
+def _convert_item_for_r(item: Any, dest_dir: Path, counter: list[int]) -> None:
+    if not isinstance(item, dict):
+        return
+    # Recurse into CompositeData slots first (each slot is a normalised item).
+    md = item.get("metadata")
+    if isinstance(md, dict):
+        slots = md.get("slots")
+        if isinstance(slots, dict):
+            for slot in slots.values():
+                _convert_item_for_r(slot, dest_dir, counter)
+    typ = str(item.get("type") or "DataObject")
+    if typ not in _R_CONVERTIBLE_TYPES:
+        return
+    path_str = item.get("_path")
+    if _is_r_readable_path(path_str):
+        return
+    try:
+        csv_path = _convert_storage_to_csv(Path(str(path_str)), typ, dest_dir, counter)
+    except Exception as exc:  # defensive: never regress, fall back to original path
+        logger.warning("R plot input conversion failed for %r: %s", path_str, exc)
+        return
+    item["_path"] = str(csv_path)
+    item["_format"] = "csv"
+    item["_backend"] = "file"
+
+
+def _convert_storage_to_csv(src: Path, typ: str, dest_dir: Path, counter: list[int]) -> Path:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    counter[0] += 1
+    out = dest_dir / f"input_{counter[0]:03d}.csv"
+    if typ in {"DataFrame", "Series"}:
+        # DataFrame/Series CSV keeps the header row; R read_dataframe reads with
+        # header so column names (e.g. "lambda"/"intensity") survive the trip.
+        _load_dataframe_any(src).to_csv(out, index=False)
+    else:  # Array: R read_array reads header=FALSE, so write a headerless grid.
+        _save_array_csv(_load_array_any(src), out)
+    return out
+
+
+def _load_dataframe_any(src: Path) -> Any:
+    import pandas as pd
+
+    suffix = src.suffix.lower()
+    if suffix in {".parquet", ".pq"}:
+        return pd.read_parquet(src)
+    if suffix in {".csv", ".txt"}:
+        return pd.read_csv(src)
+    if suffix == ".tsv":
+        return pd.read_csv(src, sep="\t")
+    if suffix == ".json":
+        return pd.read_json(src)
+    raise ValueError(f"cannot convert DataFrame storage to CSV: {src.name}")
+
+
+def _load_array_any(src: Path) -> Any:
+    import numpy as np
+
+    suffix = src.suffix.lower()
+    if suffix == ".npy":
+        return np.asarray(np.load(src, mmap_mode="r"))
+    if suffix == ".npz":
+        loaded = np.load(src)
+        if not loaded.files:
+            raise ValueError("NPZ Array input contains no arrays")
+        return np.asarray(loaded[loaded.files[0]])
+    if suffix == ".zarr" or src.is_dir():
+        import zarr
+
+        node = zarr.open(str(src), mode="r")
+        handle = node if isinstance(node, zarr.Array) else node.get("data")
+        if handle is None:
+            raise ValueError("Zarr Array input has no top-level array or 'data' dataset")
+        return np.asarray(handle[...])
+    raise ValueError(f"cannot convert Array storage to CSV: {src.name}")
+
+
+def _save_array_csv(arr: Any, out: Path) -> None:
+    import numpy as np
+
+    a = np.asarray(arr)
+    if a.ndim == 0:
+        a = a.reshape(1, 1)
+    elif a.ndim == 1:
+        a = a.reshape(-1, 1)
+    elif a.ndim > 2:
+        raise ValueError(f"cannot convert {a.ndim}-D Array to CSV for R plot input")
+    np.savetxt(out, a, delimiter=",")
+
+
 def _interpreter_for(loaded: LoadedPlot) -> list[str] | None:
     """Resolve interpreter argv prefix for the harness, or None if unavailable."""
     language = loaded.manifest.script.language
@@ -432,10 +569,12 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
         (work_dir / _R_HARNESS_NAME).write_text(R_HARNESS, encoding="utf-8")
     user_script_name = Path(manifest.script.path).name
     shutil.copy2(loaded.script_path, work_dir / user_script_name)
-    (work_dir / _INPUTS_NAME).write_text(
-        json.dumps(_input_envelope(resolved.refs, type_registry=getattr(ctx, "type_registry", None))),
-        encoding="utf-8",
-    )
+    envelope = _input_envelope(resolved.refs, type_registry=getattr(ctx, "type_registry", None))
+    if manifest.script.language == "r":
+        # The R harness cannot read parquet (needs `arrow`) or npy/npz/zarr at
+        # all; convert those inputs to CSV before R runs. See _materialize_inputs_for_r.
+        envelope = _materialize_inputs_for_r(envelope, work_dir / "_r_inputs")
+    (work_dir / _INPUTS_NAME).write_text(json.dumps(envelope), encoding="utf-8")
 
     allowed_csv = ",".join(manifest.outputs.allowed_formats)
     argv = [

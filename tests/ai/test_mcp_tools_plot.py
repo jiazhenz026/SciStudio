@@ -30,6 +30,7 @@ from scistudio.ai.agent.mcp.tools_plot import (
     scaffold_plot,
     validate_plot,
 )
+from scistudio.ai.agent.mcp.tools_plot import runtime as plot_runtime
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
@@ -992,3 +993,149 @@ def test_run_r_returned_path_does_not_count_blank_base_device(project: Path, csv
     assert res.status == "succeeded", res.errors
     assert len(res.artifact_paths) == 1
     assert Path(res.artifact_paths[0]).name == "current.pdf"
+
+
+# ---------------------------------------------------------------------------
+# R input materialization shim: convert R-unreadable storage to CSV so the R
+# harness (which lacks the `arrow` package and cannot read npy/npz/zarr) can
+# open DataFrame/Series/Array inputs. SciStudio persists DataFrame/Series as
+# parquet and Array as npy/zarr by default, so without this every R plot that
+# opens such an input fails with "unsupported ... storage for plot open()".
+# ---------------------------------------------------------------------------
+
+
+def test_is_r_readable_path_recognises_base_formats() -> None:
+    for ok in ("a.csv", "a.tsv", "a.txt", "a.json", "/x/Y.CSV", None, ""):
+        assert plot_runtime._is_r_readable_path(ok) is True
+    for bad in ("a.parquet", "a.pq", "a.npy", "a.npz", "a.zarr"):
+        assert plot_runtime._is_r_readable_path(bad) is False
+
+
+def _df_item(path: Path, typ: str = "DataFrame", fmt: str = "parquet") -> dict[str, Any]:
+    return {"type": typ, "_backend": "filesystem", "_path": str(path), "_format": fmt, "metadata": {}}
+
+
+def _envelope(items: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"schema_version": 1, "collection": {"types": [], "items": items}}
+
+
+def test_materialize_converts_parquet_dataframe_keeping_header(tmp_path: Path) -> None:
+    src = tmp_path / "frame.parquet"
+    import pandas as pd
+
+    pd.DataFrame({"lambda": [400.0, 401.0], "intensity": [1.5, 2.5]}).to_parquet(src)
+    env = _envelope([_df_item(src)])
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    new_path = Path(out["collection"]["items"][0]["_path"])
+    assert new_path.suffix == ".csv" and new_path.exists()
+    assert out["collection"]["items"][0]["_format"] == "csv"
+    round_trip = pd.read_csv(new_path)
+    assert list(round_trip.columns) == ["lambda", "intensity"]
+    assert round_trip["intensity"].tolist() == [1.5, 2.5]
+
+
+def test_materialize_converts_npy_array_to_headerless_csv(tmp_path: Path) -> None:
+    src = tmp_path / "arr.npy"
+    np.save(src, np.arange(6, dtype="float64").reshape(2, 3))
+    env = _envelope([_df_item(src, typ="Array", fmt="npy")])
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    new_path = Path(out["collection"]["items"][0]["_path"])
+    assert new_path.suffix == ".csv" and new_path.exists()
+    grid = np.loadtxt(new_path, delimiter=",")
+    assert grid.shape == (2, 3)
+    assert float(grid.sum()) == 15.0
+
+
+def test_materialize_leaves_r_readable_and_unconvertible_types_untouched(tmp_path: Path) -> None:
+    csv_src = tmp_path / "already.csv"
+    csv_src.write_text("x,y\n1,2\n", encoding="utf-8")
+    text_src = tmp_path / "note.parquet"  # Text type is never converted
+    text_src.write_text("hello", encoding="utf-8")
+    env = _envelope([_df_item(csv_src, fmt="csv"), _df_item(text_src, typ="Text", fmt="parquet")])
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    assert out["collection"]["items"][0]["_path"] == str(csv_src)
+    assert out["collection"]["items"][1]["_path"] == str(text_src)
+
+
+def test_materialize_recurses_into_composite_slots(tmp_path: Path) -> None:
+    src = tmp_path / "slot.parquet"
+    import pandas as pd
+
+    pd.DataFrame({"a": [1, 2]}).to_parquet(src)
+    composite = {
+        "type": "CompositeData",
+        "_path": None,
+        "metadata": {"slots": {"inner": _df_item(src)}},
+    }
+    out = plot_runtime._materialize_inputs_for_r(_envelope([composite]), tmp_path / "_r_inputs")
+    inner = out["collection"]["items"][0]["metadata"]["slots"]["inner"]
+    assert Path(inner["_path"]).suffix == ".csv" and Path(inner["_path"]).exists()
+
+
+def test_materialize_falls_back_to_original_on_conversion_failure(tmp_path: Path) -> None:
+    missing = tmp_path / "nope.parquet"  # never created → read raises
+    env = _envelope([_df_item(missing)])
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    # No regression: the item keeps its original (unreadable) path; the R harness
+    # then produces its normal "unsupported storage" error instead of crashing here.
+    assert out["collection"]["items"][0]["_path"] == str(missing)
+
+
+@pytest.fixture
+def parquet_output(tmp_path: Path) -> Path:
+    import pandas as pd
+
+    path = tmp_path / "spectrum.parquet"
+    pd.DataFrame(
+        {"lambda": [float(i) for i in range(400, 410)], "intensity": [float(i % 3) for i in range(10)]}
+    ).to_parquet(path)
+    return path
+
+
+@pytest.mark.requires_r
+def test_run_r_reads_parquet_dataframe_output(project: Path, parquet_output: Path) -> None:
+    """Regression: an R plot opening a parquet-backed DataFrame succeeds without `arrow`."""
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    runtime = _make_runtime(project)
+    runtime.workflow_runs["run_1"] = _StubRun(
+        {
+            "node_a": {
+                "measurements": {
+                    "backend": "arrow",
+                    "path": str(parquet_output),
+                    "format": "parquet",
+                    "metadata": {"type_chain": ["DataFrame"]},
+                }
+            }
+        }
+    )
+    _set_ctx(runtime)
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="r_parquet", target_id=tid, language="r"))
+    # Use a pdf device: svg/cairo is not guaranteed in every R build, but the
+    # point of this regression is that the parquet input is *readable* in R.
+    manifest = project / "plots" / "r_parquet" / "plot.yaml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8")
+        .replace("preferred_format: svg", "preferred_format: pdf")
+        .replace("max_files: 8", "max_files: 1"),
+        encoding="utf-8",
+    )
+    (project / "plots" / "r_parquet" / "render.R").write_text(
+        (
+            "render <- function(collection) {\n"
+            "  df <- collection$items[[1]]$open()\n"
+            "  stopifnot(is.data.frame(df))\n"
+            "  stopifnot(all(c('lambda', 'intensity') %in% names(df)))\n"
+            "  grDevices::pdf('spectrum.pdf')\n"
+            "  plot(df[['lambda']], df[['intensity']], type = 'l')\n"
+            "  grDevices::dev.off()\n"
+            "  'spectrum.pdf'\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+    res = _run(run_plot_job(plot_id="r_parquet"))
+    assert res.status == "succeeded", res.errors
+    assert res.artifact_paths
