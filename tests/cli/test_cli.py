@@ -2,14 +2,29 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from scistudio.cli.main import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _restore_cli_environment() -> object:
+    """Keep in-process CLI env mutations from leaking across tests."""
+    keys = ("SCISTUDIO_BUNDLED", "SCISTUDIO_ENGINE_API_URL")
+    previous = {key: os.environ.get(key) for key in keys}
+    yield
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 class TestCLIHelp:

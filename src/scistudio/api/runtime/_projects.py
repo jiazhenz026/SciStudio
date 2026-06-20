@@ -394,7 +394,12 @@ def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
             if path_file.exists():
                 path_file.unlink()
         elif self._mcp_socket_path is not None:
-            path_file.write_text(str(self._mcp_socket_path), encoding="utf-8")
+            conventional_socket = target_dir / "mcp.sock"
+            if self._mcp_socket_path == conventional_socket:
+                if path_file.exists():
+                    path_file.unlink()
+            else:
+                path_file.write_text(str(self._mcp_socket_path), encoding="utf-8")
             if port_file.exists():
                 port_file.unlink()
         else:

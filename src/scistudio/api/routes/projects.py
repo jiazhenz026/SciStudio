@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE
+from scistudio.api.mcp_lifecycle import ensure_project_mcp_server
 from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.engine.events import EngineEvent
@@ -32,12 +33,13 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
 @router.post("/", response_model=ProjectResponse)
-async def create_project(body: ProjectCreate, runtime: RuntimeDep) -> ProjectResponse:
+async def create_project(request: Request, body: ProjectCreate, runtime: RuntimeDep) -> ProjectResponse:
     """Create a new project workspace."""
     try:
         project = runtime.create_project(body.name, body.description, body.path)
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await ensure_project_mcp_server(request.app, runtime, Path(project.path))
     return ProjectResponse(**runtime.project_response(project))
 
 
@@ -521,12 +523,13 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
 
 
 @router.get("/{project_id:path}", response_model=ProjectResponse)
-async def get_project(project_id: str, runtime: RuntimeDep) -> ProjectResponse:
+async def get_project(request: Request, project_id: str, runtime: RuntimeDep) -> ProjectResponse:
     """Retrieve and open a project by identifier or filesystem path."""
     try:
         project = runtime.open_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await ensure_project_mcp_server(request.app, runtime, Path(project.path))
     # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
     # the newly active project. ``start_for_project`` is idempotent 鈥?if the
     # caller re-opens the same project it returns immediately without

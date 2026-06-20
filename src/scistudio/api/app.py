@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
+from scistudio.api.mcp_lifecycle import stop_project_mcp_server
 from scistudio.api.routes import (
     ai,
     ai_pty,
@@ -92,11 +93,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ``routes/projects.py::_restart_workflow_watcher``, so a separate
     # git-watcher lifecycle hook is no longer required.
 
-    # ---- Phase 2: MCP server lifecycle ----
-    mcp_server: object | None = None
+    # ---- Phase 2: MCP context lifecycle ----
+    #
+    # The actual MCP server binds after a project is opened, through
+    # ``api.mcp_lifecycle.ensure_project_mcp_server``. Binding here before
+    # an active project exists would force every desktop instance to share
+    # the same home-scoped fallback socket, which is not safe across stale
+    # packaged backend processes.
     try:
         from scistudio.ai.agent.mcp import _context as _mcp_context
-        from scistudio.ai.agent.mcp.server import MCPServer
 
         # ApiRuntime structurally satisfies the MCPContext Protocol once
         # we expose ``project_dir`` as a property — wrap it in a small
@@ -160,22 +165,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
 
         _mcp_context.set_context(_RuntimeAdapter(runtime))  # type: ignore[arg-type]
-        # Pick a per-process socket path. Without an active project we
-        # fall back to a temp-dir sentinel so the server still starts
-        # and can be inspected via tools/list.
-        project_dir = Path(runtime.active_project.path) if runtime.active_project else Path.home() / ".scistudio"
-        socket_path = project_dir / ".scistudio" / "mcp.sock"
-        mcp_server = MCPServer(socket_path=socket_path, project_dir=project_dir)
-        await mcp_server.start()  # type: ignore[attr-defined]
-        app.state.mcp_server = mcp_server
-        # ADR-034: publish the live MCP port into the active project's
-        # .scistudio/ so the per-project mcp-bridge can find it on (re)open.
-        runtime.set_mcp_port(mcp_server.port, socket_path=mcp_server.socket_path)
+        app.state.mcp_server = None
     except Exception:
         import logging
 
-        logging.getLogger(__name__).error("MCP server failed to start", exc_info=True)
-        mcp_server = None
+        logging.getLogger(__name__).error("MCP context failed to initialize", exc_info=True)
         app.state.mcp_server = None
 
     try:
@@ -201,13 +195,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if pending_run_tasks:
             await asyncio.gather(*pending_run_tasks, return_exceptions=True)
         app.state.registry.terminate_all(grace_period_sec=5.0)
-        if mcp_server is not None:
-            try:
-                await mcp_server.stop()  # type: ignore[attr-defined]
-            except Exception:
-                import logging
-
-                logging.getLogger(__name__).warning("MCP server stop raised", exc_info=True)
+        await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.
         try:
             from scistudio.ai.agent.mcp import _context as _mcp_context
