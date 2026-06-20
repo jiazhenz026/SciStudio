@@ -491,6 +491,14 @@ metadata or storage size to enforce the plot input memory cap. If the input is
 too large, `open()` fails and the user should write an explicit storage-aware
 reader for that plot.
 
+R plots do not require the R `arrow` package. The R harness reads base formats
+(csv/tsv/txt/json) only, so DataFrame/Series stored as parquet and Array stored
+as npy/npz/zarr — the runtime defaults — are transparently converted to CSV
+before R runs and the harness reads the CSV copy. The conversion is preview-only
+and does not touch persisted storage; Python plots read the original storage
+directly. Values round-trip through CSV, so rely on column names and numeric
+content rather than exact binary dtype fidelity in R render code.
+
 seaborn works when the project environment provides it; ggplot2 works when R +
 ggplot2 are installed. Only `svg`, `pdf`, `png`, `jpeg` are accepted output
 formats.
