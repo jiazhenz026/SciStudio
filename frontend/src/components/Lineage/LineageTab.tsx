@@ -240,7 +240,12 @@ export function LineageTab(): ReactElement {
       role="region"
       aria-label="Run lineage"
     >
-      <header className="border-b border-stone-200 px-4 py-3" data-testid="lineage-tab-header">
+      {/* #1713 follow-up — single compact row so the header doesn't eat
+          vertical space: title left, run count right. */}
+      <header
+        className="flex items-baseline justify-between gap-2 border-b border-stone-200 px-4 py-1.5"
+        data-testid="lineage-tab-header"
+      >
         <h2 className="text-sm font-semibold text-ink">Run history</h2>
         <p className="text-xs text-stone-500">
           {runs.length} {runs.length === 1 ? "run" : "runs"} recorded

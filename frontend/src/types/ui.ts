@@ -15,7 +15,10 @@ import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api
  * Hotfix: terminal sessions are a first-class surface instead of being nested
  * under the AI Chat tab.
  */
-export type BottomTab = "ai" | "terminal" | "config" | "logs" | "lineage" | "git";
+// #1713 — "plots" is a dedicated card-style panel for the workflow-wide plot
+// list (name, linked block, language, relink, broken badge, run, new). It
+// replaces the cramped chip row that previously sat atop the Preview panel.
+export type BottomTab = "ai" | "terminal" | "config" | "logs" | "plots" | "lineage" | "git";
 
 export interface BlockNodeData extends Record<string, unknown> {
   label: string;

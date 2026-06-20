@@ -1,5 +1,6 @@
 import {
   GitBranch,
+  LineChart,
   MessageSquare,
   Pin,
   PinOff,
@@ -29,9 +30,13 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
   terminal: tabLabel(Terminal, "Terminal"),
   config: tabLabel(SlidersHorizontal, "Config"),
   logs: tabLabel(ScrollText, "Logs"),
+  // #1713 — dedicated Plots panel (card-style plot list with relink/run/new).
+  plots: tabLabel(LineChart, "Plots"),
   // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
   // the prior Jobs placeholder which is removed entirely.
-  lineage: tabLabel(Waypoints, "Lineage"),
+  // #1713 follow-up — display label only is "History" (the BottomTab key and
+  // all code stay "lineage"); owner-requested UI rename.
+  lineage: tabLabel(Waypoints, "History"),
   // ADR-039 §3.5 (#972) — Git versioning surface moved out of the top
   // Toolbar into a dedicated bottom-panel tab so the commit history /
   // branch graph / merge flows are reachable without overflowing the
@@ -45,7 +50,16 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
 // ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
 // ADR-039 §3.5 (#972) — Git tab added.
 // Hotfix: Terminal is promoted to a top-level tab alongside AI Chat.
-export const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "terminal", "lineage", "git"];
+// #1713 — Plots sits next to Lineage; both surface workflow-wide artifacts.
+export const ALL_TABS: BottomTab[] = [
+  "ai",
+  "config",
+  "logs",
+  "terminal",
+  "plots",
+  "lineage",
+  "git",
+];
 
 function formatBadge(n: number): string {
   return n > 99 ? "99+" : String(n);

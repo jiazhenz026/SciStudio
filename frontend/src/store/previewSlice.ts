@@ -67,4 +67,8 @@ export const createPreviewSlice: StateCreator<AppStore, [], [], PreviewSlice> = 
       },
     })),
   clearPreviewEnvelopeCache: () => set(() => ({ previewEnvelopeCache: {} })),
+  // #1713 — plot Run result shared between the Plots tab (producer) and the
+  // Preview panel (renderer).
+  plotPreviewTarget: null,
+  setPlotPreviewTarget: (target) => set(() => ({ plotPreviewTarget: target })),
 });

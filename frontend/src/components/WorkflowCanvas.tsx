@@ -256,13 +256,15 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   // Pure read; never mutates workflow state (FR-018).
   const focus = useMemo<FocusResult>(
     () =>
+      // #bug — omit `depth` so focus covers the whole connected chain
+      // (computeFocusSet defaults to the full component). The depth field is
+      // retained on the focus state for a future hop-limit control.
       computeFocusSet({
         selectedIds: focusMode?.enabled ? focusMode.selectedIds : [],
         allNodeIds: nodes.map((node) => node.id),
         edges,
-        depth: focusMode?.depth ?? 1,
       }),
-    [focusMode?.enabled, focusMode?.selectedIds, focusMode?.depth, nodes, edges],
+    [focusMode?.enabled, focusMode?.selectedIds, nodes, edges],
   );
   const focusActive = (focusMode?.enabled ?? false) && focus.active;
 

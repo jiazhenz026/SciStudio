@@ -80,7 +80,7 @@ afterEach(() => {
 });
 
 describe("PreviewHost export fallback", () => {
-  it("falls back to browser download when the native save dialog returns no path", async () => {
+  it("falls back to browser download when the native save dialog is unavailable", async () => {
     createPreviewSession.mockResolvedValue(
       envelope({
         payload: { points: [{ x: 400, y: 1 }], axes: { x: { label: "wavelength-nm" } } },
@@ -99,7 +99,7 @@ describe("PreviewHost export fallback", () => {
         },
       }),
     );
-    openNativeSaveDialog.mockResolvedValueOnce({ paths: [] });
+    openNativeSaveDialog.mockResolvedValueOnce({ paths: [], available: false });
     fetchMock.mockResolvedValue(
       okJson({
         resource_id: "export_points_csv",
@@ -140,5 +140,51 @@ describe("PreviewHost export fallback", () => {
       target: "points",
     });
     expect(anchorClickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fall back to a browser download when the user cancels the native dialog", async () => {
+    createPreviewSession.mockResolvedValue(
+      envelope({
+        payload: { points: [{ x: 400, y: 1 }], axes: { x: { label: "wavelength-nm" } } },
+        resources: [
+          {
+            resource_id: "export_points_csv",
+            kind: "asset",
+            params: { format: "csv", target: "points" },
+          },
+        ],
+        frontend_manifest: {
+          previewer_id: "spectroscopy.spectrum.viewer",
+          module_url: "/api/previews/assets/spectroscopy.spectrum.viewer/viewer.js",
+          export_name: "SpectrumViewer",
+          api_version: "1",
+        },
+      }),
+    );
+    // The native dialog ran (available) but the user cancelled (no path). This
+    // must NOT trigger a second, browser-download save dialog.
+    openNativeSaveDialog.mockResolvedValueOnce({ paths: [], available: true });
+
+    const capturedHost: { current: PreviewHostApi | null } = { current: null };
+    const mount = vi.fn((_container: HTMLElement, host: PreviewHostApi) => {
+      capturedHost.current = host;
+      return { unmount: vi.fn() };
+    });
+    const fakeImporter = vi.fn(async () => ({ SpectrumViewer: { apiVersion: "1", mount } }));
+
+    render(<PreviewHost target={TARGET} importer={fakeImporter} />);
+
+    await waitFor(() => expect(mount).toHaveBeenCalled());
+    if (!capturedHost.current) throw new Error("host API was not captured");
+    await capturedHost.current.exportArtifact({
+      resourceId: "export_points_csv",
+      filename: "spectrum_points.csv",
+      format: "csv",
+    });
+
+    expect(openNativeSaveDialog).toHaveBeenCalled();
+    expect(savePreviewResource).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(anchorClickSpy).not.toHaveBeenCalled();
   });
 });

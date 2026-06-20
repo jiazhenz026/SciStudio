@@ -28,7 +28,7 @@ describe("nodeIdOfRef", () => {
   });
 });
 
-describe("computeFocusSet — single selection (FR-019)", () => {
+describe("computeFocusSet — single selection focuses the whole chain", () => {
   const result = computeFocusSet({ selectedIds: ["b"], allNodeIds: ALL, edges: EDGES });
 
   it("is active and keeps the selected node visible", () => {
@@ -36,40 +36,39 @@ describe("computeFocusSet — single selection (FR-019)", () => {
     expect(result.visibleNodeIds.has("b")).toBe(true);
   });
 
-  it("includes immediate upstream and downstream neighbors (one hop)", () => {
-    // b's neighbors: a (upstream), c + d (downstream).
+  it("includes every block on the connected chain (full component)", () => {
+    // b's component is a→b→c, b→d→e — all reachable along edges.
     expect(result.visibleNodeIds.has("a")).toBe(true);
     expect(result.visibleNodeIds.has("c")).toBe(true);
     expect(result.visibleNodeIds.has("d")).toBe(true);
+    expect(result.visibleNodeIds.has("e")).toBe(true);
   });
 
-  it("dims nodes more than one hop away and isolated nodes", () => {
-    // e is two hops from b; f is isolated.
-    expect(result.dimmedNodeIds.has("e")).toBe(true);
+  it("dims only nodes outside the chain (isolated f)", () => {
+    expect(result.visibleNodeIds.has("e")).toBe(true); // on the chain now
     expect(result.dimmedNodeIds.has("f")).toBe(true);
-    expect(result.hiddenNodeCount).toBe(2);
+    expect(result.hiddenNodeCount).toBe(1);
   });
 
-  it("includes only edges with both endpoints in focus", () => {
+  it("highlights every edge within the chain and no others", () => {
     expect(result.visibleEdgeIds.has(edgeId({ source: "a:out", target: "b:in" }))).toBe(true);
     expect(result.visibleEdgeIds.has(edgeId({ source: "b:out", target: "c:in" }))).toBe(true);
     expect(result.visibleEdgeIds.has(edgeId({ source: "b:out", target: "d:in" }))).toBe(true);
-    // d→e crosses the focus boundary (e is dimmed) ⇒ dimmed edge.
-    expect(result.dimmedEdgeIds.has(edgeId({ source: "d:out", target: "e:in" }))).toBe(true);
+    // d→e is on the chain now (e is in focus) ⇒ visible, not dimmed.
+    expect(result.visibleEdgeIds.has(edgeId({ source: "d:out", target: "e:in" }))).toBe(true);
+    expect(result.dimmedEdgeIds.size).toBe(0);
   });
 });
 
-describe("computeFocusSet — multi-selection induced subgraph (FR-019)", () => {
-  it("keeps the selected subgraph plus its boundary neighbors visible", () => {
-    // Selecting a and d: a brings b; d brings b (up) and e (down).
+describe("computeFocusSet — multi-selection focuses the whole chain", () => {
+  it("keeps the entire connected chain visible regardless of which members are selected", () => {
     const result = computeFocusSet({ selectedIds: ["a", "d"], allNodeIds: ALL, edges: EDGES });
     expect(result.visibleNodeIds.has("a")).toBe(true);
+    expect(result.visibleNodeIds.has("b")).toBe(true);
+    expect(result.visibleNodeIds.has("c")).toBe(true);
     expect(result.visibleNodeIds.has("d")).toBe(true);
-    expect(result.visibleNodeIds.has("b")).toBe(true); // neighbor of both
-    expect(result.visibleNodeIds.has("e")).toBe(true); // downstream of d
-    // c is a neighbor of b but b is not selected; b is only reached as a 1-hop
-    // neighbor, so c (2 hops from the selection) stays dimmed.
-    expect(result.dimmedNodeIds.has("c")).toBe(true);
+    expect(result.visibleNodeIds.has("e")).toBe(true);
+    // f is a separate component (isolated) → dimmed.
     expect(result.dimmedNodeIds.has("f")).toBe(true);
   });
 });

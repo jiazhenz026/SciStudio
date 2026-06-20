@@ -7,6 +7,7 @@ import { LineageTab } from "./Lineage/LineageTab";
 
 import { ConfigPanel } from "./BottomPanel.parts/ConfigPanel";
 import { LogViewer } from "./BottomPanel.parts/LogViewer";
+import { PlotsTab } from "./BottomPanel.parts/PlotsTab";
 import { TabBar } from "./BottomPanel.parts/TabBar";
 
 interface BottomPanelProps {
@@ -112,6 +113,11 @@ export function BottomPanel({
           />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
+        ) : activeTab === "plots" ? (
+          // #1713 — dedicated Plots panel. Self-contained: reads workflowId /
+          // selectedNodeId from the store and publishes Run results to
+          // plotPreviewTarget for the Preview panel to render.
+          <PlotsTab />
         ) : activeTab === "lineage" ? (
           // ADR-038 §3.8 — D38-2.4b skeleton mounts <LineageTab/>.
           // The root component renders a non-throwing placeholder until

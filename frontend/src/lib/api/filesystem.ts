@@ -29,7 +29,7 @@ export const filesystemApi = {
     defaultFilename?: string;
     fileFilter?: string;
   }) =>
-    apiFetch<{ paths: string[] }>("/api/filesystem/native-dialog", {
+    apiFetch<{ paths: string[]; available?: boolean }>("/api/filesystem/native-dialog", {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({
