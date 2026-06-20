@@ -13,12 +13,12 @@ const xtermState: {
   loadedAddons: unknown[];
   written: string[];
   onDataCb: ((s: string) => void) | null;
-} = { lastInstance: null, loadedAddons: [], written: [], onDataCb: null };
+  onScrollCb: ((ydisp: number) => void) | null;
+} = { lastInstance: null, loadedAddons: [], written: [], onDataCb: null, onScrollCb: null };
 
 class FakeTerm {
   cols = 80;
   rows = 24;
-  scrollToBottomCount = 0;
   refreshCount = 0;
   constructor(public opts: unknown) {
     xtermState.lastInstance = this;
@@ -36,8 +36,9 @@ class FakeTerm {
     xtermState.onDataCb = cb;
     return { dispose: () => {} };
   }
-  scrollToBottom() {
-    this.scrollToBottomCount += 1;
+  onScroll(cb: (ydisp: number) => void) {
+    xtermState.onScrollCb = cb;
+    return { dispose: () => {} };
   }
   refresh(_start: number, _end: number) {
     void _start;
@@ -48,8 +49,7 @@ class FakeTerm {
 }
 
 vi.mock("@xterm/xterm", () => ({ Terminal: FakeTerm }));
-// Count fit() calls so the resize-coalescing test can assert that a burst of
-// ResizeObserver callbacks collapses to a single fit on the settled layout.
+// Count fit() calls so the resize tests can assert refit timing.
 const fitState = { fitCalls: 0 };
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
@@ -63,9 +63,6 @@ vi.mock("@xterm/addon-search", () => ({
 }));
 vi.mock("@xterm/addon-web-links", () => ({
   WebLinksAddon: class {},
-}));
-vi.mock("@xterm/addon-canvas", () => ({
-  CanvasAddon: class {},
 }));
 
 // --- WebSocket fake ---------------------------------------------------------
@@ -106,10 +103,8 @@ class FakeWebSocket {
 
 const originalWs = global.WebSocket;
 
-// --- ResizeObserver + requestAnimationFrame fakes --------------------------
-// jsdom ships neither a ResizeObserver nor a frame scheduler we can drive, so
-// the resize tests stub both: ResizeObserver callbacks are captured for manual
-// firing, and rAF callbacks queue up so the test can flush them deterministically.
+// --- ResizeObserver + IntersectionObserver fakes ----------------------------
+// jsdom ships neither, so we stub both with manually-fired callbacks.
 class FakeResizeObserver {
   static instances: FakeResizeObserver[] = [];
   cb: ResizeObserverCallback;
@@ -123,14 +118,6 @@ class FakeResizeObserver {
   trigger() {
     this.cb([], this as unknown as ResizeObserver);
   }
-}
-
-const rafQueue = new Map<number, FrameRequestCallback>();
-let rafSeq = 0;
-function flushRaf() {
-  const callbacks = [...rafQueue.values()];
-  rafQueue.clear();
-  for (const cb of callbacks) cb(0);
 }
 
 class FakeIntersectionObserver {
@@ -151,28 +138,27 @@ class FakeIntersectionObserver {
   }
 }
 
+// The component freezes the terminal during a drag and refits via setTimeout
+// once it settles (RESIZE_DEBOUNCE_MS=100). Tests use real timers and wait just
+// past that window for the deferred fit.
+const RESIZE_DEBOUNCE_WAIT_MS = 180;
+function waitForDebounce(): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, RESIZE_DEBOUNCE_WAIT_MS));
+}
+
 beforeEach(() => {
   xtermState.lastInstance = null;
   xtermState.loadedAddons = [];
   xtermState.written = [];
   xtermState.onDataCb = null;
+  xtermState.onScrollCb = null;
   FakeWebSocket.instances = [];
   fitState.fitCalls = 0;
   FakeResizeObserver.instances = [];
   FakeIntersectionObserver.instances = [];
-  rafQueue.clear();
-  rafSeq = 0;
   (global as unknown as { WebSocket: typeof FakeWebSocket }).WebSocket = FakeWebSocket;
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-    rafSeq += 1;
-    rafQueue.set(rafSeq, cb);
-    return rafSeq;
-  });
-  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
-    rafQueue.delete(id);
-  });
 });
 
 afterEach(() => {
@@ -187,7 +173,7 @@ describe("TerminalView", () => {
     await waitFor(() => expect(xtermState.lastInstance).not.toBeNull());
   }
 
-  it("creates a Terminal and loads fit/search/web-links/canvas addons", async () => {
+  it("creates a Terminal and loads fit/search/web-links addons", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -201,9 +187,10 @@ describe("TerminalView", () => {
     await waitForTerm();
     expect(xtermState.lastInstance).toBeInstanceOf(FakeTerm);
     expect(xtermState.lastInstance?.opts).toMatchObject({ convertEol: false });
-    // fit + search + web-links + canvas (hotfix #1320: canvas renderer
-    // replaces the default DOM renderer to fix alt-screen scroll ghosting).
-    expect(xtermState.loadedAddons).toHaveLength(4);
+    // fit + search + web-links only. The canvas renderer (#1320) was reverted —
+    // it did not repaint cleanly on resize — so we are back on xterm's default
+    // DOM renderer with no extra renderer addon.
+    expect(xtermState.loadedAddons).toHaveLength(3);
   });
 
   it("opens a PTY WebSocket with the right URL", async () => {
@@ -349,15 +336,13 @@ describe("TerminalView", () => {
   });
 
   // --- resize behaviour -----------------------------------------------------
-  // Regression for the hotfix: dragging the bottom-panel splitter left the PTY
-  // content clipped and unscrollable. The fix coalesces the ResizeObserver
-  // burst into one fit on the settled layout and snaps the viewport to the
-  // newest output afterwards.
+  // Freeze during a drag, refit ONCE when it settles. No refresh() at resize
+  // time (the buffer is mid-update); the TUI repaints itself via SIGWINCH.
   async function waitForResizeObserver() {
     await waitFor(() => expect(FakeResizeObserver.instances.length).toBe(1));
   }
 
-  it("refits and scrolls to the bottom after a container resize", async () => {
+  it("refits once after the drag settles, without repainting", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -372,13 +357,15 @@ describe("TerminalView", () => {
     await waitForResizeObserver();
     const term = xtermState.lastInstance!;
     const fitsBeforeResize = fitState.fitCalls;
-    expect(term.scrollToBottomCount).toBe(0);
 
     FakeResizeObserver.instances[0].trigger();
-    flushRaf();
+    // Frozen until the drag settles.
+    expect(fitState.fitCalls).toBe(fitsBeforeResize);
+    await waitForDebounce();
 
     expect(fitState.fitCalls).toBe(fitsBeforeResize + 1);
-    expect(term.scrollToBottomCount).toBe(1);
+    // No manual repaint on resize — the TUI redraws itself via SIGWINCH.
+    expect(term.refreshCount).toBe(0);
   });
 
   it("coalesces a burst of resize callbacks into a single fit", async () => {
@@ -394,7 +381,6 @@ describe("TerminalView", () => {
     );
     await waitForTerm();
     await waitForResizeObserver();
-    const term = xtermState.lastInstance!;
     const fitsBeforeResize = fitState.fitCalls;
     const observer = FakeResizeObserver.instances[0];
 
@@ -404,11 +390,11 @@ describe("TerminalView", () => {
     observer.trigger();
     observer.trigger();
     observer.trigger();
-    flushRaf();
+    expect(fitState.fitCalls).toBe(fitsBeforeResize);
+    await waitForDebounce();
 
     // Only the settled layout is fitted — not every intermediate drag frame.
     expect(fitState.fitCalls).toBe(fitsBeforeResize + 1);
-    expect(term.scrollToBottomCount).toBe(1);
   });
 
   it("cancels a pending resize fit when the view unmounts", async () => {
@@ -424,26 +410,24 @@ describe("TerminalView", () => {
     );
     await waitForTerm();
     await waitForResizeObserver();
-    const term = xtermState.lastInstance!;
     const fitsBeforeResize = fitState.fitCalls;
 
-    FakeResizeObserver.instances[0].trigger(); // schedules a rAF
-    unmount(); // cleanup must cancel it before it runs
-    flushRaf();
+    FakeResizeObserver.instances[0].trigger(); // schedules a debounced fit
+    unmount(); // cleanup must clear the timer before it fires
+    await waitForDebounce();
 
     expect(fitState.fitCalls).toBe(fitsBeforeResize);
-    expect(term.scrollToBottomCount).toBe(0);
   });
 
   // --- visibility repaint ---------------------------------------------------
-  // Regression for the hotfix: switching the bottom panel away (display:none)
-  // and back left xterm's canvas showing scrambled stale pixels. On
-  // return-to-view we refit and force a full canvas repaint.
+  // Switching the bottom panel away (display:none) and back left the DOM
+  // renderer showing a stale/blank frame (bug#8). On return-to-view we refit
+  // and force a full repaint.
   async function waitForIntersectionObserver() {
     await waitFor(() => expect(FakeIntersectionObserver.instances.length).toBe(1));
   }
 
-  it("repaints the canvas when the terminal returns to view", async () => {
+  it("repaints when the terminal returns to view", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -464,7 +448,6 @@ describe("TerminalView", () => {
     io.trigger(true); // shown again
 
     expect(term.refreshCount).toBe(1);
-    expect(term.scrollToBottomCount).toBeGreaterThanOrEqual(1);
   });
 
   it("does not repaint on the initial visible observation", async () => {
@@ -485,5 +468,35 @@ describe("TerminalView", () => {
     // The first observation reports the element already visible — no repaint.
     FakeIntersectionObserver.instances[0].trigger(true);
     expect(term.refreshCount).toBe(0);
+  });
+
+  // --- scroll repaint -------------------------------------------------------
+  // The DOM renderer only repaints dirty cells, so scrolling leaves ghosted
+  // glyphs. We force a full repaint on every scroll (replaces what the canvas
+  // renderer gave us for free).
+  it("repaints visible rows on scroll to avoid DOM-renderer ghosting", async () => {
+    // Run the rAF-coalesced repaint synchronously for a deterministic assert.
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+    render(
+      <TerminalView
+        tabId="t1"
+        projectDir="/p"
+        provider="claude-code"
+        dangerous={false}
+        onExit={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+    await waitForTerm();
+    await waitFor(() => expect(xtermState.onScrollCb).not.toBeNull());
+    const term = xtermState.lastInstance!;
+    const refreshesBefore = term.refreshCount;
+
+    xtermState.onScrollCb?.(5);
+
+    expect(term.refreshCount).toBe(refreshesBefore + 1);
   });
 });

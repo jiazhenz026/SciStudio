@@ -281,16 +281,20 @@ describe("PlotViewer", () => {
     );
 
     const surface = screen.getByTestId("plot-preview-surface");
-    // overflow-auto + a taller surface so a zoomed-in plot can be scrolled/panned.
+    // overflow-auto + max-height (not a fixed height) so the figure fills the
+    // width with no large empty margins and the panel doesn't double-scroll.
     expect(surface.className).toContain("overflow-auto");
-    expect(surface.className).toContain("h-[min(70vh,40rem)]");
+    expect(surface.className).toContain("max-h-[78vh]");
 
     const frame = screen.getByTestId("plot-svg-frame") as HTMLIFrameElement;
     expect(frame.getAttribute("sandbox")).toBe("");
     const srcdoc = frame.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain("max-width: 100%");
-    expect(srcdoc).toContain("max-height: 100%");
+    expect(srcdoc).toContain("width: 100%");
+    expect(srcdoc).toContain("height: auto");
     expect(srcdoc).toContain('<svg width="1600" height="1000"');
+    // Frame height follows the figure's aspect ratio (1600/1000) so the plot
+    // fills the width without large top/bottom gaps.
+    expect(frame.style.aspectRatio).toBe("1.6");
   });
 
   it("contains raster plots within the preview surface", () => {
@@ -305,9 +309,9 @@ describe("PlotViewer", () => {
     );
 
     const image = screen.getByTestId("plot-image");
-    expect(image.className).toContain("h-full");
+    // Raster fills the width; height follows naturally (no object-contain box).
+    expect(image.className).toContain("block");
     expect(image.className).toContain("w-full");
-    expect(image.className).toContain("object-contain");
   });
 
   it("asks browser PDF viewers to fit the page", () => {
