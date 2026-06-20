@@ -7,6 +7,7 @@ import type {
   GitHistoryFilter,
   GitStatus,
   LogEntry,
+  PreviewTarget,
   ProjectResponse,
   WorkflowEdge,
   WorkflowEventMessage,
@@ -214,6 +215,17 @@ export interface PreviewSlice {
   previewEnvelopeCache: Record<string, PreviewEnvelope>;
   cachePreviewEnvelope: (key: string, envelope: PreviewEnvelope) => void;
   clearPreviewEnvelopeCache: () => void;
+  /**
+   * #1713 — the routed preview target produced by running a plot from the
+   * dedicated Plots tab (`runPlotJob` → `plotTargetFromRunResponse`). The
+   * plot list moved out of the Preview panel into its own bottom-panel tab,
+   * so the Run action lives there while the result must still render in the
+   * right-hand Preview panel (`DataPreview`). This shared slot is the only
+   * cross-panel state needed to keep that behavior unchanged. `null` when no
+   * plot result is being shown; cleared when the user selects a canvas node.
+   */
+  plotPreviewTarget: PreviewTarget | null;
+  setPlotPreviewTarget: (target: PreviewTarget | null) => void;
 }
 
 export interface PaletteSlice {

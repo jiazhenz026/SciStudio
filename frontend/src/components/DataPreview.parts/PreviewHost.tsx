@@ -245,7 +245,7 @@ export function PreviewHost({
           defaultFilename,
           fileFilter: fileFilterForFilename(defaultFilename),
         })
-        .catch(() => ({ paths: [] }));
+        .catch(() => ({ paths: [] as string[], available: false }));
       const destinationPath = dialog.paths[0];
       if (destinationPath) {
         await api.savePreviewResource(active.session_id, resourceId, {
@@ -254,8 +254,16 @@ export function PreviewHost({
         });
         return;
       }
-      const result = await fetchPreviewResource(active.session_id, resourceId, params);
-      downloadDataUri(result.data, defaultFilename);
+      // No path returned. Only fall back to a browser download when the native
+      // save dialog was unavailable (the route raised → `available === false`).
+      // When the native dialog DID run, an empty result means the user
+      // cancelled — respect that and do NOT open a second (browser) save dialog.
+      // Fixes the double save-dialog bug for every previewer, since they all
+      // export through this shared path.
+      if (dialog.available === false) {
+        const result = await fetchPreviewResource(active.session_id, resourceId, params);
+        downloadDataUri(result.data, defaultFilename);
+      }
     },
     [],
   );

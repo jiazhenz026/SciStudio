@@ -207,6 +207,10 @@ class TestNativeDialog:
             )
             assert resp.status_code == 200
             assert resp.json()["paths"] == []
+            # The native dialog ran but the user cancelled → available stays
+            # True so the client distinguishes this from "no native dialog"
+            # (which raises 500) and does NOT fall back to a browser download.
+            assert resp.json()["available"] is True
         finally:
             fs_mod.subprocess.run = original_run  # type: ignore[assignment]
 

@@ -334,6 +334,13 @@ class NativeDialogResponse(BaseModel):
     """Response from the native dialog endpoint."""
 
     paths: list[str] = Field(default_factory=list, description="Selected paths (empty if cancelled)")
+    # True when the platform native dialog actually ran (regardless of whether
+    # the user picked a path or cancelled). Callers use this to distinguish a
+    # user cancel (available=True, paths=[]) from "no native dialog on this
+    # platform" (the route raises 500, which clients treat as available=False).
+    # This lets the preview export avoid a second (browser) save dialog after a
+    # user cancels the native one.
+    available: bool = Field(default=True, description="Whether the platform native dialog ran")
 
 
 # Per-session last-used directory (in-memory, resets on restart).
@@ -666,4 +673,4 @@ async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
         parent = str(Path(first).parent) if Path(first).is_file() else first
         _last_used_directory = parent
 
-    return NativeDialogResponse(paths=selected_paths)
+    return NativeDialogResponse(paths=selected_paths, available=True)

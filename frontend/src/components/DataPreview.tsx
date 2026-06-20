@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { api } from "../lib/api";
-import { plotTargetFromRunResponse } from "../lib/api/data";
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type {
-  BlockPortResponse,
-  BlockSchemaResponse,
-  PlotListItem,
-  PreviewTarget,
-} from "../types/api";
+import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
 
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
-import { RelinkPlotDialog } from "./RelinkPlotDialog";
 
 // Re-exports preserve the public surface of DataPreview.tsx for existing
 // consumers (LossySaveWarning.tsx mirrors `extractRefEntries`).
@@ -98,75 +90,32 @@ export function DataPreview({
         },
       }
     : null;
-  // bug#7 / PR #1712 review — plots are listed workflow-wide, NOT scoped to the
-  // selected node. The relink feature exists to repair a plot whose bound block
-  // was deleted and recreated (stale node_id); node-scoped listing hid exactly
-  // those broken plots (their old node can no longer be selected), so the only
-  // Relink entry point never appeared. Listing every plot keeps broken ones
-  // reachable.
-  const [workflowPlots, setWorkflowPlots] = useState<PlotListItem[]>([]);
-  const [plotTarget, setPlotTarget] = useState<PreviewTarget | null>(null);
-  const [plotRunError, setPlotRunError] = useState<string | null>(null);
-  const [plotListError, setPlotListError] = useState<string | null>(null);
-  const [plotLoading, setPlotLoading] = useState(false);
-  const [plotRunningId, setPlotRunningId] = useState<string | null>(null);
-  // bug#7 — per-plot "relink data source" entry point.
-  const [relinkPlotTarget, setRelinkPlotTarget] = useState<PlotListItem | null>(null);
-  const [plotRefreshToken, setPlotRefreshToken] = useState(0);
+  // #1713 — the workflow-wide plot list (run / relink / new) moved to the
+  // dedicated Plots tab in the BottomPanel. The Preview panel only renders the
+  // Run result, shared through the store so the Plots tab (bottom panel) can
+  // publish it while the result still appears in this right-hand panel.
+  const plotPreviewTarget = useAppStore((s) => s.plotPreviewTarget);
+  // #1713 — `showPlotResult` toggles whether the Preview shows the plot Run
+  // result vs. the selected node's outputs. A fresh Run turns it on; the output
+  // pills turn it off; the "Plot artifact" pill turns it back on.
+  const [showPlotResult, setShowPlotResult] = useState(false);
 
   useEffect(() => {
     setPickedEntryId(null);
-    setPlotTarget(null);
-    setPlotRunError(null);
-    setPlotRunningId(null);
-    setRelinkPlotTarget(null);
   }, [selectedNodeId]);
 
-  // bug#7 / PR #1712 review — fetch ALL plots for the workflow (no node filter)
-  // so plots whose bound block was deleted/recreated stay visible and can be
-  // relinked. This runs independently of node selection.
+  // A fresh plot Run (new plotPreviewTarget) switches the view to the result.
   useEffect(() => {
-    let cancelled = false;
-    setWorkflowPlots([]);
-    setPlotListError(null);
-    setPlotLoading(true);
-    api
-      .listPlots({ workflowId })
-      .then((result) => {
-        if (cancelled) return;
-        setWorkflowPlots(result.plots);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setPlotListError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (!cancelled) setPlotLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [workflowId, plotRefreshToken]);
+    if (plotPreviewTarget) setShowPlotResult(true);
+  }, [plotPreviewTarget]);
 
-  async function handlePlotRun(plot: PlotListItem) {
-    setPlotRunningId(plot.plot_id);
-    setPlotRunError(null);
-    try {
-      const result = await api.runPlotJob({ plot_id: plot.plot_id });
-      const nextTarget = plotTargetFromRunResponse(result);
-      if (!nextTarget) {
-        setPlotTarget(null);
-        setPlotRunError(result.errors[0] ?? `Plot run ${result.status}.`);
-        return;
-      }
-      setPlotTarget(nextTarget);
-    } catch (error) {
-      setPlotTarget(null);
-      setPlotRunError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setPlotRunningId(null);
-    }
-  }
+  // #1713 — the plot result belongs to its linked block: only surface it when
+  // that block is selected (never in the "Select a node" empty state, and not
+  // while a different block is selected). `activePlot` is derived, so it stays
+  // correct regardless of the order in which a Run updates the node + result.
+  const plotBelongsToSelected =
+    plotPreviewTarget != null && plotPreviewTarget.source?.node_id === selectedNodeId;
+  const activePlot = showPlotResult && plotBelongsToSelected ? plotPreviewTarget : null;
 
   // Hotfix 2026-05-23 — split the preview region from the port-description
   // panel so the panel no longer steals vertical space from the active
@@ -197,91 +146,25 @@ export function DataPreview({
         </div>
       </div>
 
-      {/* bug#7 / PR #1712 review — workflow-wide plot list, always visible and
-          independent of node selection. A plot bound to a deleted/recreated
-          block (broken target) can no longer be reached through its old node,
-          so listing every plot here keeps the Relink entry point available. */}
-      {workflowPlots.length > 0 || plotLoading || plotListError || plotRunError ? (
-        <div className="mt-4">
-          <p className="text-[0.65rem] uppercase tracking-[0.25em] text-stone-400">
-            Plots — this workflow
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {plotLoading ? <span className="text-xs text-stone-500">Loading plots...</span> : null}
-            {workflowPlots.map((plot) => (
-              <span
-                className="inline-flex items-center overflow-hidden rounded border border-stone-300"
-                key={plot.plot_id}
-              >
-                <button
-                  aria-label={`Run plot ${plot.title || plot.plot_id}`}
-                  className="flex items-center gap-1 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
-                  disabled={plotRunningId !== null}
-                  onClick={() => void handlePlotRun(plot)}
-                  title={
-                    plot.broken
-                      ? `Broken target: ${plot.display_label || `${plot.node_id} / ${plot.output_port}`} — relink to repair`
-                      : plot.display_label || plot.plot_id
-                  }
-                  type="button"
-                >
-                  {plot.broken ? (
-                    <span aria-label="Broken target — needs relink" className="text-amber-500">
-                      ⚠
-                    </span>
-                  ) : null}
-                  {plotRunningId === plot.plot_id
-                    ? "Running"
-                    : `Plot: ${plot.title || plot.plot_id}`}
-                </button>
-                <button
-                  aria-label={`Relink data source for plot ${plot.title || plot.plot_id}`}
-                  className="border-l border-stone-300 bg-white px-2 py-1 text-xs text-stone-500 hover:text-ink disabled:opacity-50"
-                  disabled={plotRunningId !== null}
-                  onClick={() => setRelinkPlotTarget(plot)}
-                  title="Relink data source"
-                  type="button"
-                >
-                  Relink
-                </button>
-              </span>
-            ))}
-          </div>
-          {plotListError ? (
-            <div
-              className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-              role="status"
-            >
-              {plotListError}
-            </div>
-          ) : null}
-          {plotRunError ? (
-            <div
-              className="mt-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
-              role="alert"
-            >
-              {plotRunError}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!selectedNodeId && !plotTarget ? (
+      {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
+          (BottomPanel). This panel renders preview content: the selected node's
+          outputs and/or the persisted plot Run result, toggled by the "Plot
+          artifact" pill. The result stays put when switching blocks. */}
+      {!selectedNodeId ? (
         <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
           Pick a block to inspect its latest outputs and cached previews.
         </div>
       ) : (
         <>
-          {selectedNodeId && outputEntryIds.length > 0 ? (
+          {outputEntryIds.length > 0 || plotBelongsToSelected ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {refEntries.map((entry) => (
                 <button
-                  className={`rounded-full px-3 py-1 text-xs ${!plotTarget && activeEntry?.id === entry.id ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                  className={`rounded-full px-3 py-1 text-xs ${!activePlot && activeEntry?.id === entry.id ? "bg-ink text-white" : "bg-white text-stone-600"}`}
                   key={entry.id}
                   onClick={() => {
                     setPickedEntryId(entry.id);
-                    setPlotTarget(null);
-                    setPlotRunError(null);
+                    setShowPlotResult(false);
                   }}
                   title={entry.ref}
                   type="button"
@@ -289,11 +172,11 @@ export function DataPreview({
                   {entry.displayName}
                 </button>
               ))}
-              {plotTarget ? (
+              {plotBelongsToSelected ? (
                 <button
-                  className="rounded-full bg-ink px-3 py-1 text-xs text-white"
-                  onClick={() => setPlotTarget(plotTarget)}
-                  title={plotTarget.ref}
+                  className={`rounded-full px-3 py-1 text-xs ${showPlotResult ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                  onClick={() => setShowPlotResult(true)}
+                  title={plotPreviewTarget?.ref}
                   type="button"
                 >
                   Plot artifact
@@ -303,8 +186,8 @@ export function DataPreview({
           ) : null}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             <PreviewHost
-              target={plotTarget ?? target}
-              initialQuery={plotTarget ? undefined : activeEntry?.initialQuery}
+              target={activePlot ?? target}
+              initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
               getCachedEnvelope={(key) => previewEnvelopeCache[key]}
               cacheEnvelope={cachePreviewEnvelope}
               buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
@@ -313,19 +196,6 @@ export function DataPreview({
         </>
       )}
       {portPanel}
-      <RelinkPlotDialog
-        open={relinkPlotTarget !== null}
-        plot={relinkPlotTarget}
-        workflowId={workflowId}
-        onClose={() => setRelinkPlotTarget(null)}
-        onRelinked={(result) => {
-          setPlotRunError(
-            result.valid ? null : (result.errors[0] ?? "Relinked plot did not validate."),
-          );
-          // Refresh the plot list so the new binding (and node filter) is reflected.
-          setPlotRefreshToken((token) => token + 1);
-        }}
-      />
     </aside>
   );
 }

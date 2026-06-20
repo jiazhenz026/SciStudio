@@ -1,15 +1,14 @@
-import { render, waitFor, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, waitFor, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PlotRunResponse, PreviewEnvelope } from "../types/api";
+import type { PreviewEnvelope } from "../types/api";
 
-// Mock only PreviewHost's session methods plus the plot-run trigger; keep every
-// other lib/api export intact (the Zustand store imports named helpers at init).
+// Mock only PreviewHost's session methods; keep every other lib/api export
+// intact (the Zustand store imports named helpers at init). #1713 — plot
+// run/list moved to the Plots tab, so DataPreview no longer calls those.
 const createPreviewSession = vi.fn();
 const patchPreviewSession = vi.fn();
 const getPreviewSession = vi.fn();
-const runPlotJob = vi.fn();
-const listPlots = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   const actualApi = (actual.api ?? {}) as Record<string, unknown>;
@@ -20,8 +19,6 @@ vi.mock("../lib/api", async (importOriginal) => {
       createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
       patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
       getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
-      runPlotJob: (...a: unknown[]) => runPlotJob(...a),
-      listPlots: (...a: unknown[]) => listPlots(...a),
     },
   };
 });
@@ -44,31 +41,15 @@ function textEnvelope(ref: string, text: string): PreviewEnvelope {
   };
 }
 
-function plotRunResponse(overrides: Partial<PlotRunResponse> = {}): PlotRunResponse {
-  return {
-    status: "succeeded",
-    data_ref: "data-plot-1",
-    recorded_type: "PlotArtifact",
-    type_chain: ["DataObject", "PlotArtifact"],
-    cache_key: "plot_deadbeef",
-    artifact_paths: ["/project/.scistudio/previews/main/node-1/output/p1/current.svg"],
-    source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
-    warnings: [],
-    errors: [],
-    ...overrides,
-  };
-}
-
 beforeEach(() => {
   createPreviewSession.mockReset();
   createPreviewSession.mockImplementation(async (target: { ref: string }) =>
     textEnvelope(target.ref, `preview of ${target.ref}`),
   );
-  runPlotJob.mockReset();
-  listPlots.mockReset();
-  listPlots.mockResolvedValue({ plots: [], count: 0, warnings: [] });
   // Each test owns a clean envelope cache (the store is a global singleton).
   useAppStore.getState().clearPreviewEnvelopeCache();
+  // #1713 — the plot Run result is shared via the store; reset between tests.
+  useAppStore.getState().setPlotPreviewTarget(null);
 });
 
 afterEach(() => {
@@ -185,98 +166,47 @@ describe("DataPreview", () => {
     });
   });
 
-  it("runs a plot job and mounts PreviewHost for the returned plot artifact (#1623)", async () => {
-    listPlots.mockResolvedValue({
-      plots: [
-        {
-          plot_id: "p1",
-          title: "P1",
-          workflow_id: "main",
-          node_id: "node-1",
-          output_port: "output",
-          display_label: "Process Block / output",
-          language: "python",
-          preferred_format: "svg",
-          manifest_path: "plots/p1/plot.yaml",
-          script_path: "plots/p1/render.py",
-        },
-      ],
-      count: 1,
-      warnings: [],
-    });
-    runPlotJob.mockResolvedValue(plotRunResponse());
+  // #1713 — the plot list, Run, and Relink moved to the dedicated Plots tab
+  // (see PlotsTab.test.tsx). DataPreview renders the Run result the Plots tab
+  // publishes into the store, but ONLY when the plot's linked block is selected
+  // (the result belongs to that block; it must not appear in the empty state).
+  it("shows the plot result only when its linked block is selected (#1713)", async () => {
+    const plotTarget = {
+      kind: "plot_artifact" as const,
+      ref: "data-plot-1",
+      recorded_type: "PlotArtifact",
+      type_chain: ["DataObject", "PlotArtifact"],
+      source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
+    };
 
-    render(
-      <DataPreview
-        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
-        selectedNodeId="node-1"
-        selectedNodeLabel="Process Block"
-      />,
+    const { rerender } = render(
+      <DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />,
     );
 
+    // The Plots tab publishes a Run result, but no block is selected → the plot
+    // is NOT shown; the empty state stays and no plot_artifact session is made.
+    act(() => useAppStore.getState().setPlotPreviewTarget(plotTarget));
+    expect(screen.getByText(/Pick a block/i)).toBeInTheDocument();
+    expect(createPreviewSession).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "plot_artifact" }),
+      expect.anything(),
+    );
+
+    // Selecting the plot's linked block surfaces the result via PreviewHost.
+    rerender(
+      <DataPreview
+        blockOutputs={{ "node-1": {} }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Block"
+      />,
+    );
     await waitFor(() => {
       expect(createPreviewSession).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: "data_ref", ref: "data-123" }),
+        expect.objectContaining({ kind: "plot_artifact", ref: "data-plot-1" }),
         expect.anything(),
       );
     });
-
-    fireEvent.click(await screen.findByRole("button", { name: "Run plot P1" }));
-
-    await waitFor(() => expect(runPlotJob).toHaveBeenCalledWith({ plot_id: "p1" }));
-    await waitFor(() => {
-      expect(createPreviewSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          kind: "plot_artifact",
-          ref: "data-plot-1",
-          recorded_type: "PlotArtifact",
-          type_chain: ["DataObject", "PlotArtifact"],
-          source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
-        }),
-        expect.anything(),
-      );
-    });
-    expect(screen.getByRole("button", { name: "Plot artifact" })).toBeInTheDocument();
-  });
-
-  // bug#7 / PR #1712 review — the plot list is workflow-wide, so a plot whose
-  // bound block was deleted (its old node can no longer be selected) is still
-  // reachable for relink even with nothing / a different node selected.
-  it("lists workflow plots and opens Relink without selecting the bound node (#1712)", async () => {
-    listPlots.mockResolvedValue({
-      plots: [
-        {
-          plot_id: "p-orphan",
-          title: "Orphan",
-          workflow_id: "main",
-          node_id: "deleted-node",
-          output_port: "output",
-          display_label: "deleted-node / output",
-          language: "python",
-          preferred_format: "svg",
-          manifest_path: "plots/p-orphan/plot.yaml",
-          script_path: "plots/p-orphan/render.py",
-          broken: true,
-        },
-      ],
-      count: 1,
-      warnings: [],
-    });
-
-    // Nothing selected — the bound node was deleted and cannot be picked.
-    render(<DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />);
-
-    const relinkButton = await screen.findByRole("button", {
-      name: "Relink data source for plot Orphan",
-    });
-    expect(relinkButton).toBeInTheDocument();
-    // Broken target is flagged for the user.
-    expect(screen.getByLabelText("Broken target — needs relink")).toBeInTheDocument();
-
-    fireEvent.click(relinkButton);
-    // The relink dialog is reachable for the orphaned plot.
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Relink data source")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("preview-host")).toBeInTheDocument());
   });
 
   // #898 - pill labels show source filename (independent of the renderer).

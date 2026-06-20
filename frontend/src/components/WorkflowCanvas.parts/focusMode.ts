@@ -7,14 +7,16 @@
  * should be visible, dimmed, or hidden so `WorkflowCanvas` can post-process the
  * ReactFlow node array (dispatch checklist §4.3).
  *
- * The default focus set (FR-019) is:
+ * The default focus set is the entire weakly-connected component of the
+ * selection:
  *   - the selected node(s);
- *   - their directly connected edges;
- *   - immediate upstream and downstream neighbor nodes (one hop).
+ *   - every block reachable from them along edges (the whole chain);
+ *   - all edges between blocks in that component.
  *
- * `depth` generalizes the one-hop default: `depth = 1` is the spec default,
- * higher values expand the neighborhood by BFS over the undirected adjacency.
- * `depth = 0` focuses the selection only (no neighbors).
+ * `depth` optionally narrows this to a BFS neighborhood: a finite `depth = N`
+ * keeps only nodes within N undirected hops (`depth = 0` = selection only,
+ * `depth = 1` = immediate neighbors). Omitting `depth` (the default) expands
+ * the BFS to the component boundary = the full chain.
  */
 import type { WorkflowEdge } from "../../types/api";
 
@@ -37,8 +39,9 @@ export interface FocusInput {
   /** All workflow edges (`{source, target}` with `nodeId:port` refs). */
   edges: readonly WorkflowEdge[];
   /**
-   * Neighbor hops to include around the selection. Defaults to `1` (the
-   * spec's immediate upstream/downstream neighbors). `0` ⇒ selection only.
+   * Optional BFS hop limit around the selection. Omit (default) to focus the
+   * whole connected chain; `0` ⇒ selection only; `N` ⇒ within N undirected
+   * hops.
    */
   depth?: number;
 }
@@ -94,7 +97,14 @@ function buildAdjacency(edges: readonly WorkflowEdge[]): Adjacency {
  */
 export function computeFocusSet(input: FocusInput): FocusResult {
   const { selectedIds, allNodeIds, edges } = input;
-  const depth = input.depth ?? 1;
+  // #bug — default focuses the WHOLE connected chain (entire weakly-connected
+  // component of the selection): every block reachable along edges plus all
+  // edges between those blocks. Previously the default was a single hop, which
+  // lit only part of the chain and could highlight a shortcut edge between two
+  // 1-hop neighbors that isn't on the selected chain. A finite `depth` still
+  // narrows the neighborhood (used by tests / future UI); the BFS naturally
+  // stops at the component boundary, so an unbounded depth = the full chain.
+  const depth = input.depth ?? Number.POSITIVE_INFINITY;
 
   const allSet = new Set(allNodeIds);
   // Only honor selected ids that exist in the workflow.
