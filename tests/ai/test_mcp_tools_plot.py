@@ -1004,6 +1004,50 @@ def test_run_r_ggplot2(project: Path, csv_output: Path) -> None:
         assert any(p.endswith(".svg") for p in res.artifact_paths)
 
 
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    """Read (width, height) in px from a PNG IHDR header (no Pillow needed)."""
+    raw = path.read_bytes()
+    assert raw[:8] == b"\x89PNG\r\n\x1a\n", "not a PNG file"
+    return int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")
+
+
+@pytest.mark.requires_r
+def test_run_r_figure_size_controls_output_dimensions(project: Path, csv_output: Path) -> None:
+    """The R harness defaults to 6.4x4.8in (4:3, matching the Python renderer) and
+    honors a top-level ``figure_size(w, h)`` call. Uses PNG output so the assertion
+    needs neither svglite (svg) nor a working cairo device — only Rscript + a PNG
+    device. Skips when R cannot produce the PNG in this environment."""
+    if shutil.which("Rscript") is None:
+        pytest.skip("Rscript not on PATH")
+    _set_ctx(_make_runtime(project, with_output_csv=csv_output))
+    tid = _target_id(project)
+
+    def _render_png(plot_id: str, body: str) -> tuple[int, int] | None:
+        _run(scaffold_plot(plot_id=plot_id, target_id=tid, language="r"))
+        manifest = project / "plots" / plot_id / "plot.yaml"
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("preferred_format: svg", "preferred_format: png"),
+            encoding="utf-8",
+        )
+        (project / "plots" / plot_id / "render.R").write_text(body, encoding="utf-8")
+        res = _run(run_plot_job(plot_id=plot_id))
+        if res.status != "succeeded" or not res.artifact_paths:
+            return None
+        return _png_dimensions(Path(res.artifact_paths[0]))
+
+    base_render = "render <- function(collection) {\n  df <- collection$items$open_one()\n  plot(df$x, df$y)\n}\n"
+
+    # Default (no figure_size): 6.4 x 4.8 in at res=150 -> 960 x 720 px (4:3).
+    default_dims = _render_png("rsize_default", base_render)
+    if default_dims is None:
+        pytest.skip("R PNG device unavailable in this environment")
+    assert default_dims == (960, 720)
+
+    # figure_size(8, 2): 8 x 2 in at res=150 -> 1200 x 300 px (4:1).
+    custom_dims = _render_png("rsize_custom", "figure_size(8, 2)\n" + base_render)
+    assert custom_dims == (1200, 300)
+
+
 @pytest.mark.requires_r
 def test_run_r_collection_open_enforces_cumulative_input_memory_guard(project: Path, tmp_path: Path) -> None:
     if shutil.which("Rscript") is None:

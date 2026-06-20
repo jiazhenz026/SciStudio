@@ -549,6 +549,28 @@ allowed     <- strsplit(args[[6]], ",")[[1]]
 allowed     <- allowed[nzchar(allowed)]
 max_input_bytes <- as.numeric(args[[7]])
 
+# Figure size (inches). Default 6.4 x 4.8 == 4:3, matching matplotlib's default
+# so R and Python plots share the same default aspect ratio. R render scripts can
+# override the size from the script itself by calling figure_size(width, height)
+# at the TOP LEVEL of the script (before render() is defined), e.g.
+#   figure_size(12, 5)
+# Top-level placement is required because base-graphics devices are opened before
+# render() runs; a top-level call is honored by both base and ggplot2 outputs.
+.scistudio_default_fig <- c(width = 6.4, height = 4.8)
+.scistudio_fig <- NULL
+figure_size <- function(width, height) {
+  if (!is.numeric(width) || !is.numeric(height) ||
+      length(width) != 1 || length(height) != 1 ||
+      !is.finite(width) || !is.finite(height) || width <= 0 || height <= 0) {
+    stop("figure_size(width, height): width and height must be positive numbers (inches)")
+  }
+  .scistudio_fig <<- c(width = as.numeric(width), height = as.numeric(height))
+  invisible(NULL)
+}
+resolve_fig <- function() {
+  if (is.null(.scistudio_fig)) .scistudio_default_fig else .scistudio_fig
+}
+
 emit <- function(obj) {
   cat(jsonlite::toJSON(obj, auto_unbox = TRUE), "\n", sep = "")
 }
@@ -794,7 +816,11 @@ save_ggplot <- function(plot, index) {
   suffix <- if (preferred == "jpeg") "jpg" else preferred
   filename <- if (index == 0) paste0("figure.", suffix) else paste0("figure_", index, ".", suffix)
   out <- file.path(out_dir, filename)
-  ggplot2::ggsave(out, plot = plot, device = if (ext == "jpeg") "jpeg" else ext)
+  fig <- resolve_fig()
+  ggplot2::ggsave(
+    out, plot = plot, device = if (ext == "jpeg") "jpeg" else ext,
+    width = fig[["width"]], height = fig[["height"]], units = "in"
+  )
   basename(out)
 }
 
@@ -828,10 +854,14 @@ device_temp_filename <- function() {
 
 open_device <- function(path) {
   ext <- check_format(path)
-  if (ext == "svg") grDevices::svg(path)
-  else if (ext == "pdf") grDevices::pdf(path)
-  else if (ext == "png") grDevices::png(path)
-  else grDevices::jpeg(path)
+  fig <- resolve_fig()
+  w <- fig[["width"]]
+  h <- fig[["height"]]
+  # svg/pdf take inches directly; png/jpeg are raster, so size in inches via res.
+  if (ext == "svg") grDevices::svg(path, width = w, height = h)
+  else if (ext == "pdf") grDevices::pdf(path, width = w, height = h)
+  else if (ext == "png") grDevices::png(path, width = w, height = h, units = "in", res = 150)
+  else grDevices::jpeg(path, width = w, height = h, units = "in", res = 150)
 }
 
 close_device <- function(device_id) {

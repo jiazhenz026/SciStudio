@@ -463,6 +463,10 @@ class PlotListItem(BaseModel):
     """True when the bound target (node_id + output_port) no longer resolves in
     its workflow — e.g. the source block was deleted/recreated. The app shell
     flags these for relink (bug#7 / PR #1712 review)."""
+    output_type: str = ""
+    """Core type of the bound output port (e.g. ``Spectrum``), resolved live from
+    the workflow's current targets so the plot card can show the full block info.
+    Empty when the target no longer resolves or discovery is unavailable."""
 
 
 class PlotListResponse(BaseModel):

@@ -55,6 +55,11 @@ def render(collection):
       * collection.items[index].metadata  -> read-only non-storage metadata
       * collection.items[index].open()    -> one native value
 
+    Figure size / aspect ratio:
+      The default figure is 6.4 x 4.8 inches (4:3). To use a different size or
+      ratio, create the figure with an explicit figsize, e.g.
+      ``fig, ax = plt.subplots(figsize=(12, 5))``; the saved output uses it.
+
     Minimal examples you can paste over the default plot:
 
       # Example A: collection contains up to 5 arrays; draw each flattened
@@ -122,6 +127,14 @@ _R_TEMPLATE = """# Render script created by SciStudio.
 #   * collection$items[[index]]$type        -> normalized core base type
 #   * collection$items[[index]]$metadata    -> non-storage metadata
 #   * collection$items[[index]]$open()      -> one native value
+#
+# Figure size / aspect ratio:
+#   The plot defaults to 6.4 x 4.8 inches (4:3), matching the Python renderer.
+#   To use a different size or ratio, call figure_size(width, height) in inches
+#   at the TOP LEVEL of this script (outside render), e.g.:
+#       figure_size(12, 5)
+#   Top-level placement is required: base-graphics devices open before render()
+#   runs. A top-level call is honored by both base graphics and ggplot2 output.
 #
 # Minimal examples you can paste over the default plot:
 #

@@ -110,6 +110,16 @@ render <- function(collection) {
 }
 ```
 
+**Figure size / aspect ratio.** Both languages default to **6.4×4.8 in (4:3)**.
+To use a different size or ratio, set it from the render script:
+
+- **Python**: pass `figsize` when you create the figure, e.g.
+  `fig, ax = plt.subplots(figsize=(12, 5))` — the saved output uses it.
+- **R**: call `figure_size(width, height)` (inches) at the **top level** of the
+  script (outside `render`), e.g. `figure_size(12, 5)`. Top-level placement is
+  required because base-graphics devices open before `render()` runs; it is
+  honored by both base graphics and ggplot2.
+
 Collection helpers are preview-only; there are **no** workflow-mutation APIs.
 
 Python helpers:

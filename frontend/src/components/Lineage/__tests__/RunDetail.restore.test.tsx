@@ -14,7 +14,7 @@
  * in `RunDetail.test.tsx`.
  *
  * Verifies the cross-track wiring per ADR-038 §3.8 + ADR-039 §6 Phase 4:
- * clicking "Restore this run's workflow" must call ``api.gitRestore``
+ * clicking "Restore workflow" must call ``api.gitRestore``
  * with the exact ``{commit_sha, files}`` shape, where ``files`` resolves
  * to ``workflows/<workflow_id>.yaml`` and ``commit_sha`` is the run's
  * captured ``workflow_git_commit``.
@@ -75,7 +75,7 @@ describe("RestoreWorkflowButton", () => {
         run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: "abc" }}
       />,
     );
-    const btn = screen.getByRole("button", { name: /restore this run/i });
+    const btn = screen.getByRole("button", { name: /restore workflow/i });
     expect(btn).not.toBeDisabled();
   });
 
@@ -85,7 +85,7 @@ describe("RestoreWorkflowButton", () => {
         run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: null }}
       />,
     );
-    const btn = screen.getByRole("button", { name: /restore this run/i });
+    const btn = screen.getByRole("button", { name: /restore workflow/i });
     expect(btn).toBeDisabled();
   });
 
@@ -97,7 +97,7 @@ describe("RestoreWorkflowButton", () => {
         onRestored={onRestored}
       />,
     );
-    const btn = screen.getByRole("button", { name: /restore this run/i });
+    const btn = screen.getByRole("button", { name: /restore workflow/i });
     fireEvent.click(btn);
     await waitFor(() => {
       expect(api.gitRestore).toHaveBeenCalledWith({
@@ -119,7 +119,7 @@ describe("RestoreWorkflowButton", () => {
         run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: "deadbeef1234" }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /restore this run/i }));
+    fireEvent.click(screen.getByRole("button", { name: /restore workflow/i }));
     await waitFor(() => {
       const hint = screen.getByTestId("run-detail-restore-auto-commit-hint");
       expect(hint.textContent ?? "").toMatch(
@@ -142,7 +142,7 @@ describe("RestoreWorkflowButton", () => {
         run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: "deadbeef1234" }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /restore this run/i }));
+    fireEvent.click(screen.getByRole("button", { name: /restore workflow/i }));
     await waitFor(() => {
       expect(api.gitRestore).toHaveBeenCalled();
     });
