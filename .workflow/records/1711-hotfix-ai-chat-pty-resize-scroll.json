@@ -353,6 +353,11 @@
       "at": "2026-06-20T04:04:03.910892Z",
       "owner_directive": "Protected-core src/scistudio/workflow/validator.py draft-validation mode authorized by owner (admin-approved:core-change). Batch of 7 owner-reported fixes in one PR.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-20T07:57:34.278317Z",
+      "owner_directive": "Owner-chosen fix: carve a top region listing all workflow plots (available+broken), keep the existing relink; flag broken targets with a warning since detection already exists via discover_targets.",
+      "reason": "Address codex PR #1712 P1: relink entry point was unreachable because the plot list was scoped to the selected node, but a broken plot's old node can no longer be selected. DataPreview now lists workflow-wide plots in an always-visible top region with a broken-target flag; list_plots returns a node-level 'broken' field. Same bug#7 files."
     }
   ],
   "docs_events": [
@@ -1253,6 +1258,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.348363Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.359016Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.369217Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.380057Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.390502Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.399866Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.409196Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.418505Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.427798Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-20T07:57:40.445159Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1299,9 +1408,9 @@
       "tests/workflow/test_validator.py",
       "tests/workflow/test_validator_codeblock_v2.py"
     ],
-    "diff_fingerprint": "sha256:1e98e4720dc9763b398c65a843335a8d800fbddc184e95909074ce10b533b18b",
+    "diff_fingerprint": "sha256:5f770b97a385cd433390830f0dcda16fffe32d026b9ddc29c09c0fe5f4b386bd",
     "head": "HEAD",
-    "head_sha": "cb57684b",
+    "head_sha": "e6649469",
     "surfaces": {
       "docs": 2,
       "frontend": 15,
@@ -1404,6 +1513,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-20T07:57:40.445205Z",
+      "diff_fingerprint": "sha256:5f770b97a385cd433390830f0dcda16fffe32d026b9ddc29c09c0fe5f4b386bd",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "1711-hotfix-ai-chat-pty-resize-scroll",
@@ -1470,6 +1587,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/workflow/test_validator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-20T07:57:34.278458Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_plot_preview_wiring.py",
       "rationale": null,
       "verified_in_diff": null
     }

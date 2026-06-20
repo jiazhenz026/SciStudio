@@ -490,6 +490,9 @@ export interface PlotListItem {
   preferred_format: string;
   manifest_path: string;
   script_path: string;
+  /** True when the bound target no longer resolves (source block deleted/
+   *  recreated) — the app shell flags these for relink (bug#7 / PR #1712). */
+  broken?: boolean;
 }
 
 /** Response body for `GET /api/plots`. */

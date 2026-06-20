@@ -459,6 +459,10 @@ class PlotListItem(BaseModel):
     preferred_format: str
     manifest_path: str
     script_path: str
+    broken: bool = False
+    """True when the bound target (node_id + output_port) no longer resolves in
+    its workflow — e.g. the source block was deleted/recreated. The app shell
+    flags these for relink (bug#7 / PR #1712 review)."""
 
 
 class PlotListResponse(BaseModel):
