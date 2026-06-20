@@ -231,3 +231,23 @@ describe("BlockNode — ADR-029 variadic +/- controls (SC-004)", () => {
     expect(patch.input_ports[1].name).toBe("port_2");
   });
 });
+
+describe("BlockNode — port handle offset (owner UX: ports not flush to border)", () => {
+  it("offsets input/output handles outside the node body", () => {
+    const { container } = renderNode({
+      inputPorts: [makePort("in", "input", ["DataObject"])],
+      outputPorts: [makePort("out", "output", ["DataObject"])],
+      schema: makeSchema({
+        input_ports: [makePort("in", "input", ["DataObject"])],
+        output_ports: [makePort("out", "output", ["DataObject"])],
+      }),
+    });
+    const inHandle = container.querySelector('[data-handleid="in"]') as HTMLElement | null;
+    const outHandle = container.querySelector('[data-handleid="out"]') as HTMLElement | null;
+    expect(inHandle).not.toBeNull();
+    expect(outHandle).not.toBeNull();
+    // -10 leaves a small gap between the port dot and the node border.
+    expect(inHandle?.style.left).toBe("-10px");
+    expect(outHandle?.style.right).toBe("-10px");
+  });
+});

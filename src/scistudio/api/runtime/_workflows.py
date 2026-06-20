@@ -21,12 +21,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _is_draft_only_validation_diagnostic(message: Any) -> bool:
-    """Return true for diagnostics that should not block editor draft saves."""
-    text = str(message)
-    return "required input port" in text and "has no incoming connection" in text
-
-
 def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
     project = self.require_active_project()
     return Path(project.path) / "workflows" / f"{workflow_id}.yaml"
@@ -58,22 +52,20 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
     # #1518 (DSN-2): ``validate_workflow`` previously only ``logger.warning``-ed
     # and saved anyway, so an ill-typed / cyclic / contract-violating graph
     # persisted cleanly and only failed deep inside a block at run time. Editor
-    # saves still need to accept incomplete draft graphs, so required-input
-    # dangling-port diagnostics are logged here and remain hard errors at run
-    # start (``runtime._runs.start_workflow`` re-validates the loaded graph).
-    # The route layer maps raised ``ValueError`` to HTTP 422
-    # (api/routes/workflows.py create/update handlers).
-    diagnostics = validate_workflow(definition, registry=self.block_registry)
+    # saves still need to accept incomplete draft graphs, so we validate in
+    # ``draft`` mode: structural / edge / cycle / type / cardinality / boundary
+    # problems remain hard errors, but config- and connection-completeness
+    # checks (unconnected required ports, a not-yet-configured CodeBlock
+    # ``script_path``, etc.) are deferred to run start, which re-validates the
+    # loaded graph in strict mode (``runtime._runs.start_workflow``). This stops
+    # the editor from throwing "Field required" while the user is still wiring up
+    # a freshly dropped node. The route layer maps raised ``ValueError`` to HTTP
+    # 422 (api/routes/workflows.py create/update handlers).
+    diagnostics = validate_workflow(definition, registry=self.block_registry, mode="draft")
     warnings = [d for d in diagnostics if str(d).startswith("Warning:")]
-    draft_only = [d for d in diagnostics if _is_draft_only_validation_diagnostic(d)]
-    hard_errors = [
-        d for d in diagnostics if not str(d).startswith("Warning:") and not _is_draft_only_validation_diagnostic(d)
-    ]
-    if warnings or draft_only:
-        logger.warning(
-            "Workflow validation warnings: %s",
-            "; ".join(str(w) for w in [*warnings, *draft_only]),
-        )
+    hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
+    if warnings:
+        logger.warning("Workflow validation warnings: %s", "; ".join(str(w) for w in warnings))
     if hard_errors:
         raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))
 

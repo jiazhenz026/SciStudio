@@ -12,6 +12,8 @@ import type {
   PlotCreateRequest,
   PlotCreateResponse,
   PlotListResponse,
+  PlotRelinkRequest,
+  PlotRelinkResponse,
   PlotRunRequest,
   PlotRunResponse,
   PlotTargetListResponse,
@@ -145,6 +147,17 @@ export const dataApi = {
   /** Create plots/<id>/plot.yaml plus a render script from the plot template. */
   createPlot: (request: PlotCreateRequest) =>
     apiFetch<PlotCreateResponse>("/api/plots", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(request),
+    }),
+
+  /** Re-point an existing plot at a new workflow output target (bug#7).
+   *  `POST /api/plots/{plot_id}/relink` rewrites only the manifest target block
+   *  (strict 1:1) and re-validates, so a previously broken target becomes valid
+   *  without recreating the plot or its render script. */
+  relinkPlot: (plotId: string, request: PlotRelinkRequest) =>
+    apiFetch<PlotRelinkResponse>(`/api/plots/${encodeURIComponent(plotId)}/relink`, {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify(request),

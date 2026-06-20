@@ -111,11 +111,19 @@ export function TerminalView({
       open: (el: HTMLElement) => void;
       dispose: () => void;
       loadAddon: (a: unknown) => void;
+      scrollToBottom: () => void;
+      refresh: (start: number, end: number) => void;
       cols: number;
       rows: number;
     } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    let intersectionObserver: IntersectionObserver | null = null;
+    // rAF handle used to coalesce the burst of ResizeObserver callbacks fired
+    // while the bottom-panel splitter is dragged into a single fit on the
+    // settled layout. Cancelled on unmount so the callback never touches a
+    // disposed terminal.
+    let resizeFitRaf = 0;
 
     const rememberInitialSize = () => {
       if (!term || term.cols <= 0 || term.rows <= 0) return;
@@ -217,28 +225,86 @@ export function TerminalView({
         send({ type: "stdin", data });
       });
 
+      // Refit the terminal, sync the new size to the PTY, then snap to the
+      // bottom. fit() reflows the buffer, which shifts the viewport off the
+      // newest output; without scrollToBottom the latest screen ends up
+      // clipped below the visible area and xterm believes it is already at the
+      // bottom, so the user cannot scroll down to reach it.
+      const applyFit = () => {
+        const t = term;
+        if (cancelled || !t) return;
+        try {
+          fit.fit();
+          if (!lastSentResizeRef.current) {
+            rememberInitialSize();
+          } else {
+            sendResizeIfChanged();
+          }
+          t.scrollToBottom();
+        } catch {
+          // Ignore transient layout glitches.
+        }
+      };
+
       // Watch container size; on resize, fit() then notify the PTY.
       // The first fire happens shortly after observe() with the initial
-      // size, which is what we want.
+      // size, which is what we want. Coalesce the burst of callbacks emitted
+      // while the splitter is dragged into a single fit on the settled layout:
+      // fitting on an intermediate drag frame measures a transient container
+      // size and leaves xterm's rows out of sync with the final viewport,
+      // clipping the last lines.
       if (typeof ResizeObserver !== "undefined") {
         resizeObserver = new ResizeObserver(() => {
-          try {
-            fit.fit();
-            if (!lastSentResizeRef.current) {
-              rememberInitialSize();
-            } else {
-              sendResizeIfChanged();
-            }
-          } catch {
-            // Ignore transient layout glitches.
-          }
+          if (resizeFitRaf) cancelAnimationFrame(resizeFitRaf);
+          resizeFitRaf = requestAnimationFrame(() => {
+            resizeFitRaf = 0;
+            applyFit();
+          });
         });
         resizeObserver.observe(container);
+      }
+
+      // Repaint when the terminal returns to view. The bottom panel hides
+      // inactive surfaces with `display:none` (so PTY subprocesses survive);
+      // while hidden the container has zero size and ResizeObserver does not
+      // fire. xterm's canvas renderer keeps the stale pixel buffer, so on
+      // re-show we must refit and force a full repaint — otherwise the user
+      // sees scrambled, misplaced glyphs left over from the pre-hide layout.
+      if (typeof IntersectionObserver !== "undefined") {
+        let wasVisible = true;
+        intersectionObserver = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          if (!entry) return;
+          if (entry.isIntersecting && !wasVisible) {
+            wasVisible = true;
+            const t = term;
+            if (cancelled || !t) return;
+            try {
+              fit.fit();
+              sendResizeIfChanged();
+              t.scrollToBottom();
+              // refresh() repaints the canvas from the screen buffer. fit()
+              // alone is a no-op when cols/rows are unchanged (a visibility
+              // toggle doesn't change size), so without this the stale frame
+              // stays on screen.
+              t.refresh(0, Math.max(0, t.rows - 1));
+            } catch {
+              // Ignore transient layout glitches.
+            }
+          } else if (!entry.isIntersecting) {
+            wasVisible = false;
+          }
+        });
+        intersectionObserver.observe(container);
       }
     })();
 
     return () => {
       cancelled = true;
+      if (resizeFitRaf) {
+        cancelAnimationFrame(resizeFitRaf);
+        resizeFitRaf = 0;
+      }
       try {
         onDataDisposable?.dispose();
       } catch {
@@ -246,6 +312,11 @@ export function TerminalView({
       }
       try {
         resizeObserver?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        intersectionObserver?.disconnect();
       } catch {
         /* ignore */
       }

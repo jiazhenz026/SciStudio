@@ -1,11 +1,15 @@
+import { useState } from "react";
+
 import type { PreviewEnvelope, PreviewResource } from "../../types/api";
 
 function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+// overflow-auto + a taller default surface so a zoomed-in plot can be panned by
+// scrolling. The zoom layer (see PlotViewer) applies the scale transform.
 const PLOT_PREVIEW_SURFACE_CLASS =
-  "flex h-[min(62vh,36rem)] min-h-64 w-full items-center justify-center overflow-hidden rounded bg-white";
+  "relative h-[min(70vh,40rem)] min-h-64 w-full overflow-auto rounded bg-white";
 
 function buildSvgPreviewDocument(svg: string): string {
   return `<!doctype html>
@@ -96,43 +100,91 @@ export function PlotViewer({
   const src = asString(payload.src);
   const svg = asString(payload.svg);
   const exportResource = envelope.resources.find((r) => r.resource_id === "export");
+  const hasRenderable = Boolean((format === "svg" && svg) || (format === "pdf" && src) || src);
+
+  const [zoom, setZoom] = useState(1);
+  // Clamp to a sensible range and snap to 25% steps.
+  const applyZoom = (next: number) => setZoom(Math.min(4, Math.max(0.5, Math.round(next * 4) / 4)));
 
   return (
     <div data-testid="core-plot-viewer" className="space-y-2">
       <PlotDiagnosticsBanner diagnostics={envelope.diagnostics} />
       <div className="rounded-[1rem] border border-stone-200 bg-white p-3">
         <div className={PLOT_PREVIEW_SURFACE_CLASS} data-testid="plot-preview-surface">
-          {format === "svg" && svg ? (
-            // SVG is rendered in a sandboxed iframe; the wrapper document keeps
-            // the figure contained instead of letting the iframe scroll.
-            <iframe
-              data-testid="plot-svg-frame"
-              title="Plot SVG"
-              sandbox=""
-              srcDoc={buildSvgPreviewDocument(svg)}
-              className="h-full w-full border-0 bg-white"
-            />
-          ) : format === "pdf" && src ? (
-            <iframe
-              data-testid="plot-pdf-frame"
-              title="Plot PDF"
-              src={buildPdfPreviewSrc(src)}
-              className="h-full w-full border-0 bg-white"
-            />
-          ) : src ? (
-            <img
-              alt={`Plot ${format}`}
-              data-testid="plot-image"
-              src={src}
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <p className="text-xs text-stone-500">No renderable plot artifact.</p>
-          )}
+          {/* Zoom layer: scaling from the top-left keeps the whole figure
+              reachable via the surface's scrollbars when zoomed in. SVG/PDF
+              stay crisp because they are vector. */}
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
+            data-testid="plot-zoom-layer"
+          >
+            {format === "svg" && svg ? (
+              // SVG is rendered in a sandboxed iframe; the wrapper document keeps
+              // the figure contained instead of letting the iframe scroll.
+              <iframe
+                data-testid="plot-svg-frame"
+                title="Plot SVG"
+                sandbox=""
+                srcDoc={buildSvgPreviewDocument(svg)}
+                className="h-full w-full border-0 bg-white"
+              />
+            ) : format === "pdf" && src ? (
+              <iframe
+                data-testid="plot-pdf-frame"
+                title="Plot PDF"
+                src={buildPdfPreviewSrc(src)}
+                className="h-full w-full border-0 bg-white"
+              />
+            ) : src ? (
+              <img
+                alt={`Plot ${format}`}
+                data-testid="plot-image"
+                src={src}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <p className="text-xs text-stone-500">No renderable plot artifact.</p>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2 text-xs text-stone-600">
         <span className="uppercase tracking-wider text-stone-400">{format || mime}</span>
+        {hasRenderable ? (
+          <div className="flex items-center gap-1" data-testid="plot-zoom-controls">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              data-testid="plot-zoom-out"
+              onClick={() => applyZoom(zoom - 0.25)}
+              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+            >
+              −
+            </button>
+            <span className="w-12 text-center tabular-nums" data-testid="plot-zoom-level">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              data-testid="plot-zoom-in"
+              onClick={() => applyZoom(zoom + 0.25)}
+              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-label="Reset zoom"
+              data-testid="plot-zoom-reset"
+              onClick={() => setZoom(1)}
+              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+            >
+              Reset
+            </button>
+          </div>
+        ) : null}
         <button
           type="button"
           data-testid="plot-export-button"

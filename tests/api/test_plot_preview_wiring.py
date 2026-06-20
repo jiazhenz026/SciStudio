@@ -285,6 +285,93 @@ def test_plot_create_route_scaffolds_manifest_and_render_script(
     assert "context" not in script_text
 
 
+def test_plot_relink_route_rebinds_manifest_target(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """bug#7: POST /api/plots/{id}/relink re-points a plot at a new target.
+
+    Simulates deleting the original block and creating a fresh identical one
+    (new node id), which leaves the plot's target broken, then relinks the plot
+    to the new target and asserts the manifest target is rewritten and valid.
+    """
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    # Replace node_a with a fresh identical node (new id) — the plot's bound
+    # target node_a no longer exists.
+    (opened_project / "workflows" / "main.yaml").write_text(
+        "workflow:\n  id: main\n  version: 1.0.0\n  nodes:\n"
+        "  - id: node_fresh\n    block_type: demo.segment\n    config:\n      label: Seg\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    runtime.workflow_runs["run_1"] = _StubRun(  # type: ignore[assignment]
+        {
+            "node_fresh": {
+                "measurements": {
+                    "backend": "filesystem",
+                    "path": str(opened_project / "measurements.csv"),
+                    "format": "csv",
+                    "metadata": {"type_chain": ["DataFrame"]},
+                }
+            }
+        }
+    )
+
+    targets = client.get("/api/plots/targets", params={"workflow_id": "main"})
+    assert targets.status_code == 200, targets.text
+    # ``demo.segment`` is not a registered block in this environment, so
+    # discovery emits the node's target keyed on the synthetic 'output' port.
+    new_target = next(t for t in targets.json()["targets"] if t["node_id"] == "node_fresh")
+    new_port = new_target["output_port"]
+
+    resp = client.post("/api/plots/p1/relink", json={"target_id": new_target["target_id"]})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["plot_id"] == "p1"
+    assert body["manifest_path"] == "plots/p1/plot.yaml"
+    assert body["target"]["node_id"] == "node_fresh"
+    assert body["target"]["output_port"] == new_port
+    assert body["valid"] is True, body["errors"]
+    # The manifest on disk now binds to the fresh node.
+    manifest_text = (opened_project / "plots" / "p1" / "plot.yaml").read_text(encoding="utf-8")
+    assert "node_id: node_fresh" in manifest_text
+
+
+def test_plot_relink_route_unknown_target_returns_400(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    resp = client.post("/api/plots/p1/relink", json={"target_id": "tgt_nope"})
+
+    assert resp.status_code == 400
+    assert "unknown target_id" in resp.json()["detail"]
+
+
+def test_plot_relink_route_unknown_plot_returns_404(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    targets = client.get("/api/plots/targets", params={"workflow_id": "main"})
+    assert targets.status_code == 200, targets.text
+    target_id = targets.json()["targets"][0]["target_id"]
+
+    resp = client.post("/api/plots/does-not-exist/relink", json={"target_id": target_id})
+
+    assert resp.status_code == 404
+
+
 def test_plot_preview_resource_save_writes_export_to_user_selected_path(
     client: TestClient,
     runtime: ApiRuntime,

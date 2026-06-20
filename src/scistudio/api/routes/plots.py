@@ -44,6 +44,8 @@ from scistudio.api.schemas import (
     PlotCreateResponse,
     PlotListItem,
     PlotListResponse,
+    PlotRelinkRequest,
+    PlotRelinkResponse,
     PlotRunRequest,
     PlotRunResponse,
     PlotTargetItem,
@@ -183,6 +185,51 @@ async def create_plot(payload: PlotCreateRequest, runtime: RuntimeDep) -> PlotCr
         bytes_written=bytes_written,
         warnings=warnings,
         target=_target_item(target),
+    )
+
+
+@router.post("/{plot_id}/relink", response_model=PlotRelinkResponse)
+async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: RuntimeDep) -> PlotRelinkResponse:
+    """Re-point an existing plot at a new workflow output target (bug#7, strict 1:1).
+
+    Rewrites only the manifest ``target`` block from the supplied ``target_id``
+    (resolved exactly like ``POST /api/plots``), re-validates the plot, and
+    returns the new target plus validation diagnostics so the UI can confirm a
+    previously broken target is now valid.
+    """
+    from scistudio.ai.agent.mcp.tools_plot.relink import PlotRelinkError, relink_plot
+    from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
+    from scistudio.ai.agent.mcp.tools_plot.validation import PlotNotFoundError
+
+    try:
+        project = runtime.require_active_project()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    try:
+        outcome = relink_plot(plot_id, payload.target_id)
+    except PlotNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PlotRelinkError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to update plot manifest: {exc}") from exc
+
+    project_root = Path(project.path).resolve()
+    # relink_plot already proved target_id resolves (else PlotRelinkError),
+    # so this re-resolution only rebuilds the full PlotTargetItem for the UI.
+    target = resolve_target_by_id(payload.target_id)
+    if target is None:  # pragma: no cover - target vanished between relink and re-resolve
+        raise HTTPException(status_code=409, detail="Plot target became unavailable during relink.")
+    return PlotRelinkResponse(
+        plot_id=outcome.plot_id,
+        manifest_path=_project_relative(project_root, outcome.manifest_path),
+        target=_target_item(target),
+        valid=outcome.valid,
+        errors=list(outcome.errors),
+        warnings=list(outcome.warnings),
     )
 
 

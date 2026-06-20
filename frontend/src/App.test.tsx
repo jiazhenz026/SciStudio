@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { useAppStore } from "./store";
 import { resetAppStore } from "./testUtils";
 
 function jsonResponse(data: unknown) {
@@ -56,6 +57,7 @@ describe("App", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -70,5 +72,17 @@ describe("App", () => {
       // without locking which surface renders it.
       expect(screen.getAllByText("SciStudio").length).toBeGreaterThan(0);
     });
+  });
+
+  it("dismisses the error banner via the close button", async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.queryByTestId("app-error-banner")).toBeNull());
+    act(() => {
+      useAppStore.setState({ lastError: "boom" });
+    });
+    expect(screen.getByTestId("app-error-banner")).toBeTruthy();
+    expect(screen.getByText("boom")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("app-error-dismiss"));
+    expect(screen.queryByTestId("app-error-banner")).toBeNull();
   });
 });

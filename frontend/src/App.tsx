@@ -388,8 +388,21 @@ export default function App() {
           />
 
           {lastError ? (
-            <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
-              {lastError}
+            <div
+              className="flex items-start gap-3 border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
+              data-testid="app-error-banner"
+            >
+              <span className="flex-1 whitespace-pre-wrap">{lastError}</span>
+              <button
+                type="button"
+                aria-label="Dismiss error"
+                title="Dismiss"
+                data-testid="app-error-dismiss"
+                className="shrink-0 rounded px-1.5 text-base leading-none text-red-500 hover:bg-red-100 hover:text-red-700"
+                onClick={() => setLastError(null)}
+              >
+                ×
+              </button>
             </div>
           ) : null}
 

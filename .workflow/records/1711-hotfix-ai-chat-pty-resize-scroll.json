@@ -1,0 +1,57 @@
+{
+  "branch": "hotfix/ai-chat-pty-resize-scroll",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-20T04:04:03.910892Z",
+      "owner_directive": "Protected-core src/scistudio/workflow/validator.py draft-validation mode authorized by owner (admin-approved:core-change). Batch of 7 owner-reported fixes in one PR.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1711,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner-directed live session: fix 7 reported desktop/canvas/plot bugs in one PR \u2014 PTY clip-on-resize + scramble-on-tab-switch, user-terminal PYTHONPATH conda crash, canvas draft validation + dismissable error banner, plot previewer zoom/pan + larger matplotlib fonts, node port spacing, plot relink. Closes #1711. admin-approved:core-change for workflow/validator.py draft mode.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1711-hotfix-ai-chat-pty-resize-scroll",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "4e0faf45-259d-4f09-9491-ccef5417e0ee",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

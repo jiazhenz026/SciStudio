@@ -171,6 +171,8 @@ def _is_boundary_block(spec: BlockSpec) -> bool:
 def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; refactor to split per-node checks then drop this
     workflow: WorkflowDefinition,
     registry: BlockRegistry | None = None,
+    *,
+    mode: str = "strict",
 ) -> list[str]:
     """Validate a workflow definition and return a list of diagnostic messages.
 
@@ -203,6 +205,14 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     registry:
         An optional ``BlockRegistry`` used for type-compatibility and
         dangling-port checks.  When ``None``, those checks are skipped.
+    mode:
+        ``"strict"`` (default) runs every check. ``"draft"`` skips the
+        config/connection-completeness checks — dangling required input ports
+        (Check 6) and CodeBlock config such as a required ``script_path``
+        (Check 9) — so the editor can autosave a work-in-progress graph without
+        spurious errors. Structural, edge, cycle, type, cardinality, extension,
+        and boundary checks still run. Run start re-validates in strict mode,
+        so an incomplete graph still cannot execute.
 
     Returns
     -------
@@ -346,7 +356,10 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
             if tgt_node_id in connected_inputs:
                 connected_inputs[tgt_node_id].add(tgt_port_name)
 
-    for node in workflow.nodes:
+    # Check 6 is a connection-completeness check: in draft mode (editor
+    # autosave) an unconnected required port is normal work-in-progress, not an
+    # error, so skip it. Run start re-validates in strict mode.
+    for node in workflow.nodes if mode != "draft" else []:
         spec: BlockSpec | None = registry.get_spec(node.block_type)
         if spec is None:
             continue  # unknown block type — already warned in Check 5
@@ -445,7 +458,11 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     # ADR-041 runtime truth belongs to backend/workflow validation. Keep
     # this node-scoped and preserve the registry fallbacks above for unknown
     # block types and spec-only fixtures.
-    for node in workflow.nodes:
+    # Check 9 validates persisted CodeBlock config (e.g. a required
+    # ``script_path``). Skipped in draft mode: a freshly dropped, not-yet
+    # configured block must not block an editor save. Run start re-validates in
+    # strict mode.
+    for node in workflow.nodes if mode != "draft" else []:
         spec = registry.get_spec(node.block_type)
         if spec is None or not _is_codeblock_spec(spec):
             continue

@@ -431,6 +431,26 @@ export interface PlotCreateResponse {
   target: PlotTargetItem;
 }
 
+/** Request body for `POST /api/plots/{plot_id}/relink` (backend
+ *  `PlotRelinkRequest`, bug#7). Re-points an existing plot at a new workflow
+ *  output target (strict 1:1). */
+export interface PlotRelinkRequest {
+  target_id: string;
+}
+
+/** Response body for `POST /api/plots/{plot_id}/relink` (backend
+ *  `PlotRelinkResponse`, bug#7). `valid` plus `errors`/`warnings` reflect a
+ *  fresh validation of the relinked plot, so a previously broken target reports
+ *  `valid: true`. */
+export interface PlotRelinkResponse {
+  plot_id: string;
+  manifest_path: string;
+  target: PlotTargetItem;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
 /** Request body for `POST /api/plots/run` (backend `PlotRunRequest`). */
 export interface PlotRunRequest {
   plot_id: string;

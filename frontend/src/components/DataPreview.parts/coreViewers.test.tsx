@@ -281,8 +281,9 @@ describe("PlotViewer", () => {
     );
 
     const surface = screen.getByTestId("plot-preview-surface");
-    expect(surface.className).toContain("overflow-hidden");
-    expect(surface.className).toContain("h-[min(62vh,36rem)]");
+    // overflow-auto + a taller surface so a zoomed-in plot can be scrolled/panned.
+    expect(surface.className).toContain("overflow-auto");
+    expect(surface.className).toContain("h-[min(70vh,40rem)]");
 
     const frame = screen.getByTestId("plot-svg-frame") as HTMLIFrameElement;
     expect(frame.getAttribute("sandbox")).toBe("");
@@ -322,5 +323,28 @@ describe("PlotViewer", () => {
 
     const frame = screen.getByTestId("plot-pdf-frame") as HTMLIFrameElement;
     expect(frame.getAttribute("src")).toBe("data:application/pdf;base64,JVBER#view=Fit");
+  });
+
+  it("zooms the plot via the zoom controls", () => {
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "svg",
+          mime_type: "image/svg+xml",
+          svg: '<svg width="1600" height="1000" viewBox="0 0 1600 1000"></svg>',
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("plot-zoom-layer").style.transform).toBe("scale(1)");
+    expect(screen.getByTestId("plot-zoom-level").textContent).toBe("100%");
+
+    fireEvent.click(screen.getByTestId("plot-zoom-in"));
+    expect(screen.getByTestId("plot-zoom-level").textContent).toBe("125%");
+    expect(screen.getByTestId("plot-zoom-layer").style.transform).toBe("scale(1.25)");
+
+    fireEvent.click(screen.getByTestId("plot-zoom-reset"));
+    expect(screen.getByTestId("plot-zoom-level").textContent).toBe("100%");
+    expect(screen.getByTestId("plot-zoom-layer").style.transform).toBe("scale(1)");
   });
 });

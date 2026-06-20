@@ -14,6 +14,7 @@ import type {
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
+import { RelinkPlotDialog } from "./RelinkPlotDialog";
 
 // Re-exports preserve the public surface of DataPreview.tsx for existing
 // consumers (LossySaveWarning.tsx mirrors `extractRefEntries`).
@@ -103,12 +104,16 @@ export function DataPreview({
   const [plotListError, setPlotListError] = useState<string | null>(null);
   const [plotLoading, setPlotLoading] = useState(false);
   const [plotRunningId, setPlotRunningId] = useState<string | null>(null);
+  // bug#7 — per-plot "relink data source" entry point.
+  const [relinkPlotTarget, setRelinkPlotTarget] = useState<PlotListItem | null>(null);
+  const [plotRefreshToken, setPlotRefreshToken] = useState(0);
 
   useEffect(() => {
     setPickedEntryId(null);
     setPlotTarget(null);
     setPlotRunError(null);
     setPlotRunningId(null);
+    setRelinkPlotTarget(null);
   }, [selectedNodeId]);
 
   useEffect(() => {
@@ -136,7 +141,7 @@ export function DataPreview({
     return () => {
       cancelled = true;
     };
-  }, [selectedNodeId, workflowId]);
+  }, [selectedNodeId, workflowId, plotRefreshToken]);
 
   async function handlePlotRun(plot: PlotListItem) {
     setPlotRunningId(plot.plot_id);
@@ -228,19 +233,33 @@ export function DataPreview({
                 <span className="text-xs text-stone-500">Loading plots...</span>
               ) : null}
               {availablePlots.map((plot) => (
-                <button
-                  aria-label={`Run plot ${plot.title || plot.plot_id}`}
-                  className="rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
-                  disabled={plotRunningId !== null}
+                <span
+                  className="inline-flex items-center overflow-hidden rounded border border-stone-300"
                   key={plot.plot_id}
-                  onClick={() => void handlePlotRun(plot)}
-                  title={plot.display_label || plot.plot_id}
-                  type="button"
                 >
-                  {plotRunningId === plot.plot_id
-                    ? "Running"
-                    : `Plot: ${plot.title || plot.plot_id}`}
-                </button>
+                  <button
+                    aria-label={`Run plot ${plot.title || plot.plot_id}`}
+                    className="bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
+                    disabled={plotRunningId !== null}
+                    onClick={() => void handlePlotRun(plot)}
+                    title={plot.display_label || plot.plot_id}
+                    type="button"
+                  >
+                    {plotRunningId === plot.plot_id
+                      ? "Running"
+                      : `Plot: ${plot.title || plot.plot_id}`}
+                  </button>
+                  <button
+                    aria-label={`Relink data source for plot ${plot.title || plot.plot_id}`}
+                    className="border-l border-stone-300 bg-white px-2 py-1 text-xs text-stone-500 hover:text-ink disabled:opacity-50"
+                    disabled={plotRunningId !== null}
+                    onClick={() => setRelinkPlotTarget(plot)}
+                    title="Relink data source"
+                    type="button"
+                  >
+                    Relink
+                  </button>
+                </span>
               ))}
               {plotTarget && outputEntryIds.length === 0 ? (
                 <button
@@ -282,6 +301,19 @@ export function DataPreview({
         </>
       )}
       {portPanel}
+      <RelinkPlotDialog
+        open={relinkPlotTarget !== null}
+        plot={relinkPlotTarget}
+        workflowId={workflowId}
+        onClose={() => setRelinkPlotTarget(null)}
+        onRelinked={(result) => {
+          setPlotRunError(
+            result.valid ? null : result.errors[0] ?? "Relinked plot did not validate.",
+          );
+          // Refresh the plot list so the new binding (and node filter) is reflected.
+          setPlotRefreshToken((token) => token + 1);
+        }}
+      />
     </aside>
   );
 }

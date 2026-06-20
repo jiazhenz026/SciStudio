@@ -106,6 +106,33 @@ def test_validate_workflow_reports_node_scoped_codeblock_diagnostics(tmp_path: P
     assert any("Node 'code1': CodeBlock port 'summary' data_type" in error for error in errors)
 
 
+def test_draft_mode_skips_codeblock_config_diagnostics(tmp_path: Path) -> None:
+    """bug#3: editor autosave (draft mode) must not surface CodeBlock config
+    diagnostics for a not-yet-configured block. Strict mode (run start) still
+    reports them so an incomplete graph cannot execute."""
+    _script(tmp_path, "script.zzz")
+    registry = _CodeBlockValidationRegistry()
+    workflow = WorkflowDefinition(
+        nodes=[
+            NodeDef(
+                id="code1",
+                block_type="code_block",
+                config=_node_config(
+                    tmp_path,
+                    "scripts/script.zzz",
+                    outputs=[{"name": "summary", "direction": "output", "data_type": "Image", "extension": ".txt"}],
+                ),
+            )
+        ],
+    )
+
+    strict = validate_workflow(workflow, registry=registry)
+    draft = validate_workflow(workflow, registry=registry, mode="draft")
+
+    assert any("CodeBlock script_path" in error for error in strict)
+    assert not any("CodeBlock" in error for error in draft)
+
+
 def test_validate_workflow_reports_legacy_inline_migration(tmp_path: Path) -> None:
     registry = _CodeBlockValidationRegistry()
     workflow = WorkflowDefinition(

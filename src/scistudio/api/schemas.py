@@ -395,6 +395,30 @@ class PlotCreateResponse(BaseModel):
     target: PlotTargetItem
 
 
+class PlotRelinkRequest(BaseModel):
+    """Request body for ``POST /api/plots/{plot_id}/relink`` (bug#7).
+
+    Re-points an existing plot at a new workflow output target (strict 1:1).
+    """
+
+    target_id: str = Field(description="New target id selected from GET /api/plots/targets.")
+
+
+class PlotRelinkResponse(BaseModel):
+    """Response body after relinking a plot's data source (bug#7).
+
+    ``valid`` plus ``errors``/``warnings`` reflect a fresh validation of the
+    relinked plot, so a previously broken target reports ``valid=true`` here.
+    """
+
+    plot_id: str
+    manifest_path: str
+    target: PlotTargetItem
+    valid: bool
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PlotRunResponse(BaseModel):
     """Response body for ``POST /api/plots/run``.
 
