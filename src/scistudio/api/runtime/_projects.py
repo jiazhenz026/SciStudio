@@ -364,32 +364,46 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     return candidate
 
 
-def set_mcp_port(self: ApiRuntime, port: int | None) -> None:
-    """Register the live MCP server port for publishing on project switch.
+def set_mcp_port(self: ApiRuntime, port: int | None, *, socket_path: Path | None = None) -> None:
+    """Register the live MCP transport for publishing on project switch.
 
     Called once from the FastAPI ``lifespan`` after ``MCPServer.start()``.
-    ``None`` clears the registration (used during shutdown).
+    ``None`` clears the registration when no ``socket_path`` is provided
+    (used during shutdown). On Windows, ``port`` points to the loopback MCP
+    transport. On POSIX, ``socket_path`` points to the bound Unix socket.
     """
     self._mcp_port = port
-    if port is not None and self.active_project is not None:
+    self._mcp_socket_path = socket_path
+    if self.active_project is not None:
         self._publish_mcp_port(Path(self.active_project.path))
 
 
 def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
-    """Write the live MCP port into ``<project>/.scistudio/mcp.sock.port``.
+    """Publish the live MCP transport under ``<project>/.scistudio/``.
 
     Best-effort: failures are logged and swallowed (e.g. read-only
     project root) so they cannot break ``open_project``.
     """
-    if self._mcp_port is None:
-        return
     try:
         target_dir = project_dir / ".scistudio"
         target_dir.mkdir(parents=True, exist_ok=True)
-        (target_dir / "mcp.sock.port").write_text(str(self._mcp_port), encoding="utf-8")
+        port_file = target_dir / "mcp.sock.port"
+        path_file = target_dir / "mcp.sock.path"
+        if self._mcp_port is not None:
+            port_file.write_text(str(self._mcp_port), encoding="utf-8")
+            if path_file.exists():
+                path_file.unlink()
+        elif self._mcp_socket_path is not None:
+            path_file.write_text(str(self._mcp_socket_path), encoding="utf-8")
+            if port_file.exists():
+                port_file.unlink()
+        else:
+            for stale in (port_file, path_file):
+                if stale.exists():
+                    stale.unlink()
     except OSError:
         logger.warning(
-            "ApiRuntime: could not publish MCP port to %s/.scistudio/mcp.sock.port",
+            "ApiRuntime: could not publish MCP transport to %s/.scistudio/",
             project_dir,
             exc_info=True,
         )

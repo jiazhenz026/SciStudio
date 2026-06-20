@@ -22,8 +22,10 @@ import asyncio
 import contextlib
 import io
 import json
+import os
 import socket as socket_mod
 import sys
+import tempfile
 import threading
 from pathlib import Path
 
@@ -237,6 +239,38 @@ def test_try_connect_attached_returns_none_without_socket(tmp_path: Path) -> Non
 
     project = _make_project(tmp_path)
     assert _try_connect_attached(project) is None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX socket pointer only")
+def test_try_connect_attached_uses_project_socket_pointer(tmp_path: Path) -> None:
+    """POSIX project-scope bridge discovery follows ``mcp.sock.path``.
+
+    Packaged desktop starts the backend before a project is open, so the
+    backend MCP server may be bound to a process-level socket rather than
+    ``<project>/.scistudio/mcp.sock``. The runtime publishes that actual
+    socket path through ``mcp.sock.path`` when the GUI opens a project.
+    """
+    from scistudio.cli.mcp_bridge import _try_connect_attached
+
+    project = _make_project(tmp_path)
+    actual_socket = Path(tempfile.gettempdir()) / f"mcp-{os.getpid()}-{threading.get_ident()}.sock"
+    server_sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+
+    client_sock = None
+    try:
+        if actual_socket.exists():
+            actual_socket.unlink()
+        server_sock.bind(str(actual_socket))
+        server_sock.listen(1)
+        (project / ".scistudio" / "mcp.sock.path").write_text(str(actual_socket), encoding="utf-8")
+        client_sock = _try_connect_attached(project)
+        assert client_sock is not None
+    finally:
+        if client_sock is not None:
+            client_sock.close()
+        server_sock.close()
+        if actual_socket.exists():
+            actual_socket.unlink()
 
 
 def test_attached_socket_path_matches_backend_convention(tmp_path: Path) -> None:

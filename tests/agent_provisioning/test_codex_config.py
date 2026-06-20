@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import tomllib
 from pathlib import Path
 
@@ -85,6 +86,7 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
                 # Every hook command must invoke a .claude/hooks/ script
                 # (cross-provider DRY — no Codex-specific script tree).
                 assert ".claude/hooks/" in cmd, f"hook command should target .claude/hooks/, got: {cmd!r}"
+                assert sys.executable in cmd, f"hook command should pin SciStudio Python, got: {cmd!r}"
         return names
 
     assert _script_names(pre) == expected_pre_scripts
@@ -101,6 +103,29 @@ def test_idempotent_preserves_user_managed_toml(tmp_project_dir: Path) -> None:
     written = write_codex_config(tmp_project_dir, force=False)
     assert written == []
     assert (codex_dir / "config.toml").read_text(encoding="utf-8") == user_body
+
+
+def test_existing_codex_config_upgrades_legacy_python_hook_command(tmp_project_dir: Path) -> None:
+    codex_dir = tmp_project_dir / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    legacy_body = (
+        "[features]\n"
+        "hooks = true\n"
+        "[[hooks.PreToolUse]]\n"
+        'matcher = "^Bash$"\n'
+        "[[hooks.PreToolUse.hooks]]\n"
+        'type = "command"\n'
+        'command = "python \\"$(git rev-parse --show-toplevel)/.claude/hooks/deny_scistudio_cli.py\\""\n'
+    )
+    target = codex_dir / "config.toml"
+    target.write_text(legacy_body, encoding="utf-8")
+
+    written = write_codex_config(tmp_project_dir, force=False)
+
+    assert written == [".codex/config.toml"]
+    upgraded = target.read_text(encoding="utf-8")
+    assert sys.executable in upgraded
+    assert 'command = "python \\"$(git rev-parse' not in upgraded
 
 
 def test_force_overwrites(tmp_project_dir: Path) -> None:

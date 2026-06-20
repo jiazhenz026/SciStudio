@@ -30,6 +30,7 @@ over ``~/.codex/config.toml`` for sessions opened inside this project.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 _TARGET_REL = ".codex/config.toml"
@@ -100,11 +101,22 @@ def _render_hook_command(script_name: str) -> str:
 
     On Windows the shell that executes this is whatever Codex spawns
     (PowerShell or bash via Git for Windows); `git rev-parse` works in
-    both. ``python`` is resolved from PATH; the user's project is
-    expected to have ADR-039 git auto-init so the toplevel is the
-    project root.
+    both. The Python executable is pinned to the interpreter running
+    SciStudio so hooks do not depend on a ``python`` shim being present
+    on PATH.
     """
-    return f'python "$(git rev-parse --show-toplevel)/.claude/hooks/{script_name}"'
+    return f'{_quote_shell_path(sys.executable)} "$(git rev-parse --show-toplevel)/.claude/hooks/{script_name}"'
+
+
+def _quote_shell_path(path: str | Path) -> str:
+    escaped = str(path).replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _upgrade_legacy_hook_commands(raw: str) -> str:
+    legacy = 'python "$(git rev-parse --show-toplevel)/.claude/hooks/'
+    current = f'{_quote_shell_path(sys.executable)} "$(git rev-parse --show-toplevel)/.claude/hooks/'
+    return raw.replace(_toml_escape(legacy), _toml_escape(current)).replace(legacy, current)
 
 
 def _render_hooks_block() -> str:
@@ -159,6 +171,14 @@ def write_codex_config(
     """
     dest = project_dir / _TARGET_REL
     if dest.exists() and not force:
+        try:
+            raw = dest.read_text(encoding="utf-8")
+        except OSError:
+            return []
+        upgraded = _upgrade_legacy_hook_commands(raw)
+        if upgraded != raw:
+            dest.write_text(upgraded, encoding="utf-8")
+            return [_TARGET_REL]
         return []
 
     # Local import: avoid pulling scistudio.cli.install at module load time;

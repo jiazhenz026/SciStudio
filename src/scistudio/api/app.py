@@ -170,7 +170,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.mcp_server = mcp_server
         # ADR-034: publish the live MCP port into the active project's
         # .scistudio/ so the per-project mcp-bridge can find it on (re)open.
-        runtime.set_mcp_port(mcp_server.port)
+        runtime.set_mcp_port(mcp_server.port, socket_path=mcp_server.socket_path)
     except Exception:
         import logging
 
