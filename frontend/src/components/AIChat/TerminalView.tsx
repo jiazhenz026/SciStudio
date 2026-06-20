@@ -5,7 +5,27 @@
  * - Opens a single WS for the tab's lifetime via usePtyWebSocket.
  * - Wires keystrokes -> stdin, server stdout -> term.write, exit/error ->
  *   callbacks bubbled up to TerminalTab.
- * - On container resize: fit() then send a `resize` frame with the new dims.
+ *
+ * Renderer: xterm's default DOM renderer. #1320 had switched to
+ * @xterm/addon-canvas to fix scroll ghosting, but the canvas renderer
+ * (deprecated upstream) does not repaint cleanly when the PTY viewport is
+ * resized — it left claude-code's "thinking" spinner invisible mid-drag and
+ * stamped stale horizontal rules across the buffer. Reverted to the DOM
+ * renderer, which reflows natively on resize. Its one weakness — only "dirty"
+ * cells repaint, so scrolling / re-showing leaves ghosted glyphs — is countered
+ * with an explicit refresh() on the onScroll and return-to-view paths below.
+ *
+ * Resize policy: freeze the terminal during a bottom-panel drag and refit ONCE
+ * when it settles (RESIZE_DEBOUNCE_MS). Refitting on every drag frame churns
+ * the PTY viewport and makes the TUI repaint continuously; one fit + SIGWINCH
+ * on the settled size lets it repaint cleanly a single time.
+ *
+ * Known upstream limitation (NOT a SciStudio bug): claude-code leaves ghosted
+ * horizontal rules and drops its "thinking" spinner when its window is resized
+ * mid-stream. This reproduces in a plain macOS terminal (Terminal.app / iTerm)
+ * and does NOT happen with codex in this same component — it is claude-code's
+ * own SIGWINCH redraw behaviour, which we cannot fix from the host terminal.
+ * See #1711.
  *
  * UTF-8 strings flow over the WS in both directions (xterm.js write() and
  * onData() use strings, never Buffers — confirmed by xterm docs).
@@ -16,6 +36,11 @@ import { useEffect, useRef, useState } from "react";
 
 import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
+
+// Idle delay after the last ResizeObserver callback before we refit + notify the
+// PTY. Long enough that dragging the bottom-panel splitter does not refit on
+// every frame, short enough to feel responsive once the drag stops.
+const RESIZE_DEBOUNCE_MS = 100;
 
 export interface TerminalViewProps {
   tabId: string;
@@ -108,14 +133,22 @@ export function TerminalView({
     let term: {
       write: (s: string) => void;
       onData: (cb: (s: string) => void) => { dispose: () => void };
+      onScroll: (cb: (ydisp: number) => void) => { dispose: () => void };
       open: (el: HTMLElement) => void;
       dispose: () => void;
       loadAddon: (a: unknown) => void;
+      refresh: (start: number, end: number) => void;
       cols: number;
       rows: number;
     } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
+    let onScrollDisposable: { dispose: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    let intersectionObserver: IntersectionObserver | null = null;
+    // Debounce handle that freezes the terminal while the bottom-panel splitter
+    // is dragged and refits once the drag settles. Cleared on unmount so the
+    // callback never touches a disposed terminal.
+    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
 
     const rememberInitialSize = () => {
       if (!term || term.cols <= 0 || term.rows <= 0) return;
@@ -133,6 +166,18 @@ export function TerminalView({
       send({ type: "resize", cols: next.cols, rows: next.rows });
     };
 
+    // Force a full repaint of the visible rows. Safe whenever the screen buffer
+    // is current (scroll / return-to-view) — it is NOT used on resize, where the
+    // buffer is mid-update and repainting from it would stamp stale content.
+    const repaintVisible = () => {
+      if (cancelled || !term) return;
+      try {
+        term.refresh(0, Math.max(0, term.rows - 1));
+      } catch {
+        // Ignore transient layout glitches.
+      }
+    };
+
     void (async () => {
       // Dynamic import so SSR / Vitest can mock the module without polluting
       // the JSDOM environment with canvas-heavy globals.
@@ -140,14 +185,12 @@ export function TerminalView({
       const fitMod = await import("@xterm/addon-fit");
       const searchMod = await import("@xterm/addon-search");
       const linksMod = await import("@xterm/addon-web-links");
-      const canvasMod = await import("@xterm/addon-canvas");
       if (cancelled) return;
 
       const TerminalCtor = (xtermMod as { Terminal: new (opts?: unknown) => typeof term }).Terminal;
       const FitAddon = (fitMod as { FitAddon: new () => { fit: () => void } }).FitAddon;
       const SearchAddon = (searchMod as { SearchAddon: new () => unknown }).SearchAddon;
       const WebLinksAddon = (linksMod as { WebLinksAddon: new () => unknown }).WebLinksAddon;
-      const CanvasAddon = (canvasMod as { CanvasAddon: new () => unknown }).CanvasAddon;
 
       term = new TerminalCtor({
         // xterm's default ANSI black is #2e3436 — nearly invisible on the
@@ -177,7 +220,6 @@ export function TerminalView({
       const fit = new FitAddon();
       const search = new SearchAddon();
       const links = new WebLinksAddon();
-      const canvas = new CanvasAddon();
       // Refs filled in for the onMessage closure.
       termRef.current = term;
       fitRef.current = fit;
@@ -185,15 +227,8 @@ export function TerminalView({
       term!.loadAddon(fit);
       term!.loadAddon(search);
       term!.loadAddon(links);
-      // Switch from xterm's default DOM renderer to the canvas renderer.
-      // The DOM renderer leaves cell-redraw artifacts when claude-code's
-      // alt-screen TUI scrolls (e.g. the startup banner ghosts when the
-      // user drags the scrollbar). Canvas owns the entire viewport pixel
-      // buffer so scroll always paints a clean frame. ``open()`` MUST run
-      // before ``loadAddon(canvas)`` — the addon attaches its <canvas>
-      // child to the terminal element, which only exists after open.
+      // Default DOM renderer (no @xterm/addon-canvas) — see file header.
       term!.open(container);
-      term!.loadAddon(canvas);
       try {
         fit.fit();
       } catch {
@@ -217,35 +252,115 @@ export function TerminalView({
         send({ type: "stdin", data });
       });
 
-      // Watch container size; on resize, fit() then notify the PTY.
-      // The first fire happens shortly after observe() with the initial
-      // size, which is what we want.
+      // DOM renderer only repaints "dirty" cells, so dragging the scrollbar
+      // over a TUI leaves ghosted glyphs (the #1320 symptom the canvas renderer
+      // used to hide). Force a full repaint on every scroll. Safe: scrolling
+      // does not change the buffer. A pending flag coalesces the burst to one
+      // refresh per frame.
+      let scrollRefreshScheduled = false;
+      onScrollDisposable = term!.onScroll(() => {
+        if (cancelled || !term || scrollRefreshScheduled) return;
+        scrollRefreshScheduled = true;
+        const run = () => {
+          scrollRefreshScheduled = false;
+          repaintVisible();
+        };
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(run);
+        } else {
+          run();
+        }
+      });
+
+      // Refit to the settled container size, then notify the PTY. fit() reflows
+      // the DOM renderer; the TUI repaints itself in response to the SIGWINCH.
+      // No refresh() here — at this instant the buffer is mid-update.
+      const refit = () => {
+        if (cancelled || !term) return;
+        try {
+          fit.fit();
+          if (!lastSentResizeRef.current) {
+            rememberInitialSize();
+          } else {
+            sendResizeIfChanged();
+          }
+        } catch {
+          // Ignore transient zero-size layout frames.
+        }
+      };
+
+      // Freeze during the drag, refit once it settles.
+      const scheduleRefit = () => {
+        if (resizeDebounce) clearTimeout(resizeDebounce);
+        if (typeof setTimeout === "function") {
+          resizeDebounce = setTimeout(() => {
+            resizeDebounce = null;
+            refit();
+          }, RESIZE_DEBOUNCE_MS);
+        } else {
+          refit();
+        }
+      };
+
       if (typeof ResizeObserver !== "undefined") {
         resizeObserver = new ResizeObserver(() => {
-          try {
-            fit.fit();
-            if (!lastSentResizeRef.current) {
-              rememberInitialSize();
-            } else {
-              sendResizeIfChanged();
-            }
-          } catch {
-            // Ignore transient layout glitches.
-          }
+          scheduleRefit();
         });
         resizeObserver.observe(container);
+      }
+
+      // Repaint when the terminal returns to view. The bottom panel hides
+      // inactive surfaces with `display:none` (so PTY subprocesses survive);
+      // while hidden the container has zero size and ResizeObserver does not
+      // fire, and the DOM renderer does not repaint. On re-show, refit (size may
+      // have changed while hidden) and force a full repaint so the user never
+      // sees a stale / blank frame (bug#8).
+      if (typeof IntersectionObserver !== "undefined") {
+        let wasVisible = true;
+        intersectionObserver = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          if (!entry) return;
+          if (entry.isIntersecting && !wasVisible) {
+            wasVisible = true;
+            if (cancelled || !term) return;
+            try {
+              fit.fit();
+              sendResizeIfChanged();
+            } catch {
+              // Ignore transient layout glitches.
+            }
+            repaintVisible();
+          } else if (!entry.isIntersecting) {
+            wasVisible = false;
+          }
+        });
+        intersectionObserver.observe(container);
       }
     })();
 
     return () => {
       cancelled = true;
+      if (resizeDebounce) {
+        clearTimeout(resizeDebounce);
+        resizeDebounce = null;
+      }
       try {
         onDataDisposable?.dispose();
       } catch {
         /* ignore */
       }
       try {
+        onScrollDisposable?.dispose();
+      } catch {
+        /* ignore */
+      }
+      try {
         resizeObserver?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        intersectionObserver?.disconnect();
       } catch {
         /* ignore */
       }

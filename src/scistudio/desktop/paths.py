@@ -298,16 +298,21 @@ def ensure_user_python_environment(python_executable: str | Path | None = None) 
     site_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
+    # Plugin import roots are scoped to the wrapper (and thus to the bundled
+    # interpreter) rather than the shell's global PYTHONPATH, so they never leak
+    # into conda/system python the user may also run in the terminal.
+    plugin_roots = [str(root) for root in installed_package_import_roots()]
+
     if sys.platform == "win32":
-        _write_command_wrapper(bin_dir / "python.cmd", python_path, site_dir, pip=False)
-        _write_command_wrapper(bin_dir / "python3.cmd", python_path, site_dir, pip=False)
-        _write_command_wrapper(bin_dir / "pip.cmd", python_path, site_dir, pip=True)
-        _write_command_wrapper(bin_dir / "pip3.cmd", python_path, site_dir, pip=True)
+        _write_command_wrapper(bin_dir / "python.cmd", python_path, site_dir, plugin_roots, pip=False)
+        _write_command_wrapper(bin_dir / "python3.cmd", python_path, site_dir, plugin_roots, pip=False)
+        _write_command_wrapper(bin_dir / "pip.cmd", python_path, site_dir, plugin_roots, pip=True)
+        _write_command_wrapper(bin_dir / "pip3.cmd", python_path, site_dir, plugin_roots, pip=True)
     else:
-        _write_command_wrapper(bin_dir / "python", python_path, site_dir, pip=False)
-        _write_command_wrapper(bin_dir / "python3", python_path, site_dir, pip=False)
-        _write_command_wrapper(bin_dir / "pip", python_path, site_dir, pip=True)
-        _write_command_wrapper(bin_dir / "pip3", python_path, site_dir, pip=True)
+        _write_command_wrapper(bin_dir / "python", python_path, site_dir, plugin_roots, pip=False)
+        _write_command_wrapper(bin_dir / "python3", python_path, site_dir, plugin_roots, pip=False)
+        _write_command_wrapper(bin_dir / "pip", python_path, site_dir, plugin_roots, pip=True)
+        _write_command_wrapper(bin_dir / "pip3", python_path, site_dir, plugin_roots, pip=True)
 
     return {"bin": bin_dir, "site": site_dir, "python": python_path}
 
@@ -316,16 +321,20 @@ def user_python_terminal_env(python_executable: str | Path | None = None) -> dic
     """Return environment overrides for a desktop user dependency terminal."""
     paths = ensure_user_python_environment(python_executable)
     python_bin = paths["python"].parent
-    activate_pythonpath_entries(
-        [paths["site"], *installed_package_import_roots()],
-        update_sys_path=False,
-    )
 
     path_parts = [str(paths["bin"]), str(python_bin)]
     for part in os.environ.get("PATH", "").split(os.pathsep):
         if part and part not in path_parts:
             path_parts.append(part)
 
+    # Plugin import roots are deliberately NOT injected into the shell's global
+    # PYTHONPATH. Leaking them there exposes them to every interpreter the user
+    # runs in the terminal — including conda's own python, which then imports a
+    # plugin's partially-bundled package (e.g. a ``pydantic_core`` shipped
+    # without its compiled extension) and crashes conda's entry-point loading.
+    # Plugin roots are scoped to the bundled interpreter through the bin/python
+    # wrapper (see _write_command_wrapper), so only ``python``/``pip`` invoked
+    # via the wrapper resolve them.
     return {
         "PATH": os.pathsep.join(path_parts),
         "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
@@ -336,15 +345,23 @@ def user_python_terminal_env(python_executable: str | Path | None = None) -> dic
     }
 
 
-def _write_command_wrapper(path: Path, python_path: Path, site_dir: Path, *, pip: bool) -> None:
+def _write_command_wrapper(
+    path: Path,
+    python_path: Path,
+    site_dir: Path,
+    plugin_roots: list[str],
+    *,
+    pip: bool,
+) -> None:
     if sys.platform == "win32":
         command = '"%SCISTUDIO_PYTHON%" -m pip %*' if pip else '"%SCISTUDIO_PYTHON%" %*'
+        win_plugin_prefix = "".join(f"{root};" for root in plugin_roots)
         lines = [
             "@echo off",
             f'set "SCISTUDIO_PYTHON={python_path}"',
             f'set "SCISTUDIO_USER_PYTHON_SITE={site_dir}"',
             *(['set "PIP_TARGET=%SCISTUDIO_USER_PYTHON_SITE%"', 'set "PIP_REQUIRE_VIRTUALENV=false"'] if pip else []),
-            'set "PYTHONPATH=%SCISTUDIO_USER_PYTHON_SITE%;%PYTHONPATH%"',
+            f'set "PYTHONPATH={win_plugin_prefix}%SCISTUDIO_USER_PYTHON_SITE%;%PYTHONPATH%"',
             command,
             "exit /b %ERRORLEVEL%",
         ]
@@ -360,7 +377,13 @@ def _write_command_wrapper(path: Path, python_path: Path, site_dir: Path, *, pip
                 if pip
                 else []
             ),
-            'export PYTHONPATH="${SCISTUDIO_USER_PYTHON_SITE}${PYTHONPATH:+:${PYTHONPATH}}"',
+            # Scope plugin import roots to this wrapper's interpreter only (not
+            # the shell's global PYTHONPATH). Each root is shell-quoted on the
+            # right-hand side of an assignment — never interpolated inside a
+            # double-quoted string — so paths containing spaces survive.
+            'PYTHONPATH="${SCISTUDIO_USER_PYTHON_SITE}${PYTHONPATH:+:${PYTHONPATH}}"',
+            *[f'PYTHONPATH={shlex.quote(root)}":${{PYTHONPATH}}"' for root in plugin_roots],
+            "export PYTHONPATH",
             command,
         ]
     body = "\n".join([*lines, ""])

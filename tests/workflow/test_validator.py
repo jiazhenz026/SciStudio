@@ -319,6 +319,22 @@ class TestValidatorDanglingPorts:
         errors = validate_workflow(wf, registry=reg)
         assert any("Node 'B': required input port 'in' has no incoming connection" in e for e in errors)
 
+    def test_draft_mode_skips_dangling_required_port(self) -> None:
+        """bug#3: editor autosave (draft mode) must not flag an unconnected
+        required input port; run start re-validates in strict mode."""
+        spec_b = _make_spec(
+            "consumer",
+            input_ports=[InputPort(name="in", accepted_types=[Array], required=True)],
+        )
+        reg = _registry_from_specs(spec_b)
+        wf = WorkflowDefinition(nodes=[NodeDef(id="B", block_type="consumer")])
+
+        strict = validate_workflow(wf, registry=reg)
+        draft = validate_workflow(wf, registry=reg, mode="draft")
+
+        assert any("required input port 'in'" in e for e in strict)
+        assert not any("required input port" in e for e in draft)
+
     def test_optional_port_no_edge_ok(self) -> None:
         """Optional input with no incoming edge should NOT error."""
         spec_b = _make_spec(

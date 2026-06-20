@@ -507,6 +507,97 @@ def test_validate_requires_exactly_one_selector(project: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# relink_plot (bug#7): re-point a plot at a new workflow output target (1:1).
+# ---------------------------------------------------------------------------
+
+
+def _target_id_for_node(node_id: str) -> str:
+    result = _run(list_plot_targets())
+    match = next(t for t in result.targets if t.node_id == node_id)
+    return str(match.target_id)
+
+
+def test_relink_updates_manifest_target(project: Path) -> None:
+    """relink_plot rewrites only the manifest target to the new node + port."""
+    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
+
+    _write_workflow(project, repeated=True)
+    _set_ctx(_make_runtime(project, repeated=True))
+    # Scaffold bound to node_a, keep a non-default title to prove it survives.
+    tid_a = _target_id_for_node("node_a")
+    _run(scaffold_plot(plot_id="p", target_id=tid_a, language="python", title="Keep Me"))
+
+    tid_b = _target_id_for_node("node_b")
+    outcome = relink_plot(plot_id="p", target_id=tid_b)
+
+    assert outcome.plot_id == "p"
+    assert outcome.manifest.target.node_id == "node_b"
+    assert outcome.manifest.target.output_port == "measurements"
+    # Non-target fields are preserved verbatim.
+    assert outcome.manifest.title == "Keep Me"
+    assert outcome.manifest.script.language == "python"
+    # The change is persisted to plot.yaml.
+    text = (project / "plots" / "p" / "plot.yaml").read_text(encoding="utf-8")
+    assert "node_id: node_b" in text
+    assert "title: Keep Me" in text
+
+
+def test_relink_unknown_target_raises(project: Path) -> None:
+    from scistudio.ai.agent.mcp.tools_plot.relink import PlotRelinkError, relink_plot
+
+    _set_ctx(_make_runtime(project))
+    tid = _target_id(project)
+    _run(scaffold_plot(plot_id="p", target_id=tid, language="python"))
+    with pytest.raises(PlotRelinkError, match="unknown target_id"):
+        relink_plot(plot_id="p", target_id="tgt_does_not_exist")
+    # The manifest is untouched on a failed relink.
+    text = (project / "plots" / "p" / "plot.yaml").read_text(encoding="utf-8")
+    assert "node_id: node_a" in text
+
+
+def test_relink_missing_plot_raises(project: Path) -> None:
+    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
+    from scistudio.ai.agent.mcp.tools_plot.validation import PlotNotFoundError
+
+    _set_ctx(_make_runtime(project))
+    tid = _target_id(project)
+    with pytest.raises(PlotNotFoundError):
+        relink_plot(plot_id="missing", target_id=tid)
+
+
+def test_relink_repairs_broken_target(project: Path) -> None:
+    """bug#7: a plot whose original node was replaced relinks to valid again."""
+    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
+
+    _set_ctx(_make_runtime(project))
+    tid_a = _target_id(project)
+    _run(scaffold_plot(plot_id="p", target_id=tid_a, language="python"))
+
+    # Simulate "delete old block, create a new identical one": rewrite the
+    # workflow so node_a is gone and node_new exists. The plot's old target is
+    # now broken.
+    wf = project / "workflows" / "main.yaml"
+    wf.write_text(
+        "workflow:\n  id: main\n  version: 1.0.0\n  nodes:\n"
+        "  - id: node_new\n    block_type: demo.segment\n    config:\n      label: Segment Cells\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    before = _run(validate_plot(plot_id="p"))
+    assert not before.valid
+    assert any("broken target" in e.lower() or "not found" in e.lower() for e in before.errors)
+
+    tid_new = _target_id_for_node("node_new")
+    outcome = relink_plot(plot_id="p", target_id=tid_new)
+
+    assert outcome.valid, outcome.errors
+    assert outcome.manifest.target.node_id == "node_new"
+    # A fresh validation confirms the target now resolves.
+    after = _run(validate_plot(plot_id="p"))
+    assert after.valid, after.errors
+
+
+# ---------------------------------------------------------------------------
 # run_plot_job — Python matplotlib SVG (FR-026..FR-031, SC-005, SC-006).
 # ---------------------------------------------------------------------------
 
@@ -573,10 +664,10 @@ def test_run_python_applies_publication_matplotlib_defaults(project: Path, csv_o
             "    from matplotlib.colors import to_hex\n"
             "    assert mpl.rcParams['font.family'] == ['sans-serif']\n"
             "    assert list(mpl.rcParams['font.sans-serif'])[:3] == ['Arial', 'Helvetica', 'DejaVu Sans']\n"
-            "    assert mpl.rcParams['font.size'] == 7\n"
-            "    assert mpl.rcParams['axes.titlesize'] == 7\n"
-            "    assert mpl.rcParams['legend.fontsize'] == 6\n"
-            "    assert mpl.rcParams['axes.linewidth'] == 0.5\n"
+            "    assert mpl.rcParams['font.size'] == 20\n"
+            "    assert mpl.rcParams['axes.titlesize'] == 24\n"
+            "    assert mpl.rcParams['legend.fontsize'] == 18\n"
+            "    assert mpl.rcParams['axes.linewidth'] == 1.6\n"
             "    assert mpl.rcParams['axes.spines.top'] is False\n"
             "    assert mpl.rcParams['axes.spines.right'] is False\n"
             "    assert mpl.rcParams['axes.grid'] is False\n"

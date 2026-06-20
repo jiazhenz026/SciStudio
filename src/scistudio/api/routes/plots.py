@@ -44,6 +44,8 @@ from scistudio.api.schemas import (
     PlotCreateResponse,
     PlotListItem,
     PlotListResponse,
+    PlotRelinkRequest,
+    PlotRelinkResponse,
     PlotRunRequest,
     PlotRunResponse,
     PlotTargetItem,
@@ -63,7 +65,15 @@ async def list_plots(
     node_id: Annotated[str | None, Query()] = None,
     output_port: Annotated[str | None, Query()] = None,
 ) -> PlotListResponse:
-    """List project-local plot manifests, optionally filtered to a block output."""
+    """List project-local plot manifests, optionally filtered to a block output.
+
+    Each item carries a ``broken`` flag (bug#7 / PR #1712 review): the bound
+    target (node_id + output_port) is re-resolved against its workflow so the
+    app shell can flag plots whose source block was deleted/recreated and
+    surface a relink entry point for them. Targets are discovered once per
+    workflow path and reused across plots.
+    """
+    from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
     from scistudio.ai.agent.mcp.tools_plot.validation import load_plot
 
     try:
@@ -75,6 +85,31 @@ async def list_plots(
     plots_dir = project_root / "plots"
     if not plots_dir.is_dir():
         return PlotListResponse(plots=[], count=0)
+
+    # Per-request cache: workflow_path -> set of node_ids still present in the
+    # workflow, or None when target discovery failed (then ``broken`` stays
+    # False to avoid false alarms on an unreadable workflow).
+    #
+    # Detection is node-level on purpose: the bug#7 scenario is "source block
+    # deleted/recreated" (the bound node_id vanishes). Matching node_id +
+    # output_port would false-positive on plots bound to blocks whose type is
+    # not registered in the current environment, because discovery then emits a
+    # synthetic port set that won't include the manifest's real port.
+    node_cache: dict[str, set[str] | None] = {}
+
+    def _is_broken(wf_path: str, node: str) -> bool:
+        if wf_path not in node_cache:
+            try:
+                discovered = discover_targets(workflow_path=wf_path, include_unavailable=True)
+            except Exception as exc:  # discovery is best-effort for the broken flag
+                logger.debug("list_plots: target discovery failed for %r: %s", wf_path, exc)
+                node_cache[wf_path] = None
+            else:
+                node_cache[wf_path] = {t.node_id for t in discovered}
+        nodes = node_cache[wf_path]
+        if nodes is None:
+            return False
+        return node not in nodes
 
     items: list[PlotListItem] = []
     warnings: list[str] = []
@@ -103,6 +138,7 @@ async def list_plots(
                 preferred_format=loaded.manifest.outputs.preferred_format,
                 manifest_path=_project_relative(project_root, loaded.manifest_path),
                 script_path=_project_relative(project_root, loaded.script_path),
+                broken=_is_broken(target.workflow_path, target.node_id),
             )
         )
     items.sort(key=lambda item: (item.title.lower() or item.plot_id.lower(), item.plot_id.lower()))
@@ -183,6 +219,51 @@ async def create_plot(payload: PlotCreateRequest, runtime: RuntimeDep) -> PlotCr
         bytes_written=bytes_written,
         warnings=warnings,
         target=_target_item(target),
+    )
+
+
+@router.post("/{plot_id}/relink", response_model=PlotRelinkResponse)
+async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: RuntimeDep) -> PlotRelinkResponse:
+    """Re-point an existing plot at a new workflow output target (bug#7, strict 1:1).
+
+    Rewrites only the manifest ``target`` block from the supplied ``target_id``
+    (resolved exactly like ``POST /api/plots``), re-validates the plot, and
+    returns the new target plus validation diagnostics so the UI can confirm a
+    previously broken target is now valid.
+    """
+    from scistudio.ai.agent.mcp.tools_plot.relink import PlotRelinkError, relink_plot
+    from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
+    from scistudio.ai.agent.mcp.tools_plot.validation import PlotNotFoundError
+
+    try:
+        project = runtime.require_active_project()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    try:
+        outcome = relink_plot(plot_id, payload.target_id)
+    except PlotNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PlotRelinkError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to update plot manifest: {exc}") from exc
+
+    project_root = Path(project.path).resolve()
+    # relink_plot already proved target_id resolves (else PlotRelinkError),
+    # so this re-resolution only rebuilds the full PlotTargetItem for the UI.
+    target = resolve_target_by_id(payload.target_id)
+    if target is None:  # pragma: no cover - target vanished between relink and re-resolve
+        raise HTTPException(status_code=409, detail="Plot target became unavailable during relink.")
+    return PlotRelinkResponse(
+        plot_id=outcome.plot_id,
+        manifest_path=_project_relative(project_root, outcome.manifest_path),
+        target=_target_item(target),
+        valid=outcome.valid,
+        errors=list(outcome.errors),
+        warnings=list(outcome.warnings),
     )
 
 

@@ -14,6 +14,7 @@ import type {
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
+import { RelinkPlotDialog } from "./RelinkPlotDialog";
 
 // Re-exports preserve the public surface of DataPreview.tsx for existing
 // consumers (LossySaveWarning.tsx mirrors `extractRefEntries`).
@@ -97,34 +98,43 @@ export function DataPreview({
         },
       }
     : null;
-  const [availablePlots, setAvailablePlots] = useState<PlotListItem[]>([]);
+  // bug#7 / PR #1712 review — plots are listed workflow-wide, NOT scoped to the
+  // selected node. The relink feature exists to repair a plot whose bound block
+  // was deleted and recreated (stale node_id); node-scoped listing hid exactly
+  // those broken plots (their old node can no longer be selected), so the only
+  // Relink entry point never appeared. Listing every plot keeps broken ones
+  // reachable.
+  const [workflowPlots, setWorkflowPlots] = useState<PlotListItem[]>([]);
   const [plotTarget, setPlotTarget] = useState<PreviewTarget | null>(null);
   const [plotRunError, setPlotRunError] = useState<string | null>(null);
   const [plotListError, setPlotListError] = useState<string | null>(null);
   const [plotLoading, setPlotLoading] = useState(false);
   const [plotRunningId, setPlotRunningId] = useState<string | null>(null);
+  // bug#7 — per-plot "relink data source" entry point.
+  const [relinkPlotTarget, setRelinkPlotTarget] = useState<PlotListItem | null>(null);
+  const [plotRefreshToken, setPlotRefreshToken] = useState(0);
 
   useEffect(() => {
     setPickedEntryId(null);
     setPlotTarget(null);
     setPlotRunError(null);
     setPlotRunningId(null);
+    setRelinkPlotTarget(null);
   }, [selectedNodeId]);
 
+  // bug#7 / PR #1712 review — fetch ALL plots for the workflow (no node filter)
+  // so plots whose bound block was deleted/recreated stay visible and can be
+  // relinked. This runs independently of node selection.
   useEffect(() => {
     let cancelled = false;
-    setAvailablePlots([]);
+    setWorkflowPlots([]);
     setPlotListError(null);
-    if (!selectedNodeId) {
-      setPlotLoading(false);
-      return;
-    }
     setPlotLoading(true);
     api
-      .listPlots({ workflowId, nodeId: selectedNodeId })
+      .listPlots({ workflowId })
       .then((result) => {
         if (cancelled) return;
-        setAvailablePlots(result.plots);
+        setWorkflowPlots(result.plots);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -136,7 +146,7 @@ export function DataPreview({
     return () => {
       cancelled = true;
     };
-  }, [selectedNodeId, workflowId]);
+  }, [workflowId, plotRefreshToken]);
 
   async function handlePlotRun(plot: PlotListItem) {
     setPlotRunningId(plot.plot_id);
@@ -187,13 +197,82 @@ export function DataPreview({
         </div>
       </div>
 
-      {!selectedNodeId ? (
+      {/* bug#7 / PR #1712 review — workflow-wide plot list, always visible and
+          independent of node selection. A plot bound to a deleted/recreated
+          block (broken target) can no longer be reached through its old node,
+          so listing every plot here keeps the Relink entry point available. */}
+      {workflowPlots.length > 0 || plotLoading || plotListError || plotRunError ? (
+        <div className="mt-4">
+          <p className="text-[0.65rem] uppercase tracking-[0.25em] text-stone-400">
+            Plots — this workflow
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {plotLoading ? <span className="text-xs text-stone-500">Loading plots...</span> : null}
+            {workflowPlots.map((plot) => (
+              <span
+                className="inline-flex items-center overflow-hidden rounded border border-stone-300"
+                key={plot.plot_id}
+              >
+                <button
+                  aria-label={`Run plot ${plot.title || plot.plot_id}`}
+                  className="flex items-center gap-1 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
+                  disabled={plotRunningId !== null}
+                  onClick={() => void handlePlotRun(plot)}
+                  title={
+                    plot.broken
+                      ? `Broken target: ${plot.display_label || `${plot.node_id} / ${plot.output_port}`} — relink to repair`
+                      : plot.display_label || plot.plot_id
+                  }
+                  type="button"
+                >
+                  {plot.broken ? (
+                    <span aria-label="Broken target — needs relink" className="text-amber-500">
+                      ⚠
+                    </span>
+                  ) : null}
+                  {plotRunningId === plot.plot_id
+                    ? "Running"
+                    : `Plot: ${plot.title || plot.plot_id}`}
+                </button>
+                <button
+                  aria-label={`Relink data source for plot ${plot.title || plot.plot_id}`}
+                  className="border-l border-stone-300 bg-white px-2 py-1 text-xs text-stone-500 hover:text-ink disabled:opacity-50"
+                  disabled={plotRunningId !== null}
+                  onClick={() => setRelinkPlotTarget(plot)}
+                  title="Relink data source"
+                  type="button"
+                >
+                  Relink
+                </button>
+              </span>
+            ))}
+          </div>
+          {plotListError ? (
+            <div
+              className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              role="status"
+            >
+              {plotListError}
+            </div>
+          ) : null}
+          {plotRunError ? (
+            <div
+              className="mt-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
+              role="alert"
+            >
+              {plotRunError}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!selectedNodeId && !plotTarget ? (
         <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
           Pick a block to inspect its latest outputs and cached previews.
         </div>
       ) : (
         <>
-          {outputEntryIds.length > 0 ? (
+          {selectedNodeId && outputEntryIds.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {refEntries.map((entry) => (
                 <button
@@ -222,54 +301,6 @@ export function DataPreview({
               ) : null}
             </div>
           ) : null}
-          {availablePlots.length > 0 || plotLoading || plotListError ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {plotLoading ? (
-                <span className="text-xs text-stone-500">Loading plots...</span>
-              ) : null}
-              {availablePlots.map((plot) => (
-                <button
-                  aria-label={`Run plot ${plot.title || plot.plot_id}`}
-                  className="rounded border border-stone-300 bg-white px-3 py-1 text-xs text-stone-700 disabled:opacity-50"
-                  disabled={plotRunningId !== null}
-                  key={plot.plot_id}
-                  onClick={() => void handlePlotRun(plot)}
-                  title={plot.display_label || plot.plot_id}
-                  type="button"
-                >
-                  {plotRunningId === plot.plot_id
-                    ? "Running"
-                    : `Plot: ${plot.title || plot.plot_id}`}
-                </button>
-              ))}
-              {plotTarget && outputEntryIds.length === 0 ? (
-                <button
-                  className="rounded-full bg-ink px-3 py-1 text-xs text-white"
-                  onClick={() => setPlotTarget(plotTarget)}
-                  title={plotTarget.ref}
-                  type="button"
-                >
-                  Plot artifact
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {plotListError ? (
-            <div
-              className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-              role="status"
-            >
-              {plotListError}
-            </div>
-          ) : null}
-          {plotRunError ? (
-            <div
-              className="mt-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
-              role="alert"
-            >
-              {plotRunError}
-            </div>
-          ) : null}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             <PreviewHost
               target={plotTarget ?? target}
@@ -282,6 +313,19 @@ export function DataPreview({
         </>
       )}
       {portPanel}
+      <RelinkPlotDialog
+        open={relinkPlotTarget !== null}
+        plot={relinkPlotTarget}
+        workflowId={workflowId}
+        onClose={() => setRelinkPlotTarget(null)}
+        onRelinked={(result) => {
+          setPlotRunError(
+            result.valid ? null : (result.errors[0] ?? "Relinked plot did not validate."),
+          );
+          // Refresh the plot list so the new binding (and node filter) is reflected.
+          setPlotRefreshToken((token) => token + 1);
+        }}
+      />
     </aside>
   );
 }

@@ -60,6 +60,30 @@ function emptyWorkflow(id = "main"): WorkflowResponse {
   };
 }
 
+/** Dismissable top-of-canvas error banner. Extracted to keep App() under the
+ * max-lines-per-function lint limit. */
+function AppErrorBanner({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  if (!message) return null;
+  return (
+    <div
+      className="flex items-start gap-3 border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
+      data-testid="app-error-banner"
+    >
+      <span className="flex-1 whitespace-pre-wrap">{message}</span>
+      <button
+        type="button"
+        aria-label="Dismiss error"
+        title="Dismiss"
+        data-testid="app-error-dismiss"
+        className="shrink-0 rounded px-1.5 text-base leading-none text-red-500 hover:bg-red-100 hover:text-red-700"
+        onClick={onDismiss}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   // --- Zustand selectors -------------------------------------------------
   const currentProject = useAppStore((state) => state.currentProject);
@@ -387,11 +411,7 @@ export default function App() {
             isRunning={isRunning}
           />
 
-          {lastError ? (
-            <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
-              {lastError}
-            </div>
-          ) : null}
+          <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
 
           {currentProject ? (
             <ProjectWorkspace

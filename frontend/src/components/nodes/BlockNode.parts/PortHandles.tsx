@@ -91,7 +91,10 @@ function PortRow({
   // ADR-050 §2.4 — Y comes from the square's port-rail geometry, not from a
   // measured inline-config row (the inline config strip no longer exists).
   const portTop = portRailOffset(index, portCount);
-  const side = direction === "input" ? { left: -7 } : { right: -7 };
+  // Handles hang outside the body edge with a small gap so the port dot does
+  // not sit flush against the node border (owner UX request). The dot is 14px
+  // (radius 7); -10 leaves ~3px clearance between dot inner edge and border.
+  const side = direction === "input" ? { left: -10 } : { right: -10 };
   const removeStyle =
     direction === "input" ? { left: 6, top: portTop - 1 } : { right: 6, top: portTop - 1 };
   return (

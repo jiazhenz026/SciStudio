@@ -202,10 +202,37 @@ def test_user_python_terminal_env_creates_user_wrappers(
     assert env["PIP_TARGET"] == str(site_dir)
     assert env["SCISTUDIO_USER_PYTHON_SITE"] == str(site_dir)
     assert str(bin_dir) == env["PATH"].split(os.pathsep)[0]
-    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(site_dir.resolve())
+    # The shell's PYTHONPATH must NOT gain the user site / plugin roots (only
+    # the inherited value survives) so conda/system python run in the terminal
+    # stays clean; the user site is applied inside the wrapper instead.
+    assert env["PYTHONPATH"] == "/existing"
     wrapper_text = pip_wrapper.read_text(encoding="utf-8")
     assert "-m pip" in wrapper_text
     assert str(site_dir) in wrapper_text
+
+
+def test_user_terminal_keeps_plugin_roots_out_of_shell_pythonpath(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(desktop_paths, "_platformdirs_dir", lambda kind: tmp_path / kind)
+    monkeypatch.setenv("PYTHONPATH", "/existing")
+    plugin_root = tmp_path / "plugin-pkg" / "site-packages"
+    plugin_root.mkdir(parents=True)
+    monkeypatch.setattr(desktop_paths, "installed_package_import_roots", lambda: [plugin_root])
+
+    env = desktop_paths.user_python_terminal_env(tmp_path / "bundled-python")
+
+    bin_dir = tmp_path / "data" / "plugins" / "python" / ("Scripts" if sys.platform == "win32" else "bin")
+    python_wrapper = bin_dir / ("python.cmd" if sys.platform == "win32" else "python")
+    wrapper_text = python_wrapper.read_text(encoding="utf-8")
+
+    # Plugin root reaches the bundled interpreter via the wrapper...
+    assert str(plugin_root) in wrapper_text
+    # ...but must never leak into the shell's global PYTHONPATH — that exposed it
+    # to conda's python and crashed conda entry-point loading (the bug).
+    assert str(plugin_root) not in env["PYTHONPATH"]
+    assert env["PYTHONPATH"] == "/existing"
 
 
 def test_install_archive_rejects_path_traversal(tmp_path: Path) -> None:

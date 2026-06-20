@@ -239,6 +239,46 @@ describe("DataPreview", () => {
     expect(screen.getByRole("button", { name: "Plot artifact" })).toBeInTheDocument();
   });
 
+  // bug#7 / PR #1712 review — the plot list is workflow-wide, so a plot whose
+  // bound block was deleted (its old node can no longer be selected) is still
+  // reachable for relink even with nothing / a different node selected.
+  it("lists workflow plots and opens Relink without selecting the bound node (#1712)", async () => {
+    listPlots.mockResolvedValue({
+      plots: [
+        {
+          plot_id: "p-orphan",
+          title: "Orphan",
+          workflow_id: "main",
+          node_id: "deleted-node",
+          output_port: "output",
+          display_label: "deleted-node / output",
+          language: "python",
+          preferred_format: "svg",
+          manifest_path: "plots/p-orphan/plot.yaml",
+          script_path: "plots/p-orphan/render.py",
+          broken: true,
+        },
+      ],
+      count: 1,
+      warnings: [],
+    });
+
+    // Nothing selected — the bound node was deleted and cannot be picked.
+    render(<DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />);
+
+    const relinkButton = await screen.findByRole("button", {
+      name: "Relink data source for plot Orphan",
+    });
+    expect(relinkButton).toBeInTheDocument();
+    // Broken target is flagged for the user.
+    expect(screen.getByLabelText("Broken target — needs relink")).toBeInTheDocument();
+
+    fireEvent.click(relinkButton);
+    // The relink dialog is reachable for the orphaned plot.
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Relink data source")).toBeInTheDocument();
+  });
+
   // #898 - pill labels show source filename (independent of the renderer).
   it("pill label shows source filename when framework.source is set (#898)", () => {
     render(
