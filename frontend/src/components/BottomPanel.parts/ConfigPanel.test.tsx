@@ -70,7 +70,7 @@ describe("ConfigPanel", () => {
   it("uses user-friendly empty state copy", () => {
     render(<ConfigPanel onUpdateConfig={() => {}} selectedNode={null} />);
 
-    expect(screen.getByText("Select a node to edit its settings.")).toBeInTheDocument();
+    expect(screen.getByText("Select a block to edit its settings.")).toBeInTheDocument();
     expect(screen.queryByText(/JSON|schema/i)).toBeNull();
   });
 

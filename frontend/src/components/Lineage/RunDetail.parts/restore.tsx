@@ -126,7 +126,7 @@ export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButton
     <div className="run-detail__restore" data-testid="run-detail-restore">
       <button
         type="button"
-        className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink disabled:opacity-50"
+        className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
         data-testid="run-detail-restore-button"
         disabled={disabled}
         onClick={handleClick}
@@ -136,7 +136,7 @@ export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButton
             : "No recorded git commit for this run — restore unavailable"
         }
       >
-        {busy ? "Restoring..." : "Restore this run's workflow"}
+        {busy ? "Restoring..." : "Restore workflow"}
       </button>
       {error && (
         <div

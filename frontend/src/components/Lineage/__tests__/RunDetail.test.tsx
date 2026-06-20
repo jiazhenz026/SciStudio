@@ -139,16 +139,13 @@ describe("RunDetail", () => {
     expect(screen.getByTestId("block-execution-card-be-001")).toBeInTheDocument();
   });
 
-  it("dispatches openRerunDialog when Re-run clicked", () => {
-    const spy = vi.fn();
-    useAppStore.setState({
-      selectedRunId: "r1",
-      runDetails: { r1: makeDetail() },
-      openRerunDialog: spy,
-    });
+  // #1721 — the Re-run button was removed from the RunDetail footer (Restore is
+  // now the primary, first action). The 'r' keyboard shortcut + RerunDialog are
+  // unchanged and covered by LineageTab tests; there is no footer Re-run button.
+  it("renders no Re-run button in the footer", () => {
+    useAppStore.setState({ selectedRunId: "r1", runDetails: { r1: makeDetail() } });
     render(<RunDetail />);
-    fireEvent.click(screen.getByTestId("run-detail-rerun-button"));
-    expect(spy).toHaveBeenCalledWith("r1");
+    expect(screen.queryByTestId("run-detail-rerun-button")).toBeNull();
   });
 
   it("dispatches openMethodsDialog when Export methods clicked", () => {
@@ -161,20 +158,6 @@ describe("RunDetail", () => {
     render(<RunDetail />);
     fireEvent.click(screen.getByTestId("run-detail-methods-button"));
     expect(spy).toHaveBeenCalledWith("r1");
-  });
-
-  it("disables Re-run button when run is still running", () => {
-    useAppStore.setState({
-      selectedRunId: "r1",
-      runDetails: {
-        r1: makeDetail({
-          run: makeRun({ status: "running", finished_at: null, duration_ms: null }),
-        }),
-      },
-    });
-    render(<RunDetail />);
-    const btn = screen.getByTestId("run-detail-rerun-button");
-    expect(btn.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("renders the Parent run row when parent_run_id is set", () => {

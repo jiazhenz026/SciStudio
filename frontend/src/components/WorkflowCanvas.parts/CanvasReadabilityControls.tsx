@@ -73,7 +73,7 @@ export function CanvasReadabilityControls(props: CanvasReadabilityControlsProps)
             disabled={!canFocus}
             onClick={onEnterFocus}
             aria-label="Focus on selection"
-            title={canFocus ? "Focus on selection" : "Select a node to focus"}
+            title={canFocus ? "Focus on selection" : "Select a block to focus"}
           >
             <ScanSearch className="size-3.5" />
             <span>Focus</span>

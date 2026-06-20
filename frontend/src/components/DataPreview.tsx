@@ -110,7 +110,7 @@ export function DataPreview({
   }, [plotPreviewTarget]);
 
   // #1713 — the plot result belongs to its linked block: only surface it when
-  // that block is selected (never in the "Select a node" empty state, and not
+  // that block is selected (never in the "Select a block" empty state, and not
   // while a different block is selected). `activePlot` is derived, so it stays
   // correct regardless of the order in which a Run updates the node + result.
   const plotBelongsToSelected =
@@ -141,7 +141,7 @@ export function DataPreview({
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
           <h2 className="mt-2 font-display text-2xl text-ink">
-            {selectedNodeId ? selectedNodeLabel : "Select a node"}
+            {selectedNodeId ? selectedNodeLabel : "Select a block"}
           </h2>
         </div>
       </div>

@@ -86,30 +86,47 @@ async def list_plots(
     if not plots_dir.is_dir():
         return PlotListResponse(plots=[], count=0)
 
-    # Per-request cache: workflow_path -> set of node_ids still present in the
-    # workflow, or None when target discovery failed (then ``broken`` stays
-    # False to avoid false alarms on an unreadable workflow).
+    # Per-request cache: workflow_path -> discovered targets (reused for both the
+    # ``broken`` flag and the ``output_type`` lookup), or None when target
+    # discovery failed (then ``broken`` stays False to avoid false alarms on an
+    # unreadable workflow).
     #
-    # Detection is node-level on purpose: the bug#7 scenario is "source block
-    # deleted/recreated" (the bound node_id vanishes). Matching node_id +
-    # output_port would false-positive on plots bound to blocks whose type is
-    # not registered in the current environment, because discovery then emits a
-    # synthetic port set that won't include the manifest's real port.
-    node_cache: dict[str, set[str] | None] = {}
+    # ``broken`` detection is node-level on purpose: the bug#7 scenario is
+    # "source block deleted/recreated" (the bound node_id vanishes). Matching
+    # node_id + output_port would false-positive on plots bound to blocks whose
+    # type is not registered in the current environment, because discovery then
+    # emits a synthetic port set that won't include the manifest's real port.
+    # ``output_type`` does match node_id + port, but only to *read* the type for
+    # display, returning "" (never broken) when there is no exact match.
+    discovery_cache: dict[str, list | None] = {}
 
-    def _is_broken(wf_path: str, node: str) -> bool:
-        if wf_path not in node_cache:
+    def _discover(wf_path: str) -> list | None:
+        if wf_path not in discovery_cache:
             try:
-                discovered = discover_targets(workflow_path=wf_path, include_unavailable=True)
+                discovery_cache[wf_path] = discover_targets(workflow_path=wf_path, include_unavailable=True)
             except Exception as exc:  # discovery is best-effort for the broken flag
                 logger.debug("list_plots: target discovery failed for %r: %s", wf_path, exc)
-                node_cache[wf_path] = None
-            else:
-                node_cache[wf_path] = {t.node_id for t in discovered}
-        nodes = node_cache[wf_path]
-        if nodes is None:
+                discovery_cache[wf_path] = None
+        return discovery_cache[wf_path]
+
+    def _is_broken(wf_path: str, node: str) -> bool:
+        discovered = _discover(wf_path)
+        if discovered is None:
             return False
-        return node not in nodes
+        return node not in {t.node_id for t in discovered}
+
+    def _output_type(wf_path: str, node: str, port: str) -> str:
+        # Best-effort: resolve the bound port's current core type for display.
+        # Unlike ``broken`` (node-level on purpose), this matches node + port and
+        # simply returns "" when no exact match exists, so an unregistered block
+        # type or a relinked port never shows a stale/synthetic type.
+        discovered = _discover(wf_path)
+        if discovered is None:
+            return ""
+        for t in discovered:
+            if t.node_id == node and t.output_port == port:
+                return str(getattr(t, "output_type", "") or "")
+        return ""
 
     items: list[PlotListItem] = []
     warnings: list[str] = []
@@ -139,6 +156,7 @@ async def list_plots(
                 manifest_path=_project_relative(project_root, loaded.manifest_path),
                 script_path=_project_relative(project_root, loaded.script_path),
                 broken=_is_broken(target.workflow_path, target.node_id),
+                output_type=_output_type(target.workflow_path, target.node_id, target.output_port),
             )
         )
     items.sort(key=lambda item: (item.title.lower() or item.plot_id.lower(), item.plot_id.lower()))

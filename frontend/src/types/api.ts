@@ -493,6 +493,10 @@ export interface PlotListItem {
   /** True when the bound target no longer resolves (source block deleted/
    *  recreated) — the app shell flags these for relink (bug#7 / PR #1712). */
   broken?: boolean;
+  /** Core type of the bound output port (e.g. "Spectrum"), resolved live from
+   *  the workflow. Empty when the target no longer resolves. Shown on the plot
+   *  card so the linked block info is complete. */
+  output_type?: string;
 }
 
 /** Response body for `GET /api/plots`. */

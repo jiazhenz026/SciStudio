@@ -93,6 +93,26 @@ describe("PlotsTab", () => {
     expect(screen.getByText("python")).toBeInTheDocument();
   });
 
+  it("appends the bound port type to the auto label when there is no display_label (#1721)", async () => {
+    listPlots.mockResolvedValue({
+      plots: [makePlot({ display_label: "", output_type: "Spectrum" })],
+      count: 1,
+      warnings: [],
+    });
+    render(<PlotsTab />);
+    expect(await screen.findByText("→ node-1 / output (Spectrum)")).toBeInTheDocument();
+  });
+
+  it("omits the type suffix when output_type is empty, e.g. a broken target (#1721)", async () => {
+    listPlots.mockResolvedValue({
+      plots: [makePlot({ display_label: "", output_type: "" })],
+      count: 1,
+      warnings: [],
+    });
+    render(<PlotsTab />);
+    expect(await screen.findByText("→ node-1 / output")).toBeInTheDocument();
+  });
+
   it("flags a broken plot with the needs-relink badge and banner", async () => {
     listPlots.mockResolvedValue({ plots: [makePlot({ broken: true })], count: 1, warnings: [] });
     render(<PlotsTab />);

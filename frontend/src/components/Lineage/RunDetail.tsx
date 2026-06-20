@@ -44,7 +44,6 @@ export function RunDetail(): ReactElement {
   const loading = useAppStore((s) => (selectedRunId ? s.runDetailLoading[selectedRunId] : false));
   const error = useAppStore((s) => (selectedRunId ? s.runDetailError[selectedRunId] : null));
   const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
-  const openRerunDialog = useAppStore((s) => s.openRerunDialog);
   const selectRun = useAppStore((s) => s.selectRun);
 
   if (selectedRunId === null) {
@@ -84,7 +83,6 @@ export function RunDetail(): ReactElement {
   }
 
   const run = detail.run;
-  const isRunning = run.status === "running";
   const inlineError = error ?? null;
 
   return (
@@ -119,40 +117,17 @@ export function RunDetail(): ReactElement {
         className="flex items-center gap-2 border-t border-stone-200 px-4 py-3"
         data-testid="run-detail-actions"
       >
-        <button
-          type="button"
-          className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
-          data-testid="run-detail-rerun-button"
-          aria-disabled={isRunning}
-          disabled={isRunning}
-          title={isRunning ? "Wait for run to finish" : undefined}
-          onClick={() => openRerunDialog(run.run_id)}
-        >
-          Re-run
-        </button>
-        <button
-          type="button"
-          className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink"
-          data-testid="run-detail-methods-button"
-          onClick={() => openMethodsDialog(run.run_id)}
-        >
-          Export methods
-        </button>
         {/*
-         * ADR-039 §6 Phase 4 — Restore this run's workflow.
+         * ADR-039 §6 Phase 4 — Restore this run's workflow. Owner UX
+         * (#1721): Restore is the primary action and comes first; the
+         * Re-run button was removed from this footer. The button issues a
+         * ``gitRestore`` call scoped to the run's workflow YAML at the
+         * captured ``workflow_git_commit`` SHA (ADR-038 §3.8 / ADR-039 §6
+         * Phase 4). Disabled when ``workflow_git_commit`` is null
+         * (degraded-mode run).
          *
-         * Phase 3.5 integration: the Restore affordance is rendered in
-         * the RunDetail footer alongside Re-run and Export methods. The
-         * button issues a ``gitRestore`` call scoped to the run's
-         * workflow YAML at the captured ``workflow_git_commit`` SHA,
-         * implementing the soft-restore semantics from
-         * ADR-038 §3.8 / ADR-039 §6 Phase 4. Disabled when
-         * ``workflow_git_commit`` is null (degraded-mode run).
-         *
-         * #1400 hotfix: the parent now wires ``onRestored`` so the
-         * canvas refreshes after the YAML is rewritten on disk. Without
-         * this callback the gitRestore succeeded but the canvas kept
-         * showing the in-memory snapshot from before — the WS
+         * #1400 hotfix: the parent wires ``onRestored`` so the canvas
+         * refreshes after the YAML is rewritten on disk — the WS
          * ``workflow.changed`` watcher is unreliable for git-checkout
          * file replacements on Windows (#1322). If the same workflow is
          * currently open we refetch and replace its slice in place;
@@ -180,6 +155,14 @@ export function RunDetail(): ReactElement {
             })();
           }}
         />
+        <button
+          type="button"
+          className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink"
+          data-testid="run-detail-methods-button"
+          onClick={() => openMethodsDialog(run.run_id)}
+        >
+          Export methods
+        </button>
       </footer>
     </section>
   );

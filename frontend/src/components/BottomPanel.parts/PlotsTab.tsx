@@ -79,7 +79,7 @@ export function PlotsTab() {
       }
       setPlotPreviewTarget(nextTarget);
       // #1713 followup — select the plot's linked block so the Preview header
-      // shows the block name (not "Select a node") and the result sits beside
+      // shows the block name (not "Select a block") and the result sits beside
       // its source. Skip broken plots: the bound node no longer exists.
       if (!plot.broken) {
         setSelectedNodeId(plot.node_id);
@@ -127,7 +127,15 @@ export function PlotsTab() {
           instead of truncating. language + Run + Relink sit on the bottom row. */}
       <div className="grid grid-cols-4 gap-3">
         {plots.map((plot) => {
-          const linkLabel = plot.display_label || `${plot.node_id} / ${plot.output_port}`;
+          // Show the full bound-block info: when there's no explicit
+          // display_label, append the port's core type (e.g. "(Spectrum)") so
+          // the card isn't missing the block's type. break-words on the line
+          // below lets long node ids wrap instead of clipping.
+          const linkLabel = plot.display_label
+            ? plot.display_label
+            : `${plot.node_id} / ${plot.output_port}${
+                plot.output_type ? ` (${plot.output_type})` : ""
+              }`;
           const name = plot.title || plot.plot_id;
           return (
             <div

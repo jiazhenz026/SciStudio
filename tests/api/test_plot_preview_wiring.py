@@ -260,6 +260,11 @@ def test_plot_list_route_flags_broken_target_after_node_deleted(
     assert healthy.status_code == 200, healthy.text
     p1_healthy = next(p for p in healthy.json()["plots"] if p["plot_id"] == "p1")
     assert p1_healthy["broken"] is False
+    # #1721: the bound port's core type is surfaced for the plot card. The
+    # ``demo.segment`` block is intentionally unregistered in this environment,
+    # so resolution degrades to an empty string rather than erroring.
+    assert "output_type" in p1_healthy
+    assert p1_healthy["output_type"] == ""
 
     # Delete/recreate the source block: node_a is replaced by a fresh node id,
     # so the plot's bound target no longer resolves.
@@ -274,6 +279,8 @@ def test_plot_list_route_flags_broken_target_after_node_deleted(
     assert broken.status_code == 200, broken.text
     p1_broken = next(p for p in broken.json()["plots"] if p["plot_id"] == "p1")
     assert p1_broken["broken"] is True
+    # A broken target resolves to no type; the field stays an empty string.
+    assert p1_broken["output_type"] == ""
 
 
 def test_plot_create_route_scaffolds_manifest_and_render_script(
