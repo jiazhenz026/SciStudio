@@ -1025,7 +1025,7 @@ def test_materialize_converts_parquet_dataframe_keeping_header(tmp_path: Path) -
 
     pd.DataFrame({"lambda": [400.0, 401.0], "intensity": [1.5, 2.5]}).to_parquet(src)
     env = _envelope([_df_item(src)])
-    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs", 10**9)
     new_path = Path(out["collection"]["items"][0]["_path"])
     assert new_path.suffix == ".csv" and new_path.exists()
     assert out["collection"]["items"][0]["_format"] == "csv"
@@ -1038,7 +1038,7 @@ def test_materialize_converts_npy_array_to_headerless_csv(tmp_path: Path) -> Non
     src = tmp_path / "arr.npy"
     np.save(src, np.arange(6, dtype="float64").reshape(2, 3))
     env = _envelope([_df_item(src, typ="Array", fmt="npy")])
-    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs", 10**9)
     new_path = Path(out["collection"]["items"][0]["_path"])
     assert new_path.suffix == ".csv" and new_path.exists()
     grid = np.loadtxt(new_path, delimiter=",")
@@ -1052,7 +1052,7 @@ def test_materialize_leaves_r_readable_and_unconvertible_types_untouched(tmp_pat
     text_src = tmp_path / "note.parquet"  # Text type is never converted
     text_src.write_text("hello", encoding="utf-8")
     env = _envelope([_df_item(csv_src, fmt="csv"), _df_item(text_src, typ="Text", fmt="parquet")])
-    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs", 10**9)
     assert out["collection"]["items"][0]["_path"] == str(csv_src)
     assert out["collection"]["items"][1]["_path"] == str(text_src)
 
@@ -1067,7 +1067,7 @@ def test_materialize_recurses_into_composite_slots(tmp_path: Path) -> None:
         "_path": None,
         "metadata": {"slots": {"inner": _df_item(src)}},
     }
-    out = plot_runtime._materialize_inputs_for_r(_envelope([composite]), tmp_path / "_r_inputs")
+    out = plot_runtime._materialize_inputs_for_r(_envelope([composite]), tmp_path / "_r_inputs", 10**9)
     inner = out["collection"]["items"][0]["metadata"]["slots"]["inner"]
     assert Path(inner["_path"]).suffix == ".csv" and Path(inner["_path"]).exists()
 
@@ -1075,10 +1075,39 @@ def test_materialize_recurses_into_composite_slots(tmp_path: Path) -> None:
 def test_materialize_falls_back_to_original_on_conversion_failure(tmp_path: Path) -> None:
     missing = tmp_path / "nope.parquet"  # never created → read raises
     env = _envelope([_df_item(missing)])
-    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs")
+    out = plot_runtime._materialize_inputs_for_r(env, tmp_path / "_r_inputs", 10**9)
     # No regression: the item keeps its original (unreadable) path; the R harness
     # then produces its normal "unsupported storage" error instead of crashing here.
     assert out["collection"]["items"][0]["_path"] == str(missing)
+
+
+def test_materialize_skips_over_cap_input_without_loading(tmp_path: Path) -> None:
+    """An over-cap input is left unconverted so the harness guard fires lazily.
+
+    The shim must not read an over-cap parquet/npy/zarr into the MCP process; it
+    leaves the original path so the R harness raises its standard memory-cap
+    error at open() time (mirrors the Python harness guard).
+    """
+    src = tmp_path / "big.npy"
+    np.save(src, np.arange(1000, dtype="float64"))  # 8000 bytes on disk
+    dest = tmp_path / "_r_inputs"
+    env = _envelope([_df_item(src, typ="Array", fmt="npy")])
+    out = plot_runtime._materialize_inputs_for_r(env, dest, 4096)  # cap below file size
+    # Left unconverted (original path) and nothing materialized under dest.
+    assert out["collection"]["items"][0]["_path"] == str(src)
+    assert not dest.exists() or not any(dest.iterdir())
+
+
+def test_materialize_uses_metadata_estimate_for_cap(tmp_path: Path) -> None:
+    """A small-on-disk input with an over-cap metadata estimate is not converted."""
+    import pandas as pd
+
+    src = tmp_path / "frame.parquet"
+    pd.DataFrame({"a": [1.0, 2.0]}).to_parquet(src)  # tiny on disk
+    item = _df_item(src)
+    item["metadata"] = {"shape": [10_000_000], "dtype": "float64"}  # ~80 MB estimate
+    out = plot_runtime._materialize_inputs_for_r(_envelope([item]), tmp_path / "_r_inputs", 64 * 1024 * 1024)
+    assert out["collection"]["items"][0]["_path"] == str(src)
 
 
 @pytest.fixture

@@ -357,14 +357,45 @@ def _is_r_readable_path(path_str: str | None) -> bool:
     return Path(path_str).suffix.lower() in _R_NATIVE_INPUT_EXTS
 
 
-def _materialize_inputs_for_r(envelope: dict[str, Any], dest_dir: Path) -> dict[str, Any]:
+def _input_nbytes(item: dict[str, Any], src: Path) -> int | None:
+    """Materialized-size estimate for an input: metadata shape*dtype, else disk bytes.
+
+    Reuses the same metadata fields the harness reads at ``open()`` time so the
+    shim can refuse to load an over-cap input into the MCP process. The harness
+    still enforces the cap lazily; this only stops the eager conversion from
+    bypassing it.
+    """
+    md = item.get("metadata")
+    if isinstance(md, dict):
+        shape = md.get("shape") or md.get("array_shape")
+        dtype = md.get("dtype") or md.get("array_dtype")
+        if isinstance(shape, (list, tuple)) and dtype is not None:
+            try:
+                import numpy as np
+
+                count = 1
+                for raw in shape:
+                    count *= int(raw)
+                return max(0, count) * int(np.dtype(dtype).itemsize)
+            except Exception:
+                pass
+    if src.is_file():
+        return src.stat().st_size
+    if src.is_dir():
+        return sum(c.stat().st_size for c in src.rglob("*") if c.is_file())
+    return None
+
+
+def _materialize_inputs_for_r(envelope: dict[str, Any], dest_dir: Path, max_input_bytes: int) -> dict[str, Any]:
     """Convert R-unreadable input storage (parquet/npy/npz/zarr) to CSV in-place.
 
     Walks the harness input envelope (including nested ``CompositeData`` slots)
     and, for each DataFrame/Series/Array item whose ``_path`` is not a base-R
     format, writes a CSV copy under ``dest_dir`` and repoints the item at it.
-    Conversion failures fall back to the original path so behaviour is never
-    worse than before the shim.
+    Inputs whose estimated size exceeds ``max_input_bytes`` are left unconverted
+    so the harness's own open()-time guard raises the standard memory-cap error
+    instead of this shim loading them into the MCP process. Conversion failures
+    fall back to the original path so behaviour is never worse than before.
     """
     collection = envelope.get("collection")
     if not isinstance(collection, dict):
@@ -374,11 +405,11 @@ def _materialize_inputs_for_r(envelope: dict[str, Any], dest_dir: Path) -> dict[
         return envelope
     counter = [0]
     for item in items:
-        _convert_item_for_r(item, dest_dir, counter)
+        _convert_item_for_r(item, dest_dir, counter, max_input_bytes)
     return envelope
 
 
-def _convert_item_for_r(item: Any, dest_dir: Path, counter: list[int]) -> None:
+def _convert_item_for_r(item: Any, dest_dir: Path, counter: list[int], max_input_bytes: int) -> None:
     if not isinstance(item, dict):
         return
     # Recurse into CompositeData slots first (each slot is a normalised item).
@@ -387,15 +418,22 @@ def _convert_item_for_r(item: Any, dest_dir: Path, counter: list[int]) -> None:
         slots = md.get("slots")
         if isinstance(slots, dict):
             for slot in slots.values():
-                _convert_item_for_r(slot, dest_dir, counter)
+                _convert_item_for_r(slot, dest_dir, counter, max_input_bytes)
     typ = str(item.get("type") or "DataObject")
     if typ not in _R_CONVERTIBLE_TYPES:
         return
     path_str = item.get("_path")
     if _is_r_readable_path(path_str):
         return
+    src = Path(str(path_str))
+    nbytes = _input_nbytes(item, src)
+    if nbytes is not None and nbytes > max_input_bytes:
+        # Over the plot input memory cap: do not load it here. Leave the original
+        # path so the harness raises the standard cap error lazily at open().
+        logger.debug("R plot input %r (~%d bytes) exceeds cap %d; left unconverted", path_str, nbytes, max_input_bytes)
+        return
     try:
-        csv_path = _convert_storage_to_csv(Path(str(path_str)), typ, dest_dir, counter)
+        csv_path = _convert_storage_to_csv(src, typ, dest_dir, counter)
     except Exception as exc:  # defensive: never regress, fall back to original path
         logger.warning("R plot input conversion failed for %r: %s", path_str, exc)
         return
@@ -572,8 +610,9 @@ def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float
     envelope = _input_envelope(resolved.refs, type_registry=getattr(ctx, "type_registry", None))
     if manifest.script.language == "r":
         # The R harness cannot read parquet (needs `arrow`) or npy/npz/zarr at
-        # all; convert those inputs to CSV before R runs. See _materialize_inputs_for_r.
-        envelope = _materialize_inputs_for_r(envelope, work_dir / "_r_inputs")
+        # all; convert those inputs to CSV before R runs, but never above the
+        # input memory cap. See _materialize_inputs_for_r.
+        envelope = _materialize_inputs_for_r(envelope, work_dir / "_r_inputs", max_input_bytes)
     (work_dir / _INPUTS_NAME).write_text(json.dumps(envelope), encoding="utf-8")
 
     allowed_csv = ",".join(manifest.outputs.allowed_formats)
