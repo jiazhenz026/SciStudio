@@ -1,35 +1,42 @@
-import { GitBranch, Pin, PinOff, Terminal } from "lucide-react";
+import {
+  GitBranch,
+  MessageSquare,
+  Pin,
+  PinOff,
+  ScrollText,
+  SlidersHorizontal,
+  Terminal,
+  Waypoints,
+} from "lucide-react";
 import { type ReactNode } from "react";
 
 import type { BottomTab } from "../../types/ui";
 
-// Tab labels: emoji + text for most tabs (matches existing visual style);
-// Git uses the Lucide `GitBranch` icon for a sharper, more on-brand glyph
-// rather than the U+1F500 shuffle emoji which reads as "random" and
-// renders inconsistently across OS font sets.
-const TAB_LABELS: Record<BottomTab, ReactNode> = {
-  ai: "💬 AI Chat",
-  terminal: (
+// Tab labels: a Lucide line icon + text for every tab so the glyphs read
+// consistently across OS font sets (emoji marks were replaced in the live
+// hotfix batch — they rendered inconsistently and looked off-brand).
+function tabLabel(Icon: typeof Terminal, text: string): ReactNode {
+  return (
     <span className="inline-flex items-center gap-1.5">
-      <Terminal className="h-4 w-4" aria-hidden="true" />
-      Terminal
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      {text}
     </span>
-  ),
-  config: "📋 Config",
-  logs: "📜 Logs",
+  );
+}
+
+const TAB_LABELS: Record<BottomTab, ReactNode> = {
+  ai: tabLabel(MessageSquare, "AI Chat"),
+  terminal: tabLabel(Terminal, "Terminal"),
+  config: tabLabel(SlidersHorizontal, "Config"),
+  logs: tabLabel(ScrollText, "Logs"),
   // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
   // the prior Jobs placeholder which is removed entirely.
-  lineage: "🔗 Lineage",
+  lineage: tabLabel(Waypoints, "Lineage"),
   // ADR-039 §3.5 (#972) — Git versioning surface moved out of the top
   // Toolbar into a dedicated bottom-panel tab so the commit history /
   // branch graph / merge flows are reachable without overflowing the
   // toolbar on narrow viewports.
-  git: (
-    <span className="inline-flex items-center gap-1.5">
-      <GitBranch className="h-4 w-4" aria-hidden="true" />
-      Git
-    </span>
-  ),
+  git: tabLabel(GitBranch, "Git"),
 };
 
 // Problems was removed: it duplicated the block_error rows already in Logs
@@ -38,7 +45,7 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
 // ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
 // ADR-039 §3.5 (#972) — Git tab added.
 // Hotfix: Terminal is promoted to a top-level tab alongside AI Chat.
-export const ALL_TABS: BottomTab[] = ["ai", "terminal", "config", "logs", "lineage", "git"];
+export const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "terminal", "lineage", "git"];
 
 function formatBadge(n: number): string {
   return n > 99 ? "99+" : String(n);
@@ -70,7 +77,7 @@ export function TabBar({
           const badge = badgeFor(tab);
           return (
             <button
-              className={`rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+              className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
               key={tab}
               onClick={() => onTabChange(tab)}
               type="button"

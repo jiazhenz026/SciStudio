@@ -39,12 +39,14 @@ import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
+import { usePromptInput } from "./App.parts/usePromptInput";
 import { useProjectActions } from "./App.parts/useProjectActions";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { ProjectDialog } from "./components/ProjectDialog";
 import { NewPlotDialog } from "./components/NewPlotDialog";
+import { PromptDialog } from "./components/PromptDialog";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -108,11 +110,11 @@ export default function App() {
   const addNode = useAppStore((state) => state.addNode);
   const updateNodeConfig = useAppStore((state) => state.updateNodeConfig);
   const updateNodeLayout = useAppStore((state) => state.updateNodeLayout);
+  const updateNodeSize = useAppStore((state) => state.updateNodeSize);
   const connectNodes = useAppStore((state) => state.connectNodes);
   const removeNode = useAppStore((state) => state.removeNode);
   const removeEdge = useAppStore((state) => state.removeEdge);
   const addAnnotationNode = useAppStore((state) => state.addAnnotationNode);
-  const addGroupNode = useAppStore((state) => state.addGroupNode);
   const markWorkflowSaved = useAppStore((state) => state.markWorkflowSaved);
   const undoWorkflow = useAppStore((state) => state.undoWorkflow);
   const redoWorkflow = useAppStore((state) => state.redoWorkflow);
@@ -171,6 +173,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
   const [newPlotDialogOpen, setNewPlotDialogOpen] = useState(false);
+  // Promise-based replacement for window.prompt (unsupported in Electron).
+  const { promptRequest, promptInput, clearPrompt } = usePromptInput();
 
   // Bottom-panel imperative controls + cross-component callbacks.
   const {
@@ -251,6 +255,7 @@ export default function App() {
     setLastError,
     refreshProjects,
     setBusy,
+    promptInput,
   });
   const {
     loadWorkflowById,
@@ -405,9 +410,6 @@ export default function App() {
             onAddAnnotation={() =>
               addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
             }
-            onAddGroup={() =>
-              addGroupNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
-            }
             isRunning={isRunning}
           />
 
@@ -452,6 +454,7 @@ export default function App() {
               onSelectNode={handleNodeSelect}
               onUpdateNodeConfig={updateNodeConfig}
               onUpdateNodePosition={updateNodeLayout}
+              onResizeNode={updateNodeSize}
               readability={readability}
               bottomPanelRef={bottomPanelRef}
               bottomPanelPinned={bottomPanelPinned}
@@ -503,6 +506,8 @@ export default function App() {
             selectedNodeId={selectedNodeId}
             workflowId={workflowId}
           />
+
+          <PromptDialog request={promptRequest} onClose={clearPrompt} />
 
           {/* #591/#594: Interactive block modals. */}
           <InteractiveModals />

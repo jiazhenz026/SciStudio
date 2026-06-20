@@ -1,10 +1,11 @@
 /**
- * MiniMap wrapper for WorkflowCanvas — uses resolveTypeColor to colour
- * dots by primary output type. Extracted in #1413.
+ * MiniMap wrapper for WorkflowCanvas. Live hotfix batch: minimap dots now use
+ * each block's body fill (its base-category macaron colour) so the map matches
+ * the canvas at a glance, instead of colouring by primary output type.
  */
 import { MiniMap } from "@xyflow/react";
 
-import { resolveTypeColor } from "../../config/typeColorMap";
+import { getCategoryVisual } from "../nodes/BlockNode.parts/categoryVisuals";
 import type { BlockNodeData } from "../../types/ui";
 
 export function WorkflowMiniMap() {
@@ -20,15 +21,13 @@ export function WorkflowMiniMap() {
         // ``scistudio-focus-dimmed`` class during focus post-processing.
         const dimmed =
           typeof node.className === "string" && node.className.includes("scistudio-focus-dimmed");
-        if (node.type === "_annotation" || node.type === "_group") {
+        if (node.type === "_annotation") {
           return dimmed ? "#ece9e3" : "#d6d3d1";
         }
         if (dimmed) return "#e2ded7";
         const data = node.data as BlockNodeData | undefined;
-        const color = resolveTypeColor(data?.outputPorts?.[0]?.accepted_types ?? []);
-        // Fallback DataObject gray (#e5e7eb) is nearly invisible on the
-        // light minimap background — use a darker substitute.
-        return color === "#e5e7eb" ? "#9ca3af" : color;
+        // Match the canvas: minimap dot = block body fill for its base category.
+        return getCategoryVisual(data?.category).bg;
       }}
     />
   );

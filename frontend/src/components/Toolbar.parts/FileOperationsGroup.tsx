@@ -91,9 +91,14 @@ export function FileOperationsGroup({
             <ChartLine className="size-4" />
             New plot
           </DropdownMenuItem>
+          {/* Live hotfix batch: "Install package" folded into the New menu.
+           * Disabled without a project, consistent with the other entries. */}
+          <DropdownMenuItem onClick={onInstallPackage} disabled={!currentProject}>
+            <PackagePlus className="size-4" />
+            New package
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ToolbarButton icon={PackagePlus} label="Package" onClick={onInstallPackage} />
       <ToolbarButton icon={Import} label="Import" disabled={!currentProject} onClick={onImport} />
       <ToolbarButton
         icon={Save}

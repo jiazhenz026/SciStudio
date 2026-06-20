@@ -97,9 +97,9 @@ export interface WorkflowSlice {
     defaultParams?: Record<string, unknown>,
   ) => void;
   addAnnotationNode: (position: { x: number; y: number }) => void;
-  addGroupNode: (position: { x: number; y: number }) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   updateNodeLayout: (nodeId: string, position: { x: number; y: number }) => void;
+  updateNodeSize: (nodeId: string, size: { width: number; height: number }) => void;
   /**
    * ADR-050 §3.2 / FR-022 / FR-024 — apply many node layout positions in one
    * history entry. Writes ONLY `node.layout`; used by the tidy action.

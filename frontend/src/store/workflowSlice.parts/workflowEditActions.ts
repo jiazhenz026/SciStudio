@@ -132,28 +132,7 @@ export function createAddAnnotationNode(set: Setter): WorkflowSlice["addAnnotati
         {
           id: `note-${Date.now()}`,
           block_type: "_annotation",
-          config: { params: { text: "Note" } },
-          layout: position,
-        },
-      ],
-    }));
-}
-
-export function createAddGroupNode(set: Setter): WorkflowSlice["addGroupNode"] {
-  return (position) =>
-    set((state) => ({
-      ...pushHistory(state),
-      ...markDirty(state),
-      workflowId: state.workflowId ?? "main",
-      workflowNodes: [
-        ...state.workflowNodes,
-        {
-          id: `group-${Date.now()}`,
-          block_type: "_group",
-          config: {
-            params: { title: "Group", note: "", color: "gray" },
-            style: { width: 400, height: 250 },
-          },
+          config: { params: { text: "Note" }, style: { width: 240, height: 120 } },
           layout: position,
         },
       ],
@@ -179,6 +158,39 @@ export function createUpdateNodeLayout(set: Setter): WorkflowSlice["updateNodeLa
         node.id === nodeId ? { ...node, layout: position } : node,
       ),
     }));
+}
+
+/**
+ * Persist a resizable node's width/height into `config.style` (live hotfix
+ * batch — annotation notes are now resizable). Scoped to `_annotation` nodes so
+ * a stray dimensions change on a regular block can never write a body size.
+ * markDirty without pushHistory: a resize is a single committed change, not an
+ * undo step per frame.
+ */
+export function createUpdateNodeSize(set: Setter): WorkflowSlice["updateNodeSize"] {
+  return (nodeId, size) =>
+    set((state) => {
+      const target = state.workflowNodes.find((node) => node.id === nodeId);
+      if (!target || target.block_type !== "_annotation") return {};
+      return {
+        ...markDirty(state),
+        workflowNodes: state.workflowNodes.map((node) =>
+          node.id === nodeId
+            ? {
+                ...node,
+                config: {
+                  ...node.config,
+                  style: {
+                    ...((node.config.style as Record<string, unknown> | undefined) ?? {}),
+                    width: size.width,
+                    height: size.height,
+                  },
+                },
+              }
+            : node,
+        ),
+      };
+    });
 }
 
 /**

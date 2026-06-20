@@ -20,7 +20,7 @@ export function ProjectHeader({ currentProject, workflowName, workflowDirty }: P
         <p className="font-display text-lg leading-tight">SciStudio</p>
       </div>
       <div
-        className="hidden min-w-0 shrink xl:block xl:max-w-[160px] 2xl:max-w-[200px]"
+        className="hidden min-w-0 shrink xl:block xl:max-w-[80px] 2xl:max-w-[100px]"
         data-testid="toolbar-project-meta"
       >
         <p

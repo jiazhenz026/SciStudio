@@ -5,7 +5,6 @@ import type { VersionedWorkflowResponse } from "../lib/api";
 import type { AppStore, WorkflowSlice } from "./types";
 import {
   createAddAnnotationNode,
-  createAddGroupNode,
   createAddNode,
   createConnectNodes,
   createRemoveEdge,
@@ -14,6 +13,7 @@ import {
   createUpdateNodeConfig,
   createUpdateNodeLayout,
   createUpdateNodeLayoutBatch,
+  createUpdateNodeSize,
 } from "./workflowSlice.parts/workflowEditActions";
 import { markDirty, snapshot, stateVersionOf } from "./workflowSlice.parts/workflowHelpers";
 import {
@@ -69,9 +69,9 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
     setWorkflowName: (name) => set({ workflowName: name }),
     addNode: createAddNode(set),
     addAnnotationNode: createAddAnnotationNode(set),
-    addGroupNode: createAddGroupNode(set),
     updateNodeConfig: createUpdateNodeConfig(set),
     updateNodeLayout: createUpdateNodeLayout(set),
+    updateNodeSize: createUpdateNodeSize(set),
     updateNodeLayoutBatch: createUpdateNodeLayoutBatch(set),
     connectNodes: createConnectNodes(set),
     removeNode: createRemoveNode(set),

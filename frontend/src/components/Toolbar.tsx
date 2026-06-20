@@ -58,7 +58,6 @@ interface ToolbarProps {
   onReloadBlocks: () => void;
   onStartFromSelected: () => void;
   onAddAnnotation: () => void;
-  onAddGroup: () => void;
   isRunning: boolean;
 }
 
@@ -99,7 +98,6 @@ export function Toolbar(props: ToolbarProps) {
     onReloadBlocks,
     onStartFromSelected,
     onAddAnnotation,
-    onAddGroup,
     isRunning,
   } = props;
   // Reference to silence unused-var warnings for handlers reserved for
@@ -164,7 +162,6 @@ export function Toolbar(props: ToolbarProps) {
             onDelete={onDelete}
             onReloadBlocks={onReloadBlocks}
             onAddAnnotation={onAddAnnotation}
-            onAddGroup={onAddGroup}
             onViewSource={onViewSource}
           />
         )}

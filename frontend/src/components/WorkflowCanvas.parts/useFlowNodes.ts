@@ -14,7 +14,6 @@ import type {
 import {
   buildAnnotationNode,
   buildBlockNode,
-  buildGroupNode,
   computeUpstreamOmeFields,
   defaultLayout,
   paramsOf,
@@ -46,6 +45,8 @@ export interface UseFlowNodesOpts {
   selectedNodeId: string | null;
   blockOutputs?: Record<string, Record<string, unknown>>;
   dragPositions: Record<string, { x: number; y: number }>;
+  /** Live size during a NodeResizer drag (keyed by node id). */
+  dragSizes: Record<string, { width: number; height: number }>;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   makeOnRun: (nodeId: string) => () => void;
   makeOnRestart: (nodeId: string) => () => void;
@@ -73,6 +74,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     selectedNodeId,
     blockOutputs,
     dragPositions,
+    dragSizes,
     onUpdateNodeConfig,
     makeOnRun,
     makeOnRestart,
@@ -83,7 +85,10 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
   } = opts;
 
   return useMemo(() => {
-    return nodes.map((node, index) => {
+    // The group feature was removed; drop any `_group` node still persisted in
+    // an older test workflow so it does not render as a default React Flow box.
+    const visibleNodes = nodes.filter((node) => node.block_type !== "_group");
+    return visibleNodes.map((node, index) => {
       const storePos = node.layout ?? defaultLayout(index);
       const position = dragPositions[node.id] ?? storePos;
       const params = paramsOf(node);
@@ -92,15 +97,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         return buildAnnotationNode({
           node,
           position,
-          params,
-          selectedNodeId,
-          onUpdateNodeConfig,
-        });
-      }
-      if (node.block_type === "_group") {
-        return buildGroupNode({
-          node,
-          position,
+          size: dragSizes[node.id],
           params,
           selectedNodeId,
           onUpdateNodeConfig,
@@ -146,6 +143,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     blockErrorSummaries,
     blockOutputs,
     dragPositions,
+    dragSizes,
     edges,
     makeOnDelete,
     makeOnErrorClick,

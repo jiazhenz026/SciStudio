@@ -90,6 +90,7 @@ export interface ProjectWorkspaceProps {
   onSelectNode: (nodeId: string | null) => void;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
+  onResizeNode: (nodeId: string, size: { width: number; height: number }) => void;
   /** ADR-050 §3 — focus-mode + tidy-layout wiring, grouped into one prop. */
   readability: CanvasReadabilityWiring;
   // Bottom panel
@@ -189,6 +190,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     onSelectNode,
     onUpdateNodeConfig,
     onUpdateNodePosition,
+    onResizeNode,
     blockSchemas,
     readability,
   } = props;
@@ -242,6 +244,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       onSelectNode={onSelectNode}
       onUpdateNodeConfig={onUpdateNodeConfig}
       onUpdateNodePosition={onUpdateNodePosition}
+      onResizeNode={onResizeNode}
       schemas={blockSchemas}
       selectedNodeId={selectedNodeId}
       focusMode={readability.focusMode}

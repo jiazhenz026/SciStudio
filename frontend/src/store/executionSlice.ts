@@ -53,13 +53,11 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
     }),
   appendLog: (entry) =>
     set((state) => {
-      // Coupling the unread badge with the actual append fixes the
-      // "8 unread but Logs panel is empty" mismatch: previously the WS
-      // handler bumped ``unreadLogsCount`` for every ``block_*`` /
-      // ``workflow_*`` event regardless of whether a log entry was
-      // produced. Now the badge increments exactly when a row is added,
-      // so badge count = unread rows.
-      const shouldBump = state.activeBottomTab !== "logs";
+      // Live hotfix batch: the unread badge now counts ONLY unread errors —
+      // info rows were noisy. Bump iff this is an error row and the user is not
+      // already on the Logs tab. (Coupling the badge to an actual appended row
+      // also avoids the old "8 unread but Logs panel is empty" mismatch.)
+      const shouldBump = entry.level === "error" && state.activeBottomTab !== "logs";
       return {
         logEntries: [...state.logEntries, entry].slice(-400),
         ...(shouldBump ? { unreadLogsCount: state.unreadLogsCount + 1 } : {}),

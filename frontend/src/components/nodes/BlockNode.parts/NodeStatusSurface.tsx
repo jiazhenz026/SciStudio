@@ -1,6 +1,6 @@
 // ADR-050 §2.5 — unified node status surface.
 //
-// A single fixed-geometry surface in the top-right corner of the square node
+// A single fixed-geometry surface in the bottom-right corner of the square node
 // that represents BOTH the runtime state (idle/ready/running/paused/done/
 // error/cancelled/skipped) AND the problem severity (none/warning/error).
 //
@@ -148,9 +148,9 @@ export function NodeStatusSurface({
       aria-label={`${style.label} status`}
       title={detail}
       // Absolute corner placement: the surface is laid out relative to the
-      // square body and overlaps its top-right corner. It contributes ZERO to
+      // square body and overlaps its bottom-right corner. It contributes ZERO to
       // the node's measured geometry (FR-004/FR-011).
-      className="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm backdrop-blur-[1px]"
+      className="pointer-events-none absolute right-1 bottom-1 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm backdrop-blur-[1px]"
       style={{
         backgroundColor: STATUS_BADGE_BACKGROUND,
         borderColor: STATUS_BADGE_BORDER,
@@ -179,7 +179,7 @@ export function NodeStatusSurface({
         data-testid="node-status-surface-button"
         aria-label={kind === "error" ? "Open error logs" : "Open warning detail"}
         title={detail}
-        className="nodrag absolute right-1 top-1 h-5 w-5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+        className="nodrag absolute right-1 bottom-1 h-5 w-5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
         onClick={(event) => {
           event.stopPropagation();
           activate();

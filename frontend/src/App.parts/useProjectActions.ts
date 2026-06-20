@@ -11,6 +11,7 @@
 
 import { useCallback } from "react";
 
+import type { PromptRequest } from "../components/PromptDialog";
 import { ApiError, api } from "../lib/api";
 import { probeProjectFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
@@ -38,6 +39,8 @@ export interface ProjectActionsDeps {
   setLastError: (message: string | null) => void;
   refreshProjects: () => Promise<void>;
   setBusy: (busy: boolean) => void;
+  /** Promise-based prompt (window.prompt is unsupported in Electron). */
+  promptInput: (opts: Omit<PromptRequest, "resolve">) => Promise<string | null>;
 }
 
 export interface ProjectActions {
@@ -218,23 +221,27 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 interface FileActionDeps {
   currentProject: ProjectResponse | null;
   openFileTab: ProjectActionsDeps["openFileTab"];
+  promptInput: ProjectActionsDeps["promptInput"];
 }
 
-function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
+function useFileActions({ currentProject, openFileTab, promptInput }: FileActionDeps) {
   /** ADR-036 §3.7 / §3.12 (I36c) — "New custom block". */
   const createNewCustomBlock = useCallback(async () => {
     if (!currentProject) return;
-    const stem = window.prompt("New custom block filename (without .py):", "my_block");
+    const stem = await promptInput({
+      title: "New custom block",
+      label: "Filename (without .py)",
+      defaultValue: "my_block",
+      validate: (value) => {
+        if (!value) return "Filename must not be empty.";
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+          return "Filename must be a Python identifier (letters, digits, underscores).";
+        }
+        return null;
+      },
+    });
     if (stem === null) return;
-    const trimmed = stem.trim();
-    if (!trimmed) {
-      window.alert("Filename must not be empty.");
-      return;
-    }
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
-      window.alert("Filename must be a Python identifier (letters, digits, underscores).");
-      return;
-    }
+    const trimmed = stem;
     const filePath = `blocks/${trimmed}.py`;
     // Audit 2026-05-14 P1 #2 — probe before PUT.
     const probe = await probeProjectFileExistence(currentProject.id, filePath);
@@ -256,24 +263,25 @@ function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
       const message = error instanceof Error ? error.message : String(error);
       window.alert(`Failed to create custom block: ${message}`);
     }
-  }, [currentProject, openFileTab]);
+  }, [currentProject, openFileTab, promptInput]);
 
   /** ADR-036 §3.7 / §3.12 (I36c) — "New note" (markdown). */
   const createNewNote = useCallback(async () => {
     if (!currentProject) return;
-    const stem = window.prompt("New note filename (without .md):", "note");
+    const stem = await promptInput({
+      title: "New note",
+      label: "Filename (without .md)",
+      defaultValue: "note",
+      validate: (value) => {
+        if (!value) return "Filename must not be empty.";
+        if (!/^[A-Za-z0-9._-]+$/.test(value)) {
+          return "Note filename may only contain letters, digits, underscores, dots, and hyphens.";
+        }
+        return null;
+      },
+    });
     if (stem === null) return;
-    const trimmed = stem.trim();
-    if (!trimmed) {
-      window.alert("Filename must not be empty.");
-      return;
-    }
-    if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
-      window.alert(
-        "Note filename may only contain letters, digits, underscores, dots, and hyphens.",
-      );
-      return;
-    }
+    const trimmed = stem;
     const dir = await ensureNewNoteDirectory(currentProject.id, trimmed);
     if (!dir.ok) {
       window.alert(dir.message);
@@ -298,14 +306,21 @@ function useFileActions({ currentProject, openFileTab }: FileActionDeps) {
       const message = error instanceof Error ? error.message : String(error);
       window.alert(`Failed to create note: ${message}`);
     }
-  }, [currentProject, openFileTab]);
+  }, [currentProject, openFileTab, promptInput]);
 
   return { createNewCustomBlock, createNewNote };
 }
 
 export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
-  const { currentProject, openTab, openFileTab, resetExecution, setCurrentProject, setLastError } =
-    deps;
+  const {
+    currentProject,
+    openTab,
+    openFileTab,
+    resetExecution,
+    setCurrentProject,
+    setLastError,
+    promptInput,
+  } = deps;
 
   const { loadWorkflowForProject, loadWorkflowById } = useWorkflowLoaders({
     openTab,
@@ -321,15 +336,20 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
   const { createNewCustomBlock, createNewNote } = useFileActions({
     currentProject,
     openFileTab,
+    promptInput,
   });
 
-  const newWorkflow = useCallback(() => {
-    const name = window.prompt("Workflow name:", "Untitled");
+  const newWorkflow = useCallback(async () => {
+    const name = await promptInput({
+      title: "New workflow",
+      label: "Workflow name",
+      defaultValue: "Untitled",
+    });
     if (name === null) return; // cancelled
     const id = name.trim() || "Untitled";
     openTab(emptyWorkflow(id));
     resetExecution();
-  }, [openTab, resetExecution]);
+  }, [openTab, resetExecution, promptInput]);
 
   const importWorkflow = useCallback(async () => {
     if (!currentProject) return;

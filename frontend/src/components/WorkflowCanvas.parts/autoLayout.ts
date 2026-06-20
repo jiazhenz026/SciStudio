@@ -23,7 +23,13 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import type { ElkNode, LayoutOptions } from "elkjs/lib/elk-api";
 
 import type { WorkflowEdge, WorkflowNode } from "../../types/api";
-import { HIGH_DEGREE_CLEARANCE, LAYER_GAP, NODE_SIZE, SIBLING_GAP } from "./layoutConstants";
+import {
+  COMPONENT_GAP,
+  HIGH_DEGREE_CLEARANCE,
+  LAYER_GAP,
+  NODE_SIZE,
+  SIBLING_GAP,
+} from "./layoutConstants";
 
 export interface XY {
   x: number;
@@ -59,6 +65,9 @@ function layoutOptions(): LayoutOptions {
     "elk.direction": "RIGHT",
     "elk.layered.spacing.nodeNodeBetweenLayers": String(LAYER_GAP),
     "elk.spacing.nodeNode": String(SIBLING_GAP),
+    // Keep disconnected blocks from packing tight enough that their port
+    // glyphs overlap after a tidy (ADR-050 §3.2).
+    "elk.spacing.componentComponent": String(COMPONENT_GAP),
     "elk.spacing.edgeNode": String(HIGH_DEGREE_CLEARANCE),
     "elk.layered.spacing.edgeNodeBetweenLayers": String(HIGH_DEGREE_CLEARANCE),
     // Deterministic crossing minimization + node placement so repeated runs on

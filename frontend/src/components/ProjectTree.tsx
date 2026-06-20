@@ -57,7 +57,7 @@ function TreeNodeRow({
 }) {
   return (
     <button
-      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs hover:bg-stone-100"
+      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-sm hover:bg-stone-100"
       onClick={() => {
         if (node.type === "directory") onToggle(node);
       }}
