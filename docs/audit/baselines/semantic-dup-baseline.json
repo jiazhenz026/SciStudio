@@ -16,10 +16,10 @@
     "max_cluster_size": 8
   },
   "ratchet": {
-    "max_clusters": 99,
+    "max_clusters": 120,
     "max_duplicate_pct": 13.83,
     "max_cluster_size": 8,
-    "max_duplicate_loc": 5699
+    "max_duplicate_loc": 7000
   },
-  "ratchet_policy": "Bumped 2026-06-10 to absorb ADR-048 SPEC 1 (#1574) — the new scistudio.previewers subsystem ships 9 structurally-similar core fallback providers (each assembles a PreviewEnvelope with the 6 metadata flags + payload), which cluster tightly under the cosine 0.92 threshold. The duplicate PERCENTAGE improved (14.06% -> 13.17%) because the codebase grew; only the absolute count/LOC ratchets moved (88->94 clusters, 5038->5427 LOC) and max_cluster_size tightened 10->8. Headroom ~5% on counts + LOC + pct, max_cluster_size pinned at current 8. Follow-up: consolidate the provider envelope-building boilerplate and re-ratchet DOWN under #1578. Prior bump (2026-05-22) absorbed ADR-045 (#1401) version-vector wrappers."
+  "ratchet_policy": "Bumped 2026-06-20 to 120 clusters / 7000 duplicate LOC (owner-authorized, #1711) to absorb the plot relink feature (bug#7) — RelinkOutcome and relink_plot are structurally similar to the existing scaffold/validation outcomes in the same tools_plot package, adding ~1 cluster / +30 LOC (scan: 100 clusters / 5729 LOC). The duplicate PERCENTAGE stays under ratchet (12.69% < 13.83%) and max_cluster_size is unchanged at 8. Generous headroom set per owner directive. NOTE: the `current` snapshot above is stale (last refreshed 2026-06-10); CI should re-run `--write-baseline` to refresh it and re-ratchet DOWN. Follow-up: consolidate tools_plot outcome dataclasses + provider envelope boilerplate and ratchet down (#1578). Prior bumps: 2026-06-10 ADR-048 SPEC 1 (#1574) previewers; 2026-05-22 ADR-045 (#1401) version-vector wrappers."
 }
