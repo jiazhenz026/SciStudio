@@ -62,13 +62,7 @@ function emptyWorkflow(id = "main"): WorkflowResponse {
 
 /** Dismissable top-of-canvas error banner. Extracted to keep App() under the
  * max-lines-per-function lint limit. */
-function AppErrorBanner({
-  message,
-  onDismiss,
-}: {
-  message: string | null;
-  onDismiss: () => void;
-}) {
+function AppErrorBanner({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
   if (!message) return null;
   return (
     <div

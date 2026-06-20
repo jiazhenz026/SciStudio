@@ -308,7 +308,7 @@ export function DataPreview({
         onClose={() => setRelinkPlotTarget(null)}
         onRelinked={(result) => {
           setPlotRunError(
-            result.valid ? null : result.errors[0] ?? "Relinked plot did not validate.",
+            result.valid ? null : (result.errors[0] ?? "Relinked plot did not validate."),
           );
           // Refresh the plot list so the new binding (and node filter) is reflected.
           setPlotRefreshToken((token) => token + 1);

@@ -21,9 +21,7 @@ function describePlotTarget(target: PlotTargetItem): string {
 }
 
 function orderedPlotTargets(targets: PlotTargetItem[]): PlotTargetItem[] {
-  return [...targets].sort((a, b) =>
-    describePlotTarget(a).localeCompare(describePlotTarget(b)),
-  );
+  return [...targets].sort((a, b) => describePlotTarget(a).localeCompare(describePlotTarget(b)));
 }
 
 /**
