@@ -94,9 +94,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "0a25758c",
+    "sha": "1d27bee7",
     "shas": [
-      "0a25758c"
+      "1d27bee7"
     ],
     "trailers": []
   },
@@ -895,6 +895,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.502993Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.512180Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.521522Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.530683Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.540108Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.550237Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.561183Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.573045Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.583631Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:05:52.601352Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -907,7 +967,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "1948ab2c18fafeb54c82c77646a2f00665e16332",
     "base_sha": "1948ab2c",
     "changed_files": [
       ".workflow/records/1733-alpha-release-audit.json",
@@ -922,9 +982,9 @@
       "docs/planning/alpha-release-audit-20260621-checklist.md",
       "docs/planning/alpha-release-audit-20260621-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:6415d707cc53f1286ac83cd3a92afe4c1c36e2a3c9af90dcc6d1fea2796b2f16",
+    "diff_fingerprint": "sha256:ecfae6d9e99756e34c21a2ca3b139901c50ba2ce322038cee41ade80c855761e",
     "head": "HEAD",
-    "head_sha": "d116d302",
+    "head_sha": "1d27bee7",
     "surfaces": {
       "docs": 10,
       "frontend": 0,
@@ -1042,15 +1102,21 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-21T08:05:52.601394Z",
+      "diff_fingerprint": "sha256:ecfae6d9e99756e34c21a2ca3b139901c50ba2ce322038cee41ade80c855761e",
+      "mode": "ci",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1733-alpha-release-audit",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "full_audit"
-    ],
+    "checks": [],
     "docs": [],
     "guards": [
       "core_change_guard",
