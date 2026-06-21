@@ -31,13 +31,47 @@ function installPipeGuard(stream) {
 installPipeGuard(process.stdout);
 installPipeGuard(process.stderr);
 
+const MAX_LOG_BYTES = 10 * 1024 * 1024; // rotate the desktop log at ~10 MB
+
+function desktopLogDir() {
+  // #1741: align with the Python logs_dir() so desktop + backend logs co-locate.
+  // app.getPath("logs") resolves to ~/Library/Logs/SciStudio (macOS),
+  // %APPDATA%/SciStudio/logs (Windows), ~/.config/SciStudio/logs (Linux). Falls
+  // back to the temp dir before the app is ready.
+  try {
+    return app.isReady() ? app.getPath("logs") : os.tmpdir();
+  } catch {
+    return os.tmpdir();
+  }
+}
+
+function logFilePath() {
+  return path.join(desktopLogDir(), "scistudio-desktop.log");
+}
+
+function rotateIfNeeded(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size >= MAX_LOG_BYTES) {
+      const rotated = `${filePath}.1`;
+      try {
+        fs.rmSync(rotated, { force: true });
+      } catch {
+        // Rotation is best-effort.
+      }
+      fs.renameSync(filePath, rotated);
+    }
+  } catch {
+    // File may not exist yet, or stat/rename failed; ignore.
+  }
+}
+
 function safeWrite(stream, message) {
   const line = `${message}\n`;
   try {
-    fs.appendFileSync(
-      path.join(app.isReady() ? app.getPath("userData") : os.tmpdir(), "scistudio-desktop.log"),
-      line
-    );
+    const filePath = logFilePath();
+    rotateIfNeeded(filePath);
+    fs.appendFileSync(filePath, line);
   } catch {
     // Best-effort diagnostic log only.
   }
@@ -243,7 +277,10 @@ function runtimeEnv() {
     PATH: pathEntries.filter(Boolean).join(path.delimiter),
     PYTHONPATH: pythonPathEntries.join(path.delimiter),
     SCISTUDIO_BUNDLED: "1",
-    SCISTUDIO_DESKTOP_RESOURCES: resources
+    SCISTUDIO_DESKTOP_RESOURCES: resources,
+    // #1741: route backend logs to the same directory as the desktop log so the
+    // diagnostic bundle captures both the Electron and Python sides.
+    SCISTUDIO_LOG_DIR: desktopLogDir()
   };
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
@@ -571,6 +608,16 @@ function createWindow(url) {
     mainWindow = null;
   });
 
+  // #1741: capture renderer-process console output so frontend logs persist in
+  // a packaged app, where beta testers have no DevTools to read.
+  mainWindow.webContents.on("console-message", (_event, level, message, lineNumber, sourceId) => {
+    const tag = level >= 3 ? "error" : level === 2 ? "warn" : "info";
+    safeWrite(
+      level >= 2 ? process.stderr : process.stdout,
+      `[renderer:${tag}] ${message} (${sourceId}:${lineNumber})`
+    );
+  });
+
   loadBeforeShowing(mainWindow, url);
 }
 
@@ -633,4 +680,21 @@ app.on("activate", () => {
   if (mainWindow) {
     mainWindow.show();
   }
+});
+
+// #1741: persist crashes that would otherwise vanish in a packaged app.
+process.on("uncaughtException", (error) => {
+  safeError(`[scistudio] uncaughtException: ${error instanceof Error ? error.stack : String(error)}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  safeError(`[scistudio] unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`);
+});
+
+app.on("render-process-gone", (_event, _webContents, details) => {
+  safeError(`[scistudio] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`);
+});
+
+app.on("child-process-gone", (_event, details) => {
+  safeError(`[scistudio] child-process-gone: type=${details.type} reason=${details.reason}`);
 });

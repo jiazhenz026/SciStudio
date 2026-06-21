@@ -31,9 +31,11 @@ class TestCreateApp:
         assert app.title == "SciStudio API"
 
     def test_app_version(self) -> None:
-        """App has the expected version string."""
+        """App version derives from the single source of truth (#1742)."""
+        from scistudio.version import get_version
+
         app = create_app()
-        assert app.version == "0.1.0"
+        assert app.version == get_version().pep440
 
 
 class TestLifespan:

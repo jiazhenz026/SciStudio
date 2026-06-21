@@ -48,7 +48,9 @@ def test_no_stray_files_in_package_root() -> None:
 
     Anything else stays in a subpackage.
     """
-    allowed = {"__init__.py", "__main__.py"}
+    # #1742: _version.py (single source) + version.py (deriver) are intentional
+    # top-level modules imported very early by __init__.
+    allowed = {"__init__.py", "__main__.py", "_version.py", "version.py"}
     py_files = sorted(f.name for f in SRC_ROOT.iterdir() if f.is_file() and f.suffix == ".py")
     stray = [f for f in py_files if f not in allowed]
     assert not stray, f"Found unexpected files in package root: {stray}"
