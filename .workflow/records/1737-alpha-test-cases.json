@@ -1,0 +1,44 @@
+{
+  "branch": "guided/alpha-test-cases-20260621",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1737,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build alpha pre-release manual + automated test suite: (1) IO load+save coverage data + roundtrip tests for all in-scope core/imaging/spectroscopy types x extensions, 10 samples/slot single+collection; (2) AppBlock/CodeBlock builtin block cases; (3) 67 process-block behavior cases + goldens. Data in test project; automated tests in repo PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1737-alpha-test-cases",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "a546c144-dd20-46e1-8097-c6eaa932b9e4",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
