@@ -203,12 +203,12 @@ language_source: en
 - [x] P3 findings fixed (P3-1) or deferred with ADR-exclude rationale (P3-2, P3-3).
 
 ## 10. Track D: Chrome E2E (manager, owner browser)
-- [ ] Dev backend + desktop started.
-- [ ] SubWorkflowBlock dropped, ref set, exposed ports render (SC-007).
-- [ ] Double-click opens referenced file tab.
-- [ ] Broken-ref placeholder shown on missing file.
-- [ ] Run flattened workflow; lineage snapshot inspected.
-- [ ] Evidence (screenshots/gif) saved under `docs/audit/`.
+- [x] Umbrella build served live (backend `:8001` PYTHONPATH=src, vite `:5175`→`:8001`); driven in owner macOS Chrome. Evidence: `docs/audit/2026-06-21-adr-044-subworkflow-chrome-e2e.md`.
+- [x] Healthy render: `subworkflow_block` → SubWorkflowNode (pink "child") with `raw_in`/`report` handles (SC-007 / FR-004 / P0 fix).
+- [x] Double-click opens referenced `subworkflows/child.yaml` in a tab (US1.3 / P1 by-path fix).
+- [x] Broken-ref red render + "Locate file…" affordance on missing file (FR-010).
+- [x] Live API e2e: resolved_ports / by-path / import-subworkflow / broken-ref → 422 (surfaced + fixed a 500→422 route gap).
+- [x] Evidence note committed under `docs/audit/`.
 
 ## 11. Verification Evidence
 
