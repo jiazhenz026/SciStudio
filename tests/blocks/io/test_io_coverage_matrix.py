@@ -153,17 +153,39 @@ def _load(path: Path, target: type, core_type: str, ext: str) -> Any:
     return reconstruct_from_file(path, target, registry=REG)
 
 
+def _assert_table_values(loaded_tbl: Any, src_tbl: Any) -> None:
+    """Compare two Arrow tables by column names AND values (numeric-tolerant)."""
+    assert isinstance(loaded_tbl, pa.Table), f"reload payload is {type(loaded_tbl).__name__}, not a Table"
+    assert isinstance(src_tbl, pa.Table)
+    assert sorted(loaded_tbl.column_names) == sorted(src_tbl.column_names), (
+        f"columns {loaded_tbl.column_names} != {src_tbl.column_names}"
+    )
+    for col in src_tbl.column_names:
+        got = loaded_tbl.column(col).to_pylist()
+        want = src_tbl.column(col).to_pylist()
+        assert len(got) == len(want), f"column {col}: length {len(got)} != {len(want)}"
+        non_null = [x for x in want if x is not None]
+        if non_null and all(isinstance(x, (int, float)) for x in non_null):
+            np.testing.assert_allclose(
+                [float(x) for x in got],
+                [float(x) for x in want],
+                rtol=1e-6,
+                atol=1e-9,
+                err_msg=f"column {col!r} values differ",
+            )
+        else:
+            assert got == want, f"column {col!r} values differ: {got} != {want}"
+
+
 def _assert_invariant(core_type: str, src: Any, loaded: Any) -> None:
     assert type(loaded).__name__ == core_type, f"{core_type}: reload type {type(loaded).__name__}"
     if core_type == "Array":
-        # Compare the materialised payload: zarr reload restores data via
-        # to_memory() but not the .shape attribute (FIND-D in FINDINGS.md).
-        assert np.asarray(loaded.to_memory()).shape == np.asarray(src.to_memory()).shape
-    elif core_type == "DataFrame":
-        assert sorted(loaded.columns or []) == sorted(src.columns or [])
-        assert loaded.row_count == src.row_count
-    elif core_type == "Series":
-        assert loaded.length == src.length
+        # Compare payload values, not just shape: a saver that preserves shape
+        # but corrupts values must fail. zarr restores data via to_memory() even
+        # though it drops the .shape attribute (FIND-D); the data must be intact.
+        np.testing.assert_array_equal(np.asarray(loaded.to_memory()), np.asarray(src.to_memory()))
+    elif core_type in ("DataFrame", "Series"):
+        _assert_table_values(loaded.get_in_memory_data(), src.get_in_memory_data())
     elif core_type == "Text":
         assert loaded.content == src.content
 

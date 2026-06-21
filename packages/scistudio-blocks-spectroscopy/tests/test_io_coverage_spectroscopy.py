@@ -73,6 +73,38 @@ def _load_spectrum_one(path: Path) -> Spectrum:
     return next(iter(LoadSpectrum().load(BlockConfig(params={"path": str(path)}))))
 
 
+def _assert_table_values(loaded_tbl, src_tbl) -> None:
+    """Compare two Arrow tables by column names AND values (numeric-tolerant)."""
+    assert sorted(loaded_tbl.column_names) == sorted(src_tbl.column_names), (
+        f"columns {loaded_tbl.column_names} != {src_tbl.column_names}"
+    )
+    for col in src_tbl.column_names:
+        got = loaded_tbl.column(col).to_pylist()
+        want = src_tbl.column(col).to_pylist()
+        assert len(got) == len(want), f"column {col}: length {len(got)} != {len(want)}"
+        non_null = [x for x in want if x is not None]
+        if non_null and all(isinstance(x, (int, float)) for x in non_null):
+            np.testing.assert_allclose(
+                [float(x) for x in got],
+                [float(x) for x in want],
+                rtol=1e-6,
+                atol=1e-9,
+                err_msg=f"column {col!r} values differ",
+            )
+        else:
+            assert got == want, f"column {col!r} values differ: {got} != {want}"
+
+
+def _assert_dataset_equiv(src: SpectralDataset, reloaded: SpectralDataset) -> None:
+    """Index + spectra tables AND typed Meta must survive the round-trip."""
+    src_idx, src_spectra = _support.dataset_frames(src)
+    got_idx, got_spectra = _support.dataset_frames(reloaded)
+    _assert_table_values(got_idx, src_idx)
+    _assert_table_values(got_spectra, src_spectra)
+    for field in ("dataset_name", "dataset_role", "lambda_unit", "intensity_unit", "modality", "schema_version"):
+        assert getattr(reloaded.meta, field) == getattr(src.meta, field), f"meta.{field} differs"
+
+
 @pytest.mark.parametrize("save_ext", SPECTRUM_EXTS)
 @pytest.mark.parametrize("load_ext", SPECTRUM_EXTS)
 def test_spectrum_load_save_matrix(tmp_path: Path, load_ext: str, save_ext: str) -> None:
@@ -112,9 +144,7 @@ def test_spectral_dataset_load_save_matrix(tmp_path: Path, load_ext: str, save_e
     if hasattr(reloaded, "items") and not isinstance(reloaded, SpectralDataset):
         reloaded = next(iter(reloaded))
     assert isinstance(reloaded, SpectralDataset)
-    idx, spectra = _support.dataset_frames(reloaded)
-    assert idx.num_rows == 3
-    assert spectra.num_rows == 15
+    _assert_dataset_equiv(src, reloaded)
 
 
 def test_spectrum_collection_roundtrip_10(tmp_path: Path) -> None:
