@@ -45,7 +45,7 @@ class LintDiagnostic(BaseModel):
 
 
 class LintRequest(BaseModel):
-    """Skeleton — request body for /api/lint/python (per ADR-036 §3.3)."""
+    """Request body for ``POST /api/lint/python``."""
 
     content: str
     filename: str = Field(
@@ -55,15 +55,12 @@ class LintRequest(BaseModel):
 
 
 class LintResponse(BaseModel):
-    """Skeleton — response body for /api/lint/python (per ADR-036 §3.3)."""
+    """Response body for ``POST /api/lint/python``."""
 
     diagnostics: list[LintDiagnostic] = Field(default_factory=list)
     note: str | None = Field(
         default=None,
-        description=(
-            "Human-readable note when ruff is unavailable (per ADR-036 §6 "
-            "risk row 2). Frontend may show this as a passive hint."
-        ),
+        description=("Human-readable note shown when ruff is unavailable; the UI may surface it as a passive hint."),
     )
 
 

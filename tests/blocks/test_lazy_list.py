@@ -13,11 +13,13 @@ from scistudio.core.types.collection import Collection
 
 
 def _make_item(label: str) -> DataObject:
-    """Create a DataObject whose view().to_memory() returns *label*."""
+    """Create a DataObject whose to_memory() returns *label*.
+
+    #1725: data access is ``item.to_memory()`` directly — ADR-031 removed
+    ``ViewProxy`` / ``DataObject.view()``, so there is no ``view()`` indirection.
+    """
     obj = DataObject()
-    mock_proxy = MagicMock()
-    mock_proxy.to_memory.return_value = label
-    obj.view = MagicMock(return_value=mock_proxy)  # type: ignore[method-assign]
+    obj.to_memory = MagicMock(return_value=label)  # type: ignore[method-assign]
     return obj
 
 
@@ -35,9 +37,9 @@ class TestLazyListInit:
         """LazyList stores the Collection without loading items."""
         coll = _make_collection(3)
         ll = LazyList(coll)
-        # No view() calls during construction — items not loaded.
+        # No to_memory() calls during construction — items not loaded.
         for item in coll:
-            item.view.assert_not_called()
+            item.to_memory.assert_not_called()
         assert len(ll) == 3
 
     def test_repr(self) -> None:
@@ -58,7 +60,7 @@ class TestLazyListLen:
         assert len(ll) == 4
         # Verify no data was loaded.
         for item in coll:
-            item.view.assert_not_called()
+            item.to_memory.assert_not_called()
 
     def test_len_empty_collection(self) -> None:
         """len(lazy_list) returns 0 for an empty Collection."""
@@ -79,7 +81,7 @@ class TestLazyListIter:
         assert results == ["item-0", "item-1", "item-2"]
 
     def test_iter_loads_items_lazily(self) -> None:
-        """Iteration calls view().to_memory() for each item."""
+        """Iteration calls to_memory() for each item."""
         coll = _make_collection(3)
         ll = LazyList(coll)
         items_list = list(coll)
@@ -87,19 +89,19 @@ class TestLazyListIter:
         iterator = iter(ll)
         # Before iterating, nothing loaded.
         for item in items_list:
-            item.view.assert_not_called()
+            item.to_memory.assert_not_called()
 
         # After yielding first item, only first is loaded.
         first = next(iterator)
         assert first == "item-0"
-        items_list[0].view.assert_called_once()
-        items_list[1].view.assert_not_called()
+        items_list[0].to_memory.assert_called_once()
+        items_list[1].to_memory.assert_not_called()
 
         # After yielding second, second is loaded.
         second = next(iterator)
         assert second == "item-1"
-        items_list[1].view.assert_called_once()
-        items_list[2].view.assert_not_called()
+        items_list[1].to_memory.assert_called_once()
+        items_list[2].to_memory.assert_not_called()
 
     def test_iter_empty(self) -> None:
         """Iteration over empty LazyList yields nothing."""
@@ -121,9 +123,9 @@ class TestLazyListGetItem:
         result = ll[1]
         assert result == "item-1"
         # Only item 1 was loaded.
-        items_list[0].view.assert_not_called()
-        items_list[1].view.assert_called_once()
-        items_list[2].view.assert_not_called()
+        items_list[0].to_memory.assert_not_called()
+        items_list[1].to_memory.assert_called_once()
+        items_list[2].to_memory.assert_not_called()
 
     def test_negative_index(self) -> None:
         """Negative index loads the correct item."""

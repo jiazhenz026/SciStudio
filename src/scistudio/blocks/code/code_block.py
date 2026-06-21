@@ -306,7 +306,7 @@ class CodeBlock(Block):
         for name, value in inputs.items():
             if isinstance(value, Collection):
                 if len(value) == 1:
-                    unpacked[name] = value[0].view().to_memory()
+                    unpacked[name] = value[0].to_memory()
                 else:
                     unpacked[name] = LazyList(value)
             else:
