@@ -105,10 +105,11 @@ export interface SubWorkflowNodeData extends Record<string, unknown> {
   selected?: boolean;
   onDelete?: () => void;
   /**
-   * ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
-   * affordance. Invoked when the user activates a broken placeholder so they
-   * can repoint `config.ref.path`. Full repoint persistence is deferred
-   * (TODO(#890)); this surfaces the affordance now.
+   * ADR-044 FR-011 (US5) + §10 / US6 AS2 — the shared choose/import
+   * subworkflow affordance. On a node with no ref it reads "Choose subworkflow
+   * file…"; on a broken-ref placeholder it reads "Locate file…". Both run the
+   * same flow: pick an external file, import it into `<project>/subworkflows/`,
+   * repoint `config.ref.path`, and refresh the node's resolved-port handles.
    */
   onLocateFile?: () => void;
 }

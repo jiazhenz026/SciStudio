@@ -11,6 +11,7 @@ import type {
   BlockPortResponse,
   BlockSchemaResponse,
   BlockSummary,
+  ResolvedSubworkflowPorts,
   WorkflowEdge,
 } from "../../types/api";
 import type { AppStore, WorkflowSlice } from "../types";
@@ -146,6 +147,45 @@ export function createUpdateNodeConfig(set: Setter): WorkflowSlice["updateNodeCo
       ...markDirty(state),
       workflowNodes: state.workflowNodes.map((node) =>
         node.id === nodeId ? mergeNodeConfig(node, config) : node,
+      ),
+    }));
+}
+
+/**
+ * ADR-044 FR-011 / US5 + US6 — repoint a subworkflow node's referenced file.
+ *
+ * Unlike `createUpdateNodeConfig` (which deep-merges into `config.params`), the
+ * subworkflow reference lives at the TOP level of the node config
+ * (`config.ref.path`) — the on-disk schema declares a nested `ref.path` object,
+ * the Python `SubWorkflowBlock` reads `config.get("ref")`, and the canvas
+ * builder reads `node.config.ref`. Writing through the params merge would land
+ * the ref at `config.params.ref` where nothing reads it, so this action sets
+ * `config.ref` directly. Pushes history + marks dirty so the autosave persists.
+ */
+export function createSetNodeRef(set: Setter): WorkflowSlice["setNodeRef"] {
+  return (nodeId, refPath) =>
+    set((state) => ({
+      ...pushHistory(state),
+      ...markDirty(state),
+      workflowNodes: state.workflowNodes.map((node) =>
+        node.id === nodeId ? { ...node, config: { ...node.config, ref: { path: refPath } } } : node,
+      ),
+    }));
+}
+
+/**
+ * ADR-044 FR-004 / US5 — set the response-only `resolved_ports` surface on a
+ * subworkflow node so its handles refresh immediately. `resolved_ports` is
+ * never persisted (the backend recomputes it per load), so this does NOT mark
+ * the workflow dirty and does NOT push an undo entry.
+ */
+export function createSetNodeResolvedPorts(
+  set: Setter,
+): WorkflowSlice["setNodeResolvedPorts"] {
+  return (nodeId, resolvedPorts: ResolvedSubworkflowPorts) =>
+    set((state) => ({
+      workflowNodes: state.workflowNodes.map((node) =>
+        node.id === nodeId ? { ...node, resolved_ports: resolvedPorts } : node,
       ),
     }));
 }

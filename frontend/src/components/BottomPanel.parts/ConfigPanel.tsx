@@ -12,7 +12,9 @@ import { LossySaveWarning, collectUpstreamOmeFields } from "../WorkflowEditor/Lo
 import { CodeBlockConfigEditor } from "./CodeBlockConfigEditor";
 import { ConfigField } from "./ConfigField";
 import { FormatCapabilityConfig } from "./FormatCapabilityConfig";
+import { SubworkflowConfigEditor } from "./SubworkflowConfigEditor";
 import { isCodeBlockConfigTarget } from "./codeBlockPorts";
+import { isSubworkflowConfigTarget } from "./subworkflowConfig";
 
 function ancestorTypeNames(typeName: string, typeHierarchy: TypeHierarchyEntry[]): Set<string> {
   const ancestors = new Set<string>();
@@ -163,7 +165,20 @@ export function ConfigPanel({
     {}) as Record<string, unknown>;
   const ordered = orderedConfigEntries(schema, selectedNode);
 
-  if (!selectedNode || !schema) {
+  if (!selectedNode) {
+    return <div className="text-sm text-stone-500">Select a block to edit its settings.</div>;
+  }
+
+  // ADR-044 FR-011 (US5) — SubWorkflowBlock declares a NESTED `ref.path` the
+  // generic top-level renderer cannot edit; route to the dedicated picker editor
+  // (mirrors the CodeBlock special-case below). Checked BEFORE the `!schema`
+  // guard so a `subworkflow_broken` placeholder (which may have no registered
+  // schema) can still repoint its reference from the Config tab.
+  if (isSubworkflowConfigTarget(selectedNode)) {
+    return <SubworkflowConfigEditor selectedNode={selectedNode} />;
+  }
+
+  if (!schema) {
     return <div className="text-sm text-stone-500">Select a block to edit its settings.</div>;
   }
 

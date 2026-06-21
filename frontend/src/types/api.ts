@@ -30,6 +30,21 @@ export interface ResolvedSubworkflowPorts {
   ref_path: string | null;
 }
 
+/**
+ * ADR-044 FR-011 / US5 — response of `POST /api/workflows/import-subworkflow`.
+ * The backend copies the chosen external file into `<project>/subworkflows/`,
+ * returns its new project-relative `ref_path`, and re-resolves the referenced
+ * file's exposed-port surface (`resolved_ports`) so the caller can repoint a
+ * node's `config.ref.path` AND refresh its handles without a full reload. The
+ * `resolved_ports` shape mirrors the response-only surface attached to
+ * `subworkflow` / `subworkflow_broken` nodes on the workflow GET response.
+ */
+export interface ImportSubworkflowResponse {
+  /** Project-relative path of the copied file (e.g. `subworkflows/foo.swf.yaml`). */
+  ref_path: string;
+  resolved_ports: ResolvedSubworkflowPorts;
+}
+
 export interface WorkflowNode {
   id: string;
   block_type: string;

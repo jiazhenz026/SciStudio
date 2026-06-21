@@ -123,8 +123,14 @@ export function SubWorkflowNode({ id, data, selected }: NodeProps<Node<SubWorkfl
   );
 }
 
-/** ADR-044 §10 / spec US 6 — broken-reference banner + "locate file…"
- *  affordance shown below a red placeholder node. */
+/** ADR-044 §10 / FR-011 / spec US 5 + US 6 — broken / no-ref banner + the
+ *  shared choose-or-locate affordance shown below a red placeholder node.
+ *
+ *  A node with NO ref (freshly dropped `subworkflow_block`) shows "Choose
+ *  subworkflow file…"; a node whose ref is broken (the file moved / was
+ *  deleted) shows "Locate file…". Both run the SAME shared flow
+ *  (`chooseSubworkflowFile` via `onLocateFile`); the only difference is the
+ *  label and the explanatory copy. */
 function BrokenRefBanner({
   refPath,
   onLocateFile,
@@ -132,13 +138,16 @@ function BrokenRefBanner({
   refPath: string | null;
   onLocateFile?: () => void;
 }) {
+  const hasRef = Boolean(refPath);
+  const heading = hasRef ? "Broken reference" : "No subworkflow file";
+  const buttonLabel = hasRef ? "Locate file…" : "Choose subworkflow file…";
   return (
     <div
       data-testid="subworkflow-node-broken"
       className="absolute left-1/2 top-full mt-1.5 flex w-[160px] -translate-x-1/2 flex-col items-center gap-1 text-center"
     >
       <span className="font-display text-[12px] font-semibold leading-tight text-red-700">
-        Broken reference
+        {heading}
       </span>
       <span
         data-testid="subworkflow-node-broken-path"
@@ -157,7 +166,7 @@ function BrokenRefBanner({
             onLocateFile();
           }}
         >
-          Locate file…
+          {buttonLabel}
         </button>
       ) : null}
     </div>
