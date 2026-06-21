@@ -83,9 +83,16 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     if self._paused:
         return
 
+    # TODO(#887): ADR-022 L1 GPU/CPU slot gating is not wired — this passes a
+    #   default ``ResourceRequest()`` instead of the block's real request, so
+    #   the discrete GPU/CPU counters never gate dispatch (only the psutil
+    #   memory watermark + active-task count do). Confirmed low-risk for now
+    #   per the owner decision on #887 (cloud-LLM AI blocks, chunked large
+    #   data); see also #1595. Deferred until a real local-GPU contention
+    #   trigger.
     if not self._resource_manager.can_dispatch(ResourceRequest(), active_count=len(self._active_tasks)):
         # Stay READY; retried by _dispatch_newly_ready on the next
-        # resource-freeing event (BLOCK_DONE / PROCESS_EXITED).
+        # resource-freeing event (BLOCK_DONE).
         return
 
     # A task already exists for this block — guard against double
@@ -547,7 +554,7 @@ def _gather_inputs(self: DAGScheduler, node_id: str) -> dict[str, Any]:
 async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     """Dispatch blocks that became ready or were previously throttled.
 
-    Called from ``_on_block_done`` and ``_on_process_exited`` after
+    Called from ``_on_block_done`` after
     a terminal event. Scans the topological order for:
 
     * IDLE blocks whose predecessors are all DONE — transition to

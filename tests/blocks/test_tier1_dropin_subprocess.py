@@ -242,6 +242,7 @@ class TestWorkerSubprocessRoundtrip:
         assert proc.returncode == 0, f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
         result = json.loads(stdout)
+        assert result.get("wire_version") == 1  # #1530: wire-format version stamp
         assert "error" not in result, f"Worker reported error: {result.get('error')}"
         # Worker wraps outputs under an "outputs" key alongside diagnostic
         # metadata (environment, etc.).
@@ -299,6 +300,7 @@ class TestWorkerSubprocessRoundtrip:
         stderr = proc.stderr.decode("utf-8", errors="replace")
         assert proc.returncode == 0, f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         result = json.loads(stdout)
+        assert result.get("wire_version") == 1  # #1530: wire-format version stamp
         assert "error" not in result, f"Worker reported error: {result.get('error')}"
         assert result.get("outputs", {}).get("out") == "runtime-ok"
 

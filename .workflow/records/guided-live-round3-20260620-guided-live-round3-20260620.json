@@ -1,0 +1,226 @@
+{
+  "branch": "guided/live-round3-20260620",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-21T01:42:53.752481Z",
+      "owner_directive": "1305 accept-closed: rewrite engine/runners/local.py TODO so it no longer defers work to a closed issue. 1342 reopen the issue; the TODO stays pointing at the now-live tracker.",
+      "reason": "Owner reviewed B1 stale-TODO findings: #1305 is correctly closed (accept current subprocess-cwd contract, remove the stale deferred-work TODO that pointed to the closed issue); #1342 was closed COMPLETED but its acceptance criteria are unmet (lazy import + TODO still present, cycle still real) so reopen it."
+    },
+    {
+      "at": "2026-06-21T01:59:21.094903Z",
+      "owner_directive": "A2: mark only (low risk, honest tracked comment, no real wiring). A1 + A3: fix as behavior-correction bugs, no ADR for #1517.",
+      "reason": "Owner set A1-A3 direction: A1 (run-identity / event-bus scoping) and A3 (runner process lifecycle) are real bugs to fix; A2 (ADR-022 resource dispatch) is mark-only \u2014 confirmed low risk now, just add an honest tracked note, no L1 wiring. #1517 is a behavior correction, NOT an ADR."
+    },
+    {
+      "at": "2026-06-21T02:08:45.032880Z",
+      "owner_directive": "Fix A1+A3+A2-mark in one PR. Defer #1532 entirely (desktop: parts 2/3 moot, part 1 minor). Closes #1517, #1596, #1542.",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "at": "2026-06-21T02:14:59.002003Z",
+      "owner_directive": "Evaluate ProcessMonitor; if dead code, delete it directly (in this round's scope).",
+      "reason": "Owner directive: within round-3 scope, evaluate ProcessMonitor and delete it if it is dead code. Evaluation confirms it is dead (never instantiated/started in production; exit detection fully covered by await communicate() + AppBlock FileWatcher; the sync spawn_block_process non-await path has no production callers either)."
+    },
+    {
+      "at": "2026-06-21T02:16:34.906635Z",
+      "owner_directive": "Delete the whole dead PROCESS_EXITED chain, not just ProcessMonitor (cut B).",
+      "reason": "Owner chose cut B: delete the full dead PROCESS_EXITED chain (ProcessMonitor + PROCESS_EXITED constant + scheduler _on_process_exited handler/subscription + resources PROCESS_EXITED subscription). Owner accepted that this touches scheduler (overlaps A1) and one resources subscription (overlaps A2 mark-only)."
+    },
+    {
+      "at": "2026-06-21T02:26:08.286012Z",
+      "owner_directive": "Proceed with full B; do not touch PROCESS_SPAWNED this round.",
+      "reason": "Owner confirmed full cut B. PROCESS_SPAWNED left untouched this round (separate finding)."
+    },
+    {
+      "at": "2026-06-21T03:10:26.546736Z",
+      "owner_directive": "Do A4-1 (#1640 atomic composite write) and A4-3 (#1530 just stamp version numbers on lineage.db/checkpoint/wire format, nothing else). Defer #1639 and A5. Then submit the PR.",
+      "reason": "Owner extended round-3 scope to two core-storage debts: #1640 (atomic CompositeStore multi-slot write) and #1530 (version-stamp persisted formats only \u2014 lineage.db / checkpoint / wire format; NO migration logic, minimal). #1639 (wrap_as_dataobject) and all of A5 (import cycles / no_cycles) deferred."
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1517,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1596,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1542,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1640,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1530,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Round 3: clean up core/engine tech-debt and bug-debt before alpha. First step: inventory all core/engine-related open issues and code TODOs and produce a detailed list.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "guided-live-round3-20260620-guided-live-round3-20260620",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-21T01:42:53.752614Z",
+      "pattern": "src/scistudio/engine/runners/local.py",
+      "reason": "Owner reviewed B1 stale-TODO findings: #1305 is correctly closed (accept current subprocess-cwd contract, remove the stale deferred-work TODO that pointed to the closed issue); #1342 was closed COMPLETED but its acceptance criteria are unmet (lazy import + TODO still present, cycle still real) so reopen it."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032990Z",
+      "pattern": "src/scistudio/engine/runners/process_handle.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032994Z",
+      "pattern": "src/scistudio/engine/events.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032996Z",
+      "pattern": "src/scistudio/engine/scheduler/__init__.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032997Z",
+      "pattern": "src/scistudio/engine/scheduler/_events.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032998Z",
+      "pattern": "src/scistudio/engine/scheduler/_dispatch.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.032999Z",
+      "pattern": "src/scistudio/engine/resources.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.033007Z",
+      "pattern": "src/scistudio/core/lineage/recorder.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.033010Z",
+      "pattern": "src/scistudio/api/runtime/_runs.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.033011Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:08:45.033013Z",
+      "pattern": "tests/**",
+      "reason": "Finalized round-3 core-debt PR scope: A1 run-identity isolation (#1517,#1596) + A3 runner process lifecycle (#1542) + A2 mark-only. #1532 deferred (desktop makes its reconnect/detached-run parts moot; kept open as tracker)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:14:59.002151Z",
+      "pattern": "src/scistudio/engine/runners/process_monitor.py",
+      "reason": "Owner directive: within round-3 scope, evaluate ProcessMonitor and delete it if it is dead code. Evaluation confirms it is dead (never instantiated/started in production; exit detection fully covered by await communicate() + AppBlock FileWatcher; the sync spawn_block_process non-await path has no production callers either)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:14:59.002155Z",
+      "pattern": "src/scistudio/engine/runners/__init__.py",
+      "reason": "Owner directive: within round-3 scope, evaluate ProcessMonitor and delete it if it is dead code. Evaluation confirms it is dead (never instantiated/started in production; exit detection fully covered by await communicate() + AppBlock FileWatcher; the sync spawn_block_process non-await path has no production callers either)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:14:59.002156Z",
+      "pattern": "tests/engine/test_process_monitor.py",
+      "reason": "Owner directive: within round-3 scope, evaluate ProcessMonitor and delete it if it is dead code. Evaluation confirms it is dead (never instantiated/started in production; exit detection fully covered by await communicate() + AppBlock FileWatcher; the sync spawn_block_process non-await path has no production callers either)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:26:08.286138Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "Owner confirmed full cut B. PROCESS_SPAWNED left untouched this round (separate finding)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T02:26:08.286141Z",
+      "pattern": "docs/audit/latest/facts-summary.json",
+      "reason": "Owner confirmed full cut B. PROCESS_SPAWNED left untouched this round (separate finding)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T03:10:26.546875Z",
+      "pattern": "src/scistudio/core/storage/composite_store.py",
+      "reason": "Owner extended round-3 scope to two core-storage debts: #1640 (atomic CompositeStore multi-slot write) and #1530 (version-stamp persisted formats only \u2014 lineage.db / checkpoint / wire format; NO migration logic, minimal). #1639 (wrap_as_dataobject) and all of A5 (import cycles / no_cycles) deferred."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T03:10:26.546878Z",
+      "pattern": "src/scistudio/engine/checkpoint.py",
+      "reason": "Owner extended round-3 scope to two core-storage debts: #1640 (atomic CompositeStore multi-slot write) and #1530 (version-stamp persisted formats only \u2014 lineage.db / checkpoint / wire format; NO migration logic, minimal). #1639 (wrap_as_dataobject) and all of A5 (import cycles / no_cycles) deferred."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-21T03:10:26.546880Z",
+      "pattern": "src/scistudio/engine/runners/worker.py",
+      "reason": "Owner extended round-3 scope to two core-storage debts: #1640 (atomic CompositeStore multi-slot write) and #1530 (version-stamp persisted formats only \u2014 lineage.db / checkpoint / wire format; NO migration logic, minimal). #1639 (wrap_as_dataobject) and all of A5 (import cycles / no_cycles) deferred."
+    }
+  ],
+  "session_id": "b44e5c29-78f4-4bd9-84b6-1c0c58040a98",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

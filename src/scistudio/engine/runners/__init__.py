@@ -12,7 +12,6 @@ from scistudio.engine.runners.process_handle import (
     ProcessRegistry,
     spawn_block_process,
 )
-from scistudio.engine.runners.process_monitor import ProcessMonitor
 from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
 __all__ = [
@@ -21,7 +20,6 @@ __all__ = [
     "PlatformOps",
     "ProcessExitInfo",
     "ProcessHandle",
-    "ProcessMonitor",
     "ProcessRegistry",
     "get_platform_ops",
     "spawn_block_process",

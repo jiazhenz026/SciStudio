@@ -44,7 +44,6 @@ from scistudio.engine.events import (
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
     INTERACTIVE_COMPLETE,
-    PROCESS_EXITED,
     WORKFLOW_COMPLETED,
     WORKFLOW_STARTED,
     EngineEvent,
@@ -165,12 +164,30 @@ class DAGScheduler:
         # interactive_complete message for that block.
         self._interactive_futures: dict[str, asyncio.Future[dict[str, Any]]] = {}
 
+        self._disposed = False
         self._event_bus.subscribe(BLOCK_DONE, self._on_block_done)
         self._event_bus.subscribe(BLOCK_ERROR, self._on_block_error)
         self._event_bus.subscribe(CANCEL_BLOCK_REQUEST, self._on_cancel_block)
         self._event_bus.subscribe(CANCEL_WORKFLOW_REQUEST, self._on_cancel_workflow)
-        self._event_bus.subscribe(PROCESS_EXITED, self._on_process_exited)
         self._event_bus.subscribe(INTERACTIVE_COMPLETE, self._on_interactive_complete)
+
+    def dispose(self) -> None:
+        """Unsubscribe this scheduler's handlers from the shared EventBus.
+
+        #1517: ``ApiRuntime`` owns one process-global ``EventBus`` and builds a
+        fresh ``DAGScheduler`` per run. Without symmetric teardown a finished
+        run's scheduler keeps reacting to later runs' events (stale checkpoint
+        overwrites, cross-run dispatch). Call this once the run task is done,
+        alongside ``LineageRecorder.dispose()``. Idempotent.
+        """
+        if self._disposed:
+            return
+        self._event_bus.unsubscribe(BLOCK_DONE, self._on_block_done)
+        self._event_bus.unsubscribe(BLOCK_ERROR, self._on_block_error)
+        self._event_bus.unsubscribe(CANCEL_BLOCK_REQUEST, self._on_cancel_block)
+        self._event_bus.unsubscribe(CANCEL_WORKFLOW_REQUEST, self._on_cancel_workflow)
+        self._event_bus.unsubscribe(INTERACTIVE_COMPLETE, self._on_interactive_complete)
+        self._disposed = True
 
     async def execute(self) -> None:
         """Begin executing the workflow from its current state.
@@ -491,7 +508,6 @@ class DAGScheduler:
     _on_block_error = _events_mod._on_block_error
     _on_cancel_block = _events_mod._on_cancel_block
     _on_cancel_workflow = _events_mod._on_cancel_workflow
-    _on_process_exited = _events_mod._on_process_exited
     _on_interactive_complete = _events_mod._on_interactive_complete
 
     # Lineage + output (see ``_lineage.py``)

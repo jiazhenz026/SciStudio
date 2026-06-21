@@ -1000,8 +1000,8 @@ In scope:
 - Build and execute a typed DAG from the workflow definition.
 - Track block state transitions and emit runtime events.
 - Dispatch blocks through a `BlockRunner`, normally `LocalRunner`.
-- Coordinate subprocess lifecycle through `ProcessHandle`, `ProcessRegistry`,
-  and `ProcessMonitor`.
+- Coordinate subprocess lifecycle through `ProcessHandle` and
+  `ProcessRegistry`.
 - Apply resource gating through `ResourceManager` before starting work.
 - Preserve pause/resume and latest-run checkpoint state through
   `CheckpointManager` and `WorkflowCheckpoint`.
@@ -1044,7 +1044,7 @@ Important runtime event families:
 | Workflow lifecycle | `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED` | Run-level UI/API updates and completion handling. |
 | Block lifecycle | `BLOCK_READY`, `BLOCK_RUNNING`, `BLOCK_PAUSED`, `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `BLOCK_SKIPPED` | State propagation, downstream scheduling, checkpointing, lineage writes. |
 | Cancellation requests | `CANCEL_BLOCK_REQUEST`, `CANCEL_WORKFLOW_REQUEST` | User/API initiated cancellation routed to the scheduler and process layer. |
-| Process lifecycle | `PROCESS_SPAWNED`, `PROCESS_EXITED` | Register, monitor, release resources, and detect unexpected process termination. |
+| Process lifecycle | `PROCESS_SPAWNED` | Register active process handles for lookup and cancellation. |
 | Checkpointing | `CHECKPOINT_SAVED` | Notify UI and runtime surfaces that latest-run state was persisted. |
 | Interactive workflow | `INTERACTIVE_PROMPT`, `INTERACTIVE_COMPLETE` | Bridge human/tool interaction for blocks that pause for input. |
 | Project change | `WORKFLOW_CHANGED`, `GIT_HEAD_CHANGED` | Invalidate cached workflow or Git views after source changes. |
@@ -1058,10 +1058,9 @@ The main subscriber pattern is:
 
 | Subscriber | Typical events consumed | Result |
 |---|---|---|
-| `DAGScheduler` | Block terminal events, cancellation requests, process exits | Dispatch successors, cancel running work, or mark downstream blocks skipped. |
-| `ResourceManager` | Terminal block events and process exits | Release GPU and CPU allocations. |
-| `ProcessRegistry` | Process spawn/exit and cancellation requests | Track active handles and terminate requested processes. |
-| `ProcessMonitor` | Active process handles | Emits `PROCESS_EXITED` for crashes, OS kills, or external termination. |
+| `DAGScheduler` | Block terminal events and cancellation requests | Dispatch successors, cancel running work, or mark downstream blocks skipped. |
+| `ResourceManager` | Terminal block events | Release GPU and CPU allocations. |
+| `ProcessRegistry` | Process spawn and cancellation requests | Track active handles and terminate requested processes. |
 | `CheckpointManager` | Terminal block events | Writes latest-run checkpoint state. |
 | Lineage recorder | Terminal block events and run lifecycle context | Writes durable run, block, object, and port-edge records. |
 | WebSocket/API handlers | Workflow and block state events | Push runtime status to clients. |
@@ -1125,7 +1124,7 @@ The resource model has three layers:
 |---|---|
 | Dispatch gating | `ResourceManager` decides whether a block may start based on GPU, CPU, and memory state. |
 | Block-local memory behavior | Collection helpers, lazy loading, and block logic decide how much data is loaded at once. |
-| OS/process fallback | If a subprocess crashes or is killed by the OS, `ProcessMonitor` emits a process-exit event and the scheduler marks the block failed. |
+| OS/process fallback | If a subprocess crashes or is killed by the OS, the runner observes the non-zero exit and the scheduler marks the block failed. |
 
 Blocks declare resource needs through resource request metadata. The scheduler
 uses those declarations as an admission-control signal, not as proof that a
@@ -1146,7 +1145,6 @@ The process lifecycle components are:
 | `RunHandle` | Scheduler-level handle for a running block, including process and result tracking. |
 | `ProcessHandle` | Cross-platform abstraction for observing, terminating, and killing one process tree. |
 | `ProcessRegistry` | Registry of active process handles, used for lookup, cancellation, and shutdown. |
-| `ProcessMonitor` | Background watcher that emits `PROCESS_EXITED` when an active process disappears unexpectedly. |
 
 All subprocess creation goes through the process lifecycle layer. On POSIX
 systems, child processes are grouped so termination can reach the process tree.
@@ -1207,7 +1205,7 @@ Main error classes:
 | Block exception | Mark block `ERROR`, emit `BLOCK_ERROR`, release resources, checkpoint, and skip unreachable downstream blocks. |
 | User cancellation | Mark block or workflow `CANCELLED`, terminate active processes, emit cancellation events, and skip dependent work. |
 | Missing required upstream output | Mark downstream block `SKIPPED` with a skip reason. |
-| Subprocess crash or OS kill | `ProcessMonitor` emits `PROCESS_EXITED`; scheduler records failure and propagates skip where needed. |
+| Subprocess crash or OS kill | The runner observes the non-zero subprocess exit, marks the block `ERROR`, and propagates skip where needed. |
 | Subscriber failure | `EventBus` logs and isolates the callback failure so other subscribers still run. |
 | Block-reported terminal state | `LocalRunner` converts the worker report into scheduler-visible terminal handling. |
 
@@ -2336,7 +2334,7 @@ Some runtime paths depend on tools installed outside the Python or frontend depe
 | YAML handling | PyYAML + ruamel.yaml | Standard YAML read/write plus round-trip editing where comments and order matter. |
 | Event runtime | EventBus + asyncio | Runtime event propagation, WebSocket updates, run progress, prompts, and status changes. |
 | File watching | watchdog | Project file and Git-head change detection bridged into runtime events. |
-| Process lifecycle | ProcessHandle, ProcessRegistry, ProcessMonitor | Cross-platform subprocess isolation, cancellation, and liveness tracking. |
+| Process lifecycle | ProcessHandle, ProcessRegistry | Cross-platform subprocess isolation and cancellation. |
 | Lineage store | SQLite with WAL | Project-local `.scistudio/lineage.db` for runs, block executions, data objects, and block IO. |
 | Storage | Zarr, Arrow/Parquet, file artifacts | Canonical storage backends for arrays, tables, and external artifacts. |
 | Version control | Bundled or system git | Project workflow/source tracking, branches for parallel workflow variants, pre-run source snapshots. |

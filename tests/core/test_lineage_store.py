@@ -15,6 +15,20 @@ from scistudio.core.lineage.record import RunRecord
 from scistudio.core.lineage.store import LineageStore
 
 
+def test_lineage_db_stamps_schema_version(tmp_path):
+    """#1530: a fresh lineage.db is stamped with the schema version."""
+    import sqlite3
+
+    from scistudio.core.lineage.store import LINEAGE_SCHEMA_VERSION, _apply_pragmas_and_schema
+
+    conn = sqlite3.connect(str(tmp_path / "lineage.db"))
+    try:
+        _apply_pragmas_and_schema(conn)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LINEAGE_SCHEMA_VERSION
+    finally:
+        conn.close()
+
+
 def _run_record(run_id: str, *, sha: str | None) -> RunRecord:
     """Build a minimal ``RunRecord`` with the given ``workflow_git_commit``."""
     return RunRecord(

@@ -289,13 +289,6 @@ class LocalRunner:
         # project, not against wherever ``scistudio gui`` was launched.
         # When no project is active (CLI standalone runs), inherit the
         # parent process cwd unchanged.
-        # TODO(#1305): per-block explicit ``_resolve_project_relative``
-        #   helper would be more architecturally pure (AGENTS.md §3.5
-        #   "Prefer explicit contracts over clever shortcuts"). This
-        #   subprocess-cwd approach is the minimal Phase D unblocker;
-        #   a follow-up may migrate IO blocks to explicit per-block
-        #   resolution and revert this implicit cwd contract.
-        #   Followup: https://github.com/zjzcpj/SciStudio/issues/1305
         project_dir = config.get("project_dir")
         worker_cwd = str(project_dir) if isinstance(project_dir, str) and project_dir else None
         # When we change the worker cwd away from the parent process cwd,
@@ -343,9 +336,18 @@ class LocalRunner:
             block_id=block_id,
             registry=registry,
             event_bus=self._event_bus,
+            workflow_id=workflow_id,
         )
 
-        stdout, stderr = await proc.communicate(input=payload_bytes)
+        try:
+            stdout, stderr = await proc.communicate(input=payload_bytes)
+        finally:
+            # #1542: deregister the handle as soon as the worker exits so dead
+            # handles do not accumulate in the shared ProcessRegistry across a
+            # session. The await model guarantees the subprocess is gone here,
+            # so the handle — only needed for live-process cancellation — is no
+            # longer useful.
+            registry.deregister(workflow_id, block_id)
 
         # Forward worker stderr so block-level diagnostics are visible.
         if stderr:
@@ -431,13 +433,15 @@ class LocalRunner:
 
         return {}
 
-    async def check_status(self, run_id: str) -> str:
+    async def check_status(self, workflow_id: str, block_id: str) -> str:
         """Query the current status of a previously started run.
 
         Parameters
         ----------
-        run_id:
-            Block ID / opaque identifier returned when the run was initiated.
+        workflow_id:
+            The workflow run that owns the block (#1517).
+        block_id:
+            Block identifier within that run.
 
         Returns
         -------
@@ -446,22 +450,24 @@ class LocalRunner:
         """
         if self._registry is None:
             return "unknown"
-        handle = self._registry.get_handle(run_id)
+        handle = self._registry.get_handle(workflow_id, block_id)
         if handle is None:
             return "unknown"
         alive = handle.is_alive()
         return "running" if alive else "completed"
 
-    async def cancel(self, run_id: str) -> None:
+    async def cancel(self, workflow_id: str, block_id: str) -> None:
         """Request cancellation of a running execution.
 
         Parameters
         ----------
-        run_id:
-            Block ID / opaque identifier of the run to cancel.
+        workflow_id:
+            The workflow run that owns the block (#1517).
+        block_id:
+            Block identifier within that run.
         """
         if self._registry is None:
             return
-        handle = self._registry.get_handle(run_id)
+        handle = self._registry.get_handle(workflow_id, block_id)
         if handle is not None:
             handle.terminate()

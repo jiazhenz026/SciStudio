@@ -2,7 +2,7 @@
 
 ADR-018: EventBus becomes the runtime backbone. All state changes, cancellation,
 process lifecycle, and checkpoint events flow through this bus.
-ADR-017: PROCESS_SPAWNED and PROCESS_EXITED events added for subprocess tracking.
+ADR-017: PROCESS_SPAWNED event added for subprocess tracking.
 """
 
 from __future__ import annotations
@@ -30,7 +30,6 @@ BLOCK_SKIPPED = "block_skipped"  # ADR-018
 CANCEL_BLOCK_REQUEST = "cancel_block_request"  # ADR-018
 CANCEL_WORKFLOW_REQUEST = "cancel_workflow_request"  # ADR-018
 PROCESS_SPAWNED = "process_spawned"  # ADR-017/019
-PROCESS_EXITED = "process_exited"  # ADR-017/019
 WORKFLOW_STARTED = "workflow_started"  # ADR-018
 WORKFLOW_COMPLETED = "workflow_completed"  # ADR-018
 CHECKPOINT_SAVED = "checkpoint_saved"  # ADR-018
@@ -71,8 +70,8 @@ class EngineEvent:
 # DAGScheduler       | BLOCK_READY, BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED,
 #                    | BLOCK_SKIPPED, CANCEL_BLOCK_REQUEST, CANCEL_WORKFLOW_REQUEST
 # ResourceManager    | BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED,
-#                    | PROCESS_SPAWNED, PROCESS_EXITED
-# ProcessRegistry    | PROCESS_SPAWNED, PROCESS_EXITED
+#                    | PROCESS_SPAWNED
+# ProcessRegistry    | PROCESS_SPAWNED
 # WebSocket handler  | all BLOCK_* events, WORKFLOW_COMPLETED
 # LineageRecorder    | BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED, BLOCK_SKIPPED
 # CheckpointManager  | all terminal state events + CHECKPOINT_SAVED

@@ -6,7 +6,6 @@ The architecture state table is small enough to keep as a table-driven test:
   All other initial states are a no-op (#1376 — fix landed alongside
   this test's xfail removal).
 * ``cancel_workflow`` cancels active blocks and skips not-yet-started blocks.
-* ``PROCESS_EXITED`` only turns ``RUNNING`` into ``ERROR``.
 * Scheduler-owned readiness transitions must emit ``BLOCK_READY`` exactly once.
 """
 
@@ -29,7 +28,6 @@ from scistudio.engine.events import (
     BLOCK_SKIPPED,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
-    PROCESS_EXITED,
     EngineEvent,
     EventBus,
 )
@@ -206,45 +204,6 @@ def test_cancel_workflow_state_table(
     asyncio.run(_emit(bus, CANCEL_WORKFLOW_REQUEST))
 
     assert scheduler._block_states["B"] == expected_b
-    assert scheduler._block_states["C"] == BlockState.DONE
-    assert [(event.event_type, event.block_id) for event in seen] == expected_events
-
-
-@pytest.mark.parametrize(
-    ("initial", "expected", "expected_events"),
-    [
-        (BlockState.IDLE, BlockState.IDLE, []),
-        (BlockState.READY, BlockState.READY, []),
-        (BlockState.RUNNING, BlockState.ERROR, [(BLOCK_ERROR, "B")]),
-        (BlockState.PAUSED, BlockState.PAUSED, []),
-        (BlockState.DONE, BlockState.DONE, []),
-        (BlockState.ERROR, BlockState.ERROR, []),
-        (BlockState.CANCELLED, BlockState.CANCELLED, []),
-        (BlockState.SKIPPED, BlockState.SKIPPED, []),
-    ],
-    ids=lambda value: value.name if isinstance(value, BlockState) else None,
-)
-def test_process_exited_state_table(
-    initial: BlockState,
-    expected: BlockState,
-    expected_events: list[tuple[str, str]],
-) -> None:
-    """Unexpected process exit is only meaningful for ``RUNNING`` blocks."""
-    scheduler, bus = _make_scheduler()
-    seen = _capture_lifecycle(bus)
-    scheduler._block_states.update(_state_map(b=initial, c=BlockState.DONE))
-    scheduler._block_outputs["A"] = {"out": "done"}
-
-    asyncio.run(
-        _emit(
-            bus,
-            PROCESS_EXITED,
-            block_id="B",
-            data={"exit_info": {"exit_code": -9, "signal_number": 9}},
-        )
-    )
-
-    assert scheduler._block_states["B"] == expected
     assert scheduler._block_states["C"] == BlockState.DONE
     assert [(event.event_type, event.block_id) for event in seen] == expected_events
 

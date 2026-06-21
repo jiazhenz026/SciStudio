@@ -32,6 +32,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger("scistudio.engine.scheduler")
 
 
+def _event_is_for_run(self: DAGScheduler, event: EngineEvent) -> bool:
+    """Return True when *event* targets this scheduler's own workflow.
+
+    #1517/#1596: ``ApiRuntime`` owns one process-global ``EventBus`` and fans
+    every event out to every live scheduler. A scheduler must only react to
+    events for its own ``workflow_id``; otherwise a cancel or terminal event
+    for one run mutates the state of every other concurrent run. Events that
+    carry no ``workflow_id`` are treated as in-scope (fail-open) so event types
+    that predate run scoping keep working.
+    """
+    if not isinstance(event.data, dict):
+        return True
+    event_wf = event.data.get("workflow_id")
+    return event_wf is None or event_wf == self._workflow.id
+
+
 async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle an interactive_complete event from the frontend.
 
@@ -54,6 +70,8 @@ async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> No
 
 async def _on_block_done(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle a block completion and dispatch newly ready blocks."""
+    if not _event_is_for_run(self, event):
+        return
     if event.block_id is None:
         return
 
@@ -65,6 +83,8 @@ async def _on_block_done(self: DAGScheduler, event: EngineEvent) -> None:
 
 async def _on_block_error(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle a block error and propagate skips downstream."""
+    if not _event_is_for_run(self, event):
+        return
     if event.block_id is None:
         return
 
@@ -123,6 +143,8 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     * **Unknown block id** — ignored silently; the scheduler only
       cancels blocks it tracks.
     """
+    if not _event_is_for_run(self, event):
+        return
     if event.block_id is None:
         return
 
@@ -151,7 +173,7 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     # table permits CANCELLED here.
     handle = None
     if self._process_registry is not None:
-        handle = self._process_registry.get_handle(block_id)
+        handle = self._process_registry.get_handle(self._workflow.id, block_id)
 
     # Mark CANCELLED before terminating/cancelling so that
     # _run_and_finalize's exception path sees the CANCELLED state
@@ -179,7 +201,7 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
 
     if hasattr(self._runner, "cancel"):
         try:
-            await self._runner.cancel(block_id)
+            await self._runner.cancel(self._workflow.id, block_id)
         except Exception:
             logger.exception("Failed to cancel block %s via runner", block_id)
 
@@ -203,6 +225,8 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
     the cancel request is transitioned to SKIPPED with reason
     "workflow cancelled".
     """
+    if not _event_is_for_run(self, event):
+        return
     # Include both RUNNING and PAUSED blocks — interactive blocks
     # (DataRouter, PairEditor) sit in PAUSED while waiting for user
     # input via an asyncio.Future. They must also be cancelled.
@@ -213,7 +237,7 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
     for block_id in cancelable_blocks:
         handle = None
         if self._process_registry is not None:
-            handle = self._process_registry.get_handle(block_id)
+            handle = self._process_registry.get_handle(self._workflow.id, block_id)
 
         # Mark CANCELLED before terminating/cancelling so that
         # _run_and_finalize observes the CANCELLED state.
@@ -240,7 +264,7 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
 
         if hasattr(self._runner, "cancel"):
             try:
-                await self._runner.cancel(block_id)
+                await self._runner.cancel(self._workflow.id, block_id)
             except Exception:
                 logger.exception("Failed to cancel block %s during workflow cancel", block_id)
 
@@ -266,61 +290,3 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
 
     self._check_completion()
     self.save_checkpoint(self._checkpoint_manager)
-
-
-async def _on_process_exited(self: DAGScheduler, event: EngineEvent) -> None:
-    """Handle an unexpected subprocess exit detected by ProcessMonitor.
-
-    If the block is RUNNING and not yet in a terminal state, transition
-    to ERROR and emit BLOCK_ERROR so that skip propagation and completion
-    checks fire through the normal path.
-
-    PAUSED blocks (AppBlock case) are left alone — the FileWatcher
-    manages output collection and will handle the process exit.
-    """
-    block_id = event.block_id
-    if block_id is None or block_id not in self._block_states:
-        return
-
-    current = self._block_states[block_id]
-
-    # Already in a terminal state — ignore.
-    terminal = {BlockState.DONE, BlockState.ERROR, BlockState.CANCELLED, BlockState.SKIPPED}
-    if current in terminal:
-        return
-
-    # PAUSED: AppBlock subprocess exited. FileWatcher handles it.
-    if current == BlockState.PAUSED:
-        return
-
-    # RUNNING: subprocess crashed / OOM-killed / externally terminated.
-    if current == BlockState.RUNNING:
-        exit_info = event.data.get("exit_info")
-        error_detail = "Process exited unexpectedly"
-        if isinstance(exit_info, dict):
-            sig = exit_info.get("signal_number")
-            code = exit_info.get("exit_code")
-            if sig:
-                error_detail = f"Process killed by signal {sig}"
-            elif code is not None:
-                error_detail = f"Process exited with code {code}"
-        elif exit_info is not None:
-            sig = getattr(exit_info, "signal_number", None)
-            code = getattr(exit_info, "exit_code", None)
-            if sig:
-                error_detail = f"Process killed by signal {sig}"
-            elif code is not None:
-                error_detail = f"Process exited with code {code}"
-
-        self._block_states[block_id] = BlockState.ERROR
-        await self._event_bus.emit(
-            EngineEvent(
-                event_type=BLOCK_ERROR,
-                block_id=block_id,
-                data=self._build_block_terminal_data(node_id=block_id, error=error_detail),
-            )
-        )
-        # Retry any READY blocks that were previously throttled and
-        # dispatch successors whose predecessors are now all DONE.
-        await self._dispatch_newly_ready()
-        self._check_completion()

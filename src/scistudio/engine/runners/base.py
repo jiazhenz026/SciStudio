@@ -42,13 +42,16 @@ class BlockRunner(Protocol):
         """
         ...
 
-    async def check_status(self, run_id: str) -> Any:
+    async def check_status(self, workflow_id: str, block_id: str) -> Any:
         """Query the current status of a previously started run.
 
         Parameters
         ----------
-        run_id:
-            Opaque identifier returned when the run was initiated.
+        workflow_id:
+            The workflow run that owns the block (#1517: handles are keyed by
+            ``(workflow_id, block_id)`` so concurrent runs don't collide).
+        block_id:
+            Block identifier within that run.
 
         Returns
         -------
@@ -57,12 +60,14 @@ class BlockRunner(Protocol):
         """
         ...
 
-    async def cancel(self, run_id: str) -> None:
+    async def cancel(self, workflow_id: str, block_id: str) -> None:
         """Request cancellation of a running execution.
 
         Parameters
         ----------
-        run_id:
-            Opaque identifier of the run to cancel.
+        workflow_id:
+            The workflow run that owns the block (#1517).
+        block_id:
+            Block identifier within that run.
         """
         ...

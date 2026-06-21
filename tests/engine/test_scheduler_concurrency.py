@@ -26,6 +26,7 @@ import pytest
 
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import (
+    BLOCK_DONE,
     BLOCK_RUNNING,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
@@ -207,7 +208,9 @@ class TestShutdownCleanupOnException:
 
         # Registered handle for A and B while the tasks are "running".
         process_registry = MagicMock()
-        process_registry.get_handle.side_effect = lambda block_id: {"A": handle_a, "B": handle_b}.get(block_id)
+        process_registry.get_handle.side_effect = lambda workflow_id, block_id: {"A": handle_a, "B": handle_b}.get(
+            block_id
+        )
 
         started = asyncio.Event()
         unblock = asyncio.Event()
@@ -436,3 +439,69 @@ class TestCancelWorkflowMixed:
         assert "workflow cancelled" in scheduler.skip_reasons.get("C", "")
         handle_a.terminate.assert_called_once()
         assert scheduler._active_tasks == {}
+
+
+# ---------------------------------------------------------------------------
+# Run-identity isolation (#1517 / #1596): two runs share one EventBus
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdentityIsolation:
+    """Events on the shared process-global EventBus must not cross-react."""
+
+    def _scheduler_on_bus(self, workflow: WorkflowDefinition, bus: EventBus) -> DAGScheduler:
+        rm = MagicMock()
+        rm.can_dispatch.return_value = True
+        reg = MagicMock()
+        reg.get_handle.return_value = None
+        return DAGScheduler(
+            workflow=workflow,
+            event_bus=bus,
+            resource_manager=rm,
+            process_registry=reg,
+            runner=AsyncMock(),
+        )
+
+    def test_cancel_workflow_isolated_across_runs(self) -> None:
+        """#1517/#1596: cancelling run A must not cancel run B's running block."""
+        bus = EventBus()
+        # Same node id "load" on purpose — only workflow_id distinguishes them.
+        wf_a = WorkflowDefinition(id="wf-A", nodes=[NodeDef(id="load", block_type="proc")])
+        wf_b = WorkflowDefinition(id="wf-B", nodes=[NodeDef(id="load", block_type="proc")])
+        sched_a = self._scheduler_on_bus(wf_a, bus)
+        sched_b = self._scheduler_on_bus(wf_b, bus)
+        sched_a._block_states["load"] = BlockState.RUNNING
+        sched_b._block_states["load"] = BlockState.RUNNING
+
+        asyncio.run(bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data={"workflow_id": "wf-A"})))
+
+        assert sched_a._block_states["load"] == BlockState.CANCELLED
+        assert sched_b._block_states["load"] == BlockState.RUNNING
+
+    def test_block_done_isolated_across_runs(self) -> None:
+        """#1517: run B's BLOCK_DONE must not drive run A's scheduler."""
+        bus = EventBus()
+        wf_a = WorkflowDefinition(
+            id="wf-A",
+            nodes=[NodeDef(id="x", block_type="proc"), NodeDef(id="y", block_type="proc")],
+            edges=[EdgeDef(source="x:out", target="y:in")],
+        )
+        wf_b = WorkflowDefinition(id="wf-B", nodes=[NodeDef(id="x", block_type="proc")])
+        sched_a = self._scheduler_on_bus(wf_a, bus)
+        self._scheduler_on_bus(wf_b, bus)
+        sched_a._dispatch_newly_ready = AsyncMock()
+
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="x", data={"workflow_id": "wf-B"})))
+
+        sched_a._dispatch_newly_ready.assert_not_called()
+
+    def test_dispose_unsubscribes(self) -> None:
+        """#1517: a disposed scheduler stops receiving events; dispose is idempotent."""
+        bus = EventBus()
+        wf = WorkflowDefinition(id="wf-A", nodes=[NodeDef(id="a", block_type="proc")])
+        sched = self._scheduler_on_bus(wf, bus)
+        assert sched._on_block_done in bus._subscribers[BLOCK_DONE]
+        sched.dispose()
+        assert sched._on_block_done not in bus._subscribers[BLOCK_DONE]
+        assert sched._on_cancel_workflow not in bus._subscribers[CANCEL_WORKFLOW_REQUEST]
+        sched.dispose()  # idempotent — must not raise

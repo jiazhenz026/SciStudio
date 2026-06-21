@@ -55,19 +55,20 @@ class TestLocalRunnerCheckStatus:
             pid=12345,
             start_time=datetime.now(),
             resource_request=MagicMock(),
+            workflow_id="wf",
         )
         handle._platform_ops = mock_ops
         return handle
 
     def test_unknown_when_no_registry(self) -> None:
         runner = LocalRunner(event_bus=None, registry=None)
-        result = asyncio.run(runner.check_status("any-id"))
+        result = asyncio.run(runner.check_status("wf", "any-id"))
         assert result == "unknown"
 
     def test_unknown_when_handle_not_found(self) -> None:
         registry = ProcessRegistry()
         runner = LocalRunner(event_bus=None, registry=registry)
-        result = asyncio.run(runner.check_status("nonexistent"))
+        result = asyncio.run(runner.check_status("wf", "nonexistent"))
         assert result == "unknown"
 
     def test_running_when_alive(self) -> None:
@@ -75,7 +76,7 @@ class TestLocalRunnerCheckStatus:
         handle = self._make_handle("block-1", alive=True)
         registry.register(handle)
         runner = LocalRunner(event_bus=None, registry=registry)
-        result = asyncio.run(runner.check_status("block-1"))
+        result = asyncio.run(runner.check_status("wf", "block-1"))
         assert result == "running"
 
     def test_completed_when_not_alive(self) -> None:
@@ -83,7 +84,7 @@ class TestLocalRunnerCheckStatus:
         handle = self._make_handle("block-1", alive=False)
         registry.register(handle)
         runner = LocalRunner(event_bus=None, registry=registry)
-        result = asyncio.run(runner.check_status("block-1"))
+        result = asyncio.run(runner.check_status("wf", "block-1"))
         assert result == "completed"
 
 
@@ -102,25 +103,26 @@ class TestLocalRunnerCancel:
             pid=12345,
             start_time=datetime.now(),
             resource_request=MagicMock(),
+            workflow_id="wf",
         )
         handle._platform_ops = mock_ops
         return handle
 
     def test_cancel_without_registry_is_safe(self) -> None:
         runner = LocalRunner(event_bus=None, registry=None)
-        asyncio.run(runner.cancel("any-id"))  # Should not raise
+        asyncio.run(runner.cancel("wf", "any-id"))  # Should not raise
 
     def test_cancel_nonexistent_handle_is_safe(self) -> None:
         registry = ProcessRegistry()
         runner = LocalRunner(event_bus=None, registry=registry)
-        asyncio.run(runner.cancel("nonexistent"))  # Should not raise
+        asyncio.run(runner.cancel("wf", "nonexistent"))  # Should not raise
 
     def test_cancel_terminates_handle(self) -> None:
         registry = ProcessRegistry()
         handle = self._make_handle("block-1")
         registry.register(handle)
         runner = LocalRunner(event_bus=None, registry=registry)
-        asyncio.run(runner.cancel("block-1"))
+        asyncio.run(runner.cancel("wf", "block-1"))
         assert handle.was_killed_by_framework is True
 
 
@@ -170,6 +172,45 @@ class TestLocalRunnerRun:
         assert payload["config"] == {"param": 1}
         assert payload["output_dir"]
         assert Path(payload["output_dir"]).exists()
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_deregisters_handle_on_success(self, mock_create_sub: AsyncMock) -> None:
+        """#1542: the process handle is deregistered once the worker exits."""
+        mock_proc = self._make_async_proc(json.dumps({"outputs": {"r": "1"}}).encode(), b"", 0, pid=100)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        registry = ProcessRegistry()
+        runner = LocalRunner(event_bus=bus, registry=registry)
+
+        class FakeBlock:
+            pass
+
+        asyncio.run(runner.run(FakeBlock(), {}, {}))
+        assert registry.active_handles() == []
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_deregisters_handle_on_error(self, mock_create_sub: AsyncMock) -> None:
+        """#1542: the handle is deregistered even when the worker fails."""
+        mock_proc = self._make_async_proc(b"", b"boom", 1, pid=101)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        registry = ProcessRegistry()
+        runner = LocalRunner(event_bus=bus, registry=registry)
+
+        class FakeBlock:
+            pass
+
+        try:
+            asyncio.run(runner.run(FakeBlock(), {}, {}))
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("Expected LocalRunner.run() to raise RuntimeError")
+        assert registry.active_handles() == []
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_raises_on_nonzero_exit(self, mock_create_sub: AsyncMock) -> None:
@@ -609,6 +650,16 @@ class TestLocalRunnerAsyncBehavior:
         bus = MagicMock()
         bus.emit = AsyncMock()
         registry = ProcessRegistry()
+        # #1542: run() now deregisters the handle in a finally once the worker
+        # exits, so capture it at register time rather than after the run.
+        registered: list[ProcessHandle] = []
+        original_register = registry.register
+
+        def _spy_register(handle: ProcessHandle) -> None:
+            registered.append(handle)
+            original_register(handle)
+
+        registry.register = _spy_register  # type: ignore[method-assign]
         runner = LocalRunner(event_bus=bus, registry=registry)
 
         class FakeBlock:
@@ -620,9 +671,10 @@ class TestLocalRunnerAsyncBehavior:
 
         # The ProcessHandle should be registered with the block.id value,
         # not the class path.
-        handle = registry.get_handle("node_A")
-        assert handle is not None
-        assert handle.block_id == "node_A"
+        assert len(registered) == 1
+        assert registered[0].block_id == "node_A"
+        # And it is deregistered once the worker exits (#1542).
+        assert registry.active_handles() == []
 
 
 class TestLocalRunnerWorkerCwd:
