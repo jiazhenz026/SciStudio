@@ -1,0 +1,210 @@
+{
+  "branch": "track/alpha-release-audit-20260621",
+  "check_events": [
+    {
+      "at": "2026-06-21T07:37:30.506448Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/extensions/**",
+      "src/scistudio/packages/**"
+    ],
+    "include": [
+      "docs/planning/alpha-release-audit-20260621-checklist.md",
+      "docs/audit/2026-06-21-alpha-release-*",
+      ".workflow/records/1733-alpha-release-audit.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-21T07:36:50.617037Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/alpha-release-audit-20260621-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T07:36:50.617182Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/alpha-release-audit-20260621-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T07:36:50.617184Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-criteria.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-21T07:37:30.528618Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.537750Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.546671Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.555532Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.564061Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.573035Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.581799Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.590671Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.599933Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T07:37:30.609321Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1733,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "1948ab2c",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "1948ab2c",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Run manager-dispatched alpha readiness audit for SciStudio core runtime; package and extension content are out of scope for alpha.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-21T07:37:30.609389Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1733-alpha-release-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-21T07:34:06.419208Z",
+      "pattern": "docs/planning/alpha-release-audit-20260621-dispatch-prompts.md",
+      "reason": "Add dispatch prompt file to manager evidence scope before creating prompt artifacts."
+    }
+  ],
+  "session_id": "8aef5775-ffe5-4f30-86ce-c3125c784a6f",
+  "strictness_tier": 3,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-06-21T07:36:50.617195Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager-only audit evidence; no production behavior change",
+      "verified_in_diff": null
+    }
+  ]
+}
