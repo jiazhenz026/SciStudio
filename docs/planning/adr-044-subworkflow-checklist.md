@@ -230,6 +230,8 @@ Append only.
 | 2026-06-21 | manager→FE | Locked contract gave FE the wrong healthy block type (`subworkflow` vs real `subworkflow_block`); FE built to contract → P0 routing bug | Fixed FE routing to `subworkflow_block`; added routing regression test | N/A (manager-induced; corrected) |
 | 2026-06-21 | manager | Double-click could not open `subworkflows/`-stored refs (tab loader is id→`workflows/` only) | Added by-path load route + frontend path-open | N/A |
 | 2026-06-21 | manager | Broken-ref repoint persistence deferred | TODO repointed from #890 to new follow-up | #1738 |
+| 2026-06-21 | review→FE2 | P1: GUI couldn't import an external subworkflow (FR-011) nor repoint a broken ref (US6 AS2); both were soft-deferred | Implemented shared chooseSubworkflowFile flow (node affordance + Config editor); import returns resolved_ports; setNodeRef writes top-level config.ref | N/A (fixed) |
+| 2026-06-21 | review→manager | P1: connecting to a subworkflow exposed port 404'd ("Unknown source or target port") — validate-connection resolved ports by block_type only | Added _resolve_subworkflow_port (resolve exposed surface from config.ref.path); verified live: src:data→sw1:raw_in connects + persists | N/A (fixed) |
 
 ## 13. Final Readiness
 

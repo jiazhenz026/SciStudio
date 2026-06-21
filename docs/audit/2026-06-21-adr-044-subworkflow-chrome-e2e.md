@@ -63,6 +63,28 @@ is covered by `tests/integration/test_subworkflow_lineage.py` and the live API
 checks above; a runnable child requires real executable blocks + input data and
 is exercised by the integration suite rather than the browser smoke.
 
+## 4. Follow-up review P1s — fixed + live-verified (2026-06-21, round 2)
+
+Two P1 GUI gaps and a port-connection concern were raised on the PR and fixed:
+
+- **P1-A (FR-011 / US5) — external subworkflow import via GUI.** Backend
+  `import-subworkflow` now also returns `resolved_ports`; a shared frontend flow
+  (`chooseSubworkflowFile`) picks a file via the native dialog, imports it, writes
+  top-level `config.ref.path` (`setNodeRef`), and refreshes the node's handles
+  from the response (`setNodeResolvedPorts`) — no reload. Wired to both the node
+  affordance (a no-ref node now shows "Choose subworkflow file…") and a new
+  `SubworkflowConfigEditor` in the Config tab.
+- **P1-B (US6 AS2) — broken-ref repair.** `locateSubworkflow` now runs the same
+  shared flow (was a no-op prompt), so "Locate file…" actually repoints the ref.
+- **Port mapping + connectability — VERIFIED LIVE.** Connecting to a subworkflow
+  exposed port previously 404'd ("Unknown source or target port") because
+  `validate-connection` resolved ports by `block_type` only. Fixed
+  (`_resolve_subworkflow_port` resolves the exposed surface from `config.ref.path`).
+  Live in the owner's Chrome: dragged `Load`(`data`) → subworkflow(`raw_in`); the
+  edge connected (no banner) and persisted to YAML as `source: src:data` /
+  `target: sw1:raw_in` (colon ref = exposed port name, exactly what the flattener
+  rewrites at run start). Verified by reading the on-disk `main.yaml` + the API.
+
 ## Environment note
 
 No `pip install -e .` was used; the backend ran with `PYTHONPATH=src` from the
