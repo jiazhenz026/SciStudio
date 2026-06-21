@@ -179,6 +179,45 @@ def test_get_workflow_by_path_rejects_escape(client: TestClient, opened_project:
     assert response.status_code in (400, 404), response.text
 
 
+def test_validate_connection_resolves_subworkflow_exposed_ports(client: TestClient, opened_project: Path) -> None:
+    """ADR-044: connecting to a subworkflow node's exposed port must validate, not 404.
+
+    The exposed ports are file-derived, so the connection-validation route must
+    resolve them from config.ref.path (regression: it 404'd 'Unknown source or
+    target port', blocking the wire in the GUI)."""
+    _write_subworkflow(opened_project, "child.yaml", _CHILD)
+    cfg = {"ref": {"path": "subworkflows/child.yaml"}}
+
+    # report (output) -> raw_in (input), both exposed subworkflow ports.
+    ok = client.post(
+        "/api/blocks/validate-connection",
+        json={
+            "source_block": "subworkflow_block",
+            "source_port": "report",
+            "source_node_config": cfg,
+            "target_block": "subworkflow_block",
+            "target_port": "raw_in",
+            "target_node_config": cfg,
+        },
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["compatible"] is True
+
+    # A port that is NOT exposed still 404s.
+    bad = client.post(
+        "/api/blocks/validate-connection",
+        json={
+            "source_block": "subworkflow_block",
+            "source_port": "ghost_port",
+            "source_node_config": cfg,
+            "target_block": "subworkflow_block",
+            "target_port": "raw_in",
+            "target_node_config": cfg,
+        },
+    )
+    assert bad.status_code == 404, bad.text
+
+
 def test_import_subworkflow_copies_into_project(client: TestClient, opened_project: Path, tmp_path: Path) -> None:
     """FR-011: an external file is copied into <project>/subworkflows/ with a project-relative ref."""
     external = tmp_path / "external_source.yaml"
