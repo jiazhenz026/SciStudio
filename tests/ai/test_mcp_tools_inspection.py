@@ -180,7 +180,7 @@ def test_preview_data_artifact_respects_canonical_mcp_cap(
 ) -> None:
     p = tmp_path / "too_large.png"
     p.write_bytes(b"\x89PNG\r\n\x1a\n" + (b"x" * 64))
-    monkeypatch.setattr(tools_inspection, "_MAX_PREVIEW_BYTES", 16)
+    monkeypatch.setattr(tools_inspection._helpers, "_MAX_PREVIEW_BYTES", 16)
 
     out = _run(tools_inspection.preview_data(ref={"backend": "filesystem", "path": str(p)}, fmt="artifact"))
 

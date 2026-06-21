@@ -49,7 +49,7 @@ def register_data_ref(
     type_name: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> DataRecord:
-    from . import DataRecord
+    from .models import DataRecord
 
     resolved_type_name = type_name or _infer_type_name_from_ref(ref)
     ref_type_chain: list[str] = []

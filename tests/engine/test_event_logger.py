@@ -1,4 +1,4 @@
-"""Tests for :mod:`scistudio.utils.event_logger` (#827).
+"""Tests for :mod:`scistudio.engine.event_logger` (#827).
 
 Validates that ``install_event_logger``:
 
@@ -18,12 +18,9 @@ import asyncio
 import logging
 
 from scistudio.engine import events as events_module
+from scistudio.engine.event_logger import _all_event_types, install_event_logger
 from scistudio.engine.events import EngineEvent, EventBus
-from scistudio.utils.event_logger import (
-    LOGGER_NAME,
-    _all_event_types,
-    install_event_logger,
-)
+from scistudio.utils.event_logger import LOGGER_NAME
 
 
 def _emit(bus: EventBus, event: EngineEvent) -> None:

@@ -19,8 +19,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from scistudio.core.versioning.state import HeadState
+
 if TYPE_CHECKING:
-    from scistudio.core.versioning.git_engine import GitEngine, HeadState
+    from scistudio.core.versioning.git_engine import GitEngine
 
 
 def _status(engine: GitEngine) -> dict[str, Any]:
@@ -106,11 +108,6 @@ def _status(engine: GitEngine) -> dict[str, Any]:
 
 def _head_state(engine: GitEngine) -> HeadState:
     """Return (HEAD SHA, dirty). Used by ADR-038 lineage join."""
-    # Lazy import to avoid an at-import-time cycle between this sibling
-    # module and :mod:`scistudio.core.versioning.git_engine` (which
-    # imports this module at class-body time to bind ``head_state``).
-    from scistudio.core.versioning.git_engine import HeadState
-
     proc = engine._run(["rev-parse", "HEAD"], check=False)
     if proc.returncode != 0:
         return HeadState("", False)

@@ -15,6 +15,13 @@ Series/DataFrame/Composite domain subclasses.
 from __future__ import annotations
 
 from scistudio.core.storage.ref import StorageReference
+
+# #1342 / round-4 no-cycles: importing this registers the default
+# ``type -> backend`` builder callback with ``core.storage.backend_router``
+# (the wiring lives on the types side so storage never imports concrete
+# types). Importing any DataObject runs this package __init__, so the default
+# router is always wired before the first ``save`` / ``get_router`` call.
+from scistudio.core.types import _backend_defaults  # noqa: F401
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject, TypeSignature

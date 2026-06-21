@@ -1,5 +1,19 @@
 """scistudio.utils.axis_iter — single-Array extra-axis iteration utility.
 
+.. deprecated::
+   Tracked at #1729. This module's ``scistudio.utils`` location is slated to move to
+   ``scistudio.core`` (e.g. ``scistudio.core.axis_iter``). It operates on the
+   core :class:`~scistudio.core.types.array.Array` type and reads/writes the
+   core zarr backend, so hosting it under ``utils`` makes the bottom ``utils``
+   layer depend on ``core`` — a layering inversion. It is kept here (relocation
+   tracked at #1729) because ``scistudio.utils.axis_iter.iterate_over_axes`` is documented public
+   API (ADR-027 D3 / ADR-031) consumed by the ``scistudio-blocks-imaging``
+   plugin; relocating it is a breaking move that must be coordinated with the
+   plugin package and the ADR/spec docs. **Import it from the new ``core``
+   location once that lands.** (A runtime ``DeprecationWarning`` is intentionally
+   NOT emitted: the pytest policy in #1560 turns ``scistudio.*`` deprecation
+   warnings into errors, which would break the plugin's current legitimate use.)
+
 Implements ADR-027 D3 (``iterate_over_axes``). The function iterates a
 caller-supplied ``func`` over all axes in a source :class:`Array` that
 are *not* in ``operates_on``, applying ``func`` to each slice and

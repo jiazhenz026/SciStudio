@@ -19,7 +19,7 @@ import asyncio
 import logging
 from typing import Any
 
-from scistudio.api.routes import ai_pty as _pkg
+from scistudio.api.routes.ai_pty import _state as _pkg
 
 logger = logging.getLogger(__name__)
 

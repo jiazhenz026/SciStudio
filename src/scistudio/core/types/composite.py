@@ -136,74 +136,17 @@ class CompositeData(DataObject):
         )
 
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
-
-    @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``CompositeData``-specific kwargs for worker reconstruction.
-
-        Each composite slot is itself a typed :class:`DataObject`, so
-        reconstruction is recursive: every entry in
-        ``metadata["slots"]`` is a full wire-format payload item that
-        we hand to
-        :func:`scistudio.core.types.serialization._reconstruct_one`.
-
-        The import of ``_reconstruct_one`` lives **inside the method
-        body** (not at module top) to break an otherwise-circular
-        load-time chain: ``composite`` would import ``serialization``,
-        and the real T-014 ``serialization`` imports every base class
-        — including ``composite``. The inside-the-method import delays
-        the edge until the classmethod is actually called, by which
-        time both modules are fully loaded. See Open Question 1 of the
-        Phase 10 implementation standards doc and ADR-027 Addendum 1
-        §2 ("D11' companion") for the full rationale.
-
-        Note that in T-013, ``_reconstruct_one`` is a stub that raises
-        :class:`NotImplementedError`. T-014 replaces the stub body
-        with the real implementation. Code that needs to round-trip
-        composite data **must wait for T-014**; T-013 only establishes
-        the hook contract.
-
-        Args:
-            metadata: The ``metadata`` dict from the wire-format payload
-                item. Expected to contain a ``"slots"`` key whose value
-                is a ``{slot_name: payload_item_dict}`` mapping.
-
-        Returns:
-            A dict with a single ``"slots"`` key whose value is a
-            ``{slot_name: DataObject}`` mapping suitable for
-            :meth:`CompositeData.__init__`.
-        """
-        # Lazy import to break the load-time cycle. See docstring for
-        # rationale. T-013 ships this as a NotImplementedError stub;
-        # T-014 replaces the body with the real reconstruction logic.
-        from scistudio.core.types.serialization import _reconstruct_one
-
-        slot_payloads = metadata.get("slots", {}) or {}
-        slots = {slot_name: _reconstruct_one(slot_payload) for slot_name, slot_payload in slot_payloads.items()}
-        return {"slots": slots}
-
-    @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``CompositeData``-specific fields for the metadata sidecar.
-
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
-        Each slot is itself a typed :class:`DataObject`; we delegate to
-        :func:`scistudio.core.types.serialization._serialise_one` (full
-        implementation in T-014) to produce a full wire-format payload
-        item per slot, then assemble into a ``{slot_name: payload_item}``
-        mapping.
-
-        The import of ``_serialise_one`` is inside the method body for
-        the same cycle-breaking reason as
-        :meth:`_reconstruct_extra_kwargs`; see that method's docstring.
-
-        The parameter is typed as :class:`DataObject` to respect the
-        Liskov substitution principle with the base classmethod; at
-        runtime the caller only ever passes a ``CompositeData``.
-        """
-        assert isinstance(obj, CompositeData), f"Expected CompositeData, got {type(obj).__name__}"
-        # Lazy import to break the load-time cycle. See
-        # _reconstruct_extra_kwargs docstring for rationale.
-        from scistudio.core.types.serialization import _serialise_one
-
-        return {"slots": {slot_name: _serialise_one(slot_obj) for slot_name, slot_obj in obj._slots.items()}}
+    #
+    # ``CompositeData`` does NOT override ``_serialise_extra_metadata`` /
+    # ``_reconstruct_extra_kwargs``. Its slots are nested ``DataObject``s, and
+    # the recursion that (de)serialises them is owned by the serialiser itself
+    # (``scistudio.core.types.serialization._serialise_one`` /
+    # ``_reconstruct_one`` handle the ``CompositeData`` case directly).
+    #
+    # Round-4 no-cycles (#1342): the previous override imported the serialiser
+    # from inside the method body, i.e. the *type* reached back to the
+    # serialiser. That ``composite -> serialisation`` edge — together with
+    # ``serialisation -> registry`` and ``registry -> composite`` — closed a
+    # core.types-internal import cycle. Hosting the recursion on the serialiser
+    # (which is the authority on (de)serialising any ``DataObject``) keeps this
+    # module a leaf, so the wire format is unchanged but the cycle is gone.

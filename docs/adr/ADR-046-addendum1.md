@@ -19,7 +19,11 @@ governs:
     - scistudio.core.versioning.git_engine
   contracts:
     - scistudio.core.versioning.git_engine.GitEngine
-    - scistudio.core.versioning.git_engine.HeadState
+    # HeadState moved to scistudio.core.versioning.state (round-4 no-cycles) so
+    # ``_status_ops`` imports it from a leaf instead of lazy-importing
+    # ``git_engine``; re-exported from ``git_engine``. Canonical contract in
+    # ``state``.
+    - scistudio.core.versioning.state.HeadState
   entry_points: []
   files:
     - docs/adr/ADR-046-addendum1.md
@@ -115,11 +119,11 @@ Each sibling module:
 
 | File | Methods (bound from sibling) |
 |---|---|
-| `git_engine.py` | `HeadState` dataclass + `MergeResult` literal + `GitEngine` class body. Retains `__init__`, the `_git` property, and the in-class helpers `_run`, `_author_env`, `_rev_parse_head` (used by every sibling). Plus the ~14 binding lines + repo-lifecycle methods `init_repository` and `is_repository` (which read `_DEFAULT_AUTHOR_*` constants at class-definition time and remain inline for clarity). `HeadState` / `MergeResult` are DEFINED here (not aliased) so the ADR-039 governed contracts `scistudio.core.versioning.git_engine.{HeadState,MergeResult}` resolve to real symbol facts and pass `audit.closure`. |
+| `git_engine.py` | `HeadState` dataclass + `MergeResult` literal + `GitEngine` class body. Retains `__init__`, the `_git` property, and the in-class helpers `_run`, `_author_env`, `_rev_parse_head` (used by every sibling). Plus the ~14 binding lines + repo-lifecycle methods `init_repository` and `is_repository` (which read `_DEFAULT_AUTHOR_*` constants at class-definition time and remain inline for clarity). `MergeResult` is DEFINED here. `HeadState` moved to the `state` leaf (round-4 no-cycles) so `_status_ops` imports it from a sibling leaf instead of lazy-importing `git_engine`; it is re-exported here. The ADR-039 governed contract is now `scistudio.core.versioning.state.HeadState` (a real symbol fact that passes `audit.closure`); `MergeResult` stays `git_engine.MergeResult`. |
 | `_commit_ops.py` | `_commit` |
 | `_history_ops.py` | `_log`, `_diff`, `_restore`, `_files_unchanged_vs_commit` |
 | `_branch_ops.py` | `_branches`, `_current_branch`, `_branch_create`, `_branch_switch`, `_branch_delete`, `_commits_reachable_only_from`, `_tag` |
-| `_status_ops.py` | `_status`, `_head_state` (lazy-imports `HeadState` from `git_engine` inside `_head_state` body to avoid an at-import cycle) |
+| `_status_ops.py` | `_status`, `_head_state` (imports `HeadState` from the `state` leaf at module level; round-4 no-cycles removed the former lazy `git_engine` import) |
 | `_merge_ops.py` | `_merge`, `_cherry_pick`, `_merge_stage_file`, `_merge_complete`, `_merge_abort` |
 
 All siblings <750 LOC. Main `git_engine.py` <300 LOC.
