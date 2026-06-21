@@ -25,7 +25,7 @@ from scistudio.core.types.dataframe import DataFrame
 
 pytestmark = pytest.mark.skipif(shutil.which("Rscript") is None, reason="requires Rscript on PATH")
 
-R_SCRIPT = '''\
+R_SCRIPT = """\
 inputs <- Sys.getenv("SCISTUDIO_INPUTS_DIR")
 outputs <- Sys.getenv("SCISTUDIO_OUTPUTS_DIR")
 in_files <- list.files(file.path(inputs, "table"), pattern = "\\\\.csv$", full.names = TRUE)
@@ -36,7 +36,7 @@ for (src in in_files) {
   df$scaled <- df$value * 10
   write.csv(df, file.path(out_dir, basename(src)), row.names = FALSE)
 }
-'''
+"""
 
 
 def test_r_codeblock_adds_scaled_column(tmp_path: Path) -> None:
@@ -50,17 +50,22 @@ def test_r_codeblock_adds_scaled_column(tmp_path: Path) -> None:
     reg = BlockRegistry()
     reg.scan(include_monorepo=False)
 
-    block = CodeBlock(config={"params": {
-        "project_dir": str(project),
-        "script_path": "scripts/process_table.R",
-        "interpreter_mode": "existing",
-        "interpreter_path": shutil.which("Rscript"),
-        "exchange_root": "exchange",
-        "block_id": "alpha-r", "run_id": "run-1",
-        "inputs": [{"name": "table", "direction": "input", "data_type": "DataFrame", "extension": ".csv"}],
-        "outputs": [{"name": "result", "direction": "output", "data_type": "DataFrame", "extension": ".csv"}],
-        "registry": reg,
-    }})
+    block = CodeBlock(
+        config={
+            "params": {
+                "project_dir": str(project),
+                "script_path": "scripts/process_table.R",
+                "interpreter_mode": "existing",
+                "interpreter_path": shutil.which("Rscript"),
+                "exchange_root": "exchange",
+                "block_id": "alpha-r",
+                "run_id": "run-1",
+                "inputs": [{"name": "table", "direction": "input", "data_type": "DataFrame", "extension": ".csv"}],
+                "outputs": [{"name": "result", "direction": "output", "data_type": "DataFrame", "extension": ".csv"}],
+                "registry": reg,
+            }
+        }
+    )
 
     outputs = block.run({"table": Collection([src])}, block.config)
 

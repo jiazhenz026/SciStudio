@@ -1,6 +1,6 @@
 """Alpha IO load+save coverage matrix for the six core types.
 
-For every core type this exercises the full ``load_ext × save_ext``
+For every core type this exercises the full ``load_ext x save_ext``
 matrix the alpha readiness plan asks for:
 
     for load_ext in type.load_extensions:
@@ -73,7 +73,7 @@ REG = _core_registry()
 def _build_array(ext: str, i: int = 0) -> Array:
     # 1-D so every save extension works: Array .parquet is single-column-only
     # by design. N-D coverage for .npy/.npz/.zarr is in test_array_nd_roundtrip.
-    arr = (np.arange(8, dtype=np.float64) + i)
+    arr = np.arange(8, dtype=np.float64) + i
     return Array(axes=["x"], shape=arr.shape, dtype=str(arr.dtype), data=arr)
 
 
@@ -179,8 +179,13 @@ def _matrix_params() -> list[Any]:
                 if (core_type, load_ext) in BROKEN_RELOAD:
                     marks.append(pytest.mark.xfail(reason=f"FINDINGS: load {core_type}{load_ext}", strict=False))
                 params.append(
-                    pytest.param(core_type, load_ext, save_ext, marks=marks,
-                                 id=f"{core_type}:{load_ext.lstrip('.')}->{save_ext.lstrip('.')}")
+                    pytest.param(
+                        core_type,
+                        load_ext,
+                        save_ext,
+                        marks=marks,
+                        id=f"{core_type}:{load_ext.lstrip('.')}->{save_ext.lstrip('.')}",
+                    )
                 )
     return params
 
@@ -234,8 +239,11 @@ _COLLECTION_EXT = {
     [
         pytest.param(
             ct,
-            marks=([pytest.mark.xfail(reason="FINDINGS FIND-A composite .json", strict=False)]
-                   if (ct, _COLLECTION_EXT[ct]) in BROKEN_RELOAD else []),
+            marks=(
+                [pytest.mark.xfail(reason="FINDINGS FIND-A composite .json", strict=False)]
+                if (ct, _COLLECTION_EXT[ct]) in BROKEN_RELOAD
+                else []
+            ),
             id=ct,
         )
         for ct in MATRIX

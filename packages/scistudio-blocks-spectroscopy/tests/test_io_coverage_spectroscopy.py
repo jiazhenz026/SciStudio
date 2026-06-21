@@ -1,6 +1,6 @@
 """Alpha IO load+save coverage matrix for spectroscopy types.
 
-Covers the full ``load_ext × save_ext`` matrix for ``Spectrum`` and
+Covers the full ``load_ext x save_ext`` matrix for ``Spectrum`` and
 ``SpectralDataset`` over the in-scope formats (legacy ``.xls`` is out of
 scope for alpha) plus a 10-item ``Spectrum`` collection round-trip via
 ``LoadSpectrum`` multi-path loading.
@@ -12,8 +12,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
-from scistudio.blocks.base.config import BlockConfig
 from scistudio_blocks_spectroscopy import _support
 from scistudio_blocks_spectroscopy.blocks.utilities import (
     LoadSpectralDataset,
@@ -21,7 +19,9 @@ from scistudio_blocks_spectroscopy.blocks.utilities import (
     SaveSpectralDataset,
     SaveSpectrum,
 )
-from scistudio_blocks_spectroscopy.types import Spectrum, SpectralDataset
+from scistudio_blocks_spectroscopy.types import SpectralDataset, Spectrum
+
+from scistudio.blocks.base.config import BlockConfig
 
 SPECTRUM_EXTS = [".csv", ".tsv", ".txt", ".xlsx", ".dx", ".jcamp", ".jdx", ".spectrum.json"]
 DATASET_EXTS = [".json", ".xlsx"]
@@ -31,8 +31,11 @@ def _spectrum(i: int = 0) -> Spectrum:
     lam = np.linspace(400.0, 800.0, 32)
     inten = (np.cos(lam / 50.0) + 2.0) * (1.0 + 0.1 * i)
     meta = Spectrum.Meta(
-        lambda_unit="nm", intensity_unit="a.u.", lambda_kind="wavelength",
-        modality="uvvis", sample_label=f"sample{i}",
+        lambda_unit="nm",
+        intensity_unit="a.u.",
+        lambda_kind="wavelength",
+        modality="uvvis",
+        sample_label=f"sample{i}",
     )
     return _support.build_spectrum(lam, inten, meta=meta)
 
@@ -47,8 +50,12 @@ def _dataset(i: int = 0) -> SpectralDataset:
         for x, y in zip(lam, inten, strict=True):
             spectra_rows.append({"spectrum_id": sid, "lambda": float(x), "intensity": float(y)})
     meta = SpectralDataset.Meta(
-        dataset_name=f"DS{i}", dataset_role="experiment", lambda_unit="nm",
-        intensity_unit="counts", modality="raman", schema_version="1",
+        dataset_name=f"DS{i}",
+        dataset_role="experiment",
+        lambda_unit="nm",
+        intensity_unit="counts",
+        modality="raman",
+        schema_version="1",
     )
     return _support.build_spectral_dataset(
         _support.dataframe_from_rows(index_rows),
@@ -63,7 +70,7 @@ def _save_spectrum(spec: Spectrum, path: Path) -> None:
 
 
 def _load_spectrum_one(path: Path) -> Spectrum:
-    return list(LoadSpectrum().load(BlockConfig(params={"path": str(path)})))[0]
+    return next(iter(LoadSpectrum().load(BlockConfig(params={"path": str(path)}))))
 
 
 @pytest.mark.parametrize("save_ext", SPECTRUM_EXTS)
@@ -95,7 +102,7 @@ def test_spectral_dataset_load_save_matrix(tmp_path: Path, load_ext: str, save_e
     SaveSpectralDataset().save(src, BlockConfig(params={"path": str(in_path)}))
     loaded = LoadSpectralDataset().load(BlockConfig(params={"path": str(in_path)}))
     if hasattr(loaded, "items") and not isinstance(loaded, SpectralDataset):
-        loaded = list(loaded)[0]
+        loaded = next(iter(loaded))
 
     out_path = tmp_path / f"out{save_ext}"
     SaveSpectralDataset().save(loaded, BlockConfig(params={"path": str(out_path)}))
@@ -103,7 +110,7 @@ def test_spectral_dataset_load_save_matrix(tmp_path: Path, load_ext: str, save_e
 
     reloaded = LoadSpectralDataset().load(BlockConfig(params={"path": str(out_path)}))
     if hasattr(reloaded, "items") and not isinstance(reloaded, SpectralDataset):
-        reloaded = list(reloaded)[0]
+        reloaded = next(iter(reloaded))
     assert isinstance(reloaded, SpectralDataset)
     idx, spectra = _support.dataset_frames(reloaded)
     assert idx.num_rows == 3

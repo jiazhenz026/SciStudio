@@ -1,6 +1,6 @@
 """Alpha IO load+save coverage matrix for the imaging ``Image`` type.
 
-Exercises the full ``load_ext × save_ext`` matrix over the in-scope
+Exercises the full ``load_ext x save_ext`` matrix over the in-scope
 image formats (vendor binaries .czi/.lif/.nd2/.oib/.oir are out of scope
 for alpha) plus a 10-item collection round-trip via ``LoadImage``
 multi-path loading.
@@ -14,11 +14,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
-from scistudio.blocks.base.config import BlockConfig
 from scistudio_blocks_imaging.io.load_image import LoadImage
 from scistudio_blocks_imaging.io.save_image import SaveImage
 from scistudio_blocks_imaging.types import Image
+
+from scistudio.blocks.base.config import BlockConfig
 
 # Lossless + lossy in-scope formats. Build a 2-D uint8 image so every
 # format (incl. PNG/JPEG which require uint8) accepts it.
