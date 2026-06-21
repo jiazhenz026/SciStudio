@@ -131,7 +131,11 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
     ``_spawn`` a second time)."""
 
     spawn_calls: list[dict[str, Any]] = []
-    real_spawn = ai_pty._spawn
+    # Capture the seam where the autouse ``_fake_spawn`` fixture installed its
+    # fake (``ai_pty._state._spawn``), NOT the package re-export
+    # ``ai_pty._spawn``: the fixture rebinds the leaf attribute, so reading the
+    # package alias would capture the *real* spawner and try to exec ``claude``.
+    real_spawn = ai_pty._state._spawn
 
     def counting_spawn(**kwargs: Any) -> PtyProcess:
         spawn_calls.append(kwargs)
