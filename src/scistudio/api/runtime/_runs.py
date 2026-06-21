@@ -95,10 +95,14 @@ def _build_lineage_recorder(
     parent_run_id: str | None = None,
     workflow_git_commit: str | None = None,
     workflow_dirty: bool = False,
+    flattened: bool = False,
 ) -> Any:
     """Construct a per-run :class:`LineageRecorder` and seed its ``runs`` row.
 
-    Returns ``None`` when the lineage store is unavailable.
+    Returns ``None`` when the lineage store is unavailable. ``flattened`` is set
+    when *workflow* is the inline-flattened result of a graph that contained
+    ``SubWorkflowBlock`` references, so the snapshot captures the flat DAG that
+    actually ran (ADR-044 §5 / SC-002).
     """
     if self.lineage_store is None:
         return None
@@ -108,7 +112,7 @@ def _build_lineage_recorder(
         from scistudio.core.lineage.recorder import LineageRecorder
 
         run_id = uuid4().hex
-        workflow_yaml_snapshot = self._serialise_workflow_snapshot(workflow_id, workflow)
+        workflow_yaml_snapshot = self._serialise_workflow_snapshot(workflow_id, workflow, prefer_inmemory=flattened)
         env_snapshot = EnvironmentSnapshot.capture(full=True).to_dict()
         triggered_by = "execute_from" if execute_from is not None else "user"
         run = RunRecord(
@@ -132,14 +136,37 @@ def _build_lineage_recorder(
         return None
 
 
-def _serialise_workflow_snapshot(self: ApiRuntime, workflow_id: str, workflow: WorkflowDefinition) -> str:
-    """Return the on-disk workflow YAML, falling back to a re-serialisation."""
-    try:
-        path = self.workflow_path(workflow_id)
-        if path.exists():
-            return path.read_text(encoding="utf-8")
-    except Exception:
-        logger.debug("ADR-038: workflow yaml snapshot disk read failed", exc_info=True)
+def _serialise_workflow_snapshot(
+    self: ApiRuntime,
+    workflow_id: str,
+    workflow: WorkflowDefinition,
+    *,
+    prefer_inmemory: bool = False,
+) -> str:
+    """Return the workflow YAML snapshot for the lineage ``runs`` row.
+
+    ADR-044 §5 / SC-002: when ``prefer_inmemory`` is set (the workflow contained
+    ``SubWorkflowBlock`` references that were inline-flattened before dispatch),
+    serialise the *in-memory flattened* definition so the snapshot captures the
+    exact flat DAG that ran — NOT the authored on-disk YAML, which still holds
+    the un-flattened ``SubWorkflowBlock`` references. For ordinary workflows the
+    on-disk file already equals what ran, so the disk read is kept (it preserves
+    authored comments/formatting and existing lineage behaviour).
+    """
+    if prefer_inmemory:
+        try:
+            from scistudio.workflow.serializer import dump_yaml_str
+
+            return dump_yaml_str(workflow)
+        except Exception:
+            logger.debug("ADR-044: flattened snapshot serialisation failed", exc_info=True)
+    else:
+        try:
+            path = self.workflow_path(workflow_id)
+            if path.exists():
+                return path.read_text(encoding="utf-8")
+        except Exception:
+            logger.debug("ADR-038: workflow yaml snapshot disk read failed", exc_info=True)
     try:
         return yaml.safe_dump(
             {
@@ -301,6 +328,40 @@ def start_workflow(
 
     workflow = self.load_workflow(workflow_id)
 
+    # ADR-044 §4 / FR-003: inline-flatten every SubWorkflowBlock reference into
+    # the parent DAG *before* validation and dispatch. This is the sole call
+    # site of the flattener (``load_workflow`` deliberately does NOT flatten, so
+    # editor saves preserve the authored ``SubWorkflowBlock`` containers — FR-002).
+    # The flattened graph is what the validator, scheduler, and lineage snapshot
+    # all see, so the scheduler never observes a SubWorkflowBlock (SC-001).
+    from scistudio.workflow.flatten import (
+        CyclicSubworkflowError,
+        flatten_subworkflows,
+        is_subworkflow_node,
+    )
+
+    had_subworkflows = any(is_subworkflow_node(node) for node in workflow.nodes)
+    if had_subworkflows:
+        project_root = str(self.active_project.path) if self.active_project else "."
+        try:
+            workflow = flatten_subworkflows(
+                workflow,
+                base_dir=project_root,
+                registry=self.block_registry,
+                self_path=self.workflow_path(workflow_id),
+            )
+        except CyclicSubworkflowError as exc:
+            raise ValueError(f"Cannot start workflow; {exc}") from exc
+        except ValueError as exc:
+            raise ValueError(f"Cannot start workflow; subworkflow flattening failed: {exc}") from exc
+        # Inlined inner-node config paths arrive project-relative (they were
+        # read raw from the referenced files); absolutify them the same way
+        # ``load_workflow`` did for the parent (idempotent for already-absolute
+        # parent nodes) so dispatched blocks see absolute paths (#506).
+        if self.active_project is not None:
+            for node in workflow.nodes:
+                node.config = self._absolutify_node_config(node.config, node.block_type, project_root)
+
     # #1518 (DSN-2): ``start_workflow`` previously scheduled the run without
     # ever calling ``validate_workflow``, so a graph that bypassed save-time
     # validation (e.g. an externally edited YAML, or one saved before #1518)
@@ -308,6 +369,8 @@ def start_workflow(
     # front. Re-run validation on the loaded definition and refuse to start
     # on a hard error. ``"Warning:"``-prefixed diagnostics (unknown block
     # type / missing port) remain non-fatal, matching ``save_workflow``.
+    # ADR-044 FR-010: validation runs on the flattened graph and hard-rejects
+    # any ``subworkflow_broken`` placeholder left by an unresolved reference.
     from scistudio.workflow.validator import validate_workflow
 
     diagnostics = validate_workflow(workflow, registry=self.block_registry)
@@ -334,6 +397,7 @@ def start_workflow(
         parent_run_id=parent_run_id,
         workflow_git_commit=workflow_git_commit,
         workflow_dirty=workflow_dirty,
+        flattened=had_subworkflows,
     )
 
     scheduler = DAGScheduler(

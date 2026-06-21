@@ -7,6 +7,28 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+class SubworkflowPortEntry(BaseModel):
+    """One exposed port of a referenced subworkflow (ADR-044 FR-004)."""
+
+    name: str
+    accepted_types: list[str] = Field(default_factory=list)
+
+
+class SubworkflowPortSurface(BaseModel):
+    """Resolved exposed-port surface for a SubWorkflowBlock node (ADR-044 FR-004).
+
+    Response-only: computed server-side from the referenced file's
+    ``exposed_ports`` and never persisted to the workflow YAML. The editor
+    renders the node's handles from this; ``broken`` is ``True`` when the
+    reference cannot be resolved (FR-010).
+    """
+
+    inputs: list[SubworkflowPortEntry] = Field(default_factory=list)
+    outputs: list[SubworkflowPortEntry] = Field(default_factory=list)
+    broken: bool = False
+    ref_path: str | None = None
+
+
 class WorkflowNode(BaseModel):
     """Serializable workflow node payload."""
 
@@ -15,6 +37,11 @@ class WorkflowNode(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
     execution_mode: str | None = None
     layout: dict[str, float] | None = None
+    # ADR-044 FR-004 / D4: response-only resolved exposed-port surface for
+    # ``subworkflow`` / ``subworkflow_broken`` nodes. ``None`` for every other
+    # block type. Never round-trips into the saved YAML (``WorkflowCreate`` has
+    # no such field; ``save_workflow`` builds ``NodeDef`` which drops it).
+    resolved_ports: SubworkflowPortSurface | None = None
 
 
 class WorkflowEdge(BaseModel):

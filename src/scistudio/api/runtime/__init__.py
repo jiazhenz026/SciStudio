@@ -710,6 +710,7 @@ class ApiRuntime:
     save_workflow = _workflows.save_workflow
     mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
+    import_subworkflow_file = _workflows.import_subworkflow_file
     _config_schema_for_block = _workflows._config_schema_for_block
     _relativify_node_config = _workflows._relativify_node_config
     _absolutify_node_config = _workflows._absolutify_node_config

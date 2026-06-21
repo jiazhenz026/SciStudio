@@ -1,4 +1,18 @@
-"""SubWorkflowBlock — runs an entire workflow as a single block."""
+"""SubWorkflowBlock — authoring-only container (ADR-044).
+
+ADR-044 makes ``SubWorkflowBlock`` an editor/parser-time concept only. A node of
+this type references an external workflow file (``config.ref.path``) and exposes
+the referenced file's ``exposed_ports`` so the parent canvas can wire to the
+sub-pipeline as if it were a single block. The engine scheduler never observes a
+``SubWorkflowBlock``: at run start the parser inline-flattens every reference
+into the parent DAG (see :mod:`scistudio.workflow.flatten`).
+
+This class therefore has no runtime behaviour — its :meth:`run` raises. The pre-
+ADR-044 nested-execution stub (``_scheduler_factory``, ``_cleanup_callback``,
+``_run_with_scheduler``, ``_sequential_execute``, ``input_mapping`` /
+``output_mapping``) is deleted (FR-012); issue #890's nested-execution premise
+is dissolved by this ADR rather than implemented.
+"""
 
 from __future__ import annotations
 
@@ -11,175 +25,128 @@ from scistudio.blocks.base.ports import InputPort, OutputPort
 
 if TYPE_CHECKING:
     from scistudio.core.types.collection import Collection
-from scistudio.core.types.base import DataObject
 
 logger = logging.getLogger(__name__)
 
 
 class SubWorkflowBlock(Block):
-    """Block that encapsulates a full workflow as a single composable unit.
+    """Authoring-time container that references an external subworkflow file.
 
-    *workflow_ref* points to the nested workflow definition (YAML path or ID).
-    *input_mapping* translates parent port names to child workflow input names.
-    *output_mapping* translates child workflow output names to parent port names.
-
-    The engine layer injects ``_scheduler_factory`` at startup so that child
-    workflows can use the real DAG scheduler without blocks/ importing engine/.
-    When no factory is injected, execution falls back to the sequential stub.
-
-    .. note::
-
-        Full async DAG scheduling requires the engine's event loop (Phase 5.2b
-        worker.py).  The ``_run_with_scheduler`` method currently delegates to
-        ``_sequential_execute`` as a placeholder until the worker integration
-        is complete.
-
-    TODO: #890 — wire ``_run_with_scheduler`` into a real async DAG run
-    via the engine's scheduler factory so SubWorkflowBlock stops falling
-    back to in-process sequential execution.
+    The node renders a single collapsed pipeline on the parent canvas. Its
+    effective ports are derived from the referenced file's ``exposed_ports``
+    section (FR-004). It has no ``run()``-time behaviour: by the time the
+    scheduler runs, :func:`scistudio.workflow.flatten.flatten_subworkflows` has
+    replaced it with the referenced workflow's inner nodes (ADR-044 §3, §4).
     """
 
-    workflow_ref: ClassVar[str] = ""
-    input_mapping: ClassVar[dict[str, str]] = {}
-    output_mapping: ClassVar[dict[str, str]] = {}
-
-    # Engine injects this at startup (avoids import-linter violation:
-    # blocks cannot import engine).
-    _scheduler_factory: ClassVar[Any] = None
-
-    # Engine injects this at startup for nested subprocess cleanup (ADR-017/019).
-    # Called in run()'s finally block so grandchild processes are terminated
-    # even when the parent SubWorkflowBlock errors or is cancelled.
-    _cleanup_callback: ClassVar[Any] = None
-
     name: ClassVar[str] = "Sub-Workflow"
-    description: ClassVar[str] = "Encapsulate a full workflow as a single block"
+    description: ClassVar[str] = "Reference a workflow file as a single authoring-time node (ADR-044)"
 
+    # ADR-044 §5: a SubWorkflowBlock stores only a *reference* to an external
+    # file (``config.ref.path``), never an embedded copy. ``ref.path`` is a
+    # nested key (NOT a top-level ``file_browser`` widget) so the serializer's
+    # path-relativify machinery leaves it untouched; it stays project-relative
+    # on disk and is resolved against the project root by the flattener and the
+    # effective-ports resolver.
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            "workflow_path": {
-                "type": "string",
-                "title": "Workflow YAML path",
-                "ui_widget": "file_browser",
-                "ui_priority": 0,
+            "ref": {
+                "type": "object",
+                "title": "Subworkflow reference",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "title": "Subworkflow file",
+                        "description": "Project-relative path to the referenced workflow YAML.",
+                        "ui_widget": "subworkflow_picker",
+                        "ui_priority": 0,
+                    },
+                },
             },
         },
-        "required": ["workflow_path"],
     }
 
-    input_ports: ClassVar[list[InputPort]] = [
-        InputPort(name="data", accepted_types=[DataObject], required=False, description="Input to child workflow"),
-    ]
-    output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="result", accepted_types=[DataObject], description="Output from child workflow"),
-    ]
+    # Ports are dynamic (per referenced file); the static ClassVars are empty
+    # and :meth:`get_effective_input_ports` / :meth:`get_effective_output_ports`
+    # override the base behaviour.
+    input_ports: ClassVar[list[InputPort]] = []
+    output_ports: ClassVar[list[OutputPort]] = []
+
+    # -- ADR-044 FR-004: dynamic ports from the referenced exposed_ports -------
+
+    def _ref_path(self) -> str | None:
+        ref = self.config.get("ref")
+        if isinstance(ref, dict):
+            path = ref.get("path")
+            if isinstance(path, str) and path.strip():
+                return path
+        return None
+
+    def _base_dir(self) -> str:
+        """Resolve the project root used to resolve ``config.ref.path``.
+
+        Mirrors ``workflow.validator._project_dir_for_workflow``: an explicit
+        ``project_dir`` (under ``params`` or top-level config) when present,
+        else the current working directory. The API route resolves the
+        authoritative typed surface with the runtime registry; this method is
+        the block-local best-effort path (accept-any types).
+        """
+        params = self.config.get("params")
+        if isinstance(params, dict) and params.get("project_dir"):
+            return str(params["project_dir"])
+        top_level = self.config.get("project_dir")
+        if top_level:
+            return str(top_level)
+        return "."
+
+    def _effective_ports(self, direction: str) -> list[Any]:
+        from scistudio.workflow.subworkflow_ports import resolve_port_surface
+
+        surface = resolve_port_surface(self._ref_path(), self._base_dir(), registry=None)
+        entries = surface["inputs"] if direction == "input" else surface["outputs"]
+        ports: list[Any] = []
+        for entry in entries:
+            if direction == "input":
+                ports.append(InputPort(name=entry["name"], accepted_types=[], required=False))
+            else:
+                ports.append(OutputPort(name=entry["name"], accepted_types=[]))
+        return ports
+
+    def get_effective_input_ports(self) -> list[InputPort]:
+        return self._effective_ports("input")
+
+    def get_effective_output_ports(self) -> list[OutputPort]:
+        return self._effective_ports("output")
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Execute the referenced sub-workflow.
+        """Never invoked: ADR-044 flattens this node away before dispatch.
 
-        1. Load child workflow definition from *workflow_ref* or config.
-        2. Map parent inputs to child inputs via *input_mapping*.
-        3. Use real scheduler if ``_scheduler_factory`` is set, else fallback
-           to :func:`_sequential_execute`.
-        4. Map child outputs to parent outputs via *output_mapping*.
-
-        .. note::
-
-            ADR-017 requires child block execution to use subprocess isolation.
-            This is enforced by the engine's LocalRunner, not by the block itself.
+        Raising here guards against a regression that lets a ``SubWorkflowBlock``
+        reach the scheduler (which would violate SC-001).
         """
-        try:
-            child_blocks = config.get("child_blocks") or []
-            in_map = config.get("input_mapping") or self.input_mapping or {}
-            out_map = config.get("output_mapping") or self.output_mapping or {}
-
-            # Map parent inputs to child namespace.
-            child_inputs: dict[str, Any] = {}
-            for parent_key, child_key in in_map.items():
-                if parent_key in inputs:
-                    child_inputs[child_key] = inputs[parent_key]
-
-            # Also pass through any unmapped inputs.
-            for key, value in inputs.items():
-                if key not in in_map:
-                    child_inputs[key] = value
-
-            # Use real scheduler if available, else fallback to sequential.
-            if self._scheduler_factory is not None:
-                child_outputs = self._run_with_scheduler(child_inputs, config)
-            else:
-                child_outputs = _sequential_execute(child_blocks, child_inputs)
-
-            # Map child outputs to parent outputs.
-            results: dict[str, Any] = {}
-            for child_key, parent_key in out_map.items():
-                if child_key in child_outputs:
-                    results[parent_key] = child_outputs[child_key]
-
-            # Also pass through any unmapped outputs.
-            for key, value in child_outputs.items():
-                if key not in out_map:
-                    results[key] = value
-
-            return results
-        finally:
-            # ADR-017/019: Clean up grandchild subprocesses.
-            # Access via __class__ to avoid Python's descriptor protocol turning
-            # the stored callable into a bound method (which would inject self
-            # as the first argument).
-            cb = type(self).__dict__.get("_cleanup_callback")
-            if cb is not None:
-                try:
-                    cb()
-                except Exception:
-                    logger.warning(
-                        "Cleanup callback failed for %s",
-                        type(self).__name__,
-                        exc_info=True,
-                    )
-
-    def _run_with_scheduler(self, child_inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Execute child workflow using injected scheduler factory.
-
-        The engine layer sets ``_scheduler_factory`` at startup, avoiding
-        the import-linter constraint (blocks cannot import engine).
-
-        For now, delegates to ``_sequential_execute`` as the real async
-        scheduler integration requires the engine's event loop (Phase 5.2b
-        worker.py).  The worker recognises ``SubWorkflowBlock`` and creates
-        a child scheduler.
-        """
-        child_blocks = config.get("child_blocks") or []
-        return _sequential_execute(child_blocks, child_inputs)
+        raise RuntimeError(
+            "SubWorkflowBlock is authoring-only (ADR-044); it must be inline-flattened "
+            "before scheduler dispatch and must never reach run()."
+        )
 
 
-def _sequential_execute(
-    blocks: list[Block],
-    inputs: dict[str, Any],
-) -> dict[str, Any]:
-    """Execute *blocks* in order, threading outputs as inputs to the next.
+class SubWorkflowBroken(SubWorkflowBlock):
+    """Placeholder emitted when a ``SubWorkflowBlock`` reference cannot resolve.
 
-    Collections (ADR-020) flow through the shared namespace unchanged —
-    child blocks receive them as-is without unwrapping.
-
-    This is a fallback executor.  The real DAG scheduler is injected via
-    ``SubWorkflowBlock._scheduler_factory`` by the engine layer.
+    ADR-044 §10 / FR-010: a missing or unreadable ``config.ref.path`` does not
+    hard-fail editor load — the parser substitutes this placeholder so the rest
+    of the canvas still renders (the editor shows it in the broken-ref style and
+    offers a "locate file…" affordance). At run start the validator rejects any
+    remaining placeholder so an unresolved reference cannot be dispatched.
     """
-    namespace = dict(inputs)
 
-    for block in blocks:
-        block_inputs: dict[str, Any] = {}
-        # ADR-028 Addendum 1 D5: read effective input ports so dynamic
-        # child blocks resolve their config-driven port set per instance.
-        for port in block.get_effective_input_ports():
-            if port.name in namespace:
-                block_inputs[port.name] = namespace[port.name]
-            elif not port.required and port.default is not None:
-                block_inputs[port.name] = port.default
+    type_name: ClassVar[str] = "subworkflow_broken"
+    name: ClassVar[str] = "Sub-Workflow (broken reference)"
+    description: ClassVar[str] = "Unresolved subworkflow reference placeholder (ADR-044 §10)"
 
-        outputs = block.run(block_inputs, block.config)
-        outputs = block.postprocess(outputs)
-        namespace.update(outputs)
+    def get_effective_input_ports(self) -> list[InputPort]:
+        return []
 
-    return namespace
+    def get_effective_output_ports(self) -> list[OutputPort]:
+        return []

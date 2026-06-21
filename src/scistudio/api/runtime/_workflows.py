@@ -7,8 +7,9 @@ docstring for the free-function-bound-as-method pattern.
 from __future__ import annotations
 
 import logging
+import shutil
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from scistudio.core.storage.ref import StorageReference
@@ -107,6 +108,38 @@ def load_workflow(self: ApiRuntime, workflow_id: str) -> WorkflowDefinition:
             node.config = self._absolutify_node_config(node.config, node.block_type, project_dir)
 
     return definition
+
+
+def import_subworkflow_file(self: ApiRuntime, source_path: str) -> str:
+    """ADR-044 FR-011: copy an external workflow file into the project.
+
+    Copies *source_path* into ``<project>/subworkflows/`` (creating it if
+    needed) and returns the project-relative path to record in a
+    ``SubWorkflowBlock``'s ``config.ref.path``. On filename collision a numeric
+    suffix is appended so two imports of the same external file produce two
+    distinct project copies (US5 AS2). The returned path uses forward slashes
+    for cross-platform YAML portability (#506).
+    """
+    project = self.require_active_project()
+    src = Path(source_path)
+    if not src.is_file():
+        raise FileNotFoundError(f"Subworkflow file not found: {source_path}")
+
+    dest_dir = Path(project.path) / "subworkflows"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    dest = dest_dir / src.name
+    if dest.exists():
+        counter = 1
+        while True:
+            candidate = dest_dir / f"{src.stem}_{counter}{src.suffix}"
+            if not candidate.exists():
+                dest = candidate
+                break
+            counter += 1
+
+    shutil.copy2(src, dest)
+    return str(PurePosixPath(dest.relative_to(Path(project.path))))
 
 
 def _config_schema_for_block(self: ApiRuntime, block_type: str) -> dict[str, Any]:

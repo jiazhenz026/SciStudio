@@ -123,6 +123,29 @@ def _request_source(request: Request, *, changed_by: str | None = None, default:
     return default
 
 
+def _resolved_ports_for_node(runtime: ApiRuntime | None, node: Any) -> Any:
+    """Compute the ADR-044 FR-004 ``resolved_ports`` surface for a node.
+
+    Returns a :class:`SubworkflowPortSurface` for ``subworkflow`` /
+    ``subworkflow_broken`` nodes (so the editor can render handles from the
+    referenced file's ``exposed_ports``), or ``None`` for every other block
+    type. Response-only; never persisted. Requires *runtime* (registry + active
+    project root); returns ``None`` without it.
+    """
+    if runtime is None:
+        return None
+    from scistudio.api.schemas import SubworkflowPortSurface
+    from scistudio.workflow.flatten import SUBWORKFLOW_BROKEN_TYPE, SUBWORKFLOW_TYPE, subworkflow_ref_path
+    from scistudio.workflow.subworkflow_ports import resolve_port_surface
+
+    if node.block_type not in (SUBWORKFLOW_TYPE, SUBWORKFLOW_BROKEN_TYPE):
+        return None
+    base_dir = str(runtime.active_project.path) if runtime.active_project else "."
+    ref = subworkflow_ref_path(node)
+    surface = resolve_port_surface(ref, base_dir, registry=runtime.block_registry)
+    return SubworkflowPortSurface(**surface)
+
+
 def _workflow_response(
     definition: Any,
     *,
@@ -131,6 +154,7 @@ def _workflow_response(
     source_id: str | None = None,
     kind: str = "current",
     timestamp: str | None = None,
+    runtime: ApiRuntime | None = None,
 ) -> VersionedWorkflowResponse:
     return VersionedWorkflowResponse(
         id=definition.id,
@@ -145,6 +169,7 @@ def _workflow_response(
                 config=node.config,
                 execution_mode=node.execution_mode,
                 layout=node.layout,
+                resolved_ports=_resolved_ports_for_node(runtime, node),
             )
             for node in definition.nodes
         ],
@@ -255,6 +280,7 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> VersionedWor
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -302,6 +328,7 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -335,6 +362,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -367,7 +395,11 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkfl
         raise HTTPException(status_code=422, detail=_yaml_error_detail(workflow_id, exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _workflow_response(definition, state_version=runtime.current_workflow_version(definition.id))
+    return _workflow_response(
+        definition,
+        state_version=runtime.current_workflow_version(definition.id),
+        runtime=runtime,
+    )
 
 
 @router.put("/{workflow_id}", response_model=VersionedWorkflowResponse)
@@ -417,6 +449,7 @@ async def update_workflow(
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -446,6 +479,27 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _mark_self_write(target)
     return {"status": "ok", "path": str(target)}
+
+
+@router.post("/import-subworkflow")
+async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
+    """ADR-044 FR-011: import an external workflow file as a project subworkflow.
+
+    Expects ``{"source_path": str}`` (an absolute or project-external path to a
+    workflow YAML). Copies it into ``<project>/subworkflows/`` (numeric suffix on
+    name collision) and returns ``{"ref_path": "<project-relative>"}`` to store
+    in the SubWorkflowBlock's ``config.ref.path``.
+    """
+    source_path = body.get("source_path")
+    if not source_path:
+        raise HTTPException(status_code=400, detail="Missing 'source_path' field.")
+    try:
+        ref_path = runtime.import_subworkflow_file(source_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise _workflow_session_error(exc) from exc
+    return {"ref_path": ref_path}
 
 
 @router.delete("/{workflow_id}", status_code=204)

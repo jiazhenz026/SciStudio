@@ -112,6 +112,23 @@ def load_yaml(path: str | Path) -> WorkflowDefinition:
     return validated.workflow.to_definition()
 
 
+def dump_yaml_str(workflow: WorkflowDefinition) -> str:
+    """Serialise a workflow definition to a YAML string (no disk write).
+
+    Single source of truth for definition -> YAML text. Used by
+    :func:`save_yaml` and by the ADR-044 run-start lineage snapshot, which
+    must capture the *flattened* in-memory definition rather than re-reading
+    the authored on-disk file (ADR-044 §5 / SC-002).
+
+    Uses ``exclude_none=True`` so optional sections (e.g. ``exposed_ports``)
+    are omitted when absent, preserving the byte-for-byte round-trip.
+    """
+    model = WorkflowModel.from_definition(workflow)
+    file_model = WorkflowFileModel(workflow=model)
+    data = file_model.model_dump(exclude_none=True)
+    return yaml.safe_dump(data, default_flow_style=False, sort_keys=False)
+
+
 def save_yaml(workflow: WorkflowDefinition, path: str | Path) -> None:
     """Serialise a workflow definition to a YAML file.
 
@@ -122,9 +139,6 @@ def save_yaml(workflow: WorkflowDefinition, path: str | Path) -> None:
     path:
         Destination file path (will be created or overwritten).
     """
-    model = WorkflowModel.from_definition(workflow)
-    file_model = WorkflowFileModel(workflow=model)
-    data = file_model.model_dump(exclude_none=True)
     # BUG-8 (#1543): the FS watcher and concurrent readers (canvas + agent
     # via update_workflow / import_* routes) read this file while it is
     # written. A direct ``Path.write_text`` let a reader observe truncated
@@ -133,6 +147,6 @@ def save_yaml(workflow: WorkflowDefinition, path: str | Path) -> None:
     # makes every reader see either the whole old file or the whole new one.
     atomic_write_text(
         Path(path),
-        yaml.safe_dump(data, default_flow_style=False, sort_keys=False),
+        dump_yaml_str(workflow),
         encoding="utf-8",
     )
