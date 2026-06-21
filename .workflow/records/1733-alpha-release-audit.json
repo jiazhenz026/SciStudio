@@ -60,6 +60,21 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-21T08:04:47.375125Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:30ff3943899830e363272b79fdecde6a2914d44cc822265994255623f9b95786",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -125,6 +140,78 @@
     },
     {
       "at": "2026-06-21T07:43:28.323074Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/alpha-release-audit-20260621-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479058Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-runtime-engine.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479421Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-contracts-storage-lineage.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479424Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-api-desktop-ai.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479425Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-test-ci-governance.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479427Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-docs-spec-drift.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479428Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-security-ops.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479429Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-21-alpha-release-final.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:04:30.479430Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/alpha-release-audit-20260621-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:05:07.755138Z",
       "class": null,
       "kind": "path",
       "path": "docs/planning/alpha-release-audit-20260621-checklist.md",
@@ -673,6 +760,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.397605Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.406966Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.415969Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.425288Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.434661Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.443934Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.452398Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.462104Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.472100Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T08:04:47.484321Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -685,7 +832,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "1948ab2c18fafeb54c82c77646a2f00665e16332",
+    "base": "origin/main",
     "base_sha": "1948ab2c",
     "changed_files": [
       ".workflow/records/1733-alpha-release-audit.json",
@@ -693,9 +840,9 @@
       "docs/planning/alpha-release-audit-20260621-checklist.md",
       "docs/planning/alpha-release-audit-20260621-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:015d794dbd0d945a4a76a7a9146f8465cc3acaa9aa7e7b7f442dc280d3e2e396",
+    "diff_fingerprint": "sha256:e7ca841f606fcca6496efce99103156f07267d183efff9b937742e2c77ef34f2",
     "head": "HEAD",
-    "head_sha": "0a25758c",
+    "head_sha": "410e1253",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -797,13 +944,23 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-21T08:04:47.484369Z",
+      "diff_fingerprint": "sha256:e7ca841f606fcca6496efce99103156f07267d183efff9b937742e2c77ef34f2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "1733-alpha-release-audit",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "full_audit"
+    ],
     "docs": [],
     "guards": [
       "core_change_guard",

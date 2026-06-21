@@ -106,12 +106,12 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1-runtime-engine | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A1-runtime-engine` | Runtime graph, scheduler, block lifecycle, run state | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-runtime-engine.md` | implementation files | `#1733/#1734` | `[~]` |
-| A2-contracts-storage | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A2-contracts-storage` | Block contracts, schemas, artifacts, lineage, storage, versioning | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-contracts-storage-lineage.md` | implementation files | `#1733/#1734` | `[~]` |
-| A3-api-desktop-ai | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A3-api-desktop-ai` | API, desktop bridge, manual review, AI orchestration boundaries | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-api-desktop-ai.md` | implementation files | `#1733/#1734` | `[~]` |
-| A4-test-ci-governance | `test_engineer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A4-test-ci-governance` | Test coverage, CI, gate ledger, audit tooling, Sentrux readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-test-ci-governance.md` | production code | `#1733/#1734` | `[~]` |
-| A5-docs-spec-drift | `audit_reviewer` | `no-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A5-docs-spec-drift` | Independent docs/spec/code consistency audit | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-docs-spec-drift.md` | manager issue, checklist, PR claims | `#1733/#1734` | `[~]` |
-| A6-security-ops | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A6-security-ops` | Core runtime security, data integrity, operational readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-security-ops.md` | implementation files | `#1733/#1734` | `[~]` |
+| A1-runtime-engine | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A1-runtime-engine` | Runtime graph, scheduler, block lifecycle, run state | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-runtime-engine.md` | implementation files | `#1733/#1734` | `[x]` |
+| A2-contracts-storage | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A2-contracts-storage` | Block contracts, schemas, artifacts, lineage, storage, versioning | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-contracts-storage-lineage.md` | implementation files | `#1733/#1734` | `[x]` |
+| A3-api-desktop-ai | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A3-api-desktop-ai` | API, desktop bridge, manual review, AI orchestration boundaries | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-api-desktop-ai.md` | implementation files | `#1733/#1734` | `[x]` |
+| A4-test-ci-governance | `test_engineer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A4-test-ci-governance` | Test coverage, CI, gate ledger, audit tooling, Sentrux readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-test-ci-governance.md` | production code | `#1733/#1734` | `[x]` |
+| A5-docs-spec-drift | `audit_reviewer` | `no-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A5-docs-spec-drift` | Independent docs/spec/code consistency audit | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-docs-spec-drift.md` | manager issue, checklist, PR claims | `#1733/#1734` | `[x]` |
+| A6-security-ops | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A6-security-ops` | Core runtime security, data integrity, operational readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-security-ops.md` | implementation files | `#1733/#1734` | `[x]` |
 
 ## 7. Tracks
 
@@ -167,10 +167,10 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | `pending` |
-| Targeted tests | agent-selected commands recorded in audit reports | `[ ]` | `pending` |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | `pending` |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `pending` |
+| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[x]` | `passed before dispatch` |
+| Targeted tests | agent-selected commands recorded in audit reports | `[x]` | `see six agent reports and final report` |
+| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | `pending final manager candidate` |
+| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[x]` | `passed before umbrella PR and after final report files were written; remote CI remains authoritative after push` |
 | Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#1733"` | `[ ]` | `pending` |
 | Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "[DO NOT MERGE] Alpha release audit for core runtime" --body "<body>"` | `[ ]` | `pending` |
 
@@ -182,11 +182,12 @@ Append only.
 |---|---|---|---|---|
 | 2026-06-21 | manager | No pre-existing alpha/readiness issue found. | Created `#1733`. | N/A |
 | 2026-06-21 | manager | Gate-aware PR wrapper could not create the umbrella PR because its fixed `--skip-execution` preflight conflicts with gate check semantics that mark `--skip-execution` as non-final readiness. | Ran full `gate_record check --mode pre-pr`, then opened draft umbrella PR `#1734` through the GitHub connector. | Track as release/governance audit evidence in A4 report. |
+| 2026-06-21 | manager | Six audit agents completed and found P0/P1 alpha blockers. | Created final report and follow-up tracker `#1735`. | `docs/audit/2026-06-21-alpha-release-final.md` |
 
 ## 10. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
+- [x] All dispatched agents have final outputs.
+- [x] Manager reviewed every changed file.
 - [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
 - [ ] PR closes every issue fixed by the dispatch.
 - [ ] CI passed.
