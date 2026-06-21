@@ -82,10 +82,10 @@ class _FakeRunner:
         outputs["__scistudio_env__"] = {"python_version": "3.13.0", "platform": "test", "key_packages": {}}
         return outputs
 
-    async def check_status(self, run_id: str) -> str:
+    async def check_status(self, workflow_id: str, block_id: str) -> str:
         return "completed"
 
-    async def cancel(self, run_id: str) -> None:
+    async def cancel(self, workflow_id: str, block_id: str) -> None:
         return None
 
 

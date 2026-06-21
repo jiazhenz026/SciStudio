@@ -47,7 +47,7 @@ async def _cancel_if_active(self: DAGScheduler, block_id: str) -> None:
     # Terminate subprocess if one is tracked.
     handle = None
     if self._process_registry is not None:
-        handle = self._process_registry.get_handle(block_id)
+        handle = self._process_registry.get_handle(self._workflow.id, block_id)
     if handle is not None:
         try:
             handle.terminate()
@@ -63,7 +63,7 @@ async def _cancel_if_active(self: DAGScheduler, block_id: str) -> None:
 
     if hasattr(self._runner, "cancel"):
         try:
-            await self._runner.cancel(block_id)
+            await self._runner.cancel(self._workflow.id, block_id)
         except Exception:
             logger.exception("Failed to cancel block %s via runner during rerun", block_id)
 
@@ -150,7 +150,7 @@ async def _cancel_active_tasks_on_shutdown(self: DAGScheduler) -> None:
     for block_id, task in list(self._active_tasks.items()):
         handle = None
         if self._process_registry is not None:
-            handle = self._process_registry.get_handle(block_id)
+            handle = self._process_registry.get_handle(self._workflow.id, block_id)
         if handle is not None:
             try:
                 handle.terminate()

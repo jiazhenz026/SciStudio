@@ -235,6 +235,12 @@ _SCHEMA_STATEMENTS: list[str] = [
 ]
 
 
+# #1530: persisted-format version stamp for lineage.db (SQLite PRAGMA
+# user_version). Bump on a non-backward-compatible schema change and pair the
+# bump with a migration step; stamping is the cheap half done now.
+LINEAGE_SCHEMA_VERSION = 1
+
+
 def _apply_pragmas_and_schema(conn: sqlite3.Connection) -> None:
     """Apply ``WAL`` + ``foreign_keys`` PRAGMAs and create tables if absent.
 
@@ -243,6 +249,11 @@ def _apply_pragmas_and_schema(conn: sqlite3.Connection) -> None:
     """
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    # #1530: stamp the schema version on fresh/legacy DBs (user_version == 0) so
+    # a future format change has a version to branch on. No migration logic is
+    # performed here — only the stamp.
+    if conn.execute("PRAGMA user_version").fetchone()[0] == 0:
+        conn.execute(f"PRAGMA user_version = {LINEAGE_SCHEMA_VERSION}")
     for stmt in _SCHEMA_STATEMENTS:
         conn.execute(stmt)
     _migrate_runs_provenance_degraded(conn)

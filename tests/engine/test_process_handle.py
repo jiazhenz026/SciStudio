@@ -317,34 +317,35 @@ class TestProcessHandle:
 
 
 class TestProcessRegistry:
-    def _make_handle(self, block_id: str, pid: int = 1234) -> ProcessHandle:
+    def _make_handle(self, block_id: str, pid: int = 1234, workflow_id: str = "wf") -> ProcessHandle:
         return ProcessHandle(
             block_id=block_id,
             pid=pid,
             start_time=datetime.now(),
             resource_request=ResourceRequest(),
+            workflow_id=workflow_id,
         )
 
     def test_register_and_get_handle(self) -> None:
         registry = ProcessRegistry()
         handle = self._make_handle("block-A")
         registry.register(handle)
-        assert registry.get_handle("block-A") is handle
+        assert registry.get_handle("wf", "block-A") is handle
 
     def test_get_handle_missing_returns_none(self) -> None:
         registry = ProcessRegistry()
-        assert registry.get_handle("nonexistent") is None
+        assert registry.get_handle("wf", "nonexistent") is None
 
     def test_deregister(self) -> None:
         registry = ProcessRegistry()
         handle = self._make_handle("block-A")
         registry.register(handle)
-        registry.deregister("block-A")
-        assert registry.get_handle("block-A") is None
+        registry.deregister("wf", "block-A")
+        assert registry.get_handle("wf", "block-A") is None
 
     def test_deregister_nonexistent_is_safe(self) -> None:
         registry = ProcessRegistry()
-        registry.deregister("nonexistent")  # Should not raise
+        registry.deregister("wf", "nonexistent")  # Should not raise
 
     def test_active_handles(self) -> None:
         registry = ProcessRegistry()
@@ -367,8 +368,22 @@ class TestProcessRegistry:
         h2 = self._make_handle("block-A", pid=200)
         registry.register(h1)
         registry.register(h2)
-        assert registry.get_handle("block-A") is h2
+        assert registry.get_handle("wf", "block-A") is h2
         assert len(registry.active_handles()) == 1
+
+    def test_same_block_id_different_workflows_isolated(self) -> None:
+        """#1517: same block_id in two runs must not collide on the registry."""
+        registry = ProcessRegistry()
+        h_a = self._make_handle("load_data", pid=100, workflow_id="wf-A")
+        h_b = self._make_handle("load_data", pid=200, workflow_id="wf-B")
+        registry.register(h_a)
+        registry.register(h_b)
+        assert registry.get_handle("wf-A", "load_data") is h_a
+        assert registry.get_handle("wf-B", "load_data") is h_b
+        assert len(registry.active_handles()) == 2
+        registry.deregister("wf-A", "load_data")
+        assert registry.get_handle("wf-A", "load_data") is None
+        assert registry.get_handle("wf-B", "load_data") is h_b
 
     def test_terminate_all(self) -> None:
         registry = ProcessRegistry()
@@ -382,7 +397,13 @@ class TestProcessRegistry:
 
         registry.register(h1)
         registry.register(h2)
-        registry.terminate_all(grace_period_sec=2.0)
+        # #1542: identity-checking is exercised in the dedicated tests below;
+        # here we confirm termination fans out to every confirmed-live handle.
+        with patch(
+            "scistudio.engine.runners.process_handle._pid_identity_matches",
+            return_value=True,
+        ):
+            registry.terminate_all(grace_period_sec=2.0)
 
         assert mock_ops.terminate_tree.call_count == 2
 
@@ -405,8 +426,60 @@ class TestProcessRegistry:
         registry.register(h2)
 
         # Should not raise despite h1 failing
-        registry.terminate_all(grace_period_sec=2.0)
+        with patch(
+            "scistudio.engine.runners.process_handle._pid_identity_matches",
+            return_value=True,
+        ):
+            registry.terminate_all(grace_period_sec=2.0)
         mock_ops_ok.terminate_tree.assert_called_once()
+
+    def test_terminate_all_skips_reused_pid(self) -> None:
+        """#1542: a PID reused by an unrelated process is dropped, not killed."""
+        registry = ProcessRegistry()
+        mock_ops = MagicMock(spec=PlatformOps)
+        handle = self._make_handle("block-1", pid=4321)
+        handle._platform_ops = mock_ops
+        registry.register(handle)
+
+        # psutil reports a creation time far from when we registered the handle
+        # — the PID now belongs to a different, later-started process.
+        reused = MagicMock()
+        reused.create_time.return_value = handle.start_time.timestamp() + 3600
+        with patch("psutil.Process", return_value=reused):
+            registry.terminate_all(grace_period_sec=2.0)
+
+        mock_ops.terminate_tree.assert_not_called()
+        assert registry.get_handle("wf", "block-1") is None
+
+    def test_terminate_all_skips_dead_pid(self) -> None:
+        """#1542: a PID psutil cannot read is dropped without termination."""
+        registry = ProcessRegistry()
+        mock_ops = MagicMock(spec=PlatformOps)
+        handle = self._make_handle("block-1", pid=4321)
+        handle._platform_ops = mock_ops
+        registry.register(handle)
+
+        with patch("psutil.Process", side_effect=Exception("no such process")):
+            registry.terminate_all(grace_period_sec=2.0)
+
+        mock_ops.terminate_tree.assert_not_called()
+        assert registry.get_handle("wf", "block-1") is None
+
+    def test_terminate_all_terminates_matching_pid(self) -> None:
+        """#1542: a PID whose creation time matches the handle is terminated."""
+        registry = ProcessRegistry()
+        mock_ops = MagicMock(spec=PlatformOps)
+        mock_ops.terminate_tree.return_value = ProcessExitInfo(was_killed_by_framework=True)
+        handle = self._make_handle("block-1", pid=4321)
+        handle._platform_ops = mock_ops
+        registry.register(handle)
+
+        matching = MagicMock()
+        matching.create_time.return_value = handle.start_time.timestamp()
+        with patch("psutil.Process", return_value=matching):
+            registry.terminate_all(grace_period_sec=2.0)
+
+        mock_ops.terminate_tree.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +538,7 @@ class TestSpawnBlockProcess:
         assert '"block_class": "mymodule.MyBlock"' in payload
 
         # Verify registration
-        assert registry.get_handle("mymodule.MyBlock") is handle
+        assert registry.get_handle("", "mymodule.MyBlock") is handle
 
         # Verify event was emitted
         mock_bus.emit.assert_called_once()

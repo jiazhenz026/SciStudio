@@ -548,3 +548,47 @@ class TestCompositeStore:
 
         assert exc_info.value.ref == ref
         assert exc_info.value.operation == "read"
+
+    def test_write_is_atomic_on_failure(self, tmp_path: Path) -> None:
+        """#1640: a crash mid-write leaves no half-written composite directory."""
+        store = CompositeStore()
+        dest = tmp_path / "atomic_comp"
+
+        class _Boom:
+            def write(self, data, ref):
+                raise RuntimeError("backend exploded mid-write")
+
+        real_get = store._get_backend_for
+        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign]
+
+        composite_data = {
+            "ok": ("filesystem", "good slot"),
+            "bad": ("boom", "explodes"),
+        }
+        ref = StorageReference(backend="composite", path=str(dest))
+        with pytest.raises(RuntimeError, match="exploded"):
+            store.write(composite_data, ref)
+
+        # The destination was never published — no half-written directory.
+        assert not dest.exists()
+
+    def test_write_atomic_preserves_existing_on_failure(self, tmp_path: Path) -> None:
+        """#1640: a failed re-write leaves the previous composite intact."""
+        store = CompositeStore()
+        dest = tmp_path / "keep_comp"
+        ref = StorageReference(backend="composite", path=str(dest))
+        store.write({"a": ("filesystem", "v1")}, ref)
+        assert store.read(ref)["a"] == "v1"
+
+        class _Boom:
+            def write(self, data, ref):
+                raise RuntimeError("boom")
+
+        real_get = store._get_backend_for
+        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError):
+            store.write({"b": ("boom", "x")}, ref)
+
+        store._get_backend_for = real_get  # type: ignore[method-assign]
+        # Previous composite still readable and unchanged.
+        assert store.read(ref)["a"] == "v1"

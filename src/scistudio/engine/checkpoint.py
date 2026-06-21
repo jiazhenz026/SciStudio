@@ -221,6 +221,12 @@ def _try_reconstruct(item_data: dict[str, Any], fallback_type_name: str) -> Any:
     return DataObject(storage_ref=ref)
 
 
+# #1530: persisted-format version stamp for checkpoint files. Bump on a
+# non-backward-compatible change to the WorkflowCheckpoint shape and pair it
+# with a migration step; stamping is the cheap half done now.
+CHECKPOINT_FORMAT_VERSION = 1
+
+
 @dataclass
 class WorkflowCheckpoint:
     """Snapshot of a workflow execution that can be persisted and restored.
@@ -236,6 +242,7 @@ class WorkflowCheckpoint:
     pending_block: str | None = None
     config_snapshot: dict[str, Any] = field(default_factory=dict)
     skip_reasons: dict[str, str] = field(default_factory=dict)  # ADR-018: block_id → skip reason
+    version: int = CHECKPOINT_FORMAT_VERSION  # #1530: persisted-format version stamp
 
 
 # ---------------------------------------------------------------------------

@@ -55,8 +55,13 @@ class ProcessHandle:
         pid: int,
         start_time: datetime,
         resource_request: Any,
+        workflow_id: str = "",
     ) -> None:
         self.block_id = block_id
+        # #1517: the owning workflow run; ProcessRegistry keys handles by
+        # (workflow_id, block_id) so same-named nodes in concurrent runs do
+        # not collide and cancel/terminate never reach the wrong run's process.
+        self.workflow_id = workflow_id
         self.pid = pid
         self.start_time = start_time
         self.resource_request = resource_request
@@ -101,6 +106,27 @@ class ProcessHandle:
         return info
 
 
+_PID_IDENTITY_TOLERANCE_SEC: float = 2.0
+
+
+def _pid_identity_matches(handle: ProcessHandle) -> bool:
+    """Return True only when *handle*'s PID is still the process we spawned.
+
+    #1542: compares the OS-reported process creation time against the time
+    the handle was registered. A reused PID belongs to an unrelated process
+    whose creation time is far from our recorded ``start_time``. Returns
+    False when the PID is gone or psutil cannot read it, so an unconfirmed
+    PID is never signalled.
+    """
+    try:
+        import psutil
+
+        create_time = psutil.Process(handle.pid).create_time()
+    except Exception:
+        return False
+    return bool(abs(create_time - handle.start_time.timestamp()) <= _PID_IDENTITY_TOLERANCE_SEC)
+
+
 class ProcessRegistry:
     """Tracks all active block subprocesses (ADR-019).
 
@@ -108,19 +134,19 @@ class ProcessRegistry:
     """
 
     def __init__(self) -> None:
-        self._handles: dict[str, ProcessHandle] = {}
+        self._handles: dict[tuple[str, str], ProcessHandle] = {}
 
     def register(self, handle: ProcessHandle) -> None:
-        """Register a newly spawned process."""
-        self._handles[handle.block_id] = handle
+        """Register a newly spawned process, keyed by (workflow_id, block_id)."""
+        self._handles[(handle.workflow_id, handle.block_id)] = handle
 
-    def deregister(self, block_id: str) -> None:
+    def deregister(self, workflow_id: str, block_id: str) -> None:
         """Remove a process after it has exited."""
-        self._handles.pop(block_id, None)
+        self._handles.pop((workflow_id, block_id), None)
 
-    def get_handle(self, block_id: str) -> ProcessHandle | None:
-        """Look up the handle for a block."""
-        return self._handles.get(block_id)
+    def get_handle(self, workflow_id: str, block_id: str) -> ProcessHandle | None:
+        """Look up the handle for a block within a workflow run (#1517)."""
+        return self._handles.get((workflow_id, block_id))
 
     def active_handles(self) -> list[ProcessHandle]:
         """Return all currently active process handles."""
@@ -132,8 +158,16 @@ class ProcessRegistry:
         Iterates all active handles and calls terminate() on each.
         Handles that fail to terminate are logged but do not prevent
         other handles from being terminated.
+
+        #1542: each PID is identity-checked first. A handle whose PID is
+        dead, unreadable, or has been reused by an unrelated process is
+        dropped without termination — the engine never signals a PID it
+        cannot confirm is still its own subprocess.
         """
         for handle in list(self._handles.values()):
+            if not _pid_identity_matches(handle):
+                self._handles.pop((handle.workflow_id, handle.block_id), None)
+                continue
             try:
                 handle.terminate(grace_period_sec)
             except Exception:
@@ -201,6 +235,7 @@ def register_async_process(
     registry: ProcessRegistry,
     event_bus: Any | None = None,
     resource_request: Any | None = None,
+    workflow_id: str = "",
 ) -> ProcessHandle:
     """Create and register a ProcessHandle for an already-launched async subprocess.
 
@@ -216,6 +251,7 @@ def register_async_process(
         pid=pid if pid is not None else -1,
         start_time=datetime.now(),
         resource_request=rr,
+        workflow_id=workflow_id,
     )
 
     registry.register(handle)
@@ -247,6 +283,7 @@ def spawn_block_process(
     job_handle: Any | None = None,
     block_file_path: str | None = None,
     runtime_import_roots: list[str] | tuple[str, ...] | None = None,
+    workflow_id: str = "",
 ) -> ProcessHandle:
     """Single entry point for ALL subprocess creation (ADR-017, ADR-019).
 
@@ -311,6 +348,7 @@ def spawn_block_process(
         pid=proc.pid,
         start_time=datetime.now(),
         resource_request=rr,
+        workflow_id=workflow_id,
     )
     handle._popen = proc
     handle._platform_ops = platform_ops

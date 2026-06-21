@@ -319,22 +319,6 @@ class TestEventBusAutoRelease:
         assert "block-cancel" not in rm._allocations
 
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
-    def test_auto_release_on_process_exited(self, _mock):
-        from scistudio.engine.events import PROCESS_EXITED, EngineEvent, EventBus
-
-        bus = EventBus()
-        rm = ResourceManager(gpu_slots=0, cpu_workers=4, event_bus=bus)
-
-        req = ResourceRequest(cpu_cores=2)
-        _run(rm.acquire(req, block_id="block-proc"))
-
-        event = EngineEvent(event_type=PROCESS_EXITED, block_id="block-proc")
-        _run(bus.emit(event))
-
-        assert rm._cpu_in_use == 0
-        assert "block-proc" not in rm._allocations
-
-    @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_event_for_unknown_block_id_is_ignored(self, _mock):
         from scistudio.engine.events import BLOCK_DONE, EngineEvent, EventBus
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from scistudio.core.types.array import Array
 from scistudio.engine.checkpoint import (
+    CHECKPOINT_FORMAT_VERSION,
     CheckpointManager,
     WorkflowCheckpoint,
     deserialize_intermediate_refs,
@@ -22,6 +24,37 @@ from scistudio.engine.events import (
     BLOCK_SKIPPED,
     EventBus,
 )
+
+
+def test_checkpoint_carries_format_version(tmp_path: Path) -> None:
+    """#1530: a saved checkpoint stamps the persisted-format version."""
+    cp = WorkflowCheckpoint(
+        workflow_id="wf",
+        timestamp=datetime(2026, 6, 20, 12, 0, 0),
+        block_states={"a": "DONE"},
+    )
+    assert cp.version == CHECKPOINT_FORMAT_VERSION
+    path = tmp_path / "cp.json"
+    save_checkpoint(cp, path)
+    raw = json.loads(path.read_text())
+    assert raw["version"] == CHECKPOINT_FORMAT_VERSION
+    assert load_checkpoint(path).version == CHECKPOINT_FORMAT_VERSION
+
+
+def test_load_legacy_checkpoint_without_version(tmp_path: Path) -> None:
+    """#1530: a pre-version checkpoint file still loads (default version applied)."""
+    path = tmp_path / "legacy.json"
+    path.write_text(
+        json.dumps(
+            {
+                "workflow_id": "wf",
+                "timestamp": "2026-06-20T12:00:00",
+                "block_states": {"a": "DONE"},
+            }
+        )
+    )
+    assert load_checkpoint(path).version == CHECKPOINT_FORMAT_VERSION
+
 
 # ---------------------------------------------------------------------------
 # Local test fixture.

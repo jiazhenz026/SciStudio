@@ -45,6 +45,11 @@ from scistudio.core.storage.ref import StorageReference
 
 logger = logging.getLogger(__name__)
 
+# #1530: persisted/wire-format version stamp for the worker stdout envelope.
+# Bump on a non-backward-compatible change to the engine<->worker JSON contract
+# and pair it with a migration/compat step; stamping is the cheap half done now.
+WIRE_FORMAT_VERSION = 1
+
 
 def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
     """Prepend block-local import roots after worker core startup."""
@@ -511,6 +516,7 @@ def main() -> None:
 
             env_snapshot = EnvironmentSnapshot.capture()
             envelope: dict[str, Any] = {
+                "wire_version": WIRE_FORMAT_VERSION,  # #1530
                 "outputs": {},
                 "environment": env_snapshot.to_dict(),
                 "final_state": "cancelled",
@@ -545,7 +551,7 @@ def main() -> None:
         # Serialize outputs via the typed wire format.
         result = serialise_outputs(outputs, output_dir) if isinstance(outputs, dict) else {"_result": str(outputs)}
 
-        envelope = {"outputs": result, "environment": env_snapshot.to_dict()}
+        envelope = {"wire_version": WIRE_FORMAT_VERSION, "outputs": result, "environment": env_snapshot.to_dict()}
         print(json.dumps(envelope))
     except StorageReferenceInvalidError as exc:
         _emit_storage_error(exc, inputs=inputs, block_id=block_id)

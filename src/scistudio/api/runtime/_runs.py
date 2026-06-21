@@ -124,7 +124,7 @@ def _build_lineage_recorder(
             workflow_git_commit=workflow_git_commit,
             workflow_dirty=1 if workflow_dirty else 0,
         )
-        recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id)
+        recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id, workflow_id=workflow_id)
         recorder.begin_run(run)
         return recorder
     except Exception:
@@ -206,6 +206,12 @@ def _finalize_lineage_run(
         recorder.dispose()
     except Exception:
         logger.debug("ADR-038: lineage recorder dispose failed", exc_info=True)
+    try:
+        # #1517: symmetric scheduler teardown so a finished run stops reacting
+        # to other runs' events on the shared EventBus.
+        scheduler.dispose()
+    except Exception:
+        logger.debug("#1517: scheduler dispose failed", exc_info=True)
 
 
 def start_workflow(

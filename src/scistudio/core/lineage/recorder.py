@@ -81,10 +81,15 @@ class LineageRecorder:
         event_bus: EventBus,
         lineage_store: LineageStore | None,
         run_id: str,
+        workflow_id: str | None = None,
     ) -> None:
         self._event_bus = event_bus
         self._store = lineage_store
         self._run_id = run_id
+        # #1596: scope terminal events to this recorder's own workflow so two
+        # concurrent runs sharing the EventBus do not cross-record each other's
+        # blocks into the wrong run_id.
+        self._workflow_id = workflow_id
         self._start_times: dict[str, datetime] = {}
         # Map block_id → block_execution_id so we can correlate
         # data_objects / block_io rows for the same execution.
@@ -189,6 +194,13 @@ class LineageRecorder:
         """Persist a ``block_executions`` row and derive data_objects/block_io rows."""
         if self._store is None or event.block_id is None:
             return
+
+        # #1596: ignore terminal events from other concurrent workflows on the
+        # shared EventBus (fail-open when an event carries no workflow_id).
+        if self._workflow_id is not None:
+            event_wf = event.data.get("workflow_id") if isinstance(event.data, dict) else None
+            if event_wf is not None and event_wf != self._workflow_id:
+                return
 
         block_id = event.block_id
         data: dict[str, Any] = event.data or {}

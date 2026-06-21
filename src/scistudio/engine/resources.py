@@ -125,8 +125,8 @@ class ResourceManager:
     Layer 2 (block-internal): _auto_flush, LazyList, parallel_map(max_workers)
         -- operates independently, not managed here.
 
-    Layer 3 (OS + ProcessMonitor): OS kills subprocess on OOM.
-        ProcessMonitor detects, emits PROCESS_EXITED. Scheduler marks ERROR.
+    Layer 3 (OS): OS kills subprocess on OOM; the runner observes the
+        non-zero exit and the scheduler marks ERROR.
 
     EventBus integration (ADR-018): automatic resource release on terminal
     block states via _on_block_terminal callback.
@@ -167,13 +167,11 @@ class ResourceManager:
                 BLOCK_CANCELLED,
                 BLOCK_DONE,
                 BLOCK_ERROR,
-                PROCESS_EXITED,
             )
 
             event_bus.subscribe(BLOCK_DONE, self._on_block_terminal)
             event_bus.subscribe(BLOCK_ERROR, self._on_block_terminal)
             event_bus.subscribe(BLOCK_CANCELLED, self._on_block_terminal)
-            event_bus.subscribe(PROCESS_EXITED, self._on_block_terminal)
 
     def can_dispatch(self, request: ResourceRequest, active_count: int = 0) -> bool:
         """Check if resources are available AND system memory is below watermark.
@@ -233,6 +231,12 @@ class ResourceManager:
         (ADR-022). Allocation is tracked by block_id for auto-release
         (ADR-018).
 
+        TODO(#887): this method currently has no production caller — the
+        scheduler's ``_dispatch`` passes a default ``ResourceRequest()`` to
+        ``can_dispatch`` and never calls ``acquire``/``release``, so the
+        discrete GPU/CPU counters stay at zero (ADR-022 L1 gating deferred,
+        low-risk per #887 / #1595). Kept as forward-compatible scaffolding.
+
         Returns True if resources were successfully acquired, False otherwise.
         """
         if not self.can_dispatch(request):
@@ -258,8 +262,8 @@ class ResourceManager:
     def _on_block_terminal(self, event: Any) -> None:
         """Auto-release resources when a block reaches a terminal state.
 
-        Called by EventBus for BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED,
-        and PROCESS_EXITED events (ADR-018).
+        Called by EventBus for BLOCK_DONE, BLOCK_ERROR, and
+        BLOCK_CANCELLED events (ADR-018).
         """
         block_id = event.block_id
         if block_id and block_id in self._allocations:
