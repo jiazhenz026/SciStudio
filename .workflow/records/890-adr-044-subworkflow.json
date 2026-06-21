@@ -18,8 +18,31 @@
       "docs/audit/**"
     ]
   },
-  "directive_events": [],
-  "docs_events": [],
+  "directive_events": [
+    {
+      "at": "2026-06-21T08:35:10.883435Z",
+      "owner_directive": "Backend implemented by manager on umbrella; frontend dispatched (feature/adr-044-frontend-20260621); no-context auditor dispatched after integration. Decisions D1-D8 recorded in checklist.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-21T08:35:10.883593Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:35:10.883795Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-044-subworkflow-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -51,5 +74,46 @@
   "session_id": "fc90ea1c-31da-4638-a74d-f5d989952bf6",
   "strictness_tier": null,
   "task_kind": "feature",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-21T08:35:10.883799Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_flatten_subworkflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:35:10.883802Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_subworkflow.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:35:10.883803Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/integration/test_subworkflow_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:35:10.883804Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_subworkflow_flatten.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T08:35:10.883805Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_subworkflow_yaml_roundtrip.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }

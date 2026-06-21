@@ -25,7 +25,7 @@ language_source: en
 - Branch/worktree plan: manager on umbrella branch/worktree; one backend implementer worktree, one frontend implementer worktree, one no-context audit worktree.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-044-subworkflow-20260621`
-- Umbrella PR: `#pending`
+- Umbrella PR: `#1736`
 - Umbrella PR title: `[DO NOT MERGE] ADR-044 SubWorkflowBlock authoring-only + inline flattening`
 - Final PR target: `main` (READY FOR REVIEW summary PR, closes #890)
 - Dispatch prompt templates:
@@ -74,13 +74,13 @@ language_source: en
 - [x] Gate record started. → `.workflow/records/890-adr-044-subworkflow.json`
 - [x] Scope include/exclude recorded in the gate record. → init include globs
 - [x] Umbrella branch created. → `track/adr-044-subworkflow-20260621`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. → `#1736`
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch (`main`) and umbrella PR number (`#1736`) recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found. → use `PYTHONPATH=$PWD/src`
 - [x] Dispatch checklist copied from the template and committed.
 - [ ] Dispatch prompts created from the correct prompt template and linked below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Sentrux baseline recorded, or N/A reason recorded. → Sentrux MCP unavailable this session; CLI fallback `sentrux scan/check` recorded as guard event via `gate_record check`.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -102,9 +102,20 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `BE` | `implementer` | `N/A` | `docs/planning/adr-044-dispatch/backend.md` | Backend core + backend tests + ARCHITECTURE.md | `feature/adr-044-backend-20260621` | `/Users/jiazhenz/SciStudio-adr044-backend-20260621` | `src/scistudio/**`, `tests/**`, `docs/architecture/ARCHITECTURE.md` | `frontend/**`, `engine/scheduler/**`, `engine/runners/**` | `#890` | `[ ]` |
+| `BE` (manager-self) | `implementer` | `N/A` | `docs/planning/adr-044-dispatch/backend.md` | Backend core + backend tests + ARCHITECTURE.md (implemented directly by manager on umbrella; coupled code) | `track/adr-044-subworkflow-20260621` | `/Users/jiazhenz/SciStudio-adr044-umbrella-20260621` | `src/scistudio/**`, `tests/**`, `docs/architecture/ARCHITECTURE.md` | `frontend/**`, `engine/scheduler/**`, `engine/runners/**` | `#890` | `[~]` |
 | `FE` | `implementer` | `N/A` | `docs/planning/adr-044-dispatch/frontend.md` | Frontend SubWorkflowNode + routing + tests | `feature/adr-044-frontend-20260621` | `/Users/jiazhenz/SciStudio-adr044-frontend-20260621` | `frontend/**` | `src/**`, `tests/**` | `#890` | `[ ]` |
 | `AUD` | `audit_reviewer` | `no-context` | `docs/planning/adr-044-dispatch/audit-no-context.md` | No-context audit (ADR/spec/diff only) | `audit/adr-044-no-context-20260621` | `/Users/jiazhenz/SciStudio-adr044-audit-20260621` | `docs/audit/2026-06-21-adr-044-subworkflow-no-context.md` | all implementation files | `#890` | `[ ]` |
+
+## 6.1 Design Decisions (manager, from investigation synthesis)
+
+- **D1 ref key:** nested `config.ref.path`, stored project-relative, resolved vs project root at flatten + port derivation. No serializer path-machinery change.
+- **D2 port project_dir:** editor-side effective ports resolved at the API route (active project root) via shared helper; `SubWorkflowBlock.get_effective_*_ports` reads ref+project_dir from config (validator injects project_dir for save-time dangling-edge checks), returns `[]` if unresolved.
+- **D3 flatten host:** free function `workflow/flatten.py` + thin `WorkflowDefinition.flatten_subworkflows(self, base_dir)` forwarding shim (ADR-literal compliance).
+- **D4 FR-004 delivery:** `GET /api/workflows/{id}` enriches subworkflow nodes with response-only `resolved_ports` (computed server-side; never persisted). Frontend renders handles from it.
+- **D5 broken node:** distinct registered `subworkflow_broken` block_type; one frontend component with a `broken` flag.
+- **D6 test infra:** run tests with `PYTHONPATH=$PWD/src`; only add `pyproject` pytest `pythonpath` if collection truly fails (report first).
+- **D7 engine exclude:** honor ADR `excludes`; FR-012 engine deletion satisfied-by-absence (no injection sites exist) — gate scope note; leave `platform.py` docstrings; no scheduler assertion.
+- **D8 exposed_ports.internal separator:** DOT (`block_id.port`) on disk; flattener converts to COLON for `EdgeDef`; `EdgeModel` never validates the DOT form.
 
 ## 7. Track A: Backend Core
 
