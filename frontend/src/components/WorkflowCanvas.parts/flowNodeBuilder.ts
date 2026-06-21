@@ -306,14 +306,19 @@ export function buildSubWorkflowNode(opts: SubWorkflowOpts): Node {
   const { node, position, label, selectedNodeId, typeHierarchy, onDelete, onLocateFile } = opts;
 
   const resolved = node.resolved_ports;
-  // `subworkflow_broken` is broken by block_type; a `subworkflow` node is also
-  // treated as broken when its resolved_ports surface flags it (unresolved ref).
-  const broken = node.block_type === "subworkflow_broken" || resolved?.broken === true;
 
   const ref = node.config.ref as { path?: string } | undefined;
   // Prefer the persisted config.ref.path; fall back to the response ref_path so
   // a broken placeholder still shows something useful.
   const refPath = ref?.path ?? resolved?.ref_path ?? null;
+
+  // ADR-044 §10 / FR-011 — `subworkflow_broken` is broken by block_type; a
+  // `subworkflow_block` node is also treated as broken when its resolved_ports
+  // surface flags it (unresolved ref) OR when it has no usable ref at all. A
+  // freshly dropped node has no ref, so it MUST surface the "Choose subworkflow
+  // file…" affordance (the same shared flow as the broken-ref "Locate file…").
+  const broken =
+    node.block_type === "subworkflow_broken" || resolved?.broken === true || !refPath;
 
   const inputPorts = broken
     ? []

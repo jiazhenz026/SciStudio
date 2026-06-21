@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import type { PromptRequest } from "../components/PromptDialog";
 import { ApiError, api } from "../lib/api";
+import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
 import { probeProjectFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
 import type { ProjectResponse, WorkflowResponse } from "../types/api";
@@ -59,8 +60,11 @@ export interface ProjectActions {
    */
   openSubworkflow: (refPath: string) => void;
   /**
-   * ADR-044 §10 — surface the broken-ref "locate file…" affordance for a
-   * `subworkflow_broken` placeholder node.
+   * ADR-044 FR-011 (US5) + §10 / US6 AS2 — run the shared choose/import
+   * subworkflow flow for a node that has no usable ref ("Choose subworkflow
+   * file…") OR a broken ref ("Locate file…"). Picks an external file via the
+   * native dialog, imports it into `<project>/subworkflows/`, repoints
+   * `config.ref.path`, and refreshes the node's resolved ports in place.
    */
   locateSubworkflow: (nodeId: string) => void;
 }
@@ -392,22 +396,20 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     [openTab, resetExecution, setLastError],
   );
 
-  // ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
-  // affordance. The full repoint persistence (rewriting `config.ref.path` and
-  // re-resolving the node's ports) is a larger plumbing change tracked
-  // separately (NOT #890, which this work closes).
-  // TODO(#1738): persist the chosen path back to the subworkflow node's
-  //   config.ref.path and re-fetch resolved_ports.
-  //   Followup: https://github.com/zjzcpj/SciStudio/issues/1738
+  // ADR-044 FR-011 (US5) + §10 / US6 AS2 — the shared choose/import-subworkflow
+  // flow. Picks an external file via the native dialog, imports it into
+  // `<project>/subworkflows/`, repoints `config.ref.path` (top-level, via
+  // `setNodeRef`), and refreshes the node's exposed-port handles in place (via
+  // `setNodeResolvedPorts`) so a broken / no-ref node un-breaks immediately.
+  // Reads the store actions directly so the canvas affordance and the Config-tab
+  // editor share ONE implementation (see `lib/chooseSubworkflowFile`).
+  const setNodeRef = useAppStore((state) => state.setNodeRef);
+  const setNodeResolvedPorts = useAppStore((state) => state.setNodeResolvedPorts);
   const locateSubworkflow = useCallback(
     (nodeId: string) => {
-      void promptInput({
-        title: "Locate subworkflow file",
-        label: `Repoint broken reference for "${nodeId}" (project-relative path)`,
-        defaultValue: "subworkflows/",
-      });
+      void chooseSubworkflowFile(nodeId, { setNodeRef, setNodeResolvedPorts, setLastError });
     },
-    [promptInput],
+    [setNodeRef, setNodeResolvedPorts, setLastError],
   );
 
   const importWorkflow = useCallback(async () => {

@@ -9,6 +9,7 @@ import type {
   LogEntry,
   PreviewTarget,
   ProjectResponse,
+  ResolvedSubworkflowPorts,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
@@ -99,6 +100,22 @@ export interface WorkflowSlice {
   ) => void;
   addAnnotationNode: (position: { x: number; y: number }) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
+  /**
+   * ADR-044 FR-011 / US5 + US6 — repoint a `subworkflow` / `subworkflow_broken`
+   * node's referenced file by writing `config.ref.path` at the TOP level of the
+   * node config (NOT under `config.params`, where `updateNodeConfig` merges). The
+   * canvas (`buildSubWorkflowNode`) and the flattener read `config.ref.path`, so
+   * the ref must live there. Marks the workflow dirty so the autosave persists it.
+   */
+  setNodeRef: (nodeId: string, refPath: string) => void;
+  /**
+   * ADR-044 FR-004 / US5 — set the response-only `resolved_ports` surface on a
+   * subworkflow node so its exposed-port handles refresh immediately (un-break +
+   * show `raw_in` / `report`) after an import or repoint, WITHOUT a workflow
+   * reload. `resolved_ports` is never persisted, so this does NOT mark dirty and
+   * does NOT push history.
+   */
+  setNodeResolvedPorts: (nodeId: string, resolvedPorts: ResolvedSubworkflowPorts) => void;
   updateNodeLayout: (nodeId: string, position: { x: number; y: number }) => void;
   updateNodeSize: (nodeId: string, size: { width: number; height: number }) => void;
   /**

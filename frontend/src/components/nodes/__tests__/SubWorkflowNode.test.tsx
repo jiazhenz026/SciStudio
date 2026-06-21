@@ -124,4 +124,38 @@ describe("SubWorkflowNode — broken reference", () => {
     fireEvent.click(screen.getByTestId("subworkflow-node-locate"));
     expect(onLocateFile).toHaveBeenCalledTimes(1);
   });
+
+  it("labels the affordance 'Locate file…' when a (broken) ref path is present", () => {
+    renderSubWorkflowNode({
+      blockType: "subworkflow_broken",
+      broken: true,
+      refPath: "subworkflows/missing.swf.yaml",
+      onLocateFile: vi.fn(),
+    });
+    expect(screen.getByTestId("subworkflow-node-locate")).toHaveTextContent("Locate file…");
+  });
+});
+
+// ADR-044 FR-011 / US5 — a node with NO ref (freshly dropped) is broken with a
+// null refPath; it must offer the "Choose subworkflow file…" affordance.
+describe("SubWorkflowNode — no reference (fresh node)", () => {
+  it("shows the 'Choose subworkflow file…' affordance and no ports when there is no ref", () => {
+    const onLocateFile = vi.fn();
+    const { container } = renderSubWorkflowNode({
+      blockType: "subworkflow_block",
+      broken: true,
+      refPath: null,
+      inputPorts: [],
+      outputPorts: [],
+      onLocateFile,
+    });
+
+    expect(screen.getByTestId("subworkflow-node-broken")).toHaveTextContent("No subworkflow file");
+    const button = screen.getByTestId("subworkflow-node-locate");
+    expect(button).toHaveTextContent("Choose subworkflow file…");
+    expect(container.querySelectorAll("[data-handleid]").length).toBe(0);
+
+    fireEvent.click(button);
+    expect(onLocateFile).toHaveBeenCalledTimes(1);
+  });
 });

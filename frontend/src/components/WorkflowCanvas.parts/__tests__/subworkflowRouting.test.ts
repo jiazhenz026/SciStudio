@@ -52,4 +52,32 @@ describe("ADR-044 subworkflow routing", () => {
     expect(data.inputPorts.map((p) => p.name)).toEqual(["raw_in"]);
     expect(data.outputPorts.map((p) => p.name)).toEqual(["report"]);
   });
+
+  // ADR-044 FR-011 / US5 — a freshly dropped subworkflow_block has NO ref, so it
+  // must be treated as broken (refPath=null) and surface the "Choose subworkflow
+  // file…" affordance. Without this it would render an empty pink node with no
+  // way to attach a reference.
+  it("treats a subworkflow_block with NO ref as broken so it offers the choose affordance", () => {
+    const node = {
+      id: "sw_new",
+      block_type: "subworkflow_block",
+      config: { params: {} },
+    } as unknown as WorkflowNode;
+
+    const built = buildSubWorkflowNode({
+      node,
+      position: { x: 0, y: 0 },
+      label: "sw_new",
+      selectedNodeId: null,
+      typeHierarchy: [],
+      onDelete: () => {},
+      onLocateFile: () => {},
+    } as Parameters<typeof buildSubWorkflowNode>[0]);
+
+    const data = built.data as SubWorkflowNodeData;
+    expect(data.broken).toBe(true);
+    expect(data.refPath).toBeNull();
+    expect(data.inputPorts).toEqual([]);
+    expect(data.outputPorts).toEqual([]);
+  });
 });
