@@ -127,6 +127,23 @@ describe("apiFetch error handling (#1422 split: core.ts)", () => {
     });
   });
 
+  it("appends the HTTP status code to opaque server errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        json: () => Promise.resolve({ detail: "Internal Server Error" }),
+      }),
+    );
+    await expect(api.listProjects()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 500,
+      message: "Internal Server Error (HTTP 500)",
+    });
+  });
+
   it("returns parsed JSON on 200 responses", async () => {
     vi.stubGlobal(
       "fetch",

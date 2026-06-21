@@ -399,8 +399,10 @@ describe("BottomPanel", () => {
     fireEvent.change(screen.getByDisplayValue("auto"), { target: { value: "existing" } });
     expect(onUpdateConfig).toHaveBeenCalledWith({ interpreter_mode: "existing" });
 
-    fireEvent.change(screen.getByDisplayValue("30"), { target: { value: "60" } });
-    expect(onUpdateConfig).toHaveBeenCalledWith({ timeout_seconds: 60 });
+    // Timeout / Working directory were removed from the editor (2026-06 config
+    // pass); exchange_root remains a core scalar field.
+    fireEvent.change(screen.getByDisplayValue("exchange"), { target: { value: "io" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ exchange_root: "io" });
   });
 
   it("edits CodeBlock v2 environment variables", () => {
@@ -531,7 +533,8 @@ describe("BottomPanel", () => {
           direction: "input",
           data_type: "DataFrame",
           extension: ".tif",
-          capability_id: "imaging.image.tiff.save",
+          // #1366 parity: changing the data type clears the pinned capability.
+          capability_id: null,
           required: true,
           exchange_folder: "inputs/image/",
         },
@@ -628,7 +631,8 @@ describe("BottomPanel", () => {
           direction: "output",
           data_type: "DataFrame",
           extension: ".tsv",
-          capability_id: "core.dataframe.csv.load",
+          // #1366 parity: changing the extension clears the pinned capability.
+          capability_id: null,
           required: true,
           exchange_folder: "outputs/table/",
         },

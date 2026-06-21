@@ -46,7 +46,10 @@ describe("PortEditorTable", () => {
     expect(screen.queryByLabelText("extension for data")).toBeNull();
   });
 
-  it("normalises typed extensions: lowercases and strips leading dots", () => {
+  it("preserves the raw extension text including a leading dot", () => {
+    // The input keeps exactly what the user typed (matching the CodeBlock port
+    // editor); normalisation happens at consumption (backend binning +
+    // CapabilityDropdown), not on the stored value.
     const ports: PortRow[] = [{ name: "tables", types: ["DataObject"], extension: "" }];
     const onChange = vi.fn();
     render(
@@ -63,15 +66,13 @@ describe("PortEditorTable", () => {
     fireEvent.change(extInput, { target: { value: ".CSV" } });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    // #1366: handleExtensionChange also clears capability_id; the existing row
-    // had no capability pinned, so the resulting row carries `capability_id:
-    // null` even though the test's primary assertion is about extension
-    // normalisation.
+    // The normalised extension changed ("" -> "csv"), so #1366 clears the
+    // (absent) capability pin to null; the stored extension keeps the raw text.
     expect(onChange.mock.calls[0][0]).toEqual([
       {
         name: "tables",
         types: ["DataObject"],
-        extension: "csv",
+        extension: ".CSV",
         capability_id: null,
       },
     ]);
@@ -233,13 +234,14 @@ describe("PortEditorTable", () => {
     const extInput = screen.getByLabelText("extension for out");
     fireEvent.change(extInput, { target: { value: ".CSV" } });
 
-    // Either no onChange call (preferred), or a call that preserves capability_id.
+    // The raw text updates to ".CSV", but the normalised tuple is unchanged
+    // ("csv" -> "csv"), so the user's explicit capability pin is preserved.
     if (onChange.mock.calls.length > 0) {
       expect(onChange.mock.calls[0][0]).toEqual([
         {
           name: "out",
           types: ["Table"],
-          extension: "csv",
+          extension: ".CSV",
           capability_id: "table:csv:save:special",
         },
       ]);

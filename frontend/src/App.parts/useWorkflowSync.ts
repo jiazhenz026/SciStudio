@@ -10,7 +10,7 @@
 // downstream `useEffect`s (autosave, keyboard shortcuts) keep their
 // dependency arrays exhaustive without an inline disable.
 
-import { startTransition, useCallback } from "react";
+import { startTransition, useCallback, useRef } from "react";
 
 import { api, ApiError } from "../lib/api";
 import type {
@@ -63,6 +63,13 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
     workflowId,
   } = deps;
 
+  // Tracks whether the *previous* save attempt failed validation. A successful
+  // save then clears only its own stale validation banner — it must not wipe an
+  // error owned by another source (e.g. a run/execute validation error), which
+  // caused that banner to flash and vanish when a debounced autosave landed
+  // just after a failed run.
+  const saveErroredRef = useRef(false);
+
   // #1421: useCallback so consumers (saveWorkflow, boot effect, ...) get a
   // stable function identity.
   const refreshProjects = useCallback(async () => {
@@ -99,6 +106,14 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
         saved = await persistWorkflow(workflowPayload);
       }
       markWorkflowSaved();
+      // A successful save (HTTP 200) means validation passed, so a *save*
+      // validation banner is now stale and clears itself. Only clear when the
+      // previous save actually errored, so a concurrent autosave success does
+      // not wipe an unrelated (e.g. run/execute) error.
+      if (saveErroredRef.current) {
+        setLastError(null);
+        saveErroredRef.current = false;
+      }
       await refreshProjects();
       setCurrentProject({
         ...projectForState,
@@ -109,6 +124,7 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
       });
     } catch (error) {
       setLastError((error as Error).message);
+      saveErroredRef.current = true;
     }
   }, [
     currentProject,

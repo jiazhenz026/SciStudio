@@ -8,9 +8,46 @@
 
 import { useCallback } from "react";
 
+import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { api } from "../lib/api";
-import type { BlockSummary, ProjectResponse, WorkflowEdge, WorkflowNode } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  BlockSummary,
+  ProjectResponse,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../types/api";
 import type { FileTab } from "../store/types";
+import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+
+// Resolve a source node's effective output port type, mirroring how the canvas
+// colours edges: variadic blocks read their declared ``output_ports`` types,
+// dynamic blocks (e.g. LoadData) resolve via ``dynamic_ports`` + config. Returns
+// the primary type name, or ``undefined`` when it cannot be resolved.
+function effectiveOutputType(
+  node: WorkflowNode,
+  portName: string,
+  schemas: Record<string, BlockSchemaResponse>,
+): string | undefined {
+  const schema = schemas[node.block_type];
+  if (!schema) return undefined;
+  const params = (node.config.params as Record<string, unknown> | undefined) ?? {};
+  let ports: BlockPortResponse[];
+  if (schema.variadic_outputs) {
+    ports = resolveVariadicPorts(schema.output_ports ?? [], params, "output", schema);
+  } else {
+    const cfgKey = schema.dynamic_ports?.source_config_key as string | undefined;
+    const cfgVal = cfgKey ? String(params[cfgKey] ?? "") : undefined;
+    ports = computeEffectivePorts(
+      schema.dynamic_ports ?? null,
+      cfgVal,
+      schema.output_ports ?? [],
+      "output",
+    );
+  }
+  return ports.find((port) => port.name === portName)?.accepted_types?.[0];
+}
 
 export interface CanvasHandlersDeps {
   currentProject: ProjectResponse | null;
@@ -28,6 +65,7 @@ export interface CanvasHandlersDeps {
   saveFileTab: (tabId: string) => Promise<void>;
   saveWorkflow: () => Promise<void>;
   setLastError: (message: string | null) => void;
+  schemas: Record<string, BlockSchemaResponse>;
 }
 
 // Returns true if adding ``sourceNodeId -> targetNodeId`` to the existing
@@ -82,6 +120,7 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
     saveFileTab,
     saveWorkflow,
     setLastError,
+    schemas,
   } = deps;
 
   const handleAddBlockFromPalette = useCallback(
@@ -127,6 +166,42 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
           );
           return;
         }
+        // MergeCollection requires both inputs to carry the same Collection
+        // item type (the backend ``run`` raises on mismatch). Each edge alone is
+        // type-valid (both inputs accept DataObject), so enforce the cross-input
+        // constraint here at connect time: if the other input is already wired to
+        // a concrete, different type, reject the connection with a banner — the
+        // same "can't connect + top banner" pattern as the cycle/type checks.
+        if (
+          targetNode.block_type === "mergecollection_block" &&
+          (targetPort === "input_a" || targetPort === "input_b")
+        ) {
+          const otherPort = targetPort === "input_a" ? "input_b" : "input_a";
+          const otherEdge = workflowEdges.find((candidate) => {
+            const [otherTargetNode, otherTargetPort] = candidate.target.split(":");
+            return otherTargetNode === targetNode.id && otherTargetPort === otherPort;
+          });
+          if (otherEdge) {
+            const [otherSourceId, otherSourcePort] = otherEdge.source.split(":");
+            const otherSourceNode = workflowNodes.find((node) => node.id === otherSourceId);
+            const newType = effectiveOutputType(sourceNode, sourcePort, schemas);
+            const otherType = otherSourceNode
+              ? effectiveOutputType(otherSourceNode, otherSourcePort, schemas)
+              : undefined;
+            if (
+              newType &&
+              otherType &&
+              newType !== "DataObject" &&
+              otherType !== "DataObject" &&
+              newType !== otherType
+            ) {
+              setLastError(
+                `MergeCollection inputs must be the same Collection type: ${otherType} vs ${newType}.`,
+              );
+              return;
+            }
+          }
+        }
         // #889: pass node configs so the backend resolves effective
         // ports (LoadData core_type, variadic block-declared ports)
         // rather than validating against the static class-level
@@ -149,7 +224,7 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
         setLastError((error as Error).message);
       }
     },
-    [connectNodes, setLastError, workflowNodes, workflowEdges],
+    [connectNodes, setLastError, workflowNodes, workflowEdges, schemas],
   );
 
   const handleViewSource = useCallback(async () => {

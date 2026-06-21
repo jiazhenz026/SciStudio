@@ -45,7 +45,6 @@ References:
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 import os
 import shutil
@@ -192,19 +191,18 @@ class AIBlock(Block):
             "permission_mode": {
                 "type": "string",
                 "enum": ["safe", "bypass"],
+                # Display labels are unified with the ADR-034 AI chat
+                # PermissionModePicker (value ``safe`` shows as "Ask", ``bypass``
+                # shows as "Bypass"). The stored enum values stay ``safe``/
+                # ``bypass`` because the spawn argv logic keys on them.
+                "ui_enum_labels": {"safe": "Ask", "bypass": "Bypass"},
                 "default": "safe",
                 "title": "Permission mode",
                 "description": (
-                    "safe = agent prompts for sensitive tool use (default); "
-                    "bypass = full filesystem access — same as a hand-launched ADR-034 tab."
+                    "Ask = agent prompts for sensitive tool use (default); "
+                    "Bypass = full filesystem access — same as a hand-launched ADR-034 tab."
                 ),
                 "ui_priority": 3,
-            },
-            "timeout_sec": {
-                "type": "integer",
-                "default": 1800,
-                "minimum": 1,
-                "title": "Timeout (seconds)",
             },
             "input_ports": {
                 "type": "array",
@@ -290,9 +288,10 @@ class AIBlock(Block):
         if not output_path_overrides:
             output_path_overrides = _output_path_overrides(self.config)
 
-        # 4. Compute deadline + write manifest.
-        timeout_sec = int(config.get("timeout_sec", 1800))
-        deadline = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=timeout_sec)
+        # 4. Write manifest. AIBlock runs without a wall-clock timeout: the
+        #    agent is driven interactively and only stops on completion or
+        #    explicit cancellation (tab close / workflow cancel), so no
+        #    deadline is computed, recorded, or enforced.
         block_name = config.get("block_id") or type(self).__name__
         try:
             manifest_path = run_dir.write_manifest(
@@ -301,7 +300,7 @@ class AIBlock(Block):
                 user_prompt=str(config.get("user_prompt", "")),
                 inputs=cast(dict[str, list[Any]], inputs_unpacked),
                 outputs=effective_outputs,
-                deadline_iso=deadline.replace(microsecond=0).isoformat(),
+                deadline_iso=None,
                 output_paths=output_path_overrides,
             )
         except Exception as exc:
@@ -351,14 +350,10 @@ class AIBlock(Block):
         )
 
         try:
-            event = watcher.wait(timeout_sec=float(timeout_sec))
-        except TimeoutError as exc:
-            _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "timeout"})
-            # Signal cancellation through the worker envelope (#1334 P1
-            # from Codex review on PR #1351): a bare ``return {}`` would
-            # serialize as DONE because the worker now only emits
-            # ``final_state="cancelled"`` for ``BlockCancelledByAppError``.
-            raise BlockCancelledByAppError(f"AIBlock timeout after {timeout_sec}s") from exc
+            # No wall-clock timeout: the watcher blocks until the agent
+            # completes or the run is cancelled. ``timeout_sec=None`` disables
+            # the deadline in CompletionWatcher.wait.
+            event = watcher.wait(timeout_sec=None)
         except WatcherCancelledError as exc:
             _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "cancelled"})
             raise BlockCancelledByAppError(f"AIBlock cancelled: {exc}") from exc
@@ -406,9 +401,6 @@ class AIBlock(Block):
         prompt = config.get("user_prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("AIBlock: 'user_prompt' must be a non-empty string.")
-        timeout_sec = config.get("timeout_sec", 1800)
-        if not isinstance(timeout_sec, int) or timeout_sec <= 0:
-            raise ValueError("AIBlock: 'timeout_sec' must be a positive integer.")
 
     def _build_spawn_argv(self, config: BlockConfig, manifest_path: str) -> list[str]:
         """Compose the agent spawn argv (ADR-035 §3.2 step 4, §3.7).

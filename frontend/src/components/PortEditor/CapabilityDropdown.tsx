@@ -31,7 +31,9 @@ import type {
 } from "../../types/api";
 
 export interface CapabilityDropdownProps {
-  /** "load" for input ports, "save" for output ports. */
+  /** ADR-043 boundary IO (inverted at the block boundary): "save" for input
+   *  ports (SciStudio writes a file for the external app), "load" for output
+   *  ports (the external app writes a file SciStudio reads back). */
   direction: CapabilityDirection;
   /** DataObject subclass name. Empty string skips the type filter. */
   dataType: string;
@@ -66,7 +68,9 @@ export interface CapabilityDropdownProps {
 
 const FIDELITY_BADGE: Record<MetadataFidelityLevel, { label: string; cls: string }> = {
   pixel_only: {
-    label: "pixel_only",
+    // Display label only; the backend MetadataFidelityLevel value stays
+    // "pixel_only". "payload only" reads better for non-image data too.
+    label: "payload only",
     cls: "bg-red-50 text-red-700 border border-red-200",
   },
   typed_meta: {
@@ -87,7 +91,7 @@ function FidelityBadge({ level }: { level: MetadataFidelityLevel }) {
   const entry = FIDELITY_BADGE[level] ?? FIDELITY_BADGE.pixel_only;
   return (
     <span
-      className={`ml-2 inline-flex rounded-full px-2 py-[1px] text-[10px] font-medium leading-none ${entry.cls}`}
+      className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium ${entry.cls}`}
       data-testid="fidelity-badge"
     >
       {entry.label}
@@ -120,10 +124,11 @@ interface HintProps {
   error: string | null;
   ambiguous: boolean;
   ambiguousCount: number;
-  selected: FormatCapabilityResponse | null;
+  /** User-facing term for the handler: "Saver" (input) or "Loader" (output). */
+  term: string;
 }
 
-function CapabilityHint({ error, ambiguous, ambiguousCount, selected }: HintProps) {
+function CapabilityHint({ error, ambiguous, ambiguousCount, term }: HintProps) {
   if (error) {
     return (
       <span className="text-[11px] text-red-600" role="alert">
@@ -134,22 +139,12 @@ function CapabilityHint({ error, ambiguous, ambiguousCount, selected }: HintProp
   if (ambiguous) {
     return (
       <span className="text-[11px] text-amber-700">
-        {ambiguousCount} capabilities match — pick one to persist a stable
-        <code className="mx-1 rounded bg-amber-50 px-1">capability_id</code>.
+        {ambiguousCount} {term.toLowerCase()}s match — pick one.
       </span>
     );
   }
-  if (
-    selected &&
-    selected.direction === "save" &&
-    selected.metadata_fidelity.level === "pixel_only"
-  ) {
-    return (
-      <span className="text-[11px] text-amber-700">
-        This saver is payload-only; OME / typed-meta fields will be dropped.
-      </span>
-    );
-  }
+  // Metadata fidelity (incl. the payload-only / pixel_only case) is conveyed by
+  // the FidelityBadge pill next to the select, not a sentence.
   return null;
 }
 
@@ -227,14 +222,61 @@ export function CapabilityDropdown({
   const selected = capabilities.find((c) => c.id === value) ?? null;
   const ambiguous = capabilities.length > 1 && !selected;
   const showEmpty = !extension;
+  // ADR-043 boundary IO: input ports are written by a SAVER, output ports read
+  // by a LOADER. This is the user-facing term (was the dev jargon "Capability").
+  const term = direction === "save" ? "Saver" : "Loader";
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-1 text-xs" data-testid="capability-dropdown">
+        <span className="text-[11px] text-red-600" role="alert">
+          {error}
+        </span>
+      </div>
+    );
+  }
+
+  // Only surface the picker when there is a real choice (>1 match). With 0 or 1
+  // match the (type, extension) tuple already determines the handler, so the
+  // field would just duplicate Data type + Extension. We still warn when a
+  // single lossy saver is auto-selected, or when nothing matches at all.
+  if (capabilities.length <= 1) {
+    const noMatch = !showEmpty && !loading && capabilities.length === 0;
+    if (noMatch) {
+      return (
+        <div className="flex flex-col gap-1 text-xs" data-testid="capability-dropdown">
+          <span className="text-[11px] text-amber-700">
+            No {term.toLowerCase()} for {dataType || "this type"} + {extension || "?"}.
+          </span>
+        </div>
+      );
+    }
+    // Single match: the picker (handler choice) is redundant with Data type +
+    // Extension and stays hidden, but Metadata Completeness is useful info, so
+    // surface the resolved capability's level as a labelled pill.
+    if (selected) {
+      return (
+        // Single line (label + pill) — shows how completely the handler
+        // preserves metadata, not a handler choice, so it is labelled "Metadata
+        // Completeness" (not Saver/Loader).
+        <div className="flex items-center gap-2 text-sm" data-testid="capability-dropdown">
+          <span className="font-medium text-stone-700">Metadata Completeness</span>
+          <FidelityBadge level={selected.metadata_fidelity.level} />
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-1 text-xs" data-testid="capability-dropdown">
       <label className="flex items-center gap-2">
-        <span className="shrink-0 text-stone-500">Capability</span>
+        <span className="shrink-0 text-stone-500">{term}</span>
         <select
           aria-label={
-            id ? `${id} capability` : `${direction} capability for ${dataType || "any type"}`
+            id
+              ? `${id} ${term.toLowerCase()}`
+              : `${direction} ${term.toLowerCase()} for ${dataType || "any type"}`
           }
           className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:bg-stone-50"
           disabled={disabled || loading || showEmpty || capabilities.length === 0}
@@ -266,7 +308,7 @@ export function CapabilityDropdown({
         error={error}
         ambiguous={ambiguous}
         ambiguousCount={capabilities.length}
-        selected={selected}
+        term={term}
       />
     </div>
   );

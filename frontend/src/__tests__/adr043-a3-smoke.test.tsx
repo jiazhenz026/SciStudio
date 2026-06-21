@@ -143,8 +143,8 @@ describe("ADR-043 Phase A3 smoke — capability dropdown ambiguity (FR-012)", ()
       options.some((opt) => (opt as HTMLOptionElement).value === "imaging.image.ome-tiff.save"),
     ).toBe(true);
 
-    // Ambiguity message visible.
-    expect(screen.getByText(/2 capabilities match/i)).toBeInTheDocument();
+    // Ambiguity message visible (de-jargoned to "Saver" for a save-direction port).
+    expect(screen.getByText(/2 savers match/i)).toBeInTheDocument();
 
     // 2. Picking an option persists the id.
     const select = screen.getByRole("combobox") as HTMLSelectElement;

@@ -152,9 +152,13 @@ class CodeBlock(Block):
                 "ui_priority": 2,
             },
             "interpreter_path": {"type": "string", "title": "Interpreter Path", "ui_priority": 3},
-            "working_directory": {"type": "string", "default": ".", "title": "Working Directory", "ui_priority": 4},
+            # ``working_directory`` removed from the UI (2026-06 config pass):
+            # CodeBlock scripts always run from the project root. The field is
+            # forced to "." in _persisted_codeblock_config.
             "exchange_root": {"type": "string", "default": "exchange", "title": "Exchange Root", "ui_priority": 5},
-            "timeout_seconds": {"type": "number", "title": "Timeout Seconds", "ui_priority": 6},
+            # ``timeout_seconds`` removed from the UI (2026-06 config pass):
+            # CodeBlock always runs without a wall-clock timeout. See
+            # _persisted_codeblock_config, which strips any stale value.
             "inputs": {
                 "type": "array",
                 "title": "Declared Inputs",
@@ -359,7 +363,13 @@ def _persisted_codeblock_config(raw_config: Mapping[str, Any]) -> dict[str, Any]
         "materialise_adapter",
         "reconstruct_adapter",
     }
-    return {key: value for key, value in raw_config.items() if key not in runtime_only}
+    # ``timeout_seconds`` and ``working_directory`` are no longer
+    # user-configurable (2026-06 config pass). Stripping them forces the
+    # CodeBlockConfig defaults: no wall-clock timeout (None ->
+    # ``subprocess.run(timeout=None)``) and the project root as the script cwd
+    # ("."), even if a legacy workflow persisted other values.
+    dropped = runtime_only | {"timeout_seconds", "working_directory"}
+    return {key: value for key, value in raw_config.items() if key not in dropped}
 
 
 def _migration_diagnostics(raw_config: Mapping[str, Any]) -> list[MigrationDiagnostic]:
@@ -413,7 +423,20 @@ def _exchange_ports(config: CodeBlockConfig) -> list[CodeBlockExchangePort]:
 def _resolve_data_type(data_type: str) -> type[DataObject]:
     if data_type in _CORE_DATA_TYPES:
         return _CORE_DATA_TYPES[data_type]
-    raise ValueError(f"Unknown CodeBlock data_type {data_type!r}; expected one of {sorted(_CORE_DATA_TYPES)}.")
+    # Beyond the core types, resolve plugin / user-defined DataObject subtypes
+    # (e.g. Image, Spectrum) the same way variadic ports do
+    # (``ports_from_config_dicts._resolve_type``): load the class from the shared
+    # type registry and fall back to DataObject when the worker cannot resolve
+    # it. This keeps CodeBlock's declared-port types consistent with AppBlock.
+    from scistudio.core.types.serialization import _get_type_registry
+
+    try:
+        resolved = _get_type_registry().load_class(data_type)
+    except Exception:
+        resolved = None
+    if isinstance(resolved, type) and issubclass(resolved, DataObject):
+        return resolved
+    return DataObject
 
 
 def _folder_name(exchange_folder: str | None, *, direction: str) -> str | None:

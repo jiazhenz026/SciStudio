@@ -302,6 +302,7 @@ export default function App() {
       saveFileTab,
       saveWorkflow,
       setLastError,
+      schemas: blockSchemas,
     });
 
   // App-level lifecycle effects (boot, workflow autosave, tab snapshot sync).

@@ -11,7 +11,6 @@ from scistudio.blocks.code.code_block import (
     CodeBlockExecutionError,
     CodeBlockMigrationError,
     CodeBlockRuntimeContext,
-    CodeBlockTimeoutError,
     list_codeblock_backends,
     register_codeblock_backend,
     unregister_codeblock_backend,
@@ -160,19 +159,9 @@ raise SystemExit(3)
     assert "boom" in exc_info.value.stderr
 
 
-def test_codeblock_timeout_raises_structured_error(tmp_path: Path) -> None:
-    _write_script(tmp_path, "import time\ntime.sleep(5)\n")
-    block = CodeBlock(
-        config=_block_config(
-            tmp_path,
-            "scripts/script.py",
-            timeout_seconds=0.1,
-            outputs=[{"name": "summary", "direction": "output", "data_type": "Text", "extension": ".txt"}],
-        )
-    )
-
-    with pytest.raises(CodeBlockTimeoutError, match="timed out"):
-        block.run({}, block.config)
+# NOTE: ``test_codeblock_timeout_raises_structured_error`` removed — CodeBlock
+# no longer enforces a wall-clock timeout (``timeout_seconds`` is stripped in
+# ``_persisted_codeblock_config`` so the run always uses ``timeout=None``).
 
 
 def test_legacy_inline_config_reports_migration_error() -> None:
@@ -255,7 +244,8 @@ def test_persisted_codeblock_config_strips_engine_enrichment_fields() -> None:
 
     raw = {
         "script_path": "script.py",
-        "working_directory": ".",
+        "working_directory": "subdir",
+        "timeout_seconds": 30,
         "inputs": [],
         "outputs": [],
         # Engine-injected runtime fields (from DAGScheduler):
@@ -277,4 +267,8 @@ def test_persisted_codeblock_config_strips_engine_enrichment_fields() -> None:
     assert "reconstruct_adapter" not in cleaned
     # User-authored fields must survive.
     assert cleaned["script_path"] == "script.py"
-    assert cleaned["working_directory"] == "."
+    # 2026-06 config pass: ``working_directory`` and ``timeout_seconds`` are no
+    # longer user-configurable, so they are stripped here too — the run always
+    # falls back to the CodeBlockConfig defaults (project root, no timeout).
+    assert "working_directory" not in cleaned
+    assert "timeout_seconds" not in cleaned
