@@ -261,6 +261,10 @@ class LocalRunner:
         block_class_path = f"{block.__class__.__module__}.{block.__class__.__qualname__}"
         registry = self._registry if self._registry is not None else ProcessRegistry()
         block_id = getattr(block, "id", block_class_path)
+        # #1517: the registry is keyed by (workflow_id, block_id); the scheduler
+        # looks handles up by its own ``self._workflow.id``, which the API
+        # runtime injects into the block config.
+        workflow_id = str(config.get("workflow_id") or "")
         output_dir = _derive_output_dir(block, config)
 
         # #706: For Tier-1 drop-in blocks, the registry stamps the source

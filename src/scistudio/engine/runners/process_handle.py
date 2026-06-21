@@ -124,7 +124,7 @@ def _pid_identity_matches(handle: ProcessHandle) -> bool:
         create_time = psutil.Process(handle.pid).create_time()
     except Exception:
         return False
-    return abs(create_time - handle.start_time.timestamp()) <= _PID_IDENTITY_TOLERANCE_SEC
+    return bool(abs(create_time - handle.start_time.timestamp()) <= _PID_IDENTITY_TOLERANCE_SEC)
 
 
 class ProcessRegistry:

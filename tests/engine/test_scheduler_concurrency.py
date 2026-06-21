@@ -395,7 +395,7 @@ class TestCancelWorkflowMixed:
         handle_a.terminate.side_effect = _on_terminate
 
         process_registry = MagicMock()
-        process_registry.get_handle.side_effect = lambda block_id: handle_a if block_id == "A" else None
+        process_registry.get_handle.side_effect = lambda workflow_id, block_id: handle_a if block_id == "A" else None
 
         hit_runner = asyncio.Event()
 
