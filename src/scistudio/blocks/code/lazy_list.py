@@ -31,8 +31,8 @@ _ITEM_COUNT_WARNING_THRESHOLD = 100
 
 
 def _load_item(collection: Collection, index: int) -> Any:
-    """Load a single item via ``collection[index].view().to_memory()``."""
-    return collection[index].view().to_memory()
+    """Load a single item via ``collection[index].to_memory()``."""
+    return collection[index].to_memory()
 
 
 class LazyList:

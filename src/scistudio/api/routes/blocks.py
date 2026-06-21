@@ -285,7 +285,7 @@ async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
 
 
 class BlockTemplateResponse(BaseModel):
-    """Skeleton — response shape for GET /api/blocks/template (per ADR-036 §3.12)."""
+    """Response shape for ``GET /api/blocks/template``."""
 
     kind: str
     content: str
@@ -304,36 +304,14 @@ _KNOWN_TEMPLATES: dict[str, tuple[str, str]] = {
 
 @router.get("/template", response_model=BlockTemplateResponse)
 async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
-    """Serve a block-scaffolding template. (ADR-036 §3.12 — SKELETON)
+    """Return the source of a starter template for a new custom block.
 
-    Implementation plan (per ADR-036 §3.12):
-      1. Validate ``kind`` against a known set (initially just ``"basic"``).
-         Unknown kind -> HTTP 400.
-      2. Resolve the template file inside the package via
-         ``importlib.resources.files("scistudio.blocks._templates") /
-         "block_base_template.py"``.
-      3. Read with ``encoding="utf-8"`` and return content + suggested
-         filename (default ``"my_block.py"``).
-      4. The frontend pipes ``content`` to PUT /api/projects/{id}/file with
-         path ``"blocks/<user-supplied-name>.py"``, then opens an editor
-         tab on the new file. None of that orchestration belongs here —
-         this endpoint is content-only.
+    ``kind`` selects which template to return; only ``"basic"`` is available
+    today. The response carries the template ``content`` and a suggested
+    filename, which the editor writes to ``blocks/<name>.py`` in the project.
 
-    Edge cases:
-      - kind not in known set -> HTTP 400.
-      - Template file missing from package (deployment bug) -> HTTP 500
-        with a clear "template asset missing" message.
-
-    Test plan (must be added by I36c):
-      - test_template_basic_returns_python_with_correct_imports: response
-        content contains the literal string
-        ``"from scistudio.blocks.base import Block, BlockSpec, PortSpec"``.
-      - test_template_basic_has_run_marker: response content contains
-        ``"# >>> EDIT THIS <<<"``.
-      - test_template_unknown_kind_400.
-
-    References: ADR-036 §3.12; template file at
-    ``src/scistudio/blocks/_templates/block_base_template.py``.
+    Returns HTTP 400 for an unknown ``kind``, and HTTP 500 if the bundled
+    template asset is missing from the installation.
     """
     if kind not in _KNOWN_TEMPLATES:
         raise HTTPException(

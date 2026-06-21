@@ -64,12 +64,12 @@ SciStudio is designed for scientific data:
 | 7 | AI Agents | ADR-034, ADR-040 |
 | 8 | API | ADR-023, ADR-024, ADR-033 |
 | 9 | Frontend | ADR-023, ADR-024, ADR-036 |
-| 10 | Project workspace structure | ADR-023, ADR-038, ADR-039, ADR-040 |
-| 11 | Technology stack summary | Current repository dependencies |
-| 12 | Extension points | ADR-025, ADR-026, ADR-028 |
-| Appendix A | Concrete walkthrough | Conceptual example |
-| Appendix B | Glossary | Human-readable terminology |
-| Appendix C | Future considerations | Planned or deferred work |
+| 10 | Plot system | ADR-048 |
+| 11 | Project workspace structure | ADR-023, ADR-038, ADR-039, ADR-040 |
+| 12 | Extensibility | ADR-025, ADR-026, ADR-028 |
+| 13 | Desktop app | Electron shell + bundled backend |
+| 14 | Dependencies list | Repository dependency manifests |
+| 15 | Technology stack summary | Current repository dependencies |
 
 ### 1.3 Architecture Index
 
@@ -909,41 +909,39 @@ schema.
 
 #### 5.4.7 SubWorkflowBlock
 
-`SubWorkflowBlock` lets a workflow be referenced as a single node inside
-another workflow. It is the canvas-readability mechanism for collapsing
-sub-pipelines.
+`SubWorkflowBlock` lets an entire workflow be referenced as a single node
+inside another workflow. It is the **composition and canvas-readability**
+mechanism: it collapses a reusable sub-pipeline into one node so large graphs
+stay legible, and a workflow authored once can be reused across many parents.
 
-**Current state.** The class in
-`src/scistudio/blocks/subworkflow/subworkflow_block.py` is a runtime stub: it
-executes child blocks via an in-process sequential executor with engine-side
-`_scheduler_factory` and `_cleanup_callback` injection points. Issue #890
-tracks the gap, and the stub is not used by any production workflow YAML.
-
-**Planned state (ADR-044, accepted 2026-05-21).** `SubWorkflowBlock` becomes
-an authoring-only container. A node in a workflow YAML carries only a
-reference to an external subworkflow file (`config.ref.path`). At run start
-(`ApiRuntime.start_workflow`), a parser-layer flattener
+It is an **authoring-time container, not a runtime executor** — the defining
+design decision. A `SubWorkflowBlock` node carries only a reference to an
+external subworkflow file (**`config.ref.path`**) and owns no child scheduler.
+At run start, a parser-layer flattener
 (`WorkflowDefinition.flatten_subworkflows`) replaces every `SubWorkflowBlock`
 node with a prefixed copy of the referenced subworkflow's blocks and edges
-before scheduler dispatch. The editor sees the authored graph (with
-`SubWorkflowBlock` containers intact) so that subsequent saves preserve the
-on-disk YAML; per-node port handles and dangling-edge detection in the
-editor use the existing dynamic-ports mechanism on `SubWorkflowBlock`, not
-whole-graph flattening. The scheduler always receives a flat DAG and never
-observes a `SubWorkflowBlock` at runtime. The lineage record's
-`workflow_yaml_snapshot` captures the flattened YAML, so reproducibility of
-past runs is preserved automatically. Per-reference reproducibility against
-future edits is delegated to git (branches or tags), not embedded in the
-tool.
+before scheduler dispatch. The execution engine therefore always receives a
+flat DAG and never observes a `SubWorkflowBlock` at runtime. This is why the
+design flattens at the parser layer rather than nesting executors: it keeps
+subworkflows out of the scheduler entirely and reuses the existing
+single-graph execution path.
 
-The planned state deletes the existing scheduler-injection scaffold and
-closes issue #890 via the implementation PR. The post-ADR class is a thin
-authoring-time shell with dynamic port derivation from the referenced
-subworkflow's `exposed_ports`, and double-click on the canvas node opens
-the referenced file in its own editor tab.
+The editor keeps the container intact so authoring and storage stay stable.
+Per-node port handles and dangling-edge detection come from the
+**dynamic-ports** mechanism, deriving ports from the referenced subworkflow's
+**`exposed_ports`** rather than from whole-graph flattening, and
+double-clicking the canvas node opens the referenced file in its own editor
+tab. Because the lineage record's `workflow_yaml_snapshot` captures the
+flattened YAML, past runs stay reproducible automatically; reproducibility of
+a reference against future edits is delegated to git branches or tags rather
+than embedded in the tool.
 
-See ADR-044 (`docs/adr/ADR-044.md`) and the implementation spec
-(`docs/specs/adr-044-subworkflow-block.md`) for the full contract.
+Important class attributes include **`config.ref.path`** (the referenced
+subworkflow file), dynamic port derivation from the referenced subworkflow's
+**`exposed_ports`**, and the standard **`input_ports`** / **`output_ports`**
+surface shared with other blocks. The full contract is defined by ADR-044
+(`docs/adr/ADR-044.md`) and its implementation spec
+(`docs/specs/adr-044-subworkflow-block.md`).
 
 ### 5.5 Port System
 
@@ -980,25 +978,6 @@ Port validation happens in layers:
   execution.
 - **Block validation** checks required inputs, accepted types, port constraints,
   and variadic port limits for the specific block instance.
-
-### 5.6 Plugin And Block Installation
-
-SciStudio discovers blocks from two main sources:
-
-- **Project-local or user-global block files** for quick custom work inside a
-  project or workstation.
-- **Installed Python packages** that register blocks and data types through
-  entry points.
-
-This gives users two workflows: a scientist can create a local custom block with
-low ceremony, while a package maintainer can publish a reusable plugin with
-versioned dependencies, package metadata, block classes, data types, and IO
-capabilities.
-
-The registry records block metadata such as **name**, **version**, **module
-path**, **class name**, **base category**, **subcategory**, **ports**, **config
-schema**, **package name**, and source. The palette can then group blocks by
-package and category without importing domain logic into core.
 
 ---
 
@@ -1336,7 +1315,7 @@ state, and event bus context that the backend uses. This is why MCP calls can
 validate workflows, reload blocks, start runs, inspect lineage, and reflect live
 runtime state instead of operating as disconnected file edits.
 
-The production MCP surface contains 27 tools:
+The production MCP surface contains 33 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
@@ -1363,6 +1342,12 @@ The production MCP surface contains 27 tools:
 | Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_config</code> | Read a block instance's effective configuration. | Read |
 | Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;update_block_config</code> | Update a block config through schema-aware workflow mutation. | Write |
 | Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_logs</code> | Read block or run logs for debugging. | Read |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;list_plot_targets</code> | List workflow outputs a plot can bind to (node id + output port). | Read |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;list_plot_examples</code> | List available plot scaffold/example templates. | Read |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;scaffold_plot</code> | Create a preview-only plot job (manifest + render script) bound to a workflow output. | Write |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;read_plot_source</code> | Read a plot's manifest and render script. | Read |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_plot</code> | Validate a plot manifest and its workflow-output binding. | Read |
+| Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;run_plot_job</code> | Render a plot preview through the plot harness. | Write |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;search_docs</code> | Search project and SciStudio documentation. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;get_doc</code> | Read a selected documentation page or section. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;list_data</code> | List project data files and references. | Read |
@@ -1636,7 +1621,7 @@ Project, Open Project, and recent projects.
 │ 📦 Blocks     │                                               │ 🖼 output     │
 │ 📁 Project    │                                               │ previews     │
 │               ├───────────────────────────────────────────────┤              │
-│               │ 💬 AI Chat │ 📋 Config │ 📜 Logs │ 🔗 Lineage │ Git │       │
+│               │ 💬 AI Chat │ 📋 Config │ 📜 Logs │ 📈 Plots │ 🔗 Lineage │ Git │
 └───────────────┴───────────────────────────────────────────────┴──────────────┘
 ```
 
@@ -1699,29 +1684,35 @@ terminal session is open.
 
 Per ADR-050, block nodes on the workflow canvas are fixed-size **square
 topology glyphs** (default 104×104 CSS px; width equals height). The node body
-shows block identity only — a block-kind category mark, the display label
-(capped to two visual lines), and a single unified status surface. The body
-never grows for config fields, port count, runtime messages, errors, warnings,
-or action buttons. Run/restart/delete actions float outside the square in a
-hover/selected toolbar and do not change the node's measured geometry.
+shows block identity only — a centered block-kind category icon, with a single
+unified status surface in its bottom-right corner. The display label renders
+outside the body, below the square (capped to two visual lines). The body never
+grows for config fields, port count, runtime messages, errors, warnings, or
+action buttons. Run/restart/delete actions float in a toolbar above the square
+on hover/selected and do not change the node's measured geometry.
 
 ```
-┌──────────────┐
-│ P        [!] │  ← category mark + unified status surface
-│              │
-│   Cellpose   │  ← display label (max 2 lines, truncated)
-│   Segment    │
-└──────────────┘
-  fixed 104×104; ports on left/right rails; +/- for variadic topology
+          ┌───────────────┐
+          │  ▶   ↻   🗑   │   ← action toolbar: floats above on hover / selected
+          └───────────────┘
+      ┌────────────────────┐
+   ──◯│                    │◯──   ← input ports (left rail) / output ports (right rail)
+      │          ▣         │      ← category icon, centered — block identity only
+   ──◯│                (!) │◯──   ← unified status surface, bottom-right corner
+      └────────────────────┘
+              Cellpose            ← display label outside, below the node
+              Segment               (max two lines, truncated)
+
+  fixed 104×104; body never grows; rails may extend for port-heavy blocks; +/- for variadic
 ```
 
 | Node area | Behavior |
 |---|---|
-| **Body** | Square, fixed-size. Shows the category mark, the two-line display label, and the unified status surface only. No inline configuration, no status footer, no inline error/warning text. |
-| **Action toolbar** | Run, restart, and delete float outside the square on hover/selected; they do not consume body space or change geometry. |
+| **Body** | Square, fixed-size. Shows a centered category icon and, in its bottom-right corner, the unified status surface. The display label renders outside, below the node. No inline configuration, no status footer, no inline error/warning text. |
+| **Action toolbar** | Run, restart, and delete float in a toolbar above the square on hover/selected; they do not consume body space or change geometry. |
 | **Ports** | Input ports on the left rail, output ports on the right rail, colored by accepted type. Rails may extend beyond the square for port-heavy blocks; the body stays fixed. Dynamic ports resolve from the active configuration value. Port labels render outside the body (hover/selected/zoom/accessibility). |
 | **Variadic ports** | Blocks with configurable port counts keep the canvas add/remove (`+`/`-`) controls (ADR-029); removing a connected port preserves the existing disconnect confirmation. Full port naming/type editing lives in the BottomPanel port editor. |
-| **Unified status surface** | One fixed-geometry surface for runtime state (idle, ready, running, paused, done, error, cancelled, skipped) and problem severity (none, warning, error). Error has highest priority and routes to Logs; warning routes to the BottomPanel Config detail. Status rendering never changes node width or height. |
+| **Unified status surface** | One fixed-geometry surface in the node's bottom-right corner for runtime state (idle, ready, running, paused, done, error, cancelled, skipped) and problem severity (none, warning, error). Error has highest priority and routes to Logs; warning routes to the BottomPanel Config detail. Status rendering never changes node width or height. |
 
 Computational configuration — schema-driven fields, capability selectors,
 file/directory pickers, CodeBlock config, full variadic port editing, and
@@ -1740,24 +1731,43 @@ a deterministic hash color. Subtypes can use ring colors so, for example, an
 image-derived type can share the image fill color while remaining visually
 separable.
 
-### 9.6 Data Preview Panel
+### 9.6 Previewer System
 
-The right preview panel shows the latest previewable outputs for the selected
-block. It derives user-facing labels from output metadata when possible, so file
-outputs can show names like source filenames instead of opaque data references.
+The previewer system is the frontend module that displays a block's output
+data, and it is plugin-extensible. The core ships a set of generic previewers
+keyed by data kind, and plugins — or a project — extend it with richer
+previewers for specific data types. When the selected block has previewable
+outputs, the right-hand preview panel renders them, deriving user-facing labels
+from output metadata where possible (so file outputs can show names like source
+filenames instead of opaque data references).
 
-| Preview kind | UI behavior |
+**Core previewers.** The core provides one generic previewer per data kind.
+They are deliberately generic: each reads only the bounded preview payload and
+its metadata, and surfaces flags (sampled, truncated, cached, …) so the user can
+tell whether the displayed data is complete.
+
+| Core previewer | UI behavior |
 |---|---|
-| **Table** | Server-paginated table with sticky headers, sortable columns, page controls, and jump-to-page input. |
-| **Image** | Zoom/pan viewport with LUT swatches, display min/max sliders, reset, image-shape badge, and optional 3D slice slider. |
-| **Chart** | Plotly chart for series-like previews. |
-| **Text** | Read-only preformatted text preview. |
-| **Composite** | Slot list where each slot can expose its own previewable value. |
-| **Artifact fallback** | Displays file path or MIME metadata when no richer renderer applies. |
+| **DataFrame** | Paginated, sortable table with sticky headers and page controls. |
+| **Array** | Generic numeric inspection: shape, dtype, and axes, rendered as a scalar, a 1-D chart, or a 2-D heatmap table (actual values with a per-cell background color and a min–max legend), plus a per-axis slice selector for every non-displayed dimension. |
+| **Series** | Line or scatter chart for a one-dimensional series. |
+| **Text** | Read-only preformatted text. |
+| **Composite** | Slot list where each slot exposes its own previewable value. |
+| **Collection** | Entry list where each item opens its own preview. |
+| **Plot** | Renders a generated plot artifact, with export. |
+| **Artifact** | File-path and MIME-type fallback when no richer previewer applies. |
 
-Preview fetching is lazy. The active data reference is loaded on demand, while
-image slices beyond the first slice use a small local slice cache and a debounce
-so dragging a slider does not flood the backend.
+**Plugin previewers.** Plugins extend the system with richer, type-specific
+previewers. For example, an imaging package contributes an image viewer with
+LUT, channel, and label semantics that the generic Array previewer deliberately
+omits. The generic core previewers remain the baseline for the data kinds a
+plugin does not specialize.
+
+**Project previewers.** The same extension works at the project level: a user
+can add a previewer for a project-local data type without publishing a plugin.
+
+How previewers are registered, discovered, and prioritized is covered in §12
+(Extensibility).
 
 ### 9.7 Bottom Panel
 
@@ -1769,6 +1779,7 @@ resizable, collapsible, and pinnable.
 | **💬 AI Chat** | Multi-tab embedded agent terminal. User-created tabs start from setup; AI Block tabs can be opened by the engine and keep block status in the tab strip. Inactive terminal tabs stay mounted so subprocesses and WebSocket sessions survive tab switches. |
 | **📋 Config** | Full schema-driven configuration editor for the selected block. Variadic ports, format capabilities, CodeBlock ports, and environment variables are edited here when the schema requires richer controls than inline node config. |
 | **📜 Logs** | Real-time log viewer backed by the log stream, with level filtering and unread count when the user is not viewing Logs. |
+| **📈 Plots** | Card-style panel for the workflow-wide plot list. Each card shows the plot's name, linked block (node id + output port), language, and a broken badge when its bound output is missing, with relink, run, and new-plot actions. |
 | **🔗 Lineage** | Two-pane run history and run detail surface. It fetches runs on mount, refreshes after workflow completion, and owns methods-export and rerun dialogs. |
 | **Git** | Branch picker, status badge, commit dialog, stash panel, commit history, branch graph, and merge-entry point. Long-running merge resolution is mounted at the application level so it survives tab switches and project visibility changes. |
 
@@ -1807,15 +1818,106 @@ meaning stays in backend contracts:
   sessions rather than direct frontend mutation of workflow truth.
 
 ---
-## 10. Project Workspace Structure
+
+## 10. Plot System
+
+### 10.1 Introduction
+
+Plotting the scientific data a workflow produces is an essential part of
+analysis. The plot system lets a user connect any block's output to a plot of
+their own choosing, so they can see the statistical or analytical figure they
+want at any time — without turning that visualization into a workflow step.
+
+The system is made of **plot cards**. A plot card pairs a user-authored render
+function with a binding to one block output. Plot cards reuse the block
+execution structure — the same subprocess run model CodeBlock uses — but they
+are **not part of the workflow DAG**: a plot is a preview-only job that never
+becomes a graph node, never enters the scheduler, and never claims lineage.
+Keeping exploratory, frequently-rewritten plot code out of the reproducible
+data pipeline is the reason the plot system is a separate system rather than a
+block, while still giving it the runtime's data access and language support.
+
+Each plot card supports a user-defined Python or R plot function and links that
+function to the output data of any block, so one output can be visualized in as
+many ways as the user wants.
+
+### 10.2 Language Support
+
+A plot is rendered by a single user-authored `render` function that receives the
+bound output as a read-only `collection` and returns a figure. Two languages are
+supported:
+
+- **Python** — `def render(collection):`, drawn with matplotlib (seaborn is
+  available). It returns a matplotlib `Figure`, or a path to an image it wrote.
+- **R** — `render <- function(collection)`, drawn with ggplot2 or base graphics.
+  It returns a ggplot object or draws to the open device; a top-level
+  `figure_size(width, height)` helper sets the figure dimensions.
+
+Both languages run through the same harness. The runtime resolves the bound
+output to its current data references, writes the user's render script together
+with an input envelope into a temporary working directory, and runs it in a
+subprocess (`python` for Python, `Rscript` for R). The script receives its data
+lazily: the `collection` exposes `types`, `items`, and `open()` / `open_one()`
+helpers that materialize native values (a DataFrame, an array, …) only when the
+render function asks for them. The harness serializes the returned figure to the
+plot's chosen format. Four output formats are supported — **svg** (the default),
+**png**, **pdf**, and **jpeg** — constrained per plot by an allowed-formats list.
+
+### 10.3 Linking And Relinking
+
+A plot binds to a block output by **stable identity**, not by display label. The
+plot manifest's target records the workflow path, the **node id**, and the
+**output port**; the binding key is `node_id` + `output_port`. A human-readable
+display label is stored for the UI but is never used to resolve the target,
+because labels repeat across duplicated blocks and drift when blocks are renamed.
+
+When the bound block is removed and recreated it receives a new node id, so the
+plot's target no longer resolves and the plot is flagged **broken**. The user
+relinks it through a dialog that lists the current workflow's available outputs
+and points the plot at a new target.
+
+### 10.4 Display
+
+Plot cards live in the bottom panel's Plots tab (§9.7) as a workflow-wide list.
+Each card shows the plot's name, its linked block (node id + output port), the
+language, and — when its target no longer resolves — a broken badge, alongside
+run, relink, and new-plot actions.
+
+Running a plot renders its figure into the right-hand preview panel. A rendered
+plot is a preview artifact of kind `plot`, shown by the previewer system (§9.6)
+with the renderer appropriate to its format (inline SVG, an image for png/jpeg,
+an embedded PDF) plus export. The artifact is written to the project's preview
+cache: it is a transient preview, overwritten by the next run, and never a
+workflow result.
+
+### 10.5 Plot MCP Tools
+
+Agents work with plots through six MCP tools (the Plot category of §7.3). They
+mirror the user flow — discover a target, scaffold, learn from examples, read,
+validate, then run:
+
+| Tool | Purpose |
+|---|---|
+| `list_plot_targets` | Enumerate the workflow outputs a plot can bind to, each with a stable target id (node id + output port), so a plot never binds by label. |
+| `scaffold_plot` | Create `plots/<id>/plot.yaml` and a render-script skeleton for a chosen target and language. |
+| `list_plot_examples` | Return curated matplotlib/seaborn (Python) and ggplot2 (R) render examples to start from. |
+| `read_plot_source` | Read an existing plot's manifest and render script for inspection or editing. |
+| `validate_plot` | Check a plot's manifest, script, entrypoint, target resolution, and formats before running. |
+| `mcp__scistudio__run_plot_job` | Render the plot in a subprocess and return the preview artifact; the run stays preview-only and never touches the DAG or lineage. |
+
+---
+
+## 11. Project Workspace Structure
 
 A SciStudio user project is a normal filesystem directory with a small set of
 well-known paths. The **project root** is identified by `project.yaml`; opening a
 directory without that file is rejected as an invalid SciStudio project.
 
-### 10.1 Created Project Layout
+### 11.1 Created Project Layout
 
-`ApiRuntime.create_project` currently creates this baseline layout:
+`ApiRuntime.create_project` creates the baseline layout below. The
+`previewers/` and `plots/` directories are added on first use by the previewer
+and plot subsystems rather than at project creation:
 
 ```
 my_project/
@@ -1824,6 +1926,8 @@ my_project/
 │   └── main.yaml
 ├── blocks/
 ├── types/
+├── previewers/
+├── plots/
 ├── data/
 │   ├── raw/
 │   ├── zarr/
@@ -1841,6 +1945,8 @@ my_project/
 | `workflows/` | User workflow YAML files. Workflow IDs map to `workflows/<id>.yaml`. |
 | `blocks/` | Project-local custom blocks. Saving a clean Python file here can hot-reload the block registry. |
 | `types/` | Project-local custom data type definitions. |
+| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can also register them (§9.6). Created on first use. |
+| `plots/` | Plot cards — each plot is `plots/<id>/plot.yaml` plus its render script (§10). Created on first use. |
 | `data/raw/` | Uploaded or imported raw files. File uploads land here after filename sanitization. |
 | `data/zarr/` | Zarr-backed array-style data. |
 | `data/parquet/` | Parquet-backed table-style data. |
@@ -1853,7 +1959,7 @@ my_project/
 under `notes/` when that directory exists, and otherwise falls back to creating
 the note at the project root.
 
-### 10.2 Runtime State Under `.scistudio`
+### 11.2 Runtime State Under `.scistudio`
 
 The `.scistudio/` directory is for local runtime coordination. It is excluded by
 the default SciStudio `.gitignore` and should not be treated as portable project
@@ -1874,7 +1980,7 @@ Legacy root-level `metadata.db`, `lineage/`, and `checkpoints/` paths are not th
 current layout. Existing files may remain in old projects, but current runtime
 state is under `.scistudio/`.
 
-### 10.3 Versioned Source Boundary
+### 11.3 Versioned Source Boundary
 
 On project creation, SciStudio best-effort initializes Git with `main` as the
 initial branch, writes a default `.gitignore`, stages the project, and creates an
@@ -1895,7 +2001,7 @@ types, notes, and agent configuration files are source-like project artifacts
 unless the user edits `.gitignore` differently. Large data payloads and local
 runtime state stay outside Git by default.
 
-### 10.4 Agent And MCP Project Assets
+### 11.4 Agent And MCP Project Assets
 
 SciStudio provisions production-agent assets on project creation and on every
 project open. Provisioning is idempotent with `force=false`: existing files are
@@ -1930,7 +2036,7 @@ These files are different from the SciStudio source repository's developer-facin
 agent rules. A user project receives short operating guidance for agents that are
 using SciStudio, not the full contributor workflow for developing SciStudio itself.
 
-### 10.5 User-Wide Extension Paths
+### 11.5 User-Wide Extension Paths
 
 In addition to project-local extensions, SciStudio also scans user-wide extension
 locations:
@@ -1947,104 +2053,57 @@ types shared across projects. Packaged plugins remain the preferred mechanism fo
 distribution beyond one user machine.
 
 ---
-## 11. Extensibility
+## 12. Extensibility
 
-SciStudio is designed to keep the **core runtime** small while letting scientific capability grow at the project, package, application, and agent layers. The framework provides stable extension boundaries for **blocks**, **data types**, **format capabilities**, **external applications**, **code runners**, and **agent tools**. Domain-specific science should usually enter through one of those boundaries instead of being added directly to core.
+SciStudio keeps the **core runtime** small and lets scientific capability grow
+through stable extension boundaries. Two questions organize this chapter: **what
+can be extended** (§12.2) and **at which level an extension ships**
+(§12.3–§12.5).
 
-### 11.1 Extension Philosophy
+### 12.1 Extension Philosophy
 
-Extensibility follows four rules:
+Extensibility follows a few rules:
 
-- **Core owns runtime contracts.** Scheduling, validation, lineage, versioning, storage boundaries, and event delivery remain framework responsibilities.
-- **Projects can extend locally.** A lab can place project-specific blocks and types in the project workspace without publishing a package.
-- **Packages can extend publicly.** Reusable blocks and types can be distributed as Python packages and discovered through entry points.
-- **Existing tools stay useful.** Scripts, notebooks, command-line tools, GUI applications, and agents can be wrapped as workflow blocks instead of rewritten from scratch.
+- **Core owns runtime contracts.** Scheduling, validation, lineage, versioning,
+  storage boundaries, and event delivery remain framework responsibilities.
+- **Domain science enters at a boundary.** New capability is added as a block, a
+  data type, or a previewer — not by editing core.
+- **Extensions compose.** Project-local, user-wide, and packaged extensions
+  register into the same registries the core uses, so one typed graph can mix
+  native blocks, project-local logic, and community packages.
+- **Existing tools stay useful.** Scripts, notebooks, command-line tools, GUI
+  applications, and agents are wrapped as blocks instead of rewritten.
 
-This keeps SciStudio inclusive: a workflow may combine native blocks, project-local logic, Jupyter notebooks, Python/R/MATLAB scripts, user-preferred applications, and calls to an AI Agent for help in one typed graph.
+### 12.2 Extensible Modules
 
-### 11.2 Project-Local Extensions
+Three runtime modules accept extensions — **blocks**, **data types**, and
+**previewers**. Each has a stable contract and a registry. Which module an
+extension targets is independent of the level it ships at (§12.3).
 
-A SciStudio project contains `blocks/` and `types/` directories for local extension code. This is the lowest-friction path for a scientist who wants to adapt a pipeline for one dataset, one experiment, or one lab workflow.
+#### 12.2.1 Blocks
 
-The current custom block starter is copied from `src/scistudio/blocks/_templates/block_base_template.py` into `<project>/blocks/<name>.py`. Non-normative template excerpt:
+Most extension work enters SciStudio as a block. The block class should match
+the integration boundary:
 
-```python
-from __future__ import annotations
-
-from typing import Any, ClassVar
-
-from scistudio.blocks.base import (
-    Block,
-    BlockConfig,
-    InputPort,
-    OutputPort,
-)
-from scistudio.core.types.collection import Collection
-
-
-class MyBlock(Block):
-    """Replace this docstring with what your block does."""
-
-    input_ports: ClassVar[list[InputPort]] = [
-        InputPort(name="input", accepted_types=[]),
-    ]
-    output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="output", accepted_types=[]),
-    ]
-
-    config_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {},
-    }
-
-    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        raise NotImplementedError("fill in MyBlock.run()")
-```
-
-The empty `accepted_types` lists are placeholders in the starter file. Production blocks should narrow ports to concrete `DataObject` subclasses whenever the expected type is known, because concrete ports improve validation, palette display, agent reasoning, and downstream reproducibility.
-
-Project-local extensions are best for:
-
-| Use case | Why project-local works |
+| Block class | Use when |
 |---|---|
-| One-off preprocessing | The block lives with the dataset and workflow branch that needs it. |
-| Lab-private analysis | The code stays inside the project repository instead of a public package. |
-| Dataset adaptation | A branch can carry small pipeline changes for one batch or experiment. |
-| Fast prototyping | The user can iterate before deciding whether the block belongs in a package. |
+| **Custom `Block` subclass** | The user writes project-local Python logic and wants direct control over `run()`. |
+| **ProcessBlock** | The block transforms one typed item or a Collection using framework iteration. |
+| **IOBlock** | The block loads or saves external file formats and participates in format-capability selection. |
+| **CodeBlock** | The user runs an existing script, notebook, or analysis file with declared input/output exchange. |
+| **AppBlock** | The workflow launches an external GUI or CLI application and reconstructs outputs from files. |
+| **AIBlock** | An agent performs a bounded workflow step and returns declared outputs through the runtime boundary. |
+| **SubWorkflowBlock** | A reusable workflow appears as a single block inside a larger workflow. |
 
-### 11.3 Package Extensions
+This lets users migrate gradually: a familiar script can start as a CodeBlock,
+become a custom `Block` subclass when it needs tighter integration, and later
+move into a package when it becomes reusable.
 
-Reusable extensions are distributed as Python packages. The runtime discovers package-provided blocks and types through entry points, then registers them into the same block and type registries used by core and project-local code.
+#### 12.2.2 Data Types And Formats
 
-| Entry point group | Responsibility |
-|---|---|
-| `scistudio.blocks` | Registers block classes and optional package metadata for palette grouping. |
-| `scistudio.types` | Registers additional `DataObject` subclasses for typed ports and storage behavior. |
-| `scistudio.runners` | Registers CodeBlock runner backends for additional script execution environments. |
-
-The block package path is appropriate when a block set is reusable across projects, has its own tests, carries external dependencies, or belongs to a scientific community plugin. Package authors can use `PackageInfo` for display metadata and `BlockTestHarness` for contract validation, both of which are public helper surfaces in the current codebase.
-
-### 11.4 Block-Level Extension Patterns
-
-Most extension work enters SciStudio as a block. The block type should match the integration boundary:
-
-| Extension pattern | Use when |
-|---|---|
-| **CustomBlock** | The user writes project-local Python logic and wants direct control over the run method. |
-| **ProcessBlock** | The block transforms one typed data item or a Collection using framework iteration behavior. |
-| **IOBlock** | The block loads or saves external file formats and participates in format capability selection. |
-| **CodeBlock** | The user wants to run an existing script, notebook, or analysis file with declared input/output exchange. |
-| **AppBlock** | The workflow needs to launch an external GUI or CLI application and reconstruct outputs from files. |
-| **AIBlock** | An agent performs a bounded workflow step and returns declared outputs through the same runtime boundary. |
-| **SubWorkflowBlock** | A reusable workflow should appear as a single block inside a larger workflow. |
-
-This model lets users migrate gradually. A familiar script can start as a **CodeBlock**, become a **CustomBlock** when it needs tighter runtime integration, and later move into a package when it becomes reusable.
-
-### 11.5 Data And Format Extensions
-
-SciStudio separates **data type identity** from **external file format**. New scientific domains can add typed `DataObject` subclasses, while IO blocks declare the external formats they can load or save.
-
-Format extensions should describe:
+SciStudio separates **data type identity** from **external file format**. A new
+domain adds typed `DataObject` subclasses, while IO blocks declare the external
+formats they can load or save.
 
 | Concern | Extension responsibility |
 |---|---|
@@ -2053,34 +2112,153 @@ Format extensions should describe:
 | **Metadata fidelity** | Record whether metadata is preserved exactly, partially, or only in a sidecar. |
 | **Priority and defaults** | Let the runtime choose among multiple capable loaders or savers predictably. |
 
-The **canonical zone** remains the internal storage boundary. Format conversion happens at IO and app boundaries; workflow internals should prefer typed objects with stable storage references.
+The **canonical zone** remains the internal storage boundary: format conversion
+happens at IO and app boundaries, and workflow internals prefer typed objects
+with stable storage references.
 
-### 11.6 Agent And Tool Extensions
+#### 12.2.3 Previewers
 
-Agents extend SciStudio through the **MCP tool surface** and project-provisioned skills. They can inspect registries, scaffold blocks, validate workflows, run workflows, read outputs, and finish AIBlock tasks through runtime-controlled tools.
+A previewer renders a data type in the preview panel (§9.6). The core ships a
+generic previewer per data kind; an extension adds a richer, type-specific
+previewer for a particular `DataObject` type — for example an imaging package's
+image viewer with LUT, channel, and label semantics. A previewer provider
+exposes a get_previewers() callable returning a list of `PreviewerSpec`, and each spec binds
+a target type to a frontend renderer. Project previewers take precedence over
+package previewers, which take precedence over the core fallback.
 
-Agent extension does not make the agent the owner of workflow truth. The backend runtime remains authoritative for workflow state, run state, lineage, validation, and event emission. Agents should use MCP/API operations rather than editing workflow files or invoking runtime commands as a hidden control plane.
+### 12.3 Extension Levels
 
-### 11.7 Out Of Scope And Future Extension Areas
+An extension to any of those modules can ship at one of three levels, trading
+reach for ceremony:
 
-Several extension directions are deliberately left open but are not required for the current local-first architecture:
+| Level | Where it lives | Best for |
+|---|---|---|
+| **Package** | An installed Python package, shared across machines | Reusable, tested, dependency-carrying plugins and community science. |
+| **User** | `~/.scistudio/`, shared across one user's projects | Personal blocks and types reused across projects on one workstation. |
+| **Project** | `<project>/`, one project only | One-off preprocessing, lab-private analysis, dataset adaptation, fast prototyping. |
 
-| Area | Current stance |
+When the same target is provided at more than one level, the most specific level
+wins: a project-local extension takes precedence, and the core implementation is
+the fallback.
+
+### 12.4 Package Extensions
+
+Packaged extensions are distributed as Python packages and discovered through
+**entry points**; the runtime registers them into the same registries the core
+and local extensions use.
+
+| Entry point group | Registers |
 |---|---|
-| **Remote execution backends** | Future schedulers may target cluster or cloud environments, but local runtime behavior remains the baseline contract. |
-| **Marketplace discovery** | Package metadata can support a future searchable block marketplace without changing the project-local or entry-point model. |
-| **Stronger sandboxing** | Subprocess isolation is the current baseline; container or browser-level isolation can be added later for multi-user deployments. |
-| **Streaming pipelines** | Current workflows are store-and-forward through typed objects and storage references; streaming transfer would require scheduler and failure-model work. |
+| `scistudio.blocks` | Block classes, plus optional `PackageInfo` for palette grouping. |
+| `scistudio.types` | Additional `DataObject` subclasses for typed ports and storage. |
+| `scistudio.previewers` | Type-specific previewers via get_previewers(). |
+| `scistudio.runners` | CodeBlock runner backends for more script environments. |
 
-These are extension directions, not current user-facing contracts.
+Use the package level when a block or type set is reusable across projects, has
+its own tests, carries external dependencies, or belongs to a community plugin.
+`PackageInfo` supplies display metadata and `BlockTestHarness` validates block
+contracts; both are public helper surfaces.
+
+### 12.5 User And Project Extensions
+
+User-wide and project-local extensions are **drop-in directories** scanned into
+the registries at startup and on project open — no packaging required.
+
+| Location | Modules | Notes |
+|---|---|---|
+| `<project>/blocks/`, `<project>/types/` | blocks, types | Drop-in `*.py`; saving a clean file can hot-reload the block registry. |
+| `<project>/previewers/` | previewers | `*.py` exposing get_previewers(); a `.scistudio/previewers.json` manifest can also register them. |
+| `~/.scistudio/blocks/`, `~/.scistudio/types/` | blocks, types | User-wide drop-ins reused across that user's projects. |
+
+Project-local extension is the lowest-friction path: the code lives with the
+dataset and workflow branch that needs it, stays inside the project repository,
+and can be iterated before deciding whether it belongs in a package. User-wide
+`blocks/` and `types/` cover code a user reuses across projects; previewers are
+extended at the project or package level rather than user-wide.
 
 ---
 
-## 12. Dependencies List
+## 13. Desktop App
+
+SciStudio ships as a desktop application that bundles the frontend, the Python
+backend, and a Python runtime into one installable package, so a scientist can
+run it without setting up a Python environment.
+
+### 13.1 Packaging
+
+The desktop app is an **Electron** shell packaged with **electron-builder**. It
+targets **Windows** (an NSIS installer) and **macOS** (a DMG), both x64 builds.
+Packaging stages the app's resources and then produces the platform installer:
+
+- `build:frontend` builds the SPA;
+- `stage` copies resources into `desktop/resources/` — the built `frontend/`,
+  the backend `src/`, a `python/` runtime (§13.2), pre-staged `packages/`, and a
+  portable `git/`;
+- `dist:win` / `dist:dmg` produce the platform installer.
+
+At runtime the Electron main process starts the bundled backend rather than a
+developer's environment: it launches `python -m scistudio.cli.main gui --port 0
+--bundled` with `SCISTUDIO_BUNDLED=1` and the resources directory exported,
+waits for the backend's JSON "ready" signal and its chosen port, and only then
+opens the application window. Closing the app terminates the backend subprocess.
+(The development flow — a Vite dev server plus Electron — is separate and not
+part of the shipped build.)
+
+### 13.2 Python Runtime Bundle
+
+The app carries its own Python interpreter so it does not depend on a system
+Python. On **Windows** the runtime is the official embeddable Python
+distribution; on **macOS** it is a `python-build-standalone` build matched to the
+machine architecture. A build script (`build-python-runtime.*`) downloads the
+interpreter into `desktop/resources/python/`, enables `site-packages`,
+bootstraps `pip`, installs SciStudio and its **core dependencies** (declared in
+`pyproject.toml`) into the bundled `site-packages`, and verifies the key imports.
+
+Core runtime dependencies therefore ship inside the app. **Package (plugin)
+dependencies are not pre-installed into the bundle** — that keeps the app small
+and keeps the bundled interpreter's `site-packages` owned by the core. Plugin
+dependencies are installed separately, at the user scope, by the package
+installer (§13.3).
+
+### 13.3 Package Installer
+
+The desktop app can install scientific block/type packages after the fact,
+without a developer toolchain. Installation is a backend operation
+(`POST /api/packages/local`, available only in the bundled app) that accepts a
+source directory, a wheel, or a source archive, installs it, and refreshes the
+block registry so the new blocks appear immediately.
+
+**Where packages live.** Installed packages are stored at the **user scope**,
+under `~/.scistudio/plugins/packages/<name>-<version>/`, each with a
+`scistudio-local-package.json` manifest recording its name, version, modules, and
+the Python build it was installed against. Keeping them outside the app bundle
+means they survive app upgrades and never modify the bundled runtime.
+
+**How they are discovered.** Desktop packages are **not** registered through
+setuptools entry points (§12.4). Instead the registry scans the user package
+directories (plus any bundled or development package directories) and imports
+each source package through the package protocol (a get_block_package() entry
+point, with get_blocks as a fallback). After an install the runtime refreshes the registry and
+invalidates import caches so discovery is immediate.
+
+**How dependencies are injected.** A package's dependencies are installed with
+`pip install --target` into a user-scope `site-packages`, never into the bundled
+interpreter. Core runtime dependencies are filtered out so a plugin can never
+override the app's own SciStudio or its pinned core libraries. Because compiled
+dependencies are tied to a specific Python ABI, each package records the build it
+was installed against; when the bundled Python changes across an app upgrade, the
+runtime repairs affected packages by reinstalling their dependencies for the new
+ABI. Updating or removing a package is a directory replace or delete followed by
+a registry refresh, and each package's isolated directory keeps installs from
+interfering with one another.
+
+---
+
+## 14. Dependencies List
 
 This section summarizes the dependency surface declared by the repository. It is not a lockfile; exact resolved versions belong to the Python and frontend package managers.
 
-### 12.1 Python Runtime Dependencies
+### 14.1 Python Runtime Dependencies
 
 | Dependency | Role |
 |---|---|
@@ -2101,14 +2279,14 @@ This section summarizes the dependency surface declared by the repository. It is
 | `pywinpty` | Windows-only PTY support for embedded terminal agents. |
 | `fastmcp` | MCP server implementation for agent-facing tools. |
 
-### 12.2 Optional Python Dependencies
+### 14.2 Optional Python Dependencies
 
 | Extra | Dependencies | Role |
 |---|---|---|
 | `ai` | `anthropic`, `openai` | Optional provider SDKs for AI agent integrations. |
 | `dev` | `pytest`, `pytest-cov`, `pytest-xdist`, `pytest-timeout`, `ruff`, `mypy`, `types-PyYAML`, `import-linter`, `griffe`, `pre-commit` | Test, lint, type-check, architecture, and governance tooling. |
 
-### 12.3 Frontend Runtime Dependencies
+### 14.3 Frontend Runtime Dependencies
 
 | Dependency | Role |
 |---|---|
@@ -2123,7 +2301,7 @@ This section summarizes the dependency surface declared by the repository. It is
 | `plotly.js`, `react-plotly.js` | Interactive chart preview rendering. |
 | `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate` | UI class composition and animation helpers. |
 
-### 12.4 Frontend Build And Test Dependencies
+### 14.4 Frontend Build And Test Dependencies
 
 | Dependency | Role |
 |---|---|
@@ -2134,7 +2312,7 @@ This section summarizes the dependency surface declared by the repository. It is
 | `tailwindcss`, `postcss`, `autoprefixer` | Styling build pipeline. |
 | `@types/*` | TypeScript type packages for React and Plotly bindings. |
 
-### 12.5 External Tool Expectations
+### 14.5 External Tool Expectations
 
 Some runtime paths depend on tools installed outside the Python or frontend dependency set:
 
@@ -2147,7 +2325,7 @@ Some runtime paths depend on tools installed outside the Python or frontend depe
 
 ---
 
-## 13. Technology Stack Summary
+## 15. Technology Stack Summary
 
 | Layer | Technology | Version / Notes |
 |---|---|---|
@@ -2172,7 +2350,10 @@ Some runtime paths depend on tools installed outside the Python or frontend depe
 | UI toolkit | Tailwind, Radix/shadcn-style components, lucide icons | Application shell, panels, dialogs, forms, and toolbar controls. |
 | Code editor | Monaco via `@monaco-editor/react` | Project file tabs, Python lint markers, and Git conflict editing. |
 | Terminal UI | xterm.js | Embedded Claude/Codex terminal tabs over PTY-backed WebSocket sessions. |
-| Data preview | Plotly and custom preview renderers | Tables, images, text, charts, composites, and artifact fallbacks. |
+| Previewer system | Plotly + core/plugin previewers | Plugin-extensible preview of tables, arrays, series, text, composites, collections, plots, and artifacts (§9.6). |
+| Plotting | matplotlib + seaborn (Python), ggplot2 + base graphics (R via Rscript) | User render functions for plot cards; SVG/PNG/PDF/JPEG output (§10). |
 | Agent integration | Claude/Codex CLI + MCP bridge | Project agents and AIBlock agent runs use runtime-scoped MCP tools. |
+| Desktop shell | Electron + electron-builder | Cross-platform desktop app — Windows NSIS installer, macOS DMG — wrapping the bundled backend and frontend (§13.1). |
+| Bundled Python | Embeddable Python (Windows), python-build-standalone (macOS) | Self-contained interpreter so the desktop app needs no system Python (§13.2). |
 | Packaging | Python wheel / PyPI | Core installation, bundled frontend assets, templates, skills, and third-party block packages. |
 | Testing helpers | pytest, Vitest, BlockTestHarness | Runtime tests, frontend tests, and block package contract/smoke-test support. |

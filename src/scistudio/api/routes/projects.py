@@ -77,10 +77,9 @@ ADR036_FILE_SIZE_CAP_BYTES: int = 10 * 1024 * 1024
 
 
 class FileReadResponse(BaseModel):
-    """Skeleton 鈥?response body shape for GET file endpoint (per ADR-036 搂3.2).
+    """Response body for the GET file endpoint.
 
-    The real handler returns this exact shape; tests assert the shape stays
-    stable.
+    The handler returns this exact shape; tests assert it stays stable.
     """
 
     content: str
@@ -97,7 +96,7 @@ class FileReadResponse(BaseModel):
 
 
 class FileWriteRequest(BaseModel):
-    """Skeleton 鈥?request body shape for PUT file endpoint (per ADR-036 搂3.2)."""
+    """Request body for the PUT file endpoint."""
 
     content: str
     source: str | None = None
@@ -106,7 +105,7 @@ class FileWriteRequest(BaseModel):
 
 
 class FileWriteResponse(BaseModel):
-    """Skeleton 鈥?response body shape for PUT file endpoint (per ADR-036 搂3.2)."""
+    """Response body for the PUT file endpoint."""
 
     mtime: float
     size: int

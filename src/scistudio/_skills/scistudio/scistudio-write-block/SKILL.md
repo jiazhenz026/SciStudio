@@ -72,8 +72,8 @@ class Block(ABC):
     config_schema: ClassVar[dict[str, Any]] = {"type": "object", "properties": {}}
 
     @abstractmethod
-    def run(self, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
-        """Subclasses MUST override. Return {output_port_name: data_obj}."""
+    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
+        """Subclasses MUST override. Return {output_port_name: Collection}."""
 ```
 
 **Critical**: do NOT set `base_category` as a ClassVar. It is inferred
@@ -86,7 +86,7 @@ a ClassVar is silently ignored by the registry.
 and override `process_item(item, config, state)`. The base class
 handles iteration and Collection transparency (ADR-020).
 
-`run()` MUST return a `dict[str, Any]` keyed by output port name.
+`run()` MUST return a `dict[str, Collection]` keyed by output port name.
 Returning a list, tuple, or scalar fails downstream type resolution.
 
 ## 3. Port-type selection (ADR-040 §3.2a) — MANDATORY
@@ -237,14 +237,15 @@ class ThresholdSimple(ProcessBlock):
     def process_item(self, item: Image, config: BlockConfig, state: Any = None) -> Mask:
         """Threshold one Image → one Mask. ProcessBlock handles Collection iteration."""
         arr = item.to_memory()  # numpy ndarray
-        method = config["method"]
+        method = config.get("method", "otsu")
         if method == "otsu":
             from skimage.filters import threshold_otsu
             t = float(threshold_otsu(arr))
         elif method == "manual":
-            if "threshold_value" not in config:
+            threshold_value = config.get("threshold_value")
+            if threshold_value is None:
                 raise ValueError("method='manual' requires config.threshold_value.")
-            t = float(config["threshold_value"])
+            t = float(threshold_value)
         else:
             raise ValueError(f"Unknown method {method!r}.")
         return Mask(data=(arr > t).astype(bool), axes=item.axes)
@@ -292,7 +293,7 @@ mcp__scistudio__run_block_tests type_name="imaging.threshold_simple"
 3. **Forgetting `version` bump** — registry collision on
    `reload_blocks`.
 4. **`run()` returning a non-dict** — `Block.run` MUST return
-   `dict[str, Any]` keyed by output port name.
+   `dict[str, Collection]` keyed by output port name.
 5. **In-memory data loading without need** — `item.to_memory()`
    materialises the whole array; for streaming use `item.iter_chunks()`.
    For typical agent-authored blocks under ~1 GB, in-memory is fine.
@@ -325,5 +326,5 @@ mcp__scistudio__run_block_tests type_name="imaging.threshold_simple"
   (ADR-040 §3.2a soft warning, hook stderr-warning).
 - Setting `base_category` as a ClassVar (silently ignored).
 - Forgetting to bump `version` on a contract change.
-- `run()` returning a list/tuple/scalar (must return `dict[str, Any]`).
+- `run()` returning a list/tuple/scalar (must return `dict[str, Collection]`).
 - Skipping `reload_blocks` after writing (block does not appear).
