@@ -179,9 +179,7 @@ export function createSetNodeRef(set: Setter): WorkflowSlice["setNodeRef"] {
  * never persisted (the backend recomputes it per load), so this does NOT mark
  * the workflow dirty and does NOT push an undo entry.
  */
-export function createSetNodeResolvedPorts(
-  set: Setter,
-): WorkflowSlice["setNodeResolvedPorts"] {
+export function createSetNodeResolvedPorts(set: Setter): WorkflowSlice["setNodeResolvedPorts"] {
   return (nodeId, resolvedPorts: ResolvedSubworkflowPorts) =>
     set((state) => ({
       workflowNodes: state.workflowNodes.map((node) =>

@@ -317,8 +317,7 @@ export function buildSubWorkflowNode(opts: SubWorkflowOpts): Node {
   // surface flags it (unresolved ref) OR when it has no usable ref at all. A
   // freshly dropped node has no ref, so it MUST surface the "Choose subworkflow
   // file…" affordance (the same shared flow as the broken-ref "Locate file…").
-  const broken =
-    node.block_type === "subworkflow_broken" || resolved?.broken === true || !refPath;
+  const broken = node.block_type === "subworkflow_broken" || resolved?.broken === true || !refPath;
 
   const inputPorts = broken
     ? []
