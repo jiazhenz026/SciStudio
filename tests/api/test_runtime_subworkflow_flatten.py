@@ -186,9 +186,15 @@ def test_import_subworkflow_copies_into_project(client: TestClient, opened_proje
 
     response = client.post("/api/workflows/import-subworkflow", json={"source_path": str(external)})
     assert response.status_code == 200, response.text
-    ref_path = response.json()["ref_path"]
+    body = response.json()
+    ref_path = body["ref_path"]
     assert ref_path == "subworkflows/external_source.yaml"
     assert (opened_project / "subworkflows" / "external_source.yaml").is_file()
+    # The import response carries the resolved exposed-port surface so the editor
+    # can set config.ref.path AND refresh the node's handles in one step (FR-011 / FR-004).
+    assert body["resolved_ports"]["broken"] is False
+    assert [p["name"] for p in body["resolved_ports"]["inputs"]] == ["raw_in"]
+    assert [p["name"] for p in body["resolved_ports"]["outputs"]] == ["report"]
 
     # Second import of the same file produces a distinct copy (US5 AS2).
     response2 = client.post("/api/workflows/import-subworkflow", json={"source_path": str(external)})

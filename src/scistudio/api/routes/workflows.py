@@ -519,8 +519,10 @@ async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
 
     Expects ``{"source_path": str}`` (an absolute or project-external path to a
     workflow YAML). Copies it into ``<project>/subworkflows/`` (numeric suffix on
-    name collision) and returns ``{"ref_path": "<project-relative>"}`` to store
-    in the SubWorkflowBlock's ``config.ref.path``.
+    name collision) and returns ``{"ref_path": "<project-relative>",
+    "resolved_ports": {...}}``. The caller writes ``ref_path`` to the
+    SubWorkflowBlock's ``config.ref.path`` and refreshes the node's handles from
+    ``resolved_ports`` in one step (no reload round-trip).
     """
     source_path = body.get("source_path")
     if not source_path:
@@ -531,7 +533,12 @@ async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise _workflow_session_error(exc) from exc
-    return {"ref_path": ref_path}
+
+    from scistudio.workflow.subworkflow_ports import resolve_port_surface
+
+    base_dir = str(runtime.active_project.path) if runtime.active_project else "."
+    resolved = resolve_port_surface(ref_path, base_dir, registry=runtime.block_registry)
+    return {"ref_path": ref_path, "resolved_ports": resolved}
 
 
 @router.delete("/{workflow_id}", status_code=204)
