@@ -111,7 +111,9 @@ describe("CapabilityDropdown", () => {
     });
     // No auto-select with >1 option.
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText(/2 capabilities match/)).toBeInTheDocument();
+    expect(screen.getByText(/2 savers match/)).toBeInTheDocument();
+    // Label uses the user-facing term ("Saver" for a save-direction port).
+    expect(screen.getByText("Saver")).toBeInTheDocument();
     // Both options are rendered.
     expect(
       screen.getByRole("option", { name: /imaging\.image\.ome-tiff\.save|OME-TIFF saver/i }),
@@ -164,7 +166,7 @@ describe("CapabilityDropdown", () => {
     });
   });
 
-  it("disables the select while extension is empty", () => {
+  it("renders nothing while extension is empty", () => {
     const loadCapabilities = vi.fn().mockResolvedValue([]);
     render(
       <CapabilityDropdown
@@ -176,13 +178,13 @@ describe("CapabilityDropdown", () => {
         loadCapabilities={loadCapabilities}
       />,
     );
-    const select = screen.getByRole("combobox") as HTMLSelectElement;
-    expect(select).toBeDisabled();
-    expect(screen.getByText(/Enter extension/i)).toBeInTheDocument();
+    // With no extension there is nothing to resolve, so the picker stays hidden
+    // (it only surfaces when >1 handler genuinely matches the tuple).
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 
-  it("renders a metadata-fidelity badge for the selected capability", async () => {
-    const cap = fakeCapability("imaging.image.tiff.save", {
+  it("hides the picker when exactly one handler matches (no redundant choice)", async () => {
+    const only = fakeCapability("imaging.image.tiff.save", {
       metadata_fidelity: {
         level: "lossless",
         typed_meta_reads: [],
@@ -192,7 +194,39 @@ describe("CapabilityDropdown", () => {
         notes: null,
       },
     });
-    const loadCapabilities = vi.fn().mockResolvedValue([cap]);
+    const loadCapabilities = vi.fn().mockResolvedValue([only]);
+    render(
+      <CapabilityDropdown
+        direction="save"
+        dataType="Image"
+        extension="tif"
+        value="imaging.image.tiff.save"
+        onChange={() => {}}
+        loadCapabilities={loadCapabilities}
+      />,
+    );
+    await waitFor(() => expect(loadCapabilities).toHaveBeenCalled());
+    // (type, extension) already determines the single handler, so the picker
+    // is not shown — it would just duplicate Data type + Extension.
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("renders a metadata-fidelity badge for the selected handler (ambiguous case)", async () => {
+    const tif = fakeCapability("imaging.image.tiff.save", {
+      metadata_fidelity: {
+        level: "lossless",
+        typed_meta_reads: [],
+        typed_meta_writes: [],
+        format_metadata_reads: [],
+        format_metadata_writes: [],
+        notes: null,
+      },
+    });
+    const ome = fakeCapability("imaging.image.ome-tiff.save", {
+      label: "OME-TIFF saver",
+      format_id: "ome-tiff",
+    });
+    const loadCapabilities = vi.fn().mockResolvedValue([tif, ome]);
 
     render(
       <CapabilityDropdown

@@ -47,7 +47,9 @@ def test_ai_block_config_schema_has_required_fields() -> None:
     assert "provider" in props
     assert "permission_mode" in props
     assert "user_prompt" in props
-    assert "timeout_sec" in props
+    # AIBlock runs without a wall-clock timeout (2026-06 config pass): the
+    # ``timeout_sec`` field was removed from the schema.
+    assert "timeout_sec" not in props
     assert schema["required"] == ["user_prompt"]
 
 
@@ -157,13 +159,9 @@ def test_validate_rejects_empty_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
         block.validate_config(_config(provider="claude-code", user_prompt="   "))
 
 
-def test_validate_rejects_negative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scistudio.blocks.ai import ai_block as mod
-
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
-    block = AIBlock()
-    with pytest.raises(ValueError, match="positive integer"):
-        block.validate_config(_config(provider="claude-code", user_prompt="hi", timeout_sec=-1))
+# NOTE: ``test_validate_rejects_negative_timeout`` removed — AIBlock no longer
+# has a configurable timeout (runs to completion / cancellation), so there is
+# no timeout value to validate.
 
 
 # ---------------------------------------------------------------------------
@@ -216,8 +214,8 @@ def test_run_writes_manifest_with_correct_shape(project_dir: Path, stub_agent: S
     assert manifest["user_prompt"] == "extract metadata"
     assert "metadata" in manifest["outputs"]
     assert manifest["outputs"]["metadata"]["expected_path"] == "./results/metadata.csv"
-    # Deadline is ISO-8601 UTC.
-    assert manifest["completion"]["deadline"].endswith("+00:00")
+    # AIBlock runs without a wall-clock timeout, so no deadline is recorded.
+    assert manifest["completion"]["deadline"] is None
 
 
 def test_run_request_pty_tab_with_safe_permission(project_dir: Path, stub_agent: StubAgent) -> None:
@@ -352,23 +350,9 @@ def test_run_spawn_fail_returns_error(project_dir: Path, stub_agent: StubAgent) 
         block.run(inputs={}, config=cfg)
 
 
-def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
-    from scistudio.blocks.base.exceptions import BlockCancelledByAppError
-
-    stub_agent.finish_via = "close"  # Never signal.
-    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./never.csv"}])
-    cfg = _config(
-        user_prompt="hi",
-        provider="claude-code",
-        project_dir=str(project_dir),
-        timeout_sec=1,
-    )
-    # AIBlock now signals cancellation via BlockCancelledByAppError (#1334
-    # Codex P1) so the worker can forward `final_state="cancelled"` to the
-    # scheduler instead of misclassifying the run as DONE.
-    with pytest.raises(BlockCancelledByAppError, match="timeout"):
-        block.run(inputs={}, config=cfg)
-    assert any("cancelled" in n[1] for n in stub_agent.notifications)
+# NOTE: ``test_run_timeout_cancels`` removed — AIBlock no longer enforces a
+# wall-clock timeout (``watcher.wait(timeout_sec=None)``); cancellation now only
+# happens via tab close / workflow cancel, covered by the close/cancel cases.
 
 
 def test_run_malformed_mcp_signal_errors(project_dir: Path, stub_agent: StubAgent) -> None:

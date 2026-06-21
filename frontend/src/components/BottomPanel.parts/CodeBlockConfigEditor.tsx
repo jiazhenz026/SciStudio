@@ -1,6 +1,15 @@
 import { Plus, Trash2 } from "lucide-react";
 
 import { CaretPreservingTextInput } from "./CaretPreservingTextInput";
+// Reuse the generic scalar/browse field so script_path gets the exact same
+// file-browser button as every other block. ConfigField lives in its own
+// module so neither ConfigPanel nor this editor import each other indirectly.
+import { ConfigField } from "./ConfigField";
+// Same capability picker the AppBlock/Fiji port editor uses (#1324): lists
+// savers (input ports) / loaders (output ports) for the (direction, type,
+// extension) tuple instead of a free-text capability_id.
+import { CapabilityDropdown } from "../PortEditor/CapabilityDropdown";
+import type { TypeHierarchyEntry } from "../../types/api";
 import {
   CODEBLOCK_DATA_TYPES,
   type CodeBlockPortConfig,
@@ -115,10 +124,12 @@ function CodeBlockPortTable({
   direction,
   ports,
   onChange,
+  typeHierarchy,
 }: {
   direction: CodeBlockPortDirection;
   ports: CodeBlockPortConfig[];
   onChange: (next: CodeBlockPortConfig[]) => void;
+  typeHierarchy: TypeHierarchyEntry[];
 }) {
   const label = direction === "input" ? "Declared inputs" : "Declared outputs";
 
@@ -129,6 +140,11 @@ function CodeBlockPortTable({
         const next = { ...port, ...patch };
         if (patch.name && !patch.exchange_folder) {
           next.exchange_folder = codeBlockFolder(direction, patch.name);
+        }
+        // #1366 parity: changing the type or extension invalidates a pinned
+        // capability_id, so drop it and let CapabilityDropdown re-resolve.
+        if (("data_type" in patch || "extension" in patch) && !("capability_id" in patch)) {
+          next.capability_id = "";
         }
         return next;
       }),
@@ -192,13 +208,21 @@ function CodeBlockPortTable({
                     onChange={(event) => updatePort(index, { data_type: event.target.value })}
                     value={port.data_type}
                   >
-                    {Array.from(new Set([port.data_type, ...CODEBLOCK_DATA_TYPES])).map(
-                      (typeName) => (
-                        <option key={typeName} value={typeName}>
-                          {typeName}
-                        </option>
-                      ),
-                    )}
+                    {Array.from(
+                      new Set([
+                        port.data_type,
+                        // All registered types (core + plugin + user-defined),
+                        // matching AppBlock. Falls back to the core list if the
+                        // hierarchy has not loaded yet.
+                        ...(typeHierarchy.length > 0
+                          ? typeHierarchy.map((t) => t.name)
+                          : CODEBLOCK_DATA_TYPES),
+                      ]),
+                    ).map((typeName) => (
+                      <option key={typeName} value={typeName}>
+                        {typeName}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="grid gap-1 text-sm">
@@ -212,15 +236,22 @@ function CodeBlockPortTable({
                 </label>
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-stone-700">Capability ID</span>
-                  <CaretPreservingTextInput
-                    className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                    onChange={(next) => updatePort(index, { capability_id: next })}
-                    type="text"
-                    value={port.capability_id ?? ""}
+                <div className="min-w-0 self-end">
+                  {/* ADR-043 boundary IO: input ports are written by a SAVER,
+                      output ports read by a LOADER. Extensions are stored with a
+                      leading dot here but the capability lookup wants none. */}
+                  <CapabilityDropdown
+                    direction={direction === "output" ? "load" : "save"}
+                    dataType={port.data_type}
+                    extension={port.extension.replace(/^\.+/, "")}
+                    value={port.capability_id ?? null}
+                    onChange={(capabilityId) =>
+                      updatePort(index, { capability_id: capabilityId ?? "" })
+                    }
+                    id={`codeblock-${direction}-${port.name || index}`}
+                    typeHierarchy={typeHierarchy}
                   />
-                </label>
+                </div>
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-stone-700">Exchange folder</span>
                   <CaretPreservingTextInput
@@ -265,9 +296,11 @@ function CodeBlockPortTable({
 export function CodeBlockConfigEditor({
   params,
   onUpdateConfig,
+  typeHierarchy = [],
 }: {
   params: Record<string, unknown>;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
+  typeHierarchy?: TypeHierarchyEntry[];
 }) {
   const inputs = codeBlockPorts(params, "inputs", "input");
   const outputs = codeBlockPorts(params, "outputs", "output");
@@ -293,86 +326,81 @@ export function CodeBlockConfigEditor({
 
   return (
     <div className="grid gap-5">
+      {/* Declared inputs/outputs are CodeBlock's dynamic ports, so per the
+          live UX pass they move to the top as the head section. They stay an
+          explicit exception to the side-by-side port rule: each row carries
+          six fields, so they remain full-width and stacked. */}
+      <CodeBlockPortTable
+        direction="input"
+        onChange={(next) => updatePorts("inputs", "input", next)}
+        ports={inputs}
+        typeHierarchy={typeHierarchy}
+      />
+      <CodeBlockPortTable
+        direction="output"
+        onChange={(next) => updatePorts("outputs", "output", next)}
+        ports={outputs}
+        typeHierarchy={typeHierarchy}
+      />
+
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm md:col-span-2">
-          <span className="font-medium text-ink">Script path</span>
-          <CaretPreservingTextInput
-            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) => onUpdateConfig({ script_path: next })}
-            placeholder="scripts/analyze.py"
-            type="text"
-            value={String(params.script_path ?? "")}
-          />
-        </label>
+        {/* script_path is a half-row cell and reuses the generic field so it
+            carries the same file-browser button as every other block. */}
+        <ConfigField
+          fieldKey="script_path"
+          field={{ type: "string", title: "Script path", ui_widget: "file_browser" }}
+          currentValue={params.script_path ?? ""}
+          onUpdateConfig={onUpdateConfig}
+        />
         <label className="grid gap-2 text-sm">
           <span className="font-medium text-ink">Interpreter mode</span>
           <select
             className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(event) => onUpdateConfig({ interpreter_mode: event.target.value })}
+            onChange={(event) => {
+              const mode = event.target.value;
+              // "auto" resolves SciStudio's own interpreter, so clear any
+              // configured path — otherwise a hidden interpreter_path would
+              // silently override auto. "existing" keeps the field visible.
+              onUpdateConfig(
+                mode === "auto"
+                  ? { interpreter_mode: mode, interpreter_path: null }
+                  : { interpreter_mode: mode },
+              );
+            }}
             value={String(params.interpreter_mode ?? "auto")}
           >
             <option value="auto">auto</option>
             <option value="existing">existing</option>
           </select>
         </label>
-        <label className="grid gap-2 text-sm">
-          <span className="font-medium text-ink">Interpreter path</span>
-          <CaretPreservingTextInput
-            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) => onUpdateConfig({ interpreter_path: next })}
-            placeholder="python"
-            type="text"
-            value={String(params.interpreter_path ?? "")}
+        {/* interpreter_path / exchange_root reuse the generic field for the
+            same browse button: a file picker for the interpreter executable, a
+            directory picker for the exchange root. interpreter_path is only
+            meaningful (and required) in "existing" mode; in "auto" SciStudio
+            resolves its own interpreter, so the field is hidden there.
+            working_directory is removed: scripts always run from the project
+            root (2026-06 config pass). */}
+        {String(params.interpreter_mode ?? "auto") === "existing" && (
+          <ConfigField
+            fieldKey="interpreter_path"
+            field={{ type: "string", title: "Interpreter path", ui_widget: "file_browser" }}
+            currentValue={params.interpreter_path ?? ""}
+            onUpdateConfig={onUpdateConfig}
           />
-        </label>
-        <label className="grid gap-2 text-sm">
-          <span className="font-medium text-ink">Working directory</span>
-          <CaretPreservingTextInput
-            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) => onUpdateConfig({ working_directory: next })}
-            type="text"
-            value={String(params.working_directory ?? ".")}
-          />
-        </label>
-        <label className="grid gap-2 text-sm">
-          <span className="font-medium text-ink">Exchange root</span>
-          <CaretPreservingTextInput
-            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) => onUpdateConfig({ exchange_root: next })}
-            type="text"
-            value={String(params.exchange_root ?? "exchange")}
-          />
-        </label>
-        <label className="grid gap-2 text-sm">
-          <span className="font-medium text-ink">Timeout seconds</span>
-          <CaretPreservingTextInput
-            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) =>
-              onUpdateConfig({ timeout_seconds: next === "" ? null : Number(next) })
-            }
-            type="number"
-            value={
-              params.timeout_seconds === null || params.timeout_seconds === undefined
-                ? ""
-                : String(params.timeout_seconds)
-            }
-          />
-        </label>
+        )}
+        <ConfigField
+          fieldKey="exchange_root"
+          field={{ type: "string", title: "Exchange root", ui_widget: "directory_browser" }}
+          currentValue={params.exchange_root ?? "exchange"}
+          onUpdateConfig={onUpdateConfig}
+        />
+        {/* Timeout removed (2026-06 config pass): CodeBlock always runs without
+            a wall-clock timeout, so the editor no longer offers the field. */}
       </div>
 
       <CodeBlockEnvironmentEditor
         onUpdate={(next) => onUpdateConfig({ environment_variables: next })}
         value={params.environment_variables}
-      />
-      <CodeBlockPortTable
-        direction="input"
-        onChange={(next) => updatePorts("inputs", "input", next)}
-        ports={inputs}
-      />
-      <CodeBlockPortTable
-        direction="output"
-        onChange={(next) => updatePorts("outputs", "output", next)}
-        ports={outputs}
       />
     </div>
   );

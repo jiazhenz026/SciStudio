@@ -159,7 +159,7 @@ class RunDir:
         user_prompt: str,
         inputs: dict[str, list[Any]],
         outputs: list[OutputPort],
-        deadline_iso: str,
+        deadline_iso: str | None = None,
         output_paths: dict[str, str] | None = None,
     ) -> Path:
         """Write ``manifest.json`` per the schema in ADR-035 §3.4.
@@ -176,7 +176,9 @@ class RunDir:
                 ``storage_ref.path`` (if set) or ``file_path`` (Artifact)
                 is recorded **verbatim** — no symlinking, no rewriting.
             outputs: List of declared output ports (effective ports).
-            deadline_iso: ISO-8601 UTC deadline string.
+            deadline_iso: Optional ISO-8601 UTC deadline string. ``None`` when
+                the block runs without a wall-clock timeout (the default); the
+                manifest then records ``"deadline": null``.
             output_paths: Optional ``{port_name: expected_path}`` overrides
                 from ``config["output_ports"]`` port-editor entries. When
                 missing, defaults to ``./{block_name}_outputs/{port}.{ext}``.

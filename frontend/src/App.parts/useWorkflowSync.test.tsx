@@ -85,7 +85,34 @@ describe("useWorkflowSync", () => {
     expect(apiMocks.updateWorkflow).toHaveBeenCalledTimes(2);
     expect(deps.setCurrentProject).toHaveBeenCalledWith(reopened);
     expect(deps.markWorkflowSaved).toHaveBeenCalled();
+    // The save succeeds with no prior save error, so it must NOT clear the
+    // banner — otherwise a concurrent autosave would wipe an unrelated
+    // run/execute error (the "banner flashes then vanishes" bug).
     expect(deps.setLastError).not.toHaveBeenCalled();
+  });
+
+  it("clears its own validation banner only after a failed save, never otherwise", async () => {
+    // A failed save records its error; the next successful save clears it. But
+    // a success with no prior save error must NOT clear (so a concurrent
+    // autosave cannot wipe an unrelated run/execute error).
+    const { ApiError } = await import("../lib/api");
+    apiMocks.updateWorkflow
+      .mockRejectedValueOnce(new ApiError("validation failed: bad node", 422))
+      .mockResolvedValueOnce(workflow);
+    apiMocks.listProjects.mockResolvedValueOnce([project]);
+    const { deps, hook } = renderSync();
+
+    await act(async () => {
+      await hook.result.current.saveWorkflow();
+    });
+    expect(deps.setLastError).toHaveBeenCalledWith("validation failed: bad node");
+
+    deps.setLastError.mockClear();
+    await act(async () => {
+      await hook.result.current.saveWorkflow();
+    });
+    // The previous save errored, so this success clears its own banner.
+    expect(deps.setLastError).toHaveBeenCalledWith(null);
   });
 
   it("falls back to create only when update returns 404", async () => {

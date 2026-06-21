@@ -99,18 +99,23 @@ export function PortEditorTable({
   }
 
   function handleExtensionChange(index: number, extension: string) {
-    // Issue #1366: clear the pinned capability when the *normalized* extension
-    // actually changes so a stale id cannot fail backend validation later.
-    // Codex P2 from PR #1397: guard the reset against no-op edits
-    // (e.g. typing `csv` then `.CSV` normalizes back to the same value) so the
-    // user's explicit pin is not silently dropped when the effective tuple did
-    // not change.
+    // Preserve the user's raw text so a leading dot (".csv") is kept, matching
+    // the CodeBlock port editor. The backend normalises extensions when binning
+    // and CapabilityDropdown is handed a normalised value, so the stored dot/
+    // case is purely cosmetic.
+    // Issue #1366 / PR #1397: still clear a pinned capability only when the
+    // *normalised* extension actually changes (typing `csv` then `.CSV` is a
+    // no-op for the (direction, type, extension) tuple, so the pin survives).
     const normalized = normalizeExtension(extension);
     onChange(
       ports.map((p, i) => {
         if (i !== index) return p;
-        if (p.extension === normalized) return p;
-        return { ...p, extension: normalized, capability_id: null };
+        const capabilityChanged = normalizeExtension(p.extension ?? "") !== normalized;
+        return {
+          ...p,
+          extension,
+          capability_id: capabilityChanged ? null : p.capability_id,
+        };
       }),
     );
   }
@@ -170,7 +175,7 @@ export function PortEditorTable({
                   aria-label={`extension for ${port.name}`}
                   className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
                   onChange={(e) => handleExtensionChange(index, e.target.value)}
-                  placeholder="ext (e.g. tif)"
+                  placeholder="ext (e.g. .csv)"
                   value={port.extension ?? ""}
                 />
               )}
@@ -187,9 +192,18 @@ export function PortEditorTable({
             {renderCapability && (
               <div className="pl-2">
                 <CapabilityDropdown
-                  direction={direction === "output" ? "save" : "load"}
+                  // ADR-043 boundary IO: at a block's IO boundary the runtime
+                  // direction is inverted. An INPUT port is fed by a SAVER
+                  // (SciStudio writes the DataObject to a file for the external
+                  // app); an OUTPUT port is filled by a LOADER (the external app
+                  // writes a file, SciStudio reads it back). The validator checks
+                  // output ports with find_loader_capability(direction='load'),
+                  // so the dropdown must list loaders for output ports.
+                  direction={direction === "output" ? "load" : "save"}
                   dataType={port.types[0] ?? defaultType}
-                  extension={port.extension ?? ""}
+                  // Stored extension may now carry a leading dot / mixed case;
+                  // normalise it for the capability lookup.
+                  extension={normalizeExtension(port.extension ?? "")}
                   value={port.capability_id ?? null}
                   onChange={(capabilityId) => handleCapabilityChange(index, capabilityId)}
                   id={`${direction}-${port.name || index}`}

@@ -46,6 +46,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     } else {
       message = `Request failed with ${response.status}`;
     }
+    // Opaque server errors (a ``{"detail": "Internal Server Error"}`` body or a
+    // non-JSON body that fell back to ``statusText``) carry no status code, so
+    // append it: "Internal Server Error" -> "Internal Server Error (HTTP 500)".
+    if (response.status >= 500 && !message.includes(String(response.status))) {
+      message = `${message} (HTTP ${response.status})`;
+    }
     throw new ApiError(message, response.status);
   }
   if (response.status === 204) {

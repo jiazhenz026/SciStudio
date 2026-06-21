@@ -108,12 +108,12 @@ class AppBlock(Block):
                 "ui_widget": "directory_browser",
                 "ui_priority": 1,
             },
-            "output_patterns": {
-                "type": "string",
-                "title": "Output File Patterns",
-                "default": "*",
-                "ui_priority": 2,
-            },
+            # ``output_patterns`` is no longer a user-facing config field: when
+            # output ports are declared they already carry per-port extensions
+            # that bin saved files, so the watcher glob falls back to the
+            # ClassVar default (["*"]) via ``config.get(...) or
+            # self.output_patterns`` in run(). Removed from the UI per the
+            # 2026-06 config pass.
             # ADR-029 D12: port editor fields injected via MRO merge (ADR-030).
             # Leaf subclasses inherit these automatically; no subclass changes needed.
             # ui_priority >= 10 ensures these appear after block-specific config.

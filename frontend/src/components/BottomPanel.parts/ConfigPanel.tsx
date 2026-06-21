@@ -1,6 +1,3 @@
-import { useState } from "react";
-
-import { api, ApiError } from "../../lib/api";
 import type {
   BlockSchemaResponse,
   FormatCapabilityResponse,
@@ -11,14 +8,11 @@ import type {
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
 import { lossyOmeFields } from "../../api/capabilities";
 import { LossySaveWarning, collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
-import { FileBrowserModal } from "../nodes/BlockNode.parts/FileBrowserModal";
 
-import { CaretPreservingTextInput } from "./CaretPreservingTextInput";
 import { CodeBlockConfigEditor } from "./CodeBlockConfigEditor";
+import { ConfigField } from "./ConfigField";
 import { FormatCapabilityConfig } from "./FormatCapabilityConfig";
 import { isCodeBlockConfigTarget } from "./codeBlockPorts";
-
-type BrowseMode = "file" | "directory" | null;
 
 function ancestorTypeNames(typeName: string, typeHierarchy: TypeHierarchyEntry[]): Set<string> {
   const ancestors = new Set<string>();
@@ -62,208 +56,6 @@ function capabilitiesForType(
       },
     ];
   });
-}
-
-function browseModeFor(uiWidget: string | undefined): BrowseMode {
-  if (uiWidget === "file_browser") return "file";
-  if (uiWidget === "directory_browser") return "directory";
-  return null;
-}
-
-function nativeInitialDir(
-  browseMode: NonNullable<BrowseMode>,
-  current: string,
-): string | undefined {
-  if (!current) return undefined;
-  const sep = current.includes("\\") ? "\\" : "/";
-  const parts = current.split(sep);
-  if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
-    return parts.slice(0, -1).join(sep);
-  }
-  return current;
-}
-
-function shouldFallbackToInAppModal(err: unknown): boolean {
-  if (err instanceof ApiError) {
-    if (err.status === 504) {
-      console.error(
-        "Native file dialog timed out (HTTP 504); not falling back to in-app picker.",
-        err,
-      );
-      return false;
-    }
-    return true;
-  }
-  return true;
-}
-
-function modalInitialPath(browseMode: NonNullable<BrowseMode>, current: string): string {
-  if (!current) return "";
-  const sep = current.includes("\\") ? "\\" : "/";
-  const parts = current.split(sep);
-  if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
-    return parts.slice(0, -1).join(sep);
-  }
-  return current;
-}
-
-function EnumField({
-  fieldKey,
-  field,
-  currentValue,
-  onUpdateConfig,
-}: {
-  fieldKey: string;
-  field: Record<string, unknown>;
-  currentValue: unknown;
-  onUpdateConfig: (patch: Record<string, unknown>) => void;
-}) {
-  const enumValues = field.enum as unknown[];
-  return (
-    <label className="grid gap-2 text-sm" key={fieldKey}>
-      <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
-      <select
-        className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-        onChange={(event) =>
-          onUpdateConfig(
-            fieldKey === "core_type"
-              ? { [fieldKey]: event.target.value, capability_id: null }
-              : { [fieldKey]: event.target.value },
-          )
-        }
-        value={String(currentValue)}
-      >
-        {enumValues.map((option) => (
-          <option key={String(option)} value={String(option)}>
-            {String(option)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function ScalarField({
-  fieldKey,
-  field,
-  currentValue,
-  onUpdateConfig,
-}: {
-  fieldKey: string;
-  field: Record<string, unknown>;
-  currentValue: unknown;
-  onUpdateConfig: (patch: Record<string, unknown>) => void;
-}) {
-  const [browseOpen, setBrowseOpen] = useState(false);
-  if (field.type === "boolean") {
-    return (
-      <label className="flex items-center gap-3 text-sm" key={fieldKey}>
-        <input
-          checked={Boolean(currentValue)}
-          className="h-4 w-4 rounded border-stone-300"
-          onChange={(event) => onUpdateConfig({ [fieldKey]: event.target.checked })}
-          type="checkbox"
-        />
-        <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
-      </label>
-    );
-  }
-
-  const uiWidget = field.ui_widget as string | undefined;
-  const browseMode = browseModeFor(uiWidget);
-  const applySelectedPath = (paths: string[]) => {
-    if (paths.length === 0) return;
-    const supportsArray = Array.isArray(field.type)
-      ? field.type.includes("array")
-      : field.type === "array";
-    onUpdateConfig({
-      [fieldKey]: supportsArray && paths.length > 1 ? paths : paths[0],
-    });
-  };
-  const handleBrowseClick = async () => {
-    if (!browseMode) return;
-    try {
-      const result = await api.openNativeDialog(
-        browseMode,
-        nativeInitialDir(browseMode, String(currentValue ?? "")),
-      );
-      applySelectedPath(result.paths);
-    } catch (err) {
-      if (shouldFallbackToInAppModal(err)) {
-        setBrowseOpen(true);
-      }
-    }
-  };
-  return (
-    <label className="grid gap-2 text-sm" key={fieldKey}>
-      <span className="font-medium text-ink">{String(field.title ?? fieldKey)}</span>
-      <div className="flex w-full min-w-0 items-stretch gap-2">
-        <CaretPreservingTextInput
-          className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-          onChange={(next) =>
-            onUpdateConfig({
-              [fieldKey]: field.type === "number" ? Number(next) : next,
-            })
-          }
-          placeholder={fieldKey === "path" ? "Type or paste file/directory path" : undefined}
-          type={field.type === "number" ? "number" : "text"}
-          value={String(currentValue)}
-        />
-        {browseMode && (
-          <button
-            type="button"
-            className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
-            title="Browse filesystem"
-            onClick={() => void handleBrowseClick()}
-          >
-            ...
-          </button>
-        )}
-      </div>
-      {browseOpen && browseMode && (
-        <FileBrowserModal
-          mode={browseMode === "directory" ? "directory_browser" : "file_browser"}
-          initialPath={modalInitialPath(browseMode, String(currentValue ?? ""))}
-          onSelect={(selectedPath) => {
-            applySelectedPath([selectedPath]);
-            setBrowseOpen(false);
-          }}
-          onCancel={() => setBrowseOpen(false)}
-        />
-      )}
-    </label>
-  );
-}
-
-function ConfigField({
-  fieldKey,
-  field,
-  currentValue,
-  onUpdateConfig,
-}: {
-  fieldKey: string;
-  field: Record<string, unknown>;
-  currentValue: unknown;
-  onUpdateConfig: (patch: Record<string, unknown>) => void;
-}) {
-  if (Array.isArray(field.enum)) {
-    return (
-      <EnumField
-        fieldKey={fieldKey}
-        field={field}
-        currentValue={currentValue}
-        onUpdateConfig={onUpdateConfig}
-      />
-    );
-  }
-  return (
-    <ScalarField
-      fieldKey={fieldKey}
-      field={field}
-      currentValue={currentValue}
-      onUpdateConfig={onUpdateConfig}
-    />
-  );
 }
 
 function orderedConfigEntries(
@@ -376,7 +168,13 @@ export function ConfigPanel({
   }
 
   if (isCodeBlockConfigTarget(selectedNode, schema)) {
-    return <CodeBlockConfigEditor onUpdateConfig={onUpdateConfig} params={params} />;
+    return (
+      <CodeBlockConfigEditor
+        onUpdateConfig={onUpdateConfig}
+        params={params}
+        typeHierarchy={schema.type_hierarchy ?? []}
+      />
+    );
   }
 
   const isVariadicInputs = schema.variadic_inputs === true;
@@ -393,6 +191,12 @@ export function ConfigPanel({
   const formatCapabilities = schema.format_capabilities ?? [];
   const coreTypeSchema = schema.config_schema.properties?.core_type;
   const hasCoreTypeField = coreTypeSchema != null;
+  // The format-capability picker is a tall control (dropdown + detail +
+  // warnings), so it renders after the LAST config field as its own half-row
+  // cell. This keeps the short fields packed in 2-column pairs above it (e.g.
+  // save_data: Filename and Overwrite sit together) instead of the format
+  // height stranding a trailing field on its own row.
+  const formatAnchorKey = ordered.length > 0 ? ordered[ordered.length - 1][0] : "core_type";
   const selectedType =
     typeof params.core_type === "string"
       ? params.core_type
@@ -442,44 +246,66 @@ export function ConfigPanel({
 
   return (
     <div>
-      {isVariadicInputs && (
-        <PortEditorTable
-          allowedTypes={allowedInputTypes}
-          direction="input"
-          maxPorts={schema.max_input_ports}
-          minPorts={schema.min_input_ports}
-          onChange={(ports) => onUpdateConfig({ input_ports: ports })}
-          ports={inputPorts}
-          typeHierarchy={typeHierarchy}
-        />
-      )}
-      {isVariadicOutputs && (
-        <PortEditorTable
-          allowedTypes={allowedOutputTypes}
-          direction="output"
-          maxPorts={schema.max_output_ports}
-          minPorts={schema.min_output_ports}
-          onChange={(ports) => onUpdateConfig({ output_ports: ports })}
-          ports={outputPorts}
-          typeHierarchy={typeHierarchy}
-        />
+      {(isVariadicInputs || isVariadicOutputs) && (
+        // Variadic ports are pinned to a 2-column row: column 1 is always
+        // inputs, column 2 is always outputs. A missing side leaves its
+        // column empty so the positions never shift. All variadic blocks
+        // (and their subclasses) share this single render path.
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            {isVariadicInputs && (
+              <PortEditorTable
+                allowedTypes={allowedInputTypes}
+                direction="input"
+                maxPorts={schema.max_input_ports}
+                minPorts={schema.min_input_ports}
+                onChange={(ports) => onUpdateConfig({ input_ports: ports })}
+                ports={inputPorts}
+                typeHierarchy={typeHierarchy}
+              />
+            )}
+          </div>
+          <div>
+            {isVariadicOutputs && (
+              <PortEditorTable
+                allowedTypes={allowedOutputTypes}
+                direction="output"
+                maxPorts={schema.max_output_ports}
+                minPorts={schema.min_output_ports}
+                onChange={(ports) => onUpdateConfig({ output_ports: ports })}
+                ports={outputPorts}
+                typeHierarchy={typeHierarchy}
+              />
+            )}
+          </div>
+        </div>
       )}
       {!hasCoreTypeField && formatSelector ? (
         <div className="mb-4 max-w-2xl">{formatSelector}</div>
       ) : null}
       {lossySaveDetail}
-      <div className={hasCoreTypeField ? "grid max-w-2xl gap-4" : "grid gap-4 md:grid-cols-2"}>
+      <div className="grid gap-4 md:grid-cols-2">
         {ordered.map(([key, value]) => {
           const currentValue = params[key] ?? value.default ?? "";
+          // Textarea fields (e.g. the AI prompt) take a tall left-column cell
+          // that spans two rows, so neighbouring fields stack down its right.
+          const isTextarea = (value as { ui_widget?: unknown }).ui_widget === "textarea";
           return (
             <div key={key} className="contents">
-              <ConfigField
-                fieldKey={key}
-                field={value}
-                currentValue={currentValue}
-                onUpdateConfig={onUpdateConfig}
-              />
-              {hasCoreTypeField && key === "core_type" && formatSelector}
+              {/* min-w-0 lets each half-row cell shrink to its grid track so a
+                  long select option or capability warning cannot widen the
+                  column and stretch the neighbouring field. */}
+              <div className={isTextarea ? "min-w-0 md:row-span-2" : "min-w-0"}>
+                <ConfigField
+                  fieldKey={key}
+                  field={value}
+                  currentValue={currentValue}
+                  onUpdateConfig={onUpdateConfig}
+                />
+              </div>
+              {hasCoreTypeField && key === formatAnchorKey && formatSelector ? (
+                <div className="min-w-0">{formatSelector}</div>
+              ) : null}
             </div>
           );
         })}

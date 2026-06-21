@@ -68,3 +68,45 @@ export function CaretPreservingTextInput({
     />
   );
 }
+
+// Multiline sibling of CaretPreservingTextInput (#710). The same store
+// round-trip that resets an input's caret also resets a textarea's, and the
+// canvas BlockNode mirrors the same field, so the multiline prompt needs the
+// identical capture/restore guard.
+export function CaretPreservingTextArea({
+  value,
+  onChange,
+  className,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  className?: string;
+  placeholder?: string;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
+  useLayoutEffect(() => {
+    const pending = pendingSelectionRef.current;
+    const el = textareaRef.current;
+    if (pending && el && document.activeElement === el) {
+      el.setSelectionRange(pending.start, pending.end);
+    }
+    pendingSelectionRef.current = null;
+  });
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      onChange={(event) => {
+        pendingSelectionRef.current = {
+          start: event.target.selectionStart ?? 0,
+          end: event.target.selectionEnd ?? 0,
+        };
+        onChange(event.target.value);
+      }}
+      placeholder={placeholder}
+      value={value}
+    />
+  );
+}
