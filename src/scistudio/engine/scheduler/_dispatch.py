@@ -86,7 +86,7 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     # TODO(#887): ADR-022 L1 GPU/CPU slot gating is not wired — this passes a
     #   default ``ResourceRequest()`` instead of the block's real request, so
     #   the discrete GPU/CPU counters never gate dispatch (only the psutil
-    #   memory watermark + active-task count do). Confirmed low-risk for now
+    #   memory watermark + active-task count do). Confirmed low-risk at present
     #   per the owner decision on #887 (cloud-LLM AI blocks, chunked large
     #   data); see also #1595. Deferred until a real local-GPU contention
     #   trigger.

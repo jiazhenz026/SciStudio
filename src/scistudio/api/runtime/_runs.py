@@ -208,7 +208,7 @@ def _finalize_lineage_run(
         logger.debug("ADR-038: lineage recorder dispose failed", exc_info=True)
     try:
         # #1517: symmetric scheduler teardown so a finished run stops reacting
-        # to later runs' events on the shared EventBus.
+        # to other runs' events on the shared EventBus.
         scheduler.dispose()
     except Exception:
         logger.debug("#1517: scheduler dispose failed", exc_info=True)

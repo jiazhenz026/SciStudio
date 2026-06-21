@@ -74,7 +74,7 @@ class CompositeStore:
         Each slot is stored in a subdirectory using the appropriate backend.
 
         #1640: the write is **atomic**. All slots and the manifest are built in
-        a temporary sibling directory which is then swapped into place by
+        a staging sibling directory which is then swapped into place by
         :func:`atomic_replace_dir`. A crash or cancellation mid-write leaves the
         previous composite (or nothing) on disk rather than a half-written
         directory. Each slot is written under the staging directory, but the

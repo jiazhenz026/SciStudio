@@ -55,6 +55,7 @@ def test_load_legacy_checkpoint_without_version(tmp_path: Path) -> None:
     )
     assert load_checkpoint(path).version == CHECKPOINT_FORMAT_VERSION
 
+
 # ---------------------------------------------------------------------------
 # Local test fixture.
 #

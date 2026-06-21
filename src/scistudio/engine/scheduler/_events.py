@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import (
     BLOCK_CANCELLED,
-    BLOCK_ERROR,
     BLOCK_SKIPPED,
     EngineEvent,
 )

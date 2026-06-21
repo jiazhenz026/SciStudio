@@ -176,7 +176,7 @@ class DAGScheduler:
 
         #1517: ``ApiRuntime`` owns one process-global ``EventBus`` and builds a
         fresh ``DAGScheduler`` per run. Without symmetric teardown a finished
-        run's scheduler keeps reacting to later runs' events (stale checkpoint
+        run's scheduler keeps reacting to other runs' events (stale checkpoint
         overwrites, cross-run dispatch). Call this once the run task is done,
         alongside ``LineageRecorder.dispose()``. Idempotent.
         """
