@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scistudio.blocks.code.code_block import (
     CodeBlockRuntimeContext,
+    codeblock_exchange_env,
     register_codeblock_backend,
     run_codeblock_process,
 )
@@ -24,12 +25,19 @@ class PythonCodeBlockBackend:
         return script_path.suffix.lower() in self.extensions
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
-        return resolve_script_interpreter(
+        interpreter = resolve_script_interpreter(
             context.script_path,
             environment_config=context.environment_config,
             project_dir=context.project_dir,
             mode=context.config.interpreter_mode,
             interpreter_path=context.config.interpreter_path,
+        )
+        # FIND-F (#1740): inject the SCISTUDIO_*_DIR exchange env vars so a
+        # Python script can locate its declared inputs/outputs, matching the
+        # R/Quarto backends. resolve_script_interpreter has no access to the
+        # exchange dir, so merge them here where the context is available.
+        return interpreter.model_copy(
+            update={"environment": {**interpreter.environment, **codeblock_exchange_env(context)}}
         )
 
     def run(

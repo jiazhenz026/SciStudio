@@ -15,9 +15,10 @@ It also verifies each type round-trips as a **10-item collection** via
 both required for alpha).
 
 Scoped to the core ``LoadData`` / ``SaveData`` registry (no plugin
-scan), mirroring ``tests/engine/test_materialisation.py``. Slots with a
-known engine round-trip break are ``xfail`` and documented in the test
-project's ``alpha-test-suite/FINDINGS.md``.
+scan), mirroring ``tests/engine/test_materialisation.py``. The engine
+round-trip defects this matrix once marked ``xfail`` (FIND-A composite
+``.json``, FIND-B tabular pickle) are fixed under #1740, so every slot now
+round-trips.
 """
 
 from __future__ import annotations
@@ -44,16 +45,11 @@ from scistudio.engine.materialisation import materialise_to_file, reconstruct_fr
 PICKLE_EXTS = {".pkl", ".pickle"}
 
 # (core_type, extension) slots that SAVE but cannot RELOAD due to engine
-# round-trip defects. See alpha-test-suite/FINDINGS.md.
-#   FIND-A: composite .json saver writes slot key 'file', loader reads 'path'.
-#   FIND-B: tabular .pkl/.pickle saves the Arrow Table, loader wants the object.
-BROKEN_RELOAD: set[tuple[str, str]] = {
-    ("CompositeData", ".json"),
-    ("DataFrame", ".pkl"),
-    ("DataFrame", ".pickle"),
-    ("Series", ".pkl"),
-    ("Series", ".pickle"),
-}
+# round-trip defects. FIND-A (composite .json key mismatch) and FIND-B
+# (tabular .pkl/.pickle re-wrap) were the only entries; both are fixed under
+# #1740, so this is now empty. The set and its plumbing are kept so a future
+# round-trip defect can be re-pinned here.
+BROKEN_RELOAD: set[tuple[str, str]] = set()
 
 
 def _core_registry() -> BlockRegistry:
@@ -263,7 +259,7 @@ _COLLECTION_EXT = {
     "DataFrame": ".csv",
     "Series": ".csv",
     "Text": ".txt",
-    "CompositeData": ".json",  # xfail: FIND-A
+    "CompositeData": ".json",
 }
 
 

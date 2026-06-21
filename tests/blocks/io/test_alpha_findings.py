@@ -1,16 +1,14 @@
-"""Engine round-trip findings surfaced by the alpha IO suite — tracked as
-strict xfails so each defect stays visible and a fix is detected.
+"""Engine round-trip findings surfaced by the alpha IO suite.
 
-Every test here asserts the *correct* (post-fix) behaviour and is marked
-``xfail(strict=True)``: it shows as ``xfailed`` while the bug exists, and
-turns into a hard ``xpass`` failure the moment the engine is fixed —
-prompting removal of the marker (and the matching workaround in
-``test_io_coverage_matrix.py`` / the generator). See
-``~/Desktop/scistudio-tests/alpha-test-suite/FINDINGS.md``.
+These were originally tracked as strict xfails (FIND-A/B/D) so each defect
+stayed visible until fixed. The underlying defects are now fixed under #1740,
+so every test asserts the correct round-trip behaviour and is retained as a
+regression guard. See the alpha test-suite FINDINGS registry for the original
+defect write-ups.
 
 Scope: core ``LoadData`` / ``SaveData`` only (no plugin scan).
-FIND-A / FIND-B are also exercised as xfails in the coverage matrix; they
-are restated here so this file is the single registry of engine defects.
+FIND-A / FIND-B are also exercised in the coverage matrix
+(``test_io_coverage_matrix.py``), which no longer marks those slots broken.
 """
 
 from __future__ import annotations
@@ -19,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-import pytest
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.io.loaders.load_data import LoadData
@@ -41,7 +38,6 @@ def _core_registry() -> BlockRegistry:
 REG = _core_registry()
 
 
-@pytest.mark.xfail(strict=True, reason="FIND-A: composite .json saver writes slot key 'file', loader reads 'path'")
 def test_find_a_composite_json_roundtrips(tmp_path: Path) -> None:
     """A core ``CompositeData`` should round-trip through its only IO format."""
     sub = Array(axes=["x"], shape=(3,), dtype="float64", data=np.array([1.0, 2.0, 3.0]))
@@ -52,7 +48,6 @@ def test_find_a_composite_json_roundtrips(tmp_path: Path) -> None:
     np.testing.assert_array_equal(np.asarray(back.get("array_slot").to_memory()), np.array([1.0, 2.0, 3.0]))
 
 
-@pytest.mark.xfail(strict=True, reason="FIND-B: tabular pickle saves the Arrow Table, loader expects the object")
 def test_find_b_dataframe_pickle_roundtrips(tmp_path: Path) -> None:
     """``DataFrame`` ``.pkl`` (allow_pickle) should reload to a DataFrame."""
     df = DataFrame(columns=["a"], row_count=3, data=pa.table({"a": [1, 2, 3]}))
@@ -64,7 +59,6 @@ def test_find_b_dataframe_pickle_roundtrips(tmp_path: Path) -> None:
     assert isinstance(back, DataFrame)
 
 
-@pytest.mark.xfail(strict=True, reason="FIND-D: Array .zarr reload restores data but drops shape/axes metadata")
 def test_find_d_array_zarr_preserves_shape_metadata(tmp_path: Path) -> None:
     """Reloading an ``Array`` from ``.zarr`` should restore ``shape``/``axes``."""
     data = np.arange(12, dtype=np.float64).reshape(3, 4)

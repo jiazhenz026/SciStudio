@@ -12,6 +12,7 @@ from typing import Any
 
 from scistudio.blocks.code.code_block import (
     CodeBlockRuntimeContext,
+    codeblock_exchange_env,
     register_codeblock_backend,
     run_codeblock_process,
 )
@@ -178,15 +179,11 @@ def _render_output_dir(context: CodeBlockRuntimeContext) -> Path:
 
 
 def _exchange_environment(context: CodeBlockRuntimeContext) -> dict[str, str]:
+    # FIND-F (#1740): the SCISTUDIO_*_DIR keys are now produced by the shared
+    # ``codeblock_exchange_env`` helper so the Python backend injects the exact
+    # same set.
     env_delta = _environment_delta(context.environment_config)
-    env_delta.update(
-        {
-            "SCISTUDIO_EXCHANGE_DIR": str(context.exchange_dir),
-            "SCISTUDIO_INPUTS_DIR": str(context.exchange_dir / "inputs"),
-            "SCISTUDIO_OUTPUTS_DIR": str(context.exchange_dir / "outputs"),
-            "SCISTUDIO_SCRIPT_PATH": str(context.script_path),
-        }
-    )
+    env_delta.update(codeblock_exchange_env(context))
     return env_delta
 
 

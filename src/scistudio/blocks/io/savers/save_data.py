@@ -459,7 +459,13 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
         data = obj.get_in_memory_data()
         arr = np.asarray(data)
         with atomic_replace_dir(path) as tmp_dir:
-            zarr.save(str(tmp_dir), arr)  # type: ignore[arg-type]
+            # FIND-D (#1740): persist axis labels as a store attribute so
+            # ``LoadData`` can restore ``Array.axes`` on reload. The previous
+            # ``zarr.save`` wrote no attrs, so reloaded arrays lost their axes
+            # (and their shape, because the loader's sidecar probe also missed).
+            z = zarr.open_array(str(tmp_dir), mode="w", shape=arr.shape, dtype=arr.dtype)
+            z[:] = arr
+            z.attrs["axes"] = [str(a) for a in getattr(obj, "axes", []) or []]
         return
 
     if fmt == "parquet":
@@ -767,7 +773,10 @@ def _save_composite_data(obj: DataObject, config: BlockConfig) -> None:
         _SLOT_DISPATCH[slot_type_name](slot_obj, slot_config)
         manifest_slots[slot_name] = {
             "core_type": slot_type_name,
-            "file": str(Path(slots_dir.name) / slot_filename),
+            # FIND-A (#1740): the manifest key must match what LoadData reads.
+            # ``_load_composite_data`` reads ``"path"`` (its documented schema);
+            # writing ``"file"`` here made every composite ``.json`` reload fail.
+            "path": str(Path(slots_dir.name) / slot_filename),
         }
 
     manifest = {

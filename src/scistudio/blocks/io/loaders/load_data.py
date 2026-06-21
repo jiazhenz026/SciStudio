@@ -403,26 +403,41 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
         result._data = arr  # type: ignore[attr-defined]
         return result
 
-    if fmt == "zarr" or (path.is_dir() and ((path / ".zgroup").exists() or (path / ".zarray").exists())):
+    if fmt == "zarr" or (
+        path.is_dir() and ((path / "zarr.json").exists() or (path / ".zgroup").exists() or (path / ".zarray").exists())
+    ):
         # Build a metadata-only Array with a StorageReference; chunked data
         # stays lazy and is materialised by ZarrBackend on access.
         from scistudio.core.storage.ref import StorageReference
 
         ref = StorageReference(backend="zarr", path=str(path), format="zarr")
-        # Try to read shape/dtype from .zarray sidecar if present.
-        zarray_path = path / ".zarray"
+        # FIND-D (#1740): read shape/dtype/axes via the zarr public API rather
+        # than hand-parsing a zarr-2.x ``.zarray`` sidecar. zarr 3.x writes
+        # ``zarr.json``, so the old sidecar probe always missed and the Array
+        # came back with ``shape=None`` / ``axes=[]``. ``zarr.open_array`` reads
+        # both zarr-2.x and 3.x stores; ``axes`` is persisted as a store
+        # attribute by SaveData, with a positional fallback for older stores.
         shape: tuple[int, ...] | None = None
         dtype: str | None = None
-        if zarray_path.exists():
-            try:
-                meta = json.loads(zarray_path.read_text(encoding="utf-8"))
-                shape = tuple(meta.get("shape", []))
-                dtype = str(meta.get("dtype")) if meta.get("dtype") is not None else None
-            except (json.JSONDecodeError, OSError) as exc:
-                raise ValueError(f"LoadData: cannot parse .zarray metadata at {zarray_path}: {exc}") from exc
+        axes: list[str] | None = None
+        try:
+            import zarr
+
+            zarr_arr = zarr.open_array(str(path), mode="r")
+            shape = tuple(int(d) for d in zarr_arr.shape)
+            dtype = str(zarr_arr.dtype)
+            stored_axes = zarr_arr.attrs.get("axes")
+            if stored_axes is not None:
+                axes = [str(a) for a in stored_axes]
+        except Exception:
+            # Metadata is best-effort here: the data itself still materialises
+            # lazily via ZarrBackend on access even if this header read fails.
+            shape = None
         ndim = len(shape) if shape is not None else 0
+        if axes is None:
+            axes = [f"axis_{i}" for i in range(ndim)]
         return Array(
-            axes=[f"axis_{i}" for i in range(ndim)],
+            axes=axes,
             shape=shape,
             dtype=dtype,
             framework=_source_framework(path),
@@ -488,9 +503,23 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
             obj = pickle.load(fh)
         if isinstance(obj, DataFrame):
             return obj
+        # FIND-B (#1740): the pickle saver dumps the in-memory payload (a
+        # ``pyarrow.Table``), not the wrapped DataFrame. Re-wrap a bare Table
+        # the same way the csv/parquet paths do — mirroring the Array pickle
+        # path, which also re-wraps its raw ndarray payload.
+        import pyarrow as pa
+
+        if isinstance(obj, pa.Table):
+            df = DataFrame(
+                columns=list(obj.column_names),
+                row_count=int(obj.num_rows),
+                framework=_source_framework(path),
+            )
+            df._arrow_table = obj  # type: ignore[attr-defined]
+            return df
         raise ValueError(
             f"LoadData(core_type='DataFrame'): pickle at {path} unpickled to "
-            f"{type(obj).__name__}, expected scistudio.core.types.dataframe.DataFrame"
+            f"{type(obj).__name__}, expected a DataFrame or a pyarrow.Table"
         )
 
     if fmt in {"csv", "tsv"}:
@@ -583,9 +612,27 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
             obj = pickle.load(fh)
         if isinstance(obj, Series):
             return obj
+        # FIND-B (#1740): the pickle saver dumps the in-memory payload (a
+        # single-column ``pyarrow.Table``), not the wrapped Series. Re-wrap a
+        # bare Table, mirroring the csv/parquet path (single column required).
+        import pyarrow as pa
+
+        if isinstance(obj, pa.Table):
+            if obj.num_columns != 1:
+                raise ValueError(
+                    f"LoadData(core_type='Series'): pickled table at {path} has "
+                    f"{obj.num_columns} columns, expected a single-column Series payload"
+                )
+            return Series(
+                index_name=None,
+                value_name=obj.column_names[0],
+                length=obj.num_rows,
+                framework=_source_framework(path),
+                data=obj,
+            )
         raise ValueError(
             f"LoadData(core_type='Series'): pickle at {path} unpickled to "
-            f"{type(obj).__name__}, expected scistudio.core.types.series.Series"
+            f"{type(obj).__name__}, expected a Series or a pyarrow.Table"
         )
 
     if fmt in {"csv", "tsv", "parquet"}:
