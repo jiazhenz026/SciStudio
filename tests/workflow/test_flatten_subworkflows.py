@@ -292,6 +292,109 @@ def test_flatten_detects_cycles(tmp_path: Path, length: int) -> None:
     assert chain[-1].name == "a.yaml"  # closes the loop back to the root
 
 
+class _FakePort:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.accepted_types: list[type] = []
+
+
+class _FakeBlock:
+    def __init__(self, inputs: list[str], outputs: list[str]) -> None:
+        self._inputs = [_FakePort(n) for n in inputs]
+        self._outputs = [_FakePort(n) for n in outputs]
+
+    def get_effective_input_ports(self) -> list[_FakePort]:
+        return self._inputs
+
+    def get_effective_output_ports(self) -> list[_FakePort]:
+        return self._outputs
+
+
+class _FakeRegistry:
+    def __init__(self, ports_by_type: dict[str, tuple[list[str], list[str]]]) -> None:
+        self._ports = ports_by_type
+
+    def instantiate(self, block_type: str, config: object = None) -> _FakeBlock:
+        inputs, outputs = self._ports[block_type]
+        return _FakeBlock(inputs, outputs)
+
+
+def test_flatten_validates_exposed_port_exists_with_registry(tmp_path: Path) -> None:
+    """ADR §9.1 item 3 / P2-1: with a registry, a bad exposed port is rejected."""
+    _write(
+        tmp_path / "subworkflows" / "child.yaml",
+        """
+        workflow:
+          id: child
+          nodes:
+            - id: proc
+              block_type: process_block
+              config: {}
+          edges: []
+          exposed_ports:
+            outputs:
+              - name: report
+                internal: proc.nonexistent_port
+        """,
+    )
+    parent = load_yaml(
+        _write(
+            tmp_path / "main.yaml",
+            """
+            workflow:
+              id: main
+              nodes:
+                - id: sw1
+                  block_type: subworkflow_block
+                  config:
+                    ref:
+                      path: subworkflows/child.yaml
+              edges: []
+            """,
+        )
+    )
+    registry = _FakeRegistry({"process_block": ([], ["out"])})  # 'out', NOT 'nonexistent_port'
+    with pytest.raises(ValueError, match="does not exist on block"):
+        flatten_subworkflows(parent, base_dir=tmp_path, registry=registry)
+
+    # Without a registry, the port-level check is skipped (block-id check only).
+    flat = flatten_subworkflows(parent, base_dir=tmp_path)
+    assert [n.id for n in flat.nodes] == ["sw1__proc"]
+
+
+def test_flatten_workflow_with_exposed_ports_runs_standalone(tmp_path: Path) -> None:
+    """FR-009: a file with exposed_ports but no SubWorkflowBlock flattens unchanged."""
+    standalone = load_yaml(
+        _write(
+            tmp_path / "standalone.yaml",
+            """
+            workflow:
+              id: standalone
+              nodes:
+                - id: load
+                  block_type: load_block
+                  config: {}
+                - id: proc
+                  block_type: process_block
+                  config: {}
+              edges:
+                - source: "load:data"
+                  target: "proc:in"
+              exposed_ports:
+                outputs:
+                  - name: report
+                    internal: proc.out
+            """,
+        )
+    )
+
+    flat = flatten_subworkflows(standalone, base_dir=tmp_path)
+
+    # exposed_ports is ignored for execution: nodes/edges are unchanged.
+    assert [n.id for n in flat.nodes] == ["load", "proc"]
+    assert [(e.source, e.target) for e in flat.edges] == [("load:data", "proc:in")]
+
+
 def test_flatten_exposed_internal_unknown_block_raises(tmp_path: Path) -> None:
     """ADR §9.1: exposed_ports.internal referencing a missing block is rejected."""
     _write(

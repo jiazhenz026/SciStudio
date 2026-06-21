@@ -152,6 +152,23 @@ def test_get_workflow_marks_broken_ref(client: TestClient, opened_project: Path)
     assert sw_node["resolved_ports"]["broken"] is True
 
 
+def test_get_workflow_by_path_opens_subworkflow_file(client: TestClient, opened_project: Path) -> None:
+    """US1 AS3 / P1-1: a subworkflow file under subworkflows/ opens by project-relative path."""
+    _write_subworkflow(opened_project, "child.yaml", _CHILD)
+
+    response = client.get("/api/workflows/by-path", params={"path": "subworkflows/child.yaml"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["id"] == "child"
+    assert {n["block_type"] for n in body["nodes"]} == {"load_block", "process_block"}
+
+
+def test_get_workflow_by_path_rejects_escape(client: TestClient, opened_project: Path) -> None:
+    """The by-path loader refuses paths that escape the project root."""
+    response = client.get("/api/workflows/by-path", params={"path": "../../etc/passwd"})
+    assert response.status_code in (400, 404), response.text
+
+
 def test_import_subworkflow_copies_into_project(client: TestClient, opened_project: Path, tmp_path: Path) -> None:
     """FR-011: an external file is copied into <project>/subworkflows/ with a project-relative ref."""
     external = tmp_path / "external_source.yaml"

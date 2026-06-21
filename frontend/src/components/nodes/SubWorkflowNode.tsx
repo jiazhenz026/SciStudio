@@ -40,11 +40,7 @@ const BROKEN_VISUAL = {
   border: "#f3a3a3",
 } as const;
 
-export function SubWorkflowNode({
-  id,
-  data,
-  selected,
-}: NodeProps<Node<SubWorkflowNodeData>>) {
+export function SubWorkflowNode({ id, data, selected }: NodeProps<Node<SubWorkflowNodeData>>) {
   const visual = getCategoryVisual("subworkflow");
   const CategoryIcon = visual.Icon;
   const broken = data.broken;

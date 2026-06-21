@@ -201,7 +201,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
       const authored = nodes?.find((candidate) => candidate.id === node.id);
       if (!authored) return;
       if (
-        authored.block_type !== "subworkflow" &&
+        authored.block_type !== "subworkflow_block" &&
         authored.block_type !== "subworkflow_broken"
       ) {
         return;

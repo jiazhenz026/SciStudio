@@ -168,7 +168,9 @@ class WorkflowModel(BaseModel):
             nodes=[NodeModel.from_node_def(n) for n in wf.nodes],
             edges=[EdgeModel.from_edge_def(e) for e in wf.edges],
             metadata=wf.metadata,
-            exposed_ports=(ExposedPortsModel.from_exposed_ports(wf.exposed_ports) if wf.exposed_ports is not None else None),
+            exposed_ports=(
+                ExposedPortsModel.from_exposed_ports(wf.exposed_ports) if wf.exposed_ports is not None else None
+            ),
         )
 
 

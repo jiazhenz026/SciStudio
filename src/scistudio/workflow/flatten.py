@@ -149,7 +149,7 @@ def flatten_subworkflows(
             visiting = (Path(self_path).resolve(strict=True),)
         except OSError:
             visiting = (Path(self_path).resolve(),)
-    flat, _exp_in, _exp_out = _flatten(definition, base, visiting)
+    flat, _exp_in, _exp_out = _flatten(definition, base, visiting, registry)
     return flat
 
 
@@ -162,17 +162,20 @@ def _flatten(
     definition: WorkflowDefinition,
     base: Path,
     visiting: tuple[Path, ...],
+    registry: Any | None = None,
 ) -> tuple[WorkflowDefinition, _ExposedMap, _ExposedMap]:
     """Flatten *definition* and return ``(flat_def, exposed_in, exposed_out)``.
 
     ``exposed_in`` / ``exposed_out`` resolve each of *definition*'s own
     ``exposed_ports`` to a real leaf wire ref present in ``flat_def`` (handling
     the nested case where an exposed port forwards a *child* subworkflow's
-    exposed port). The top-level caller discards these maps.
+    exposed port). The top-level caller discards these maps. When *registry* is
+    supplied, ``exposed_ports.internal`` is additionally validated to reference a
+    port that actually exists on the inner block (ADR §9.1 item 3).
     """
     new_nodes: list[NodeDef] = []
     new_edges: list[EdgeDef] = []
-    direct_block_ids: set[str] = set()  # non-subworkflow nodes (raw ports)
+    direct_nodes: dict[str, NodeDef] = {}  # non-subworkflow nodes (raw ports)
     # sw_node_id -> resolved exposed maps of that inlined child (prefixed leaf refs)
     sw_in: dict[str, _ExposedMap] = {}
     sw_out: dict[str, _ExposedMap] = {}
@@ -181,7 +184,7 @@ def _flatten(
         if not is_subworkflow_node(node):
             new_nodes.append(node)
             if not is_broken_subworkflow_node(node):
-                direct_block_ids.add(node.id)
+                direct_nodes[node.id] = node
             continue
 
         ref = subworkflow_ref_path(node)
@@ -199,7 +202,7 @@ def _flatten(
             raise CyclicSubworkflowError([*visiting, resolved])
 
         child = load_yaml(resolved)
-        child_flat, child_in, child_out = _flatten(child, base, (*visiting, resolved))
+        child_flat, child_in, child_out = _flatten(child, base, (*visiting, resolved), registry)
 
         prefix = f"{node.id}__"
         for inner in child_flat.nodes:
@@ -219,7 +222,7 @@ def _flatten(
     for edge in definition.edges:
         new_edges.append(_rewrite_parent_edge(edge, sw_in, sw_out))
 
-    exposed_in, exposed_out = _resolve_own_exposed(definition.exposed_ports, direct_block_ids, sw_in, sw_out)
+    exposed_in, exposed_out = _resolve_own_exposed(definition.exposed_ports, direct_nodes, sw_in, sw_out, registry)
 
     flat = WorkflowDefinition(
         id=definition.id,
@@ -233,18 +236,48 @@ def _flatten(
     return flat, exposed_in, exposed_out
 
 
+def _validate_direct_port(
+    node: NodeDef,
+    port: str,
+    direction: str,
+    exposed_name: str,
+    registry: Any | None,
+) -> None:
+    """Raise if *port* does not exist on *node*'s effective ports (ADR §9.1).
+
+    No-op when *registry* is absent or the block cannot be instantiated (e.g. a
+    spec-only test registry) — port existence is then left to the normal
+    post-flatten edge validation.
+    """
+    if registry is None:
+        return
+    try:
+        instance = registry.instantiate(node.block_type, config=dict(node.config or {}))
+        ports = instance.get_effective_input_ports() if direction == "input" else instance.get_effective_output_ports()
+    except Exception:
+        return
+    if not any(p.name == port for p in ports):
+        raise ValueError(
+            f"Exposed {direction} '{exposed_name}' references port '{port}' "
+            f"that does not exist on block '{node.id}' ({node.block_type})"
+        )
+
+
 def _resolve_own_exposed(
     exposed: Any,
-    direct_block_ids: set[str],
+    direct_nodes: dict[str, NodeDef],
     sw_in: dict[str, _ExposedMap],
     sw_out: dict[str, _ExposedMap],
+    registry: Any | None = None,
 ) -> tuple[_ExposedMap, _ExposedMap]:
     """Resolve a definition's own ``exposed_ports`` to leaf wire refs (ADR §9.1).
 
     ``exposed_ports.internal`` (dot form ``block.port``) may point at either a
     direct block (``-> "block:port"``) or a child subworkflow node whose own
     exposed port forwards to a deeper leaf (``-> sw_<dir>[block][port]``). An
-    ``internal`` that resolves to neither is a hard error.
+    ``internal`` that resolves to neither is a hard error. When *registry* is
+    supplied, a direct block's named port must also exist on the block's
+    effective ports (ADR §9.1 item 3).
     """
     exposed_in: _ExposedMap = {}
     exposed_out: _ExposedMap = {}
@@ -256,7 +289,8 @@ def _resolve_own_exposed(
     ):
         for entry in entries:
             block_id, port = _split_internal(entry.internal)
-            if block_id in direct_block_ids:
+            if block_id in direct_nodes:
+                _validate_direct_port(direct_nodes[block_id], port, direction, entry.name, registry)
                 target[entry.name] = f"{block_id}:{port}"
             elif block_id in sw_map:
                 leaf = sw_map[block_id].get(port)

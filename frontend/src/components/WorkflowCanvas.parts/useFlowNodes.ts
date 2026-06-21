@@ -22,9 +22,11 @@ import {
 
 /**
  * ADR-044 — block types rendered by `SubWorkflowNode` instead of `BlockNode`.
- * `subworkflow_broken` is the parser-emitted placeholder for an unresolved ref.
+ * `subworkflow_block` is the authoring container's registry type_name (see
+ * `blocks.registry._spec._type_name_for_class`); `subworkflow_broken` is the
+ * parser-emitted placeholder for an unresolved ref.
  */
-const SUBWORKFLOW_BLOCK_TYPES = new Set(["subworkflow", "subworkflow_broken"]);
+export const SUBWORKFLOW_BLOCK_TYPES = new Set(["subworkflow_block", "subworkflow_broken"]);
 
 /** Derive canvas display label for a node. */
 function resolveLabel(

@@ -182,13 +182,25 @@ language_source: en
 ## 9. Track C: No-Context Audit + Fixes
 
 ### 9.4 Audit
-- [ ] Audit agent assigned (no-context, ADR/spec/diff only).
-- [ ] Audit report path assigned: `docs/audit/2026-06-21-adr-044-subworkflow-no-context.md`.
-- [ ] Audit report committed.
-- [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Audit agent dispatched (no-context, ADR/spec/diff only; clean cherry-pick worktree with no manager context).
+- [x] Audit report path: `docs/audit/2026-06-21-adr-044-subworkflow-no-context.md` (verdict: pass-with-must-fix).
+- [x] Audit report committed + merged into umbrella (final PR evidence path).
+- [x] Findings recorded + resolved (below).
+
+| Finding | Sev | Resolution |
+|---|---|---|
+| Frontend routed on bare `"subworkflow"` but real block type is `subworkflow_block` → real nodes fell through to BlockNode | P0 | FIXED: `useFlowNodes.SUBWORKFLOW_BLOCK_TYPES` + double-click guard use `subworkflow_block`; added `subworkflowRouting.test.ts` regression guard; component test uses real type. |
+| Double-click opened wrong dir for `subworkflows/` refs (resolved by id → `workflows/<stem>`) | P1 | FIXED: new `GET /api/workflows/by-path` + `load_workflow_by_path` (path-constrained to project); frontend `openSubworkflow` opens by path. |
+| `exposed_ports.internal` port existence not validated (only block id) | P2 | FIXED: flatten `_validate_direct_port` checks the port exists on the inner block when a registry is supplied; test added. |
+| `accepted_types` inheritance untested | P2 | FIXED: `tests/workflow/test_subworkflow_ports.py` covers registry-inherited types + accept-any fallback. |
+| FR-009 (standalone run ignores exposed_ports) untested | P2 | FIXED: `test_flatten_workflow_with_exposed_ports_runs_standalone`. |
+| "locate file…" repoint is a no-op; TODO pointed at #890 (the issue this PR closes) | P3 | FIXED: TODO repointed to follow-up #1738; affordance ships, repoint persistence tracked there. |
+| Stale `SubWorkflowBlock` docstrings in `engine/runners/platform.py` | P3 | DEFERRED (comment-only; `engine/runners/**` is ADR-044 `excludes`; SC-005 measures injection sites, not docstrings; not touched to respect the ADR boundary). |
+| No scheduler-side SC-001 assertion | P3 | DEFERRED (defense-in-depth; `engine/scheduler/**` is ADR-044 `excludes`; SC-001 enforced by flatten + `SubWorkflowBlock.run()` raising). |
+
+- [x] P0/P1 findings fixed before final PR.
+- [x] P2 findings fixed.
+- [x] P3 findings fixed (P3-1) or deferred with ADR-exclude rationale (P3-2, P3-3).
 
 ## 10. Track D: Chrome E2E (manager, owner browser)
 - [ ] Dev backend + desktop started.
@@ -215,6 +227,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-21 | manager | ADR/spec say `blocks`/dot-port-refs/`api/runtime.py`; code uses `nodes`/colon-refs/`api/runtime/` package | Implement to ADR intent using real representation; document mapping in PR + ARCHITECTURE | N/A |
+| 2026-06-21 | manager→FE | Locked contract gave FE the wrong healthy block type (`subworkflow` vs real `subworkflow_block`); FE built to contract → P0 routing bug | Fixed FE routing to `subworkflow_block`; added routing regression test | N/A (manager-induced; corrected) |
+| 2026-06-21 | manager | Double-click could not open `subworkflows/`-stored refs (tab loader is id→`workflows/` only) | Added by-path load route + frontend path-open | N/A |
+| 2026-06-21 | manager | Broken-ref repoint persistence deferred | TODO repointed from #890 to new follow-up | #1738 |
 
 ## 13. Final Readiness
 

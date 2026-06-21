@@ -366,6 +366,38 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
     )
 
 
+@router.get("/by-path", response_model=VersionedWorkflowResponse)
+async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkflowResponse:
+    """Retrieve a workflow by project-relative path (ADR-044 US1 AS3).
+
+    Declared BEFORE the greedy ``/{workflow_id}`` route so ``/api/workflows/
+    by-path`` is not swallowed by ``get_workflow`` with ``workflow_id="by-path"``
+    (same route-ordering rule as ``/template`` in ``blocks.py``). Used by the
+    editor to open a SubWorkflowBlock's referenced file (which may live under
+    ``subworkflows/``) in its own tab.
+    """
+    from pydantic import ValidationError
+
+    try:
+        definition = runtime.load_workflow_by_path(path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": f"Workflow '{path}' failed schema validation.", "errors": exc.errors()},
+        ) from exc
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=422, detail=_yaml_error_detail(path, exc)) from exc
+    return _workflow_response(
+        definition,
+        state_version=runtime.current_workflow_version(definition.id),
+        runtime=runtime,
+    )
+
+
 @router.get("/{workflow_id}", response_model=VersionedWorkflowResponse)
 async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkflowResponse:
     """Retrieve a workflow by its identifier.

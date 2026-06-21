@@ -110,6 +110,29 @@ def load_workflow(self: ApiRuntime, workflow_id: str) -> WorkflowDefinition:
     return definition
 
 
+def load_workflow_by_path(self: ApiRuntime, rel_path: str) -> WorkflowDefinition:
+    """Load a workflow YAML by project-relative path (ADR-044 US1 AS3).
+
+    Unlike :func:`load_workflow` (which resolves ``workflows/<id>.yaml`` by id),
+    this opens any workflow file under the project — notably a referenced
+    subworkflow under ``<project>/subworkflows/`` — so double-clicking a
+    SubWorkflowBlock can open its ``config.ref.path`` regardless of folder.
+    The path is constrained to stay inside the project root.
+    """
+    project = self.require_active_project()
+    project_root = Path(project.path).resolve()
+    candidate = (project_root / rel_path).resolve()
+    if project_root != candidate and project_root not in candidate.parents:
+        raise ValueError(f"Subworkflow path escapes the project: {rel_path!r}")
+    if not candidate.is_file():
+        raise FileNotFoundError(f"Workflow file not found: {rel_path}")
+
+    definition = load_yaml(candidate)
+    for node in definition.nodes:
+        node.config = self._absolutify_node_config(node.config, node.block_type, str(project_root))
+    return definition
+
+
 def import_subworkflow_file(self: ApiRuntime, source_path: str) -> str:
     """ADR-044 FR-011: copy an external workflow file into the project.
 

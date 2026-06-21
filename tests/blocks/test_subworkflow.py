@@ -47,9 +47,7 @@ def _write_child(tmp_path: Path) -> None:
 
 
 def _block(tmp_path: Path, ref: str = "subworkflows/child.yaml") -> SubWorkflowBlock:
-    return SubWorkflowBlock(
-        config={"ref": {"path": ref}, "params": {"project_dir": str(tmp_path)}}
-    )
+    return SubWorkflowBlock(config={"ref": {"path": ref}, "params": {"project_dir": str(tmp_path)}})
 
 
 def test_effective_ports_derived_from_exposed_ports(tmp_path: Path) -> None:

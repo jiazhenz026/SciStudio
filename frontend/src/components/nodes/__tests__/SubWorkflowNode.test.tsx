@@ -32,7 +32,7 @@ function makePort(name: string, direction: "input" | "output"): BlockPortRespons
 function renderSubWorkflowNode(dataOverrides: Partial<SubWorkflowNodeData> = {}, selected = false) {
   const baseData: SubWorkflowNodeData = {
     label: "my_subflow",
-    blockType: "subworkflow",
+    blockType: "subworkflow_block",
     refPath: "subworkflows/my_subflow.swf.yaml",
     broken: false,
     inputPorts: [],

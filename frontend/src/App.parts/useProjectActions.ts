@@ -373,24 +373,32 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     resetExecution();
   }, [openTab, resetExecution, promptInput]);
 
-  // ADR-044 §3 — double-click a (healthy) subworkflow node → open its
-  // referenced file in a canvas tab. The ref path is project-relative; resolve
-  // it to the workflow id (filename stem) the existing loader understands.
+  // ADR-044 §3 / US1 AS3 — double-click a (healthy) subworkflow node → open its
+  // referenced file in a canvas tab. The ref path is project-relative and may
+  // live under `subworkflows/` (FR-011 imports) or `workflows/`, so we open it
+  // by PATH (not by workflow id, which only resolves `workflows/<id>.yaml`).
   const openSubworkflow = useCallback(
-    (refPath: string) => {
-      const workflowId = subworkflowRefToWorkflowId(refPath);
-      void loadWorkflowById(workflowId, workflowId);
+    async (refPath: string) => {
+      const displayName = subworkflowRefToWorkflowId(refPath);
+      try {
+        const workflow = await api.getWorkflowByPath(refPath);
+        openTab(workflow, displayName);
+        resetExecution();
+        setLastError(null);
+      } catch (error) {
+        setLastError((error as Error).message);
+      }
     },
-    [loadWorkflowById],
+    [openTab, resetExecution, setLastError],
   );
 
   // ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
   // affordance. The full repoint persistence (rewriting `config.ref.path` and
-  // re-resolving the node's ports) is a larger plumbing change.
-  // TODO(#890): persist the chosen path back to the subworkflow node's
-  //   config.ref.path and re-fetch resolved_ports. Out of scope for the
-  //   authoring-render iteration per ADR-044 §2.1 / dispatch deferral note.
-  //   Followup: https://github.com/zjzcpj/SciStudio/issues/890
+  // re-resolving the node's ports) is a larger plumbing change tracked
+  // separately (NOT #890, which this work closes).
+  // TODO(#1738): persist the chosen path back to the subworkflow node's
+  //   config.ref.path and re-fetch resolved_ports.
+  //   Followup: https://github.com/zjzcpj/SciStudio/issues/1738
   const locateSubworkflow = useCallback(
     (nodeId: string) => {
       void promptInput({

@@ -55,6 +55,10 @@ export const workflowsApi = {
   },
   getWorkflow: (workflowId: string) =>
     apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
+  // ADR-044 US1 AS3 — open a workflow file by project-relative path (e.g. a
+  // referenced subworkflow under `subworkflows/`) rather than by id.
+  getWorkflowByPath: (path: string) =>
+    apiFetch<VersionedWorkflowResponse>(`/api/workflows/by-path?path=${encodeURIComponent(path)}`),
   updateWorkflow: async (
     workflowId: string,
     body: WorkflowResponse,
