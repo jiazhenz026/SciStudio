@@ -122,6 +122,14 @@
       "path": "docs/planning/alpha-release-audit-20260621-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-21T07:43:28.323074Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/alpha-release-audit-20260621-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
