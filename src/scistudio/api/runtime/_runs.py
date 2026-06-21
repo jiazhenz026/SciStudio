@@ -370,7 +370,7 @@ def start_workflow(
     # on a hard error. ``"Warning:"``-prefixed diagnostics (unknown block
     # type / missing port) remain non-fatal, matching ``save_workflow``.
     # ADR-044 FR-010: validation runs on the flattened graph and hard-rejects
-    # any ``subworkflow_broken`` placeholder left by an unresolved reference.
+    # any ``subworkflow_broken`` marker left by an unresolved reference.
     from scistudio.workflow.validator import validate_workflow
 
     diagnostics = validate_workflow(workflow, registry=self.block_registry)

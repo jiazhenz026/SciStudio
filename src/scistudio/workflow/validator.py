@@ -239,7 +239,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     # ------------------------------------------------------------------
     # The inline flattener (run start) replaces a SubWorkflowBlock whose
     # ``config.ref.path`` cannot be resolved with a ``subworkflow_broken``
-    # placeholder. In strict mode (run start) any remaining placeholder is a
+    # marker. In strict mode (run start) any remaining marker is a
     # hard error so an unresolved reference can never be dispatched (US6.3). In
     # draft mode (editor autosave) it is tolerated so the rest of the canvas
     # still saves while the user repairs the reference. This check is registry-

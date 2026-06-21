@@ -2,7 +2,7 @@
 
 Covers FR-001 (pure flattener), FR-005 (id prefixing), FR-006 (edge rewrite),
 FR-007 (cycle detection), FR-008 (no exposed_ports), FR-010 (broken-ref
-placeholder), SC-001 (no SubWorkflowBlock survives), and SC-003 (direct / 2- /
+marker), SC-001 (no SubWorkflowBlock survives), and SC-003 (direct / 2- /
 3-cycles). Uses the REAL graph representation: ``WorkflowDefinition.nodes`` and
 colon-form edge refs ``"node_id:port_name"``; only ``exposed_ports.internal``
 uses the dot form ``"block_id.port"``.
@@ -212,8 +212,8 @@ def test_flatten_no_exposed_ports_is_legal(tmp_path: Path) -> None:
     assert [n.id for n in flat.nodes] == ["sw1__only"]
 
 
-def test_flatten_broken_ref_emits_placeholder(tmp_path: Path) -> None:
-    """FR-010: an unresolved ref becomes a subworkflow_broken placeholder; siblings survive."""
+def test_flatten_broken_ref_emits_marker(tmp_path: Path) -> None:
+    """FR-010: an unresolved ref becomes a subworkflow_broken marker; siblings survive."""
     parent = load_yaml(
         _write(
             tmp_path / "main.yaml",
@@ -238,11 +238,11 @@ def test_flatten_broken_ref_emits_placeholder(tmp_path: Path) -> None:
 
     by_id = {n.id: n for n in flat.nodes}
     assert by_id["keep"].block_type == "process_block"  # sibling survives
-    assert by_id["sw_bad"].block_type == SUBWORKFLOW_BROKEN_TYPE  # placeholder
+    assert by_id["sw_bad"].block_type == SUBWORKFLOW_BROKEN_TYPE  # marker
 
 
 def test_flatten_missing_ref_path_is_broken(tmp_path: Path) -> None:
-    """FR-010: a SubWorkflowBlock with no config.ref.path becomes a placeholder."""
+    """FR-010: a SubWorkflowBlock with no config.ref.path becomes a marker."""
     parent = load_yaml(
         _write(
             tmp_path / "main.yaml",

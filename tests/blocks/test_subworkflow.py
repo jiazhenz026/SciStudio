@@ -75,7 +75,7 @@ def test_run_is_authoring_only_and_raises(tmp_path: Path) -> None:
 
 
 def test_subworkflow_broken_exposes_no_ports() -> None:
-    """SubWorkflowBroken placeholder has a stable type_name and no ports."""
+    """SubWorkflowBroken marker has a stable type_name and no ports."""
     broken = SubWorkflowBroken(config={})
     assert broken.type_name == "subworkflow_broken"
     assert broken.get_effective_input_ports() == []

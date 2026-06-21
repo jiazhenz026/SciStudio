@@ -132,18 +132,18 @@ class SubWorkflowBlock(Block):
 
 
 class SubWorkflowBroken(SubWorkflowBlock):
-    """Placeholder emitted when a ``SubWorkflowBlock`` reference cannot resolve.
+    """Marker emitted when a ``SubWorkflowBlock`` reference cannot resolve.
 
     ADR-044 §10 / FR-010: a missing or unreadable ``config.ref.path`` does not
-    hard-fail editor load — the parser substitutes this placeholder so the rest
+    hard-fail editor load — the parser substitutes this marker so the rest
     of the canvas still renders (the editor shows it in the broken-ref style and
     offers a "locate file…" affordance). At run start the validator rejects any
-    remaining placeholder so an unresolved reference cannot be dispatched.
+    remaining marker so an unresolved reference cannot be dispatched.
     """
 
     type_name: ClassVar[str] = "subworkflow_broken"
     name: ClassVar[str] = "Sub-Workflow (broken reference)"
-    description: ClassVar[str] = "Unresolved subworkflow reference placeholder (ADR-044 §10)"
+    description: ClassVar[str] = "Unresolved subworkflow reference marker (ADR-044 §10)"
 
     def get_effective_input_ports(self) -> list[InputPort]:
         return []

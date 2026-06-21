@@ -30,11 +30,11 @@ from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 from scistudio.workflow.serializer import load_yaml
 
 # Registry ``type_name`` of the authoring container and the broken-ref
-# placeholder (see ``blocks.registry._spec._type_name_for_class``).
+# marker (see ``blocks.registry._spec._type_name_for_class``).
 SUBWORKFLOW_TYPE = "subworkflow_block"
 SUBWORKFLOW_BROKEN_TYPE = "subworkflow_broken"
 
-# Config key (set by the flattener on a broken placeholder) carrying the
+# Config key (set by the flattener on a broken marker) carrying the
 # unresolved reference string for the editor / validator to surface.
 BROKEN_REF_CONFIG_KEY = "_broken_ref"
 
@@ -58,7 +58,7 @@ def is_subworkflow_node(node: NodeDef) -> bool:
 
 
 def is_broken_subworkflow_node(node: NodeDef) -> bool:
-    """Return whether *node* is a broken-ref placeholder."""
+    """Return whether *node* is a broken-ref marker."""
     return node.block_type == SUBWORKFLOW_BROKEN_TYPE
 
 
@@ -103,7 +103,7 @@ def _split_internal(internal: str) -> tuple[str, str]:
 
 
 def _broken_node(node: NodeDef, ref_path: str) -> NodeDef:
-    """Return a ``subworkflow_broken`` placeholder mirroring *node*'s identity."""
+    """Return a ``subworkflow_broken`` marker mirroring *node*'s identity."""
     config = dict(node.config or {})
     config[BROKEN_REF_CONFIG_KEY] = ref_path
     return NodeDef(
@@ -139,7 +139,7 @@ def flatten_subworkflows(
 
     Returns a new :class:`WorkflowDefinition` whose ``nodes`` contain no
     ``SubWorkflowBlock`` (only inlined inner nodes and, for unresolved refs,
-    ``subworkflow_broken`` placeholders that the validator rejects at run
+    ``subworkflow_broken`` markers that the validator rejects at run
     start — FR-010).
     """
     base = Path(base_dir).resolve()
@@ -194,7 +194,7 @@ def _flatten(
         try:
             resolved = (base / ref).resolve(strict=True)
         except (OSError, RuntimeError):
-            # FR-010 / US6: unresolved ref -> placeholder; validator rejects at run start.
+            # FR-010 / US6: unresolved ref -> marker; validator rejects at run start.
             new_nodes.append(_broken_node(node, ref))
             continue
 
