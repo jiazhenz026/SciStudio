@@ -38,12 +38,12 @@ path. See :func:`open_engine_initiated_tab` and the
 Module layout (issue #1432 refactor of the original 757-LOC single
 module):
 
-* This ``__init__`` owns the :class:`fastapi.APIRouter` instance,
+* :mod:`._state` owns the :class:`fastapi.APIRouter` instance,
   module-level shared state (``MAX_ACTIVE_PTYS``, ``_active_ptys``,
   ``_active_lock``, ``_engine_tab_to_run``, ``_engine_run_to_run_dir``,
   ``_ai_pty_subscribers``, ``_ai_pty_subscribers_lock``), and the
-  ``_spawn`` provider dispatch — all of which are monkeypatched by the
-  existing test suite via attribute lookup on this package.
+  ``_spawn`` provider dispatch. This ``__init__`` re-exports them so the
+  public surface is unchanged.
 * :mod:`.websocket` — the user-launched WS handler (``pty_endpoint``)
   and its pump tasks.
 * :mod:`.validation` — ``_validate_project_dir`` query-param hardening.
@@ -53,139 +53,55 @@ module):
 * :mod:`.internal_routes` — IPC-token-guarded HTTP endpoints used by
   AI Block workers.
 
-Sub-modules deliberately resolve mutable seams (``_spawn``,
-``MAX_ACTIVE_PTYS``, ``_active_ptys``, ``_engine_tab_to_run``,
-``_engine_run_to_run_dir``) by attribute lookup on this package so
-``monkeypatch.setattr(ai_pty, "<name>", ...)`` continues to affect
-the route handlers' behaviour — pre-existing test contract.
+Round-4 no-cycles: the shared seams moved out of this ``__init__`` into
+the :mod:`._state` leaf so sub-modules resolve them via ``_state`` instead
+of importing this package back (which closed an at-import cycle). The
+mutable test seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
+``_engine_tab_to_run``, ``_engine_run_to_run_dir``) are monkeypatched on
+:mod:`._state` (``monkeypatch.setattr(ai_pty._state, "<name>", ...)``);
+``open_engine_initiated_tab`` is monkeypatched on :mod:`.engine`.
 """
 
 from __future__ import annotations
 
-import asyncio
-import threading
-from collections.abc import Awaitable, Callable
-from pathlib import Path
-from typing import Any
+# Importing ``internal_routes`` and ``websocket`` registers their route
+# handlers on ``_state.router`` as a side-effect of the decorators — the
+# bare-module imports are kept (with an ``F401`` waiver) so that side-effect
+# is preserved.
+from . import internal_routes, websocket  # noqa: F401
 
-from fastapi import APIRouter
-
-from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex, spawn_user_terminal
-
-# ---------------------------------------------------------------------------
-# Public router
-# ---------------------------------------------------------------------------
-
-router = APIRouter(prefix="/api/ai", tags=["ai"])
-
-# ---------------------------------------------------------------------------
-# Module-level shared state (ADR-034 / ADR-035).
-#
-# Defined here (not in submodules) so the existing test suite's
-# ``monkeypatch.setattr(ai_pty, "<name>", ...)`` calls keep working
-# after the sub-package split. Sub-modules look these up at call time
-# via the package namespace.
-# ---------------------------------------------------------------------------
-
-# Resource cap — ADR-034 §3 spec. Module-level so a 17th connection
-# attempt sees the live count regardless of which worker handles it.
-MAX_ACTIVE_PTYS = 16
-
-_active_ptys: dict[str, PtyProcess] = {}
-_active_lock = asyncio.Lock()
-
-_VALID_PROVIDERS = ("claude-code", "codex", "user-terminal")
-_PROVIDER_SPAWNERS = {
-    "claude-code": spawn_claude,
-    "codex": spawn_codex,
-    "user-terminal": spawn_user_terminal,
-}
-
-# ADR-035 §3.10 — engine-initiated tab tracking.
-# Map tab_id → block_run_id so completion notifies can resolve back.
-_engine_tab_to_run: dict[str, str] = {}
-# Map block_run_id → run_dir absolute path. Populated by
-# :func:`open_engine_initiated_tab` so user-driven control frames
-# (``block_user_marked_done`` per ADR-035 §3.5 path c) can locate the
-# right run dir to write the ``signals/mark_done.json`` signal file
-# without having to reach back into AIBlock or scan the filesystem.
-_engine_run_to_run_dir: dict[str, Path] = {}
-
-# ---------------------------------------------------------------------------
-# WS subscriber registry
-#
-# The existing ``/ws`` workflow WS (in ``scistudio.api.ws``) carries
-# EngineEvent traffic. ADR-035 needs to push two additional, NON-engine
-# messages — ``block_pty_opened`` and ``block_pty_closed`` — without
-# adding new EngineEvent types (per the dispatch's hard scope rule:
-# "MAY emit existing events but MAY NOT add new event types").
-#
-# Resolution: maintain a small subscriber registry HERE. The workflow
-# WS handler (``scistudio.api.ws``) registers a per-connection callback
-# on accept and unregisters on disconnect. Engine-initiated tab
-# opens / closes call :func:`broadcast_ai_pty_message` which fans out
-# the message dict to every live subscriber.
-#
-# This keeps engine/events.py untouched while still letting the engine
-# push these messages to all connected browsers.
-# ---------------------------------------------------------------------------
-
-_AiPtySubscriber = Callable[[dict[str, Any]], Awaitable[None] | None]
-"""Callable invoked with the message dict for every connected WS client."""
-
-_ai_pty_subscribers: set[_AiPtySubscriber] = set()
-_ai_pty_subscribers_lock = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Provider dispatch (test seam — monkeypatched by ai_pty test suite).
-# ---------------------------------------------------------------------------
-
-
-def _spawn(
-    *,
-    provider: str,
-    project_dir: Path,
-    dangerous: bool,
-    cols: int = 120,
-    rows: int = 30,
-    extra_env: dict[str, str] | None = None,
-) -> PtyProcess:
-    spawner = _PROVIDER_SPAWNERS.get(provider)
-    if spawner is None:
-        raise ValueError(f"Unknown provider {provider!r}")
-    return spawner(project_dir=project_dir, dangerous=dangerous, cols=cols, rows=rows, extra_env=extra_env)
-
-
-# ---------------------------------------------------------------------------
-# Submodule wiring
-#
-# Submodules are imported AFTER the module-level state above so their
-# top-level ``from scistudio.api.routes import ai_pty as _pkg`` lookups
-# see a package with the seams already bound. Submodules in turn
-# register their HTTP / WS handlers on ``router`` at import time, and
-# expose their public functions for re-export below.
-# ---------------------------------------------------------------------------
-
-# Importing ``internal_routes`` and ``websocket`` registers their
-# route handlers on ``router`` as a side-effect of the decorators —
-# the bare-module imports are kept (with ``F401`` waivers) so that
-# side-effect is preserved.
-from scistudio.api.routes.ai_pty import internal_routes, websocket  # noqa: E402, F401
-from scistudio.api.routes.ai_pty.engine import (  # noqa: E402
+# Round-4 no-cycles: the shared state, router, constants, and the
+# provider-dispatch seam live in the ``_state`` leaf module. Re-export every
+# symbol here so the historical ``scistudio.api.routes.ai_pty.<name>`` public
+# surface (and the package-level ``hasattr`` contract in
+# ``tests/api/routes/ai_pty/test_public_surface.py``) is unchanged. The
+# private seams are not in ``__all__``, hence the F401 waiver.
+from ._state import (  # noqa: F401
+    _PROVIDER_SPAWNERS,
+    _VALID_PROVIDERS,
+    MAX_ACTIVE_PTYS,
+    _active_lock,
+    _active_ptys,
+    _ai_pty_subscribers,
+    _ai_pty_subscribers_lock,
+    _AiPtySubscriber,
+    _engine_run_to_run_dir,
+    _engine_tab_to_run,
+    _spawn,
+    router,
+)
+from .engine import (
     get_block_run_id_for_tab,
     get_run_dir_for_block_run,
     open_engine_initiated_tab,
 )
-from scistudio.api.routes.ai_pty.internal_routes import (  # noqa: E402
-    _ensure_ipc_token as _ensure_ipc_token,
-)
-from scistudio.api.routes.ai_pty.subscribers import (  # noqa: E402
+from .internal_routes import _ensure_ipc_token as _ensure_ipc_token
+from .subscribers import (
     broadcast_ai_pty_message,
     register_ai_pty_subscriber,
     unregister_ai_pty_subscriber,
 )
-from scistudio.api.routes.ai_pty.websocket import pty_endpoint  # noqa: E402
+from .websocket import pty_endpoint
 
 __all__ = [
     "MAX_ACTIVE_PTYS",

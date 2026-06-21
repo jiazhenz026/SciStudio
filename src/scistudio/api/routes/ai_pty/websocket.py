@@ -25,7 +25,7 @@ from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from scistudio.ai.agent.terminal import PtyProcess
-from scistudio.api.routes import ai_pty as _pkg
+from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.validation import _validate_project_dir
 
 logger = logging.getLogger(__name__)

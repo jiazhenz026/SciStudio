@@ -59,7 +59,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Non
     ) -> PtyProcess:
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
     _active_ptys.clear()
     yield
     # Best-effort teardown for leftover PTYs (max-count test holds them).
@@ -151,7 +151,7 @@ def test_pty_ws_preserves_utf8_split_across_reads(
             self._alive = False
 
     monkeypatch.setattr(
-        ai_pty,
+        ai_pty._state,
         "_spawn",
         lambda **_kwargs: SplitUtf8Pty(),
     )
@@ -208,7 +208,7 @@ def test_pty_ws_spawn_uses_initial_size_query(
         captured["rows"] = rows
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
 
     with client.websocket_connect(f"{_ws_url('tab-size', opened_project)}&cols=101&rows=33") as ws:
         deadline = time.monotonic() + 5.0
@@ -240,7 +240,7 @@ def test_pty_ws_accepts_user_terminal_provider(
         captured["provider"] = provider
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
 
     with client.websocket_connect(_ws_url("tab-user-terminal", opened_project, provider="user-terminal")) as ws:
         deadline = time.monotonic() + 5.0

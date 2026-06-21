@@ -235,7 +235,7 @@ def start_workflow(
     ADR-038 ``runs`` row carries ``workflow_git_commit`` /
     ``workflow_dirty`` at INSERT time.
     """
-    from . import WorkflowRun
+    from .models import WorkflowRun
 
     # #1525 short-term guard: reject starting a second scheduler for a
     # workflow whose previous run is still live. Without this, the old

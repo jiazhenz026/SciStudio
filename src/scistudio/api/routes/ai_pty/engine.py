@@ -27,7 +27,7 @@ import logging
 import uuid
 from pathlib import Path
 
-from scistudio.api.routes import ai_pty as _pkg
+from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
 
 logger = logging.getLogger(__name__)

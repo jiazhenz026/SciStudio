@@ -478,7 +478,16 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     # ------------------------------------------------------------------
     # Check 10: ADR-043 boundary IO capabilities for AppBlock/CodeBlock.
     # ------------------------------------------------------------------
-    for node in workflow.nodes:
+    # Skipped in draft mode (editor autosave): a boundary port that is still
+    # being configured (extension/type/capability_id only partially filled,
+    # or a pinned capability that does not yet resolve) is normal
+    # work-in-progress, not a save-blocking error. Without this guard the
+    # capability lookup below raises while the user is mid-edit — e.g. the
+    # port editor auto-pins a (type, extension) capability whose direction is
+    # not yet the boundary-correct one. Like Checks 6 and 9, run start
+    # re-validates every node in strict mode (``_runs.py`` calls
+    # ``validate_workflow`` without ``mode="draft"``).
+    for node in workflow.nodes if mode != "draft" else []:
         spec = registry.get_spec(node.block_type)
         if spec is None or not _is_boundary_block(spec):
             continue

@@ -361,59 +361,88 @@ def test_artifact_round_trip_none_path() -> None:
 
 
 # ---------------------------------------------------------------------------
-# CompositeData hooks — T-014 positive round-trip via the real
-# _reconstruct_one / _serialise_one helpers
+# CompositeData slots — round-4 no-cycles (#1342)
+#
+# CompositeData no longer overrides ``_serialise_extra_metadata`` /
+# ``_reconstruct_extra_kwargs``. Its slots are nested ``DataObject``s, and the
+# recursion that (de)serialises them is owned by the serialiser itself
+# (``_serialise_one`` / ``_reconstruct_one`` handle the CompositeData case) so
+# the type does not import the serialiser back — that edge closed a
+# core.types-internal import cycle. These tests exercise the slot recursion
+# through the serialiser entry points (the wire format is unchanged).
 # ---------------------------------------------------------------------------
 
 
-def test_composite_reconstruct_delegates_to_serialization_helpers() -> None:
-    """Composite reconstruction recursively invokes :func:`_reconstruct_one`.
-
-    T-014 replaced the :mod:`scistudio.core.types.serialization` stub
-    bodies with the real implementation. The composite hook calls
-    ``_reconstruct_one`` once per slot, rebuilding each child as its
-    own typed :class:`DataObject` instance.
-    """
-    # Single-slot metadata payload that is itself a valid wire-format
-    # payload item (the composite hook hands it straight to
-    # _reconstruct_one).
-    metadata = {
-        "slots": {
-            "image": {
-                "backend": None,
-                "path": None,
-                "format": None,
-                "metadata": {
-                    "type_chain": ["DataObject", "Array"],
-                    "framework": {},
-                    "meta": None,
-                    "user": {},
-                    "axes": ["y", "x"],
-                    "shape": [4, 4],
-                    "dtype": "uint8",
-                },
-            }
-        }
-    }
-    kwargs = CompositeData._reconstruct_extra_kwargs(metadata)
-
-    assert set(kwargs.keys()) == {"slots"}
-    assert set(kwargs["slots"].keys()) == {"image"}
-    assert isinstance(kwargs["slots"]["image"], Array)
-    assert kwargs["slots"]["image"].axes == ["y", "x"]
-    assert kwargs["slots"]["image"].shape == (4, 4)
-
-
-def test_composite_reconstruct_empty_slots_short_circuits() -> None:
-    """No slots ⇒ no recursive calls ⇒ ``{"slots": {}}``."""
-    assert CompositeData._reconstruct_extra_kwargs({"slots": {}}) == {"slots": {}}
-    # And a missing ``slots`` key also short-circuits.
-    assert CompositeData._reconstruct_extra_kwargs({}) == {"slots": {}}
-
-
-def test_composite_serialise_delegates_to_serialization_helpers() -> None:
-    """Composite serialisation recursively invokes :func:`_serialise_one`."""
+def _composite_ref():
     from scistudio.core.storage.ref import StorageReference
+
+    return StorageReference(backend="composite", path="/tmp/c")
+
+
+def test_composite_reconstruct_recurses_through_serialiser() -> None:
+    """``_reconstruct_one`` rebuilds each composite slot as its own typed object."""
+    from scistudio.core.types.serialization import _reconstruct_one
+
+    payload = {
+        "backend": "composite",
+        "path": "/tmp/c",
+        "format": None,
+        "metadata": {
+            "type_chain": ["DataObject", "CompositeData"],
+            "framework": {},
+            "meta": None,
+            "user": {},
+            "slots": {
+                "image": {
+                    "backend": None,
+                    "path": None,
+                    "format": None,
+                    "metadata": {
+                        "type_chain": ["DataObject", "Array"],
+                        "framework": {},
+                        "meta": None,
+                        "user": {},
+                        "axes": ["y", "x"],
+                        "shape": [4, 4],
+                        "dtype": "uint8",
+                    },
+                }
+            },
+        },
+    }
+    rebuilt = _reconstruct_one(payload)
+
+    assert isinstance(rebuilt, CompositeData)
+    assert set(rebuilt.slot_names) == {"image"}
+    assert isinstance(rebuilt.get("image"), Array)
+    assert rebuilt.get("image").axes == ["y", "x"]
+    assert rebuilt.get("image").shape == (4, 4)
+
+
+def test_composite_reconstruct_empty_slots() -> None:
+    """No (or missing) ``slots`` ⇒ an empty composite."""
+    from scistudio.core.types.serialization import _reconstruct_one
+
+    base_md = {
+        "type_chain": ["DataObject", "CompositeData"],
+        "framework": {},
+        "meta": None,
+        "user": {},
+    }
+    envelope = {"backend": "composite", "path": "/tmp/c", "format": None}
+
+    rebuilt_missing = _reconstruct_one({**envelope, "metadata": base_md})
+    assert isinstance(rebuilt_missing, CompositeData)
+    assert set(rebuilt_missing.slot_names) == set()
+
+    rebuilt_empty = _reconstruct_one({**envelope, "metadata": {**base_md, "slots": {}}})
+    assert set(rebuilt_empty.slot_names) == set()
+
+
+def test_composite_serialise_recurses_through_serialiser() -> None:
+    """``_serialise_one`` writes a full wire-format payload per slot."""
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.types.serialization import _serialise_one
 
     inner = Array(
         axes=["y", "x"],
@@ -421,35 +450,34 @@ def test_composite_serialise_delegates_to_serialization_helpers() -> None:
         dtype="uint8",
         storage_ref=StorageReference(backend="zarr", path="/tmp/slot.zarr"),
     )
-    composite = CompositeData(slots={"img": inner})
+    composite = CompositeData(slots={"img": inner}, storage_ref=_composite_ref())
 
-    md = CompositeData._serialise_extra_metadata(composite)
-    assert set(md.keys()) == {"slots"}
-    assert set(md["slots"].keys()) == {"img"}
-    inner_payload = md["slots"]["img"]
-    # Each slot payload is a full wire-format dict (the same shape
-    # _reconstruct_one can round-trip back).
+    slots = _serialise_one(composite)["metadata"]["slots"]
+    assert set(slots.keys()) == {"img"}
+    inner_payload = slots["img"]
     assert "metadata" in inner_payload
     assert inner_payload["metadata"]["type_chain"] == ["DataObject", "Array"]
     assert inner_payload["metadata"]["axes"] == ["y", "x"]
     assert inner_payload["metadata"]["shape"] == [4, 4]
 
 
-def test_composite_serialise_empty_slots_does_not_call_helper() -> None:
-    """An empty composite serialises to ``{"slots": {}}`` without delegation."""
-    empty = CompositeData()
-    assert CompositeData._serialise_extra_metadata(empty) == {"slots": {}}
+def test_composite_serialise_empty_slots() -> None:
+    """An empty composite serialises with ``slots == {}``."""
+    from scistudio.core.types.serialization import _serialise_one
+
+    empty = CompositeData(storage_ref=_composite_ref())
+    assert _serialise_one(empty)["metadata"]["slots"] == {}
 
 
-def test_composite_hook_round_trip() -> None:
-    """Full composite round-trip via the classmethod hook pair.
+def test_composite_round_trip_through_serialiser() -> None:
+    """Full composite round-trip via ``_serialise_one`` / ``_reconstruct_one``.
 
-    T-014 acceptance criterion for CompositeData: the hook pair plus
-    the :func:`_reconstruct_one` / :func:`_serialise_one` helpers must
-    round-trip a composite with multiple slot types (Array + Series +
-    DataFrame) into an equivalent composite on the receiving side.
+    Acceptance for CompositeData: a composite with multiple slot types
+    (Array + Series + DataFrame) round-trips into an equivalent composite on
+    the receiving side — with the recursion owned by the serialiser.
     """
     from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.types.serialization import _reconstruct_one, _serialise_one
 
     image = Array(
         axes=["y", "x"],
@@ -468,12 +496,14 @@ def test_composite_hook_round_trip() -> None:
         row_count=50,
         storage_ref=StorageReference(backend="arrow", path="/tmp/peaks.arrow"),
     )
-    composite = CompositeData(slots={"image": image, "trace": trace, "peaks": peaks})
+    composite = CompositeData(
+        slots={"image": image, "trace": trace, "peaks": peaks},
+        storage_ref=_composite_ref(),
+    )
 
-    md = CompositeData._serialise_extra_metadata(composite)
-    kwargs = CompositeData._reconstruct_extra_kwargs(md)
-    rebuilt = CompositeData(**kwargs)
+    rebuilt = _reconstruct_one(_serialise_one(composite))
 
+    assert isinstance(rebuilt, CompositeData)
     assert set(rebuilt.slot_names) == {"image", "trace", "peaks"}
     assert isinstance(rebuilt.get("image"), Array)
     assert rebuilt.get("image").axes == ["y", "x"]

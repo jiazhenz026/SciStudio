@@ -63,7 +63,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ) -> PtyProcess:
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
     _active_ptys.clear()
     _engine_tab_to_run.clear()
     yield
@@ -142,7 +142,7 @@ def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypa
         captured["dangerous"] = dangerous
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
     open_engine_initiated_tab(
         title="x",
         spawn_argv=["codex", "--dangerously-bypass-approvals-and-sandbox"],
@@ -156,7 +156,7 @@ def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypa
 
 
 def test_open_engine_tab_respects_pty_cap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(ai_pty, "MAX_ACTIVE_PTYS", 1)
+    monkeypatch.setattr(ai_pty._state, "MAX_ACTIVE_PTYS", 1)
     open_engine_initiated_tab(**_spec_kw(tmp_path, run_id="rid-A"))
     with pytest.raises(RuntimeError, match="cap"):
         open_engine_initiated_tab(**_spec_kw(tmp_path, run_id="rid-B"))
@@ -172,7 +172,7 @@ def test_open_engine_tab_spawn_failure_propagates(tmp_path: Path, monkeypatch: p
     ) -> PtyProcess:
         raise FileNotFoundError("claude binary missing")
 
-    monkeypatch.setattr(ai_pty, "_spawn", boom)
+    monkeypatch.setattr(ai_pty._state, "_spawn", boom)
     with pytest.raises(FileNotFoundError):
         open_engine_initiated_tab(**_spec_kw(tmp_path))
 
@@ -293,7 +293,7 @@ def test_internal_request_tab_cap_returns_503(
     _ipc_token: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(ai_pty, "MAX_ACTIVE_PTYS", 0)
+    monkeypatch.setattr(ai_pty._state, "MAX_ACTIVE_PTYS", 0)
     resp = client.post(
         "/api/ai/pty/internal/request-tab",
         json={
@@ -323,7 +323,7 @@ def test_internal_request_tab_soft_failure_returns_error_envelope(
     def boom(**kw: Any) -> str:
         raise RuntimeError("permission_mode totally-fake")
 
-    monkeypatch.setattr(ai_pty, "open_engine_initiated_tab", boom)
+    monkeypatch.setattr(ai_pty.engine, "open_engine_initiated_tab", boom)
     resp = client.post(
         "/api/ai/pty/internal/request-tab",
         json={

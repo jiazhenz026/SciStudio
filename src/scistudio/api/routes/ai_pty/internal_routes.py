@@ -19,7 +19,8 @@ from typing import Annotated, Any
 
 from fastapi import Body, Header, HTTPException
 
-from scistudio.api.routes import ai_pty as _pkg
+from scistudio.api.routes.ai_pty import _state as _pkg
+from scistudio.api.routes.ai_pty import engine as _engine
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
 
 logger = logging.getLogger(__name__)
@@ -73,9 +74,9 @@ async def _internal_request_tab(
         raise HTTPException(status_code=400, detail="payload.spec must be a dict")
 
     try:
-        # Late-bound lookup on the package so tests can
-        # monkeypatch.setattr(ai_pty, "open_engine_initiated_tab", ...).
-        tab_id = _pkg.open_engine_initiated_tab(
+        # Late-bound lookup on the ``engine`` module so tests can
+        # monkeypatch.setattr(ai_pty.engine, "open_engine_initiated_tab", ...).
+        tab_id = _engine.open_engine_initiated_tab(
             title=str(spec.get("title", "")),
             spawn_argv=list(spec.get("spawn_argv", [])),
             cwd=str(spec.get("cwd", "")),

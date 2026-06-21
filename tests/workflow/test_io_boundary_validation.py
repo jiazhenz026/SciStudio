@@ -174,6 +174,43 @@ def test_appblock_output_validation_uses_first_runtime_selected_type() -> None:
     assert [error for error in errors if "output port 'out'" in error] == []
 
 
+def test_appblock_boundary_io_skipped_in_draft_mode() -> None:
+    # Regression: Check 10 (ADR-043 boundary IO) must honor draft mode like
+    # Checks 6 and 9. The editor autosaves with ``mode="draft"`` while the
+    # user is still configuring boundary ports — a half-configured output
+    # port (here: a Text/.bound output whose only registered capability is a
+    # saver, mirroring the frontend auto-pinning a save-direction capability)
+    # must not block the autosave. Strict mode (run start) still reports it.
+    registry = _registry(_BoundaryTextSaver)
+    workflow = _workflow(
+        "boundary_app",
+        params={"output_ports": [{"name": "out", "types": ["Text"], "extension": "bound"}]},
+    )
+
+    strict_errors = validate_workflow(workflow, registry=registry)
+    assert any("output port 'out'" in error for error in strict_errors)
+
+    draft_errors = validate_workflow(workflow, registry=registry, mode="draft")
+    assert [error for error in draft_errors if "output port 'out'" in error] == []
+
+
+def test_codeblock_input_skipped_in_draft_mode() -> None:
+    # Companion to the AppBlock draft case for the input/saver direction:
+    # a CodeBlock input port still missing its saver capability is normal
+    # mid-edit state and must not block editor autosave.
+    registry = _registry(_BoundaryTextLoader)
+    workflow = _workflow(
+        "boundary_code",
+        params={"input_ports": [{"name": "in", "types": ["Text"], "extension": "bound"}]},
+    )
+
+    strict_errors = validate_workflow(workflow, registry=registry)
+    assert any("input port 'in'" in error for error in strict_errors)
+
+    draft_errors = validate_workflow(workflow, registry=registry, mode="draft")
+    assert [error for error in draft_errors if "input port 'in'" in error] == []
+
+
 def test_codeblock_input_missing_saver_reports_validation_error() -> None:
     registry = _registry(_BoundaryTextLoader)
     workflow = _workflow(
