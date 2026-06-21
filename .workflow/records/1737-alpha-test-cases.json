@@ -414,9 +414,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "7c42b7d177dde01c1922488691511d487be74596",
+    "sha": "f425770f3e833f552277c478c88314f3b59a7d5d",
     "shas": [
-      "7c42b7d177dde01c1922488691511d487be74596"
+      "f425770f3e833f552277c478c88314f3b59a7d5d"
     ],
     "trailers": []
   },
@@ -1303,6 +1303,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:16.939675Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:16.961285Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:16.978682Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:16.997534Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.040650Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.060148Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.082699Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.104678Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.121390Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-21T20:31:17.145854Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1320,15 +1402,18 @@
     "changed_files": [
       ".workflow/records/1737-alpha-test-cases.json",
       ".workflow/records/1737-pr-body.md",
+      "packages/scistudio-blocks-imaging/tests/test_alpha_findings_imaging.py",
       "packages/scistudio-blocks-imaging/tests/test_io_coverage_image.py",
       "packages/scistudio-blocks-spectroscopy/tests/test_io_coverage_spectroscopy.py",
       "tests/blocks/code/test_alpha_codeblock_python.py",
       "tests/blocks/code/test_alpha_codeblock_r.py",
+      "tests/blocks/code/test_alpha_findings_codeblock.py",
+      "tests/blocks/io/test_alpha_findings.py",
       "tests/blocks/io/test_io_coverage_matrix.py"
     ],
-    "diff_fingerprint": "sha256:e4bc9d54bd26148fba7cab9235e326a71602f5a95cd3847be7f2276261b96698",
+    "diff_fingerprint": "sha256:c84451c8cfc579950652836aa490c1af8093c48e73010fd8e7fe8aa53f0addcc",
     "head": "HEAD",
-    "head_sha": "7c42b7d1",
+    "head_sha": "f425770f",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -1337,8 +1422,8 @@
       "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 5,
-      "test": 5,
+      "sentrux": 8,
+      "test": 8,
       "workflow_ci": 0
     }
   },
@@ -1436,6 +1521,20 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-21T20:31:17.145888Z",
+      "diff_fingerprint": "sha256:c84451c8cfc579950652836aa490c1af8093c48e73010fd8e7fe8aa53f0addcc",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.semantic_dup"
+      ]
     }
   ],
   "record_id": "1737-alpha-test-cases",
