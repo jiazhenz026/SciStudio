@@ -1,0 +1,55 @@
+{
+  "branch": "track/adr-044-subworkflow-20260621",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/subworkflow/**",
+      "src/scistudio/workflow/**",
+      "src/scistudio/api/runtime/**",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/core/lineage/**",
+      "frontend/src/components/nodes/**",
+      "tests/**",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/planning/**",
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 890,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Full ADR-044 implementation: SubWorkflowBlock authoring-only + inline flattening at run start; no-context audit + fix P1-P3; complete integration tests; Chrome e2e; READY FOR REVIEW summary PR. Owner-directed manager session 2026-06-21.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "890-adr-044-subworkflow",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "fc90ea1c-31da-4638-a74d-f5d989952bf6",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}
