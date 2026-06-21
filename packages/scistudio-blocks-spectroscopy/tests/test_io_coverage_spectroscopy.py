@@ -109,7 +109,7 @@ def _assert_dataset_equiv(src: SpectralDataset, reloaded: SpectralDataset) -> No
 @pytest.mark.parametrize("load_ext", SPECTRUM_EXTS)
 def test_spectrum_load_save_matrix(tmp_path: Path, load_ext: str, save_ext: str) -> None:
     src = _spectrum()
-    _, src_inten = _support.spectrum_arrays(src)
+    src_lam, src_inten = _support.spectrum_arrays(src)
 
     in_path = tmp_path / f"in{load_ext}"
     _save_spectrum(src, in_path)
@@ -120,8 +120,11 @@ def test_spectrum_load_save_matrix(tmp_path: Path, load_ext: str, save_ext: str)
     assert out_path.exists() and out_path.stat().st_size > 0
 
     reloaded = _load_spectrum_one(out_path)
-    _, out_inten = _support.spectrum_arrays(reloaded)
-    assert out_inten.shape == src_inten.shape
+    out_lam, out_inten = _support.spectrum_arrays(reloaded)
+    # Compare BOTH axes: a format that scrambles wavelengths but keeps
+    # intensities (or vice versa) must fail.
+    assert out_lam.shape == src_lam.shape and out_inten.shape == src_inten.shape
+    np.testing.assert_allclose(out_lam, src_lam, rtol=1e-4, atol=1e-4)
     np.testing.assert_allclose(out_inten, src_inten, rtol=1e-4, atol=1e-4)
 
 

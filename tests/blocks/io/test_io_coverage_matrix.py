@@ -34,6 +34,7 @@ from scistudio.blocks.io.loaders.load_data import LoadData
 from scistudio.blocks.io.savers.save_data import SaveData
 from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
@@ -188,6 +189,16 @@ def _assert_invariant(core_type: str, src: Any, loaded: Any) -> None:
         _assert_table_values(loaded.get_in_memory_data(), src.get_in_memory_data())
     elif core_type == "Text":
         assert loaded.content == src.content
+    elif core_type == "CompositeData":
+        # Forward-looking (the only composite IO path is broken — FIND-A — so
+        # this is reached only once that is fixed and unmarked): every child
+        # slot's values must survive.
+        assert set(loaded._slots) == set(src._slots)
+        for name in src._slots:
+            np.testing.assert_array_equal(
+                np.asarray(loaded.get(name).to_memory()),
+                np.asarray(src.get(name).to_memory()),
+            )
 
 
 # Build the parametrized (core_type, load_ext, save_ext) id-list.
@@ -305,3 +316,22 @@ def test_array_nd_roundtrip(tmp_path: Path, shape: tuple[int, ...], ext: str) ->
     # Verify the materialised payload (zarr reload restores data but not the
     # .shape attribute — FIND-D); to_memory() is the authoritative readback.
     np.testing.assert_array_equal(np.asarray(back.to_memory()), data)
+
+
+# ---------------------------------------------------------------------------
+# Artifact (opaque passthrough): bytes in must equal bytes out
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ext", [".bin", ".dat", ".json", ".csv", ".png", ".txt"])
+def test_artifact_passthrough_preserves_bytes(tmp_path: Path, ext: str) -> None:
+    raw = b"\x00\x01OPAQUE-" + ext.encode("ascii") + b"\xfe\xff\n"
+    src_path = tmp_path / f"in{ext}"
+    src_path.write_bytes(raw)
+    art = Artifact(file_path=src_path, mime_type="application/octet-stream")
+
+    out = materialise_to_file(art, tmp_path / "out", ext, filename_stem="a", registry=REG)
+    back = reconstruct_from_file(out, Artifact, registry=REG)
+
+    assert type(back).__name__ == "Artifact"
+    assert back.get_in_memory_data() == raw, f"{ext}: artifact bytes changed in round-trip"

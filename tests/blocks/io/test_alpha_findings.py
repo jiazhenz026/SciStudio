@@ -49,6 +49,7 @@ def test_find_a_composite_json_roundtrips(tmp_path: Path) -> None:
     path = materialise_to_file(comp, tmp_path, ".json", filename_stem="c", registry=REG)
     back = reconstruct_from_file(path, CompositeData, registry=REG)
     assert isinstance(back, CompositeData)
+    np.testing.assert_array_equal(np.asarray(back.get("array_slot").to_memory()), np.array([1.0, 2.0, 3.0]))
 
 
 @pytest.mark.xfail(strict=True, reason="FIND-B: tabular pickle saves the Arrow Table, loader expects the object")
