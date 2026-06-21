@@ -4,11 +4,17 @@
 import type { Connection, Edge, Node, NodeChange, useReactFlow } from "@xyflow/react";
 import { useCallback } from "react";
 
-import type { BlockSummary, WorkflowEdge } from "../../types/api";
+import type { BlockSummary, WorkflowEdge, WorkflowNode } from "../../types/api";
 
 export interface CanvasHandlersOpts {
   reactFlow: ReturnType<typeof useReactFlow>;
   edges: WorkflowEdge[];
+  /**
+   * ADR-044 — authored workflow nodes, used by `handleNodeDoubleClick` to read
+   * a subworkflow node's `config.ref.path` and block type. OPTIONAL so existing
+   * call sites compile.
+   */
+  nodes?: WorkflowNode[];
   onAddNode: (
     block: BlockSummary,
     position: { x: number; y: number },
@@ -26,12 +32,23 @@ export interface CanvasHandlersOpts {
   setDragSizes: React.Dispatch<
     React.SetStateAction<Record<string, { width: number; height: number }>>
   >;
+  /**
+   * ADR-044 §3 — open a (healthy) subworkflow node's referenced file in a
+   * canvas tab on double-click. OPTIONAL.
+   */
+  onOpenSubworkflow?: (refPath: string) => void;
+  /**
+   * ADR-044 §10 — surface the broken-ref "locate file…" affordance on
+   * double-click of a `subworkflow_broken` / unresolved node. OPTIONAL.
+   */
+  onLocateSubworkflow?: (nodeId: string) => void;
 }
 
 export function useCanvasHandlers(opts: CanvasHandlersOpts) {
   const {
     reactFlow,
     edges,
+    nodes,
     onAddNode,
     onConnect,
     onDeleteEdge,
@@ -42,6 +59,8 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     onResizeNode,
     setDragPositions,
     setDragSizes,
+    onOpenSubworkflow,
+    onLocateSubworkflow,
   } = opts;
 
   const handleNodesChange = useCallback(
@@ -173,6 +192,35 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     [onSelectNode],
   );
 
+  // ADR-044 §3 / §10 — double-clicking a subworkflow container opens its
+  // referenced file (`config.ref.path`) in a canvas tab; a broken /
+  // unresolved-ref node surfaces the "locate file…" affordance instead. All
+  // other node types ignore double-click (no behaviour change for them).
+  const handleNodeDoubleClick = useCallback(
+    (_: unknown, node: Node) => {
+      const authored = nodes?.find((candidate) => candidate.id === node.id);
+      if (!authored) return;
+      if (
+        authored.block_type !== "subworkflow" &&
+        authored.block_type !== "subworkflow_broken"
+      ) {
+        return;
+      }
+      const ref = authored.config.ref as { path?: string } | undefined;
+      const refPath = ref?.path ?? authored.resolved_ports?.ref_path ?? null;
+      const broken =
+        authored.block_type === "subworkflow_broken" ||
+        authored.resolved_ports?.broken === true ||
+        !refPath;
+      if (broken) {
+        onLocateSubworkflow?.(node.id);
+        return;
+      }
+      onOpenSubworkflow?.(refPath);
+    },
+    [nodes, onOpenSubworkflow, onLocateSubworkflow],
+  );
+
   const handleNodesDelete = useCallback(
     (deleted: Node[]) => deleted.forEach((node) => onDeleteNode(node.id)),
     [onDeleteNode],
@@ -192,6 +240,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     handleNodeDragStop,
     handleDragOver,
     handleNodeClick,
+    handleNodeDoubleClick,
     handleNodesDelete,
     handlePaneClick,
   };

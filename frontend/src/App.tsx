@@ -456,6 +456,8 @@ export default function App() {
               onUpdateNodeConfig={updateNodeConfig}
               onUpdateNodePosition={updateNodeLayout}
               onResizeNode={updateNodeSize}
+              onOpenSubworkflow={projectActions.openSubworkflow}
+              onLocateSubworkflow={projectActions.locateSubworkflow}
               readability={readability}
               bottomPanelRef={bottomPanelRef}
               bottomPanelPinned={bottomPanelPinned}

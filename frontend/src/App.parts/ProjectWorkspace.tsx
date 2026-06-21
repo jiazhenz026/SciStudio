@@ -91,6 +91,16 @@ export interface ProjectWorkspaceProps {
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   onResizeNode: (nodeId: string, size: { width: number; height: number }) => void;
+  /**
+   * ADR-044 §3 — open a subworkflow node's referenced file
+   * (`config.ref.path`) in a canvas tab on double-click.
+   */
+  onOpenSubworkflow: (refPath: string) => void;
+  /**
+   * ADR-044 §10 — broken-ref "locate file…" affordance for a
+   * `subworkflow_broken` placeholder node.
+   */
+  onLocateSubworkflow: (nodeId: string) => void;
   /** ADR-050 §3 — focus-mode + tidy-layout wiring, grouped into one prop. */
   readability: CanvasReadabilityWiring;
   // Bottom panel
@@ -191,6 +201,8 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     onUpdateNodeConfig,
     onUpdateNodePosition,
     onResizeNode,
+    onOpenSubworkflow,
+    onLocateSubworkflow,
     blockSchemas,
     readability,
   } = props;
@@ -245,6 +257,8 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       onUpdateNodeConfig={onUpdateNodeConfig}
       onUpdateNodePosition={onUpdateNodePosition}
       onResizeNode={onResizeNode}
+      onOpenSubworkflow={onOpenSubworkflow}
+      onLocateSubworkflow={onLocateSubworkflow}
       schemas={blockSchemas}
       selectedNodeId={selectedNodeId}
       focusMode={readability.focusMode}
