@@ -143,7 +143,7 @@ def _resolved_ports_for_node(runtime: ApiRuntime | None, node: Any) -> Any:
     base_dir = str(runtime.active_project.path) if runtime.active_project else "."
     ref = subworkflow_ref_path(node)
     surface = resolve_port_surface(ref, base_dir, registry=runtime.block_registry)
-    return SubworkflowPortSurface(**surface)
+    return SubworkflowPortSurface.model_validate(surface)
 
 
 def _workflow_response(

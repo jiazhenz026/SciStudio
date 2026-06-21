@@ -65,13 +65,13 @@ def resolve_port_surface(
         return surface
 
     node_by_id = {node.id: node for node in child.nodes}
-    for entries, key, direction in (
-        (exposed.inputs, "inputs", "input"),
-        (exposed.outputs, "outputs", "output"),
+    for entries, target, direction in (
+        (exposed.inputs, surface["inputs"], "input"),
+        (exposed.outputs, surface["outputs"], "output"),
     ):
         for entry in entries:
             accepted = _accepted_types(node_by_id, entry.internal, direction, registry)
-            surface[key].append({"name": entry.name, "accepted_types": accepted})
+            target.append({"name": entry.name, "accepted_types": accepted})
     return surface
 
 
