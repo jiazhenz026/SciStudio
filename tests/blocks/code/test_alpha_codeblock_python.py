@@ -28,28 +28,59 @@ from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.core.types.array import Array
 from scistudio.core.types.collection import Collection
 
-SCRIPT = """\
+# Stdlib-only .npy read/write: the CodeBlock subprocess interpreter may not
+# share the parent's third-party site-packages (the local gate parity venv
+# resolves the interpreter to a base python without numpy), so the script must
+# not import numpy. Real CI (system install) and the app both have numpy, but
+# stdlib keeps the test robust everywhere.
+SCRIPT = r"""
+import ast
 import os
+import struct
 from pathlib import Path
-import numpy as np
 
 
 def _exchange(kind):
-    env = os.environ.get(f"SCISTUDIO_{kind.upper()}_DIR")
+    env = os.environ.get("SCISTUDIO_%s_DIR" % kind.upper())
     if env:
         return Path(env)
-    cands = sorted(Path("exchange").glob(f"*/*/{kind}"), key=lambda p: p.stat().st_mtime)
+    cands = sorted(Path("exchange").glob("*/*/%s" % kind), key=lambda p: p.stat().st_mtime)
     if cands:
         return cands[-1]
-    raise SystemExit(f"no {kind} dir")
+    raise SystemExit("no %s dir" % kind)
+
+
+def read_npy_f8(path):
+    with open(path, "rb") as f:
+        assert f.read(6) == b"\x93NUMPY"
+        f.read(2)  # version
+        hlen = struct.unpack("<H", f.read(2))[0]
+        meta = ast.literal_eval(f.read(hlen).decode("latin1"))
+        shape = meta["shape"]
+        n = 1
+        for s in shape:
+            n *= s
+        vals = list(struct.unpack("<%dd" % n, f.read(n * 8)))
+    return shape, vals
+
+
+def write_npy_f8(path, shape, vals):
+    header = "{'descr': '<f8', 'fortran_order': False, 'shape': %s, }" % (repr(tuple(shape)),)
+    pad = (64 - (10 + len(header) + 1) % 64) % 64
+    header = header + " " * pad + "\n"
+    with open(path, "wb") as f:
+        f.write(b"\x93NUMPY\x01\x00")
+        f.write(struct.pack("<H", len(header)))
+        f.write(header.encode("latin1"))
+        f.write(struct.pack("<%dd" % len(vals), *vals))
 
 
 inputs, outputs = _exchange("inputs"), _exchange("outputs")
 out_dir = outputs / "scaled"
 out_dir.mkdir(parents=True, exist_ok=True)
 for src in sorted((inputs / "values").glob("*.npy")):
-    arr = np.load(src)
-    np.save(out_dir / f"{src.stem}.npy", arr.astype("float64") * 2.0 + 1.0)
+    shape, vals = read_npy_f8(src)
+    write_npy_f8(out_dir / (src.stem + ".npy"), shape, [v * 2.0 + 1.0 for v in vals])
 """
 
 
