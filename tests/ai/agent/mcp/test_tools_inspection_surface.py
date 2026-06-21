@@ -205,17 +205,19 @@ def test_write_submodule_update_block_config_raises_on_missing_file(ctx: _StubRu
 def test_max_preview_bytes_monkeypatch_propagates_through_helpers(
     ctx: _StubRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Critical surface contract: monkeypatching ``tools_inspection._MAX_PREVIEW_BYTES``
-    must propagate into the preview helpers (which now live in ``_preview``).
+    """Critical surface contract: monkeypatching the cap propagates into the
+    preview helpers (which live in ``_preview``).
 
     Pre-refactor, the cap lived in the same module as the helpers and a
-    straight ``monkeypatch.setattr(tools_inspection, ...)`` worked. After
-    decomposition the helpers must look up the cap on the package
-    namespace at call time. This test pins that contract.
+    straight ``monkeypatch.setattr(tools_inspection, ...)`` worked. After the
+    decomposition the helpers look up the cap on the ``_helpers`` leaf at call
+    time (round-4 no-cycles: reading it from the package would re-introduce a
+    ``_preview -> tools_inspection`` child -> parent cycle edge). This test
+    pins that contract.
     """
-    # Use a tiny PNG so the preview path itself succeeds while we verify
-    # the cap-lookup goes through the package binding.
-    monkeypatch.setattr(tools_inspection, "_MAX_PREVIEW_BYTES", 4)
+    # Use a tiny PNG so the preview path itself succeeds while we verify the
+    # cap-lookup goes through the ``_helpers`` leaf binding.
+    monkeypatch.setattr(tools_inspection._helpers, "_MAX_PREVIEW_BYTES", 4)
 
     from scistudio.ai.agent.mcp.tools_inspection._preview import _max_preview_bytes
 

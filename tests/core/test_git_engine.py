@@ -117,6 +117,37 @@ def test_no_circular_import() -> None:
         assert "OK" in proc.stdout
 
 
+def test_head_state_extracted_to_state_leaf() -> None:
+    """Round-4 no-cycles: ``HeadState`` moved to the ``state`` leaf module.
+
+    ``_status_ops._head_state`` constructs ``HeadState`` and previously
+    lazy-imported it from ``git_engine`` inside the function body to dodge an
+    at-import cycle (``git_engine`` binds ``_status_ops`` at class-body time).
+    Hosting ``HeadState`` in the ``state`` leaf lets ``_status_ops`` import it
+    at module level, removing the ``_status_ops -> git_engine`` edge entirely.
+    """
+    import ast
+    import inspect
+
+    from scistudio.core.versioning import _status_ops, git_engine, state
+
+    # Canonical definition lives in the leaf; re-export identity preserved.
+    assert state.HeadState.__module__ == "scistudio.core.versioning.state"
+    assert git_engine.HeadState is state.HeadState
+
+    # ``_status_ops`` must not import ``git_engine`` for ``HeadState`` anywhere
+    # (module-level or lazy function-body). The only remaining reference is the
+    # ``TYPE_CHECKING`` ``GitEngine`` annotation import.
+    tree = ast.parse(inspect.getsource(_status_ops))
+    git_engine_imports = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "scistudio.core.versioning.git_engine"
+    ]
+    imported_names = {alias.name for node in git_engine_imports for alias in node.names}
+    assert imported_names == {"GitEngine"}, imported_names
+
+
 # ---------------------------------------------------------------------------
 # Repository lifecycle
 # ---------------------------------------------------------------------------

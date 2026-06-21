@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -148,10 +147,11 @@ class TestNoCircularImport:
 
     The pre-#1335 graph had ``core.types <-> core.storage.backend_router`` as a
     10-module strongly connected component because ``backend_router`` imported
-    six concrete ``core.types`` classes inside ``_build_default_router``. The
-    surgical fix in #1335 moves those imports to
-    ``scistudio.core.storage._defaults`` so ``backend_router`` no longer has
-    *any* AST edge into ``core.types.*``.
+    six concrete ``core.types`` classes inside ``_build_default_router``. #1335
+    moved those imports to ``scistudio.core.storage._defaults``; #1342 (round-4
+    no-cycles) then fully inverted the edge — the default wiring now lives in
+    ``core.types._backend_defaults`` and ``backend_router`` holds only a builder
+    callback — so ``backend_router`` has *no* AST edge into ``core.types.*``.
 
     This test spawns a fresh Python subprocess for each import order so the
     module cache is clean, and asserts the import succeeds either way.
@@ -185,42 +185,55 @@ class TestNoCircularImport:
         assert result.stdout.strip() == "ok"
 
 
-class TestBackendRouterHasNoTypesTopLevelImport:
+class TestBackendRouterHasNoTypesImport:
     """Lock in the cycle-free state of ``backend_router.py``.
 
-    Regression for #1335 — ``backend_router.py`` must have ZERO module-top
-    imports of ``scistudio.core.types.*`` or ``scistudio.core.storage._defaults``.
-    The only ``_defaults`` import is the lazy one inside ``get_router()``'s
-    function body. This guard prevents a future refactor from silently
-    re-introducing the cycle by pulling a type or ``_defaults`` import back to
-    module top level.
+    Regression for #1335 and #1342 — ``backend_router.py`` must not import
+    ``scistudio.core.types.*`` *anywhere* (module-top OR a lazy function body).
+    #1342 (round-4 no-cycles) removed the residual ``backend_router ->
+    _defaults -> core.types`` edge by inverting it: the default
+    ``type -> backend`` wiring now lives in ``core.types._backend_defaults``,
+    which hands ``get_router`` a builder *callback* via
+    :func:`set_default_builder`. ``_defaults`` no longer exists. This guard
+    prevents a future refactor from silently re-introducing the cycle.
     """
 
-    def test_backend_router_has_no_types_top_level_import(self) -> None:
+    def test_backend_router_has_no_types_import_anywhere(self) -> None:
+        import ast
+
         from scistudio.core.storage import backend_router
 
         source = Path(backend_router.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
 
-        # Strip the get_router function body so the lazy import inside it
-        # doesn't count as a "top-level" import.
-        body_match = re.search(
-            r"^def get_router\(.*?\n((?: {4}.*?\n|\n)+)",
-            source,
-            re.MULTILINE,
-        )
-        assert body_match is not None, "Could not locate get_router() body in source"
-        source_without_get_router_body = source.replace(body_match.group(1), "")
+        # AST-based so the module's own docstrings/comments (which mention
+        # ``core.types._backend_defaults`` for explanation) do not trip the
+        # guard — only real import statements count.
+        imported: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imported.append(node.module)
+            elif isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names)
 
-        forbidden_patterns = [
-            r"^from\s+scistudio\.core\.types",
-            r"^import\s+scistudio\.core\.types",
-            r"^from\s+scistudio\.core\.storage\._defaults",
-            r"^import\s+scistudio\.core\.storage\._defaults",
+        forbidden = [
+            mod
+            for mod in imported
+            if mod.startswith("scistudio.core.types") or mod.startswith("scistudio.core.storage._defaults")
         ]
-        for pattern in forbidden_patterns:
-            matches = re.findall(pattern, source_without_get_router_body, re.MULTILINE)
-            assert not matches, (
-                f"backend_router.py has forbidden module-top import matching "
-                f"{pattern!r}: {matches!r}. This re-introduces the #1335 "
-                f"core.types <-> backend_router cycle."
-            )
+        assert not forbidden, (
+            f"backend_router.py imports {forbidden!r} (module-top or lazy). This "
+            f"re-introduces the core.types <-> backend_router cycle (#1335 / #1342)."
+        )
+
+    def test_default_builder_callback_is_registered_by_types_side(self) -> None:
+        # Importing core.types runs its __init__, which imports
+        # _backend_defaults, which calls set_default_builder. After that the
+        # default router resolves the six core types — without backend_router
+        # ever importing a concrete type.
+        import scistudio.core.types  # noqa: F401
+        from scistudio.core.storage import backend_router
+        from scistudio.core.types.array import Array
+
+        assert backend_router._default_builder is not None
+        assert backend_router.get_router().resolve(Array)[0] == "zarr"

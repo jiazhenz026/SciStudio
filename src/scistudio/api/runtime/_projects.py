@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_known_projects(self: ApiRuntime) -> None:
-    from . import KnownProject
+    from .models import KnownProject
 
     if not self.known_projects_path.exists():
         self.known_projects = {}
@@ -170,7 +170,7 @@ def create_project(
     description: str = "",
     parent_path: str | None = None,
 ) -> KnownProject:
-    from . import KnownProject
+    from .models import KnownProject
 
     parent_dir = _safe_parent_dir(parent_path)
     project_path = parent_dir / _slugify(name)
@@ -278,7 +278,7 @@ def list_projects(self: ApiRuntime) -> list[KnownProject]:
 
 
 def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProject:
-    from . import KnownProject
+    from .models import KnownProject
 
     project_file = project_path / "project.yaml"
     if not project_file.exists():

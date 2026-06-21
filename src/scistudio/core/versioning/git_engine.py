@@ -28,17 +28,16 @@ property), the repository-lifecycle methods (``init_repository``,
 ``is_repository``), and the ~14 binding lines that wire the sibling
 functions into the public method surface.
 
-:class:`HeadState` and :data:`MergeResult` remain defined in this module
-so that ADR-039's governed contract claims
-``scistudio.core.versioning.git_engine.HeadState`` /
-``scistudio.core.versioning.git_engine.MergeResult`` resolve to real
-symbol facts (a re-exported alias would not satisfy
-``audit.closure``).
+:data:`MergeResult` (a ``Literal`` alias) remains defined in this module.
+:class:`HeadState` moved to the leaf module
+:mod:`scistudio.core.versioning.state` (round-4 no-cycles) so that
+``_status_ops`` imports it from a sibling leaf instead of lazy-importing
+``git_engine``; it is re-exported here, and ADR-039 governs the canonical
+``scistudio.core.versioning.state.HeadState`` definition.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -51,26 +50,23 @@ from scistudio.core.versioning import (
 )
 from scistudio.core.versioning.errors import GitError
 from scistudio.core.versioning.git_binary import GitBinary
+from scistudio.core.versioning.state import HeadState
 
 # ---------------------------------------------------------------------------
 # Public value types (ADR-039)
 # ---------------------------------------------------------------------------
 #
-# ``HeadState`` and ``MergeResult`` are defined here so that the canonical
-# ADR-039 governed contracts ``scistudio.core.versioning.git_engine.HeadState``
-# and ``scistudio.core.versioning.git_engine.MergeResult`` resolve to real
-# symbol facts (a re-exported alias would not — see ADR-046 Addendum 1 §3).
-# ``_status_ops._head_state`` lazy-imports ``HeadState`` from this module
-# inside its body, so the at-import cycle is naturally broken.
-
-
-@dataclass(frozen=True)
-class HeadState:
-    """Result of :meth:`GitEngine.head_state` — used by ADR-038 join."""
-
-    commit_sha: str
-    dirty: bool
-
+# ``HeadState`` is defined in :mod:`scistudio.core.versioning.state` and
+# re-exported here so ``scistudio.core.versioning.git_engine.HeadState``
+# continues to resolve for existing importers. The extraction lets
+# ``_status_ops`` import ``HeadState`` from the leaf ``state`` module at
+# module level instead of lazy-importing ``git_engine`` from inside
+# ``_head_state`` — that lazy edge previously closed an at-import cycle
+# (round-4 no-cycles, mirroring the #1337 ``errors`` extraction). The
+# canonical ADR-039 governed contract is now ``state.HeadState``.
+#
+# ``MergeResult`` stays here: it is a ``Literal`` alias, not part of any
+# import cycle.
 
 MergeResult = Literal["fast-forward", "clean", "conflict"]
 

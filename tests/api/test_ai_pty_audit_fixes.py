@@ -73,7 +73,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ) -> PtyProcess:
         return _RecordingPty(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
-    monkeypatch.setattr(ai_pty, "_spawn", fake)
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
     _active_ptys.clear()
     _engine_tab_to_run.clear()
     _engine_run_to_run_dir.clear()
@@ -137,7 +137,7 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
         spawn_calls.append(kwargs)
         return real_spawn(**kwargs)
 
-    monkeypatch.setattr(ai_pty, "_spawn", counting_spawn)
+    monkeypatch.setattr(ai_pty._state, "_spawn", counting_spawn)
 
     # 1. Pre-spawn engine-initiated PTY.
     tab_id = open_engine_initiated_tab(

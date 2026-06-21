@@ -42,13 +42,16 @@ def test_public_router_symbols_preserved() -> None:
 
 
 def test_module_private_monkeypatch_seams_preserved() -> None:
-    """Mutable seams that the existing test suite monkeypatches on the package.
+    """Mutable seams resolvable on the package.
 
-    These are private (leading underscore) but the test contract relies
-    on them being attribute-resolvable on
-    ``scistudio.api.routes.ai_pty``. Listed seams sourced from
-    ``tests/api/test_ai_pty*.py`` and
-    ``scistudio.api.app.lifespan``.
+    These are private (leading underscore) but the public-surface contract
+    relies on them being attribute-resolvable on
+    ``scistudio.api.routes.ai_pty`` (external readers + ``app.lifespan``).
+    Round-4 no-cycles moved their *definitions* into the ``_state`` leaf;
+    they are re-exported here, so they stay resolvable on the package. Note
+    the test suite now *patches* them on ``ai_pty._state`` (see
+    ``test_seams_resolve_to_state_leaf``), because that is where the route
+    handlers read them at call time.
     """
     from scistudio.api.routes import ai_pty
 
@@ -65,6 +68,43 @@ def test_module_private_monkeypatch_seams_preserved() -> None:
     ]
     missing = [name for name in monkeypatch_seams if not hasattr(ai_pty, name)]
     assert not missing, f"Missing monkeypatch seams on ai_pty package: {missing}"
+
+
+def test_seams_resolve_to_state_leaf() -> None:
+    """Round-4 no-cycles: shared seams live in the ``_state`` leaf.
+
+    The sub-modules used to read the shared state / ``_spawn`` seam back
+    through ``from scistudio.api.routes import ai_pty as _pkg`` (a
+    child -> parent import that closed an at-import cycle around the package
+    facade). They now read the ``_state`` leaf instead. This test locks that:
+
+    * the package re-exports are the *same objects* as the leaf's, so the
+      public surface and in-place mutations are unaffected; and
+    * no sub-module imports the package back as ``_pkg`` (the cycle edge).
+    """
+    import ast
+    import importlib
+    import pkgutil
+
+    from scistudio.api.routes import ai_pty
+    from scistudio.api.routes.ai_pty import _state
+
+    # Re-export identity: patching/mutating either side is equivalent.
+    for name in ("_spawn", "router", "_active_ptys", "_engine_tab_to_run", "MAX_ACTIVE_PTYS"):
+        assert getattr(ai_pty, name) is getattr(_state, name), name
+
+    # No sub-module re-introduces the child -> parent cycle edge. Use AST so a
+    # docstring mentioning the old pattern does not trip the check.
+    for mod_info in pkgutil.iter_modules(ai_pty.__path__):
+        module = importlib.import_module(f"scistudio.api.routes.ai_pty.{mod_info.name}")
+        tree = ast.parse(inspect.getsource(module))
+        imports_package = any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == "scistudio.api.routes"
+            and any(alias.name == "ai_pty" for alias in node.names)
+            for node in ast.walk(tree)
+        )
+        assert not imports_package, f"{mod_info.name} imports the package back (re-introduces the cycle)"
 
 
 def test_router_paths_match_pre_refactor() -> None:

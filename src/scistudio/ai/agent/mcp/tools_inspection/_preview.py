@@ -7,8 +7,11 @@ response budget via bounded reads (Zarr slicing, Parquet/CSV batch iteration)
 so previews never intentionally load a whole large payload.
 
 The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
-parent ``tools_inspection`` package at call time so tests that
-monkeypatch the package-level binding reach the real call sites.
+``_helpers`` leaf module at call time so tests that monkeypatch it reach
+the real call sites. Reading it from ``_helpers`` (rather than back through
+the parent ``tools_inspection`` package) keeps this module off the
+child -> parent import edge that previously closed a package-facade cycle
+(round-4 no-cycles).
 """
 
 from __future__ import annotations
@@ -28,12 +31,14 @@ from scistudio.ai.agent.mcp.tools_inspection._helpers import (
 def _max_preview_bytes() -> int:
     """Return the active 8 MiB cap, honouring runtime monkeypatches.
 
-    Tests rebind ``tools_inspection._MAX_PREVIEW_BYTES`` to exercise the
-    cap on small fixtures; deferring the lookup keeps that contract.
+    Tests rebind ``tools_inspection._helpers._MAX_PREVIEW_BYTES`` to
+    exercise the cap on small fixtures; the late-bound lookup on the
+    ``_helpers`` leaf keeps that contract without importing the parent
+    package back (round-4 no-cycles).
     """
-    from scistudio.ai.agent.mcp import tools_inspection as _pkg
+    from scistudio.ai.agent.mcp.tools_inspection import _helpers
 
-    return int(_pkg._MAX_PREVIEW_BYTES)
+    return int(_helpers._MAX_PREVIEW_BYTES)
 
 
 def _grayscale_png(matrix: Any) -> bytes:

@@ -6,17 +6,21 @@ returns typed ``DataObject`` instances, not ``ViewProxy``).
 This module owns :func:`_reconstruct_one` and :func:`_serialise_one` —
 the helpers that round-trip a single :class:`~scistudio.core.types.base.DataObject`
 through the JSON wire format used by the engine↔worker subprocess
-boundary. :class:`~scistudio.core.types.composite.CompositeData`'s
-``_reconstruct_extra_kwargs`` / ``_serialise_extra_metadata`` hook pair
-(T-013) imports these helpers via lazy in-method imports to recursively
-reconstruct/serialise nested slots.
+boundary.
 
 The functions delegate to each base class's
 ``_reconstruct_extra_kwargs`` / ``_serialise_extra_metadata`` classmethod
 hooks (T-013) via polymorphic class lookup. They never know about the
-specific ``Array`` / ``Series`` / ``DataFrame`` / ``Text`` / ``Artifact``
-/ ``CompositeData`` surface — the per-class knowledge lives on the base
-classes themselves.
+scalar per-class surface of ``Array`` / ``Series`` / ``DataFrame`` /
+``Text`` / ``Artifact`` — that knowledge lives on the base classes
+themselves.
+
+The one exception is :class:`~scistudio.core.types.composite.CompositeData`,
+whose slots are nested ``DataObject``s. Round-4 no-cycles (#1342): the
+serialiser owns that recursion directly (``_serialise_one`` /
+``_reconstruct_one`` handle the ``CompositeData`` case) so the type does
+not import the serialiser back — that ``composite -> serialisation`` edge
+closed a core.types-internal import cycle.
 
 Per Open Question 1 of the Phase 10 implementation standards doc, this
 module lives in :mod:`scistudio.core.types.serialization` rather than in
@@ -248,6 +252,18 @@ def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
     if hasattr(cls, "_reconstruct_extra_kwargs"):
         extra_kwargs = cls._reconstruct_extra_kwargs(md)
 
+    # Step 6b: CompositeData slot recursion — owned by the serialiser
+    # (round-4 no-cycles #1342), mirroring _serialise_one above so the type
+    # does not import the serialiser back.
+    from scistudio.core.types.composite import CompositeData
+
+    if issubclass(cls, CompositeData):
+        slot_payloads = md.get("slots", {}) or {}
+        extra_kwargs = {
+            **extra_kwargs,
+            "slots": {slot_name: _reconstruct_one(slot_payload) for slot_name, slot_payload in slot_payloads.items()},
+        }
+
     # Step 7: construct. Wrap the call in a try/except so any failure
     # (e.g. Array axes validation, missing required kwarg on a plugin
     # subclass) surfaces with the class name attached.
@@ -326,6 +342,16 @@ def _serialise_one(obj: DataObject) -> dict[str, Any]:
     cls = type(obj)
     if hasattr(cls, "_serialise_extra_metadata"):
         md.update(cls._serialise_extra_metadata(obj))
+
+    # CompositeData is the one core type that nests other DataObjects in its
+    # slots. Round-4 no-cycles (#1342): the serialiser owns that recursion so
+    # the type never imports the serialiser back — that ``composite ->
+    # serialisation`` edge closed a core.types-internal import cycle
+    # (composite <-> serialisation <-> registry).
+    from scistudio.core.types.composite import CompositeData
+
+    if isinstance(obj, CompositeData):
+        md["slots"] = {slot_name: _serialise_one(slot_obj) for slot_name, slot_obj in obj._slots.items()}
 
     # Storage reference envelope. ADR-031 Addendum 1: reject None
     # storage_ref unless this is an Artifact with file_path (path-only transport).

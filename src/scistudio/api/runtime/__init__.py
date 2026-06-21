@@ -37,21 +37,18 @@ import os
 import threading
 import time
 from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
 from scistudio.api.file_contracts import FILE_ENTITY_CLASS
 from scistudio.blocks.registry import BlockRegistry
-from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.registry import TypeRegistry
-from scistudio.engine.checkpoint import CheckpointManager
+from scistudio.engine.event_logger import install_event_logger
 from scistudio.engine.events import EventBus
 from scistudio.engine.resources import ResourceManager
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
-from scistudio.engine.scheduler import DAGScheduler
-from scistudio.utils.event_logger import install_event_logger
 
 from . import _data, _projects, _runs, _workflows
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
@@ -61,6 +58,12 @@ from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 # previewer subsystem no longer imports up into the API layer. Only the
 # API-specific ``_infer_type_name_from_ref`` remains here.
 from ._preview_image import _infer_type_name_from_ref
+
+# #1597 / round-4 no-cycles: the plain data records live in the ``models``
+# leaf module (which imports nothing from this package) and are re-exported
+# here so the historical ``scistudio.api.runtime.<Name>`` surface and the
+# griffe facts are preserved while the child -> parent import cycle is broken.
+from .models import DataRecord, KnownProject, WorkflowRun
 
 logger = logging.getLogger("scistudio.api.runtime")
 WORKFLOW_ENTITY_CLASS = "workflow"
@@ -209,57 +212,14 @@ class _BoundedRegistry(dict[_K, _V]):
 
 
 # ----------------------------------------------------------------------
-# Dataclasses owned by ``ApiRuntime``
+# Runtime-owned helpers and signatures
 #
-# Defined at package-level so griffe emits canonical facts at
-# ``scistudio.api.runtime.<Name>`` rather than a sub-module path.
+# The plain data records (``KnownProject`` / ``DataRecord`` / ``WorkflowRun``)
+# moved to the ``models`` leaf module (#1597 / round-4 no-cycles) and are
+# re-exported above. The eviction predicate and the first-party write
+# signature stay here because they are bound into ``ApiRuntime``'s registry
+# wiring directly.
 # ----------------------------------------------------------------------
-
-
-@dataclass
-class KnownProject:
-    """Persisted metadata for a known project workspace."""
-
-    id: str
-    name: str
-    path: str
-    description: str = ""
-    last_opened: str | None = None
-
-
-@dataclass
-class DataRecord:
-    """Opaque registry entry for a previewable data object."""
-
-    id: str
-    ref: StorageReference
-    type_name: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-    # ADR-027 D2 / #407: full type chain from the worker subprocess wire format,
-    # e.g. ["DataObject", "Array", "Image"]. Used by the routed previewer target
-    # resolution to resolve plugin types via TypeRegistry instead of relying on
-    # class name equality.
-    type_chain: list[str] = field(default_factory=list)
-
-
-@dataclass
-class WorkflowRun:
-    """Track a live scheduler task for a workflow.
-
-    ADR-039 §3.4 / §3.4a: ``workflow_git_commit`` captures the HEAD SHA of
-    the project's git repo at workflow-start time (post pre-run auto-commit
-    when the working tree was dirty). It is the ADR-038 ``runs.workflow_git_commit``
-    join key. Populated by :meth:`ApiRuntime.start_workflow` end-to-end; the
-    LineageRecorder (ADR-038) reads this when persisting the ``runs`` row.
-
-    The field is ``None`` only when the project is not a git repository
-    (degraded mode per ADR-039 §3.9) or auto-commit failed both ways.
-    """
-
-    scheduler: DAGScheduler
-    task: asyncio.Task[None]
-    checkpoint_manager: CheckpointManager
-    workflow_git_commit: str | None = None
 
 
 def _run_is_evictable(_key: str, run: WorkflowRun) -> bool:

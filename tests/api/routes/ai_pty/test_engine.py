@@ -88,7 +88,7 @@ def test_open_engine_initiated_tab_honours_monkeypatched_cap(
     intact — the same contract the existing
     test_ai_pty_engine_spawn.py relies on.
     """
-    monkeypatch.setattr(ai_pty, "MAX_ACTIVE_PTYS", 0)
+    monkeypatch.setattr(ai_pty._state, "MAX_ACTIVE_PTYS", 0)
     with pytest.raises(RuntimeError, match="PTY cap"):
         ai_pty.open_engine_initiated_tab(
             title="t",

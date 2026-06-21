@@ -267,20 +267,26 @@ filterwarnings = [
 
 [tool.importlinter]
 root_packages = ["scistudio"]
+# Round-4 no-cycles: count only imports that execute at runtime. A
+# ``TYPE_CHECKING``-guarded import is a type-annotation reference, not a real
+# module-load dependency, so it can never cause an import cycle or a real
+# layering inversion. Excluding it matches the project's agreed "no-cycles"
+# definition (the failure mode we guard against is a circular *import*, i.e. a
+# module-load crash) and keeps annotation back-references (e.g. a bound-method
+# module typing its owner class) from being flagged.
+exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
 name = "Core must not depend on blocks, engine, api, ai, or workflow"
 type = "forbidden"
 source_modules = ["scistudio.core"]
 forbidden_modules = ["scistudio.blocks", "scistudio.engine", "scistudio.api", "scistudio.ai", "scistudio.workflow"]
-# ADR-038 §3.2: LineageRecorder lives in core/lineage/ but observes the
-# engine EventBus. The actual import is TYPE_CHECKING-only — event-name
-# strings are hardcoded in core to avoid runtime coupling, and runtime
-# objects (EventBus, EngineEvent) arrive via constructor injection. The
-# type-shape reference is unavoidable for the type checker.
-ignore_imports = [
-    "scistudio.core.lineage.recorder -> scistudio.engine.events",
-]
+# ADR-038 §3.2: ``LineageRecorder`` (in core/lineage/) references the engine
+# ``EventBus`` / ``EngineEvent`` types only under ``TYPE_CHECKING`` — event-name
+# strings are hardcoded in core to avoid runtime coupling, and runtime objects
+# arrive via constructor injection. That type-only edge no longer needs an
+# ``ignore_imports`` carve-out: ``exclude_type_checking_imports`` (top of this
+# section) already drops it from the graph.
 
 [[tool.importlinter.contracts]]
 name = "Blocks must not depend on engine, api, or ai services"
@@ -330,6 +336,108 @@ forbidden_modules = ["scistudio.api", "scistudio.ai"]
 ignore_imports = [
     "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
 ]
+
+# ---------------------------------------------------------------------------
+# Round-4 no-cycles: complete the reverse-dependency coverage. The three
+# contracts above only checked core/blocks/engine as sources; the lower/側
+# layers below were unchecked, which let real inversions slip through (e.g.
+# the bottom ``utils`` layer importing ``core``/``engine``). These contracts
+# close that gap.
+# ---------------------------------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "Utils is the bottom layer — must not depend on higher layers"
+type = "forbidden"
+source_modules = ["scistudio.utils"]
+forbidden_modules = [
+    "scistudio.core",
+    "scistudio.engine",
+    "scistudio.blocks",
+    "scistudio.workflow",
+    "scistudio.ai",
+    "scistudio.api",
+    "scistudio.previewers",
+]
+# #1729: ``utils.axis_iter`` (ADR-027 D3 ``iterate_over_axes``) is documented
+# public API consumed by the imaging plugin, so it stays in ``utils`` for now
+# even though it lazily reads the core zarr backend. Tracked for relocation to
+# ``core`` at #1729; carve out the edges until then.
+ignore_imports = [
+    "scistudio.utils.axis_iter -> scistudio.core.storage.zarr_backend",
+    "scistudio.utils.axis_iter -> scistudio.core.storage.ref",
+    "scistudio.utils.axis_iter -> scistudio.core.storage.flush_context",
+]
+
+[[tool.importlinter.contracts]]
+name = "Workflow must not depend on ai or api"
+type = "forbidden"
+source_modules = ["scistudio.workflow"]
+forbidden_modules = ["scistudio.ai", "scistudio.api"]
+# Same accepted lazy leaf edge carved out in the Blocks and Engine contracts
+# above: ``workflow.validator -> blocks.registry`` transitively reaches
+# ``blocks.ai.ai_block -> ai.agent.terminal`` through the registry's per-run
+# block scan. Workflow does not depend on ai services directly; it validates
+# against the block registry, which scans every block (incl. the AI block).
+ignore_imports = [
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+]
+
+[[tool.importlinter.contracts]]
+name = "AI must not depend on api"
+type = "forbidden"
+source_modules = ["scistudio.ai"]
+forbidden_modules = ["scistudio.api"]
+
+[[tool.importlinter.contracts]]
+name = "Previewers must not depend on engine, blocks, workflow, ai, or api"
+type = "forbidden"
+source_modules = ["scistudio.previewers"]
+forbidden_modules = [
+    "scistudio.engine",
+    "scistudio.blocks",
+    "scistudio.workflow",
+    "scistudio.ai",
+    "scistudio.api",
+]
+
+# ---------------------------------------------------------------------------
+# Round-4 no-cycles (#1341): no import cycles among a package's own siblings.
+# Locks in this round's cycle fixes. ``exclude_type_checking_imports`` (above)
+# keeps annotation back-references from tripping these. The big ``blocks``
+# sibling SCC (registry auto-registration scanning concrete block classes via
+# lazy imports) is deliberately NOT asserted: it is an accepted, load-safe
+# plugin-scan pattern that is acyclic at module-load time.
+# ---------------------------------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "core.types submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.core.types"]
+
+[[tool.importlinter.contracts]]
+name = "core.storage submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.core.storage"]
+
+[[tool.importlinter.contracts]]
+name = "core.versioning submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.core.versioning"]
+
+[[tool.importlinter.contracts]]
+name = "api.runtime submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.api.runtime"]
+
+[[tool.importlinter.contracts]]
+name = "api.routes.ai_pty submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.api.routes.ai_pty"]
+
+[[tool.importlinter.contracts]]
+name = "ai.agent.mcp.tools_inspection submodules are acyclic"
+type = "acyclic_siblings"
+ancestors = ["scistudio.ai.agent.mcp.tools_inspection"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
