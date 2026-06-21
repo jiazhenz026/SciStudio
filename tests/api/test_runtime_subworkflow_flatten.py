@@ -152,6 +152,16 @@ def test_get_workflow_marks_broken_ref(client: TestClient, opened_project: Path)
     assert sw_node["resolved_ports"]["broken"] is True
 
 
+def test_execute_route_rejects_broken_ref_with_422(client: TestClient, opened_project: Path) -> None:
+    """FR-010 / US6.3: executing a workflow with an unresolved ref returns a clear 422, not 500."""
+    runtime = client.app.state.runtime
+    _write_workflow(runtime, "parent", _parent("subworkflows/missing.yaml"))
+
+    response = client.post("/api/workflows/parent/execute")
+    assert response.status_code == 422, response.text
+    assert "could not be resolved" in response.text
+
+
 def test_get_workflow_by_path_opens_subworkflow_file(client: TestClient, opened_project: Path) -> None:
     """US1 AS3 / P1-1: a subworkflow file under subworkflows/ opens by project-relative path."""
     _write_subworkflow(opened_project, "child.yaml", _CHILD)

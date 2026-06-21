@@ -582,6 +582,12 @@ async def execute_workflow(
         # #1525: a live run already exists; reject instead of silently
         # orphaning it by starting a second scheduler.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        # ADR-044 FR-010 / US6.3 (and run-start validation generally): a
+        # graph that fails strict validation at start — e.g. an unresolved
+        # SubWorkflowBlock reference or a reference cycle — is rejected before
+        # dispatch with a clear message rather than surfacing as a 500.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
 
 
