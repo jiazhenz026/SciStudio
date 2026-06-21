@@ -5,9 +5,12 @@ materialised to ``inputs/values/*.npy``; the script computes
 ``out = in*2 + 1`` and writes ``outputs/scaled/*.npy``; the runtime
 reconstructs the output Array. Verifies the transform round-trips.
 
-The script discovers the exchange dirs via ``SCISTUDIO_*_DIR`` env vars
-when present and otherwise globs the newest exchange dir under cwd
-(workaround for FIND-F: the Python backend injects no exchange env).
+The Python backend injects no ``SCISTUDIO_*_DIR`` env (FIND-F), so the
+script reads those vars when present and otherwise globs the exchange
+dir under cwd. This test pins them deterministically (via the runtime's
+own layout helper) through ``environment_variables`` so it is immune to
+``SCISTUDIO_*`` leaked into ``os.environ`` by sibling tests under
+``pytest -n auto``.
 """
 
 from __future__ import annotations
@@ -16,9 +19,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from scistudio.blocks.code.code_block import CodeBlock
+from scistudio.blocks.code.exchange import create_codeblock_exchange_layout
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.array import Array
 from scistudio.core.types.collection import Collection
@@ -30,15 +33,12 @@ import numpy as np
 
 
 def _exchange(kind):
-    # FIND-F: the Python backend injects no SCISTUDIO_*_DIR env, so glob the
-    # exchange dir under the project cwd first. A SCISTUDIO_*_DIR in the env is
-    # only a stale leak from another run, so fall back to it last.
-    cands = sorted(Path("exchange").glob(f"*/*/{kind}"), key=lambda p: p.stat().st_mtime)
-    if cands:
-        return cands[-1]
     env = os.environ.get(f"SCISTUDIO_{kind.upper()}_DIR")
     if env:
         return Path(env)
+    cands = sorted(Path("exchange").glob(f"*/*/{kind}"), key=lambda p: p.stat().st_mtime)
+    if cands:
+        return cands[-1]
     raise SystemExit(f"no {kind} dir")
 
 
@@ -51,20 +51,19 @@ for src in sorted((inputs / "values").glob("*.npy")):
 """
 
 
-@pytest.fixture
-def _registry() -> BlockRegistry:
-    reg = BlockRegistry()
-    reg.scan(include_monorepo=False)
-    return reg
-
-
-def test_python_codeblock_scales_array(tmp_path: Path, _registry: BlockRegistry) -> None:
+def test_python_codeblock_scales_array(tmp_path: Path) -> None:
     project = tmp_path
     (project / "scripts").mkdir()
     (project / "scripts" / "process_array.py").write_text(SCRIPT, encoding="utf-8")
 
     data = np.arange(12, dtype=np.float64).reshape(3, 4)
     src = Array(axes=["y", "x"], shape=data.shape, dtype="float64", data=data)
+
+    registry = BlockRegistry()
+    registry.scan(include_monorepo=False)
+
+    # Pin the exchange dirs the runtime will use so the script is leak-immune.
+    layout = create_codeblock_exchange_layout(project / "exchange", block_id="alpha-py", run_id="run-1", create=False)
 
     block = CodeBlock(
         config={
@@ -76,9 +75,13 @@ def test_python_codeblock_scales_array(tmp_path: Path, _registry: BlockRegistry)
                 "exchange_root": "exchange",
                 "block_id": "alpha-py",
                 "run_id": "run-1",
+                "environment_variables": {
+                    "SCISTUDIO_INPUTS_DIR": str(layout.inputs_dir),
+                    "SCISTUDIO_OUTPUTS_DIR": str(layout.outputs_dir),
+                },
                 "inputs": [{"name": "values", "direction": "input", "data_type": "Array", "extension": ".npy"}],
                 "outputs": [{"name": "scaled", "direction": "output", "data_type": "Array", "extension": ".npy"}],
-                "registry": _registry,
+                "registry": registry,
             }
         }
     )
