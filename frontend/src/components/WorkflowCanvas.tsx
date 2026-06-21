@@ -8,6 +8,7 @@ import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
+import { SubWorkflowNode } from "./nodes/SubWorkflowNode";
 import { TypedEdge } from "./TypedEdge";
 import { applyFocusToEdges, applyFocusToNodes } from "./WorkflowCanvas.parts/applyFocus";
 import { computeAutoLayout } from "./WorkflowCanvas.parts/autoLayout";
@@ -22,6 +23,9 @@ import { WorkflowMiniMap } from "./WorkflowCanvas.parts/WorkflowMiniMap";
 const nodeTypes = {
   block: BlockNode,
   _annotation: AnnotationNode,
+  // ADR-044 §3 — both `subworkflow` and `subworkflow_broken` render via the
+  // SAME component; the broken placeholder is driven by `data.broken`.
+  subworkflow: SubWorkflowNode,
 };
 const edgeTypes = { typed: TypedEdge };
 
@@ -71,6 +75,19 @@ interface WorkflowCanvasProps {
    * one history entry. Writes only `node.layout`. Used by the tidy action.
    */
   onTidyLayout?: (positions: Record<string, { x: number; y: number }>) => void;
+  /**
+   * ADR-044 §3 / spec US 1 acceptance #3 — double-clicking a (healthy)
+   * subworkflow node opens its referenced file (`config.ref.path`) in a canvas
+   * tab. OPTIONAL so existing call sites compile; absent ⇒ double-click is a
+   * no-op for subworkflow nodes.
+   */
+  onOpenSubworkflow?: (refPath: string) => void;
+  /**
+   * ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
+   * affordance. Invoked by the placeholder's button and by double-clicking a
+   * broken node. Full repoint persistence is deferred (TODO(#890)).
+   */
+  onLocateSubworkflow?: (nodeId: string) => void;
 }
 
 function useFlowEdges(
@@ -216,6 +233,8 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onEnterFocusMode,
     onExitFocusMode,
     onTidyLayout,
+    onOpenSubworkflow,
+    onLocateSubworkflow,
   } = props;
 
   // Track positions locally during drag so nodes follow the cursor smoothly.
@@ -247,6 +266,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     dragPositions,
     dragSizes,
     onUpdateNodeConfig,
+    // ADR-044 §10 — per-node "locate file…" factory for broken placeholders.
+    makeOnLocateSubworkflow: onLocateSubworkflow
+      ? (nodeId: string) => () => onLocateSubworkflow(nodeId)
+      : undefined,
     ...flowCallbacks,
   });
 
@@ -289,6 +312,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   const handlers = useCanvasHandlers({
     reactFlow,
     edges,
+    nodes,
     onAddNode,
     onConnect,
     onDeleteEdge,
@@ -299,6 +323,8 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onResizeNode,
     setDragPositions,
     setDragSizes,
+    onOpenSubworkflow,
+    onLocateSubworkflow,
   });
 
   const showReadabilityControls = Boolean(onTidyLayout || onEnterFocusMode);
@@ -320,6 +346,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         onEdgeClick={handlers.handleEdgeClick}
         onEdgesDelete={handlers.handleEdgesDelete}
         onNodeClick={handlers.handleNodeClick}
+        onNodeDoubleClick={handlers.handleNodeDoubleClick}
         onNodeDragStop={handlers.handleNodeDragStop}
         onNodesDelete={handlers.handleNodesDelete}
         onPaneClick={handlers.handlePaneClick}

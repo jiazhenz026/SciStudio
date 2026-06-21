@@ -3,12 +3,47 @@ export interface Position {
   y: number;
 }
 
+/**
+ * ADR-044 §3 / spec FR-004 — one exposed port surfaced by a SubWorkflowBlock,
+ * derived (response-only) from the referenced subworkflow's `exposed_ports`.
+ * `name` MUST equal the React Flow handle id so existing colon-ref edge
+ * connect/persist logic works unchanged (`<node_id>:<port_name>`).
+ */
+export interface ResolvedSubworkflowPort {
+  name: string;
+  accepted_types: string[];
+}
+
+/**
+ * ADR-044 — the response-only port surface attached to `subworkflow` /
+ * `subworkflow_broken` nodes on the `GET /api/workflows/{id}` response. This
+ * field is NEVER persisted; the backend recomputes it per load from the
+ * referenced file's `exposed_ports` (or marks `broken: true` with empty port
+ * lists when `config.ref.path` does not resolve).
+ */
+export interface ResolvedSubworkflowPorts {
+  inputs: ResolvedSubworkflowPort[];
+  outputs: ResolvedSubworkflowPort[];
+  /** True for `subworkflow_broken` nodes whose `config.ref.path` is unresolved. */
+  broken: boolean;
+  /** The (unresolved-or-resolved) project-relative reference path, or null. */
+  ref_path: string | null;
+}
+
 export interface WorkflowNode {
   id: string;
   block_type: string;
   config: Record<string, unknown>;
   execution_mode?: string | null;
   layout?: Position | null;
+  /**
+   * ADR-044 — present only on `subworkflow` / `subworkflow_broken` nodes. The
+   * authored graph (load path, NOT flattened) carries this so the editor can
+   * render handles for the referenced subworkflow's exposed ports without
+   * whole-graph flattening (spec FR-002 / FR-004). Response-only; absent on
+   * every other block type.
+   */
+  resolved_ports?: ResolvedSubworkflowPorts;
 }
 
 export interface WorkflowEdge {

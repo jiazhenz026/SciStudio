@@ -81,6 +81,40 @@ export interface BlockNodeData extends Record<string, unknown> {
 
 export type BlockCanvasNode = Node<BlockNodeData>;
 
+/**
+ * ADR-044 §3 — data carried by a `subworkflow` (or broken placeholder) canvas
+ * node. Ports are derived from the referenced subworkflow's `exposed_ports`
+ * (response-only `resolved_ports`), so they are NOT user-editable on the parent
+ * canvas. The handle ids equal `inputPorts[].name` / `outputPorts[].name` so
+ * existing colon-ref edge logic (`<node_id>:<port_name>`) works unchanged.
+ */
+export interface SubWorkflowNodeData extends Record<string, unknown> {
+  label: string;
+  /** "subworkflow" or "subworkflow_broken" — the backend block type. */
+  blockType: string;
+  /** Project-relative referenced file path (`config.ref.path`), or null. */
+  refPath: string | null;
+  /** True for `subworkflow_broken` nodes / unresolved refs (red placeholder). */
+  broken: boolean;
+  /** Derived exposed input ports (empty when broken). */
+  inputPorts: BlockPortResponse[];
+  /** Derived exposed output ports (empty when broken). */
+  outputPorts: BlockPortResponse[];
+  /** Type hierarchy for port colour resolution (shared registry copy). */
+  typeHierarchy?: BlockSchemaResponse["type_hierarchy"];
+  selected?: boolean;
+  onDelete?: () => void;
+  /**
+   * ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
+   * affordance. Invoked when the user activates a broken placeholder so they
+   * can repoint `config.ref.path`. Full repoint persistence is deferred
+   * (TODO(#890)); this surfaces the affordance now.
+   */
+  onLocateFile?: () => void;
+}
+
+export type SubWorkflowCanvasNode = Node<SubWorkflowNodeData>;
+
 /** Data carried by an _annotation node on the canvas. */
 export interface AnnotationNodeData extends Record<string, unknown> {
   text: string;

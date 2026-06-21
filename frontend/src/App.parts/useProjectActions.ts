@@ -53,6 +53,28 @@ export interface ProjectActions {
   createNewCustomBlock: () => Promise<void>;
   createNewNote: () => Promise<void>;
   importWorkflow: () => Promise<void>;
+  /**
+   * ADR-044 §3 — open a subworkflow node's referenced file (`config.ref.path`,
+   * project-relative) in a canvas tab on double-click.
+   */
+  openSubworkflow: (refPath: string) => void;
+  /**
+   * ADR-044 §10 — surface the broken-ref "locate file…" affordance for a
+   * `subworkflow_broken` placeholder node.
+   */
+  locateSubworkflow: (nodeId: string) => void;
+}
+
+/**
+ * ADR-044 — derive the workflow id (filename stem) from a project-relative
+ * `config.ref.path`. `loadWorkflowById` resolves a workflow by its id, which is
+ * the filename stem (matching ProjectTree's `.yaml` double-click convention),
+ * so a ref path like `subworkflows/bar.swf.yaml` resolves to id `bar`.
+ */
+export function subworkflowRefToWorkflowId(refPath: string): string {
+  const base = refPath.split("/").pop() ?? refPath;
+  const stem = base.replace(/\.(swf\.)?(yaml|yml)$/i, "");
+  return stem || base;
 }
 
 async function ensureNewNoteDirectory(
@@ -351,6 +373,35 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     resetExecution();
   }, [openTab, resetExecution, promptInput]);
 
+  // ADR-044 §3 — double-click a (healthy) subworkflow node → open its
+  // referenced file in a canvas tab. The ref path is project-relative; resolve
+  // it to the workflow id (filename stem) the existing loader understands.
+  const openSubworkflow = useCallback(
+    (refPath: string) => {
+      const workflowId = subworkflowRefToWorkflowId(refPath);
+      void loadWorkflowById(workflowId, workflowId);
+    },
+    [loadWorkflowById],
+  );
+
+  // ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
+  // affordance. The full repoint persistence (rewriting `config.ref.path` and
+  // re-resolving the node's ports) is a larger plumbing change.
+  // TODO(#890): persist the chosen path back to the subworkflow node's
+  //   config.ref.path and re-fetch resolved_ports. Out of scope for the
+  //   authoring-render iteration per ADR-044 §2.1 / dispatch deferral note.
+  //   Followup: https://github.com/zjzcpj/SciStudio/issues/890
+  const locateSubworkflow = useCallback(
+    (nodeId: string) => {
+      void promptInput({
+        title: "Locate subworkflow file",
+        label: `Repoint broken reference for "${nodeId}" (project-relative path)`,
+        defaultValue: "subworkflows/",
+      });
+    },
+    [promptInput],
+  );
+
   const importWorkflow = useCallback(async () => {
     if (!currentProject) return;
     const input = document.createElement("input");
@@ -388,5 +439,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     createNewCustomBlock,
     createNewNote,
     importWorkflow,
+    openSubworkflow,
+    locateSubworkflow,
   };
 }
