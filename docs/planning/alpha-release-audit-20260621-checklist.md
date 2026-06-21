@@ -26,7 +26,7 @@ language_source: en
 - Protected branch: `main`
 - Remote baseline: `origin/main` at `1948ab2c`
 - Umbrella branch: `track/alpha-release-audit-20260621`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1734`
 - Umbrella PR title: `[DO NOT MERGE] Alpha release audit for core runtime`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -71,9 +71,9 @@ language_source: en
 - [x] Gate record started. Evidence: `.workflow/records/1733-alpha-release-audit.json`.
 - [x] Scope include/exclude recorded in the gate record. Evidence: gate `init` and `amend` events.
 - [x] Umbrella branch created. Evidence: `track/alpha-release-audit-20260621`.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. Evidence: draft PR `#1734`.
+- [x] Umbrella PR title includes `[DO NOT MERGE]`. Evidence: `[DO NOT MERGE] Alpha release audit for core runtime`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found. Evidence: no install command used.
 - [x] Dispatch checklist copied from the template and committed. Evidence: this file, commit pending.
 - [x] Dispatch prompts created from the correct prompt template and linked below. Evidence: `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md`.
@@ -90,7 +90,7 @@ language_source: en
 | Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | `pending` |
 | Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | `pending` |
 | Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | `pending` |
-| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | `pending` |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[x]` | `passed before PR creation; wrapper dry-run blocked because wrapper uses --skip-execution and gate reports --skip-execution as non-final readiness` |
 
 ## 5.1 Docs Impact Check
 
@@ -106,12 +106,12 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1-runtime-engine | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A1-runtime-engine` | Runtime graph, scheduler, block lifecycle, run state | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-runtime-engine.md` | implementation files | `#1733` | `[ ]` |
-| A2-contracts-storage | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A2-contracts-storage` | Block contracts, schemas, artifacts, lineage, storage, versioning | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-contracts-storage-lineage.md` | implementation files | `#1733` | `[ ]` |
-| A3-api-desktop-ai | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A3-api-desktop-ai` | API, desktop bridge, manual review, AI orchestration boundaries | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-api-desktop-ai.md` | implementation files | `#1733` | `[ ]` |
-| A4-test-ci-governance | `test_engineer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A4-test-ci-governance` | Test coverage, CI, gate ledger, audit tooling, Sentrux readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-test-ci-governance.md` | production code | `#1733` | `[ ]` |
-| A5-docs-spec-drift | `audit_reviewer` | `no-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A5-docs-spec-drift` | Independent docs/spec/code consistency audit | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-docs-spec-drift.md` | manager issue, checklist, PR claims | `#1733` | `[ ]` |
-| A6-security-ops | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A6-security-ops` | Core runtime security, data integrity, operational readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-security-ops.md` | implementation files | `#1733` | `[ ]` |
+| A1-runtime-engine | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A1-runtime-engine` | Runtime graph, scheduler, block lifecycle, run state | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-runtime-engine.md` | implementation files | `#1733/#1734` | `[ ]` |
+| A2-contracts-storage | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A2-contracts-storage` | Block contracts, schemas, artifacts, lineage, storage, versioning | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-contracts-storage-lineage.md` | implementation files | `#1733/#1734` | `[ ]` |
+| A3-api-desktop-ai | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A3-api-desktop-ai` | API, desktop bridge, manual review, AI orchestration boundaries | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-api-desktop-ai.md` | implementation files | `#1733/#1734` | `[ ]` |
+| A4-test-ci-governance | `test_engineer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A4-test-ci-governance` | Test coverage, CI, gate ledger, audit tooling, Sentrux readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-test-ci-governance.md` | production code | `#1733/#1734` | `[ ]` |
+| A5-docs-spec-drift | `audit_reviewer` | `no-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A5-docs-spec-drift` | Independent docs/spec/code consistency audit | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-docs-spec-drift.md` | manager issue, checklist, PR claims | `#1733/#1734` | `[ ]` |
+| A6-security-ops | `audit_reviewer` | `with-context` | `docs/planning/alpha-release-audit-20260621-dispatch-prompts.md#A6-security-ops` | Core runtime security, data integrity, operational readiness | manager-spawned | agent workspace | `docs/audit/2026-06-21-alpha-release-security-ops.md` | implementation files | `#1733/#1734` | `[ ]` |
 
 ## 7. Tracks
 
@@ -181,6 +181,7 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-21 | manager | No pre-existing alpha/readiness issue found. | Created `#1733`. | N/A |
+| 2026-06-21 | manager | Gate-aware PR wrapper could not create the umbrella PR because its fixed `--skip-execution` preflight conflicts with gate check semantics that mark `--skip-execution` as non-final readiness. | Ran full `gate_record check --mode pre-pr`, then opened draft umbrella PR `#1734` through the GitHub connector. | Track as release/governance audit evidence in A4 report. |
 
 ## 10. Final Readiness
 

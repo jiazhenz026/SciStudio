@@ -42,7 +42,7 @@ Shared alpha standard:
 - Issue: #1733
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1733
 - Owner request: Audit latest remote core runtime readiness for a small internal alpha release in two weeks.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1734 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/alpha-release-audit-20260621
 - Audit branch: manager-spawned
@@ -108,7 +108,7 @@ Run or verify targeted commands that materially support the audit, for example r
 - Issue: #1733
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1733
 - Owner request: Audit latest remote core runtime readiness for a small internal alpha release in two weeks.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1734 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/alpha-release-audit-20260621
 - Audit branch: manager-spawned
@@ -165,7 +165,7 @@ Run or verify targeted commands that materially support the audit. Do not use pi
 - Issue: #1733
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1733
 - Owner request: Audit latest remote core runtime readiness for a small internal alpha release in two weeks.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1734 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/alpha-release-audit-20260621
 - Audit branch: manager-spawned
@@ -223,7 +223,7 @@ Run or verify targeted commands that materially support the audit. Do not use pi
 - Issue: #1733
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1733
 - Owner request: Audit latest remote core runtime readiness for a small internal alpha release in two weeks.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1734 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/alpha-release-audit-20260621
 - Audit branch: manager-spawned
@@ -357,7 +357,7 @@ Run or verify targeted static searches, docs/test drift checks, or lightweight t
 - Issue: #1733
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1733
 - Owner request: Audit latest remote core runtime readiness for a small internal alpha release in two weeks.
-- Umbrella PR: pending `[DO NOT MERGE]`
+- Umbrella PR: #1734 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/alpha-release-audit-20260621
 - Audit branch: manager-spawned
