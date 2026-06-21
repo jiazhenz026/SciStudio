@@ -22,7 +22,9 @@ import numpy as np
 
 from scistudio.blocks.code.code_block import CodeBlock
 from scistudio.blocks.code.exchange import create_codeblock_exchange_layout
-from scistudio.blocks.registry import BlockRegistry
+from scistudio.blocks.io.loaders.load_data import LoadData
+from scistudio.blocks.io.savers.save_data import SaveData
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.core.types.array import Array
 from scistudio.core.types.collection import Collection
 
@@ -59,8 +61,11 @@ def test_python_codeblock_scales_array(tmp_path: Path) -> None:
     data = np.arange(12, dtype=np.float64).reshape(3, 4)
     src = Array(axes=["y", "x"], shape=data.shape, dtype="float64", data=data)
 
+    # Minimal, hermetic registry (no plugin scan) so the test does not touch
+    # the global type registry shared with the rest of the -n auto suite.
     registry = BlockRegistry()
-    registry.scan(include_monorepo=False)
+    registry._register_spec(_spec_from_class(LoadData, source="alpha-suite"))
+    registry._register_spec(_spec_from_class(SaveData, source="alpha-suite"))
 
     # Pin the exchange dirs the runtime will use so the script is leak-immune.
     layout = create_codeblock_exchange_layout(project / "exchange", block_id="alpha-py", run_id="run-1", create=False)
