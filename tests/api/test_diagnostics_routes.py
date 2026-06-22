@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
 import zipfile
 
@@ -69,7 +68,7 @@ def test_bundle_post_includes_frontend_logs(tmp_path, monkeypatch):
     assert response.headers["content-type"] == "application/zip"
     archive = zipfile.ZipFile(io.BytesIO(response.content))
     names = archive.namelist()
-    assert "frontend-logs.json" in names
+    assert "frontend-logs.log" in names
     assert "environment.json" in names
-    frontend = json.loads(archive.read("frontend-logs.json"))
-    assert any(r["message"] == "frontend-only crash" for r in frontend)
+    frontend = archive.read("frontend-logs.log").decode("utf-8")
+    assert "frontend-only crash" in frontend

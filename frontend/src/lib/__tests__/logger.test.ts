@@ -64,7 +64,7 @@ describe("frontend logger (#1741)", () => {
 
     await exportDiagnosticBundle();
 
-    expect(downloads).toContain("scistudio-frontend-logs.json");
+    expect(downloads).toContain("scistudio-frontend-logs.log");
   });
 
   it("downloads a single backend zip when the backend is reachable", async () => {

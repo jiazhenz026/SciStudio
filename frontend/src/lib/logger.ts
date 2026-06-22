@@ -144,14 +144,30 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/** Render frontend records as a human-readable .log (owner: no JSON files). */
+function formatRecordsAsLog(records: ClientLogRecord[]): string {
+  const body = records
+    .map((r) => {
+      const extras: string[] = [];
+      if (r.request_id) extras.push(`req=${r.request_id}`);
+      if (r.url) extras.push(`url=${r.url}`);
+      if (r.context) extras.push(`context=${JSON.stringify(r.context)}`);
+      const suffix = extras.length ? `  [${extras.join(" ")}]` : "";
+      return `${r.ts} ${r.level.toUpperCase()} frontend ${r.message}${suffix}`;
+    })
+    .join("\n");
+  return records.length ? `${body}\n` : "";
+}
+
 /**
  * Export diagnostics for a bug report as a SINGLE download.
  *
- * POSTs the in-memory ring buffer to the backend, which bundles it (as
- * `frontend-logs.json`) together with the backend logs + environment + run logs
- * into one zip. A single download avoids the browser's block on consecutive
- * auto-downloads. If the backend is unreachable, fall back to a single download
- * of the ring buffer so frontend-only records (Codex P2) still reach the tester.
+ * POSTs the in-memory ring buffer to the backend, which bundles it (as a
+ * human-readable `frontend-logs.log`) together with the backend logs +
+ * environment + run logs into one zip. A single download avoids the browser's
+ * block on consecutive auto-downloads. If the backend is unreachable, fall back
+ * to a single human-readable `.log` of the ring buffer so frontend-only records
+ * still reach the tester.
  */
 export async function exportDiagnosticBundle(): Promise<void> {
   const records = getLogBuffer();
@@ -167,8 +183,8 @@ export async function exportDiagnosticBundle(): Promise<void> {
   } catch (error) {
     logger.warn(`backend diagnostic bundle unavailable: ${String(error)}`);
     downloadBlob(
-      new Blob([JSON.stringify(records, null, 2)], { type: "application/json" }),
-      "scistudio-frontend-logs.json",
+      new Blob([formatRecordsAsLog(records)], { type: "text/plain" }),
+      "scistudio-frontend-logs.log",
     );
   }
 }

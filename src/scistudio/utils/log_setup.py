@@ -9,7 +9,8 @@ It complements two existing modules without duplicating them:
 
 This module adds the pieces those two intentionally left out of scope in #827:
 
-* on-disk JSON-line logging with rotation + 7-day retention;
+* on-disk human-readable, per-layer ``.log`` files with rotation + 7-day
+  retention (owner direction: no JSON files on disk);
 * log-directory resolution (explicit -> ``SCISTUDIO_LOG_DIR`` -> bundled
   ``logs_dir()`` -> ``<project>/.scistudio/logs`` -> user ``logs_dir()``);
 * a correlation-id contextvar (surfaced as ``X-Request-ID``) and a run-id
@@ -38,7 +39,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, TypeVar
 
-from scistudio.utils.event_logger import _JsonLineFormatter, _sanitize_value
+from scistudio.utils.event_logger import _sanitize_value
 
 # ---------------------------------------------------------------------------
 # Context variables — correlation id (per request) and run id (per workflow run)
@@ -53,7 +54,23 @@ _DEFAULT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per file
 _DEFAULT_BACKUP_COUNT = 9  # keep ~10 rotated files per process log
 _RETENTION_DAYS = 7
 _FILE_HANDLER_FLAG = "_scistudio_file_handler"
-_LOG_GLOB = "scistudio-*.log*"
+_LOG_GLOBS = ("scistudio-*.log*", "api-*.log*", "engine-*.log*", "frontend-*.log*", "run-*.log*")
+
+# #1741: physical per-layer routing. Each layer's records go to their own file
+# (in addition to the combined scistudio-<pid>.log timeline), so the four layers
+# are recorded separately: backend API, engine/engine-events, frontend, and
+# desktop. Desktop is the Electron process's own scistudio-desktop.log.
+_LAYERS: dict[str, tuple[str, ...]] = {
+    "api": ("scistudio.api", "uvicorn"),
+    "engine": (
+        "scistudio.engine",
+        "scistudio.events",
+        "scistudio.core",
+        "scistudio.blocks",
+        "scistudio.workflow",
+    ),
+    "frontend": ("scistudio.frontend",),
+}
 
 _SENSITIVE_KEY_PARTS = (
     "password",
@@ -81,6 +98,42 @@ class ContextFilter(logging.Filter):
             if run is not None:
                 record.run_id = run
         return True
+
+
+class _LayerFilter(logging.Filter):
+    """Accept only records whose logger belongs to one of *prefixes* (the layer)."""
+
+    def __init__(self, prefixes: tuple[str, ...]) -> None:
+        super().__init__()
+        self._prefixes = prefixes
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        name = record.name
+        return any(name == prefix or name.startswith(prefix + ".") for prefix in self._prefixes)
+
+
+class HumanFormatter(logging.Formatter):
+    """Human-readable on-disk format: ``ts LEVEL logger message [req/run] (+exc)``.
+
+    On-disk logs are human-readable ``.log`` files only (owner direction: no JSON
+    files); the request/run correlation ids are appended in brackets (#1741).
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        timestamp = self.formatTime(record, datefmt="%Y-%m-%d %H:%M:%S")
+        line = f"{timestamp} {record.levelname:<7} {record.name} {record.getMessage()}"
+        context: list[str] = []
+        request_id = getattr(record, "request_id", None)
+        run_id = getattr(record, "run_id", None)
+        if request_id:
+            context.append(f"req={request_id}")
+        if run_id:
+            context.append(f"run={run_id}")
+        if context:
+            line = f"{line}  [{' '.join(context)}]"
+        if record.exc_info:
+            line = f"{line}\n{self.formatException(record.exc_info)}"
+        return line
 
 
 def redact_sensitive(value: Any) -> Any:
@@ -145,10 +198,12 @@ def prune_old_logs(log_dir: Path, *, days: int = _RETENTION_DAYS) -> int:
     """Delete log files older than *days* in *log_dir*; return the count removed."""
     cutoff = time.time() - days * 86400
     removed = 0
-    try:
-        candidates = list(log_dir.glob(_LOG_GLOB))
-    except OSError:
-        return 0
+    candidates: list[Path] = []
+    for pattern in _LOG_GLOBS:
+        try:
+            candidates.extend(log_dir.glob(pattern))
+        except OSError:
+            continue
     for path in candidates:
         try:
             if path.is_file() and path.stat().st_mtime < cutoff:
@@ -175,11 +230,15 @@ def install_file_logging(
     max_bytes: int = _DEFAULT_MAX_BYTES,
     backup_count: int = _DEFAULT_BACKUP_COUNT,
 ) -> Path | None:
-    """Install a rotating JSON-line file handler on the root logger.
+    """Install rotating human-readable ``.log`` file handlers on the root logger.
 
-    Idempotent (a second call is a no-op once a SciStudio file handler exists)
-    and best-effort: an unwritable directory degrades to stderr-only and never
-    raises. Returns the active log file path, or ``None`` when disabled/failed.
+    Writes a combined ``scistudio-<pid>.log`` plus one file per layer
+    (``api-`` / ``engine-`` / ``frontend-<pid>.log``) so the four layers are
+    recorded separately (#1741). On-disk output is human-readable only (owner:
+    no JSON files). Idempotent (a second call is a no-op once a SciStudio file
+    handler exists) and best-effort: an unwritable directory degrades to
+    stderr-only and never raises. Returns the combined log path, or ``None``
+    when disabled/failed.
     """
     if not _file_logging_enabled(enabled):
         return None
@@ -191,16 +250,27 @@ def install_file_logging(
         target_dir = resolve_log_dir(log_dir=log_dir, project_root=project_root)
         target_dir.mkdir(parents=True, exist_ok=True)
         prune_old_logs(target_dir)
-        log_file = target_dir / f"scistudio-{os.getpid()}.log"
-        handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8")
-        handler.setLevel(level)
-        handler.setFormatter(_JsonLineFormatter())
-        handler.addFilter(ContextFilter())
-        setattr(handler, _FILE_HANDLER_FLAG, True)
-        root.addHandler(handler)
+        pid = os.getpid()
+
+        def _add_handler(filename: str, layer_prefixes: tuple[str, ...] | None) -> Path:
+            path = target_dir / filename
+            file_handler = RotatingFileHandler(path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8")
+            file_handler.setLevel(level)
+            file_handler.setFormatter(HumanFormatter())
+            file_handler.addFilter(ContextFilter())
+            if layer_prefixes is not None:
+                file_handler.addFilter(_LayerFilter(layer_prefixes))
+            setattr(file_handler, _FILE_HANDLER_FLAG, True)
+            root.addHandler(file_handler)
+            return path
+
+        # Combined cross-layer timeline + one human-readable file per layer.
+        combined_log = _add_handler(f"scistudio-{pid}.log", None)
+        for layer, prefixes in _LAYERS.items():
+            _add_handler(f"{layer}-{pid}.log", prefixes)
         if root.level == logging.NOTSET or root.level > level:
             root.setLevel(level)
-        return log_file
+        return combined_log
     except Exception:
         logging.getLogger(__name__).warning("file logging unavailable; continuing with stderr only", exc_info=True)
         return None
@@ -290,6 +360,7 @@ def log_call(
 __all__ = [
     "REQUEST_ID_HEADER",
     "ContextFilter",
+    "HumanFormatter",
     "install_file_logging",
     "log_call",
     "prune_old_logs",

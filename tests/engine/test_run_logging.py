@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 
 import pytest
@@ -34,11 +33,10 @@ def test_run_log_context_captures_records(tmp_path):
         logging.getLogger("scistudio.engine.test").error("a failure", exc_info=False)
 
     text = path.read_text(encoding="utf-8")
-    records = [json.loads(line) for line in text.splitlines() if line.strip()]
-    messages = {r["message"]: r for r in records}
-    assert "inside the run" in messages
-    assert messages["inside the run"]["run_id"] == "run-xyz"
-    assert "a failure" in messages
+    # Human-readable per-run log carrying the run-id correlation context.
+    assert "inside the run" in text
+    assert "run=run-xyz" in text
+    assert "a failure" in text
 
 
 def test_run_log_file_under_project_logs_dir(tmp_path):

@@ -98,6 +98,31 @@ def _log_dirs(request: Request) -> list[Path]:
     return unique
 
 
+def _format_frontend_log(records: object) -> str:
+    """Render posted frontend records as a human-readable .log (owner: no JSON)."""
+    lines: list[str] = []
+    items = records if isinstance(records, list) else []
+    for record in items:
+        if not isinstance(record, dict):
+            lines.append(str(record))
+            continue
+        timestamp = record.get("ts", "")
+        level = str(record.get("level", "info")).upper()
+        message = record.get("message", "")
+        line = f"{timestamp} {level:<7} frontend {message}"
+        extras: list[str] = []
+        if record.get("request_id"):
+            extras.append(f"req={record['request_id']}")
+        if record.get("url"):
+            extras.append(f"url={record['url']}")
+        if record.get("context"):
+            extras.append(f"context={json.dumps(record['context'], default=str)}")
+        if extras:
+            line = f"{line}  [{' '.join(extras)}]"
+        lines.append(line)
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
 @router.api_route("/diagnostics/bundle", methods=["GET", "POST"])
 async def diagnostics_bundle(request: Request) -> StreamingResponse:
     """Return a zip with recent logs, an environment manifest, and run logs.
@@ -125,11 +150,17 @@ async def diagnostics_bundle(request: Request) -> StreamingResponse:
         }
         archive.writestr("environment.json", json.dumps(manifest, indent=2))
         if frontend_records is not None:
-            archive.writestr("frontend-logs.json", json.dumps(frontend_records, indent=2, default=str))
+            archive.writestr("frontend-logs.log", _format_frontend_log(frontend_records))
         for log_dir in _log_dirs(request):
             if not log_dir.is_dir():
                 continue
-            for pattern, prefix in (("scistudio-*.log*", "logs"), ("run-*.log", "runs")):
+            for pattern, prefix in (
+                ("scistudio-*.log*", "logs"),
+                ("api-*.log*", "logs"),
+                ("engine-*.log*", "logs"),
+                ("frontend-*.log*", "logs"),
+                ("run-*.log*", "runs"),
+            ):
                 for path in sorted(log_dir.glob(pattern)):
                     try:
                         archive.write(path, arcname=f"{prefix}/{path.name}")
