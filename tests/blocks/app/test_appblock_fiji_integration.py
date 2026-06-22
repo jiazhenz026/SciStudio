@@ -17,10 +17,11 @@ headless macro fixture and audits four behaviours:
 All four tests are guarded by ``@pytest.mark.requires_fiji`` and skipped
 cleanly when Fiji is not installed at the master-plan §10 path.
 
-Per the T-TRK-015 spec §j, this is an **audit**. If a behaviour test
-exposes a bug in the current ``AppBlock``/``FileWatcher``/``bridge``
-implementation, the test is marked ``xfail(strict=False)`` with a
-pointer to the audit-finding issue — the fix lands in a separate PR.
+Per the T-TRK-015 spec §j, this is an **audit**. The two behaviours it
+originally flagged (subprocess reaping #338, tempfile exchange-dir cleanup
+#339) were fixed in PR #577, so all four tests now assert the corrected
+behaviour directly; the earlier ``xfail(strict=False)`` markers were removed
+under #1740.
 """
 
 from __future__ import annotations
@@ -180,15 +181,6 @@ def test_appblock_fiji_filewatcher_cleanup(tmp_path: Path) -> None:
     assert not leaked, f"FileWatcher leaked threads after run(): {leaked}"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "AUDIT FINDING (T-TRK-015, tracked as #338): AppBlock.run does "
-        "not call proc.wait() on the external subprocess after the "
-        "watcher returns, so the child process remains alive after "
-        "run() returns. Fix lands in a separate PR per spec §j."
-    ),
-)
 def test_appblock_fiji_process_cleanup(tmp_path: Path) -> None:
     """The Fiji subprocess is fully reaped after run() returns.
 
@@ -235,14 +227,6 @@ def test_appblock_fiji_process_cleanup(tmp_path: Path) -> None:
     assert proc.poll() is not None, f"Fiji process (pid={proc.pid}) was not reaped after AppBlock.run() returned"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "AUDIT FINDING (T-TRK-015, tracked as #339): AppBlock.run does "
-        "not remove the tempfile-backed exchange directory on successful "
-        "exit. Fix lands in a separate PR per spec §j."
-    ),
-)
 def test_appblock_exchange_dir_cleanup(tmp_path: Path) -> None:
     """The tempfile exchange directory is removed after a successful run.
 

@@ -1,19 +1,19 @@
-"""CodeBlock engine findings — tracked as strict xfails (see FINDINGS.md).
+"""CodeBlock engine findings (see the alpha test-suite FINDINGS registry).
 
-FIND-F: the Python CodeBlock backend injects no ``SCISTUDIO_*_DIR`` env
-vars (the R/shell backends do via their exchange wrappers), so a script
-has no supported way to locate its exchange inputs/outputs. The test runs
-a CodeBlock with NO ``environment_variables`` (probing the backend's
-native behaviour) and asserts the subprocess sees ``SCISTUDIO_INPUTS_DIR``
-— which fails today and will xpass once the backend injects it.
+FIND-F: the Python CodeBlock backend injected no ``SCISTUDIO_*_DIR`` env
+vars (the R/Quarto backends do via their exchange wrappers), so a script
+had no supported way to locate its exchange inputs/outputs. Fixed under
+#1740: the Python backend now injects the same exchange env via the shared
+``codeblock_exchange_env`` helper. The test runs a CodeBlock with NO
+``environment_variables`` (probing the backend's native behaviour) and
+asserts the subprocess sees ``SCISTUDIO_INPUTS_DIR``; it is retained as a
+regression guard.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-
-import pytest
 
 from scistudio.blocks.code.code_block import CodeBlock
 from scistudio.blocks.io.loaders.load_data import LoadData
@@ -30,7 +30,6 @@ PROBE = (
 )
 
 
-@pytest.mark.xfail(strict=True, reason="FIND-F: Python CodeBlock backend injects no SCISTUDIO_*_DIR env")
 def test_find_f_python_backend_injects_exchange_env(tmp_path: Path) -> None:
     project = tmp_path
     (project / "scripts").mkdir()

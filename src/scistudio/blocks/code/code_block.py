@@ -42,6 +42,9 @@ from scistudio.blocks.code._backends_registry import (
     CodeBlockTimeoutError as CodeBlockTimeoutError,
 )
 from scistudio.blocks.code._backends_registry import (
+    codeblock_exchange_env as codeblock_exchange_env,
+)
+from scistudio.blocks.code._backends_registry import (
     ensure_codeblock_backends_loaded as ensure_codeblock_backends_loaded,
 )
 from scistudio.blocks.code._backends_registry import (
