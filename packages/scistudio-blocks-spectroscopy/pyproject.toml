@@ -12,7 +12,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "scistudio>=0.2.1",
+    "scistudio>=0.2.1a0",
     "numpy>=1.24",
     "scipy>=1.11",
     "pandas>=2.2",

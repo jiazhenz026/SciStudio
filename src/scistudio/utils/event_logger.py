@@ -107,7 +107,10 @@ class _JsonLineFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        for key in ("event_type", "block_id", "workflow_id", "event_data"):
+        # #1741: ``request_id`` / ``run_id`` are injected by
+        # ``scistudio.utils.log_setup.ContextFilter`` so on-disk records can be
+        # correlated across the frontend -> backend -> per-run boundaries.
+        for key in ("request_id", "run_id", "event_type", "block_id", "workflow_id", "event_data"):
             if hasattr(record, key):
                 payload[key if key != "event_data" else "data"] = getattr(record, key)
         return json.dumps(payload, default=str)

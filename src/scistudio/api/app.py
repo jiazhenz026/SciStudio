@@ -18,6 +18,7 @@ from scistudio.api.routes import (
     ai_pty,
     blocks,
     data,
+    diagnostics,
     filesystem,
     lint,
     packages,
@@ -223,21 +224,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    import logging
+    # #1741: install console + persistent JSON-line file logging. Idempotent, so
+    # it is safe whether the CLI already configured logging (``scistudio gui``)
+    # or this is standalone API usage (``uvicorn scistudio.api.app:create_app``).
+    from scistudio.utils.logging import configure_logging
 
-    # Ensure a SciStudio-specific handler exists so logger calls are not
-    # silently discarded.  When invoked via ``scistudio gui`` the CLI already
-    # configures logging with ``force=True``; this fallback only fires for
-    # standalone API usage (e.g. ``uvicorn scistudio.api.app:create_app``).
     log_level = os.environ.get("SCISTUDIO_LOG_LEVEL", "INFO").upper()
-    if not logging.getLogger().handlers:
-        logging.basicConfig(
-            level=getattr(logging, log_level, logging.INFO),
-            format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-            datefmt="%H:%M:%S",
-        )
+    configure_logging(log_level)
 
-    app = FastAPI(title="SciStudio API", version="0.1.0", lifespan=lifespan)
+    # #1742: the FastAPI app version derives from the single source of truth.
+    from scistudio.version import get_version
+
+    app = FastAPI(title="SciStudio API", version=get_version().pep440, lifespan=lifespan)
     cors_origins_raw = os.getenv("SCISTUDIO_CORS_ORIGINS", "").strip()
     if cors_origins_raw == "*":
         origins: list[str] = ["*"]
@@ -257,6 +255,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # #1741: request/exception logging with correlation ids. Added after CORS so
+    # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing
+    # every request and any exception that escapes the routes.
+    from scistudio.api._logging_middleware import RequestLoggingMiddleware
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.include_router(workflows.router)
     app.include_router(blocks.router)
@@ -283,10 +288,19 @@ def create_app() -> FastAPI:
     # ops / merge / cherry-pick). D39-2.2b made these live. ADR-039 Addendum 1
     # (#1352) removed the stash CRUD surface (#1353).
     app.include_router(git_routes.router)
+    # #1741/#1742: diagnostics — /api/version, /api/client-logs, /api/diagnostics/bundle.
+    app.include_router(diagnostics.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
         return await sse_handler(request)
+
+    @app.get("/version")
+    async def version() -> object:
+        # #1742: convenience top-level alias of /api/version for bug reports.
+        from scistudio.version import get_version
+
+        return get_version().as_dict()
 
     @app.websocket("/ws")
     async def ws_endpoint(websocket: WebSocket) -> None:

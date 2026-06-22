@@ -1,6 +1,6 @@
 [project]
 name = "scistudio"
-version = "0.2.1"
+version = "0.2.1a0"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
 license = {text = "MIT"}
@@ -192,6 +192,10 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+# Respect per-module follow_imports="skip" for stub (.pyi) packages too, so the
+# numpy/zarr/tifffile overrides below actually skip their 3.12-syntax stubs under
+# our python_version = "3.11" target (otherwise stub parse errors leak through).
+follow_imports_for_stubs = true
 mypy_path = "src"
 packages = ["scistudio"]
 
@@ -208,6 +212,14 @@ follow_imports = "skip"
 # target is still Python 3.11, so do not parse tifffile internals.
 [[tool.mypy.overrides]]
 module = ["tifffile", "tifffile.*"]
+follow_imports = "skip"
+
+# numpy 2.x ships PEP 695 type-alias syntax (`type X = ...`) in its stubs, valid
+# only in Python 3.12+. mypy is pinned to python_version = "3.11" (see above), so
+# it cannot parse numpy's stubs. Skip following imports into numpy to avoid the
+# stub syntax error; SciStudio code does not rely on numpy's internal types.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
 follow_imports = "skip"
 
 [tool.pytest.ini_options]
@@ -441,7 +453,7 @@ ancestors = ["scistudio.ai.agent.mcp.tools_inspection"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.2.1"
+version = "0.2.1a0"
 tag_format = "v$version"
 
 # Issue #1340 / ADR-042 code-quality stack: vulture runs as an informational

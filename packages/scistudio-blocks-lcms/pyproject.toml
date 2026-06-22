@@ -8,7 +8,7 @@ version = "0.1.0.dev0"
 description = "SciStudio LC-MS plugin — placeholder skeleton (Phase 11)."
 requires-python = ">=3.11"
 dependencies = [
-    "scistudio>=0.2.1",
+    "scistudio>=0.2.1a0",
 ]
 
 [project.entry-points."scistudio.blocks"]

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { exportDiagnosticBundle } from "../../lib/logger";
 import type { LogEntry } from "../../types/api";
 
 export function LogViewer({ entries }: { entries: LogEntry[] }) {
@@ -25,6 +26,16 @@ export function LogViewer({ entries }: { entries: LogEntry[] }) {
           <option value="info">Info</option>
           <option value="error">Error</option>
         </select>
+        {/* #1741: one-click diagnostic bundle (logs + environment + run logs)
+            so a beta tester can attach everything a developer needs to a report. */}
+        <button
+          type="button"
+          onClick={() => void exportDiagnosticBundle()}
+          className="ml-auto rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:bg-stone-50"
+          title="Export logs + environment as a zip for bug reports"
+        >
+          Export logs
+        </button>
       </div>
       {filtered.length ? (
         <ul role="list" className="min-h-0 flex-1 overflow-y-auto">

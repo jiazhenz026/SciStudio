@@ -22,6 +22,24 @@ _install_cli.register(app)
 _mcp_bridge_cli.register(app)
 
 
+def _version_callback(value: bool) -> None:
+    # #1742: ``scistudio --version`` prints the human display string.
+    if value:
+        from scistudio.version import get_version
+
+        typer.echo(get_version().display)
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        False, "--version", callback=_version_callback, is_eager=True, help="Show version and exit."
+    ),
+) -> None:
+    """SciStudio -- AI-native scientific workflow runtime."""
+
+
 # ---------------------------------------------------------------------------
 # Shared helpers for validate / run commands
 # ---------------------------------------------------------------------------
@@ -219,6 +237,13 @@ def validate(workflow: str = typer.Argument(..., help="Path to workflow YAML")) 
 @app.command()
 def run(workflow: str = typer.Argument(..., help="Path to workflow YAML")) -> None:
     """Run a workflow headless."""
+    import os
+
+    from scistudio.utils.logging import configure_logging
+
+    # #1741: headless runs previously configured no logging, so engine/block
+    # errors were silent. Configure console + file logging up front.
+    configure_logging(os.environ.get("SCISTUDIO_LOG_LEVEL", "INFO").upper())
     path = _check_file_exists(workflow)
     definition = _load_workflow(path)
     from scistudio.blocks.registry import BlockRegistry
@@ -356,10 +381,15 @@ def serve(host: str = "0.0.0.0", port: int = 8000) -> None:
 
     import uvicorn
 
+    from scistudio.utils.logging import configure_logging
+
+    # #1741: console + persistent file logging; log_config=None lets uvicorn's
+    # access/error loggers propagate to the root handlers (so they hit the file).
+    configure_logging(os.environ.get("SCISTUDIO_LOG_LEVEL", "INFO").upper())
     typer.echo(f"Starting SciStudio server on {host}:{port}...")
     # ADR-035 §3.10: see comment in `gui` for why this is needed.
     os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://127.0.0.1:{port}")
-    uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True)
+    uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True, log_config=None)
 
 
 def _ephemeral_port(host: str) -> int:
@@ -378,23 +408,21 @@ def gui(
 ) -> None:
     """Launch SciStudio GUI in your default browser."""
     import json
-    import logging
     import os
     import threading
     import webbrowser
 
     import uvicorn
 
-    # Configure root logger so all getLogger(__name__) calls produce output.
-    # ``force=True`` ensures this works even if a library or framework has
-    # already attached a handler (e.g. uvicorn).
+    from scistudio.utils.logging import configure_logging
+
+    # #1741: console + persistent JSON-line file logging (replaces bare
+    # basicConfig). Backend/engine/event-bus/websocket logs now land on disk for
+    # alpha bug reproduction. Idempotent with the create_app fallback.
     log_level = os.environ.get("SCISTUDIO_LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-        datefmt="%H:%M:%S",
-        force=True,
-    )
+    log_file = configure_logging(log_level)
+    if log_file is not None and not bundled:
+        typer.echo(f"Logging to {log_file}")
 
     server_host = "127.0.0.1" if bundled else "0.0.0.0"
     public_host = "127.0.0.1" if bundled else "localhost"
@@ -422,7 +450,14 @@ def gui(
     os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://127.0.0.1:{bound_port}")
     if not no_browser and not bundled:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
-    uvicorn.run("scistudio.api.app:create_app", host=server_host, port=bound_port, factory=True)
+    # #1741: log_config=None lets uvicorn loggers propagate to our root handlers.
+    uvicorn.run(
+        "scistudio.api.app:create_app",
+        host=server_host,
+        port=bound_port,
+        factory=True,
+        log_config=None,
+    )
 
 
 if __name__ == "__main__":

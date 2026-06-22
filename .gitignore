@@ -113,3 +113,7 @@ frontend/e2e/artifacts/
 
 # Scratch audit output (CI writes .audit/full-audit.json; never committed)
 .audit/
+
+# Local build counter (#1742): the build number is local-only and resets per
+# channel; it must never be committed (would pollute history on every build).
+.build-counter.json

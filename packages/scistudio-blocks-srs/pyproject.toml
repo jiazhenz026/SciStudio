@@ -9,7 +9,7 @@ description = "SciStudio SRS plugin — placeholder skeleton (Phase 11)."
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
-    "scistudio>=0.2.1",
+    "scistudio>=0.2.1a0",
     "scistudio-blocks-imaging>=0.1.0.dev0",
     "scikit-learn>=1.5",
     "scipy>=1.11",
