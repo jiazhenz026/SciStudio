@@ -251,7 +251,15 @@ def _read_series(ref, limit):
     if hasattr(value, "iloc"):
         if len(value.columns) == 0:
             raise ValueError("Series item table has no columns")
-        return value.iloc[:, 0]
+        # A Series item is persisted as an index+value table (e.g. a Spectrum is
+        # ``{lambda, intensity}``). Returning only ``iloc[:, 0]`` dropped every
+        # column after the first — for a spectrum that silently discarded the
+        # intensity axis and plotted the wavelengths instead (#1750). Keep the
+        # full table whenever it carries more than one column so no axis is lost;
+        # a genuinely single-column series still opens as a 1-D Series.
+        if len(value.columns) == 1:
+            return value.iloc[:, 0]
+        return value
     raise ValueError("unsupported Series storage for plot open()")
 
 
@@ -722,7 +730,11 @@ read_array <- function(ref) {
 read_series <- function(ref) {
   df <- read_dataframe(ref)
   if (ncol(df) < 1) stop("Series item table has no columns")
-  df[[1]]
+  # A Series item is persisted as an index+value table (e.g. a Spectrum is
+  # {lambda, intensity}). Returning only df[[1]] dropped the value axis and
+  # plotted the wavelengths instead (#1750). Keep the full data.frame when it
+  # has more than one column; a single-column series still opens as a vector.
+  if (ncol(df) == 1) df[[1]] else df
 }
 
 read_text <- function(ref) {

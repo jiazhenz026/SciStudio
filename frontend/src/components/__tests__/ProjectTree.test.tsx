@@ -9,7 +9,7 @@
  *   - <name>.tiff (not in editable set) -> NO action
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as ApiModule from "../../lib/api";
@@ -120,5 +120,41 @@ describe("ProjectTree — ADR-036 §3.5 double-click wiring (I36c)", () => {
     // Wait long enough for the handler to run if it were going to.
     await new Promise((r) => setTimeout(r, 5));
     expect(openFileTab).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProjectTree — expansion persists across a watcher refresh (#1751)", () => {
+  it("keeps an expanded folder open when projectTreeRefreshCounter bumps", async () => {
+    // Root lists one directory; expanding it lists one child file. Any other
+    // path (the watcher reload of the root) returns the directory again.
+    getProjectTreeMock.mockImplementation((async (_projectId: string, path: string) => {
+      if (path === "plots") {
+        return { entries: [{ name: "spectrum.svg", type: "file", size: 10 }] };
+      }
+      return { entries: [{ name: "plots", type: "directory" }] };
+    }) as any);
+
+    render(
+      <ProjectTree
+        projectId="proj-1"
+        projectPath="/tmp/proj-1"
+        onLoadWorkflow={vi.fn()}
+        onReloadBlocks={vi.fn()}
+      />,
+    );
+
+    // Expand "plots" and confirm its child renders.
+    fireEvent.click(await screen.findByText("plots"));
+    await screen.findByText("spectrum.svg");
+
+    // Simulate a workflow run's filesystem-watcher tick (ADR-034), which bumps
+    // the refresh counter and previously rebuilt the tree fully collapsed.
+    await act(async () => {
+      useAppStore.setState({ projectTreeRefreshCounter: 1 });
+    });
+
+    // Regression (#1751): the folder must stay expanded — its child is still
+    // visible — instead of collapsing on every run.
+    await waitFor(() => expect(screen.getByText("spectrum.svg")).toBeInTheDocument());
   });
 });

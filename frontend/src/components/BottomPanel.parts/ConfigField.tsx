@@ -13,6 +13,21 @@ function browseModeFor(uiWidget: string | undefined): BrowseMode {
   return null;
 }
 
+/**
+ * Pick a single representative path from a field value for seeding the browse
+ * dialog. A multi-file field holds an array; browsing must start from the first
+ * selected path, NOT `String(array)` (a comma-joined concatenation of every
+ * path), which builds an over-length, non-existent path and 500s the backend
+ * filesystem endpoints (#1753).
+ */
+function firstPathOf(value: unknown): string {
+  if (Array.isArray(value)) {
+    const first = value.find((v) => typeof v === "string" && v.length > 0);
+    return typeof first === "string" ? first : "";
+  }
+  return value == null ? "" : String(value);
+}
+
 function nativeInitialDir(
   browseMode: NonNullable<BrowseMode>,
   current: string,
@@ -153,7 +168,7 @@ function ScalarField({
     try {
       const result = await api.openNativeDialog(
         browseMode,
-        nativeInitialDir(browseMode, String(currentValue ?? "")),
+        nativeInitialDir(browseMode, firstPathOf(currentValue)),
       );
       applySelectedPath(result.paths);
     } catch (err) {
@@ -191,7 +206,7 @@ function ScalarField({
       {browseOpen && browseMode && (
         <FileBrowserModal
           mode={browseMode === "directory" ? "directory_browser" : "file_browser"}
-          initialPath={modalInitialPath(browseMode, String(currentValue ?? ""))}
+          initialPath={modalInitialPath(browseMode, firstPathOf(currentValue))}
           onSelect={(selectedPath) => {
             applySelectedPath([selectedPath]);
             setBrowseOpen(false);
