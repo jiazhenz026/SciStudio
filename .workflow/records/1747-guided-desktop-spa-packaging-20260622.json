@@ -440,6 +440,11 @@
       "at": "2026-06-22T06:49:28.777952Z",
       "owner_directive": "\u90fd\u6539 \u2014 change everything to arm64, including the CI workflow runner (not just the package.json script).",
       "reason": "Owner directive '\u90fd\u6539': also switch the manual macOS DMG CI workflow runner to arm64 so the whole packaging chain (uname-based Python + dist:dmg) is arm64-consistent; update the packaging test to match. Declares governance_touch for the .github/workflows edit (owner-authorized, live guided session)."
+    },
+    {
+      "at": "2026-06-22T07:47:38.884880Z",
+      "owner_directive": "Resolve the P2: mirror the SPA refresh in the Windows PowerShell stage path.",
+      "reason": "PR #1749 P2: mirror the SPA-static refresh into Windows stage-resources.ps1 so dist:win/dist:dir installers do not ship a stale src/scistudio/api/static under the bundled-only resolver; add a parity test."
     }
   ],
   "docs_events": [
@@ -1152,6 +1157,12 @@
       "at": "2026-06-22T06:49:28.778088Z",
       "pattern": "tests/packaging/test_desktop_mvp_resources.py",
       "reason": "Owner directive '\u90fd\u6539': also switch the manual macOS DMG CI workflow runner to arm64 so the whole packaging chain (uname-based Python + dist:dmg) is arm64-consistent; update the packaging test to match. Declares governance_touch for the .github/workflows edit (owner-authorized, live guided session)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-22T07:47:38.885042Z",
+      "pattern": "desktop/scripts/stage-resources.ps1",
+      "reason": "PR #1749 P2: mirror the SPA-static refresh into Windows stage-resources.ps1 so dist:win/dist:dir installers do not ship a stale src/scistudio/api/static under the bundled-only resolver; add a parity test."
     }
   ],
   "session_id": "f22b3b2d-e953-4e9e-b820-3e2c3376fcb7",

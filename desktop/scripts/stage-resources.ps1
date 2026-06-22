@@ -47,6 +47,17 @@ Ensure-Directory $BackendRoot
 Reset-Directory $SrcTarget
 Copy-Item -Path (Join-Path $SrcSource "*") -Destination $SrcTarget -Recurse -Force
 
+# Refresh the packaged SPA (scistudio/api/static) from the frontend build we just
+# produced. This is the ONLY frontend a bundled desktop app serves
+# (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo copy
+# is a gitignored build artifact that the wheel build hook
+# (setup.py _has_prebuilt_spa) skips refreshing once populated, so it can go
+# stale and ship an old SPA. Overwriting the staged copy guarantees the installer
+# always carries the current frontend. Mirrors stage-resources.sh. (#1747)
+$StagedSpa = Join-Path $SrcTarget "scistudio\api\static"
+Reset-Directory $StagedSpa
+Copy-Item -Path (Join-Path $FrontendDist "*") -Destination $StagedSpa -Recurse -Force
+
 Ensure-Directory (Join-Path $ResourcesRoot "packages")
 Ensure-Directory (Join-Path $ResourcesRoot "git")
 Ensure-Directory (Join-Path $ResourcesRoot "python")

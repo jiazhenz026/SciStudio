@@ -177,6 +177,24 @@ def test_desktop_has_windows_installer_builder() -> None:
     assert "scistudio-windows-installer" in workflow_text
 
 
+def test_stage_scripts_refresh_packaged_spa_static() -> None:
+    """#1747: both staging scripts must refresh the packaged SPA
+    (``scistudio/api/static``) from the freshly built ``frontend/dist``.
+
+    A bundled desktop app serves ONLY ``scistudio/api/static`` (see
+    ``scistudio.api.app._resolve_spa_static_dir`` in ``SCISTUDIO_BUNDLED`` mode),
+    and that repo copy is a gitignored build artifact the wheel build hook skips
+    refreshing once populated. If either staging path (POSIX ``stage-resources.sh``
+    or Windows ``stage-resources.ps1``) omits the refresh, that platform's
+    installer ships a stale SPA. The two scripts must stay in sync.
+    """
+    sh = (DESKTOP_DIR / "scripts" / "stage-resources.sh").read_text(encoding="utf-8")
+    ps1 = (DESKTOP_DIR / "scripts" / "stage-resources.ps1").read_text(encoding="utf-8")
+    # POSIX path uses forward slashes; PowerShell path uses backslashes.
+    assert "scistudio/api/static" in sh
+    assert "scistudio\\api\\static" in ps1
+
+
 def test_desktop_declares_packaged_app_icons() -> None:
     """The desktop shell should not ship with the default Electron icon."""
     package_data = _desktop_package_json()
