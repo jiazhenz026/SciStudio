@@ -98,9 +98,23 @@ def _log_dirs(request: Request) -> list[Path]:
     return unique
 
 
-@router.get("/diagnostics/bundle")
+@router.api_route("/diagnostics/bundle", methods=["GET", "POST"])
 async def diagnostics_bundle(request: Request) -> StreamingResponse:
-    """Return a zip with recent logs, an environment manifest, and run logs."""
+    """Return a zip with recent logs, an environment manifest, and run logs.
+
+    On POST, an optional JSON body ``{"records": [...]}`` of frontend log records
+    is bundled as ``frontend-logs.json`` so the entire report is a *single*
+    download — browsers block consecutive auto-downloads, so the frontend posts
+    its in-memory ring buffer here instead of downloading a second file itself.
+    """
+    frontend_records = None
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                frontend_records = body.get("records")
+        except Exception:
+            frontend_records = None
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         manifest = {
@@ -110,6 +124,8 @@ async def diagnostics_bundle(request: Request) -> StreamingResponse:
             "executable": sys.executable,
         }
         archive.writestr("environment.json", json.dumps(manifest, indent=2))
+        if frontend_records is not None:
+            archive.writestr("frontend-logs.json", json.dumps(frontend_records, indent=2, default=str))
         for log_dir in _log_dirs(request):
             if not log_dir.is_dir():
                 continue
