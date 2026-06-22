@@ -18,7 +18,10 @@ concurrency:
 jobs:
   build-dmg:
     name: Build macOS DMG
-    runs-on: macos-15-intel
+    # arm64 (Apple Silicon) runner so the whole chain is arm64-consistent:
+    # build:python:mac keys off `uname -m` and dist:dmg now targets --arm64
+    # (#1747). An Intel runner here would bundle x64 Python in an arm64 shell.
+    runs-on: macos-15
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:

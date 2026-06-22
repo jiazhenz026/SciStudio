@@ -16,7 +16,7 @@
     "dev": "node scripts/start-dev.js",
     "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir",
     "dist:win": "powershell -ExecutionPolicy Bypass -Command \"if (Test-Path 'dist\\win-unpacked') { Remove-Item -LiteralPath 'dist\\win-unpacked' -Recurse -Force }; if (Test-Path 'dist') { Get-ChildItem -Path 'dist' -Filter '*.exe' -File -ErrorAction SilentlyContinue | Remove-Item -Force }\" && electron-builder --win nsis --x64",
-    "dist:dmg": "electron-builder --mac dmg --x64"
+    "dist:dmg": "electron-builder --mac dmg --arm64"
   },
   "dependencies": {},
   "devDependencies": {

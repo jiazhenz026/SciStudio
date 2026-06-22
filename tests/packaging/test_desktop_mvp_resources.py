@@ -121,7 +121,9 @@ def test_desktop_has_macos_dmg_builder() -> None:
     scripts = package_data["scripts"]
     assert isinstance(scripts, dict)
     assert "build-python-runtime-macos.sh" in scripts["build:python:mac"]
-    assert "--mac dmg --x64" in scripts["dist:dmg"]
+    # #1747: local manual builds are arm64-only; the bundled Python (built per
+    # `uname -m`) and the Electron shell must share one architecture.
+    assert "--mac dmg --arm64" in scripts["dist:dmg"]
 
     script = DESKTOP_DIR / "scripts" / "build-python-runtime-macos.sh"
     content = script.read_text(encoding="utf-8")
@@ -135,7 +137,10 @@ def test_desktop_has_macos_dmg_builder() -> None:
     assert "workflow_dispatch:" in workflow_text
     assert "pull_request:" not in workflow_text
     assert "push:" not in workflow_text
-    assert "runs-on: macos-15-intel" in workflow_text
+    # #1747: arm64 (Apple Silicon) runner so the whole chain is arm64-consistent
+    # (an Intel runner would bundle x64 Python in an arm64 shell).
+    assert "runs-on: macos-15\n" in workflow_text
+    assert "macos-15-intel" not in workflow_text
     assert "npm --prefix desktop run build:python:mac" in workflow_text
     assert "npm --prefix desktop run dist:dmg" in workflow_text
     assert "desktop/dist/*.dmg" in workflow_text

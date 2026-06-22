@@ -230,6 +230,35 @@ describe("BlockNode — ADR-029 variadic +/- controls (SC-004)", () => {
     expect(patch.input_ports).toHaveLength(2);
     expect(patch.input_ports[1].name).toBe("port_2");
   });
+
+  it("aligns the input + control with the port-handle column (#1748)", () => {
+    renderVariadic();
+    const addBtn = screen.getByTitle("Add input port");
+    // Must match PortRow's handle anchor (left: -10); the translate makes the
+    // anchor act as the button's center, mirroring React Flow's <Handle>. The
+    // previous -7 left the + inset ~3px inward of the port column.
+    expect(addBtn.style.left).toBe("-10px");
+    expect(addBtn.style.transform).toBe("translate(-50%, -50%)");
+  });
+
+  it("aligns the output + control with the output rail (#1748)", () => {
+    renderNode({
+      category: "process",
+      blockType: "data_router",
+      config: { output_ports: [{ name: "out_1", types: ["DataObject"] }] },
+      inputPorts: [],
+      outputPorts: [makePort("out_1", "output")],
+      schema: makeSchema({
+        variadic_outputs: true,
+        min_output_ports: 1,
+        max_output_ports: 4,
+        output_ports: [],
+      }),
+    });
+    const addBtn = screen.getByTitle("Add output port");
+    expect(addBtn.style.right).toBe("-10px");
+    expect(addBtn.style.transform).toBe("translate(50%, -50%)");
+  });
 });
 
 describe("BlockNode — port handle offset (owner UX: ports not flush to border)", () => {
