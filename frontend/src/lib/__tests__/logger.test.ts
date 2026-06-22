@@ -64,6 +64,34 @@ describe("frontend logger (#1741)", () => {
 
     await exportDiagnosticBundle();
 
-    expect(downloads).toContain("scistudio-frontend-logs.json");
+    expect(downloads).toContain("scistudio-frontend-logs.log");
+  });
+
+  it("downloads a single backend zip when the backend is reachable", async () => {
+    const zipBlob = new Blob(["PK"], { type: "application/zip" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(zipBlob) }),
+    );
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:mock"),
+      revokeObjectURL: vi.fn(),
+    });
+    const downloads: string[] = [];
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreate(tag);
+      if (tag === "a") {
+        (el as HTMLAnchorElement).click = () => {
+          downloads.push((el as HTMLAnchorElement).download);
+        };
+      }
+      return el;
+    });
+
+    await exportDiagnosticBundle();
+
+    // Exactly one download (the backend zip) — no consecutive second download.
+    expect(downloads).toEqual(["scistudio-diagnostics.zip"]);
   });
 });

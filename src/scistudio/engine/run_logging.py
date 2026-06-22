@@ -19,8 +19,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-from scistudio.utils.event_logger import _JsonLineFormatter
-from scistudio.utils.log_setup import ContextFilter, resolve_log_dir, run_id_var
+from scistudio.utils.log_setup import ContextFilter, HumanFormatter, resolve_log_dir, run_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ def attach_run_logger(
         path = log_dir / f"run-{_safe_run_id(run_id)}.log"
         handler = logging.FileHandler(path, encoding="utf-8")
         handler.setLevel(level)
-        handler.setFormatter(_JsonLineFormatter())
+        handler.setFormatter(HumanFormatter())
         handler.addFilter(ContextFilter())
         handler.addFilter(_RunFilter(str(run_id)))
         logging.getLogger().addHandler(handler)

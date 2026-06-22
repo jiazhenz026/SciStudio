@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import os
 import time
@@ -40,42 +39,51 @@ def _isolate_root_logging():
     root.setLevel(saved_level)
 
 
-def _read_jsonl(path: Path) -> list[dict]:
-    records = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            records.append(json.loads(line))
-    return records
+def _flush() -> None:
+    for handler in logging.getLogger().handlers:
+        handler.flush()
 
 
-def test_configure_logging_writes_jsonline_file(tmp_path):
+def test_writes_human_readable_layered_logs(tmp_path):
     log_file = configure_logging("DEBUG", log_dir=tmp_path, log_to_file=True)
     assert log_file is not None and Path(log_file).parent == tmp_path
 
-    logging.getLogger("scistudio.test").info("hello world")
-    for handler in logging.getLogger().handlers:
-        handler.flush()
+    logging.getLogger("scistudio.api.request").info("GET /x 200")
+    logging.getLogger("scistudio.engine.scheduler").info("block done")
+    logging.getLogger("scistudio.frontend").warning("react boundary")
+    _flush()
 
-    records = _read_jsonl(Path(log_file))
-    assert any(r["message"] == "hello world" and r["level"] == "info" for r in records)
+    pid = os.getpid()
+    api = (tmp_path / f"api-{pid}.log").read_text(encoding="utf-8")
+    engine = (tmp_path / f"engine-{pid}.log").read_text(encoding="utf-8")
+    frontend = (tmp_path / f"frontend-{pid}.log").read_text(encoding="utf-8")
+    combined = (tmp_path / f"scistudio-{pid}.log").read_text(encoding="utf-8")
+
+    # Layered: each layer file holds only its own records.
+    assert "GET /x 200" in api and "block done" not in api
+    assert "block done" in engine and "GET /x 200" not in engine
+    assert "react boundary" in frontend and "block done" not in frontend
+    # Combined holds everything; output is human-readable (not JSON).
+    assert "GET /x 200" in combined and "block done" in combined
+    assert "INFO" in combined and not combined.lstrip().startswith("{")
+    # Owner: no JSON files on disk.
+    assert not list(tmp_path.glob("*.jsonl"))
 
 
-def test_correlation_and_run_id_injected(tmp_path):
-    log_file = configure_logging("DEBUG", log_dir=tmp_path, log_to_file=True)
+def test_correlation_ids_in_human_log(tmp_path):
+    configure_logging("DEBUG", log_dir=tmp_path, log_to_file=True)
     token_req = log_setup.request_id_var.set("req-123")
     token_run = log_setup.run_id_var.set("run-abc")
     try:
-        logging.getLogger("scistudio.test").warning("correlated")
+        logging.getLogger("scistudio.api.request").warning("correlated")
     finally:
         log_setup.request_id_var.reset(token_req)
         log_setup.run_id_var.reset(token_run)
-    for handler in logging.getLogger().handlers:
-        handler.flush()
+    _flush()
 
-    records = _read_jsonl(Path(log_file))
-    match = [r for r in records if r["message"] == "correlated"]
-    assert match and match[0]["request_id"] == "req-123" and match[0]["run_id"] == "run-abc"
+    api = (tmp_path / f"api-{os.getpid()}.log").read_text(encoding="utf-8")
+    line = next(entry for entry in api.splitlines() if "correlated" in entry)
+    assert "req=req-123" in line and "run=run-abc" in line
 
 
 def test_resolve_log_dir_priority(tmp_path, monkeypatch):
@@ -153,8 +161,9 @@ def test_log_call_async(caplog):
 
 def test_install_file_logging_idempotent(tmp_path):
     first = configure_logging("INFO", log_dir=tmp_path, log_to_file=True)
-    file_handlers_before = [h for h in logging.getLogger().handlers if getattr(h, "_scistudio_file_handler", False)]
+    # combined + one file per layer (api/engine/frontend) = 4 file handlers.
+    before = [h for h in logging.getLogger().handlers if getattr(h, "_scistudio_file_handler", False)]
     second = log_setup.install_file_logging(level=logging.INFO, log_dir=tmp_path)
-    file_handlers_after = [h for h in logging.getLogger().handlers if getattr(h, "_scistudio_file_handler", False)]
-    assert len(file_handlers_before) == 1 and len(file_handlers_after) == 1
+    after = [h for h in logging.getLogger().handlers if getattr(h, "_scistudio_file_handler", False)]
+    assert len(before) == 4 and len(after) == 4  # second call is a no-op
     assert Path(first) == Path(second)

@@ -12,7 +12,7 @@ related_specs:
   - alpha-version-management
 scope:
   in:
-    - Unified logging base that writes JSON-line logs to disk with rotation and 7-day retention, in addition to the existing human-readable stderr stream.
+    - Unified logging base that writes human-readable logs to disk with rotation and 7-day retention, in addition to the existing human-readable stderr stream.
     - Correlation-id propagation (X-Request-ID) across frontend -> backend -> log records.
     - Backend API request/exception middleware and a boundary @log_call decorator for fine-grained DEBUG with no broad function rewrites.
     - Per-run diagnostic log file aggregating engine events, worker output, and tracebacks.
@@ -75,7 +75,7 @@ from logs alone. The four layers — engine/engine-events, backend API, frontend
 desktop — are recorded at the same granularity (every call → DEBUG, every user
 action → INFO), via **boundary instrumentation** (a `@log_call` decorator, an API
 middleware, an `apiFetch` wrapper) rather than broad per-function rewrites. Logs
-persist as JSON-line files with rotation and 7-day retention; the console keeps
+persist as human-readable files with rotation and 7-day retention; the console keeps
 its human-readable stream. A diagnostic bundle export lets a tester ship logs +
 environment + recent run with one click.
 
@@ -91,12 +91,12 @@ log with every block lifecycle event, worker output, and the full traceback.
 persisted backend/engine logs there is nothing to diagnose.
 
 **Independent Test**: Run a failing workflow headless (`scistudio run`), then
-confirm a JSON-line process log and a `run-<id>.log` exist under the log dir and
+confirm a human-readable process log and a `run-<id>.log` exist under the log dir and
 contain the BLOCK_ERROR event and traceback.
 
 **Acceptance Scenarios**:
 1. **Given** logging is configured, **When** any backend process starts, **Then**
-   a JSON-line log file is created under the resolved log directory and receives
+   a human-readable log file is created under the resolved log directory and receives
    records in addition to the human-readable stderr stream.
 2. **Given** a workflow run, **When** the run executes, **Then** a per-run
    diagnostic file `run-<run_id>.log` captures engine events, worker stdout/stderr,
@@ -159,9 +159,11 @@ containing log files and an environment manifest.
 ### Functional Requirements
 
 - **FR-001**: `configure_logging` MUST install, in addition to the existing
-  human-readable stderr handler, a `RotatingFileHandler` writing JSON-line records
-  to a resolved log directory, idempotently and without crashing if the directory
-  is unwritable.
+  human-readable stderr handler, rotating human-readable `.log` file handlers
+  written to a resolved log directory — a combined `scistudio-<pid>.log` plus one
+  file per layer (`api-`/`engine-`/`frontend-<pid>.log`) — idempotently and
+  without crashing if the directory is unwritable. On-disk logs are
+  human-readable only (no JSON files).
 - **FR-002**: The log directory MUST resolve as: explicit arg → `SCISTUDIO_LOG_DIR`
   → desktop `logs_dir()` when bundled → `<project>/.scistudio/logs/` when a project
   is known → `logs_dir()` fallback.
@@ -171,7 +173,7 @@ containing log files and an environment manifest.
   on exit (duration), and ERROR with traceback on exception, for both sync and
   async callables, and MUST be safe to apply at layer boundaries.
 - **FR-005**: A correlation id MUST be stored in a contextvar, accepted/emitted as
-  the `X-Request-ID` header, and included in every JSON-line record when present.
+  the `X-Request-ID` header, and included in every human-readable record when present.
 - **FR-006**: The API MUST add middleware that assigns/propagates a correlation id,
   logs each request (method, path, status, duration) at INFO, and logs uncaught
   exceptions at ERROR with traceback (returning a 500 JSON body).
@@ -201,11 +203,13 @@ containing log files and an environment manifest.
 
 ### Key Entities
 
-- **LogRecord (on disk)**: JSON-line object `{ts, level, logger, message,
-  request_id?, run_id?, event_type?, block_id?, workflow_id?, data?}`.
+- **LogRecord (on disk)**: a human-readable line `ts LEVEL logger message [req=…
+  run=…]` (no JSON files on disk), written to a combined `scistudio-<pid>.log`
+  and a per-layer file (`api-`/`engine-`/`frontend-<pid>.log`).
 - **ClientLogBatch**: `{records: [{level, message, ts, url?, context?}], ...}` posted
-  by the frontend.
-- **DiagnosticBundle**: zip of `logs/*.log` + `environment.json` + `run-*.log`.
+  by the frontend to be bundled as a human-readable `frontend-logs.log`.
+- **DiagnosticBundle**: zip of `logs/*.log` (combined + per-layer) +
+  `environment.json` + `frontend-logs.log` + `runs/run-*.log`.
 
 ## 4. Implementation Plan
 
@@ -214,7 +218,7 @@ containing log files and an environment manifest.
 A new `scistudio.utils.log_setup` module owns the file sink, directory resolution,
 retention pruning, the correlation-id contextvar + logging filter, and the
 `@log_call` decorator. `scistudio.utils.logging.configure_logging` is upgraded to
-compose the existing stderr handler with the new JSON-line file handler (reusing
+compose the existing stderr handler with the new human-readable file handler (reusing
 `_JsonLineFormatter` and `_sanitize_value`). The API gains middleware
 (`_logging_middleware.py`) and a `diagnostics` router (`/api/client-logs`,
 `/version`, `/api/diagnostics/bundle`). A `scistudio.engine.run_logging` module
@@ -277,7 +281,7 @@ handlers.
 
 ### Measurable Outcomes
 
-- **SC-001**: After any backend entrypoint starts, a JSON-line log file exists in
+- **SC-001**: After any backend entrypoint starts, a human-readable log file exists in
   the resolved log directory and grows as the process logs.
 - **SC-002**: A failing `scistudio run` produces a `run-<id>.log` containing the
   BLOCK_ERROR event and a full traceback.

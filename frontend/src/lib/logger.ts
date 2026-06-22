@@ -144,29 +144,47 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/** Render frontend records as a human-readable .log (owner: no JSON files). */
+function formatRecordsAsLog(records: ClientLogRecord[]): string {
+  const body = records
+    .map((r) => {
+      const extras: string[] = [];
+      if (r.request_id) extras.push(`req=${r.request_id}`);
+      if (r.url) extras.push(`url=${r.url}`);
+      if (r.context) extras.push(`context=${JSON.stringify(r.context)}`);
+      const suffix = extras.length ? `  [${extras.join(" ")}]` : "";
+      return `${r.ts} ${r.level.toUpperCase()} frontend ${r.message}${suffix}`;
+    })
+    .join("\n");
+  return records.length ? `${body}\n` : "";
+}
+
 /**
- * Export diagnostics for a bug report.
+ * Export diagnostics for a bug report as a SINGLE download.
  *
- * Always dumps the in-memory ring buffer first (Codex P2): when the backend is
- * unreachable, warn/error records that failed to reflux still reach the tester's
- * download instead of being lost in memory. Then additionally downloads the
- * backend bundle (logs + environment + run logs) when it is available.
+ * POSTs the in-memory ring buffer to the backend, which bundles it (as a
+ * human-readable `frontend-logs.log`) together with the backend logs +
+ * environment + run logs into one zip. A single download avoids the browser's
+ * block on consecutive auto-downloads. If the backend is unreachable, fall back
+ * to a single human-readable `.log` of the ring buffer so frontend-only records
+ * still reach the tester.
  */
 export async function exportDiagnosticBundle(): Promise<void> {
+  const records = getLogBuffer();
   try {
-    downloadBlob(
-      new Blob([JSON.stringify(getLogBuffer(), null, 2)], { type: "application/json" }),
-      "scistudio-frontend-logs.json",
-    );
-  } catch (error) {
-    logger.error(`frontend log export failed: ${String(error)}`);
-  }
-  try {
-    const response = await fetch("/api/diagnostics/bundle");
+    const response = await fetch("/api/diagnostics/bundle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records }),
+    });
     if (!response.ok) throw new Error(`bundle request failed: ${response.status}`);
     downloadBlob(await response.blob(), "scistudio-diagnostics.zip");
     logger.info("diagnostic bundle exported");
   } catch (error) {
     logger.warn(`backend diagnostic bundle unavailable: ${String(error)}`);
+    downloadBlob(
+      new Blob([formatRecordsAsLog(records)], { type: "text/plain" }),
+      "scistudio-frontend-logs.log",
+    );
   }
 }

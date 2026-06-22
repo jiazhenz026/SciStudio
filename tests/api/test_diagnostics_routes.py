@@ -55,3 +55,20 @@ def test_bundle_returns_zip(tmp_path, monkeypatch):
     names = archive.namelist()
     assert "environment.json" in names
     assert any(name.startswith("logs/") for name in names)
+
+
+def test_bundle_post_includes_frontend_logs(tmp_path, monkeypatch):
+    # Single-download path: the frontend POSTs its ring buffer and it is bundled
+    # as frontend-logs.json inside the same zip.
+    monkeypatch.setenv("SCISTUDIO_LOG_DIR", str(tmp_path))
+    client = TestClient(_make_app())
+    payload = {"records": [{"level": "error", "message": "frontend-only crash"}]}
+    response = client.post("/api/diagnostics/bundle", json=payload)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    names = archive.namelist()
+    assert "frontend-logs.log" in names
+    assert "environment.json" in names
+    frontend = archive.read("frontend-logs.log").decode("utf-8")
+    assert "frontend-only crash" in frontend
