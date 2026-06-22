@@ -32,24 +32,29 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         start = time.perf_counter()
         logger.debug("→ %s %s", method, path)
+        # The access/error logs must run while request_id_var is still set so the
+        # on-disk JSON record carries the correlation id (Codex P2). Keep the
+        # logging INSIDE the try; the finally resets only after the response is
+        # returned, never before the access log.
         try:
-            response = await call_next(request)
-        except Exception:
+            try:
+                response = await call_next(request)
+            except Exception:
+                duration_ms = (time.perf_counter() - start) * 1000
+                logger.error("✗ %s %s raised after %.1fms", method, path, duration_ms, exc_info=True)
+                error = JSONResponse(
+                    {"detail": "Internal Server Error", "request_id": request_id},
+                    status_code=500,
+                )
+                error.headers[REQUEST_ID_HEADER] = request_id
+                return error
             duration_ms = (time.perf_counter() - start) * 1000
-            logger.error("✗ %s %s raised after %.1fms", method, path, duration_ms, exc_info=True)
-            error = JSONResponse(
-                {"detail": "Internal Server Error", "request_id": request_id},
-                status_code=500,
-            )
-            error.headers[REQUEST_ID_HEADER] = request_id
-            return error
+            level = logging.WARNING if response.status_code >= 500 else logging.INFO
+            logger.log(level, "%s %s %s %.1fms", method, path, response.status_code, duration_ms)
+            response.headers[REQUEST_ID_HEADER] = request_id
+            return response
         finally:
             request_id_var.reset(token)
-        duration_ms = (time.perf_counter() - start) * 1000
-        level = logging.WARNING if response.status_code >= 500 else logging.INFO
-        logger.log(level, "%s %s %s %.1fms", method, path, response.status_code, duration_ms)
-        response.headers[REQUEST_ID_HEADER] = request_id
-        return response
 
 
 __all__ = ["RequestLoggingMiddleware"]

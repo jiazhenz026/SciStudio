@@ -54,3 +54,30 @@ def test_uncaught_exception_logged_and_500(caplog):
     assert response.headers.get("X-Request-ID")
     errors = [r for r in caplog.records if r.levelno == logging.ERROR]
     assert errors and any(r.exc_info for r in errors)
+
+
+def test_access_log_carries_request_id():
+    # Codex P2: the success-path access log must run while request_id_var is still
+    # set, so the on-disk record (via ContextFilter) carries the correlation id.
+    from scistudio.utils.log_setup import ContextFilter
+
+    captured: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            captured.append(record)
+
+    handler = _Capture()
+    handler.addFilter(ContextFilter())
+    request_logger = logging.getLogger("scistudio.api.request")
+    request_logger.addHandler(handler)
+    request_logger.setLevel(logging.DEBUG)
+    try:
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        client.get("/ok", headers={"X-Request-ID": "rid-success"})
+    finally:
+        request_logger.removeHandler(handler)
+
+    access = [r for r in captured if "200" in r.getMessage()]
+    assert access, "access log record was not captured"
+    assert getattr(access[0], "request_id", None) == "rid-success"

@@ -62,3 +62,32 @@ def test_build_counter_roundtrip_and_channel_isolation(tmp_path, monkeypatch):
 def test_dunder_version_is_pep440():
     # scistudio.__version__ must be importable by packaging (importlib.metadata).
     assert str(Version(version.__version__)) == version.__version__
+
+
+def test_counter_path_none_outside_source_tree(monkeypatch):
+    # Codex P2: no CWD fallback when there is no ancestor pyproject.toml.
+    monkeypatch.setattr(version, "repo_root", lambda: None)
+    assert version.counter_path() is None
+
+
+def test_installed_build_derives_from_metadata(monkeypatch):
+    # Installed/bundled (no repo_root) must derive the build from packaged
+    # metadata, never from a stray CWD counter file.
+    monkeypatch.setattr(version, "repo_root", lambda: None)
+    monkeypatch.delenv("SCISTUDIO_BUILD_NUMBER", raising=False)
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.2.1a7")
+    assert version.read_build_number("alpha") == 7
+    assert version.read_build_number("beta") == 0  # 'b' suffix absent in 0.2.1a7
+
+
+def test_write_build_number_refuses_outside_source_tree(monkeypatch):
+    monkeypatch.setattr(version, "repo_root", lambda: None)
+    with pytest.raises(RuntimeError):
+        version.write_build_number("alpha", 1)
+
+
+def test_build_from_metadata_parses_channel_suffix(monkeypatch):
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.2.1b4")
+    assert version._build_from_metadata("beta") == 4
+    assert version._build_from_metadata("alpha") == 0
+    assert version._build_from_metadata("stable") == 0

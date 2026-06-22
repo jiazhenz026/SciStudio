@@ -75,15 +75,25 @@ def repo_root() -> Path | None:
     return None
 
 
-def counter_path() -> Path:
-    """Return the local build-counter file path (repo root, gitignored)."""
-    root = repo_root() or Path.cwd()
-    return root / _COUNTER_FILENAME
+def counter_path() -> Path | None:
+    """Return the local build-counter file path, or ``None`` outside a source tree.
+
+    Codex P2: never fall back to the launch CWD. An installed/bundled app has no
+    ancestor ``pyproject.toml``, and reading a stray ``.build-counter.json`` from
+    the user's working directory would report an unrelated build number. Installed
+    builds derive the build from packaged metadata instead (see
+    :func:`read_build_number`).
+    """
+    root = repo_root()
+    return (root / _COUNTER_FILENAME) if root is not None else None
 
 
 def _read_counter_file() -> dict[str, int]:
+    path = counter_path()
+    if path is None:
+        return {}
     try:
-        data = json.loads(counter_path().read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
     if not isinstance(data, dict):
@@ -97,11 +107,37 @@ def _read_counter_file() -> dict[str, int]:
     return out
 
 
+def _build_from_metadata(channel: str) -> int:
+    """Derive *channel*'s build from the installed package metadata.
+
+    ``scripts/version.py sync`` bakes the PEP 440 version (e.g. ``0.2.1a7``) into
+    the wheel/desktop package metadata, so an installed app parses the prerelease
+    number back out instead of reading a (gitignored, source-only) counter file.
+    """
+    suffix = _PEP440_SUFFIX.get(channel)
+    if suffix is None:
+        return 0
+    try:
+        from importlib.metadata import PackageNotFoundError
+        from importlib.metadata import version as _dist_version
+
+        try:
+            distribution = _dist_version("scistudio")
+        except PackageNotFoundError:
+            return 0
+    except Exception:
+        return 0
+    import re
+
+    match = re.search(rf"{re.escape(suffix)}(\d+)$", distribution)
+    return int(match.group(1)) if match else 0
+
+
 def read_build_number(channel: str = CHANNEL) -> int:
     """Return the build number for *channel*.
 
-    Priority: ``SCISTUDIO_BUILD_NUMBER`` env override -> local counter file ->
-    ``0``. Never raises; an unreadable/invalid source yields ``0``.
+    Priority: ``SCISTUDIO_BUILD_NUMBER`` env override -> local counter file (only
+    inside a source tree) -> installed package metadata -> ``0``. Never raises.
     """
     env = os.environ.get(_BUILD_ENV)
     if env is not None and env.strip():
@@ -109,15 +145,24 @@ def read_build_number(channel: str = CHANNEL) -> int:
             return max(0, int(env.strip()))
         except ValueError:
             pass
-    return _read_counter_file().get(channel, 0)
+    if counter_path() is not None:
+        return _read_counter_file().get(channel, 0)
+    return _build_from_metadata(channel)
 
 
 def write_build_number(channel: str, build: int) -> int:
-    """Persist *build* for *channel* in the local counter file; return it."""
+    """Persist *build* for *channel* in the local counter file; return it.
+
+    Only valid inside a source checkout (the counter is gitignored and
+    source-only); raises ``RuntimeError`` for an installed/bundled app.
+    """
     validate_channel(channel)
+    path = counter_path()
+    if path is None:
+        raise RuntimeError("build counter is only writable inside a source checkout")
     counters = _read_counter_file()
     counters[channel] = max(0, int(build))
-    counter_path().write_text(json.dumps(counters, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(counters, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return counters[channel]
 
 

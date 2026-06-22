@@ -82,7 +82,7 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
   };
   pushRing(record);
 
-  // eslint-disable-next-line no-console -- this IS the console logging boundary
+  /* eslint-disable no-console -- this IS the console logging boundary */
   const sink =
     level === "error"
       ? console.error
@@ -92,6 +92,7 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
           ? console.debug
           : console.info;
   sink(`[scistudio] ${message}`, context ?? "");
+  /* eslint-enable no-console */
 
   if (LEVEL_ORDER[level] >= LEVEL_ORDER[REFLUX_THRESHOLD]) {
     pending.push(record);
@@ -131,22 +132,41 @@ export function installGlobalErrorHandlers(): void {
   window.addEventListener("beforeunload", () => void flush());
 }
 
-/** Download a backend diagnostic bundle (logs + environment + run logs) as a zip. */
+/** Trigger a browser download of a blob under the given filename. */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export diagnostics for a bug report.
+ *
+ * Always dumps the in-memory ring buffer first (Codex P2): when the backend is
+ * unreachable, warn/error records that failed to reflux still reach the tester's
+ * download instead of being lost in memory. Then additionally downloads the
+ * backend bundle (logs + environment + run logs) when it is available.
+ */
 export async function exportDiagnosticBundle(): Promise<void> {
+  try {
+    downloadBlob(
+      new Blob([JSON.stringify(getLogBuffer(), null, 2)], { type: "application/json" }),
+      "scistudio-frontend-logs.json",
+    );
+  } catch (error) {
+    logger.error(`frontend log export failed: ${String(error)}`);
+  }
   try {
     const response = await fetch("/api/diagnostics/bundle");
     if (!response.ok) throw new Error(`bundle request failed: ${response.status}`);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "scistudio-diagnostics.zip";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(await response.blob(), "scistudio-diagnostics.zip");
     logger.info("diagnostic bundle exported");
   } catch (error) {
-    logger.error(`diagnostic bundle export failed: ${String(error)}`);
+    logger.warn(`backend diagnostic bundle unavailable: ${String(error)}`);
   }
 }

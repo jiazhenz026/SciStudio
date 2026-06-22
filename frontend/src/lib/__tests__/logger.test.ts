@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getLogBuffer, logger } from "../logger";
+import { exportDiagnosticBundle, getLogBuffer, logger } from "../logger";
 
 describe("frontend logger (#1741)", () => {
   afterEach(() => {
@@ -39,5 +39,31 @@ describe("frontend logger (#1741)", () => {
     expect(init.method).toBe("POST");
     const body = JSON.parse(init.body as string);
     expect(body.records.some((r: { message: string }) => r.message === "boom")).toBe(true);
+  });
+
+  it("dumps the ring buffer on export even when the backend is unreachable", async () => {
+    // Codex P2: frontend-only records must reach the download when the backend
+    // bundle cannot be fetched.
+    logger.error("ring-only record");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:mock"),
+      revokeObjectURL: vi.fn(),
+    });
+    const downloads: string[] = [];
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreate(tag);
+      if (tag === "a") {
+        (el as HTMLAnchorElement).click = () => {
+          downloads.push((el as HTMLAnchorElement).download);
+        };
+      }
+      return el;
+    });
+
+    await exportDiagnosticBundle();
+
+    expect(downloads).toContain("scistudio-frontend-logs.json");
   });
 });
