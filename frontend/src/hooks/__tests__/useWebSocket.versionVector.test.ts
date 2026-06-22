@@ -471,4 +471,68 @@ describe("useWorkflowWebSocket ADR-045 reconcile", () => {
     expect(tab.conflict?.remoteContent).toBe("remote\n");
     expect(tab.conflict?.remoteVersion).toBe(7);
   });
+
+  // -------------------------------------------------------------------------
+  // #1751 — the project tree must refresh only on a STRUCTURAL change
+  // (created / deleted / renamed), never on a content "modified" event. The
+  // app's own repeated workflow-YAML saves during a run (and watcher echoes of
+  // them, amplified on cloud-synced project dirs) are "modified" and previously
+  // thrashed the tree even though the canvas correctly ignored them — the
+  // "only the left file tree jitters after a run" symptom.
+  // -------------------------------------------------------------------------
+  function pushWorkflowChanged(kind: string, version: number): void {
+    pushMessage({
+      type: "workflow.changed",
+      workflow_id: "demo",
+      timestamp: "2026-06-22T00:00:00Z",
+      data: {
+        workflow_id: "demo",
+        entity_class: "workflow",
+        entity_id: "demo",
+        version,
+        source: "canvas",
+        source_id: "workflow-source-1",
+        kind,
+      },
+    });
+  }
+
+  function pushFileChanged(kind: string): void {
+    pushMessage({
+      type: "file.changed",
+      timestamp: "2026-06-22T00:00:00Z",
+      data: {
+        path: "data/out.parquet",
+        entity_class: "file",
+        entity_id: "data/out.parquet",
+        version: 1,
+        source: "external",
+        source_id: null,
+        kind,
+      },
+    });
+  }
+
+  it("does NOT refresh the project tree on a workflow content 'modified' echo (#1751)", () => {
+    useAppStore.getState().setWorkflow(versionedWorkflow(10, "base"));
+    renderHook(() => useWorkflowWebSocket(true));
+    // Stale version so the reconcile path no-ops; we only assert the tree gate.
+    pushWorkflowChanged("modified", 5);
+    expect(useAppStore.getState().projectTreeRefreshCounter).toBe(0);
+  });
+
+  it("refreshes the project tree on a structural workflow 'deleted' event (#1751)", () => {
+    useAppStore.getState().setWorkflow(versionedWorkflow(10, "base"));
+    renderHook(() => useWorkflowWebSocket(true));
+    pushWorkflowChanged("deleted", 5);
+    expect(useAppStore.getState().projectTreeRefreshCounter).toBe(1);
+  });
+
+  it("refreshes the tree on a file 'created' but not on a file 'modified' (#1751)", () => {
+    renderHook(() => useWorkflowWebSocket(true));
+    pushFileChanged("modified");
+    expect(useAppStore.getState().projectTreeRefreshCounter).toBe(0);
+    pushFileChanged("created");
+    expect(useAppStore.getState().projectTreeRefreshCounter).toBe(1);
+  });
 });

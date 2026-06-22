@@ -13,7 +13,14 @@ import { useAppStore } from "../../store";
 import type { VersionConflictState } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
-import { eventSource, numberOrNull, stringOrNull, versionedData, workflowIsDirty } from "./helpers";
+import {
+  eventSource,
+  isStructuralTreeChange,
+  numberOrNull,
+  stringOrNull,
+  versionedData,
+  workflowIsDirty,
+} from "./helpers";
 
 export interface WorkflowChangedDeps {
   appendLog: (entry: LogEntry) => void;
@@ -222,8 +229,13 @@ export function handleWorkflowChanged(
   deps: WorkflowChangedDeps,
 ): void {
   const ctx = parseWorkflowChangedPayload(payload);
-  // Any workflow YAML touch on disk is also a project-tree change.
-  useAppStore.getState().bumpProjectTreeRefresh();
+  // Only a structural change (a workflow file created/deleted/renamed) changes
+  // the project tree. A "modified" event is just a content re-save — the app's
+  // own repeated workflow saves during a run (and watcher echoes of them) must
+  // not thrash the tree, which has no version-vector guard like the canvas (#1751).
+  if (isStructuralTreeChange(ctx?.kind)) {
+    useAppStore.getState().bumpProjectTreeRefresh();
+  }
   if (!ctx) return;
 
   // ADR-034: agent-driven ``write_workflow`` (kind=created) for an

@@ -31,6 +31,7 @@ from typing import Any
 
 from scistudio.desktop.paths import (
     candidate_package_dirs,
+    installed_package_import_roots,
     iter_source_package_module_candidates,
     prepended_sys_paths,
 )
@@ -150,9 +151,25 @@ class PreviewerRegistry:
             self.register(spec)
 
     def load_packages(self, *, include_monorepo: bool = False) -> None:
-        """Load package previewers from entry points + monorepo fallback (FR-002/FR-030)."""
-        self._scan_entry_points()
-        self._scan_companion_entry_point_packages()
+        """Load package previewers from entry points + monorepo fallback (FR-002/FR-030).
+
+        The entry-point scans run with the user-installed plugin import roots
+        activated on ``sys.path`` (their ``site-packages`` carry the dist-info),
+        so ``importlib.metadata.entry_points()`` can actually see installed
+        plugins' ``scistudio.previewers`` entry points. Without this the
+        canonical entry-point path silently finds nothing in the packaged app —
+        the plugin ``site-packages`` is off ``sys.path`` — and previewer
+        discovery falls entirely to the source-dir scan fallback (#1752). The
+        block/type registries already activate these roots the same way.
+        """
+        try:
+            plugin_roots = tuple(installed_package_import_roots())
+        except Exception:  # pragma: no cover - defensive; never fail discovery
+            logger.debug("Failed to resolve installed plugin import roots", exc_info=True)
+            plugin_roots = ()
+        with prepended_sys_paths(plugin_roots):
+            self._scan_entry_points()
+            self._scan_companion_entry_point_packages()
         self._scan_package_src_dirs()
         if include_monorepo:
             self._scan_monorepo_packages()

@@ -12,7 +12,14 @@ import { useAppStore } from "../../store";
 import type { FileTab, VersionConflictState } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
-import { eventSource, fileIsDirty, numberOrNull, stringOrNull, versionedData } from "./helpers";
+import {
+  eventSource,
+  fileIsDirty,
+  isStructuralTreeChange,
+  numberOrNull,
+  stringOrNull,
+  versionedData,
+} from "./helpers";
 
 export interface FileChangedDeps {
   appendLog: (entry: LogEntry) => void;
@@ -147,7 +154,13 @@ export function handleFileChanged(payload: WorkflowEventMessage, deps: FileChang
   const path = stringOrNull(data.path) ?? stringOrNull(data.entity_id);
   if (!path) return;
 
-  useAppStore.getState().bumpProjectTreeRefresh();
+  // Refresh the project tree only on a structural change (created/deleted/
+  // renamed). A "modified" content event leaves the tree structure unchanged
+  // and must not thrash it during a run's repeated saves (#1751).
+  const kind = (data.kind as string | undefined) ?? "modified";
+  if (isStructuralTreeChange(kind)) {
+    useAppStore.getState().bumpProjectTreeRefresh();
+  }
   const state = useAppStore.getState();
   const projectId = state.currentProject?.id;
   const matchingTabs = state.tabs.filter((tab) => tab.kind === "file" && tab.filePath === path);
@@ -155,7 +168,7 @@ export function handleFileChanged(payload: WorkflowEventMessage, deps: FileChang
 
   const ctx: FileEventContext = {
     path,
-    kind: (data.kind as string | undefined) ?? "modified",
+    kind,
     eventVersion: numberOrNull(data.version),
     source: eventSource(data),
     sourceId: stringOrNull(data.source_id),

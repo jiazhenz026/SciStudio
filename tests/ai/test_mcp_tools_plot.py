@@ -1245,6 +1245,47 @@ def test_materialize_uses_metadata_estimate_for_cap(tmp_path: Path) -> None:
     assert out["collection"]["items"][0]["_path"] == str(src)
 
 
+def _python_harness_namespace() -> dict[str, Any]:
+    """Exec the embedded ``PYTHON_HARNESS`` source so its internal readers
+    (``_open_ref`` etc.) can be exercised exactly as the plot subprocess runs
+    them. ``__name__`` is set to a non-``__main__`` value so the harness entry
+    ``main()`` does not execute on import."""
+    from scistudio.ai.agent.mcp.tools_plot import _harness
+
+    ns: dict[str, Any] = {"__name__": "_python_harness_undertest"}
+    exec(compile(_harness.PYTHON_HARNESS, "<python_harness>", "exec"), ns)
+    return ns
+
+
+def test_series_open_preserves_value_column(tmp_path: Path) -> None:
+    """Regression (#1750): a Series item (e.g. a spectrum) must not drop its
+    value column.
+
+    ``_read_series`` previously returned only the first column, so a Spectrum
+    persisted as ``{lambda, intensity}`` opened to the lambda axis alone — the
+    intensity was unreachable and the default plot drew the wavelengths.
+    """
+    import pandas as pd
+
+    src = tmp_path / "spectrum.parquet"
+    pd.DataFrame({"lambda": [400.0, 401.0, 402.0], "intensity": [1.5, 2.5, 3.5]}).to_parquet(src)
+    value = _python_harness_namespace()["_open_ref"](_df_item(src, typ="Series"), 10**9)
+    assert hasattr(value, "columns"), "a multi-column Series must open to its full table"
+    assert list(value.columns) == ["lambda", "intensity"]
+    assert value["intensity"].tolist() == [1.5, 2.5, 3.5]
+
+
+def test_single_column_series_open_returns_1d(tmp_path: Path) -> None:
+    """A genuinely single-column Series still opens as a 1-D Series (#1750)."""
+    import pandas as pd
+
+    src = tmp_path / "single.parquet"
+    pd.DataFrame({"value": [1.0, 2.0, 3.0]}).to_parquet(src)
+    value = _python_harness_namespace()["_open_ref"](_df_item(src, typ="Series"), 10**9)
+    assert not hasattr(value, "columns"), "a single-column Series stays 1-D"
+    assert value.tolist() == [1.0, 2.0, 3.0]
+
+
 @pytest.fixture
 def parquet_output(tmp_path: Path) -> Path:
     import pandas as pd

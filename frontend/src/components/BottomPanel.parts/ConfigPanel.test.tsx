@@ -124,6 +124,63 @@ describe("ConfigPanel", () => {
     expect(apiMocks.browseFilesystem).not.toHaveBeenCalled();
   });
 
+  it("seeds browse from the first path when a multi-file field holds an array (#1753)", async () => {
+    // A multi-select file field stores an array. Re-browsing must start from the
+    // first file's directory, NOT String(array) — a comma-joined concatenation
+    // of every path that builds an over-length path and 500s the backend.
+    apiMocks.openNativeDialog.mockResolvedValueOnce({ paths: [] });
+
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "load-1",
+          block_type: "load_data",
+          config: {
+            params: {
+              path: [
+                "/data/imaging/LA0Hr.txt",
+                "/data/imaging/LA1Hr.txt",
+                "/data/imaging/LA2Hr.txt",
+              ],
+            },
+          },
+        }}
+        schema={{
+          name: "Load",
+          type_name: "load_data",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "input",
+          config_schema: {
+            properties: {
+              path: {
+                type: "array",
+                title: "Path",
+                ui_priority: 0,
+                ui_widget: "file_browser",
+              },
+            },
+          },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+
+    await waitFor(() =>
+      expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/data/imaging"),
+    );
+    // The seeded directory must be a single real path, never a comma-joined blob.
+    const [, initialDir] = apiMocks.openNativeDialog.mock.calls[0];
+    expect(initialDir).not.toContain(",");
+  });
+
   it("falls back to the in-app file browser when native dialog fails", async () => {
     const { ApiError } = await import("../../lib/api");
     apiMocks.openNativeDialog.mockRejectedValueOnce(
