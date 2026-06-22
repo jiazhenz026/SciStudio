@@ -135,13 +135,17 @@ interface AddPortButtonProps {
 }
 
 function AddPortButton({ direction, portCount, onAdd }: AddPortButtonProps) {
-  // translate(±50%, -50%) matches React Flow's <Handle> convention so the
-  // button center aligns with the port-handle column. The `+` sits one stride
-  // past the last port on the rail (ADR-050 §2.4 — append affordance).
+  // #1748: align the `+` with the port-handle column. The button is a plain
+  // element (not a React Flow <Handle>), so the translate(±50%, -50%) here
+  // makes its anchor act as its center — mirroring how React Flow centers a
+  // <Handle> on its anchor. The anchor MUST therefore match PortRow's handle
+  // anchor (`left: -10` / `right: -10`); the previous `-7` left the `+` inset
+  // ~3px inward of the port column. The `+` sits one stride past the last port
+  // on the rail (ADR-050 §2.4 — append affordance).
   const side =
     direction === "input"
-      ? { left: -7, transform: "translate(-50%, -50%)" }
-      : { right: -7, transform: "translate(50%, -50%)" };
+      ? { left: -10, transform: "translate(-50%, -50%)" }
+      : { right: -10, transform: "translate(50%, -50%)" };
   return (
     <button
       type="button"

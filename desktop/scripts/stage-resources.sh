@@ -33,6 +33,17 @@ mkdir -p "$BACKEND_ROOT"
 reset_dir "$SRC_TARGET"
 cp -R "$REPO_ROOT/src"/. "$SRC_TARGET"/
 
+# Refresh the packaged SPA (scistudio/api/static) from the frontend build we
+# just produced. This is the ONLY frontend a bundled desktop app serves
+# (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo
+# copy is a gitignored build artifact that the wheel build hook
+# (setup.py _has_prebuilt_spa) skips refreshing once populated, so it can go
+# stale and ship an old SPA. Overwriting the staged copy guarantees the DMG
+# always carries the current frontend. (#1747)
+STAGED_SPA="$SRC_TARGET/scistudio/api/static"
+reset_dir "$STAGED_SPA"
+cp -R "$FRONTEND_DIST"/. "$STAGED_SPA"/
+
 mkdir -p "$RESOURCES_ROOT/packages" "$RESOURCES_ROOT/git" "$RESOURCES_ROOT/python"
 : > "$RESOURCES_ROOT/packages/.gitkeep"
 : > "$RESOURCES_ROOT/git/.gitkeep"

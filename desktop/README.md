@@ -30,13 +30,20 @@ npm --prefix desktop run stage
 npm --prefix desktop run dist:win
 ```
 
-The macOS DMG build runs on macOS:
+The macOS DMG build runs on macOS and targets **arm64** (Apple Silicon):
 
 ```bash
 npm --prefix desktop run build:python:mac
 npm --prefix desktop run stage:sh
 npm --prefix desktop run dist:dmg
 ```
+
+`build:python:mac` stages a Python runtime for the host architecture (`uname -m`)
+and `dist:dmg` builds `--arm64`, so run these on an Apple Silicon Mac to keep the
+bundled Python and the Electron shell the same architecture. `stage:sh` refreshes
+the packaged SPA (`scistudio/api/static`) from the fresh `frontend/dist` on every
+build; a bundled app serves only that embedded SPA, never a `frontend/dist` found
+on the host (#1747).
 
 The GitHub Actions build chain for packaged artifacts is intentionally manual
 because the installer jobs are slow. Run `.github/workflows/desktop-windows-installer.yml`
