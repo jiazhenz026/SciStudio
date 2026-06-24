@@ -1,0 +1,106 @@
+{
+  "branch": "guided/save-io-extension-20260624",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/io/_unified_dispatch.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-24T23:14:20.488060Z",
+      "owner_directive": "\u65b9\u68481+2\uff1a(1) selected_capability \u4e0d\u518d\u628a AmbiguousCapabilityError \u541e\u6210 None\uff1bdelegate_save/delegate_load \u5728\u683c\u5f0f\u65e0\u6cd5\u6d88\u6b67\u65f6\u7ed9\u51fa\u53ef\u64cd\u4f5c\u62a5\u9519\uff08\u63d0\u793a\u5e26\u6269\u5c55\u540d\u6216\u9009\u683c\u5f0f\uff09\u3002(2) _path_extension \u4e5f\u8bfb filename \u5b57\u6bb5\uff0c\u4f7f\u300c\u6587\u4ef6\u5939path + filename=foo.tiff\u300d\u6b63\u5e38\u63a8\u65ad\u51fa\u683c\u5f0f\u3002",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-24T23:14:20.488234Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "\u884c\u4e3a\u4fee\u6b63\u4e0d\u6539\u53d8\u5951\u7ea6/\u67b6\u6784\uff0c\u65e0\u9700ADR",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-24T23:14:20.488382Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "\u4e0d\u6539\u53d8capability\u5951\u7ea6\u8bed\u4e49\uff0c\u4ec5\u4fee\u6b63\u683c\u5f0f\u63a8\u65ad\u8f93\u5165\u4e0e\u9519\u8bef\u4fe1\u606f",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-24T23:17:38.562912Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1760,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u65e0\u6cd5\u4fdd\u5b58tiff\u56fe\u50cf\uff0c\u62a5 'Save: no save capability is registered for type Image'\u3002\u6839\u56e0\uff1a\u672a\u8bbe\u7f6e/\u672a\u5e26\u6269\u5c55\u540d\u7684\u4fdd\u5b58\u8def\u5f84\u5bfc\u81f4 save \u683c\u5f0f\u65e0\u6cd5\u6d88\u6b67\uff0c\u4e14\u62a5\u9519\u4fe1\u606f\u8bef\u5bfc\u3002Owner \u540c\u610f\u65b9\u68481+2\uff1a\u6539\u6e05\u695a\u62a5\u9519\u4fe1\u606f\uff08\u4e0d\u518d\u541e AmbiguousCapabilityError\uff09+ \u6269\u5c55\u540d\u63a8\u65ad\u4e5f\u8bfb filename \u5b57\u6bb5\u3002",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1760-guided-save-io-extension-20260624",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:opus-4-8",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-24T23:14:20.488212Z",
+      "pattern": "src/scistudio/blocks/io/_unified_dispatch.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-24T23:17:38.562770Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "\u8bb0\u5f55 CHANGELOG Fixed \u6761\u76ee\uff08\u884c\u4e3a\u4fee\u6b63 + \u62a5\u9519\u4fe1\u606f\uff09\uff0c\u7eb3\u5165 docs \u8bc1\u636e\u4e0e scope"
+    }
+  ],
+  "session_id": "1cb71f33-7792-4c8a-bc69-bf5f915c56a2",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-24T23:14:20.488389Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/io/test_unified_dispatch_effective_params.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
