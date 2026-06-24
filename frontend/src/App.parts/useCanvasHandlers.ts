@@ -235,11 +235,14 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
 
   const handleViewSource = useCallback(async () => {
     if (!currentProject) return;
-    // #1758: when a block is selected, "View source" shows that block's source
-    // code (core / package / custom) instead of the workflow YAML.
+    // #1758: when a real block is selected, "View source" shows that block's
+    // source code (core / package / custom) instead of the workflow YAML.
+    // Annotation notes (block_type "_annotation") are canvas-only pseudo-nodes
+    // with no registered block source, so they fall through to the workflow
+    // YAML view rather than hitting the source endpoint with a 404.
     if (selectedNodeId) {
       const selected = workflowNodes.find((node) => node.id === selectedNodeId);
-      if (selected?.block_type) {
+      if (selected?.block_type && selected.block_type !== "_annotation") {
         openBlockSourceTab(selected.block_type);
         return;
       }

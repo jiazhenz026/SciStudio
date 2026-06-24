@@ -156,4 +156,22 @@ describe("useCanvasHandlers — View source routing (#1758)", () => {
     expect(openFileTab).toHaveBeenCalledWith("workflows/main.yaml", { readOnly: true });
     expect(openBlockSourceTab).not.toHaveBeenCalled();
   });
+
+  it("falls back to the workflow YAML when an annotation note is selected", async () => {
+    // _annotation nodes are canvas-only pseudo-nodes with no registered source;
+    // routing them to the block-source endpoint would 404 and strand the user.
+    const note = { id: "note1", block_type: "_annotation" } as unknown as WorkflowNode;
+    const { result, openFileTab, openBlockSourceTab, saveWorkflow } = renderView({
+      workflowNodes: [note],
+      selectedNodeId: "note1",
+    });
+
+    await act(async () => {
+      await result.current.handleViewSource();
+    });
+
+    expect(openBlockSourceTab).not.toHaveBeenCalled();
+    expect(saveWorkflow).toHaveBeenCalled();
+    expect(openFileTab).toHaveBeenCalledWith("workflows/main.yaml", { readOnly: true });
+  });
 });
