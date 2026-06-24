@@ -156,6 +156,16 @@ class BlockListResponse(BaseModel):
     blocks: list[BlockSummary] = Field(default_factory=list)
 
 
+class BlockSourceResponse(BaseModel):
+    """Read-only source code backing a registered block type (#1758)."""
+
+    block_type: str = Field(description="Registered block type name the source belongs to.")
+    path: str = Field(description="Absolute filesystem path of the block's source file.")
+    source: str = Field(description="Full source text of the block's file.")
+    language: str = Field(default="python", description="Source language (always 'python' today).")
+    origin: str = Field(description="Block origin: 'builtin' | 'package' | 'custom'.")
+
+
 class BlockSchemaResponse(BlockSummary):
     """Detailed schema payload for a single block type."""
 

@@ -39,7 +39,15 @@ function partializeFileTab(tab: FileTab): FileTab {
 }
 
 function partializeTabs(tabs: TabState[]): TabState[] {
-  return tabs.map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab));
+  return (
+    tabs
+      // #1758: block-source ("View source") tabs are transient — their content
+      // comes from the block registry, not a project file, and has no
+      // rehydrate-refetch path. Drop them from persistence so a reload does not
+      // leave a permanently-empty placeholder.
+      .filter((tab) => !(tab.kind === "file" && tab.blockSourceType))
+      .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
+  );
 }
 
 // ADR-040 Addendum 5 / #1488: sentinel for the active-workflow sync

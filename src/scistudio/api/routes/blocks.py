@@ -9,12 +9,20 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from scistudio.api._block_source import (
+    BlockSourceUnavailableError,
+    resolve_block_source,
+)
+from scistudio.api._block_source import (
+    map_block_origin as _map_source,
+)
 from scistudio.api.deps import get_block_registry, get_type_registry
 from scistudio.api.schemas import (
     BlockConnectionValidation,
     BlockListResponse,
     BlockPortResponse,
     BlockSchemaResponse,
+    BlockSourceResponse,
     BlockSummary,
     ConnectionValidationResponse,
     FormatCapabilityResponse,
@@ -65,22 +73,6 @@ def _config_schema_for_block(spec: Any, registry: Any = None, type_registry: Any
     AI agent (MCP ``get_block_schema`` / ``list_blocks``) stay in lockstep.
     """
     return enrich_io_config_schema(spec, registry, type_registry)
-
-
-def _map_source(raw: str) -> str:
-    """Map internal source labels to palette-friendly values.
-
-    tier1 -> "custom" (project-local hot-loaded blocks)
-    entry_point / monorepo / package_src -> "package" (installed plugin blocks)
-    builtin -> "builtin" (core blocks)
-    """
-    if raw == "tier1":
-        return "custom"
-    if raw in ("entry_point", "monorepo", "package_src"):
-        return "package"
-    if raw == "builtin":
-        return "builtin"
-    return raw
 
 
 def _format_capability_response(capability: Any) -> FormatCapabilityResponse:
@@ -351,6 +343,27 @@ async def get_block_schema(
         min_output_ports=getattr(spec, "min_output_ports", None),
         max_output_ports=getattr(spec, "max_output_ports", None),
     )
+
+
+@router.get("/{block_type}/source", response_model=BlockSourceResponse)
+async def get_block_source(
+    block_type: str,
+    registry: BlockRegistryDep,
+) -> BlockSourceResponse:
+    """Return the read-only Python source backing a registered block type.
+
+    Powers the homepage "View source" action when a block is selected on the
+    canvas (#1758): core, package, and custom blocks alike resolve to their
+    on-disk source file. Read-only and registry-gated — only a registered
+    block type resolves, never an arbitrary filesystem path.
+    """
+    try:
+        resolved = resolve_block_source(registry, block_type)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown block type: {block_type}") from exc
+    except BlockSourceUnavailableError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return BlockSourceResponse(block_type=block_type, **resolved)
 
 
 def _resolve_effective_port(

@@ -178,6 +178,7 @@ export default function App() {
   const saveFileTab = useAppStore((state) => state.saveFileTab);
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
   const openFileTab = useAppStore((state) => state.openFileTab);
+  const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
 
   // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap.
   const activeTab = useMemo<AnyTab | null>(() => {
@@ -219,7 +220,6 @@ export default function App() {
     () => workflowNodes.find((node) => node.id === selectedNodeId) ?? null,
     [selectedNodeId, workflowNodes],
   );
-  const selectedSchema = selectedNode ? blockSchemas[selectedNode.block_type] : undefined;
   const selectedNodeLabel =
     blocks.find((block) => block.type_name === selectedNode?.block_type)?.name ??
     selectedNode?.block_type ??
@@ -317,6 +317,8 @@ export default function App() {
       addNode,
       connectNodes,
       openFileTab,
+      selectedNodeId,
+      openBlockSourceTab,
       saveFileTab,
       saveWorkflow,
       setLastError,
@@ -484,7 +486,7 @@ export default function App() {
               logEntries={logEntries}
               unreadLogsCount={unreadLogsCount}
               selectedNode={selectedNode}
-              selectedSchema={selectedSchema}
+              selectedSchema={selectedNode ? blockSchemas[selectedNode.block_type] : undefined}
               selectedNodeLabel={selectedNodeLabel}
               setPanelSize={setPanelSize}
             />

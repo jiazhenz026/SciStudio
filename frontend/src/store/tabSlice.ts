@@ -5,6 +5,7 @@ import {
   createApplyFileRemoteContent,
   createConfirmFileVersion,
   createMarkFileRemoteConflict,
+  createOpenBlockSourceTab,
   createOpenFileTab,
   createSaveFileTab,
   createUpdateFileTabContent,
@@ -26,6 +27,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   syncActiveTab: createSyncActiveTab(set, get),
 
   openFileTab: createOpenFileTab(set, get),
+  openBlockSourceTab: createOpenBlockSourceTab(set, get),
   saveFileTab: createSaveFileTab(set, get),
   updateFileTabContent: createUpdateFileTabContent(set, get),
   confirmFileVersion: createConfirmFileVersion(set, get),
