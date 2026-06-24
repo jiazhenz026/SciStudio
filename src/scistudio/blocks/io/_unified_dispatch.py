@@ -8,6 +8,8 @@ owning block while preserving the stable core block surface in workflow YAML.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -189,6 +191,58 @@ def _resolve_delegated_save_path(
         )
 
 
+@contextmanager
+def _activated_package_import_roots() -> Iterator[None]:
+    """Activate installed package import roots around a delegated IO call.
+
+    The engine worker that runs a *core* ``Load`` / ``Save`` block does not carry
+    the delegated package's import roots: ``engine/runners/local.py`` ``_worker_env``
+    strips plugin paths from ``PYTHONPATH`` and the core block's
+    ``runtime_import_roots`` are empty. The package *module* is importable only
+    because block discovery cached it in ``sys.modules`` under a scoped
+    ``prepended_sys_paths`` that is then reverted — so any *lazy* third-party
+    import inside the package loader/saver (e.g. the ``tifffile`` import in the
+    imaging ``LoadImage`` loader) runs a fresh import at call time, finds the
+    plugin ``site-packages`` missing from ``sys.path``, and raises
+    ``ModuleNotFoundError``. Re-activate the installed package roots (each
+    plugin's ``src`` + ``site-packages``) for the duration of the delegated
+    call so those deferred imports resolve. Best-effort and a no-op outside the
+    desktop/bundled layout, where the plugin deps are already importable.
+    """
+    try:
+        from scistudio.desktop.paths import installed_package_import_roots, prepended_sys_paths
+
+        roots = list(installed_package_import_roots())
+    except Exception:
+        yield
+        return
+    if not roots:
+        yield
+        return
+    with prepended_sys_paths(roots):
+        yield
+
+
+def _effective_params(config: BlockConfig) -> dict[str, Any]:
+    """Return the block's effective params, merging Pydantic *extra* fields.
+
+    The engine worker constructs ``BlockConfig(**config)``
+    (``engine/runners/worker.py`` ``main``), so the user/runtime config
+    (``path``, ``core_type``, ``format``, ``capability_id``, …) lands in
+    Pydantic *extra* fields rather than in ``params``. Reading
+    ``config.params`` directly therefore sees an empty dict and breaks package
+    IO capability selection: with no ``path`` there is no extension, so
+    :func:`selected_capability` matches no format capability and core ``Load`` /
+    ``Save`` of a package-registered type fails with "no load/save capability is
+    registered for type ...". Mirror :meth:`BlockConfig.get` (#565) by merging
+    the extras with explicit ``params`` (explicit ``params`` wins on conflict).
+    """
+    extras = getattr(config, "__pydantic_extra__", None) or {}
+    merged: dict[str, Any] = dict(extras)
+    merged.update(config.params or {})
+    return merged
+
+
 def delegate_load(
     *,
     config: BlockConfig,
@@ -197,15 +251,17 @@ def delegate_load(
 ) -> DataObject:
     """Load through the package block selected by a core Load capability."""
     data_type = resolve_type_class(core_type)
-    registry, capability = selected_capability(direction="load", params=dict(config.params), data_type=data_type)
+    effective = _effective_params(config)
+    registry, capability = selected_capability(direction="load", params=effective, data_type=data_type)
     if capability is None:
         raise ValueError(f"Load: no load capability is registered for type {core_type!r}.")
     if capability.block_type == "LoadData":
         raise ValueError(f"Load: selected capability {capability.id!r} did not resolve to a package loader.")
     loader_cls = capability_owner_class(registry, capability)
-    params = delegate_params(dict(config.params), capability)
+    params = delegate_params(effective, capability)
     loader = loader_cls(config={"params": params})
-    return cast(DataObject, loader.load(BlockConfig(params=params), output_dir))
+    with _activated_package_import_roots():
+        return cast(DataObject, loader.load(BlockConfig(params=params), output_dir))
 
 
 def delegate_save(
@@ -216,15 +272,17 @@ def delegate_save(
 ) -> None:
     """Save through the package block selected by a core Save capability."""
     data_type = resolve_type_class(core_type) or type(obj)
-    registry, capability = selected_capability(direction="save", params=dict(config.params), data_type=data_type)
+    effective = _effective_params(config)
+    registry, capability = selected_capability(direction="save", params=effective, data_type=data_type)
     if capability is None:
         raise ValueError(f"Save: no save capability is registered for type {core_type!r}.")
     if capability.block_type == "SaveData":
         raise ValueError(f"Save: selected capability {capability.id!r} did not resolve to a package saver.")
     saver_cls = capability_owner_class(registry, capability)
-    params = delegate_params(dict(config.params), capability)
+    params = delegate_params(effective, capability)
     _resolve_delegated_save_path(params, obj=obj, data_type=data_type, capability=capability)
-    if params.get("path") != config.params.get("path"):
+    if params.get("path") != effective.get("path"):
         config.params["path"] = params["path"]
     saver = saver_cls(config={"params": params})
-    saver.save(obj, BlockConfig(params=params))
+    with _activated_package_import_roots():
+        saver.save(obj, BlockConfig(params=params))

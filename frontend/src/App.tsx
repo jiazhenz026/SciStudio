@@ -28,7 +28,7 @@ import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
 import type { AnyTab, FileTab } from "./store/types";
-import type { WorkflowResponse } from "./types/api";
+import type { ProjectResponse, WorkflowResponse } from "./types/api";
 
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
@@ -40,6 +40,7 @@ import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { usePromptInput } from "./App.parts/usePromptInput";
+import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
@@ -60,6 +61,22 @@ function emptyWorkflow(id = "main"): WorkflowResponse {
     edges: [],
     metadata: {},
   };
+}
+
+/**
+ * Close the active project: clear the project, reset the canvas/execution, and
+ * drop the previous project's open workflow tabs (bug #5). Module-level so it
+ * does not count against App()'s line budget.
+ */
+function closeCurrentProject(actions: {
+  setCurrentProject: (project: ProjectResponse | null) => void;
+  setWorkflow: (workflow: WorkflowResponse | null) => void;
+  resetExecution: () => void;
+}): void {
+  actions.setCurrentProject(null);
+  actions.setWorkflow(emptyWorkflow());
+  actions.resetExecution();
+  useAppStore.setState({ tabs: [], activeTabId: null });
 }
 
 /** Dismissable top-of-canvas error banner. Extracted to keep App() under the
@@ -254,6 +271,7 @@ export default function App() {
     closeProjectDialog,
     setLastError,
     refreshProjects,
+    refreshBlocks,
     setBusy,
     promptInput,
   });
@@ -304,6 +322,9 @@ export default function App() {
       setLastError,
       schemas: blockSchemas,
     });
+
+  // #2/#8/#9: keep the block catalog in sync with the canvas (custom / agent-added blocks).
+  useBlockCatalogSync(refreshBlocks);
 
   // App-level lifecycle effects (boot, workflow autosave, tab snapshot sync).
   useAppLifecycleEffects({
@@ -369,11 +390,9 @@ export default function App() {
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
             onOpenProject={() => openProjectDialog("open")}
             onOpenRecent={(project) => void openProject(project.id)}
-            onCloseProject={() => {
-              setCurrentProject(null);
-              setWorkflow(emptyWorkflow());
-              resetExecution();
-            }}
+            onCloseProject={() =>
+              closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution })
+            }
             onNewWorkflow={newWorkflow}
             onNewCustomBlock={
               currentProject

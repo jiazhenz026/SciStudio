@@ -291,6 +291,16 @@ changing something; the failure mode will recur.
 
 ## Mandatory rules
 
+- Prefer the core `Load` (`load_data`) / `Save` (`save_data`) blocks
+  configured with a `core_type` for reading and writing data — including
+  package-registered types such as `Spectrum`, `SpectralDataset`, `Image`,
+  `Mask`. These now appear in the `core_type` enum returned by
+  `get_block_schema("load_data")` / `get_block_schema("save_data")`, and the
+  core block delegates to the right package loader/saver under the hood. Reach
+  for a package-specific IO block (e.g. `spectroscopy.load_spectrum`,
+  `imaging.load_image`) ONLY when no `core_type` value covers the type/format
+  you need. Do not default to the package-specific IO loader when core
+  `Load`/`Save` can do the job.
 - Always call `list_blocks` + `get_block_schema` for each block before
   writing a workflow.
 - Always call `validate_workflow` after `write_workflow`. NEVER call
@@ -303,6 +313,9 @@ changing something; the failure mode will recur.
 
 ## Anti-patterns
 
+- Reaching for a package-specific IO loader/saver (e.g.
+  `imaging.load_image`, `spectroscopy.load_spectrum`) when the core `Load` /
+  `Save` block with the matching `core_type` reads/writes the same type.
 - Using the 4-field edge shape from the canvas API.
 - Skipping `validate_workflow` ("looks fine to me").
 - Polling `get_run_status` once and declaring done on `running`.

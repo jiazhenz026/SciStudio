@@ -151,7 +151,12 @@ def _upsert_wire_row(
     type_chain = metadata.get("type_chain")
     type_name = "DataObject"
     if isinstance(type_chain, list) and type_chain:
-        leaf = type_chain[0]
+        # type_chain is ordered most-general -> most-specific; the leaf
+        # (concrete output type) is the LAST element, matching
+        # LineageRecorder._extract_type_name. Reading [0] recorded the base
+        # "DataObject" for every object on the scheduler/no-recorder (CLI)
+        # write path (#1757).
+        leaf = type_chain[-1]
         if isinstance(leaf, str):
             type_name = leaf
     elif isinstance(wire_dict.get("type_name"), str):

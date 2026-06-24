@@ -18,7 +18,6 @@ from scistudio.blocks.app.bridge import FileExchangeBridge
 from scistudio.blocks.app.watcher import FileWatcher, ProcessExitedWithoutOutputError
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, ports_from_config_dicts
-from scistudio.blocks.base.state import BlockState
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.collection import Collection
 from scistudio_blocks_imaging.types import Image
@@ -299,9 +298,6 @@ def _run_external_app(
     stability_period = float(config.get("stability_period", 0.5))
     done_marker = config.get("done_marker")
 
-    if block.state == BlockState.RUNNING:
-        block.transition(BlockState.PAUSED)
-
     # ADR-030 D3: use user-selected output_dir if configured.
     custom_output_dir = config.get("output_dir")
     output_dir = Path(str(custom_output_dir)) if custom_output_dir else exchange_dir / "outputs"
@@ -321,22 +317,18 @@ def _run_external_app(
     try:
         output_files = watcher.wait_for_output()
     except ProcessExitedWithoutOutputError:
-        if block.state == BlockState.PAUSED:
-            block.transition(BlockState.CANCELLED)
+        # The external app exited without producing output. Return no outputs and
+        # let the engine decide the terminal state. Block-owned state transitions
+        # (``block.state`` / ``block.transition``) were removed with #1334 — the
+        # engine-owned DAGScheduler (ADR-018 §8.1) is the authoritative state
+        # machine and infers state from the return value / raised exception, so
+        # this block must not (and can no longer) self-manage RUNNING/PAUSED/…
         return []
-    except Exception:
-        if block.state == BlockState.PAUSED:
-            block.transition(BlockState.ERROR)
-        raise
     finally:
         watcher.stop()
         with suppress(subprocess.TimeoutExpired):
             proc.wait(timeout=5)
 
-    if block.state == BlockState.PAUSED:
-        block.transition(BlockState.RUNNING)
-    if block.state == BlockState.RUNNING:
-        block.transition(BlockState.DONE)
     return output_files
 
 

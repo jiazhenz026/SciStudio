@@ -39,6 +39,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     ValidateWorkflowResult,
     WorkflowDefinitionEnvelope,
 )
+from scistudio.blocks.io._config_enrichment import enrich_io_config_schema
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,15 @@ async def list_blocks() -> list[BlockSpecEnvelope]:
     """
     ctx = get_context()
     specs = ctx.block_registry.all_specs()
-    return [BlockSpecEnvelope.model_validate(_spec_to_dict(s)) for s in specs.values()]
+    envelopes: list[BlockSpecEnvelope] = []
+    for spec in specs.values():
+        raw = _spec_to_dict(spec)
+        # Apply the same dynamic core_type enum the HTTP block API serves, so the
+        # agent's contract matches the GUI / validate_workflow (shared source of
+        # truth in scistudio.blocks.io._config_enrichment).
+        raw["config_schema"] = enrich_io_config_schema(spec, ctx.block_registry, ctx.type_registry)
+        envelopes.append(BlockSpecEnvelope.model_validate(raw))
+    return envelopes
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +105,7 @@ async def get_block_schema(
             "input": [_port_to_dict(p) for p in (spec.input_ports or [])],
             "output": [_port_to_dict(p) for p in (spec.output_ports or [])],
         },
-        config_schema=spec.config_schema or {"type": "object", "properties": {}},
+        config_schema=enrich_io_config_schema(spec, ctx.block_registry, ctx.type_registry),
         metadata={
             "description": spec.description,
             "version": spec.version,

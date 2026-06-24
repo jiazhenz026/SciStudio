@@ -411,11 +411,28 @@ def _safe_dict(value: Any) -> dict[str, Any]:
 def _wire_items_for_port(value: Any) -> list[dict[str, Any] | None]:
     """Flatten a wire-format port value into a list of per-item wire dicts.
 
+    Recognises both Collection wrappers a block output can arrive in:
+
+    * the raw worker form ``{"_collection": True, "items": [...]}`` produced
+      by ``serialise_outputs``; and
+    * the ApiRuntime data-catalog form ``{"kind": "collection", "items":
+      [...]}`` produced when ``register_output_payload`` rewrites the
+      BLOCK_DONE event's ``outputs`` in place
+      (``api/runtime/__init__.py``). The recorder runs off the same event,
+      so by the time it reads ``data["outputs"]`` the value is usually the
+      ``kind`` form even though ``output_object_ids`` was computed from the
+      ``_collection`` form (#1757).
+
+    Unrolling both keeps the per-item wire dicts aligned with the
+    ``output_object_ids`` list so every Collection item is recorded with
+    its own type and metadata instead of only the first item being typed
+    and the rest landing as empty ``DataObject`` placeholders.
+
     Returns an empty list when the value is not a recognised DataObject
     payload (e.g. a scalar int passed through as a port value).
     """
     if isinstance(value, dict):
-        if value.get("_collection"):
+        if value.get("_collection") or value.get("kind") == "collection":
             return [item if isinstance(item, dict) else None for item in (value.get("items") or [])]
         return [value]
     return []

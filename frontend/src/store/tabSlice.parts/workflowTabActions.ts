@@ -9,6 +9,7 @@ import type { StoreApi } from "zustand";
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import type { AppStore, TabSlice, WorkflowTab } from "../types";
 import { EMPTY_TAB_STATE, captureActiveTab, restoreTab, workflowStateVersion } from "./tabHelpers";
+import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
 type StoreGetter = StoreApi<AppStore>["getState"];
@@ -52,7 +53,10 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       workflowDescription: workflow.description,
       workflowVersion: workflow.version,
       workflowMetadata: workflow.metadata,
-      workflowNodes: workflow.nodes,
+      // #11: wrap flat (agent/hand-authored) node configs into the canonical
+      // { params } shape so the config panel shows the real stored values when a
+      // workflow is opened into a tab (the primary open path).
+      workflowNodes: normalizeLoadedNodes(workflow.nodes),
       workflowEdges: workflow.edges,
       workflowDirty: false,
       workflowBaseVersion: baseVersion,
