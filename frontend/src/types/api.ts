@@ -205,6 +205,15 @@ export interface BlockListResponse {
   blocks: BlockSummary[];
 }
 
+/** Read-only source code backing a registered block type (#1758). */
+export interface BlockSourceResponse {
+  block_type: string;
+  path: string;
+  source: string;
+  language: string;
+  origin: string;
+}
+
 export interface ConnectionValidationResponse {
   compatible: boolean;
   reason: string;

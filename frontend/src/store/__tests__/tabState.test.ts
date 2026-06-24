@@ -21,6 +21,7 @@ vi.mock("../../lib/api", async () => {
       ...actual.api,
       getProjectFile: vi.fn(),
       putProjectFile: vi.fn(),
+      getBlockSource: vi.fn(),
     },
   };
 });
@@ -29,6 +30,7 @@ import { api } from "../../lib/api";
 
 const getProjectFileMock = vi.mocked(api.getProjectFile);
 const putProjectFileMock = vi.mocked(api.putProjectFile);
+const getBlockSourceMock = vi.mocked(api.getBlockSource);
 
 function resetStore(): void {
   useAppStore.setState({
@@ -55,6 +57,7 @@ beforeEach(() => {
   resetStore();
   getProjectFileMock.mockReset();
   putProjectFileMock.mockReset();
+  getBlockSourceMock.mockReset();
 });
 
 afterEach(() => {
@@ -318,5 +321,75 @@ describe("saveFileTab (ADR-036 §3.10)", () => {
     expect(tab.content).toBe("y = 2\n");
     expect(tab.dirty).toBe(false);
     expect(tab.contentLoadedAt).toBe(42);
+  });
+});
+
+describe("openBlockSourceTab (#1758)", () => {
+  it("opens a read-only inline tab from the block source endpoint", async () => {
+    getBlockSourceMock.mockResolvedValue({
+      block_type: "load_data",
+      path: "/abs/src/scistudio/blocks/io/loaders/load_data.py",
+      source: "class LoadData:\n    pass\n",
+      language: "python",
+      origin: "builtin",
+    });
+
+    useAppStore.getState().openBlockSourceTab("load_data");
+    await new Promise((r) => setTimeout(r, 0));
+
+    const tab = useAppStore.getState().tabs.find((t) => t.id === "block-source:load_data");
+    expect(tab).toBeDefined();
+    expect(tab?.kind).toBe("file");
+    if (tab?.kind !== "file") throw new Error("expected file tab");
+    expect(tab.readOnly).toBe(true);
+    expect(tab.blockSourceType).toBe("load_data");
+    expect(tab.content).toContain("class LoadData");
+    expect(tab.displayName).toBe("load_data.py (source)");
+    expect(tab.loading).toBe(false);
+    expect(getBlockSourceMock).toHaveBeenCalledWith("load_data");
+  });
+
+  it("re-focuses an already-open block-source tab without refetching", async () => {
+    getBlockSourceMock.mockResolvedValue({
+      block_type: "load_data",
+      path: "/abs/load_data.py",
+      source: "class LoadData: ...",
+      language: "python",
+      origin: "builtin",
+    });
+
+    useAppStore.getState().openBlockSourceTab("load_data");
+    await new Promise((r) => setTimeout(r, 0));
+    useAppStore.getState().openBlockSourceTab("load_data");
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(getBlockSourceMock).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().activeTabId).toBe("block-source:load_data");
+  });
+
+  it("is excluded from persistence so a reload does not strand it", () => {
+    // Block-source tabs are transient: persisting them would leave an empty,
+    // un-refetchable placeholder after reload.
+    const persisted = JSON.parse(localStorage.getItem("scistudio-studio-ui") ?? "{}");
+    useAppStore.setState({
+      tabs: [
+        {
+          kind: "file",
+          id: "block-source:load_data",
+          filePath: "/abs/load_data.py",
+          displayName: "load_data.py (source)",
+          language: "python",
+          content: "class LoadData: ...",
+          contentLoadedAt: 0,
+          dirty: false,
+          readOnly: true,
+          blockSourceType: "load_data",
+        },
+      ],
+    });
+    const after = JSON.parse(localStorage.getItem("scistudio-studio-ui") ?? "{}");
+    const tabs = after?.state?.tabs ?? [];
+    expect(tabs.some((t: { id: string }) => t.id === "block-source:load_data")).toBe(false);
+    void persisted;
   });
 });

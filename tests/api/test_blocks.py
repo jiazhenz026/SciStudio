@@ -451,3 +451,22 @@ def test_lcms_srs_blocks_have_domain_prefix(client: TestClient) -> None:
         assert block["type_name"].startswith("srs."), (
             f"SRS block {block['name']} missing 'srs.' prefix: {block['type_name']}"
         )
+
+
+def test_block_source_endpoint_returns_core_block_source(client: TestClient) -> None:
+    """#1758: GET /api/blocks/{type}/source returns a core block's source."""
+    response = client.get("/api/blocks/load_data/source")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["block_type"] == "load_data"
+    assert payload["language"] == "python"
+    assert payload["origin"] == "builtin"
+    assert payload["path"].endswith("load_data.py")
+    # The returned text is the real module source, not a placeholder.
+    assert "class LoadData" in payload["source"]
+
+
+def test_block_source_endpoint_unknown_type_is_404(client: TestClient) -> None:
+    """An unregistered block type resolves to 404, not a server error."""
+    response = client.get("/api/blocks/no_such_block_type/source")
+    assert response.status_code == 404

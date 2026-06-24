@@ -2,7 +2,7 @@
 // Collection item type. Each edge alone is type-valid (inputs accept
 // DataObject), so the cross-input check lives in handleCanvasConnect and
 // rejects with a banner ("can't connect + top banner" pattern).
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useCanvasHandlers, type CanvasHandlersDeps } from "./useCanvasHandlers";
@@ -97,5 +97,63 @@ describe("useCanvasHandlers — MergeCollection input type validation", () => {
     await result.current.handleCanvasConnect({ source: "load2:data", target: "merge:input_b" });
 
     expect(connectNodes).toHaveBeenCalled();
+  });
+});
+
+describe("useCanvasHandlers — View source routing (#1758)", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  function renderView(overrides: Partial<CanvasHandlersDeps>) {
+    const openFileTab = vi.fn();
+    const openBlockSourceTab = vi.fn();
+    const saveWorkflow = vi.fn().mockResolvedValue(undefined);
+    const deps = {
+      currentProject: { id: "p" },
+      workflowId: "main",
+      workflowNodes: [],
+      workflowEdges: [],
+      activeFileTab: null,
+      addNode: vi.fn(),
+      connectNodes: vi.fn(),
+      openFileTab,
+      selectedNodeId: null,
+      openBlockSourceTab,
+      saveFileTab: vi.fn(),
+      saveWorkflow,
+      setLastError: vi.fn(),
+      schemas: {},
+      ...overrides,
+    } as unknown as CanvasHandlersDeps;
+    const { result } = renderHook(() => useCanvasHandlers(deps));
+    return { result, openFileTab, openBlockSourceTab, saveWorkflow };
+  }
+
+  it("opens the selected block's source instead of the workflow YAML", async () => {
+    const node = { id: "n1", block_type: "load_data" } as unknown as WorkflowNode;
+    const { result, openFileTab, openBlockSourceTab } = renderView({
+      workflowNodes: [node],
+      selectedNodeId: "n1",
+    });
+
+    await act(async () => {
+      await result.current.handleViewSource();
+    });
+
+    expect(openBlockSourceTab).toHaveBeenCalledWith("load_data");
+    expect(openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the workflow YAML when no block is selected", async () => {
+    const { result, openFileTab, openBlockSourceTab, saveWorkflow } = renderView({
+      selectedNodeId: null,
+    });
+
+    await act(async () => {
+      await result.current.handleViewSource();
+    });
+
+    expect(saveWorkflow).toHaveBeenCalled();
+    expect(openFileTab).toHaveBeenCalledWith("workflows/main.yaml", { readOnly: true });
+    expect(openBlockSourceTab).not.toHaveBeenCalled();
   });
 });

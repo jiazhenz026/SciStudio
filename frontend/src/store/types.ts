@@ -414,6 +414,13 @@ export interface FileTab {
    * ``content`` is populated.
    */
   loading?: boolean;
+  /**
+   * #1758: set when this is a read-only "View source" tab for a registered
+   * block type (core / package / custom). Its ``content`` comes from
+   * ``GET /api/blocks/{blockType}/source`` rather than a project file, so the
+   * tab is not persisted across reload (see ``partializeTabs``).
+   */
+  blockSourceType?: string;
 }
 
 /**
@@ -455,6 +462,13 @@ export interface TabSlice {
    *      language from extension, build a FileTab, append to tabs, set active.
    */
   openFileTab: (filePath: string, opts?: { readOnly?: boolean }) => void;
+  /**
+   * #1758 — open a read-only tab showing a registered block's source code
+   * (core / package / custom). Fetches ``GET /api/blocks/{blockType}/source``
+   * and renders the returned source inline (the file lives outside the
+   * project, so it cannot use the project-file fetch path).
+   */
+  openBlockSourceTab: (blockType: string) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *
