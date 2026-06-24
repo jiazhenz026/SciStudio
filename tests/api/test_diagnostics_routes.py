@@ -72,3 +72,48 @@ def test_bundle_post_includes_frontend_logs(tmp_path, monkeypatch):
     assert "environment.json" in names
     frontend = archive.read("frontend-logs.log").decode("utf-8")
     assert "frontend-only crash" in frontend
+
+
+def test_bundle_post_writes_to_chosen_path(tmp_path, monkeypatch):
+    # #1760 bug2: native-dialog-first export. When the POST body carries a
+    # native-dialog-chosen ``path``, the bundle is written there and a JSON
+    # receipt is returned instead of streaming the zip back, so the save dialog
+    # can appear before the (slow) bundle build.
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    monkeypatch.setenv("SCISTUDIO_LOG_DIR", str(log_dir))
+    (log_dir / "scistudio-1.log").write_text("x\n", encoding="utf-8")
+    dest = tmp_path / "report.zip"  # tmp_path is under the temp root allowed by _resolve_safe_path
+    client = TestClient(_make_app())
+    payload = {"records": [{"level": "error", "message": "boom"}], "path": str(dest)}
+    response = client.post("/api/diagnostics/bundle", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "written"
+    assert body["path"] == str(dest)
+    assert body["bytes"] > 0
+    assert dest.is_file()
+    archive = zipfile.ZipFile(dest)
+    names = archive.namelist()
+    assert "environment.json" in names
+    assert "frontend-logs.log" in names
+    assert any(name.startswith("logs/") for name in names)
+
+
+def test_bundle_post_rejects_relative_path(tmp_path, monkeypatch):
+    # A non-absolute destination is rejected (mirrors the preview-export contract).
+    monkeypatch.setenv("SCISTUDIO_LOG_DIR", str(tmp_path))
+    client = TestClient(_make_app())
+    response = client.post("/api/diagnostics/bundle", json={"records": [], "path": "report.zip"})
+    assert response.status_code == 400
+
+
+def test_bundle_post_rejects_path_outside_allowed_roots(monkeypatch, tmp_path):
+    # A destination outside the allowed roots (home/temp) is rejected.
+    monkeypatch.setenv("SCISTUDIO_LOG_DIR", str(tmp_path))
+    client = TestClient(_make_app())
+    response = client.post(
+        "/api/diagnostics/bundle",
+        json={"records": [], "path": "/etc/scistudio-report.zip"},
+    )
+    assert response.status_code == 400

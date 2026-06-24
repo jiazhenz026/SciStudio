@@ -21,10 +21,12 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
+from scistudio.api.routes.filesystem import _resolve_safe_path
 from scistudio.utils.log_setup import resolve_log_dir
 from scistudio.version import get_version
 
@@ -123,23 +125,15 @@ def _format_frontend_log(records: object) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-@router.api_route("/diagnostics/bundle", methods=["GET", "POST"])
-async def diagnostics_bundle(request: Request) -> StreamingResponse:
-    """Return a zip with recent logs, an environment manifest, and run logs.
+def _build_bundle_bytes(frontend_records: object, log_dirs: list[Path]) -> bytes:
+    """Build the diagnostics zip in-memory (synchronous, CPU/IO-bound).
 
-    On POST, an optional JSON body ``{"records": [...]}`` of frontend log records
-    is bundled as ``frontend-logs.json`` so the entire report is a *single*
-    download — browsers block consecutive auto-downloads, so the frontend posts
-    its in-memory ring buffer here instead of downloading a second file itself.
+    Kept as a plain function so the route can run it off the event loop via
+    :func:`run_in_threadpool`. Walking + DEFLATE-compressing the rotating log
+    files (10 MB x N per layer + run logs) is the slow step; doing it inside the
+    async handler blocked the event loop and — for the native-dialog export —
+    delayed the save dialog until the whole bundle was built (#1760 bug2).
     """
-    frontend_records = None
-    if request.method == "POST":
-        try:
-            body = await request.json()
-            if isinstance(body, dict):
-                frontend_records = body.get("records")
-        except Exception:
-            frontend_records = None
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         manifest = {
@@ -151,7 +145,7 @@ async def diagnostics_bundle(request: Request) -> StreamingResponse:
         archive.writestr("environment.json", json.dumps(manifest, indent=2))
         if frontend_records is not None:
             archive.writestr("frontend-logs.log", _format_frontend_log(frontend_records))
-        for log_dir in _log_dirs(request):
+        for log_dir in log_dirs:
             if not log_dir.is_dir():
                 continue
             for pattern, prefix in (
@@ -166,9 +160,70 @@ async def diagnostics_bundle(request: Request) -> StreamingResponse:
                         archive.write(path, arcname=f"{prefix}/{path.name}")
                     except OSError:
                         continue
-    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _resolve_bundle_destination(raw_path: object) -> Path:
+    """Validate a native-dialog-chosen save path for the diagnostics bundle.
+
+    Mirrors the preview-export contract (``data.save_preview_resource``): the
+    path must be an absolute file path under an allowed root (user home / temp),
+    with an existing parent directory. The path originates from the OS native
+    save dialog, so this is intent confirmation, not a trust boundary by itself.
+    """
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        raise HTTPException(status_code=400, detail="save destination must be a non-empty path")
+    if not Path(raw_path).is_absolute():
+        raise HTTPException(status_code=400, detail="save destination must be an absolute file path")
+    try:
+        destination = _resolve_safe_path(raw_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if destination.exists() and destination.is_dir():
+        raise HTTPException(status_code=400, detail="save destination must be a file path")
+    if not destination.parent.is_dir():
+        raise HTTPException(status_code=400, detail="save destination parent directory does not exist")
+    return destination
+
+
+@router.api_route("/diagnostics/bundle", methods=["GET", "POST"])
+async def diagnostics_bundle(request: Request) -> Any:
+    """Return a zip with recent logs, an environment manifest, and run logs.
+
+    On POST, an optional JSON body ``{"records": [...]}`` of frontend log records
+    is bundled as ``frontend-logs.log`` so the entire report is a *single*
+    download — browsers block consecutive auto-downloads, so the frontend posts
+    its in-memory ring buffer here instead of downloading a second file itself.
+
+    When the body also carries ``{"path": "/abs/dest.zip"}`` (a path the user
+    picked via the native save dialog), the bundle is written directly to that
+    path and a small JSON receipt is returned instead of streaming the bytes
+    back. This lets the desktop export show the save dialog *first* and build the
+    (potentially large) bundle afterwards, so the dialog no longer waits for the
+    whole zip to be assembled (#1760 bug2). The bundle build always runs off the
+    event loop via :func:`run_in_threadpool`.
+    """
+    frontend_records = None
+    destination_raw: object = None
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                frontend_records = body.get("records")
+                destination_raw = body.get("path")
+        except Exception:
+            frontend_records = None
+
+    log_dirs = _log_dirs(request)
+    data = await run_in_threadpool(_build_bundle_bytes, frontend_records, log_dirs)
+
+    if destination_raw is not None:
+        destination = _resolve_bundle_destination(destination_raw)
+        await run_in_threadpool(destination.write_bytes, data)
+        return {"status": "written", "path": str(destination), "bytes": len(data)}
+
     headers = {"Content-Disposition": "attachment; filename=scistudio-diagnostics.zip"}
-    return StreamingResponse(buffer, media_type="application/zip", headers=headers)
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip", headers=headers)
 
 
 __all__ = ["router"]

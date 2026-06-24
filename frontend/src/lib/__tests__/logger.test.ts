@@ -41,57 +41,105 @@ describe("frontend logger (#1741)", () => {
     expect(body.records.some((r: { message: string }) => r.message === "boom")).toBe(true);
   });
 
-  it("dumps the ring buffer on export even when the backend is unreachable", async () => {
-    // Codex P2: frontend-only records must reach the download when the backend
-    // bundle cannot be fetched.
-    logger.error("ring-only record");
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:mock"),
-      revokeObjectURL: vi.fn(),
+  // #1760 bug2: native-dialog-first export. fetch is routed by URL so a test can
+  // configure the native save dialog and the bundle endpoint independently.
+  function routedFetch(handlers: { dialog?: unknown; bundle?: unknown }) {
+    const calls: { url: string; init?: { body?: string } }[] = [];
+    const mock = vi.fn((url: string, init?: { body?: string }) => {
+      calls.push({ url, init });
+      if (url.includes("/api/filesystem/native-dialog")) {
+        return handlers.dialog ?? Promise.reject(new Error("no dialog handler"));
+      }
+      if (url.includes("/api/diagnostics/bundle")) {
+        return handlers.bundle ?? Promise.reject(new Error("no bundle handler"));
+      }
+      return Promise.resolve({ ok: true });
     });
+    return { mock, calls };
+  }
+
+  function trackDownloads(): string[] {
     const downloads: string[] = [];
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:mock"), revokeObjectURL: vi.fn() });
     const realCreate = document.createElement.bind(document);
     vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
       const el = realCreate(tag);
       if (tag === "a") {
-        (el as HTMLAnchorElement).click = () => {
-          downloads.push((el as HTMLAnchorElement).download);
-        };
+        (el as HTMLAnchorElement).click = () => downloads.push((el as HTMLAnchorElement).download);
       }
       return el;
     });
+    return downloads;
+  }
+
+  it("writes the bundle to the native-dialog-chosen path without a browser download", async () => {
+    logger.error("record");
+    const { mock, calls } = routedFetch({
+      dialog: Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ paths: ["/home/u/report.zip"], available: true }),
+      }),
+      bundle: Promise.resolve({ ok: true, json: () => Promise.resolve({ status: "written" }) }),
+    });
+    vi.stubGlobal("fetch", mock);
+    const downloads = trackDownloads();
+
+    await exportDiagnosticBundle();
+
+    // Native save dialog is requested FIRST, then the bundle is written to the path.
+    expect(calls[0].url).toContain("/api/filesystem/native-dialog");
+    const bundleCall = calls.find((c) => c.url.includes("/api/diagnostics/bundle"));
+    expect(bundleCall).toBeDefined();
+    expect(JSON.parse(bundleCall!.init!.body as string).path).toBe("/home/u/report.zip");
+    // No browser download when the native dialog handled the save.
+    expect(downloads).toEqual([]);
+  });
+
+  it("does nothing extra when the user cancels the native save dialog", async () => {
+    logger.error("record");
+    const { mock, calls } = routedFetch({
+      // available:true + empty paths == user cancelled.
+      dialog: Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ paths: [], available: true }),
+      }),
+    });
+    vi.stubGlobal("fetch", mock);
+    const downloads = trackDownloads();
+
+    await exportDiagnosticBundle();
+
+    // No bundle request and no browser download — the cancel is respected.
+    expect(calls.some((c) => c.url.includes("/api/diagnostics/bundle"))).toBe(false);
+    expect(downloads).toEqual([]);
+  });
+
+  it("falls back to a single browser zip download when the native dialog is unavailable", async () => {
+    const zipBlob = new Blob(["PK"], { type: "application/zip" });
+    const { mock } = routedFetch({
+      // available:false == platform native dialog could not run (browser context).
+      dialog: Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ paths: [], available: false }),
+      }),
+      bundle: Promise.resolve({ ok: true, blob: () => Promise.resolve(zipBlob) }),
+    });
+    vi.stubGlobal("fetch", mock);
+    const downloads = trackDownloads();
+
+    await exportDiagnosticBundle();
+
+    expect(downloads).toEqual(["scistudio-diagnostics.zip"]);
+  });
+
+  it("dumps the ring buffer as a .log when the dialog and backend are unreachable", async () => {
+    // Frontend-only records must still reach the tester when everything is offline.
+    logger.error("ring-only record");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const downloads = trackDownloads();
 
     await exportDiagnosticBundle();
 
     expect(downloads).toContain("scistudio-frontend-logs.log");
-  });
-
-  it("downloads a single backend zip when the backend is reachable", async () => {
-    const zipBlob = new Blob(["PK"], { type: "application/zip" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(zipBlob) }),
-    );
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:mock"),
-      revokeObjectURL: vi.fn(),
-    });
-    const downloads: string[] = [];
-    const realCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
-      const el = realCreate(tag);
-      if (tag === "a") {
-        (el as HTMLAnchorElement).click = () => {
-          downloads.push((el as HTMLAnchorElement).download);
-        };
-      }
-      return el;
-    });
-
-    await exportDiagnosticBundle();
-
-    // Exactly one download (the backend zip) — no consecutive second download.
-    expect(downloads).toEqual(["scistudio-diagnostics.zip"]);
   });
 });
