@@ -22,6 +22,7 @@ from scistudio.api.schemas import (
     TypeHierarchyEntry,
 )
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
+from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
 
 logger = logging.getLogger(__name__)
 
@@ -48,43 +49,22 @@ def _type_names_for_io_direction(
     *,
     direction: str,
 ) -> list[str]:
-    """Return all registered type names, with IO-capable types first."""
-    registered = set(type_registry.all_types().keys())
-    capable = {capability.data_type.__name__ for capability in registry.list_format_capabilities(direction=direction)}
-    core_order = ["Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"]
-    ordered = [name for name in core_order if name in registered]
-    ordered.extend(sorted(capable - set(ordered)))
-    ordered.extend(sorted(registered - set(ordered)))
-    return ordered
+    """Return all registered type names, with IO-capable types first.
+
+    Delegates to the shared :mod:`scistudio.blocks.io._config_enrichment` source
+    of truth so the HTTP API and the MCP tools serve an identical ``core_type``
+    enum (see that module's docstring for the rationale).
+    """
+    return io_capable_type_names(registry, type_registry, direction=direction)
 
 
 def _config_schema_for_block(spec: Any, registry: Any = None, type_registry: Any = None) -> dict[str, Any]:
-    schema = spec.config_schema or {"type": "object", "properties": {}}
-    if registry is None or type_registry is None:
-        return schema
-    if spec.type_name not in {"load_data", "save_data"}:
-        return schema
+    """Return *spec*'s config schema with the dynamic ``core_type`` enum applied.
 
-    import copy
-
-    direction = "load" if spec.type_name == "load_data" else "save"
-    merged = copy.deepcopy(schema)
-    properties = merged.setdefault("properties", {})
-    properties.pop("allow_pickle", None)
-    type_names = _type_names_for_io_direction(registry, type_registry, direction=direction)
-    properties["core_type"] = {
-        **properties.get("core_type", {}),
-        "title": "Type",
-        "enum": type_names,
-        "default": "DataFrame" if "DataFrame" in type_names else (type_names[0] if type_names else ""),
-        "ui_priority": 1,
-    }
-    if "path" in properties:
-        properties["path"]["title"] = "Path"
-        properties["path"]["ui_priority"] = 0
-        properties["path"]["ui_widget"] = "file_browser" if spec.type_name == "load_data" else "directory_browser"
-    merged["required"] = ["path", "core_type"]
-    return merged
+    Thin wrapper over the shared enrichment helper so the GUI (this API) and the
+    AI agent (MCP ``get_block_schema`` / ``list_blocks``) stay in lockstep.
+    """
+    return enrich_io_config_schema(spec, registry, type_registry)
 
 
 def _map_source(raw: str) -> str:

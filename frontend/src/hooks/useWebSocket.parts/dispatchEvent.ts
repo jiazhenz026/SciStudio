@@ -10,6 +10,7 @@
  * ``isRunning``.
  */
 import type { VersionedWorkflowResponse } from "../../lib/api";
+import { useAppStore } from "../../store";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
@@ -53,6 +54,14 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   }
   if (payload.type === "file.changed") {
     handleFileChanged(payload, { appendLog: deps.appendLog });
+    return true;
+  }
+  if (payload.type === "blocks.reloaded") {
+    // #9: the block registry was hot-reloaded (e.g. the agent scaffolded +
+    // reloaded a custom block). Signal App to re-fetch the block catalog so the
+    // palette and canvas nodes pick up the new/changed block without a manual
+    // palette reload.
+    useAppStore.getState().bumpBlockCatalogRefresh();
     return true;
   }
   if (payload.type === "git.head_changed") {

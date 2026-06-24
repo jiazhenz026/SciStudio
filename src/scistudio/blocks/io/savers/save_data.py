@@ -179,6 +179,59 @@ def _save_collection(
         dispatch_fn(item, item_config)
 
 
+def _delegate_save_collection(
+    collection: Collection,
+    *,
+    target_cls: type[DataObject],
+    config: BlockConfig,
+    core_type: str,
+) -> None:
+    """Save a multi-item Collection of a package-registered type, one file per item.
+
+    The package/custom ``core_type`` save path (e.g. ``Image`` from the imaging
+    plugin) previously rejected any Collection input, so a block that emits a
+    Collection of package-typed objects (e.g. the Fiji interactive block →
+    core ``Save``) failed with "requires a single DataObject input" and the
+    downstream blocks never received the saved outputs. This mirrors
+    :func:`_save_collection` for the delegated path: validate item types, treat
+    ``config.path`` as a folder, and write one file per item, delegating each to
+    the owning package saver via :func:`delegate_save`.
+    """
+    from scistudio.blocks.io._unified_dispatch import _effective_params, delegate_save
+
+    items = list(collection)
+    if not items:
+        raise ValueError("SaveData received an empty Collection; nothing to save.")
+    for item in items:
+        if not isinstance(item, target_cls):
+            raise ValueError(
+                f"SaveData(core_type={target_cls.__name__}) received a "
+                f"Collection item of type {type(item).__name__}; all items must match the configured core_type."
+            )
+    output_dir = _require_path(config)
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError("SaveData received a multi-item Collection; config.path must be a folder path.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # Carry the user's effective config (format/capability/etc.) — the worker
+    # builds ``BlockConfig(**config)`` so real config lives in pydantic extras,
+    # not ``config.params`` (see ``_effective_params``).
+    base_params = _effective_params(config)
+    configured = base_params.get("filename")
+    if configured is not None and not isinstance(configured, str):
+        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(configured).__name__}")
+    for idx, item in enumerate(items, start=1):
+        item_name = _collection_item_filename(configured if isinstance(configured, str) else None, item, index=idx)
+        params = dict(base_params)
+        # Set the FULL per-item path (folder/filename.ext). The delegated saver
+        # capability is selected by the path extension (see ``selected_capability``
+        # / ``_path_extension``), so a bare folder path would fail to resolve a
+        # saver for the package type. ``_collection_item_filename`` carries the
+        # source filename's extension.
+        params["path"] = str(output_dir / item_name)
+        params.pop("filename", None)
+        delegate_save(obj=item, config=BlockConfig(params=params), core_type=core_type)
+
+
 def _selected_package_save_capability(config: BlockConfig) -> str | None:
     raw = config.get("capability_id")
     if not isinstance(raw, str) or not raw.strip():
@@ -334,12 +387,18 @@ class SaveData(IOBlock):
         if type_name not in _CORE_TYPE_MAP:
             from scistudio.blocks.io._unified_dispatch import delegate_save, resolve_type_class
 
-            if resolve_type_class(str(type_name)) is None:
+            resolved_cls = resolve_type_class(str(type_name))
+            if resolved_cls is None:
                 raise ValueError(f"Unknown core_type {type_name!r}; expected a registered DataObject type.")
-            if isinstance(obj, Collection):
-                raise ValueError(f"SaveData custom core_type {type_name!r} requires a single DataObject input.")
-
-            delegate_save(obj=obj, config=config, core_type=str(type_name))
+            # A multi-item Collection of the package type is written one file per
+            # item (mirrors the core-type path); a single-item Collection or bare
+            # object is unwrapped and delegated. The engine wraps block outputs in
+            # Collections (ADR-020), so the input here is normally a Collection.
+            if isinstance(obj, Collection) and len(obj) > 1:
+                _delegate_save_collection(obj, target_cls=resolved_cls, config=config, core_type=str(type_name))
+                return
+            unwrapped = _unwrap_for_save(obj, resolved_cls)
+            delegate_save(obj=unwrapped, config=config, core_type=str(type_name))
             return
 
         target_cls = _CORE_TYPE_MAP[type_name]

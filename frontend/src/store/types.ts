@@ -185,6 +185,12 @@ export interface UISlice {
    * the Refresh button.
    */
   projectTreeRefreshCounter: number;
+  /**
+   * #9 — bumped on a ``blocks.reloaded`` WS event so the app re-fetches the
+   * block catalog (palette summaries + per-block schemas) without a manual
+   * palette reload.
+   */
+  blockCatalogRefreshCounter: number;
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   /**
@@ -198,6 +204,7 @@ export interface UISlice {
   setFocusDepth: (depth: number) => void;
   bumpUnreadLogs: () => void;
   bumpProjectTreeRefresh: () => void;
+  bumpBlockCatalogRefresh: () => void;
   togglePalette: () => void;
   togglePreview: () => void;
   toggleBottomPanel: () => void;

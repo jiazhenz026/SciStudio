@@ -90,6 +90,19 @@ class IOBlock(Block):
         "required": ["path"],
     }
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # #10: a loader (``direction="input"``) is a pure source — it reads from
+        # its configured ``path``, never from an inbound edge — so it must not
+        # expose an input port, otherwise the canvas renders a dangling left
+        # handle. ``run()`` for the input direction only ever uses the output
+        # port (``_resolved_load_output_port_name``); the inherited base input
+        # port is dead weight. Enforce an empty input-port list for every IO
+        # subclass (core ``load_data`` + package loaders) that did not declare
+        # its own ``input_ports``.
+        if getattr(cls, "direction", None) == "input" and "input_ports" not in cls.__dict__:
+            cls.input_ports = []
+
     @classmethod
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
         """Return explicit ADR-043 capabilities or legacy migration records.

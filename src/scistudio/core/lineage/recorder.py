@@ -305,7 +305,15 @@ class LineageRecorder:
             for port_name, items in payload.items():
                 if not isinstance(items, list):
                     items = [items]
-                wire_items = _wire_items_for_port(outputs_by_port.get(port_name))
+                port_value = outputs_by_port.get(port_name)
+                wire_items = _wire_items_for_port(port_value)
+                # #14: a homogeneous Collection wrapper carries ``item_type``. When
+                # an individual item's wire dict is missing (e.g. the wire value is
+                # shorter than the object_id list), fall back to the collection's
+                # declared item_type instead of the base ``DataObject`` so the
+                # lineage/History view shows the real type for every element, not
+                # just the first.
+                fallback_type = _collection_item_type(port_value)
                 for position, object_id in enumerate(items):
                     wire_dict = wire_items[position] if position < len(wire_items) else None
                     self._persist_io_entry(
@@ -315,6 +323,7 @@ class LineageRecorder:
                         position=position,
                         object_id=object_id if isinstance(object_id, str) else None,
                         wire_dict=wire_dict,
+                        fallback_type_name=fallback_type,
                     )
             return
 
@@ -323,6 +332,7 @@ class LineageRecorder:
 
         for port_name, value in outputs_by_port.items():
             wire_items = _wire_items_for_port(value)
+            fallback_type = _collection_item_type(value)
             for position, item in enumerate(wire_items):
                 object_id = _object_id_from_wire(item)
                 self._persist_io_entry(
@@ -332,6 +342,7 @@ class LineageRecorder:
                     position=position,
                     object_id=object_id,
                     wire_dict=item,
+                    fallback_type_name=fallback_type,
                 )
 
     def _persist_io_entry(
@@ -343,6 +354,7 @@ class LineageRecorder:
         position: int,
         object_id: str | None,
         wire_dict: dict[str, Any] | None,
+        fallback_type_name: str | None = None,
     ) -> None:
         """Materialise one ``(data_objects, block_io)`` pair.
 
@@ -382,7 +394,10 @@ class LineageRecorder:
                 self._store.upsert_data_object(
                     DataObjectRow(
                         object_id=object_id,
-                        type_name="DataObject",
+                        # #14: prefer the Collection's declared item_type over the
+                        # base ``DataObject`` so every element of a homogeneous
+                        # collection keeps its real type in lineage/History.
+                        type_name=fallback_type_name or "DataObject",
                         wire_payload={},
                         created_at=datetime.now().isoformat(),
                     )
@@ -406,6 +421,20 @@ class LineageRecorder:
 def _safe_dict(value: Any) -> dict[str, Any]:
     """Return ``value`` if it is a dict, else an empty dict."""
     return dict(value) if isinstance(value, dict) else {}
+
+
+def _collection_item_type(value: Any) -> str | None:
+    """Return a homogeneous Collection wrapper's declared ``item_type``, if any.
+
+    Used as the per-item type fallback (#14) when an individual element's wire
+    dict is unavailable, so placeholder rows keep the collection's real type
+    instead of defaulting to the base ``DataObject``.
+    """
+    if isinstance(value, dict) and value.get("_collection"):
+        item_type = value.get("item_type")
+        if isinstance(item_type, str) and item_type and item_type != "DataObject":
+            return item_type
+    return None
 
 
 def _wire_items_for_port(value: Any) -> list[dict[str, Any] | None]:
