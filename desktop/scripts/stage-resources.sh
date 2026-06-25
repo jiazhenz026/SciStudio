@@ -33,6 +33,11 @@ mkdir -p "$BACKEND_ROOT"
 reset_dir "$SRC_TARGET"
 cp -R "$REPO_ROOT/src"/. "$SRC_TARGET"/
 
+# #1775: Drop build metadata that may ride along from a local editable install.
+# It is not needed at runtime (scistudio loads from this source tree on
+# PYTHONPATH) and only leaks paths into the bundle and OTA snapshot.
+rm -rf "$SRC_TARGET/scistudio.egg-info"
+
 # Refresh the packaged SPA (scistudio/api/static) from the frontend build we
 # just produced. This is the ONLY frontend a bundled desktop app serves
 # (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo
@@ -64,5 +69,32 @@ Both locations are scanned by the same package discovery path. User-installed
 packages may resolve Python runtime dependencies with the bundled interpreter,
 but dependency files stay in the user-scoped plugin directory.
 EOF
+
+# #1775: Stamp the OTA channel config the desktop client reads at launch
+# (main.js loadOtaConfig). A local/dev build leaves SCISTUDIO_OTA_CHANNEL unset
+# and gets OTA disabled, so a developer testing a local build is never disturbed
+# or overwritten by a published patch. A release build sets the channel (and
+# optionally the manifest URL) to enable launch-time update checks.
+OTA_CHANNEL="${SCISTUDIO_OTA_CHANNEL:-}"
+if [ -n "$OTA_CHANNEL" ]; then
+  OTA_MANIFEST_URL="${SCISTUDIO_OTA_MANIFEST_URL:-https://github.com/jiazhenz026/SciStudio/releases/download/ota-$OTA_CHANNEL/manifest.json}"
+  cat > "$RESOURCES_ROOT/ota-config.json" <<EOF
+{
+  "enabled": true,
+  "channel": "$OTA_CHANNEL",
+  "manifestUrl": "$OTA_MANIFEST_URL"
+}
+EOF
+  echo "OTA enabled for channel '$OTA_CHANNEL' (manifest: $OTA_MANIFEST_URL)"
+else
+  cat > "$RESOURCES_ROOT/ota-config.json" <<'EOF'
+{
+  "enabled": false,
+  "channel": "dev",
+  "manifestUrl": null
+}
+EOF
+  echo "OTA disabled (local/dev build; set SCISTUDIO_OTA_CHANNEL to enable)"
+fi
 
 echo "Staged desktop resources under $RESOURCES_ROOT"

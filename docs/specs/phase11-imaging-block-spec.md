@@ -3612,8 +3612,10 @@ class CellposeSegment(ProcessBlock):
     available; cellpose falls back to CPU automatically if CUDA is not
     present.
 
-    Optional dependency: install with
-    ``pip install scistudio-blocks-imaging[cellpose]``.
+    Optional dependency: install from the in-app Python terminal with
+    ``pip install cellpose`` (the ``scistudio-blocks-imaging`` distribution is
+    not on PyPI, so the ``[cellpose]`` extras specifier is not installable by
+    end users; see #1772).
     """
 
     type_name: ClassVar[str] = "imaging.cellpose_segment"
@@ -3649,8 +3651,9 @@ class CellposeSegment(ProcessBlock):
             from cellpose import models
         except ImportError as exc:
             raise ImportError(
-                "CellposeSegment requires the [cellpose] extra: "
-                "pip install scistudio-blocks-imaging[cellpose]"
+                "CellposeSegment requires the 'cellpose' package, which is not "
+                "installed. Open the Python terminal in SciStudio and run: "
+                "pip install cellpose"
             ) from exc
         model_name = config.get("model", "cyto3")
         use_gpu = bool(config.get("use_gpu", False))

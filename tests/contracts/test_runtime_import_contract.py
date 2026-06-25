@@ -119,13 +119,36 @@ def _has_contract_field(spec: object, field: str) -> bool:
     return hasattr(spec, field) or (isinstance(spec, Mapping) and field in spec)
 
 
+def _collect_route_paths(routes: object, prefix: str = "") -> set[str]:
+    """Recursively collect route paths, tolerant of Starlette's layouts.
+
+    Starlette < 1.3 flattens ``include_router`` children directly into
+    ``app.routes`` (each route exposes ``.path``). Starlette >= 1.3 (pulled in
+    by FastAPI 0.138) instead inserts a single ``_IncludedRouter`` object with
+    no ``.path``; the real routes live under ``route.original_router.routes``
+    and the mount prefix under ``route.include_context.prefix`` (#1769). This
+    helper handles both so the route contract is dependency-version agnostic.
+    """
+    paths: set[str] = set()
+    for route in routes:  # type: ignore[union-attr]
+        path = getattr(route, "path", None)
+        if path is not None:
+            paths.add(prefix + path)
+        included = getattr(route, "original_router", None)
+        if included is not None:
+            context = getattr(route, "include_context", None)
+            nested_prefix = prefix + (getattr(context, "prefix", "") or "")
+            paths |= _collect_route_paths(getattr(included, "routes", ()), nested_prefix)
+    return paths
+
+
 @pytest.fixture(scope="module")
 def app_routes() -> set[str]:
     """Collect all registered route paths from the FastAPI app."""
     from scistudio.api.app import create_app
 
     app = create_app()
-    return {r.path for r in app.routes if hasattr(r, "path")}
+    return _collect_route_paths(app.routes)
 
 
 def test_fastapi_router_paths_remain_visible_to_contract_tests() -> None:
@@ -141,7 +164,7 @@ def test_fastapi_router_paths_remain_visible_to_contract_tests() -> None:
     app = FastAPI()
     app.include_router(router)
 
-    route_paths = {getattr(route, "path", None) for route in app.routes}
+    route_paths = _collect_route_paths(app.routes)
     assert "/contract-route" in route_paths
 
 

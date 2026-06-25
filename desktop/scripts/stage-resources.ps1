@@ -47,6 +47,14 @@ Ensure-Directory $BackendRoot
 Reset-Directory $SrcTarget
 Copy-Item -Path (Join-Path $SrcSource "*") -Destination $SrcTarget -Recurse -Force
 
+# #1775: Drop build metadata that may ride along from a local editable install.
+# It is not needed at runtime (scistudio loads from this source tree on
+# PYTHONPATH) and only leaks paths into the bundle and OTA snapshot.
+$EggInfo = Join-Path $SrcTarget "scistudio.egg-info"
+if (Test-Path $EggInfo) {
+    Remove-Item -LiteralPath $EggInfo -Recurse -Force
+}
+
 # Refresh the packaged SPA (scistudio/api/static) from the frontend build we just
 # produced. This is the ONLY frontend a bundled desktop app serves
 # (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo copy
@@ -82,5 +90,28 @@ Both locations are scanned by the same package discovery path. User-installed
 packages may resolve Python runtime dependencies with the bundled interpreter,
 but dependency files stay in the user-scoped plugin directory.
 "@ | Set-Content -Encoding ASCII (Join-Path $ResourcesRoot "packages\README.md")
+
+# #1775: Stamp the OTA channel config the desktop client reads at launch
+# (main.js loadOtaConfig). A local/dev build leaves SCISTUDIO_OTA_CHANNEL unset
+# and gets OTA disabled, so a developer testing a local build is never disturbed
+# or overwritten by a published patch. A release build sets the channel (and
+# optionally the manifest URL) to enable launch-time update checks. Mirrors
+# stage-resources.sh.
+$OtaChannel = $env:SCISTUDIO_OTA_CHANNEL
+$OtaConfigPath = Join-Path $ResourcesRoot "ota-config.json"
+if (-not [string]::IsNullOrEmpty($OtaChannel)) {
+    $OtaManifestUrl = if (-not [string]::IsNullOrEmpty($env:SCISTUDIO_OTA_MANIFEST_URL)) {
+        $env:SCISTUDIO_OTA_MANIFEST_URL
+    } else {
+        "https://github.com/jiazhenz026/SciStudio/releases/download/ota-$OtaChannel/manifest.json"
+    }
+    $OtaConfig = [ordered]@{ enabled = $true; channel = $OtaChannel; manifestUrl = $OtaManifestUrl }
+    ($OtaConfig | ConvertTo-Json) | Set-Content -Encoding ASCII $OtaConfigPath
+    Write-Host "OTA enabled for channel '$OtaChannel' (manifest: $OtaManifestUrl)"
+} else {
+    $OtaConfig = [ordered]@{ enabled = $false; channel = "dev"; manifestUrl = $null }
+    ($OtaConfig | ConvertTo-Json) | Set-Content -Encoding ASCII $OtaConfigPath
+    Write-Host "OTA disabled (local/dev build; set SCISTUDIO_OTA_CHANNEL to enable)"
+}
 
 Write-Host "Staged desktop resources under $ResourcesRoot"

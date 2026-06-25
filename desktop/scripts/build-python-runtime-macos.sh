@@ -79,5 +79,15 @@ PYTHON_BIN="$PYTHON_ROOT/bin/python3"
 "$PYTHON_BIN" -m pip install --no-warn-script-location "$REPO_ROOT"
 "$PYTHON_BIN" -c "import scistudio, fastapi, uvicorn, pty; print('SciStudio macOS portable Python ready:', scistudio.__version__)"
 
+# #1775: The bundled runtime loads scistudio from resources/backend/src via
+# PYTHONPATH (desktop/main.js runtimeEnv), and OTA patches load it from a
+# userData directory. The pip install above is only needed to resolve the
+# third-party dependencies into the interpreter; the scistudio package it also
+# installs is a redundant second copy that wastes space and can shadow the
+# source tree if PYTHONPATH ordering ever changes. Remove just scistudio,
+# keeping its dependencies, so the source tree is the single source of truth.
+"$PYTHON_BIN" -m pip uninstall -y scistudio
+"$PYTHON_BIN" -c "import fastapi, uvicorn, pty; print('SciStudio macOS runtime deps verified (scistudio loads from source/OTA)')"
+
 : > "$PYTHON_ROOT/.scistudio-python-runtime"
 echo "Portable macOS Python runtime is ready at $PYTHON_ROOT"
