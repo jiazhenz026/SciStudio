@@ -201,6 +201,40 @@ def test_scan_imports_source_package_with_per_package_runtime_dependencies(tmp_p
     assert str(runtime_dir) not in sys.path
 
 
+def test_scan_source_package_includes_shared_user_site_in_runtime_import_roots(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#1772: installed plugin blocks must surface shared user-site deps
+    (installed via the in-app Python terminal) to the worker, after the
+    package's own roots so per-package deps keep precedence."""
+    monkeypatch.setattr(desktop_paths, "_platformdirs_dir", lambda kind: tmp_path / kind)
+    shared_site = desktop_paths.user_python_site_dir()
+    shared_site.mkdir(parents=True)
+
+    packages_dir = tmp_path / "installed-packages"
+    src_dir = _write_source_package(
+        packages_dir,
+        dist_name="scistudio-blocks-sharedprobe",
+        module_name="scistudio_blocks_sharedprobe",
+        block_name="SharedProbeBlock",
+        package_name="Shared Probe",
+    )
+
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+
+    spec = registry.get_spec("SharedProbeBlock")
+    assert spec is not None
+    roots = spec.runtime_import_roots
+    assert str(shared_site.resolve()) in roots
+    assert str(src_dir.resolve()) in roots
+    # Per-package roots are ordered before the shared site.
+    assert roots.index(str(src_dir.resolve())) < roots.index(str(shared_site.resolve()))
+    # Shared site is not leaked into the parent interpreter's sys.path.
+    assert str(shared_site) not in sys.path
+
+
 def test_scan_does_not_leak_package_dependencies_to_global_pythonpath(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

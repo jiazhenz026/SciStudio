@@ -55,7 +55,9 @@ def test_import_bioformats_raises_clear_error_when_extras_missing(monkeypatch: p
     with pytest.raises(ImportError) as excinfo:
         bioformats_handler._import_bioformats()
     msg = str(excinfo.value)
-    assert "scistudio-blocks-imaging[bioformats]" in msg
+    assert "pip install python-bioformats python-javabridge" in msg
+    assert "Python terminal" in msg
+    assert "scistudio-blocks-imaging[bioformats]" not in msg
     assert "Java" in msg or "JVM" in msg or "JRE" in msg
 
 
@@ -75,14 +77,21 @@ def test_import_javabridge_raises_clear_error_when_extras_missing(monkeypatch: p
     with pytest.raises(ImportError) as excinfo:
         bioformats_handler._import_javabridge()
     msg = str(excinfo.value)
-    assert "scistudio-blocks-imaging[bioformats]" in msg
+    assert "pip install python-bioformats python-javabridge" in msg
+    assert "scistudio-blocks-imaging[bioformats]" not in msg
 
 
 def test_missing_extras_hint_names_install_command() -> None:
-    """The module-level hint constant names the canonical install command."""
+    """The module-level hint constant names an install command that works in
+    this runtime (#1772): the in-app Python terminal, not the non-existent
+    PyPI extras specifier."""
     from scistudio_blocks_imaging.io.bioformats_handler import _MISSING_EXTRAS_HINT
 
-    assert "pip install scistudio-blocks-imaging[bioformats]" in _MISSING_EXTRAS_HINT
+    assert "pip install python-bioformats python-javabridge" in _MISSING_EXTRAS_HINT
+    assert "Python terminal" in _MISSING_EXTRAS_HINT
+    # The old hint pointed at a package that is not published to PyPI and whose
+    # bracket form is shell-globbed; it must not reappear.
+    assert "scistudio-blocks-imaging[bioformats]" not in _MISSING_EXTRAS_HINT
 
 
 def test_handler_module_is_importable_without_extras() -> None:
@@ -124,7 +133,7 @@ def test_load_image_dispatch_to_missing_bioformats_yields_clear_error(
 
     with pytest.raises(ImportError) as excinfo:
         LoadImage().load(BlockConfig(params={"path": str(fake)}))
-    assert "scistudio-blocks-imaging[bioformats]" in str(excinfo.value)
+    assert "pip install python-bioformats python-javabridge" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -139,9 +148,9 @@ def _require_bioformats() -> None:
     pytest.importorskip(
         "bioformats",
         reason=(
-            "Requires the [bioformats] extra and a Java Runtime "
-            "Environment; install via "
-            "`pip install scistudio-blocks-imaging[bioformats]`."
+            "Requires python-bioformats / python-javabridge and a Java Runtime "
+            "Environment; install via the SciStudio Python terminal: "
+            "`pip install python-bioformats python-javabridge`."
         ),
     )
 

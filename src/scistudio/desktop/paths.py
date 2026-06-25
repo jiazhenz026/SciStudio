@@ -97,6 +97,20 @@ def user_python_bin_dir() -> Path:
     return user_python_dir() / ("Scripts" if sys.platform == "win32" else "bin")
 
 
+def user_python_script_dir() -> Path:
+    """Return the directory holding console scripts installed into the shared
+    user dependency site.
+
+    Dependencies installed through the in-app Python terminal land in the
+    shared user site via ``pip install --target`` (#1772). pip drops any
+    console-script launchers (e.g. the ``napari`` command) into a ``bin`` /
+    ``Scripts`` subdirectory of that target, which is distinct from the
+    command-wrapper directory returned by :func:`user_python_bin_dir`. External
+    app blocks need this directory on ``PATH`` to resolve user-installed GUI
+    launchers."""
+    return user_python_site_dir() / ("Scripts" if sys.platform == "win32" else "bin")
+
+
 def user_python_import_roots() -> list[Path]:
     """Return shared user dependency import roots that already exist."""
     site_dir = user_python_site_dir()

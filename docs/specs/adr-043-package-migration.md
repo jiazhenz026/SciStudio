@@ -416,10 +416,13 @@ persists `capability_id` on the port.
   optional install extra, following the existing `imaging[cellpose]` pattern. The
   handler module MUST defer the `python-bioformats` / `javabridge` / `ome-types`
   imports to lazy load time. When extras are missing, the handler MUST raise a
-  clear error naming the install command
-  `pip install scistudio-blocks-imaging[bioformats]`. The registry MUST hide
-  Bio-Formats capabilities from `list_format_capabilities` results when the
-  extras are not importable.
+  clear error naming an install command that works in the desktop runtime —
+  the in-app Python terminal command
+  `pip install python-bioformats python-javabridge` (the
+  `scistudio-blocks-imaging` distribution is not published to PyPI, so the
+  `[bioformats]` extras specifier is not installable by end users; see #1772).
+  The registry MUST hide Bio-Formats capabilities from
+  `list_format_capabilities` results when the extras are not importable.
 
 - **FR-009:** The spec codifies a ProcessBlock OME metadata propagation contract
   with three modes:
