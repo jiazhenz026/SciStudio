@@ -60,18 +60,18 @@ class TestStrictVersionResolution:
         with pytest.raises(BlockRegistrationError):
             _resolve_distribution_version(cls)
 
-    def test_scistudio_blocks_monorepo_resolves_to_real_version(self) -> None:
-        """Monorepo plugins (`scistudio_blocks_*`) resolve to either the
-        plugin's own distribution version (when pip-installed) or fall
-        back to the scistudio version (when the editable install hasn't
-        populated ``packages_distributions``).
+    def test_scistudio_blocks_plugin_resolves_to_real_version(self) -> None:
+        """Plugin modules (`scistudio_blocks_*`) resolve to either the
+        plugin's own distribution version (when pip-installed) or fall back
+        to the scistudio version (when the distribution metadata has not
+        been populated).
 
-        On CI the editable-install of `packages/scistudio-blocks-imaging`
-        may not populate ``importlib.metadata.packages_distributions``,
-        but the plugin source is in the same repo checkout as scistudio.
-        Either path must succeed — the strict raise must NOT fire.
+        Issue #1770 decoupled the real domain packages out of core, so this
+        exercises the resolver against the in-repo fixture plugin module,
+        whose ``src`` is on ``sys.path`` via ``tests/conftest.py``. Either
+        resolution path must succeed — the strict raise must NOT fire.
         """
-        cls = _make_block_with_module("scistudio_blocks_imaging.io.load_image")
+        cls = _make_block_with_module("scistudio_blocks_fixture.io.load_image")
         # Must not raise.
         version = _resolve_distribution_version(cls)
         assert isinstance(version, str) and version

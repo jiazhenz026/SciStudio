@@ -355,7 +355,7 @@ def test_hook_enforce_concrete_port_types_silent_on_concrete(tmp_project_dir: Pa
     target = blocks / "demo_block.py"
     target.write_text(
         "from scistudio.blocks.base.ports import InputPort, OutputPort\n"
-        "from scistudio_blocks_imaging.types import Image, Mask\n"
+        "from scistudio_blocks_fixture.types import Image, Mask\n"
         "in_p = InputPort(name='x', accepted_types=[Image], required=True)\n"
         "out_p = OutputPort(name='y', accepted_types=[Mask])\n",
         encoding="utf-8",

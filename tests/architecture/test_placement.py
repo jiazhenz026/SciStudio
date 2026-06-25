@@ -171,16 +171,17 @@ def test_process_contrib_directory_removed() -> None:
     Phase 11 abandons the ``contrib`` pattern in favour of the plugin
     package pattern. The four 1-line stub modules and their parent
     directory were deleted by T-TRK-001 (Phase 11 master plan §2.5
-    sub-1a). The real ``CellposeSegment`` implementation lives in
-    ``packages/scistudio-blocks-imaging/`` per T-IMG-019. This regression
-    test prevents the directory from being silently re-introduced.
+    sub-1a). The real ``CellposeSegment`` implementation lives in the
+    standalone ``scistudio-blocks-imaging`` package repository (decoupled
+    from core per #1770). This regression test prevents the directory from
+    being silently re-introduced.
     """
     contrib_dir = SRC_ROOT / "blocks" / "process" / "contrib"
     assert not contrib_dir.exists(), (
         f"{contrib_dir.relative_to(SRC_ROOT)} must not exist — the contrib "
         "pattern was deleted in T-TRK-001 (Phase 11). Add new process "
-        "blocks to scistudio/blocks/process/builtins/ or to a plugin "
-        "package under packages/scistudio-blocks-*/."
+        "blocks to scistudio/blocks/process/builtins/ or to a standalone "
+        "scistudio-blocks-* plugin package repository."
     )
 
 
@@ -202,6 +203,32 @@ def test_adapters_directory_removed() -> None:
         "adapter layer was deleted in T-TRK-004 (Phase 11). Plugin IO "
         "blocks subclass scistudio.blocks.io.io_block.IOBlock and register "
         "via the scistudio.blocks entry-point group per ADR-028 §D1/§D4."
+    )
+
+
+def test_no_domain_block_package_source_under_core_tree() -> None:
+    """Core must ship no decoupled domain block package source (issue #1770).
+
+    The imaging / lcms / spectroscopy / srs packages were decoupled into their
+    own repositories. The core repo's importable source tree
+    (``src/scistudio``) must therefore contain NO ``scistudio_blocks_*``
+    package source. The only ``scistudio_blocks_*`` source permitted in the
+    repo is the in-repo test fixture under
+    ``tests/fixtures/scistudio-blocks-fixture/`` (a fake stand-in package that
+    is never installed and is not part of the shipped ``scistudio``
+    distribution). This regression test prevents a domain package from being
+    silently re-vendored into core.
+    """
+    offenders = [
+        str(path.relative_to(SRC_ROOT))
+        for path in SRC_ROOT.rglob("scistudio_blocks_*")
+        if path.is_dir() or path.suffix == ".py"
+    ]
+    assert not offenders, (
+        "Decoupled domain block package source found under the core tree "
+        f"src/scistudio (issue #1770): {offenders}. Domain packages live in "
+        "their own repositories; the only permitted scistudio_blocks_* source "
+        "is the test fixture under tests/fixtures/scistudio-blocks-fixture/."
     )
 
 

@@ -538,10 +538,10 @@ class PreviewerEntryPoint(Protocol):
         [project.entry-points."scistudio.previewers"]
         imaging = "scistudio_blocks_imaging.previewers:get_previewers"
 
-    Where ``get_previewers() -> list[PreviewerSpec]``. The monorepo dev
-    fallback (no installed entry point) calls a module-level
-    ``get_previewers()`` on each ``packages/scistudio-blocks-*`` package, in
-    the same spirit as ``get_blocks`` / ``get_types``.
+    Where ``get_previewers() -> list[PreviewerSpec]``. Installed block/type
+    packages may also re-export a module-level ``get_previewers()`` that the
+    registry discovers as a companion factory, in the same spirit as
+    ``get_blocks`` / ``get_types``.
     """
 
     def __call__(self) -> list[PreviewerSpec]: ...

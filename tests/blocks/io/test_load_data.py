@@ -630,17 +630,17 @@ def test_load_data_multi_path_package_image(
 ) -> None:
     """Multi-path dispatch must resolve package Image loaders from a path list."""
     tifffile = pytest.importorskip("tifffile")
-    pytest.importorskip("scistudio_blocks_imaging")
-    from scistudio_blocks_imaging.types import Image
+    pytest.importorskip("scistudio_blocks_fixture")
+    from scistudio_blocks_fixture.types import Image
 
     block_ep = importlib.metadata.EntryPoint(
-        name="imaging",
-        value="scistudio_blocks_imaging:get_block_package",
+        name="fixture",
+        value="scistudio_blocks_fixture:get_block_package",
         group="scistudio.blocks",
     )
     type_ep = importlib.metadata.EntryPoint(
-        name="imaging",
-        value="scistudio_blocks_imaging:get_types",
+        name="fixture",
+        value="scistudio_blocks_fixture:get_types",
         group="scistudio.types",
     )
     entry_points = importlib.metadata.EntryPoints((block_ep, type_ep))

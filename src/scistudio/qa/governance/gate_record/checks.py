@@ -374,13 +374,14 @@ def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | No
 
 
 def _with_check_env(name: str, env: dict[str, str] | None) -> dict[str, str] | None:
-    """Mirror CI-only environment knobs for local check execution."""
+    """Mirror CI-only environment knobs for local check execution.
 
-    if name != "python_tests":
-        return env
-    merged = dict(os.environ) if env is None else dict(env)
-    merged["SCISTUDIO_DEV"] = "1"
-    return merged
+    No CI-only env knobs are currently required: plugin packages are
+    discovered through their installed ``scistudio.*`` entry points (the
+    monorepo source-scan dev fallback was removed in #1770), so the local
+    check environment matches CI without extra flags.
+    """
+    return env
 
 
 def run_check(

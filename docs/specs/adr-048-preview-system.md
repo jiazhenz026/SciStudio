@@ -52,7 +52,6 @@ governs:
     - frontend/src/store/types.ts
     - frontend/src/types/api.ts
     - frontend/src/lib/api/data.ts
-    - packages/scistudio-blocks-imaging/**
 tests:
   - tests/previewers/test_preview_registry.py
   - tests/previewers/test_preview_routing.py
@@ -63,7 +62,6 @@ tests:
   - tests/ai/test_mcp_tools_inspection.py
   - frontend/src/components/DataPreview.test.tsx
   - frontend/src/components/DataPreview.parts/PreviewHost.test.tsx
-  - packages/scistudio-blocks-imaging/tests/test_previewer_registration.py
 acceptance_source: adr
 language_source: en
 ---

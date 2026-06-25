@@ -89,8 +89,14 @@ def test_raising_factory_is_diagnosed_not_fatal() -> None:
     assert any("raised" in d for d in reg.diagnostics)
 
 
-def test_monorepo_fallback_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
-    """FR-030: a monorepo package exposing get_previewers() is discovered."""
+def test_factory_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A package exposing ``get_previewers()`` is discovered via the factory path.
+
+    Issue #1770 removed the monorepo dev-fallback source scan; discovery is now
+    entry-point only. This narrowly proves the factory-registration contract
+    shape (the entry-point path is covered by
+    ``test_companion_package_entry_point_discovers_get_previewers`` below).
+    """
     import sys
     import types
 
@@ -100,8 +106,6 @@ def test_monorepo_fallback_discovers_get_previewers(monkeypatch: pytest.MonkeyPa
     fake_module.get_previewers = lambda: [_spec("pkg.fake.viewer")]  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "scistudio_blocks_fake", fake_module)
 
-    # Drive the factory path directly (filesystem glob is exercised by the
-    # imaging package's own monorepo test); this proves the contract shape.
     reg._register_from_factory("scistudio_blocks_fake", fake_module.get_previewers)
     assert reg.get("pkg.fake.viewer") is not None
     assert reg.diagnostics == []
@@ -135,7 +139,7 @@ def test_companion_package_entry_point_discovers_get_previewers(
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
 
     reg = PreviewerRegistry()
-    reg.load_packages(include_monorepo=False)
+    reg.load_packages()
 
     assert reg.get("pkg.fake.viewer") is not None
     assert reg.diagnostics == []
@@ -182,7 +186,7 @@ def test_load_packages_activates_installed_plugin_roots_for_entry_points(
     )
 
     reg = PreviewerRegistry()
-    reg.load_packages(include_monorepo=False)
+    reg.load_packages()
 
     # Discovered via the entry-point path — only possible if the plugin root was
     # activated on sys.path during the scan.

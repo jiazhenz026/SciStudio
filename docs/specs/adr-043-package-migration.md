@@ -37,22 +37,12 @@ governs:
   files:
     - src/scistudio/blocks/io/loaders/load_data.py
     - src/scistudio/blocks/io/savers/save_data.py
-    - packages/scistudio-blocks-imaging/src/**
-    - packages/scistudio-blocks-imaging/pyproject.toml
-    - packages/scistudio-blocks-srs/src/**
     - frontend/src/**
     - tests/blocks/io/**
-    - packages/scistudio-blocks-imaging/tests/**
-    - packages/scistudio-blocks-srs/tests/**
     - docs/specs/adr-043-package-migration.md
 tests:
   - tests/blocks/io/test_load_data_capabilities.py
   - tests/blocks/io/test_save_data_capabilities.py
-  - packages/scistudio-blocks-imaging/tests/test_format_capabilities.py
-  - packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py
-  - packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py
-  - packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py
-  - packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py
   - frontend/src/__tests__/CapabilityDropdown.test.tsx
   - frontend/src/__tests__/OMEMetadataPanel.test.tsx
   - frontend/src/__tests__/LossySaveWarning.test.tsx

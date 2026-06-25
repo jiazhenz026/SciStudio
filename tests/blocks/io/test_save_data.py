@@ -29,14 +29,6 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-
-try:
-    import openpyxl  # noqa: F401
-    import pandas  # noqa: F401
-
-    _PANDAS_AVAILABLE = True
-except ImportError:
-    _PANDAS_AVAILABLE = False
 import pyarrow.csv as pcsv
 import pyarrow.parquet as pq
 import pytest
@@ -755,14 +747,47 @@ class TestSaveDataFilename:
         with pytest.raises(ValueError, match="no source filename"):
             block.save(_make_dataframe(), block.config)
 
-    @pytest.mark.skipif(
-        not _PANDAS_AVAILABLE,
-        reason="pandas or openpyxl not installed (LCMS plugin required)",
-    )
     def test_package_owned_capability_delegates_to_registered_saver(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("SCISTUDIO_DEV", "1")
+        """Core ``SaveData`` delegates to a package-owned save capability.
+
+        Issue #1770: the real lcms ``.xlsx`` saver was decoupled out of core,
+        so this drives the same unified-dispatch delegation path against the
+        in-repo fixture package's ``.fix`` DataFrame save capability. The
+        fixture's block entry point is injected per-test via monkeypatch so
+        ``runtime_block_registry()`` (entry-point discovery) sees it.
+        """
+        import importlib.metadata
+
+        pytest.importorskip("scistudio_blocks_fixture")
+
+        block_ep = importlib.metadata.EntryPoint(
+            name="fixture",
+            value="scistudio_blocks_fixture:get_block_package",
+            group="scistudio.blocks",
+        )
+        type_ep = importlib.metadata.EntryPoint(
+            name="fixture",
+            value="scistudio_blocks_fixture:get_types",
+            group="scistudio.types",
+        )
+        entry_points = importlib.metadata.EntryPoints((block_ep, type_ep))
+
+        def _entry_points(*args: object, **kwargs: object) -> object:
+            # ``BlockRegistry._scan_tier2`` calls ``entry_points()`` with no
+            # group and then ``.select(group=...)``; ``TypeRegistry`` calls it
+            # with ``group=``. Cover both so the fixture's block + type entry
+            # points are discoverable through the registry scan.
+            group = kwargs.get("group")
+            if group == "scistudio.blocks":
+                return (block_ep,)
+            if group == "scistudio.types":
+                return (type_ep,)
+            return entry_points
+
+        monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+
         source = tmp_path / "input.csv"
         df = _make_dataframe(framework=FrameworkMeta(source=str(source)))
         block = SaveData(
@@ -770,20 +795,21 @@ class TestSaveDataFilename:
                 "params": {
                     "core_type": "DataFrame",
                     "path": str(tmp_path),
-                    "capability_id": "scistudio-blocks-lcms.table.xlsx.save",
+                    "capability_id": "scistudio-blocks-fixture.table.fix.save",
                 }
             }
         )
 
         block.save(df, block.config)
 
-        output = tmp_path / "input.xlsx"
+        output = tmp_path / "input.fix"
         assert output.exists()
-        import pandas as pd
-
-        frame = pd.read_excel(output)
-        assert list(frame.columns) == ["x", "y"]
-        assert frame["x"].tolist() == [1, 2, 3]
+        records = json.loads(output.read_text(encoding="utf-8"))
+        assert records == [
+            {"x": 1, "y": 4.0},
+            {"x": 2, "y": 5.0},
+            {"x": 3, "y": 6.0},
+        ]
 
 
 # ---------------------------------------------------------------------------

@@ -121,8 +121,6 @@ jobs:
       - run: uv pip install --system -e ".[dev]" pytest-timeout
       - name: Run tests
         shell: bash {0}
-        env:
-          SCISTUDIO_DEV: "1"
         # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
         # past 60 s and prints its traceback, so a stuck CI surfaces a
         # diagnosable failure instead of timing out the whole job at 6 h.

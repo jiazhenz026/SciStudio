@@ -12,8 +12,8 @@ Owns:
   scan directories.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
   (ADR-025 callable protocol).
-- ``_scan_monorepo_packages`` — development fallback for the
-  ``packages/scistudio-blocks-*`` monorepo plugins.
+- ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
+  ``packages/*/src`` source packages (desktop runtime).
 - ``_register_spec`` — apply per-spec validation and write into the
   registry's ``_registry`` + ``_aliases`` dicts.
 - ``_validate_capability_registration`` — ADR-043 capability-id and
@@ -38,7 +38,6 @@ from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
     prepended_sys_paths,
-    source_package_import_roots,
     user_python_import_roots,
 )
 
@@ -442,43 +441,4 @@ def _scan_package_src_dirs(registry: BlockRegistry) -> None:
             import_roots=import_roots,
             module_name=module_name,
             source="package_src",
-        )
-
-
-def _scan_monorepo_packages(registry: BlockRegistry) -> None:
-    """Development fallback for plugin packages living in the monorepo.
-
-    The desktop/app development workflow often runs the core package from
-    source without separately installing Phase 11 plugin packages in
-    editable mode. In that case there are no ``scistudio.blocks`` entry
-    points for the plugins yet, but the plugin sources are still present
-    under ``packages/*/src`` in the same repository checkout.
-
-    This fallback mirrors the entry-point callable protocol for any
-    ``scistudio_blocks_*`` package found in the monorepo:
-
-    - prefer ``get_block_package() -> (PackageInfo, list[type[Block]])``
-    - fall back to ``get_blocks() -> list[type[Block]]``
-
-    Installed entry-points remain authoritative because this scan runs
-    after :func:`_scan_tier2` and skips any block type that is already
-    registered.
-    """
-    # ``__file__`` of this module sits at
-    # ``src/scistudio/blocks/registry/_scan.py``. The repo root is
-    # therefore ``parents[4]`` (registry → blocks → scistudio → src → root).
-    repo_root = Path(__file__).resolve().parents[4]
-    packages_dir = repo_root / "packages"
-    if not packages_dir.is_dir():
-        return
-
-    for pkg_dir in packages_dir.glob("scistudio-blocks-*"):
-        src_dir = pkg_dir / "src"
-        if not src_dir.is_dir():
-            continue
-        _scan_source_package_module(
-            registry,
-            import_roots=source_package_import_roots(src_dir),
-            module_name=pkg_dir.name.replace("-", "_"),
-            source="monorepo",
         )
