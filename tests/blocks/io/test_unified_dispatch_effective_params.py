@@ -126,6 +126,88 @@ def test_delegate_save_selects_capability_from_extras_path(monkeypatch: Any) -> 
     assert saved.get("done") is True
 
 
+class _StubCap:
+    """Minimal capability stub exposing the fields the error helper reads."""
+
+    def __init__(self, format_id: str, extensions: tuple[str, ...]) -> None:
+        self.format_id = format_id
+        self.extensions = extensions
+
+
+def test_path_extension_falls_back_to_filename_field() -> None:
+    """#1760 Fix #2: the Save block's ``path`` is a *directory* browser, so the
+    extension that selects the save format lives in the ``filename`` field. The
+    folder-path + filename pattern must still infer the extension."""
+    # Folder path (no suffix) + filename with extension -> filename wins.
+    assert ud._path_extension({"path": "/out/dir", "filename": "foo.tiff"}) == ".tiff"
+    # A concrete file path takes priority over filename.
+    assert ud._path_extension({"path": "/out/foo.tiff", "filename": "bar.png"}) == ".tiff"
+    # Neither carries a suffix -> no inference (caller renders an actionable error).
+    assert ud._path_extension({"path": "/out/dir", "filename": "foo"}) is None
+    assert ud._path_extension({"path": "/out/dir"}) is None
+
+
+def test_ambiguous_capability_message_is_actionable() -> None:
+    """#1760 Fix #1: the message must name the supported extensions and tell the
+    user how to disambiguate, not claim the type has no save capability."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    exc = AmbiguousCapabilityError(
+        "ambiguous",
+        direction="save",
+        data_type=object,
+        candidates=(_StubCap("tiff", (".tif", ".tiff")), _StubCap("png", (".png",))),
+    )
+    msg = ud._ambiguous_capability_message(direction="save", core_type="Image", exc=exc)
+    assert "Image" in msg
+    assert ".tiff" in msg and ".png" in msg
+    assert "no save capability" not in msg
+    assert "path or filename" in msg
+
+
+def test_selected_capability_propagates_ambiguous(monkeypatch: Any) -> None:
+    """#1760 Fix #1: ``selected_capability`` must NOT swallow an ambiguous lookup
+    into ``None`` (which produced the misleading 'no save capability' message)."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    class _Reg:
+        def find_saver_capability(self, data_type: Any, extension: Any) -> Any:
+            raise AmbiguousCapabilityError("ambiguous", direction="save", data_type=object, candidates=())
+
+    monkeypatch.setattr(ud, "runtime_block_registry", lambda: _Reg())
+    try:
+        ud.selected_capability(direction="save", params={"path": "/out/dir"}, data_type=object)
+    except AmbiguousCapabilityError:
+        return
+    raise AssertionError("AmbiguousCapabilityError should propagate, not be swallowed into None")
+
+
+def test_delegate_save_renders_actionable_error_on_ambiguity(monkeypatch: Any) -> None:
+    """#1760: the worker-facing failure must be the actionable message, not the
+    misleading 'no save capability is registered for type ...'."""
+    import pytest
+
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    def fake_selected(*, direction: str, params: dict[str, Any], data_type: Any) -> Any:
+        raise AmbiguousCapabilityError(
+            "ambiguous",
+            direction="save",
+            data_type=object,
+            candidates=(_StubCap("tiff", (".tif", ".tiff")),),
+        )
+
+    monkeypatch.setattr(ud, "resolve_type_class", lambda name: object)
+    monkeypatch.setattr(ud, "selected_capability", fake_selected)
+
+    with pytest.raises(ValueError) as excinfo:
+        ud.delegate_save(obj=Mock(), config=BlockConfig(**{"core_type": "Image"}), core_type="Image")
+    message = str(excinfo.value)
+    assert "no save capability is registered" not in message
+    assert ".tiff" in message
+    assert "save format" in message
+
+
 def test_delegate_load_activates_package_import_roots_for_lazy_deps(monkeypatch: Any, tmp_path: Any) -> None:
     """Regression: a package loader's *lazy* third-party import (e.g. ``tifffile``
     in the imaging ``LoadImage`` loader) must resolve because ``delegate_load``

@@ -160,17 +160,33 @@ function formatRecordsAsLog(records: ClientLogRecord[]): string {
 }
 
 /**
- * Export diagnostics for a bug report as a SINGLE download.
+ * Open the native OS save dialog and return the chosen path.
  *
- * POSTs the in-memory ring buffer to the backend, which bundles it (as a
- * human-readable `frontend-logs.log`) together with the backend logs +
- * environment + run logs into one zip. A single download avoids the browser's
- * block on consecutive auto-downloads. If the backend is unreachable, fall back
- * to a single human-readable `.log` of the ring buffer so frontend-only records
- * still reach the tester.
+ * Called via a direct `fetch` (not the filesystem api module) to keep this
+ * low-level logger free of the `lib/api` import graph (`apiFetch` imports the
+ * logger). Returns `available: false` when the platform native dialog could not
+ * run (the route 500s); an empty `path` with `available: true` means the user
+ * cancelled.
  */
-export async function exportDiagnosticBundle(): Promise<void> {
-  const records = getLogBuffer();
+async function openNativeSaveDialog(
+  defaultFilename: string,
+): Promise<{ path: string | null; available: boolean }> {
+  try {
+    const response = await fetch("/api/filesystem/native-dialog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "save_file", default_filename: defaultFilename }),
+    });
+    if (!response.ok) return { path: null, available: false };
+    const data = (await response.json()) as { paths?: string[]; available?: boolean };
+    return { path: data.paths?.[0] ?? null, available: data.available !== false };
+  } catch {
+    return { path: null, available: false };
+  }
+}
+
+/** Browser-download fallback: stream the bundle blob (or a plain `.log`). */
+async function downloadBundleViaBrowser(records: ClientLogRecord[]): Promise<void> {
   try {
     const response = await fetch("/api/diagnostics/bundle", {
       method: "POST",
@@ -186,5 +202,46 @@ export async function exportDiagnosticBundle(): Promise<void> {
       new Blob([formatRecordsAsLog(records)], { type: "text/plain" }),
       "scistudio-frontend-logs.log",
     );
+  }
+}
+
+/**
+ * Export diagnostics for a bug report as a SINGLE file.
+ *
+ * Native-dialog-first (#1760 bug2): the OS save dialog is shown *immediately*
+ * so it no longer waits for the (potentially large) bundle to be built. When a
+ * destination is chosen the backend writes the bundle straight to that path,
+ * building + DEFLATE-compressing the rotating logs off its request event loop.
+ *
+ * Fallbacks mirror the preview-export contract (#1716): when the native dialog
+ * did run but returned no path the user cancelled — do nothing (no second
+ * dialog). Only when the native dialog is unavailable (browser context) do we
+ * fall back to a single browser download, which bundles the ring buffer as a
+ * human-readable `frontend-logs.log` alongside the backend logs + environment +
+ * run logs (a single download avoids the browser's block on consecutive
+ * auto-downloads).
+ */
+export async function exportDiagnosticBundle(): Promise<void> {
+  const records = getLogBuffer();
+  const dialog = await openNativeSaveDialog("scistudio-diagnostics.zip");
+  if (dialog.path) {
+    try {
+      const response = await fetch("/api/diagnostics/bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records, path: dialog.path }),
+      });
+      if (!response.ok) throw new Error(`bundle write failed: ${response.status}`);
+      logger.info("diagnostic bundle exported");
+    } catch (error) {
+      // The user picked a path but the server-side write failed; fall back to a
+      // browser download so the bug report is not lost.
+      logger.warn(`diagnostic bundle write failed: ${String(error)}`);
+      await downloadBundleViaBrowser(records);
+    }
+    return;
+  }
+  if (!dialog.available) {
+    await downloadBundleViaBrowser(records);
   }
 }

@@ -79,10 +79,23 @@ def capability_owner_class(registry: Any, capability: FormatCapability) -> type[
 
 
 def _path_extension(params: dict[str, Any]) -> str | None:
-    """Infer the lookup extension from a single path or a multi-path list."""
+    """Infer the lookup extension from the ``path`` and/or ``filename`` config.
+
+    The core Save block exposes ``path`` as a *directory* browser, so the
+    filename and its extension are entered in the separate ``filename`` field
+    (see :class:`SaveData.config_schema`). Capability selection for a
+    package-registered multi-format type (e.g. ``Image`` → tiff/zarr/png/jpeg)
+    is driven by this extension, so a folder ``path`` plus ``filename="foo.tiff"``
+    must still infer ``.tiff``. ``path`` is consulted first (a concrete file path
+    wins), then ``filename`` as a fallback. Returning ``None`` here leaves the
+    saver/loader lookup without a discriminator; the callers turn the resulting
+    ambiguity into an actionable error rather than a misleading "no capability
+    registered" message.
+    """
     raw_path = params.get("path")
     paths = raw_path if isinstance(raw_path, list) else [raw_path]
-    for candidate in paths:
+    candidates = [*paths, params.get("filename")]
+    for candidate in candidates:
         if isinstance(candidate, str) and candidate:
             suffixes = Path(candidate).suffixes
             if suffixes:
@@ -107,10 +120,46 @@ def selected_capability(
         return registry, None
     extension = _path_extension(params)
     finder = registry.find_loader_capability if direction == "load" else registry.find_saver_capability
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     try:
         return registry, finder(data_type, extension)
+    except AmbiguousCapabilityError:
+        # The type has registered capabilities but no extension/format selected
+        # a unique one. Propagate so the caller can render an actionable
+        # "choose a format / add a file extension" error instead of swallowing
+        # this into the misleading "no capability is registered" fallback.
+        raise
     except Exception:
         return registry, None
+
+
+def _ambiguous_capability_message(*, direction: str, core_type: str, exc: Any) -> str:
+    """Build an actionable error when a multi-format type selects no unique IO format.
+
+    ``exc`` is an ``AmbiguousCapabilityError`` carrying the candidate
+    capabilities. The user reached here because the type (e.g. ``Image``) has
+    several registered formats and neither a file extension nor an explicit
+    format was supplied. Tell them how to disambiguate instead of claiming the
+    type has no save/load capability.
+    """
+    extensions = sorted({ext for cap in getattr(exc, "candidates", ()) for ext in (cap.extensions or ())})
+    if extensions:
+        detail = f"include a file extension ({', '.join(extensions)})"
+    else:
+        formats = sorted({cap.format_id for cap in getattr(exc, "candidates", ()) if cap.format_id})
+        detail = f"select a format ({', '.join(formats)})" if formats else "select a format"
+    if direction == "save":
+        return (
+            f"Save: cannot determine the output format for type {core_type!r}: it supports "
+            f"multiple save formats and none was selected. Set the Save block's path or filename to "
+            f"{detail}, or choose a save format explicitly."
+        )
+    return (
+        f"Load: cannot determine the input format for type {core_type!r}: it supports "
+        f"multiple load formats and none was selected. Set the Load block's path to "
+        f"{detail}, or choose a load format explicitly."
+    )
 
 
 def delegate_params(params: dict[str, Any], capability: FormatCapability) -> dict[str, Any]:
@@ -250,9 +299,14 @@ def delegate_load(
     core_type: str,
 ) -> DataObject:
     """Load through the package block selected by a core Load capability."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     data_type = resolve_type_class(core_type)
     effective = _effective_params(config)
-    registry, capability = selected_capability(direction="load", params=effective, data_type=data_type)
+    try:
+        registry, capability = selected_capability(direction="load", params=effective, data_type=data_type)
+    except AmbiguousCapabilityError as exc:
+        raise ValueError(_ambiguous_capability_message(direction="load", core_type=core_type, exc=exc)) from exc
     if capability is None:
         raise ValueError(f"Load: no load capability is registered for type {core_type!r}.")
     if capability.block_type == "LoadData":
@@ -271,9 +325,14 @@ def delegate_save(
     core_type: str,
 ) -> None:
     """Save through the package block selected by a core Save capability."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     data_type = resolve_type_class(core_type) or type(obj)
     effective = _effective_params(config)
-    registry, capability = selected_capability(direction="save", params=effective, data_type=data_type)
+    try:
+        registry, capability = selected_capability(direction="save", params=effective, data_type=data_type)
+    except AmbiguousCapabilityError as exc:
+        raise ValueError(_ambiguous_capability_message(direction="save", core_type=core_type, exc=exc)) from exc
     if capability is None:
         raise ValueError(f"Save: no save capability is registered for type {core_type!r}.")
     if capability.block_type == "SaveData":
