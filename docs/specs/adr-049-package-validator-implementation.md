@@ -49,9 +49,6 @@ governs:
     - docs/planning/adr-049-package-validator/contracts/**
     - scripts/audit/check_package_contract_tables.py
     - pyproject.toml
-    - packages/scistudio-blocks-*/pyproject.toml
-    - packages/scistudio-blocks-*/src/**
-    - packages/scistudio-blocks-*/tests/**
 planned_governs:
   modules:
     - scistudio.packages.validation

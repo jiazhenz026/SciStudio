@@ -27,7 +27,7 @@ def _scan_runtime_registry(
         registry.add_scan_dir(Path(project_dir) / project_child)
     if always_home or project_dir:
         registry.add_scan_dir(Path.home() / ".scistudio" / home_child)
-    getattr(registry, scan_method)(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    getattr(registry, scan_method)()
     return registry
 
 

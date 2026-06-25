@@ -58,13 +58,11 @@ def _save_known_projects(self: ApiRuntime) -> None:
 
 
 def refresh_block_registry(self: ApiRuntime) -> None:
-    import os
-
     registry = BlockRegistry()
     if self.active_project is not None:
         registry.add_scan_dir(Path(self.active_project.path) / "blocks")
         registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
-    registry.scan(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    registry.scan()
     self.block_registry = registry
 
 
@@ -78,13 +76,11 @@ def refresh_type_registry(self: ApiRuntime) -> None:
     so a switch from project A to project B does not leak project A's
     types into project B.
     """
-    import os
-
     registry = TypeRegistry()
     if self.active_project is not None:
         registry.add_scan_dir(Path(self.active_project.path) / "types")
     registry.add_scan_dir(Path.home() / ".scistudio" / "types")
-    registry.scan_all(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    registry.scan_all()
     self.type_registry = registry
 
 

@@ -6,8 +6,8 @@ The FastAPI process and the standalone ``scistudio mcp-bridge`` (used by
 external CLIs like ``claude`` and ``codex``) both need to:
 
 1. Build a :class:`scistudio.blocks.registry.BlockRegistry` scoped to the
-   active project (plus the user-wide ``~/.scistudio/blocks`` and the
-   monorepo when ``SCISTUDIO_DEV=1``).
+   active project (plus the user-wide ``~/.scistudio/blocks`` and
+   entry-point plugin packages).
 2. Build a :class:`scistudio.core.types.registry.TypeRegistry` populated
    with builtins (and plugins).
 3. Install a :class:`MCPContext` against ``_context.set_context`` so the
@@ -99,23 +99,23 @@ class StandaloneMCPRuntime:
 
 
 def _build_block_registry(project_dir: Path | None) -> BlockRegistry:
-    """Scan project-local + user-wide blocks (and monorepo in dev)."""
+    """Scan project-local + user-wide blocks plus entry-point plugins."""
     from scistudio.blocks.registry import BlockRegistry
 
     registry = BlockRegistry()
     if project_dir is not None:
         registry.add_scan_dir(project_dir / "blocks")
     registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
-    registry.scan(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    registry.scan()
     return registry
 
 
 def _build_type_registry() -> TypeRegistry:
-    """Scan builtin + plugin types (and monorepo in dev)."""
+    """Scan builtin + entry-point plugin types."""
     from scistudio.core.types.registry import TypeRegistry
 
     registry = TypeRegistry()
-    registry.scan_all(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    registry.scan_all()
     return registry
 
 
@@ -123,9 +123,9 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
     """Build a populated :class:`StandaloneMCPRuntime`.
 
     Equivalent to the inline setup the FastAPI lifespan performs (block
-    + type registry scans, optional monorepo inclusion via
-    ``SCISTUDIO_DEV``). Does *not* install the global context — callers
-    are responsible for that so they can also tear it down.
+    + type registry scans over builtins, entry-point plugins, and
+    project/user drop-in dirs). Does *not* install the global context —
+    callers are responsible for that so they can also tear it down.
 
     Parameters
     ----------

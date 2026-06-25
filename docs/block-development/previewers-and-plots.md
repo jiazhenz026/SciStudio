@@ -291,13 +291,14 @@ def get_previewers() -> list[PreviewerSpec]:
     ]
 ```
 
-For development inside this monorepo, the registry also discovers a module-level
-`get_previewers()` re-exported from a `packages/scistudio-blocks-*` package's
-top-level `__init__` (the same dev fallback used for `get_blocks` / `get_types`,
-gated by `SCISTUDIO_DEV=1`). Installed entry points remain authoritative.
+An installed block/type package may also re-export a module-level
+`get_previewers()` from its top-level `__init__`; the registry discovers it as a
+companion factory when the package declares `scistudio.blocks` / `scistudio.types`
+entry points but omits the newer `scistudio.previewers` group. Explicit
+`scistudio.previewers` entry points remain authoritative.
 
-The worked reference is
-[`packages/scistudio-blocks-imaging/README.md`](../../packages/scistudio-blocks-imaging/README.md#package-owned-imagelabel-previewers-adr-048-spec-1):
+The worked reference is the standalone `scistudio-blocks-imaging` package
+(`README.md`, "Package-owned Image/Label previewers (ADR-048 Spec 1)"):
 imaging owns the `Image` and `Label` domain previewers; core owns only the
 generic numeric `Array` fallback.
 

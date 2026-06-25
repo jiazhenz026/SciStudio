@@ -152,8 +152,8 @@ mypackage = "my_blocks:get_blocks"
 ```
 
 For backward compatibility the registry (`registry/_scan.py`) also accepts a
-callable returning a plain `list[type[Block]]`, a direct block class, and — in
-the monorepo dev fallback — a `get_block_package()` callable. Prefer the single
+callable returning a plain `list[type[Block]]`, a direct block class, and a
+`get_block_package()` callable. Prefer the single
 `get_blocks() -> (PackageInfo, list[type])` shape in new packages; the other
 shapes are accepted only so older packages keep loading (they are not the
 preferred new API).

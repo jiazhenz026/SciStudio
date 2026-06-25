@@ -60,8 +60,10 @@ dev = [
     # and wheel_release_smoke do not fail as environment-parity gaps.
     "setuptools>=68.0",
     "build>=1.2",
-    # Monorepo plugin tests exercise the imaging package directly from source.
-    # Keep this test-only helper out of the core runtime dependency set.
+    # The in-repo test fixture package (tests/fixtures/scistudio-blocks-fixture)
+    # performs minimal real TIFF round-trips so core IO/previewer machinery
+    # tests can exercise a package-owned capability. Keep this test-only helper
+    # out of the core runtime dependency set.
     "tifffile>=2024.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
@@ -71,13 +73,6 @@ dev = [
     # CI installs fastembed explicitly for the same ratchet job; keep the dev
     # extra in sync so auto-provisioned local parity environments can run it.
     "fastembed>=0.7",
-    # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
-    # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
-    # ``ome: OME | None`` field. Listed here as well so the skeleton import
-    # tests in ``tests/plugins/test_phase11_skeleton.py`` (which exercise
-    # ``importlib.import_module(scistudio_blocks_imaging...)`` directly without
-    # installing the plugin package) can succeed in CI.
-    "ome-types>=0.5,<0.7",
 ]
 
 [project.scripts]
@@ -239,9 +234,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "requires_imaging: marks tests that need scistudio-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
-    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scistudio-blocks-imaging/pyproject.toml.",
+    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"').",
 ]
 # filterwarnings policy (issue #1560):
 #   - "error" is NOT applied globally — the suite uses third-party libraries

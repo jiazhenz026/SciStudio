@@ -1100,7 +1100,11 @@ def test_required_skipped_check_waived_by_na(git_repo: Path, monkeypatch: pytest
     assert "checks.my_custom_task_check" not in result.unsatisfied
 
 
-def test_python_tests_check_sets_ci_dev_environment(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_python_tests_check_does_not_set_scistudio_dev(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Issue #1770: the monorepo source-scan dev fallback was removed, so
+    # ``_with_check_env`` no longer injects ``SCISTUDIO_DEV=1``; plugin
+    # packages are discovered through their installed ``scistudio.*`` entry
+    # points and the local check env matches CI without extra flags.
     seen_env: list[str | None] = []
 
     def _fake_run(
@@ -1129,7 +1133,7 @@ def test_python_tests_check_sets_ci_dev_environment(git_repo: Path, monkeypatch:
     )
 
     assert event.status == "pass"
-    assert seen_env == ["1"]
+    assert seen_env == [None]
 
 
 def test_frontend_check_runs_in_frontend_working_directory(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:

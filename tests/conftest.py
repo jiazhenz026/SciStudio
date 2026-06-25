@@ -1,6 +1,28 @@
 """Shared test fixtures for the SciStudio test suite."""
 
+import sys
+from pathlib import Path
+
 import pytest
+
+# ---------------------------------------------------------------------------
+# Fixture block-package discovery (issue #1770)
+# ---------------------------------------------------------------------------
+#
+# ``tests/fixtures/scistudio-blocks-fixture`` is a fake, in-repo SciStudio
+# block package that mirrors the structure of a real domain package
+# (imaging / lcms / spectroscopy / srs) with zero real behaviour. It stands
+# in for the now-decoupled domain packages so core machinery tests have a
+# plugin to exercise.
+#
+# It is NEVER globally installed (``pip install`` is forbidden). Prepending
+# its ``src`` to ``sys.path`` here makes ``import scistudio_blocks_fixture``
+# work during the test session. Its entry points are NOT activated globally;
+# tests that need entry-point discovery inject them per-test via
+# ``monkeypatch`` so the default registry baseline stays clean.
+_FIXTURE_PKG_SRC = Path(__file__).resolve().parent / "fixtures" / "scistudio-blocks-fixture" / "src"
+if _FIXTURE_PKG_SRC.is_dir():
+    sys.path.insert(0, str(_FIXTURE_PKG_SRC))
 
 # ---------------------------------------------------------------------------
 # Phase 11 / T-TRK-003 + T-TRK-004 — test-only block registration
@@ -22,7 +44,7 @@ import pytest
 # pytest session do not see them. Per master plan §1 user override on
 # decision 1 (doc-external changes permitted when scoped to the feature
 # being tested) and the precedent established by T-TRK-003.
-from scistudio.blocks import registry as _registry_module
+from scistudio.blocks import registry as _registry_module  # noqa: E402  (after sys.path setup above)
 
 _original_scan_builtins = _registry_module.BlockRegistry._scan_builtins
 
@@ -51,7 +73,7 @@ _registry_module.BlockRegistry._scan_builtins = _patched_scan_builtins  # type: 
 
 
 @pytest.fixture()
-def tmp_project_dir(tmp_path: pytest.TempPathFactory) -> "Path":  # noqa: F821
+def tmp_project_dir(tmp_path: pytest.TempPathFactory) -> "Path":
     """Create a temporary project directory structure for testing."""
     from pathlib import Path
 

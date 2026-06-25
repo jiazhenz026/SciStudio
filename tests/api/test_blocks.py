@@ -2,10 +2,80 @@
 
 from __future__ import annotations
 
+import collections.abc
+import importlib.metadata
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.routes.blocks import _is_plugin_package
+
+
+@pytest.fixture()
+def fixture_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """A TestClient whose registry also discovers the in-repo fixture package.
+
+    Issue #1770: the real domain packages were decoupled out of core, so tests
+    that exercise *core* registry/schema-aggregation machinery against a
+    package-registered block/type use the fixture stand-in package
+    (``scistudio_blocks_fixture``) instead. The fixture's ``scistudio.blocks``
+    and ``scistudio.types`` entry points are injected (MERGED with the real
+    core entry points so the built-in blocks remain) BEFORE ``create_app``
+    builds the runtime registry at startup.
+    """
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    from scistudio.api import runtime as runtime_module
+
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+
+    block_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture:get_block_package",
+        group="scistudio.blocks",
+    )
+    type_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture:get_types",
+        group="scistudio.types",
+    )
+    extra = (block_ep, type_ep)
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        # Core discovery calls this two ways: the type registry uses
+        # ``entry_points(group="scistudio.types")`` while the block registry
+        # uses ``entry_points()`` then ``.select(group="scistudio.blocks")``.
+        # Both must see the fixture entries, and the wrapper must be
+        # 3.11-safe: on 3.11 the no-arg call returns a ``SelectableGroups``
+        # mapping (group -> EntryPoints), on 3.12+ a flat ``EntryPoints``.
+        # Flatten the mapping via ``.groups``/``.select`` (not the deprecated
+        # dict interface); iterating the mapping directly would yield
+        # group-name strings and later raise ``'str' object has no
+        # attribute 'matches'``.
+        group = kwargs.get("group")
+        if group is not None:
+            base = tuple(real_entry_points(*args, **kwargs))
+            add = tuple(ep for ep in extra if ep.group == group)
+            return importlib.metadata.EntryPoints((*base, *add))
+        if args:
+            return real_entry_points(*args, **kwargs)
+        real = real_entry_points()
+        if isinstance(real, collections.abc.Mapping):  # 3.11 SelectableGroups
+            flat = tuple(ep for grp in real.groups for ep in real.select(group=grp))
+        else:  # 3.12+ flat EntryPoints
+            flat = tuple(real)
+        return importlib.metadata.EntryPoints((*flat, *extra))
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+
+    from scistudio.api.app import create_app
+
+    app = create_app()
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.mark.parametrize(
@@ -49,9 +119,17 @@ def test_list_blocks_and_schema_alias_endpoints(client: TestClient) -> None:
     assert alias.json() == schema_payload
 
 
-def test_validate_connection_endpoint_uses_registry_type_information(client: TestClient) -> None:
-    """Connection validation should accept compatible ports and reject mismatches."""
-    compatible = client.post(
+def test_validate_connection_endpoint_uses_registry_type_information(fixture_client: TestClient) -> None:
+    """Connection validation should accept compatible ports using registry types.
+
+    Issue #1770: the package-typed target leg was rewired from the imaging
+    ``imaging.axis_merge`` block to the fixture saver ``fixture.save_data``
+    (input port ``data`` accepts ``[DataFrame, Image]``). It still exercises the
+    bidirectional subclass check: ``process_block`` emits a ``DataObject``
+    (superclass) which is compatible with a port accepting the ``Image``
+    subclass.
+    """
+    compatible = fixture_client.post(
         "/api/blocks/validate-connection",
         json={
             "source_block": "io_block",
@@ -64,15 +142,14 @@ def test_validate_connection_endpoint_uses_registry_type_information(client: Tes
     assert compatible.json()["compatible"] is True
 
     # #601: With bidirectional subclass check, DataObject (superclass) ->
-    # DataFrame (subclass) is now compatible since DataFrame is a subclass
-    # of DataObject. Use an unrelated type pair for the incompatibility test.
-    bidirectional = client.post(
+    # Image (subclass) is compatible since Image is a subclass of DataObject.
+    bidirectional = fixture_client.post(
         "/api/blocks/validate-connection",
         json={
             "source_block": "process_block",
             "source_port": "output",
-            "target_block": "imaging.axis_merge",
-            "target_port": "images",
+            "target_block": "fixture.save_data",
+            "target_port": "data",
         },
     )
     assert bidirectional.status_code == 200
@@ -251,28 +328,21 @@ def test_resolve_effective_port_falls_back_when_registry_raises() -> None:
     assert port.accepted_types == [DataObject]
 
 
-def test_imaging_io_schema_exposes_item_types_and_collection_flags(client: TestClient) -> None:
-    """Imaging IO blocks should expose concrete item types and collection metadata."""
-    load_schema = client.get("/api/blocks/imaging.load_image/schema")
-    assert load_schema.status_code == 200
-    load_payload = load_schema.json()
-    assert load_payload["direction"] == "input"
-    assert load_payload["output_ports"][0]["accepted_types"] == ["Image"]
-    assert load_payload["output_ports"][0]["is_collection"] is True
-    assert any(entry["name"] == "Mask" for entry in load_payload["type_hierarchy"])
-    assert any(entry["name"] == "Label" for entry in load_payload["type_hierarchy"])
-
-    save_schema = client.get("/api/blocks/imaging.save_image/schema")
-    assert save_schema.status_code == 200
-    save_payload = save_schema.json()
-    assert save_payload["direction"] == "output"
-    assert save_payload["input_ports"][0]["accepted_types"] == ["Image"]
-    assert save_payload["input_ports"][0]["is_collection"] is True
+# NOTE (issue #1770): ``test_imaging_io_schema_exposes_item_types_and_collection_flags``
+# was removed. It queried ``/api/blocks/imaging.load_image|save_image/schema`` —
+# imaging-plugin-specific schema coverage now owned by the decoupled
+# ``scistudio-blocks-imaging`` package repo. Core schema serialization is still
+# covered by ``test_block_schema_exposes_serializable_format_capabilities`` below
+# (rewired onto the fixture loader).
 
 
-def test_block_schema_exposes_serializable_format_capabilities(client: TestClient) -> None:
-    """ADR-043 capability metadata is exposed on schema payloads."""
-    response = client.get("/api/blocks/imaging.load_image/schema")
+def test_block_schema_exposes_serializable_format_capabilities(fixture_client: TestClient) -> None:
+    """ADR-043 capability metadata is exposed on schema payloads.
+
+    Issue #1770: rewired onto the fixture loader (``fixture.load_image``), which
+    declares a serializable ``FormatCapability`` for the fixture ``Image`` type.
+    """
+    response = fixture_client.get("/api/blocks/fixture.load_image/schema")
     assert response.status_code == 200
     payload = response.json()
 
@@ -306,14 +376,20 @@ def test_block_schema_exposes_serializable_format_capabilities(client: TestClien
     }
 
 
-def test_list_blocks_keeps_palette_compact_with_capability_metadata(client: TestClient) -> None:
-    """ADR-043 package IO capabilities are surfaced through core Load/Save."""
-    response = client.get("/api/blocks/")
+def test_list_blocks_keeps_palette_compact_with_capability_metadata(fixture_client: TestClient) -> None:
+    """ADR-043 package IO capabilities are surfaced through core Load/Save.
+
+    Issue #1770: a package IO block must NOT appear in the palette as its own
+    entry; instead its capabilities are aggregated onto core Load/Save. Rewired
+    onto the fixture package: ``fixture.load_image``/``fixture.save_data`` stay
+    out of the palette while their ``Image`` capability surfaces on Load/Save.
+    """
+    response = fixture_client.get("/api/blocks/")
     assert response.status_code == 200
     blocks = response.json()["blocks"]
 
-    assert [block for block in blocks if block["type_name"] == "imaging.load_image"] == []
-    assert [block for block in blocks if block["type_name"] == "imaging.save_image"] == []
+    assert [block for block in blocks if block["type_name"] == "fixture.load_image"] == []
+    assert [block for block in blocks if block["type_name"] == "fixture.save_data"] == []
 
     load = next(block for block in blocks if block["type_name"] == "load_data")
     save = next(block for block in blocks if block["type_name"] == "save_data")
@@ -321,9 +397,17 @@ def test_list_blocks_keeps_palette_compact_with_capability_metadata(client: Test
     assert any(capability["data_type"] == "Image" for capability in save["format_capabilities"])
 
 
-def test_core_load_save_schema_aggregates_registered_io_types(client: TestClient) -> None:
-    """Core Load/Save schema exposes package types and removes allow_pickle UI."""
-    load_response = client.get("/api/blocks/load_data/schema")
+def test_core_load_save_schema_aggregates_registered_io_types(fixture_client: TestClient) -> None:
+    """Core Load/Save schema aggregates package-registered IO types.
+
+    Issue #1770: rewired onto the fixture package. The fixture registers an
+    ``Image`` type plus ``Image`` load/save capabilities, so the core
+    LoadData/SaveData ``core_type`` enum, ``format_capabilities``, and dynamic
+    port mapping must aggregate the fixture-registered ``Image`` type. The
+    former lcms ``.xlsx`` save-capability assertion is rewired to the fixture's
+    ``.fix`` save capability id.
+    """
+    load_response = fixture_client.get("/api/blocks/load_data/schema")
     assert load_response.status_code == 200
     load_payload = load_response.json()
     load_props = load_payload["config_schema"]["properties"]
@@ -333,7 +417,7 @@ def test_core_load_save_schema_aggregates_registered_io_types(client: TestClient
     assert any(capability["data_type"] == "Image" for capability in load_payload["format_capabilities"])
     assert load_payload["dynamic_ports"]["output_port_mapping"]["data"]["Image"] == ["Image"]
 
-    save_response = client.get("/api/blocks/save_data/schema")
+    save_response = fixture_client.get("/api/blocks/save_data/schema")
     assert save_response.status_code == 200
     save_payload = save_response.json()
     save_props = save_payload["config_schema"]["properties"]
@@ -342,7 +426,7 @@ def test_core_load_save_schema_aggregates_registered_io_types(client: TestClient
     assert save_props["path"]["ui_widget"] == "directory_browser"
     assert any(capability["data_type"] == "Image" for capability in save_payload["format_capabilities"])
     assert any(
-        capability["id"] == "scistudio-blocks-lcms.table.xlsx.save"
+        capability["id"] == "scistudio-blocks-fixture.table.fix.save"
         for capability in save_payload["format_capabilities"]
     )
     assert save_payload["dynamic_ports"]["input_port_mapping"]["data"]["Image"] == ["Image"]
@@ -406,7 +490,7 @@ def test_list_blocks_source_values_enumerated(client: TestClient) -> None:
     for block in blocks:
         assert block["source"] in valid_sources, f"Block {block['type_name']} has unexpected source={block['source']!r}"
         # Raw internal labels must never leak to the API
-        assert block["source"] not in ("tier1", "entry_point", "monorepo"), (
+        assert block["source"] not in ("tier1", "entry_point"), (
             f"Block {block['type_name']} leaks raw source={block['source']!r}"
         )
 
@@ -424,15 +508,20 @@ def test_core_blocks_have_empty_package_name(client: TestClient) -> None:
         )
 
 
-def test_plugin_blocks_retain_package_name(client: TestClient) -> None:
-    """Plugin blocks (scistudio-blocks-*) should retain their package_name."""
-    response = client.get("/api/blocks/")
+def test_plugin_blocks_retain_package_name(fixture_client: TestClient) -> None:
+    """Plugin blocks (scistudio-blocks-*) should retain their package_name.
+
+    Issue #1770: rewired onto the fixture package (the only plugin discoverable
+    in the decoupled core test env). The fixture's ``get_package_info`` returns
+    ``scistudio-blocks-fixture``, so at least one block must carry that
+    package_name.
+    """
+    response = fixture_client.get("/api/blocks/")
     assert response.status_code == 200
     blocks = response.json()["blocks"]
     pkg_blocks = [b for b in blocks if b["package_name"].startswith("scistudio-blocks-")]
-    # The imaging package is always installed in tests
-    assert any(b["package_name"] == "scistudio-blocks-imaging" for b in pkg_blocks), (
-        "Expected at least one block from scistudio-blocks-imaging"
+    assert any(b["package_name"] == "scistudio-blocks-fixture" for b in pkg_blocks), (
+        "Expected at least one block from scistudio-blocks-fixture"
     )
 
 

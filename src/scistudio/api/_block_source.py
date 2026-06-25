@@ -24,12 +24,12 @@ def map_block_origin(raw: str) -> str:
     """Map an internal registry source label to a palette-friendly origin.
 
     ``tier1`` -> ``custom`` (project-local hot-loaded blocks); ``entry_point``
-    / ``monorepo`` / ``package_src`` -> ``package`` (installed plugin blocks);
+    / ``package_src`` -> ``package`` (installed plugin blocks);
     ``builtin`` -> ``builtin`` (core blocks). Unknown labels pass through.
     """
     if raw == "tier1":
         return "custom"
-    if raw in ("entry_point", "monorepo", "package_src"):
+    if raw in ("entry_point", "package_src"):
         return "package"
     if raw == "builtin":
         return "builtin"

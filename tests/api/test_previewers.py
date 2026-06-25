@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import importlib.metadata
 import json
-import sys
 from pathlib import Path
 from typing import cast
 
@@ -17,13 +16,17 @@ from scistudio.api.runtime import ApiRuntime
 from scistudio.core.storage.ref import StorageReference
 
 
-def _prefer_monorepo_imaging_package(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Load imaging previewers from this checkout, not a user-installed plugin."""
-    package_src = Path(__file__).resolve().parents[2] / "packages/scistudio-blocks-imaging/src"
+def _prefer_fixture_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure the in-repo fixture previewer package is the discovered plugin.
+
+    Issue #1770: the real imaging package was decoupled out of core. These
+    API tests exercise *core* previewer routing / asset serving against the
+    fixture stand-in package, whose ``src`` is already on ``sys.path`` via
+    ``tests/conftest.py``. The fixture's entry points are injected per-test
+    via ``monkeypatch`` in each caller.
+    """
+    package_src = Path(__file__).resolve().parents[2] / "tests/fixtures/scistudio-blocks-fixture/src"
     monkeypatch.syspath_prepend(str(package_src))
-    for module_name in list(sys.modules):
-        if module_name == "scistudio_blocks_imaging" or module_name.startswith("scistudio_blocks_imaging."):
-            monkeypatch.delitem(sys.modules, module_name, raising=False)
 
 
 def _install_fake_zarr(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,21 +78,20 @@ def test_adr048_viewer_category_sweep(
     This is a compact e2e-style sweep for the PR-readiness question: each row
     goes through ``POST /api/previews/sessions`` and asserts the selected viewer
     ID/kind, including Image/Label discovered through an installed-mode
-    ``scistudio.previewers`` entry point rather than the monorepo fallback.
+    ``scistudio.previewers`` entry point (the fixture stand-in package).
     """
     _install_fake_zarr(monkeypatch)
-    _prefer_monorepo_imaging_package(monkeypatch)
-    monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
-    imaging_ep = importlib.metadata.EntryPoint(
-        name="imaging",
-        value="scistudio_blocks_imaging.previewers:get_previewers",
+    _prefer_fixture_package(monkeypatch)
+    fixture_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture.previewers:get_previewers",
         group="scistudio.previewers",
     )
     real_entry_points = importlib.metadata.entry_points
 
     def _entry_points(*args: object, **kwargs: object) -> object:
         if kwargs.get("group") == "scistudio.previewers":
-            return (imaging_ep,)
+            return (fixture_ep,)
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
@@ -204,13 +206,13 @@ def test_adr048_viewer_category_sweep(
             "core.composite.basic",
             "composite",
         ),
-        ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "imaging.image.viewer", "array"),
+        ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "fixture.image.viewer", "array"),
         (
             "label",
             "data_ref",
             "Label",
             ["DataObject", "CompositeData", "Label"],
-            "imaging.label.viewer",
+            "fixture.label.viewer",
             "composite",
         ),
         ("plot", "plot_artifact", "PlotArtifact", ["DataObject", "PlotArtifact"], "core.plot.basic", "plot"),
@@ -243,8 +245,8 @@ def test_adr048_viewer_category_sweep(
         "text": ("core.text.basic", "text"),
         "artifact": ("core.artifact.basic", "artifact"),
         "composite": ("core.composite.basic", "composite"),
-        "image": ("imaging.image.viewer", "array"),
-        "label": ("imaging.label.viewer", "composite"),
+        "image": ("fixture.image.viewer", "array"),
+        "label": ("fixture.label.viewer", "composite"),
         "plot": ("core.plot.basic", "plot"),
     }
 
@@ -404,19 +406,33 @@ def test_image_session_serializes_first_class_frontend_manifest(
     opened_project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """#1579: an imaging-routed session JSON carries the manifest first-class.
+    """#1579: a package-routed session JSON carries the manifest first-class.
 
-    Enables monorepo previewer discovery (SCISTUDIO_DEV=1, the CI default) so an
-    ``Image`` target routes to ``imaging.image.viewer``; the session manager then
-    stamps that spec's manifest onto the top-level ``frontend_manifest`` field.
+    Issue #1770: discovery is entry-point only. Injecting the fixture
+    package's ``scistudio.previewers`` entry point routes an ``Image`` target
+    to ``fixture.image.viewer``; the session manager then stamps that spec's
+    manifest onto the top-level ``frontend_manifest`` field.
     """
     import sys
     import types
 
     import numpy as np
 
-    monkeypatch.setenv("SCISTUDIO_DEV", "1")
-    # Rebuild the preview service so monorepo imaging previewers are registered.
+    _prefer_fixture_package(monkeypatch)
+    fixture_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture.previewers:get_previewers",
+        group="scistudio.previewers",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        if kwargs.get("group") == "scistudio.previewers":
+            return (fixture_ep,)
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    # Rebuild the preview service so the fixture previewers are registered.
     runtime.refresh_preview_service()
 
     matrix = np.arange(16 * 16, dtype=np.uint16).reshape(16, 16)
@@ -448,10 +464,10 @@ def test_image_session_serializes_first_class_frontend_manifest(
         client, ref=record.id, recorded_type="Image", type_chain=["DataObject", "Array", "Image"]
     ).json()
 
-    assert created["previewer_id"] == "imaging.image.viewer"
+    assert created["previewer_id"] == "fixture.image.viewer"
     # First-class manifest in the wire body (#1579).
-    assert created["frontend_manifest"]["previewer_id"] == "imaging.image.viewer"
-    assert created["frontend_manifest"]["module_url"] == "/api/previews/assets/imaging.image.viewer/viewer.js"
+    assert created["frontend_manifest"]["previewer_id"] == "fixture.image.viewer"
+    assert created["frontend_manifest"]["module_url"] == "/api/previews/assets/fixture.image.viewer/viewer.js"
     # The backend-only asset_root is never serialized.
     assert "asset_root" not in created["frontend_manifest"]
     # Old flattened metadata channel is no longer populated by the provider.
@@ -469,9 +485,9 @@ def test_collection_session_lists_items(
     opened_project: Path,
 ) -> None:
     # Use a base type (DataFrame) that no package previewer claims, so this test
-    # deterministically exercises the core collection fallback whether or not the
-    # imaging package is registered (SCISTUDIO_DEV=1 monorepo discovery in CI would
-    # otherwise route Collection[Image] to imaging.image.viewer, priority 100).
+    # deterministically exercises the core collection fallback whether or not any
+    # package previewer is registered (an Image previewer would otherwise route
+    # Collection[Image] to a package viewer at priority 100).
     items = [{"data_ref": f"d{i}", "type_name": "DataFrame"} for i in range(10)]
     resp = client.post(
         "/api/previews/sessions",
@@ -547,17 +563,17 @@ def test_collection_image_child_resource_uses_catalog_storage(
     import numpy as np
     import tifffile
 
-    _prefer_monorepo_imaging_package(monkeypatch)
-    imaging_ep = importlib.metadata.EntryPoint(
-        name="imaging",
-        value="scistudio_blocks_imaging.previewers:get_previewers",
+    _prefer_fixture_package(monkeypatch)
+    fixture_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture.previewers:get_previewers",
         group="scistudio.previewers",
     )
     real_entry_points = importlib.metadata.entry_points
 
     def _entry_points(*args: object, **kwargs: object) -> object:
         if kwargs.get("group") == "scistudio.previewers":
-            return (imaging_ep,)
+            return (fixture_ep,)
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
@@ -606,7 +622,7 @@ def test_collection_image_child_resource_uses_catalog_storage(
     child = res.json()["data"]
     assert child["session_id"]
     assert child["session_id"] != body["session_id"]
-    assert child["previewer_id"] == "imaging.image.viewer"
+    assert child["previewer_id"] == "fixture.image.viewer"
     assert child["kind"] == "array"
     assert child["target"]["ref"] == record.id
     assert child["target"]["recorded_type"] == "Image"
@@ -621,10 +637,10 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Imaging viewer assets remain available when previewer entry-point metadata is stale."""
-    _prefer_monorepo_imaging_package(monkeypatch)
+    _prefer_fixture_package(monkeypatch)
     block_ep = importlib.metadata.EntryPoint(
-        name="imaging",
-        value="scistudio_blocks_imaging:get_block_package",
+        name="fixture",
+        value="scistudio_blocks_fixture:get_block_package",
         group="scistudio.blocks",
     )
     real_entry_points = importlib.metadata.entry_points
@@ -642,11 +658,11 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
     runtime.refresh_preview_service()
 
-    spec = runtime.get_preview_service().registry.get("imaging.image.viewer")
+    spec = runtime.get_preview_service().registry.get("fixture.image.viewer")
     assert spec is not None
     assert spec.frontend_manifest is not None
 
-    resp = client.get("/api/previews/assets/imaging.image.viewer/viewer.js")
+    resp = client.get("/api/previews/assets/fixture.image.viewer/viewer.js")
 
     assert resp.status_code == 200
     assert "text/javascript" in resp.headers["content-type"]

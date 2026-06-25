@@ -14,7 +14,7 @@ from scistudio.desktop.package_installer import PackageInstallError, install_loc
 
 router = APIRouter(prefix="/api/packages", tags=["packages"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
-_PACKAGE_BLOCK_SOURCES = {"entry_point", "monorepo", "package_src"}
+_PACKAGE_BLOCK_SOURCES = {"entry_point", "package_src"}
 
 
 class LocalPackageInstallRequest(BaseModel):

@@ -171,14 +171,12 @@ class BlockRegistry:
         """
         self._package_src_dirs.append(Path(directory))
 
-    def scan(self, *, include_monorepo: bool = False) -> None:
+    def scan(self) -> None:
         """Discover block classes from entry-points and drop-in directories."""
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
         self._scan_package_src_dirs()
-        if include_monorepo:
-            self._scan_monorepo_packages()
 
     def _scan_builtins(self) -> None:
         from scistudio.blocks.registry._scan import _scan_builtins
@@ -200,12 +198,6 @@ class BlockRegistry:
         from scistudio.blocks.registry._scan import _scan_package_src_dirs
 
         _scan_package_src_dirs(self)
-
-    def _scan_monorepo_packages(self) -> None:
-        """Development fallback for plugin packages living in the monorepo."""
-        from scistudio.blocks.registry._scan import _scan_monorepo_packages
-
-        _scan_monorepo_packages(self)
 
     def _register_spec(self, spec: BlockSpec) -> None:
         """Register a spec under its display name and public type name."""
