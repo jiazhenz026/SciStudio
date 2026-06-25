@@ -28,7 +28,7 @@ jobs:
     steps:
       # fetch-depth 0 so the PR diff gate can resolve the merge-base of the
       # target branch (origin/<base>) for ``--diff``.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
