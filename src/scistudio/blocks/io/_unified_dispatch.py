@@ -124,11 +124,27 @@ def selected_capability(
 
     try:
         return registry, finder(data_type, extension)
-    except AmbiguousCapabilityError:
-        # The type has registered capabilities but no extension/format selected
-        # a unique one. Propagate so the caller can render an actionable
-        # "choose a format / add a file extension" error instead of swallowing
-        # this into the misleading "no capability is registered" fallback.
+    except AmbiguousCapabilityError as exc:
+        # A multi-format type with neither an explicit format/capability nor a
+        # filename extension to disambiguate. For SAVE, honour the type's
+        # declared default format so the user only has to type a filename and
+        # accept (or change) the format shown in the Save block's Format
+        # dropdown — the chosen format's extension is appended downstream. Pick
+        # the FIRST ``is_default=True`` candidate to mirror the frontend dropdown
+        # default (``capabilities.find(c => c.is_default)`` in
+        # ``FormatCapabilityConfig``), keeping backend and UI in agreement.
+        # Package types (e.g. imaging ``Image`` -> tiff) declare a default; core
+        # IO types declare none (all ``is_default=False``), so they still surface
+        # the actionable "choose a format" error below rather than the runtime
+        # guessing a columnar/binary format on the user's behalf.
+        if direction == "save":
+            default = next((cap for cap in exc.candidates if getattr(cap, "is_default", False)), None)
+            if default is not None:
+                return registry, default
+        # No single default to fall back on: propagate so the caller can render
+        # an actionable "choose a format / add a file extension" error instead
+        # of swallowing this into the misleading "no capability is registered"
+        # fallback.
         raise
     except Exception:
         return registry, None

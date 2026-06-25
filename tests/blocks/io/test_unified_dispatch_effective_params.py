@@ -127,11 +127,20 @@ def test_delegate_save_selects_capability_from_extras_path(monkeypatch: Any) -> 
 
 
 class _StubCap:
-    """Minimal capability stub exposing the fields the error helper reads."""
+    """Minimal capability stub exposing the fields the dispatch helpers read."""
 
-    def __init__(self, format_id: str, extensions: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        format_id: str,
+        extensions: tuple[str, ...],
+        *,
+        is_default: bool = False,
+        id: str | None = None,
+    ) -> None:
+        self.id = id or f"stub.{format_id}.save"
         self.format_id = format_id
         self.extensions = extensions
+        self.is_default = is_default
 
 
 def test_path_extension_falls_back_to_filename_field() -> None:
@@ -180,6 +189,67 @@ def test_selected_capability_propagates_ambiguous(monkeypatch: Any) -> None:
     except AmbiguousCapabilityError:
         return
     raise AssertionError("AmbiguousCapabilityError should propagate, not be swallowed into None")
+
+
+def test_selected_capability_defaults_to_is_default_for_save(monkeypatch: Any) -> None:
+    """#1764: when neither a format/capability nor a filename extension selects a
+    unique saver, SAVE falls back to the type's default format (the first
+    ``is_default`` candidate, mirroring the Format dropdown's displayed default)
+    so the user only has to type a filename."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    tiff = _StubCap("tiff", (".tif", ".tiff"), is_default=True, id="img.tiff.save")
+    png = _StubCap("png", (".png",), is_default=True, id="img.png.save")
+
+    class _Reg:
+        def find_saver_capability(self, data_type: Any, extension: Any) -> Any:
+            raise AmbiguousCapabilityError("ambiguous", direction="save", data_type=object, candidates=(tiff, png))
+
+    monkeypatch.setattr(ud, "runtime_block_registry", lambda: _Reg())
+    _reg, cap = ud.selected_capability(
+        direction="save", params={"path": "/out/dir", "filename": "test1"}, data_type=object
+    )
+    assert cap is tiff  # first is_default candidate, matching the frontend dropdown default
+
+
+def test_selected_capability_default_fallback_is_save_only(monkeypatch: Any) -> None:
+    """#1764: the is_default fallback is SAVE-only; LOAD still raises so a loader
+    is never guessed when the file format is unknown."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    tiff = _StubCap("tiff", (".tif", ".tiff"), is_default=True)
+
+    class _Reg:
+        def find_loader_capability(self, data_type: Any, extension: Any) -> Any:
+            raise AmbiguousCapabilityError("ambiguous", direction="load", data_type=object, candidates=(tiff,))
+
+    monkeypatch.setattr(ud, "runtime_block_registry", lambda: _Reg())
+    try:
+        ud.selected_capability(direction="load", params={"path": "/in/dir"}, data_type=object)
+    except AmbiguousCapabilityError:
+        return
+    raise AssertionError("LOAD must not fall back to a default capability")
+
+
+def test_selected_capability_no_default_still_propagates(monkeypatch: Any) -> None:
+    """#1764: with no ``is_default`` candidate (e.g. core IO types, all
+    ``is_default=False``), SAVE still propagates so the caller renders the
+    actionable 'choose a format' error rather than guessing a format."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
+    csv = _StubCap("csv", (".csv",))
+    tsv = _StubCap("tsv", (".tsv",))
+
+    class _Reg:
+        def find_saver_capability(self, data_type: Any, extension: Any) -> Any:
+            raise AmbiguousCapabilityError("ambiguous", direction="save", data_type=object, candidates=(csv, tsv))
+
+    monkeypatch.setattr(ud, "runtime_block_registry", lambda: _Reg())
+    try:
+        ud.selected_capability(direction="save", params={"path": "/out/dir", "filename": "data"}, data_type=object)
+    except AmbiguousCapabilityError:
+        return
+    raise AssertionError("no is_default candidate -> should propagate")
 
 
 def test_delegate_save_renders_actionable_error_on_ambiguity(monkeypatch: Any) -> None:
