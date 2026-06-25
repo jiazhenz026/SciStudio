@@ -187,7 +187,10 @@ def _import_cellpose_models() -> Any:
         from cellpose import models
     except ImportError as exc:
         raise ImportError(
-            "CellposeSegment requires the [cellpose] extra: pip install scistudio-blocks-imaging[cellpose]"
+            "CellposeSegment requires the 'cellpose' package, which is not installed. "
+            "Open the Python terminal in SciStudio and run:\n"
+            "    pip install cellpose\n"
+            "It installs into the SciStudio plugin environment this block runs in."
         ) from exc
     return models
 

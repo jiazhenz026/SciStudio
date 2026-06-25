@@ -2,14 +2,40 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from scistudio.blocks.app import bridge as bridge_mod
 from scistudio.blocks.app.bridge import FileExchangeBridge, _guess_mime
 from scistudio.blocks.app.watcher import FileWatcher
+from scistudio.desktop import paths as desktop_paths
+
+
+class TestExternalAppLaunchEnv:
+    """#1772: external-app launch must surface shared-site console scripts on PATH."""
+
+    def test_prepends_shared_script_dir_when_present(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(desktop_paths, "_platformdirs_dir", lambda kind: tmp_path / kind)
+        script_dir = desktop_paths.user_python_script_dir()
+        script_dir.mkdir(parents=True)
+        monkeypatch.setenv("PATH", "/usr/bin")
+
+        env = bridge_mod._external_app_launch_env()
+
+        assert env is not None
+        path_parts = env["PATH"].split(os.pathsep)
+        assert path_parts[0] == str(script_dir)
+        assert "/usr/bin" in path_parts
+
+    def test_returns_none_when_script_dir_absent(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        # Point the shared site at a location that does not exist; the launch
+        # subprocess should then inherit the parent env unchanged (env=None).
+        monkeypatch.setattr(desktop_paths, "_platformdirs_dir", lambda kind: tmp_path / kind)
+        assert bridge_mod._external_app_launch_env() is None
 
 
 class TestBridgeGuessMime:

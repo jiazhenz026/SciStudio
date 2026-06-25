@@ -308,6 +308,10 @@ def _scan_tier2(registry: BlockRegistry) -> None:
                     block_spec.module_path = cls.__module__
                     block_spec.class_name = cls.__name__
                     block_spec.package_name = pkg_name
+                    # #1772: surface shared user-site deps (installed via the
+                    # in-app Python terminal) to the worker for entry-point
+                    # blocks too, matching the source-package path.
+                    block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
                     _register_spec(registry, block_spec)
                 elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
                     logger.warning(
@@ -385,7 +389,14 @@ def _process_package_protocol_result(
         block_spec.module_path = cls.__module__
         block_spec.class_name = cls.__name__
         block_spec.package_name = pkg_name
-        block_spec.runtime_import_roots = [str(path) for path in runtime_import_roots or []]
+        # #1772: a worker running this block must also resolve dependencies the
+        # user installed through the in-app Python terminal, which land in the
+        # shared user dependency site. Append that site after the package's own
+        # roots so per-package deps keep precedence while shared-site extras
+        # (e.g. ``cellpose``) become importable.
+        block_spec.runtime_import_roots = list(
+            dict.fromkeys(str(path) for path in [*(runtime_import_roots or []), *_desktop_user_python_import_roots()])
+        )
         if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
             continue
         _register_spec(registry, block_spec)

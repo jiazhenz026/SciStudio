@@ -251,8 +251,14 @@ def test_cellpose_missing_dependency_raises_friendly_import_error(monkeypatch: p
 
     monkeypatch.setattr(builtins, "__import__", _missing_cellpose)
 
-    with pytest.raises(ImportError, match=r"requires the \[cellpose\] extra"):
+    with pytest.raises(ImportError) as excinfo:
         CellposeSegment().setup(BlockConfig(params={}))
+    msg = str(excinfo.value)
+    # #1772: the hint must name an install command that works in this runtime
+    # (the in-app Python terminal), not the non-existent PyPI extras specifier.
+    assert "pip install cellpose" in msg
+    assert "Python terminal" in msg
+    assert "scistudio-blocks-imaging[cellpose]" not in msg
 
 
 def test_cellpose_diameter_param_passed_to_eval(monkeypatch: pytest.MonkeyPatch) -> None:

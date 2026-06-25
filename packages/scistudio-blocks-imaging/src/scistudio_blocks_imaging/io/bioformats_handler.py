@@ -36,10 +36,12 @@ from scistudio.core.meta.framework import FrameworkMeta
 from scistudio_blocks_imaging.types import Image
 
 _MISSING_EXTRAS_HINT: str = (
-    "Bio-Formats handlers require the [bioformats] extra and a Java Runtime "
-    "Environment (JRE 8+). Install via:\n"
-    "    pip install scistudio-blocks-imaging[bioformats]\n"
-    "and ensure `java -version` resolves on PATH."
+    "Bio-Formats handlers require the 'python-bioformats' and "
+    "'python-javabridge' packages plus a Java Runtime Environment (JRE 8+). "
+    "Open the Python terminal in SciStudio and run:\n"
+    "    pip install python-bioformats python-javabridge\n"
+    "It installs into the SciStudio plugin environment this block runs in. "
+    "Also ensure `java -version` resolves on PATH."
 )
 
 
