@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import importlib.metadata
 from pathlib import Path
 
@@ -44,13 +45,29 @@ def fixture_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClien
     real_entry_points = importlib.metadata.entry_points
 
     def _entry_points(*args: object, **kwargs: object) -> object:
+        # Core discovery calls this two ways: the type registry uses
+        # ``entry_points(group="scistudio.types")`` while the block registry
+        # uses ``entry_points()`` then ``.select(group="scistudio.blocks")``.
+        # Both must see the fixture entries, and the wrapper must be
+        # 3.11-safe: on 3.11 the no-arg call returns a ``SelectableGroups``
+        # mapping (group -> EntryPoints), on 3.12+ a flat ``EntryPoints``.
+        # Flatten the mapping via ``.groups``/``.select`` (not the deprecated
+        # dict interface); iterating the mapping directly would yield
+        # group-name strings and later raise ``'str' object has no
+        # attribute 'matches'``.
         group = kwargs.get("group")
-        if group is None and not args:
-            base = tuple(real_entry_points())
-            return importlib.metadata.EntryPoints((*base, *extra))
-        base = tuple(real_entry_points(*args, **kwargs))
-        add = tuple(ep for ep in extra if ep.group == group)
-        return importlib.metadata.EntryPoints((*base, *add))
+        if group is not None:
+            base = tuple(real_entry_points(*args, **kwargs))
+            add = tuple(ep for ep in extra if ep.group == group)
+            return importlib.metadata.EntryPoints((*base, *add))
+        if args:
+            return real_entry_points(*args, **kwargs)
+        real = real_entry_points()
+        if isinstance(real, collections.abc.Mapping):  # 3.11 SelectableGroups
+            flat = tuple(ep for grp in real.groups for ep in real.select(group=grp))
+        else:  # 3.12+ flat EntryPoints
+            flat = tuple(real)
+        return importlib.metadata.EntryPoints((*flat, *extra))
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
 
