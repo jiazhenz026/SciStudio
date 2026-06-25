@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
@@ -7,10 +8,17 @@ const os = require("os");
 const path = require("path");
 const readline = require("readline");
 
+const ota = require("./ota");
+
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
 const HTTP_READY_TIMEOUT_MS = 30000;
 const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
+
+// #1775: OTA hot-update (backend + embedded frontend).
+const OTA_MANIFEST_TIMEOUT_MS = 8000;
+const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
+const OTA_MAX_REDIRECTS = 5;
 
 let mainWindow = null;
 let runtimeProcess = null;
@@ -107,6 +115,344 @@ function repoRoot() {
 
 function appIconPath() {
   return path.join(__dirname, "assets", "icon.png");
+}
+
+// --------------------------------------------------------------------------- //
+// #1775: OTA hot-update for the backend source tree (which embeds the frontend).
+//
+// Patches are full snapshots published per channel (see scripts/ota_publish.py).
+// We stage them under userData/patches/build<N>/src and point PYTHONPATH there,
+// never touching the read-only app bundle. A pointer (active.json) selects the
+// live patch; a known-good marker enables rollback if a patch fails to boot.
+// --------------------------------------------------------------------------- //
+function baselineVersion() {
+  try {
+    return (
+      ota.parseVersion(require("./package.json").version) || {
+        base: "0.0.0",
+        channel: "stable",
+        build: 0
+      }
+    );
+  } catch {
+    return { base: "0.0.0", channel: "stable", build: 0 };
+  }
+}
+
+function loadOtaConfig() {
+  const cfg = readJsonSafe(path.join(resourcesDir(), "ota-config.json"));
+  if (!cfg || typeof cfg !== "object") {
+    return { enabled: false, channel: "dev", manifestUrl: null };
+  }
+  return cfg;
+}
+
+function patchesRoot() {
+  return path.join(app.getPath("userData"), "patches");
+}
+
+function activePointerPath() {
+  return path.join(patchesRoot(), "active.json");
+}
+
+function knownGoodPath() {
+  return path.join(patchesRoot(), "known-good.json");
+}
+
+function readJsonSafe(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonAtomic(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value));
+  fs.renameSync(tmp, filePath);
+}
+
+// Resolve the currently active patch, validating that its source tree exists.
+function getActivePatch() {
+  const pointer = readJsonSafe(activePointerPath());
+  if (!pointer || typeof pointer.build !== "number") {
+    return null;
+  }
+  const dir = path.join(patchesRoot(), ota.patchDirName(pointer.build));
+  const srcDir = path.join(dir, "src");
+  if (!fs.existsSync(path.join(srcDir, "scistudio"))) {
+    return null;
+  }
+  return { build: pointer.build, dir, srcDir };
+}
+
+// Highest build the running app effectively serves: the applied patch if any,
+// otherwise the installer baseline.
+function effectiveBuild() {
+  const active = getActivePatch();
+  return Math.max(baselineVersion().build, active ? active.build : 0);
+}
+
+function recordKnownGood(build) {
+  try {
+    writeJsonAtomic(knownGoodPath(), { build });
+  } catch (error) {
+    safeError(`[scistudio] failed to record known-good build: ${error.message}`);
+  }
+}
+
+// Roll back the active pointer to the last known-good patch, or remove it so the
+// runtime falls back to the bundled baseline. Returns the build rolled back to,
+// or null when falling back to baseline.
+function revertActivePatch() {
+  const known = readJsonSafe(knownGoodPath());
+  const active = readJsonSafe(activePointerPath());
+  if (known && typeof known.build === "number" && (!active || known.build !== active.build)) {
+    const dir = path.join(patchesRoot(), ota.patchDirName(known.build));
+    if (fs.existsSync(path.join(dir, "src", "scistudio"))) {
+      writeJsonAtomic(activePointerPath(), { build: known.build });
+      return known.build;
+    }
+  }
+  try {
+    fs.rmSync(activePointerPath(), { force: true });
+  } catch {
+    // Best-effort; a stale pointer to a missing dir is already ignored by
+    // getActivePatch().
+  }
+  return null;
+}
+
+// GET with redirect following (GitHub release asset URLs redirect to a CDN).
+function otaHttpGet(url, timeoutMs, redirectsLeft, callback) {
+  let parsed = null;
+  try {
+    parsed = new URL(url);
+  } catch (error) {
+    callback(error);
+    return;
+  }
+  const client = parsed.protocol === "https:" ? https : http;
+  const req = client.get(parsed, { timeout: timeoutMs }, (res) => {
+    const status = res.statusCode || 0;
+    if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
+      res.resume();
+      if (redirectsLeft <= 0) {
+        callback(new Error("too many redirects"));
+        return;
+      }
+      otaHttpGet(new URL(res.headers.location, parsed).toString(), timeoutMs, redirectsLeft - 1, callback);
+      return;
+    }
+    if (status < 200 || status >= 300) {
+      res.resume();
+      callback(new Error(`HTTP ${status} for ${url}`));
+      return;
+    }
+    callback(null, res);
+  });
+  req.on("timeout", () => req.destroy(new Error("request timed out")));
+  req.on("error", callback);
+}
+
+function fetchText(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    otaHttpGet(url, timeoutMs, OTA_MAX_REDIRECTS, (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => resolve(data));
+      res.on("error", reject);
+    });
+  });
+}
+
+function downloadTo(url, destPath, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    otaHttpGet(url, timeoutMs, OTA_MAX_REDIRECTS, (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      const out = fs.createWriteStream(destPath);
+      out.on("error", reject);
+      out.on("finish", () => out.close(() => resolve()));
+      res.on("error", reject);
+      res.pipe(out);
+    });
+  });
+}
+
+function sha256File(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", reject);
+  });
+}
+
+function extractTarGz(tarPath, destDir) {
+  return new Promise((resolve, reject) => {
+    const tarCmd = process.platform === "win32" ? "tar.exe" : "tar";
+    const child = spawn(tarCmd, ["-xzf", tarPath, "-C", destDir], {
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`tar exited ${code}${stderr.trim() ? `: ${stderr.trim()}` : ""}`));
+    });
+  });
+}
+
+// Download, verify, and stage a patch into userData; flip the active pointer.
+async function downloadAndApply(manifest) {
+  const root = patchesRoot();
+  fs.mkdirSync(root, { recursive: true });
+  const tmpDir = fs.mkdtempSync(path.join(root, ".dl-"));
+  try {
+    const tarPath = path.join(tmpDir, "patch.tar.gz");
+    await downloadTo(manifest.url, tarPath, OTA_DOWNLOAD_TIMEOUT_MS);
+
+    const digest = await sha256File(tarPath);
+    if (manifest.sha256 && digest.toLowerCase() !== String(manifest.sha256).toLowerCase()) {
+      throw new Error(`sha256 mismatch (expected ${manifest.sha256}, got ${digest})`);
+    }
+
+    const stageDir = path.join(tmpDir, "stage");
+    fs.mkdirSync(stageDir, { recursive: true });
+    await extractTarGz(tarPath, stageDir);
+    if (!fs.existsSync(path.join(stageDir, "src", "scistudio"))) {
+      throw new Error("patch archive missing src/scistudio");
+    }
+
+    const finalDir = path.join(root, ota.patchDirName(manifest.build));
+    fs.rmSync(finalDir, { recursive: true, force: true });
+    fs.renameSync(stageDir, finalDir);
+    writeJsonAtomic(activePointerPath(), { build: manifest.build });
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      // Temp cleanup is best-effort.
+    }
+  }
+}
+
+// Launch-time update check. Silent on dev builds and when offline.
+async function maybeCheckForUpdate() {
+  const config = loadOtaConfig();
+  if (!config.enabled || !config.manifestUrl) {
+    safeLog("[scistudio] OTA disabled; skipping update check");
+    return;
+  }
+
+  let manifest = null;
+  try {
+    manifest = JSON.parse(await fetchText(config.manifestUrl, OTA_MANIFEST_TIMEOUT_MS));
+  } catch (error) {
+    safeLog(`[scistudio] update check skipped: ${error.message}`);
+    return;
+  }
+
+  const baseline = baselineVersion();
+  const local = effectiveBuild();
+  const decision = ota.evaluateUpdate(config, manifest, baseline, local);
+  safeLog(
+    `[scistudio] update decision=${decision.kind} local build=${local} remote build=${manifest.build}`
+  );
+
+  if (decision.kind === "incompatible") {
+    await dialog.showMessageBox(mainWindow || undefined, {
+      type: "info",
+      title: "Update available",
+      message: "A newer SciStudio version is available.",
+      detail:
+        `Build ${decision.build} requires a newer base version (${decision.minBase}) than ` +
+        `this installation (${baseline.base}). Please download and reinstall SciStudio to update.`,
+      buttons: ["OK"],
+      defaultId: 0
+    });
+    return;
+  }
+  if (decision.kind !== "patch") {
+    return;
+  }
+
+  const choice = await dialog.showMessageBox(mainWindow || undefined, {
+    type: "question",
+    title: "Update available",
+    message: `Update SciStudio to build ${manifest.build}?`,
+    detail:
+      (manifest.notes ? `${manifest.notes}\n\n` : "") +
+      "SciStudio will restart to apply the update.",
+    buttons: ["Update now", "Later"],
+    defaultId: 0,
+    cancelId: 1
+  });
+  if (choice.response !== 0) {
+    return;
+  }
+
+  try {
+    await downloadAndApply(manifest);
+  } catch (error) {
+    safeError(`[scistudio] update apply failed: ${error.message}`);
+    await dialog.showMessageBox(mainWindow || undefined, {
+      type: "error",
+      title: "Update failed",
+      message: "SciStudio could not apply the update.",
+      detail: error.message,
+      buttons: ["OK"],
+      defaultId: 0
+    });
+    return;
+  }
+
+  safeLog(`[scistudio] applied OTA build ${manifest.build}; relaunching`);
+  isQuitting = true;
+  stopRuntime();
+  app.relaunch();
+  app.exit(0);
+}
+
+// Start the runtime; if an applied OTA patch fails to boot, roll back and retry
+// once so a bad patch can never brick the install.
+async function startRuntimeWithRollback() {
+  const active = getActivePatch();
+  try {
+    return await startRuntime();
+  } catch (error) {
+    if (!active) {
+      throw error;
+    }
+    safeError(
+      `[scistudio] runtime failed with OTA patch build ${active.build}; rolling back: ${error.message}`
+    );
+    const fellBackTo = revertActivePatch();
+    safeError(
+      `[scistudio] rolled back to ${fellBackTo !== null ? `build ${fellBackTo}` : "bundled baseline"}; retrying runtime`
+    );
+    return startRuntime();
+  }
 }
 
 function pythonCandidates() {
@@ -255,7 +601,12 @@ function runtimeEnv() {
   const resources = resourcesDir();
   const stagedSrc = path.join(resources, "backend", "src");
   const checkoutSrc = path.join(repoRoot(), "src");
-  const pythonPathEntries = [stagedSrc, checkoutSrc].filter(Boolean);
+  // #1775: an applied OTA patch shadows the bundled baseline by sitting first on
+  // PYTHONPATH; the bundle is never modified.
+  const activePatch = getActivePatch();
+  const pythonPathEntries = [activePatch ? activePatch.srcDir : null, stagedSrc, checkoutSrc].filter(
+    Boolean
+  );
   const loginShellEnv = macLoginShellEnv();
   const baseEnv = {
     ...loginShellEnv,
@@ -278,6 +629,9 @@ function runtimeEnv() {
     PYTHONPATH: pythonPathEntries.join(path.delimiter),
     SCISTUDIO_BUNDLED: "1",
     SCISTUDIO_DESKTOP_RESOURCES: resources,
+    // #1775: report the effective (post-patch) build via the #1742 version
+    // override so /version and --version reflect the applied OTA patch.
+    SCISTUDIO_BUILD_NUMBER: String(effectiveBuild()),
     // #1741: route backend logs to the same directory as the desktop log so the
     // diagnostic bundle captures both the Electron and Python sides.
     SCISTUDIO_LOG_DIR: desktopLogDir()
@@ -648,13 +1002,21 @@ function stopRuntime() {
 app.whenReady().then(async () => {
   try {
     safeLog("[scistudio] electron ready");
-    const { ready } = await startRuntime();
+    const { ready } = await startRuntimeWithRollback();
     safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
     await waitForHttpReady(ready.url);
+    // #1775: the runtime reached ready, so whatever patch is active booted
+    // cleanly; remember it as the rollback target for future launches.
+    recordKnownGood(effectiveBuild());
     await session.defaultSession.clearCache();
     const url = launchUrl(ready.url);
     safeLog(`[scistudio] creating window for ${url}`);
     createWindow(url);
+    // #1775: check for an OTA update after the window is up so startup is never
+    // blocked on the network. Fire-and-forget; failures are logged, not fatal.
+    maybeCheckForUpdate().catch((error) => {
+      safeError(`[scistudio] update check error: ${error.message}`);
+    });
   } catch (error) {
     safeError(`[scistudio] startup failed: ${error instanceof Error ? error.stack : String(error)}`);
     await dialog.showMessageBox({

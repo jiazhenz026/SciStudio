@@ -79,5 +79,22 @@ if ($LASTEXITCODE -ne 0) {
     throw "Portable Python runtime verification failed with exit code $LASTEXITCODE"
 }
 
+# #1775: The bundled runtime loads scistudio from resources/backend/src via
+# PYTHONPATH (desktop/main.js runtimeEnv), and OTA patches load it from a
+# userData directory. The pip install above is only needed to resolve the
+# third-party dependencies into the interpreter; the scistudio package it also
+# installs is a redundant second copy that wastes space and can shadow the
+# source tree if PYTHONPATH ordering ever changes. Remove just scistudio,
+# keeping its dependencies, so the source tree is the single source of truth.
+& $PythonExe -m pip uninstall -y scistudio
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to remove the redundant bundled scistudio package (exit $LASTEXITCODE)"
+}
+
+& $PythonExe -c "import fastapi, uvicorn, winpty; print('SciStudio runtime deps verified (scistudio loads from source/OTA)')"
+if ($LASTEXITCODE -ne 0) {
+    throw "Portable Python runtime dependency verification failed with exit code $LASTEXITCODE"
+}
+
 "" | Set-Content -NoNewline -Encoding ASCII (Join-Path $PythonRoot ".scistudio-python-runtime")
 Write-Host "Portable Python runtime is ready at $PythonRoot"
