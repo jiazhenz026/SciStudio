@@ -89,6 +89,22 @@ export interface FormatCapabilityResponse {
   migration_scaffold: boolean;
 }
 
+/**
+ * ADR-051: the serialized interactive panel manifest surfaced on block metadata
+ * (the wire shape of the backend ``PanelManifest.to_dict()``; the server-only
+ * ``asset_root`` is intentionally absent). Mirrors {@link PanelManifestDescriptor}
+ * in the store, which carries the same shape for the live prompt flow.
+ */
+export interface PanelManifest {
+  panel_id: string;
+  module_url: string;
+  export_name: string;
+  css: string[];
+  version: string;
+  api_version: string;
+  response_schema?: Record<string, unknown> | null;
+}
+
 export interface BlockSummary {
   name: string;
   type_name: string;
@@ -109,6 +125,11 @@ export interface BlockSummary {
   variadic_outputs?: boolean;
   /** ADR-043: backend-owned IO format capabilities for aggregate IOBlocks. */
   format_capabilities?: FormatCapabilityResponse[];
+  /** ADR-051: execution mode hint ("auto" | "interactive" | "external") so the
+   *  palette/schema can identify interactive blocks. */
+  execution_mode?: string;
+  /** ADR-051: interactive panel manifest; null unless the block is interactive. */
+  panel_manifest?: PanelManifest | null;
 }
 
 export interface TypeHierarchyEntry {
