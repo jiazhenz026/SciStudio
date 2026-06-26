@@ -67,10 +67,39 @@ function evaluateUpdate(config, manifest, baseline, effectiveBuild) {
   return { kind: "patch", build: manifest.build };
 }
 
+// #1787: decide how to treat the persisted active-patch pointer given the
+// installed baseline build and whether the patch source tree still exists.
+//
+// Returns one of:
+//   { kind: "none" }            - no valid pointer; serve the bundled baseline
+//   { kind: "stale", build }    - patch build <= baseline; a reinstall (or a
+//                                 newer bundle) superseded it. The caller must
+//                                 discard it so the stale patch source can never
+//                                 shadow the newer bundled source on PYTHONPATH.
+//   { kind: "missing", build }  - pointer set, newer than baseline, but the
+//                                 patch src tree is gone; serve the baseline
+//   { kind: "active", build }   - honor the patch; it is newer than the baseline
+//
+// Staleness is checked before src existence so a superseded pointer is always
+// cleaned up, even if its directory was already partially removed.
+function resolveActivePatch(pointer, baselineBuild, srcExists) {
+  if (!pointer || typeof pointer.build !== "number") {
+    return { kind: "none" };
+  }
+  if (baselineBuild >= pointer.build) {
+    return { kind: "stale", build: pointer.build };
+  }
+  if (!srcExists) {
+    return { kind: "missing", build: pointer.build };
+  }
+  return { kind: "active", build: pointer.build };
+}
+
 module.exports = {
   VERSION_RE,
   parseVersion,
   compareBase,
   patchDirName,
-  evaluateUpdate
+  evaluateUpdate,
+  resolveActivePatch
 };

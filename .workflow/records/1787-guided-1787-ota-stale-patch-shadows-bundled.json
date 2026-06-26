@@ -1,0 +1,78 @@
+{
+  "branch": "guided/1787-ota-stale-patch-shadows-bundled",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/main.js",
+      "desktop/test/ota.test.js"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-26T21:37:54.148825Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-ota-hot-update.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1787,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Investigate and fix the OTA bug where an active OTA patch silently shadows any newly-installed bundled build regardless of build number; when the patch is stale (baseline build >= patch build) ignore it AND clean up the stale pointer/patch dir; open an issue and submit one PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1787-guided-1787-ota-stale-patch-shadows-bundled",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-26T21:37:54.148682Z",
+      "pattern": "desktop/ota.js",
+      "reason": "Centralized the stale-patch decision as pure ota.resolveActivePatch (unit-testable) and documented the supersession behavior in the OTA spec; both beyond the initial main.js/test include set."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T21:37:54.148818Z",
+      "pattern": "docs/specs/desktop-ota-hot-update.md",
+      "reason": "Centralized the stale-patch decision as pure ota.resolveActivePatch (unit-testable) and documented the supersession behavior in the OTA spec; both beyond the initial main.js/test include set."
+    }
+  ],
+  "session_id": "7b55ddc7-9437-4360-aee9-ea3b7f8dd539",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-26T21:37:54.148840Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/ota.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

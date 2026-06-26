@@ -184,18 +184,44 @@ function writeJsonAtomic(filePath, value) {
   fs.renameSync(tmp, filePath);
 }
 
-// Resolve the currently active patch, validating that its source tree exists.
+// #1787: remove a superseded patch directory and its active pointer so a stale
+// patch can never shadow a newer bundled baseline. Best-effort; getActivePatch
+// already treats a missing pointer or dir as "no active patch".
+function discardStalePatch(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // Best-effort cleanup; a leftover dir is harmless once the pointer is gone.
+  }
+  try {
+    fs.rmSync(activePointerPath(), { force: true });
+  } catch {
+    // Best-effort; a stale pointer to a missing dir is ignored by getActivePatch.
+  }
+}
+
+// Resolve the currently active patch, validating that its source tree exists and
+// that it has not been superseded by a freshly installed bundle (see #1787). The
+// pure decision lives in ota.resolveActivePatch; here we gather the on-disk facts
+// and act on a "stale" verdict by discarding the patch.
 function getActivePatch() {
   const pointer = readJsonSafe(activePointerPath());
-  if (!pointer || typeof pointer.build !== "number") {
+  const build = pointer && typeof pointer.build === "number" ? pointer.build : null;
+  const dir = build !== null ? path.join(patchesRoot(), ota.patchDirName(build)) : null;
+  const srcDir = dir ? path.join(dir, "src") : null;
+  const srcExists = srcDir ? fs.existsSync(path.join(srcDir, "scistudio")) : false;
+  const decision = ota.resolveActivePatch(pointer, baselineVersion().build, srcExists);
+  if (decision.kind === "stale") {
+    // #1787: the installed bundle is >= the patch build, so honoring the patch
+    // would let its stale source shadow the newer bundled source (the patch
+    // srcDir sits first on PYTHONPATH). Discard it so the baseline wins.
+    discardStalePatch(dir);
     return null;
   }
-  const dir = path.join(patchesRoot(), ota.patchDirName(pointer.build));
-  const srcDir = path.join(dir, "src");
-  if (!fs.existsSync(path.join(srcDir, "scistudio"))) {
+  if (decision.kind !== "active") {
     return null;
   }
-  return { build: pointer.build, dir, srcDir };
+  return { build, dir, srcDir };
 }
 
 // Highest build the running app effectively serves: the applied patch if any,

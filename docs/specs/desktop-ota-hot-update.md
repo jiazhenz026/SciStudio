@@ -122,6 +122,14 @@ Update decision (pure logic in `desktop/ota.js`, `evaluateUpdate`):
 - `runtimeEnv()` prepends `userData/patches/build<N>/src` to `PYTHONPATH`; the
   app bundle is never modified (works under a read-only/signed bundle and avoids
   Windows `Program Files` permission issues).
+- **Supersession (#1787)**: an active patch shadows the bundled baseline only
+  while it is strictly newer. `getActivePatch()` consults
+  `ota.resolveActivePatch(pointer, baselineBuild, srcExists)`; when the installed
+  `baseline build >= active patch build` (e.g. a newer or equal bundle was
+  reinstalled over an older patch), the patch is treated as **stale**: it is
+  ignored and its `userData/patches/build<N>/` directory plus the `active.json`
+  pointer are discarded, so a fresh install always wins instead of being silently
+  shadowed by leftover patch source on `PYTHONPATH`.
 - **Rollback**: if the runtime fails to reach ready with an active patch, the
   client reverts to the last known-good patch (or the bundled baseline) and
   retries once, so a bad patch cannot brick the install. A patch is recorded
