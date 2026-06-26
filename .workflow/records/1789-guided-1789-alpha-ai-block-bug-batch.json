@@ -1,6 +1,133 @@
 {
   "branch": "guided/1789-alpha-ai-block-bug-batch",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-26T23:30:22.836682Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f3f2cb111a9a1469b9a07a3db3ef7af4a81680d3d9f2643b2527ddf0a57d2804",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-26T23:30:25.885335Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:3cfe0ccdd358375bd3d0dd16ffe6e6a64f4bb6fdf08d696ba077fd1d2cb55e1e",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:30:29.832098Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8dc046eb41d46daa148669ceef7e58f28947b62c53e9927ef4451d6436948376",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:30:30.327806Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d5faf8d5b4ef04b687c233f2066e6947f325c2354d18fe79a4263db321bf71a7",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:30:30.363597Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:068cd198448f34ed4f5806608ff7767a4e690258bcdabbcc3cfa33b01e2fd36e",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-26T23:31:56.995394Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aabe6e33aa12bcbf9d0c129a95c3465f2c01b247f78430b306b2670acc2d30c5",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:33:41.729578Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a76fbf7a84ad5b762f597e935c6e11e3745f089bee70ae55ca8c12893e87a00d",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:33:48.220286Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:efa58d49555d10f483cf423fb35ee1efd75ee28dd90b9a3122f38b6aaec7e712",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -19,9 +146,135 @@
       "reason": "Owner narrowed bug 6: do NOT kill external processes; only fix the post-Stop unresponsiveness (UI hangs on the worker terminate grace period). Fix is frontend-only optimistic feedback - no protected engine/blocks change. The previously authorized admin-approved:core-change is therefore no longer needed for this PR. Owner also extended bug 4: resizing a PTY from small to fullscreen grows the PTY but the TUI content stays small (resize/refit not propagating)."
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-26T23:35:30.824664Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Bug-fix batch (#1789) restoring intended behavior \u2014 execute validation error now 422 not 500, AI port editor subtype-aware filtering, AI PTY prompt submit + resize-on-join, Stop UI responsiveness. No public contract, schema, API surface, plugin contract, or documented spec/ADR behavior changed; these correct regressions against already-documented intent, so no docs/spec/changelog update is required.",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-26T23:33:48.264211Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.274687Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.parts/useWorkflowExecutionActions.ts",
+              "frontend/src/App.tsx",
+              "frontend/src/components/PortEditorTable.test.tsx",
+              "frontend/src/components/PortEditorTable.tsx",
+              "frontend/src/components/Toolbar.parts/WorkflowGroups.tsx",
+              "frontend/src/components/Toolbar.test.tsx",
+              "frontend/src/components/Toolbar.tsx",
+              "src/scistudio/api/routes/ai_pty/websocket.py",
+              "src/scistudio/api/routes/workflows.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-26T23:33:48.283758Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.292862Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.301745Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.310654Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.319504Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.328724Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.337919Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:33:48.348735Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -31,11 +284,59 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "8c0dba8f",
+    "changed_files": [
+      ".workflow/records/1789-guided-1789-alpha-ai-block-bug-batch.json",
+      "frontend/src/App.parts/useWorkflowExecutionActions.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/PortEditorTable.test.tsx",
+      "frontend/src/components/PortEditorTable.tsx",
+      "frontend/src/components/Toolbar.parts/WorkflowGroups.tsx",
+      "frontend/src/components/Toolbar.test.tsx",
+      "frontend/src/components/Toolbar.tsx",
+      "src/scistudio/api/routes/ai_pty/websocket.py",
+      "src/scistudio/api/routes/workflows.py",
+      "tests/api/test_ai_pty_audit_fixes.py",
+      "tests/api/test_workflows.py"
+    ],
+    "diff_fingerprint": "sha256:e79a7f42626355b77c7bcebfd7b8c2b99f53a111d759f1cdbc6b9495dfb8aeb5",
+    "head": "HEAD",
+    "head_sha": "5b096b4b",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 7,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 9,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 11,
+      "test": 4,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Fix a batch of alpha-test bugs in ONE PR: (1) workflow execute 500 on validation failure should be 4xx; (3) AI block port editor only offers DataObject instead of all DataObject subtypes; (4) claude-code TUI garbled in PTY; (5) AI block prompt never submitted after spawn (claude-code/codex); (6) Stop on app/AI block hangs and does not kill the child. Image previewer (bug 2) is OUT OF SCOPE here: it belongs to the decoupled scistudio-blocks-imaging package; core must have no image support.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-26T23:33:48.348780Z",
+      "diff_fingerprint": "sha256:e79a7f42626355b77c7bcebfd7b8c2b99f53a111d759f1cdbc6b9495dfb8aeb5",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend",
+        "checks.lint_format",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1789-guided-1789-alpha-ai-block-bug-batch",
   "requested_admin_labels": [
     {
@@ -47,16 +348,73 @@
   ],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "b73db3a8-d0a5-4e47-b9d1-5c6866d05d63",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-26T23:35:30.824817Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T23:35:30.824822Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty_audit_fixes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T23:35:30.824824Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/PortEditorTable.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T23:35:30.824826Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/Toolbar.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }

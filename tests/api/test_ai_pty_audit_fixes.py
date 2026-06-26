@@ -288,9 +288,8 @@ def test_1789_engine_pty_resized_to_client_viewport_on_join(
         f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}"
         "&dangerous=false&cols=100&rows=40"
     )
-    with client.websocket_connect(url) as ws:
-        with contextlib.suppress(Exception):
-            ws.receive_json(timeout=0.5)
+    with client.websocket_connect(url) as ws, contextlib.suppress(Exception):
+        ws.receive_json(timeout=0.5)
 
     assert (100, 40) in resizes, f"expected join to resize the PTY to the client viewport, got {resizes!r}"
 

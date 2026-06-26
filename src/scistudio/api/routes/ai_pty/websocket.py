@@ -39,6 +39,32 @@ _INITIAL_STDIN_READY_TIMEOUT = 5.0
 _INITIAL_STDIN_SETTLE_SECONDS = 0.4
 
 
+async def _replay_initial_stdin(pty: PtyProcess, first_output: asyncio.Event, text: str) -> None:
+    """Type the engine-supplied prompt into the agent TUI, once it is ready.
+
+    #1789: claude-code / codex run a full-screen, raw-mode TUI. Writing the prompt
+    the instant the WS connects landed it before the TUI's input loop existed
+    (codex printed it above its header) and the prompt ended in an LF, which a
+    raw-mode TUI does not treat as Enter — so claude-code left the text sitting
+    unsent in its input box. Wait for the child's first output (TUI is drawing)
+    with a timeout fallback, settle briefly, then write the body followed by a
+    carriage return (``\\r``) — the byte a real Enter key sends — so the agent
+    actually submits and starts running.
+    """
+    with contextlib.suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(first_output.wait(), timeout=_INITIAL_STDIN_READY_TIMEOUT)
+    await asyncio.sleep(_INITIAL_STDIN_SETTLE_SECONDS)
+    # Strip any trailing newline from the composed body and submit with a single
+    # carriage return so the agent sees exactly one Enter, not an LF (ignored by
+    # the TUI) followed by a stray blank line.
+    body = text.rstrip("\r\n")
+    try:
+        pty.write(body.encode("utf-8", errors="replace"))
+        pty.write(b"\r")
+    except Exception:  # pragma: no cover - PTY may have died before replay
+        logger.warning("engine-initiated PTY: failed to replay initial stdin", exc_info=True)
+
+
 @_pkg.router.websocket("/pty/{tab_id}")  # type: ignore[has-type]
 async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     """Accept the WS, validate params, spawn PTY, pump until close."""
@@ -204,35 +230,10 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         finally:
             stop.set()
 
-    async def replay_initial_stdin(text: str) -> None:
-        """Type the engine-supplied prompt into the agent TUI, once it is ready.
-
-        #1789: claude-code / codex run a full-screen, raw-mode TUI. Writing the
-        prompt the instant the WS connects landed it before the TUI's input loop
-        existed (codex printed it above its header) and the prompt ended in an
-        LF, which a raw-mode TUI does not treat as Enter — so claude-code left
-        the text sitting unsent in its input box. Wait for the child's first
-        output (TUI is drawing) with a timeout fallback, settle briefly, then
-        write the body followed by a carriage return (``\\r``) — the byte a real
-        Enter key sends — so the agent actually submits and starts running.
-        """
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(first_output.wait(), timeout=_INITIAL_STDIN_READY_TIMEOUT)
-        await asyncio.sleep(_INITIAL_STDIN_SETTLE_SECONDS)
-        # Strip any trailing newline from the composed body and submit with a
-        # single carriage return so the agent sees exactly one Enter, not an LF
-        # (ignored by the TUI) followed by a stray blank line.
-        body = text.rstrip("\r\n")
-        try:
-            pty.write(body.encode("utf-8", errors="replace"))
-            pty.write(b"\r")
-        except Exception:  # pragma: no cover - PTY may have died before replay
-            logger.warning("engine-initiated PTY: failed to replay initial stdin", exc_info=True)
-
     task_out = asyncio.create_task(pump_pty_to_ws())
     task_in = asyncio.create_task(pump_ws_to_pty())
     task_replay = (
-        asyncio.create_task(replay_initial_stdin(pending_initial_stdin))
+        asyncio.create_task(_replay_initial_stdin(pty, first_output, pending_initial_stdin))
         if pending_initial_stdin is not None
         else None
     )
