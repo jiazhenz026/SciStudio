@@ -68,9 +68,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "4b0649d3e325c5b07f28ebcfbdb8e9825028c380",
+    "sha": "d1cf571f93bea6092b9726d4e2abe337eb470ee1",
     "shas": [
-      "4b0649d3e325c5b07f28ebcfbdb8e9825028c380"
+      "d1cf571f93bea6092b9726d4e2abe337eb470ee1"
     ],
     "trailers": []
   },
@@ -339,6 +339,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.216117Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.227969Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.239354Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.251014Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.262008Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.273989Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.287306Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.299063Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.308443Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:42:30.323322Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -351,7 +433,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "c2b85d49d76efd35aacf98a3cecdbebffe1cd4b8",
     "base_sha": "c2b85d49",
     "changed_files": [
       ".workflow/records/1787-guided-1787-ota-stale-patch-shadows-bundled.json",
@@ -360,9 +442,9 @@
       "desktop/test/ota.test.js",
       "docs/specs/desktop-ota-hot-update.md"
     ],
-    "diff_fingerprint": "sha256:16a1c2944fed42314929e5c4f355d7543404e9e9cd1cad2bb1c94b4eacfd1f05",
+    "diff_fingerprint": "sha256:548d863d721861a85243390834a9d52849011ae912230fd3fd2984bf61942196",
     "head": "HEAD",
-    "head_sha": "fbc41031",
+    "head_sha": "d1cf571f",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -383,8 +465,8 @@
     "closes": [
       1787
     ],
-    "number": null,
-    "url": null
+    "number": 1788,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1788"
   },
   "reconcile_events": [
     {
@@ -406,6 +488,14 @@
     {
       "at": "2026-06-26T21:41:56.532231Z",
       "diff_fingerprint": "sha256:16a1c2944fed42314929e5c4f355d7543404e9e9cd1cad2bb1c94b4eacfd1f05",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-26T21:42:30.323377Z",
+      "diff_fingerprint": "sha256:548d863d721861a85243390834a9d52849011ae912230fd3fd2984bf61942196",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
