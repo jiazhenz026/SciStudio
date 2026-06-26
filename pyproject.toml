@@ -78,27 +78,21 @@ dev = [
 [project.scripts]
 scistudio = "scistudio.cli.main:app"
 
+# Issue #1779: core's own first-party blocks are NOT declared here. They are
+# registered by direct import in ``scistudio.blocks.registry._scan._scan_builtins``
+# so the palette is environment-independent. Entry-point discovery depends on
+# installed ``*.dist-info`` metadata, which the desktop bundle does not carry
+# (it ships core as raw source on PYTHONPATH and strips build metadata —
+# ``desktop/scripts/stage-resources.sh``, #1775). Declaring first-party blocks
+# here made the entire process/code/app palette disappear in packaged builds.
+# This group is now reserved for third-party plugin packages only.
 [project.entry-points."scistudio.blocks"]
-load_data = "scistudio.blocks.io.loaders.load_data:LoadData"
-save_data = "scistudio.blocks.io.savers.save_data:SaveData"
-process_merge = "scistudio.blocks.process.builtins.merge:MergeBlock"
-process_split = "scistudio.blocks.process.builtins.split:SplitBlock"
-code_block = "scistudio.blocks.code:CodeBlock"
-app_block = "scistudio.blocks.app:AppBlock"
-ai_block = "scistudio.blocks.ai:AIBlock"
-subworkflow_block = "scistudio.blocks.subworkflow:SubWorkflowBlock"
-merge_collection = "scistudio.blocks.process.builtins.merge_collection:MergeCollection"
-split_collection = "scistudio.blocks.process.builtins.split_collection:SplitCollection"
-filter_collection = "scistudio.blocks.process.builtins.filter_collection:FilterCollection"
-slice_collection = "scistudio.blocks.process.builtins.slice_collection:SliceCollection"
-data_router = "scistudio.blocks.process.builtins.data_router:DataRouter"
-pair_editor = "scistudio.blocks.process.builtins.pair_editor:PairEditor"
 
 # T-TRK-004 / ADR-028 §D4: the ``scistudio.adapters`` entry-point group
 # has been removed. Plugin-owned IO blocks now register via the
 # ``scistudio.blocks`` entry-point group as ``IOBlock`` subclasses
-# (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` and ``SaveData``
-# entry-points will be added by T-TRK-007 / T-TRK-008.
+# (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` / ``SaveData`` are
+# first-party blocks registered in ``_scan_builtins`` (#1779), not here.
 
 # T-008 / ADR-027 D2: the previous entry-points here pointed at
 # core ``Image``, ``Spectrum``, and ``PeakTable`` classes that were

@@ -99,18 +99,38 @@ def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) 
 
 
 def _scan_builtins(registry: BlockRegistry) -> None:
-    """Register built-in core blocks used by the API/frontend.
+    """Register first-party core blocks shipped inside ``scistudio`` itself.
 
-    Only concrete, user-facing blocks are registered here.  Base
-    classes (AppBlock, CodeBlock, IOBlock) and non-functional process
-    placeholders (Merge, Split, …) are excluded from the palette so
-    end users see only the blocks they can actually use.  The
-    excluded classes remain importable for plugin development and
-    tests.
+    Issue #1779: core's own palette blocks are registered here by direct
+    import, **not** via ``scistudio.blocks`` entry points. Entry-point
+    discovery (:func:`_scan_tier2`) depends on installed ``*.dist-info``
+    metadata, which the desktop bundle does not carry — it ships core as raw
+    source on ``PYTHONPATH`` and strips build metadata (``stage-resources.sh``,
+    #1775). Relying on entry points for first-party blocks made the whole
+    process/code/app palette vanish in packaged builds, leaving only the
+    handful already hard-registered here. Direct registration is
+    environment-independent (source checkout, editable install, bundled
+    source, or frozen), so the ``scistudio.blocks`` entry-point group is now
+    reserved for third-party plugin packages only.
+
+    Only concrete, user-facing blocks are registered. The DataFrame-level
+    process placeholders ``MergeBlock`` (``Merge``) and ``SplitBlock``
+    (``Split``) are intentionally excluded from the palette — the
+    collection-level :class:`MergeCollection` / :class:`SplitCollection`
+    blocks are the user-facing equivalents. The excluded classes remain
+    importable for plugin development and tests.
     """
     from scistudio.blocks.ai.ai_block import AIBlock
+    from scistudio.blocks.app import AppBlock
+    from scistudio.blocks.code import CodeBlock
     from scistudio.blocks.io.loaders.load_data import LoadData
     from scistudio.blocks.io.savers.save_data import SaveData
+    from scistudio.blocks.process.builtins.data_router import DataRouter
+    from scistudio.blocks.process.builtins.filter_collection import FilterCollection
+    from scistudio.blocks.process.builtins.merge_collection import MergeCollection
+    from scistudio.blocks.process.builtins.pair_editor import PairEditor
+    from scistudio.blocks.process.builtins.slice_collection import SliceCollection
+    from scistudio.blocks.process.builtins.split_collection import SplitCollection
     from scistudio.blocks.registry._spec import _spec_from_class
     from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
 
@@ -119,6 +139,14 @@ def _scan_builtins(registry: BlockRegistry) -> None:
         SaveData,
         AIBlock,
         SubWorkflowBlock,
+        CodeBlock,
+        AppBlock,
+        DataRouter,
+        MergeCollection,
+        SplitCollection,
+        FilterCollection,
+        SliceCollection,
+        PairEditor,
     ):
         _register_spec(registry, _spec_from_class(cls, source="builtin"))
 
@@ -225,6 +253,11 @@ def _scan_tier1(registry: BlockRegistry) -> None:
 
 def _scan_tier2(registry: BlockRegistry) -> None:
     """Tier 2: scan ``scistudio.blocks`` entry-points using callable protocol.
+
+    This group is reserved for third-party plugin packages (#1779). Core's own
+    first-party blocks are registered directly in :func:`_scan_builtins` and do
+    not appear here, so a packaged build with no ``*.dist-info`` metadata still
+    gets the full core palette.
 
     Each entry-point resolves to a callable.  When invoked, it returns
     either:
