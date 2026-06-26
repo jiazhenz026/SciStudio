@@ -22,7 +22,16 @@
       "reason": "Owner expanded UI scope: full Package Manager (install/update/delete) in a separate window, opened from a toolbar packages button that replaces the ws/log status indicator"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-26T18:50:52.463591Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-package-ota-hot-update.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -80,5 +89,38 @@
   "session_id": "bc616160-cbac-4538-bcc7-778342c5bb0f",
   "strictness_tier": null,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-26T18:50:52.463808Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/desktop/test_package_ota.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:50:52.463813Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/desktop/test_package_manager.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:50:52.463814Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_packages.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:50:52.463816Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/PackageManagerDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
