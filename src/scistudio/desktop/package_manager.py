@@ -83,7 +83,7 @@ def fetch_manifest_json(url: str, *, timeout: float = _FETCH_TIMEOUT_SECONDS) ->
     if not (url.startswith("https://") or url.startswith("http://")):
         raise ValueError(f"Unsupported manifest URL scheme: {url!r}")
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - scheme checked above
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         charset = response.headers.get_content_charset() or "utf-8"
         return json.loads(response.read().decode(charset))
 
@@ -252,9 +252,8 @@ def download_release_asset(url: str, dest: Path, *, timeout: float = _DOWNLOAD_T
         raise PackageUpdateError(f"Refusing to download package over a non-HTTPS URL: {url!r}")
     request = urllib.request.Request(url, headers={"Accept": "application/octet-stream"})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - https enforced above
-            with dest.open("wb") as handle:
-                shutil.copyfileobj(response, handle)
+        with urllib.request.urlopen(request, timeout=timeout) as response, dest.open("wb") as handle:
+            shutil.copyfileobj(response, handle)
     except (urllib.error.URLError, OSError) as exc:
         raise PackageUpdateError(f"Failed to download package snapshot: {exc}") from exc
 
@@ -283,7 +282,10 @@ def _move_old_active_to_backup(
         return ""
 
     # Highest-version sibling becomes the rollback backup; older ones are dropped.
-    siblings.sort(key=functools.cmp_to_key(lambda a, b: compare_semver(a[1], b[1])))
+    def _by_version(a: tuple[Path, str], b: tuple[Path, str]) -> int:
+        return compare_semver(a[1], b[1])
+
+    siblings.sort(key=functools.cmp_to_key(_by_version))
     backup_source, backup_version = siblings[-1]
     for stale_dir, _version in siblings[:-1]:
         shutil.rmtree(stale_dir, ignore_errors=True)
