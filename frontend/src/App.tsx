@@ -430,9 +430,7 @@ export default function App() {
             onDelete={() => selectedNodeId && removeNode(selectedNodeId)}
             onReloadBlocks={() => void refreshBlocks()}
             onStartFromSelected={() => void startFromSelected()}
-            onAddAnnotation={() =>
-              addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
-            }
+            onAddAnnotation={() => addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })}
             isRunning={isRunning}
             isStopping={isStopping}
           />
