@@ -294,11 +294,18 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                         )
                     )
                 elif msg_type == "interactive_complete":
+                    # ADR-051 audit P2-1 / #1517: carry workflow_id so the
+                    # scheduler can run-scope the response (the decision is
+                    # nested under ``response`` and the scoping id is stripped
+                    # before it reaches ``interactive_response`` / lineage).
                     await event_bus.emit(
                         EngineEvent(
                             event_type=INTERACTIVE_COMPLETE,
                             block_id=data.get("block_id"),
-                            data=data.get("data", {}),
+                            data={
+                                "workflow_id": data.get("workflow_id"),
+                                "response": data.get("data", {}),
+                            },
                         )
                     )
                 elif msg_type == "ping":

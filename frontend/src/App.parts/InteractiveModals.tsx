@@ -89,6 +89,9 @@ export function InteractiveModals() {
     sendWebSocketMessage({
       type: "interactive_complete",
       block_id: interactivePrompt.blockId,
+      // ADR-051 audit P2-1: carry workflow_id (like cancel) so the backend can
+      // run-scope the response and not resolve a colliding block_id in another run.
+      workflow_id: workflowId,
       data: responseData,
     });
     setInteractivePrompt(null);

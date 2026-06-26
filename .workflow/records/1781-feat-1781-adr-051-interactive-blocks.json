@@ -150,6 +150,14 @@
       "path": "docs/planning/adr-051-interactive-blocks-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:58:25.135774Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-06-26-adr-051-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -204,6 +212,18 @@
       "at": "2026-06-26T05:23:51.121013Z",
       "pattern": "docs/adr/ADR-019.md",
       "reason": "ADR-051 implementation resolves planned_governs and changes build_worker_payload signature; sync ADR-051/spec governs and ADR-017/ADR-019 documented signatures (doc-drift/closure/signature-drift)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T06:00:47.977949Z",
+      "pattern": "tests/fixtures/**",
+      "reason": "ADR-051 test fixture interactive block lives under tests/fixtures (importable by the worker subprocess for the two-phase e2e)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T06:05:10.471076Z",
+      "pattern": "src/scistudio/engine/runners/base.py",
+      "reason": "BlockRunner protocol (runners/base.py) gains run_prompt for the ADR-051 prompt-phase subprocess; part of the runner two-phase change alongside local.py/worker.py."
     }
   ],
   "session_id": "70475682-a9b8-4d57-a585-3601264d858c",
@@ -263,6 +283,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/blocks/test_pair_editor.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:58:25.135794Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_run_scoping.py",
       "rationale": null,
       "verified_in_diff": null
     }

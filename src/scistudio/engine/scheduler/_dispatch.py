@@ -472,6 +472,17 @@ async def _run_interactive(
 
             response_data = await future
 
+            # FR-004: the user's decision must be JSON-safe, like the panel
+            # payload. Reject a non-JSON response rather than carrying it into
+            # the compute config (the WS path already parses JSON, so this
+            # guards non-WS / future callers symmetrically with the prompt side).
+            import json
+
+            try:
+                json.dumps(response_data)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"interactive_response is not JSON-safe: {exc}") from exc
+
             # Cancellation may have resolved between the await and here.
             if self._block_states.get(node_id) == BlockState.CANCELLED:
                 logger.info("Interactive block %s was cancelled while paused", node_id)

@@ -222,9 +222,13 @@ each is rejected at scan time; cancel a paused interaction and assert the block 
 - **FR-006**: On reaching an interactive block the engine MUST transition it to
   `PAUSED`, deliver the `panel_payload` to the frontend, and hold the pause with no
   block process resident.
-- **FR-007**: The panel component MUST be resolved and loaded from the block's
-  manifest through the ADR-048 same-origin asset-serving mechanism; the frontend
-  MUST NOT select panels by hardcoded `blockType` branching.
+- **FR-007**: The panel component MUST be resolved from the block's panel
+  manifest, and the frontend MUST NOT select panels by hardcoded `blockType`
+  branching. Core panels resolve from the manifest's `panel_id` against a
+  built-in panel registry (they are bundled with the app, not wheel-served, so
+  their `module_url` is empty); a package-provided panel loads its module from
+  the manifest's `module_url` through the ADR-048 same-origin asset-serving
+  mechanism. Both paths are manifest-driven; only the load mechanism differs.
 - **FR-008**: The interaction MUST be a single round; the runtime MUST NOT
   re-invoke block computation to refresh the window while it is open.
 - **FR-009**: On confirmation the engine MUST transition the block to `RUNNING` and
@@ -300,11 +304,13 @@ resolved config the compute phase runs with (ADR-038 `block_config_resolved`),
 while intermediate references are stripped from the recorded config.
 
 The frontend replaces the hardcoded `InteractiveModals` `blockType` branching with
-a panel host that resolves the component from the block's manifest and loads it via
-the ADR-048 asset-serving route and validator. `DataRouterModal` and
-`PairEditorModal` are repackaged as manifest-served components and their blocks
-declare manifests. Their `prepare_prompt` implementations are aligned to return
-`InteractivePrompt`.
+a panel host that resolves the component from the block's manifest `panel_id`.
+Core panels resolve against a built-in panel registry (the bundled
+`DataRouterModal` / `PairEditorModal` keyed by `panel_id`); a package panel would
+load its module from the manifest's `module_url` through the ADR-048 asset-serving
+route and validator (no core block ships a wheel-served panel, so that path is
+exercised only by packages). The two core blocks declare manifests, and their
+`prepare_prompt` implementations are aligned to return `InteractivePrompt`.
 
 ### 4.2 Affected Files
 

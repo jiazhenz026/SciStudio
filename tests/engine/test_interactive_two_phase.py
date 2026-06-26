@@ -11,6 +11,7 @@ recorded in the BLOCK_DONE lineage config (FR-011).
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -75,11 +76,13 @@ async def _drive(scheduler: DAGScheduler, event_bus: EventBus, choice: int) -> N
     prompts: list[EngineEvent] = []
 
     async def _emit_complete(block_id: str | None) -> None:
+        # Mirror the real api/ws.py frame shape: run-scoping workflow_id
+        # alongside the decision nested under ``response`` (ADR-051 P2-1).
         await event_bus.emit(
             EngineEvent(
                 event_type=INTERACTIVE_COMPLETE,
                 block_id=block_id,
-                data={"choice": choice},
+                data={"workflow_id": scheduler._workflow.id, "response": {"choice": choice}},
             )
         )
 
@@ -113,6 +116,9 @@ def test_two_phase_pause_decide_compute_end_to_end() -> None:
     assert pdata["panel_payload"]["options"] == [0, 1, 2, 3]
     # panel_payload is nested, not spread, so it cannot clobber identity fields.
     assert "options" not in pdata
+    # SC-001 (direct): prepare_prompt ran in a worker subprocess, so the pid it
+    # recorded differs from this test/engine process's pid.
+    assert pdata["panel_payload"]["prompt_pid"] != os.getpid()
 
     # FR-011: the decision is recorded in the BLOCK_DONE lineage config, and the
     # environment sidecar is populated (proving the compute ran in a subprocess).

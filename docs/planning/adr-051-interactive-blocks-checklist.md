@@ -128,7 +128,7 @@ runtime change). Only the two owner-mandated roles are dispatched.
 
 | Agent | Persona | Audit mode | Task | Branch/worktree | Write set | Out of scope | Status |
 |---|---|---|---|---|---|---|---|
-| AUDIT-NC | audit_reviewer | no-context | Independent audit of the integrated ADR-051 implementation vs repository docs/spec/code/tests; classify P1-P3 | read-only worktree off the feature branch HEAD | `docs/audit/<date>-adr-051-no-context.md` only | all production code (read-only) | `[ ]` |
+| AUDIT-NC | audit_reviewer | no-context | Independent audit of the integrated ADR-051 implementation vs repository docs/spec/code/tests; classify P1-P3 | read-only | `docs/audit/2026-06-26-adr-051-no-context.md` | all production code (read-only) | `[x]` PASS: P1=0, P2=1, P3=3; all fixed |
 | TEST-ENGINEER | test_engineer | N/A | Design + implement system-level / e2e smoke for ADR-051 (pause→decide→compute, migration parity, cancellation, registry validation) | feature branch (additive) | `tests/**` system/e2e + fixtures | production code unless manager amends | `[ ]` |
 
 ## 7. Integration Contract (pinned)
@@ -209,6 +209,7 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-06-26 | manager | Owner directed ONE-PR delivery; standard umbrella `[DO NOT MERGE]` PR ceremony would create a second PR. | Collapse to a single feature/integration/PR branch; document here. Audit is read-only, test engineer is additive, implementation is manager-led — no multi-writer integration to protect. | #1781 |
+| 2026-06-26 | manager | No-context audit P2-1: `_on_interactive_complete` not workflow-scoped (pre-existing #591/#594 gap in the flow ADR-051 reworks). | Fixed: workflow_id carried in the interactive_complete frame + ws event, `_event_is_for_run` guard added (fail-open), decision stripped of scoping id; new run-scoping test. P3-1/2/3 also fixed (doc clarify, prompt-pid e2e proof, explicit response JSON check). | #1781 |
 
 ## 11. Final Readiness
 

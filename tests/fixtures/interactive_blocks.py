@@ -9,6 +9,7 @@ prompt and compute phases serialize cleanly through the real worker.
 
 from __future__ import annotations
 
+import os
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
@@ -53,7 +54,10 @@ class SelectOptionBlock(InteractiveMixin, ProcessBlock):
 
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
         options = config.get("options", [0, 1, 2])
-        return InteractivePrompt(panel_payload={"options": list(options)})
+        # ADR-051 SC-001: record the pid running prepare_prompt so an e2e test
+        # can prove directly that the prompt phase executed in a worker
+        # subprocess (a different pid from the engine/test process).
+        return InteractivePrompt(panel_payload={"options": list(options), "prompt_pid": os.getpid()})
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:  # type: ignore[override]
         response = config.get(INTERACTIVE_RESPONSE_KEY, {}) or {}
