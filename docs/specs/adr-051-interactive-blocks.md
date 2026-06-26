@@ -306,11 +306,22 @@ while intermediate references are stripped from the recorded config.
 The frontend replaces the hardcoded `InteractiveModals` `blockType` branching with
 a panel host that resolves the component from the block's manifest `panel_id`.
 Core panels resolve against a built-in panel registry (the bundled
-`DataRouterModal` / `PairEditorModal` keyed by `panel_id`); a package panel would
-load its module from the manifest's `module_url` through the ADR-048 asset-serving
-route and validator (no core block ships a wheel-served panel, so that path is
-exercised only by packages). The two core blocks declare manifests, and their
-`prepare_prompt` implementations are aligned to return `InteractivePrompt`.
+`DataRouterModal` / `PairEditorModal` keyed by `panel_id`); a package panel loads
+its module from the manifest's `module_url` by dynamically importing it
+(same-origin, reusing the ADR-048 `@vite-ignore` import + version/CSS handling)
+and mounting it with a panel host API (`panelPayload`, `confirm`, `cancel`).
+The backend serves those package panel assets from a path-confined,
+suffix-allowlisted route (`GET /api/blocks/panels/{panel_id}/{asset_path}`,
+mirroring the ADR-048 previewer asset route) keyed by the block's
+`PanelManifest.asset_root`. No core block ships a wheel-served panel, so the
+dynamic-import / asset-serving path is exercised only by packages.
+
+The panel manifest is also surfaced as block metadata for registry/API/palette
+consumption: `BlockSpec`, the `BlockSummary` palette DTO, and the
+`get_block_schema` response carry `execution_mode` and the serialized
+`panel_manifest` (the server-only `asset_root` stays off the wire, used by the
+asset route for path confinement). The two core blocks declare manifests, and
+their `prepare_prompt` implementations are aligned to return `InteractivePrompt`.
 
 ### 4.2 Affected Files
 

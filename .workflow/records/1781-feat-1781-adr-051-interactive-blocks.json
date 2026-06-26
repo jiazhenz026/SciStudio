@@ -232,6 +232,24 @@
       "at": "2026-06-26T06:05:10.471076Z",
       "pattern": "src/scistudio/engine/runners/base.py",
       "reason": "BlockRunner protocol (runners/base.py) gains run_prompt for the ADR-051 prompt-phase subprocess; part of the runner two-phase change alongside local.py/worker.py."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:21:06.756783Z",
+      "pattern": "src/scistudio/api/routes/blocks.py",
+      "reason": "Second-audit P1-B: surface panel manifest on BlockSpec/BlockSummary/get_block_schema and add a package panel asset-serving route; tests under tests/api."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:21:06.756804Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "Second-audit P1-B: surface panel manifest on BlockSpec/BlockSummary/get_block_schema and add a package panel asset-serving route; tests under tests/api."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:21:06.756806Z",
+      "pattern": "tests/api/**",
+      "reason": "Second-audit P1-B: surface panel manifest on BlockSpec/BlockSummary/get_block_schema and add a package panel asset-serving route; tests under tests/api."
     }
   ],
   "session_id": "70475682-a9b8-4d57-a585-3601264d858c",
@@ -323,6 +341,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/engine/test_interactive_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:23:44.842000Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_interactive_panels.py",
       "rationale": null,
       "verified_in_diff": null
     }
