@@ -257,6 +257,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.424747Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.435326Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.447580Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.458925Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.472487Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.484643Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.496669Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.507995Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.519122Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T21:41:56.532193Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -278,9 +360,9 @@
       "desktop/test/ota.test.js",
       "docs/specs/desktop-ota-hot-update.md"
     ],
-    "diff_fingerprint": "sha256:4eb3a27941805433a5ea87b7a841fe0f0f74dc05795395b21d80acb8dc2cae17",
+    "diff_fingerprint": "sha256:16a1c2944fed42314929e5c4f355d7543404e9e9cd1cad2bb1c94b4eacfd1f05",
     "head": "HEAD",
-    "head_sha": "4b0649d3",
+    "head_sha": "fbc41031",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -316,6 +398,14 @@
     {
       "at": "2026-06-26T21:41:33.464499Z",
       "diff_fingerprint": "sha256:4eb3a27941805433a5ea87b7a841fe0f0f74dc05795395b21d80acb8dc2cae17",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-26T21:41:56.532231Z",
+      "diff_fingerprint": "sha256:16a1c2944fed42314929e5c4f355d7543404e9e9cd1cad2bb1c94b4eacfd1f05",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
