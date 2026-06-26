@@ -1,0 +1,62 @@
+{
+  "branch": "guided/1789-alpha-ai-block-bug-batch",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-26T23:07:40.328951Z",
+      "owner_directive": "Authorized: fix the global Stop so cancelling a workflow terminates every external process an app block launched (PTY agents and external GUI apps such as Fiji), not just the worker.",
+      "reason": "Owner explicitly authorized admin-approved:core-change for bug 6 (global Stop must terminate every external process an app block launched: PTY agents and external GUI apps like Fiji). Fix touches protected engine/scheduler and app-block runtime."
+    },
+    {
+      "at": "2026-06-26T23:21:30.622225Z",
+      "owner_directive": "Bug 6: only make Stop responsive (no external-process kill). Bug 4 also: small->fullscreen resize must make the agent TUI redraw to fill the enlarged PTY.",
+      "reason": "Owner narrowed bug 6: do NOT kill external processes; only fix the post-Stop unresponsiveness (UI hangs on the worker terminate grace period). Fix is frontend-only optimistic feedback - no protected engine/blocks change. The previously authorized admin-approved:core-change is therefore no longer needed for this PR. Owner also extended bug 4: resizing a PTY from small to fullscreen grows the PTY but the TUI content stays small (resize/refit not propagating)."
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1789,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix a batch of alpha-test bugs in ONE PR: (1) workflow execute 500 on validation failure should be 4xx; (3) AI block port editor only offers DataObject instead of all DataObject subtypes; (4) claude-code TUI garbled in PTY; (5) AI block prompt never submitted after spawn (claude-code/codex); (6) Stop on app/AI block hangs and does not kill the child. Image previewer (bug 2) is OUT OF SCOPE here: it belongs to the decoupled scistudio-blocks-imaging package; core must have no image support.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1789-guided-1789-alpha-ai-block-bug-batch",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b73db3a8-d0a5-4e47-b9d1-5c6866d05d63",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

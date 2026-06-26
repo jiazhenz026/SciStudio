@@ -292,6 +292,7 @@ export default function App() {
     pauseWorkflow,
     resumeWorkflow,
     cancelWorkflow,
+    isStopping,
     startFromSelected,
     handleRunBlock,
     handleRestartBlock,
@@ -433,6 +434,7 @@ export default function App() {
               addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
             }
             isRunning={isRunning}
+            isStopping={isStopping}
           />
 
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />

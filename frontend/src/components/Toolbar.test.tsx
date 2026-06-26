@@ -75,6 +75,21 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.getByRole("button", { name: /^note$/i })).toBeTruthy();
   });
 
+  it("workflow tab: Stop shows immediate 'Stopping' feedback and disables while cancelling (#1789)", () => {
+    const { rerender } = render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
+    // Idle: the button reads "Stop" and is enabled.
+    const stop = screen.getByRole("button", { name: /^stop$/i });
+    expect(stop).toBeTruthy();
+    expect(stop.hasAttribute("disabled")).toBe(false);
+
+    // A cancel request in flight flips it to a disabled "Stopping" spinner.
+    rerender(<Toolbar {...makeProps({ activeTabKind: "workflow", isStopping: true })} />);
+    const stopping = screen.getByRole("button", { name: /^stopping$/i });
+    expect(stopping).toBeTruthy();
+    expect(stopping.hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByRole("button", { name: /^stop$/i })).toBeNull();
+  });
+
   it("workflow tab: Reload sits in the old Reset slot and calls reload blocks", () => {
     const onReloadBlocks = vi.fn();
     const onReset = vi.fn();

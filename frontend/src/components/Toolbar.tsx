@@ -61,6 +61,8 @@ interface ToolbarProps {
   onStartFromSelected: () => void;
   onAddAnnotation: () => void;
   isRunning: boolean;
+  /** #1789: true while a cancel request is in flight, for immediate Stop feedback. */
+  isStopping?: boolean;
 }
 
 export function Toolbar(props: ToolbarProps) {
@@ -101,6 +103,7 @@ export function Toolbar(props: ToolbarProps) {
     onStartFromSelected,
     onAddAnnotation,
     isRunning,
+    isStopping,
   } = props;
   // Reference to silence unused-var warnings for handlers reserved for
   // workflow-only groups when the file toolbar is rendered. They remain
@@ -165,6 +168,7 @@ export function Toolbar(props: ToolbarProps) {
             workflowId={workflowId}
             selectedNodeId={selectedNodeId}
             isRunning={isRunning}
+            isStopping={isStopping}
             onRun={onRun}
             onPause={onPause}
             onStop={onStop}

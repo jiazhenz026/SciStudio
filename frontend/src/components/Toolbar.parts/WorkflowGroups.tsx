@@ -14,6 +14,8 @@ export interface WorkflowGroupsProps {
   workflowId: string | null;
   selectedNodeId: string | null;
   isRunning: boolean;
+  /** #1789: a cancel request is in flight; show immediate "Stopping…" feedback. */
+  isStopping?: boolean;
   onRun: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -25,7 +27,7 @@ export interface WorkflowGroupsProps {
 }
 
 function ExecutionControls(props: WorkflowGroupsProps) {
-  const { currentProject, workflowId, isRunning, onRun, onStop, onReloadBlocks } = props;
+  const { currentProject, workflowId, isRunning, isStopping, onRun, onStop, onReloadBlocks } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -37,11 +39,14 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         iconClassName={isRunning ? "animate-spin" : undefined}
         onClick={onRun}
       />
+      {/* #1789: backend cancel blocks on the worker terminate grace period, so
+          give the user immediate feedback instead of a dead button. */}
       <ToolbarButton
-        icon={Square}
-        label="Stop"
+        icon={isStopping ? Loader2 : Square}
+        label={isStopping ? "Stopping" : "Stop"}
         shortcut="Ctrl+."
-        disabled={!workflowId}
+        disabled={!workflowId || isStopping}
+        iconClassName={isStopping ? "animate-spin" : undefined}
         onClick={onStop}
       />
       <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />

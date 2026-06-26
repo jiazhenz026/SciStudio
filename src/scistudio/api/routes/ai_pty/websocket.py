@@ -30,6 +30,14 @@ from scistudio.api.routes.ai_pty.validation import _validate_project_dir
 
 logger = logging.getLogger(__name__)
 
+# #1789: the engine-supplied prompt must be typed into the agent's TUI only
+# after that TUI is up and reading input. We wait for the child's first output
+# (it has started drawing), then settle briefly before typing. If the child
+# never produces output we still type after the timeout so a quiet provider is
+# not stuck forever.
+_INITIAL_STDIN_READY_TIMEOUT = 5.0
+_INITIAL_STDIN_SETTLE_SECONDS = 0.4
+
 
 @_pkg.router.websocket("/pty/{tab_id}")  # type: ignore[has-type]
 async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
@@ -78,18 +86,28 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         if candidate is not None and getattr(candidate, "_engine_block_run_id", None):
             existing_pty = candidate
 
+    # #1789: when joining an engine-pre-spawned PTY, the engine-supplied prompt
+    # is replayed exactly once — but only after the agent TUI is ready (see the
+    # deferred ``replay_initial_stdin`` task below). We claim the sentinel here
+    # so a StrictMode dev re-mount or reconnect cannot double-replay, and defer
+    # the actual write until the pumps are running and first output is seen.
+    pending_initial_stdin: str | None = None
     if existing_pty is not None:
         pty = existing_pty
-        # Replay the engine-supplied initial prompt to the agent, exactly
-        # once, on first WS connect. Stamped sentinel attribute prevents
-        # double-replay on a StrictMode dev re-mount or a reconnect.
+        # #1789: the engine pre-spawns this PTY before any WS connects, so it was
+        # sized at the default 120x30 — not the frontend's real viewport. Without
+        # correcting it on join, the agent TUI keeps drawing at 120x30 while xterm
+        # renders at the fitted size, so the display is garbled and, when the pane
+        # is later enlarged, the TUI content still only fills the stale small grid.
+        # Resize the joined PTY to the connecting client's size so the baseline is
+        # correct from the first frame; later ResizeObserver-driven resizes flow
+        # through the normal ``resize`` frames.
+        with contextlib.suppress(Exception):
+            pty.resize(cols=initial_cols, rows=initial_rows)
         initial_stdin = getattr(pty, "_engine_initial_stdin", None)
         already_replayed = getattr(pty, "_engine_initial_stdin_sent", False)
         if initial_stdin and not already_replayed:
-            try:
-                pty.write(initial_stdin.encode("utf-8", errors="replace"))
-            except Exception:  # pragma: no cover - PTY may have died
-                logger.warning("engine-initiated PTY: failed to flush initial stdin", exc_info=True)
+            pending_initial_stdin = initial_stdin
             pty._engine_initial_stdin_sent = True  # type: ignore[attr-defined]
     else:
         # ---- Resource cap --------------------------------------------------
@@ -131,6 +149,9 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     # ---- Pump tasks --------------------------------------------------------
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
+    # #1789: set once the child has produced its first output, i.e. its TUI is
+    # drawing and ready to receive typed input. Gates the initial-prompt replay.
+    first_output = asyncio.Event()
 
     async def pump_pty_to_ws() -> None:
         """Forward PTY stdout to WS as ``{type:stdout,data:...}`` frames."""
@@ -143,8 +164,10 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
                 # PTY reads are arbitrary byte chunks. Decode incrementally so
                 # multibyte UTF-8 glyphs used by TUIs can span reads without
                 # being replaced by U+FFFD.
-                if data and not await _send_stdout_frame(websocket, decoder.decode(data)):
-                    break
+                if data:
+                    first_output.set()
+                    if not await _send_stdout_frame(websocket, decoder.decode(data)):
+                        break
                 if not pty.is_alive():
                     break
             await _send_stdout_frame(websocket, decoder.decode(b"", final=True))
@@ -181,8 +204,38 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         finally:
             stop.set()
 
+    async def replay_initial_stdin(text: str) -> None:
+        """Type the engine-supplied prompt into the agent TUI, once it is ready.
+
+        #1789: claude-code / codex run a full-screen, raw-mode TUI. Writing the
+        prompt the instant the WS connects landed it before the TUI's input loop
+        existed (codex printed it above its header) and the prompt ended in an
+        LF, which a raw-mode TUI does not treat as Enter — so claude-code left
+        the text sitting unsent in its input box. Wait for the child's first
+        output (TUI is drawing) with a timeout fallback, settle briefly, then
+        write the body followed by a carriage return (``\\r``) — the byte a real
+        Enter key sends — so the agent actually submits and starts running.
+        """
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(first_output.wait(), timeout=_INITIAL_STDIN_READY_TIMEOUT)
+        await asyncio.sleep(_INITIAL_STDIN_SETTLE_SECONDS)
+        # Strip any trailing newline from the composed body and submit with a
+        # single carriage return so the agent sees exactly one Enter, not an LF
+        # (ignored by the TUI) followed by a stray blank line.
+        body = text.rstrip("\r\n")
+        try:
+            pty.write(body.encode("utf-8", errors="replace"))
+            pty.write(b"\r")
+        except Exception:  # pragma: no cover - PTY may have died before replay
+            logger.warning("engine-initiated PTY: failed to replay initial stdin", exc_info=True)
+
     task_out = asyncio.create_task(pump_pty_to_ws())
     task_in = asyncio.create_task(pump_ws_to_pty())
+    task_replay = (
+        asyncio.create_task(replay_initial_stdin(pending_initial_stdin))
+        if pending_initial_stdin is not None
+        else None
+    )
 
     try:
         await stop.wait()
@@ -204,6 +257,8 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
             _pkg._engine_run_to_run_dir.pop(run_id_for_cleanup, None)
         task_out.cancel()
         task_in.cancel()
+        if task_replay is not None:
+            task_replay.cancel()
 
         # Kill the subprocess tree in a background thread so even a
         # subsequent cancellation of this coroutine still terminates

@@ -176,6 +176,126 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
 
 
 # ---------------------------------------------------------------------------
+# #1789: the engine-supplied prompt must be typed into the agent TUI only after
+# it is up (first output seen) and submitted with a carriage return, not an LF.
+# ---------------------------------------------------------------------------
+
+
+def test_1789_initial_stdin_replayed_with_carriage_return_after_first_output(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The engine prompt is typed after the child's first output and submitted
+    with a single ``\\r`` (Enter), with the composed trailing newline stripped.
+
+    Previously the prompt was written the instant the WS connected and ended in
+    an LF, so a raw-mode TUI never saw an Enter — the text sat unsent (#1789).
+    """
+    import time
+
+    writes: list[bytes] = []
+
+    # Child emits a banner immediately (so ``first_output`` fires), then idles so
+    # the PTY stays alive while we observe the deferred replay.
+    argv = [
+        sys.executable,
+        "-c",
+        "import sys, time\nsys.stdout.write('BANNER\\n'); sys.stdout.flush()\ntime.sleep(3)\n",
+    ]
+
+    class _RecordingPty(PtyProcess):
+        def write(self, data: bytes) -> int:  # type: ignore[override]
+            writes.append(data)
+            return super().write(data)
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        return _RecordingPty(argv, cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    tab_id = open_engine_initiated_tab(
+        title="🤖 demo",
+        spawn_argv=["claude"],
+        cwd=str(opened_project),
+        initial_stdin="Do the thing\n",
+        block_run_id="rid-1789",
+        permission_mode="safe",
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789"),
+    )
+
+    url = f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}&dangerous=false"
+    with client.websocket_connect(url) as ws:
+        # Drain frames until the deferred replay (first_output + settle) writes
+        # the submit byte, or we give up after a few seconds.
+        deadline = time.time() + 6.0
+        while time.time() < deadline and b"\r" not in writes:
+            with contextlib.suppress(Exception):
+                ws.receive_json(timeout=0.2)
+
+    assert writes, "expected the engine prompt to be replayed to the PTY"
+    # Submit byte is a lone carriage return, written last.
+    assert writes[-1] == b"\r", f"expected a trailing carriage-return submit, got {writes!r}"
+    # The body precedes it, carries the prompt, and has no trailing newline.
+    body = writes[-2] if len(writes) >= 2 else b""
+    assert b"Do the thing" in body
+    assert not body.endswith(b"\n"), f"composed trailing LF must be stripped, got {body!r}"
+
+
+def test_1789_engine_pty_resized_to_client_viewport_on_join(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#1789: joining an engine-pre-spawned PTY must resize it to the connecting
+    client's viewport.
+
+    The engine spawns the PTY at the default 120x30 before any WS exists; without
+    this correction the agent TUI renders at 120x30 while xterm shows the fitted
+    size, producing a garbled display that does not fill the pane.
+    """
+    resizes: list[tuple[int, int]] = []
+
+    class _RecordingPty(PtyProcess):
+        def resize(self, cols: int, rows: int) -> None:  # type: ignore[override]
+            resizes.append((cols, rows))
+            return super().resize(cols, rows)
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        return _RecordingPty(_echo_argv(), cwd=project_dir, cols=120, rows=30, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    tab_id = open_engine_initiated_tab(
+        title="🤖 demo",
+        spawn_argv=["claude"],
+        cwd=str(opened_project),
+        initial_stdin="",
+        block_run_id="rid-1789-size",
+        permission_mode="safe",
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789-size"),
+    )
+
+    url = (
+        f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}"
+        "&dangerous=false&cols=100&rows=40"
+    )
+    with client.websocket_connect(url) as ws:
+        with contextlib.suppress(Exception):
+            ws.receive_json(timeout=0.5)
+
+    assert (100, 40) in resizes, f"expected join to resize the PTY to the client viewport, got {resizes!r}"
+
+
+# ---------------------------------------------------------------------------
 # P1-E: block_user_marked_done / block_user_cancel WS frames must write
 # ``signals/mark_done.json`` under the run dir.
 # ---------------------------------------------------------------------------
