@@ -166,6 +166,14 @@
       "path": null,
       "rationale": "Frontend-only fix for the codex P1; the ADR-051 governing docs (ADR/spec/ARCHITECTURE/block-dev) already landed earlier on this branch (a5c194c1).",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:27:03.587011Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Frontend-only package-panel dynamic-import; ADR-051 spec docs were updated in the backend P1-B commit (04b3dc28).",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -349,6 +357,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_interactive_panels.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:27:03.587043Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

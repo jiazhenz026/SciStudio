@@ -6,8 +6,8 @@
 // ADR-051: the panel is resolved from the block's panel manifest
 // (`panel_manifest.panel_id`) via a built-in panel registry, NOT a hardcoded
 // `blockType` branch (SC-006). Core panels resolve from PANEL_REGISTRY below; a
-// package-provided panel would load via the ADR-048 same-origin dynamic-import
-// path (`panel_manifest.module_url`), which is out of scope for this change.
+// package-provided panel loads via the ADR-048 same-origin dynamic-import path
+// (`panel_manifest.module_url`) through <DynamicPanel> (FR-007).
 
 import type { ReactElement } from "react";
 
@@ -17,6 +17,7 @@ import type { InteractivePrompt } from "../store/types";
 
 import { DataRouterModal } from "../components/DataRouterModal";
 import { PairEditorModal } from "../components/PairEditorModal";
+import { DynamicPanel } from "./InteractiveModals.parts/DynamicPanel";
 
 interface PanelRenderProps {
   prompt: InteractivePrompt;
@@ -78,17 +79,6 @@ export function InteractiveModals() {
   // user switched tabs while the prompt was open (codex P1).
   const promptWorkflowId = interactivePrompt.workflowId;
 
-  const panelId = interactivePrompt.panelManifest?.panel_id;
-  const renderer = panelId ? PANEL_REGISTRY[panelId] : undefined;
-  if (!renderer) {
-    if (panelId) {
-      // A package panel (manifest.module_url) would be dynamically imported here
-      // via the ADR-048 mechanism; core panels resolve from the registry above.
-      console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
-    }
-    return null;
-  }
-
   const onConfirm = (responseData: Record<string, unknown>) => {
     sendWebSocketMessage({
       type: "interactive_complete",
@@ -110,5 +100,35 @@ export function InteractiveModals() {
     setInteractivePrompt(null);
   };
 
-  return renderer({ prompt: interactivePrompt, onConfirm, onCancel });
+  const manifest = interactivePrompt.panelManifest;
+  const panelId = manifest?.panel_id;
+  const renderer = panelId ? PANEL_REGISTRY[panelId] : undefined;
+  if (renderer) {
+    // Core panel: resolved from the built-in registry (fast path, unchanged).
+    return renderer({ prompt: interactivePrompt, onConfirm, onCancel });
+  }
+
+  // Package panel: a non-empty, backend-relative `module_url` loads the block's
+  // window via the ADR-048 same-origin dynamic-import path. `onConfirm`/`onCancel`
+  // are passed exactly as the registry entries receive them, so the run-scoped
+  // `interactive_complete` / `cancel_block` frames are sent unchanged.
+  const moduleUrl = manifest?.module_url;
+  if (manifest && typeof moduleUrl === "string" && moduleUrl !== "") {
+    return (
+      <DynamicPanel
+        manifest={manifest}
+        blockId={interactivePrompt.blockId}
+        panelPayload={interactivePrompt.panelPayload}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  // Neither a registered core panel nor a package `module_url`: nothing to
+  // render. Warn so a misconfigured manifest is visible in the console.
+  if (panelId) {
+    console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
+  }
+  return null;
 }
