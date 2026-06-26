@@ -2,9 +2,9 @@
 
 This module is the IO side of the per-package OTA flow whose pure decision
 logic lives in :mod:`scistudio.desktop.package_ota`. It backs the desktop
-Package Manager UI: checking each installed package's self-declared OTA source
-for newer releases. Download/stage/rollback/delete are layered on top in later
-commits.
+Package Manager UI: listing installed packages, checking each one's
+self-declared OTA source for newer releases, and downloading/verifying/staging,
+rolling back, or deleting a package.
 
 Packages self-declare their update source via :class:`PackageInfo.ota`
 (``manifest_url`` + ``channel``); core never maintains a package list. The

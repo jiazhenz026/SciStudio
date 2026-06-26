@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as ApiModule from "../lib/api";
 import type { InstalledPackage, PackageUpdateStatus } from "../types/api";
 
 const listInstalledPackages = vi.fn();
@@ -16,7 +17,7 @@ const openNativeDialog = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => {
   // The app store imports non-api helpers (e.g. setWorkflowWriteStartedListener)
   // from this module, so keep the original module and override only `api`.
-  const actual = await importOriginal<typeof import("../lib/api")>();
+  const actual = await importOriginal<typeof ApiModule>();
   return {
     ...actual,
     api: {

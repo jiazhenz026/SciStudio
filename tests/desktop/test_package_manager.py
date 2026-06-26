@@ -23,7 +23,9 @@ from scistudio.desktop.package_manager import (
 
 
 def _info(name: str, version: str, *, ota: bool = True) -> PackageInfo:
-    source = PackageOtaSource(manifest_url=f"https://example.com/{name}/manifest.json", channel="alpha") if ota else None
+    source = (
+        PackageOtaSource(manifest_url=f"https://example.com/{name}/manifest.json", channel="alpha") if ota else None
+    )
     return PackageInfo(name=name, version=version, ota=source)
 
 
@@ -119,9 +121,7 @@ def _make_source_package(tmp: Path, *, dist_name: str, module: str, version: str
     root = tmp / f"{dist_name}-src"
     pkg = root / "src" / module
     pkg.mkdir(parents=True)
-    (root / "pyproject.toml").write_text(
-        f'[project]\nname = "{dist_name}"\nversion = "{version}"\n', encoding="utf-8"
-    )
+    (root / "pyproject.toml").write_text(f'[project]\nname = "{dist_name}"\nversion = "{version}"\n', encoding="utf-8")
     (pkg / "__init__.py").write_text("BLOCKS = []\n", encoding="utf-8")
     return root
 
