@@ -12,25 +12,69 @@ from scistudio.blocks.base.package_info import PackageInfo
 from scistudio.blocks.registry import BlockRegistry, BlockSpec
 
 
-class TestBlockRegistryTier2:
-    """Tier 2: entry_point discovery (always available from installed package)."""
+class TestBlockRegistryBuiltins:
+    """First-party core blocks are registered by direct import (#1779).
 
-    def test_scan_discovers_entry_points(self) -> None:
+    Core's palette no longer depends on ``scistudio.blocks`` entry points, so
+    these blocks appear even in a packaged build that carries no
+    ``*.dist-info`` metadata.
+    """
+
+    def test_scan_discovers_builtin_palette(self) -> None:
         reg = BlockRegistry()
         reg.scan()
         specs = reg.all_specs()
-        # Should find at least the built-in blocks from pyproject.toml entry_points.
-        assert len(specs) >= 3
         names = list(specs.keys())
-        assert "Merge" in names
-        assert "Split" in names
+        # First-party core blocks registered in _scan_builtins.
+        for expected in ("Load", "Save", "Data Router", "Merge Collection", "Split Collection"):
+            assert expected in names, f"{expected!r} missing from palette: {names}"
+        # All first-party blocks carry the sanitized 'builtin' source.
+        assert specs["Data Router"].source == "builtin"
+        # Base classes are never registered.
         assert "IOBlock" not in names
+        # #1779: DataFrame-level Merge/Split placeholders stay out of the palette;
+        # the collection-level blocks above are the user-facing equivalents.
+        assert "Merge" not in names
+        assert "Split" not in names
 
     def test_instantiate_by_name(self) -> None:
         reg = BlockRegistry()
         reg.scan()
-        block = reg.instantiate("Merge")
-        assert block.name == "Merge"
+        block = reg.instantiate("Merge Collection")
+        assert block.name == "Merge Collection"
+
+    def test_core_palette_survives_without_entry_point_metadata(self) -> None:
+        """Regression for #1779: the core palette must not depend on entry points.
+
+        The desktop bundle ships core as raw source on PYTHONPATH and carries no
+        ``*.dist-info`` metadata, so ``importlib.metadata.entry_points()`` finds
+        nothing for the ``scistudio.blocks`` group. Before #1779 the whole
+        process/code/app palette vanished in that environment, leaving only a
+        few hard-registered blocks. Simulate the metadata-less bundle by forcing
+        entry-point discovery to return an empty set and assert the first-party
+        palette is still complete.
+        """
+        empty_eps = MagicMock()
+        empty_eps.select.return_value = []
+
+        reg = BlockRegistry()
+        with patch("importlib.metadata.entry_points", return_value=empty_eps):
+            reg.scan()
+
+        names = set(reg.all_specs())
+        for expected in (
+            "Load",
+            "Save",
+            "Code Block",
+            "App Block",
+            "Data Router",
+            "Merge Collection",
+            "Split Collection",
+            "Filter Collection",
+            "Slice Collection",
+            "Pair Editor",
+        ):
+            assert expected in names, f"{expected!r} missing from metadata-less palette: {sorted(names)}"
 
     def test_instantiate_unknown_raises(self) -> None:
         reg = BlockRegistry()

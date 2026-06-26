@@ -138,10 +138,11 @@ class TestRegistryStampsFilePath:
         """
         reg = BlockRegistry()
         reg.scan()
-        # ``Merge`` is a built-in entry-point block.
-        if "Merge" not in reg.all_specs():
-            pytest.skip("Merge block not registered; entry-points unavailable in this env")
-        block = reg.instantiate("Merge")
+        # ``Merge Collection`` is a first-party builtin (#1779), registered by
+        # direct import rather than an entry point.
+        if "Merge Collection" not in reg.all_specs():
+            pytest.skip("Merge Collection block not registered in this env")
+        block = reg.instantiate("Merge Collection")
         assert not hasattr(block.__class__, "_scistudio_file_path"), (
             "Tier-2 / builtin blocks must not be stamped with _scistudio_file_path"
         )
