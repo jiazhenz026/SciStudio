@@ -1,0 +1,84 @@
+{
+  "branch": "guided/1784-package-ota-hotupdate",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/base/package_info.py",
+      "src/scistudio/desktop/**",
+      "src/scistudio/api/routes/packages.py",
+      "frontend/**",
+      "desktop/**",
+      "tests/**",
+      "docs/specs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-26T18:20:54.908270Z",
+      "owner_directive": "Rename Update Manager to Package Manager; it must include add/install, update, and delete operations. In the top toolbar, remove the ws/log status indicator and replace it with a 'packages' button + package icon; clicking opens a standalone Package Manager window supporting install, delete, update.",
+      "reason": "Owner expanded UI scope: full Package Manager (install/update/delete) in a separate window, opened from a toolbar packages button that replaces the ws/log status indicator"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1784,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Extend desktop OTA to per-package hot-update driven by an in-app Update Manager UI. Packages self-declare OTA source via PackageInfo.ota; Python backend downloads/verifies/stages per-package patches; desktop recognizes patch dir and relaunches; semver-based, public repos, min_core_base gate. Owner approved admin-approved:core-change for PackageInfo.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1784-guided-1784-package-ota-hotupdate",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:19:10.733573Z",
+      "pattern": "src/scistudio/blocks/base/package_info.py",
+      "reason": "PackageInfo.ota touches protected core path src/scistudio/blocks/**; owner approved core-change"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:20:54.908406Z",
+      "pattern": "frontend/**",
+      "reason": "Owner expanded UI scope: full Package Manager (install/update/delete) in a separate window, opened from a toolbar packages button that replaces the ws/log status indicator"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T18:20:54.908410Z",
+      "pattern": "src/scistudio/api/routes/packages.py",
+      "reason": "Owner expanded UI scope: full Package Manager (install/update/delete) in a separate window, opened from a toolbar packages button that replaces the ws/log status indicator"
+    }
+  ],
+  "session_id": "bc616160-cbac-4538-bcc7-778342c5bb0f",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
