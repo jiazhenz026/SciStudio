@@ -383,6 +383,30 @@
       "path": null,
       "rationale": "Type-only TypeScript interface addition (api.ts BlockSummary); no runtime behavior to test \u2014 tsc is the contract check and passes.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T20:05:58.406373Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_adversarial_e2e.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T20:05:58.406394Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_adversarial_timing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T20:05:58.406396Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_adversarial_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

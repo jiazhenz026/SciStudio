@@ -421,6 +421,20 @@ async def _run_interactive(
     intermediate: list[dict[str, Any]] = []
     try:
         try:
+            # Register the rendezvous future BEFORE the prompt phase even starts
+            # (ADR-051 audit P1 + adversarial OBS-1). A response can never race
+            # ahead of registration this way: from the moment the block is
+            # dispatched there is always a pending future for
+            # _on_interactive_complete to resolve — whether the response is
+            # delivered synchronously from the prompt handler, or (in a
+            # programmatic driver) while the prompt phase is still running. An
+            # asyncio.Future may be resolved before it is awaited, so this is
+            # safe. The block hanging in PAUSED on a dropped response is thereby
+            # structurally impossible.
+            loop = asyncio.get_running_loop()
+            future: asyncio.Future[dict[str, Any]] = loop.create_future()
+            self._interactive_futures[node_id] = future
+
             # Phase 1 (subprocess): build the panel view. The block runs to
             # completion in an isolated worker (ADR-051 §3); nothing of it
             # survives into the pause.
@@ -435,46 +449,39 @@ async def _run_interactive(
                 logger.info("Interactive block %s cancelled during prompt phase", node_id)
                 return
 
-            # Register the rendezvous future BEFORE announcing the prompt
-            # (ADR-051 audit P1): a synchronously-delivered interactive_complete
-            # — a fast client, or an in-process EventBus subscriber that emits
-            # the response from within the prompt handler — must find a pending
-            # future, otherwise _on_interactive_complete drops the response and
-            # the block hangs forever in PAUSED. asyncio.Future may be resolved
-            # before it is awaited, so registering early is safe.
-            loop = asyncio.get_running_loop()
-            future: asyncio.Future[dict[str, Any]] = loop.create_future()
-            self._interactive_futures[node_id] = future
-
-            # Transition to PAUSED: the block now waits on a human with nothing
-            # resident. PAUSED is the cancellable state for the wait (ADR-018/019).
-            self._block_states[node_id] = BlockState.PAUSED
-            await self._event_bus.emit(
-                EngineEvent(
-                    event_type=BLOCK_PAUSED,
-                    block_id=node_id,
-                    data={"workflow_id": self._workflow.id},
+            # Announce the prompt only if the decision has not already arrived
+            # (the common case — nothing resolves the future before this point;
+            # the guard just makes an early/programmatic response a no-op pause).
+            if not future.done():
+                # Transition to PAUSED: the block now waits on a human with
+                # nothing resident. PAUSED is the cancellable wait state (ADR-018/019).
+                self._block_states[node_id] = BlockState.PAUSED
+                await self._event_bus.emit(
+                    EngineEvent(
+                        event_type=BLOCK_PAUSED,
+                        block_id=node_id,
+                        data={"workflow_id": self._workflow.id},
+                    )
                 )
-            )
 
-            # Emit INTERACTIVE_PROMPT. The panel manifest lets the frontend
-            # resolve the window without a hardcoded block-type branch (FR-007);
-            # block_type stays for identity (FR-015). The panel payload is
-            # nested (not spread) so it can never clobber the identity fields.
-            manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
-            panel_manifest = manifest.to_dict() if manifest is not None else None
-            await self._event_bus.emit(
-                EngineEvent(
-                    event_type=INTERACTIVE_PROMPT,
-                    block_id=node_id,
-                    data={
-                        "workflow_id": self._workflow.id,
-                        "block_type": config.get("block_type", type(block).__name__),
-                        "panel_manifest": panel_manifest,
-                        "panel_payload": panel_payload,
-                    },
+                # Emit INTERACTIVE_PROMPT. The panel manifest lets the frontend
+                # resolve the window without a hardcoded block-type branch (FR-007);
+                # block_type stays for identity (FR-015). The panel payload is
+                # nested (not spread) so it can never clobber the identity fields.
+                manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
+                panel_manifest = manifest.to_dict() if manifest is not None else None
+                await self._event_bus.emit(
+                    EngineEvent(
+                        event_type=INTERACTIVE_PROMPT,
+                        block_id=node_id,
+                        data={
+                            "workflow_id": self._workflow.id,
+                            "block_type": config.get("block_type", type(block).__name__),
+                            "panel_manifest": panel_manifest,
+                            "panel_payload": panel_payload,
+                        },
+                    )
                 )
-            )
 
             response_data = await future
 
