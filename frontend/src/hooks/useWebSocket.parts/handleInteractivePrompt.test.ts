@@ -37,6 +37,9 @@ describe("handleInteractivePrompt (ADR-051)", () => {
     expect(result).not.toBeNull();
     expect(result?.blockId).toBe("node-a");
     expect(result?.blockType).toBe("DataRouter");
+    // The prompt's own workflow id is lifted so confirm/cancel can run-scope it
+    // (not the store's active workflow id) — codex P1.
+    expect(result?.workflowId).toBe("wf-1");
     expect(result?.panelManifest?.panel_id).toBe("core.interactive.data_router");
     expect(result?.panelPayload).toEqual({
       input_ports: ["x"],
@@ -58,5 +61,6 @@ describe("handleInteractivePrompt (ADR-051)", () => {
 
     expect(result?.panelManifest).toBeNull();
     expect(result?.panelPayload).toEqual({});
+    expect(result?.workflowId).toBe("w");
   });
 });

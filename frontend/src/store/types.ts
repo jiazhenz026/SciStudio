@@ -133,6 +133,13 @@ export interface PanelManifestDescriptor {
 export interface InteractivePrompt {
   blockId: string;
   blockType: string;
+  /**
+   * ADR-051: the workflow id the prompt belongs to, carried by the prompt event.
+   * Confirm/cancel MUST use this (not the store's active workflow id), so the
+   * response is run-scoped to the right run even if the user switches tabs while
+   * the prompt is open.
+   */
+  workflowId: string;
   /** ADR-051: panel manifest used to resolve the window component (FR-007). */
   panelManifest: PanelManifestDescriptor | null;
   /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */

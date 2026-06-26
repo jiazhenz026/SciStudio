@@ -20,6 +20,10 @@ export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: Lif
   deps.setInteractivePrompt({
     blockId: payload.block_id ?? "",
     blockType: (data.block_type as string) ?? "",
+    // The prompt's own workflow id (hoisted to the top-level frame by
+    // serialise_event, with a fallback to the data envelope). Confirm/cancel use
+    // this so the response is scoped to the right run regardless of the active tab.
+    workflowId: payload.workflow_id ?? (data.workflow_id as string | undefined) ?? "",
     panelManifest: (data.panel_manifest as PanelManifestDescriptor | null) ?? null,
     panelPayload: (data.panel_payload as Record<string, unknown>) ?? {},
     data,

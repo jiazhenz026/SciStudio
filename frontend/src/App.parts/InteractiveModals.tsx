@@ -70,9 +70,13 @@ const PANEL_REGISTRY: Record<string, PanelRenderer> = {
 export function InteractiveModals() {
   const interactivePrompt = useAppStore((s) => s.interactivePrompt);
   const setInteractivePrompt = useAppStore((s) => s.setInteractivePrompt);
-  const workflowId = useAppStore((s) => s.workflowId);
 
   if (!interactivePrompt) return null;
+
+  // ADR-051: scope the response/cancel to the workflow the PROMPT belongs to —
+  // not the store's currently-active workflow, which may have changed if the
+  // user switched tabs while the prompt was open (codex P1).
+  const promptWorkflowId = interactivePrompt.workflowId;
 
   const panelId = interactivePrompt.panelManifest?.panel_id;
   const renderer = panelId ? PANEL_REGISTRY[panelId] : undefined;
@@ -89,9 +93,9 @@ export function InteractiveModals() {
     sendWebSocketMessage({
       type: "interactive_complete",
       block_id: interactivePrompt.blockId,
-      // ADR-051 audit P2-1: carry workflow_id (like cancel) so the backend can
+      // ADR-051 audit P2-1: carry the prompt's workflow_id so the backend can
       // run-scope the response and not resolve a colliding block_id in another run.
-      workflow_id: workflowId,
+      workflow_id: promptWorkflowId,
       data: responseData,
     });
     setInteractivePrompt(null);
@@ -101,7 +105,7 @@ export function InteractiveModals() {
     sendWebSocketMessage({
       type: "cancel_block",
       block_id: interactivePrompt.blockId,
-      workflow_id: workflowId,
+      workflow_id: promptWorkflowId,
     });
     setInteractivePrompt(null);
   };

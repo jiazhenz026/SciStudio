@@ -158,6 +158,14 @@
       "path": "docs/audit/2026-06-26-adr-051-no-context.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T16:51:08.528305Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Frontend-only fix for the codex P1; the ADR-051 governing docs (ADR/spec/ARCHITECTURE/block-dev) already landed earlier on this branch (a5c194c1).",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -299,6 +307,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/engine/test_interactive_system_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T16:51:08.528327Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useWebSocket.parts/handleInteractivePrompt.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
