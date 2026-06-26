@@ -435,6 +435,17 @@ async def _run_interactive(
                 logger.info("Interactive block %s cancelled during prompt phase", node_id)
                 return
 
+            # Register the rendezvous future BEFORE announcing the prompt
+            # (ADR-051 audit P1): a synchronously-delivered interactive_complete
+            # — a fast client, or an in-process EventBus subscriber that emits
+            # the response from within the prompt handler — must find a pending
+            # future, otherwise _on_interactive_complete drops the response and
+            # the block hangs forever in PAUSED. asyncio.Future may be resolved
+            # before it is awaited, so registering early is safe.
+            loop = asyncio.get_running_loop()
+            future: asyncio.Future[dict[str, Any]] = loop.create_future()
+            self._interactive_futures[node_id] = future
+
             # Transition to PAUSED: the block now waits on a human with nothing
             # resident. PAUSED is the cancellable state for the wait (ADR-018/019).
             self._block_states[node_id] = BlockState.PAUSED
@@ -465,21 +476,16 @@ async def _run_interactive(
                 )
             )
 
-            # Await interactive_complete via a future keyed by block_id.
-            loop = asyncio.get_running_loop()
-            future: asyncio.Future[dict[str, Any]] = loop.create_future()
-            self._interactive_futures[node_id] = future
-
             response_data = await future
 
-            # FR-004: the user's decision must be JSON-safe, like the panel
-            # payload. Reject a non-JSON response rather than carrying it into
-            # the compute config (the WS path already parses JSON, so this
-            # guards non-WS / future callers symmetrically with the prompt side).
+            # FR-004: the user's decision must be strictly JSON-safe, like the
+            # panel payload. allow_nan=False rejects NaN/Infinity (non-standard
+            # JSON tokens) in addition to non-serializable values, rather than
+            # carrying them into the compute config / lineage.
             import json
 
             try:
-                json.dumps(response_data)
+                json.dumps(response_data, allow_nan=False)
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"interactive_response is not JSON-safe: {exc}") from exc
 

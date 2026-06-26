@@ -115,3 +115,65 @@ def test_decision_recorded_intermediate_excluded() -> None:
     recorded = done_events[-1].data["config"]
     assert recorded["interactive_response"] == _DECISION
     assert "interactive_intermediate" not in recorded
+
+
+def test_synchronous_complete_does_not_hang() -> None:
+    """ADR-051 audit P1: a synchronously-delivered interactive_complete resolves.
+
+    A subscriber that emits ``interactive_complete`` from inside the
+    ``INTERACTIVE_PROMPT`` handler (no deferral) must still resolve the block.
+    Before the fix the rendezvous future was registered AFTER the prompt emit,
+    so the synchronous response found no future, was dropped, and the block hung
+    forever in PAUSED. The future is now registered before the prompt is
+    announced, so the response is delivered even without deferral.
+    """
+    scheduler, event_bus, runner, _done_events = _make_scheduler()
+
+    async def _drive() -> None:
+        async def _on_prompt(event: EngineEvent) -> None:
+            # Emit the completion synchronously within the prompt handler.
+            await event_bus.emit(
+                EngineEvent(
+                    event_type=INTERACTIVE_COMPLETE,
+                    block_id=event.block_id,
+                    data={"workflow_id": "wf-lineage", "response": dict(_DECISION)},
+                )
+            )
+
+        event_bus.subscribe(INTERACTIVE_PROMPT, _on_prompt)
+        # wait_for guards against a regression of the hang (would otherwise block).
+        await asyncio.wait_for(scheduler.execute(), timeout=15)
+
+    asyncio.run(_drive())
+
+    assert scheduler._block_states["a"] == BlockState.DONE
+    assert runner.run.await_count == 1, "compute phase did not run after a synchronous complete"
+    assert runner.run.await_args.args[2]["interactive_response"] == _DECISION
+
+
+def test_nan_response_is_rejected() -> None:
+    """ADR-051 audit P2 / FR-004: a NaN/Infinity decision is rejected (allow_nan=False).
+
+    NaN/Infinity serialize to non-standard JSON tokens under the default
+    ``json.dumps``; the runtime must reject them rather than carry them into the
+    compute config / lineage. A rejected response fails the block (no compute).
+    """
+    scheduler, event_bus, runner, _done = _make_scheduler()
+
+    async def _drive() -> None:
+        async def _on_prompt(event: EngineEvent) -> None:
+            await event_bus.emit(
+                EngineEvent(
+                    event_type=INTERACTIVE_COMPLETE,
+                    block_id=event.block_id,
+                    data={"workflow_id": "wf-lineage", "response": {"value": float("nan")}},
+                )
+            )
+
+        event_bus.subscribe(INTERACTIVE_PROMPT, _on_prompt)
+        await asyncio.wait_for(scheduler.execute(), timeout=15)
+
+    asyncio.run(_drive())
+
+    assert scheduler._block_states["a"] == BlockState.ERROR
+    assert runner.run.await_count == 0, "compute phase must not run with a non-JSON-safe response"

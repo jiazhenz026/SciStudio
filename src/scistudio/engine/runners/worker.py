@@ -503,10 +503,15 @@ def main() -> None:
             from scistudio.core.lineage.environment import EnvironmentSnapshot
 
             prompt = coerce_prompt(block.prepare_prompt(inputs, block_config))
-            # FR-004: the panel payload must be JSON-safe; reject otherwise
-            # rather than pickling or truncating. json.dumps raises TypeError
-            # on a non-JSON value, which propagates to the generic handler.
-            json.dumps(prompt.panel_payload)
+            # FR-004: the panel payload must be a JSON object (a dict) and
+            # strictly JSON-safe; reject otherwise rather than pickling or
+            # truncating. allow_nan=False also rejects NaN/Infinity (non-standard
+            # JSON). Failures propagate to the generic handler as a block error.
+            if not isinstance(prompt.panel_payload, dict):
+                raise TypeError(
+                    f"panel_payload must be a JSON object (dict), got {type(prompt.panel_payload).__name__}"
+                )
+            json.dumps(prompt.panel_payload, allow_nan=False)
             env_snapshot = EnvironmentSnapshot.capture()
             prompt_envelope: dict[str, Any] = {
                 "wire_version": WIRE_FORMAT_VERSION,

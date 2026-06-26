@@ -317,6 +317,14 @@
       "path": "frontend/src/hooks/useWebSocket.parts/handleInteractivePrompt.test.ts",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T18:09:46.932268Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
