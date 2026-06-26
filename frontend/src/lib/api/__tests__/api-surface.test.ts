@@ -75,6 +75,13 @@ const EXPECTED_API_KEYS = [
   "gitMergeStageFile",
   "gitMergeComplete",
   "gitMergeAbort",
+  // packages — #1784 Package Manager
+  "installLocalPackage",
+  "listInstalledPackages",
+  "checkPackageUpdates",
+  "updatePackage",
+  "rollbackPackage",
+  "deletePackage",
 ] as const;
 
 describe("api public surface (#1422 split)", () => {

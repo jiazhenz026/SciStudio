@@ -575,6 +575,51 @@ export interface LocalPackageInstallResponse {
   replaced: boolean;
 }
 
+// #1784 — Package Manager (install / update / delete / rollback) types.
+export interface InstalledPackage {
+  package_name: string;
+  version: string;
+  install_path: string;
+  modules: string[];
+  has_backup: boolean;
+  backup_version: string;
+  /** Present only via the live registry (bundled / entry point), not on disk.
+   *  Can be updated (installs a shadowing copy) but not deleted. */
+  bundled: boolean;
+}
+
+export interface InstalledPackagesResponse {
+  packages: InstalledPackage[];
+}
+
+export interface PackageUpdateStatus {
+  package_name: string;
+  current_version: string;
+  channel: string;
+  manifest_url: string;
+  /** "update" | "incompatible" | "none" | "invalid" | "error" */
+  status: string;
+  available_version: string;
+  min_core_base: string;
+  notes: string;
+  reason: string;
+  update_available: boolean;
+}
+
+export interface PackageUpdatesResponse {
+  core_base: string;
+  statuses: PackageUpdateStatus[];
+}
+
+export interface PackageActionResponse {
+  package_name: string;
+  version: string;
+  /** "update" | "rollback" | "delete" */
+  action: string;
+  previous_version: string;
+  needs_relaunch: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // ADR-039 — Git versioning API types
 // ---------------------------------------------------------------------------

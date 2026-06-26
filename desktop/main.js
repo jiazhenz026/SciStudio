@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -9,6 +9,16 @@ const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
+
+// #1784: the in-app Package Manager stages a package update on disk (into the
+// scanned installed-packages dir) and then asks the main process to relaunch so
+// a fresh interpreter imports the new code. Registered once at module load;
+// safeLog is hoisted and only called when the handler fires.
+ipcMain.handle("scistudio:relaunch", () => {
+  safeLog("[scistudio] relaunch requested by renderer (package update)");
+  app.relaunch();
+  app.exit(0);
+});
 
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
