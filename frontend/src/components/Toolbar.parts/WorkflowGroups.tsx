@@ -3,6 +3,7 @@
  * Hidden when a file tab is active. Extracted in #1413.
  */
 import { Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -14,8 +15,6 @@ export interface WorkflowGroupsProps {
   workflowId: string | null;
   selectedNodeId: string | null;
   isRunning: boolean;
-  /** #1789: a cancel request is in flight; show immediate "Stopping…" feedback. */
-  isStopping?: boolean;
   onRun: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -27,7 +26,19 @@ export interface WorkflowGroupsProps {
 }
 
 function ExecutionControls(props: WorkflowGroupsProps) {
-  const { currentProject, workflowId, isRunning, isStopping, onRun, onStop, onReloadBlocks } = props;
+  const { currentProject, workflowId, isRunning, onRun, onStop, onReloadBlocks } = props;
+  // #1789: the backend cancel blocks on the worker terminate grace period
+  // (SIGTERM → wait → SIGKILL), so Stop looked dead for several seconds. Show an
+  // optimistic "Stopping" state the instant it is clicked; clear it once the run
+  // is no longer running (authoritative state arrives over the WS).
+  const [isStopping, setIsStopping] = useState(false);
+  useEffect(() => {
+    if (!isRunning) setIsStopping(false);
+  }, [isRunning]);
+  const handleStop = () => {
+    setIsStopping(true);
+    onStop();
+  };
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -39,15 +50,13 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         iconClassName={isRunning ? "animate-spin" : undefined}
         onClick={onRun}
       />
-      {/* #1789: backend cancel blocks on the worker terminate grace period, so
-          give the user immediate feedback instead of a dead button. */}
       <ToolbarButton
         icon={isStopping ? Loader2 : Square}
         label={isStopping ? "Stopping" : "Stop"}
         shortcut="Ctrl+."
         disabled={!workflowId || isStopping}
         iconClassName={isStopping ? "animate-spin" : undefined}
-        onClick={onStop}
+        onClick={handleStop}
       />
       <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
     </div>

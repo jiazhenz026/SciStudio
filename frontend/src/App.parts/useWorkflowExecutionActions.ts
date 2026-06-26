@@ -6,7 +6,7 @@
 // side-effects as the inline implementation; this hook merely consolidates
 // them so App.tsx can stay focused on lifecycle wiring.
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import { api } from "../lib/api";
 import type {
@@ -32,8 +32,6 @@ export interface WorkflowExecutionActions {
   pauseWorkflow: () => Promise<void>;
   resumeWorkflow: () => Promise<void>;
   cancelWorkflow: () => Promise<void>;
-  /** #1789: true while a cancel request is in flight (immediate Stop feedback). */
-  isStopping: boolean;
   startFromSelected: () => Promise<void>;
   handleRunBlock: (blockId: string) => Promise<void>;
   handleRestartBlock: (blockId: string) => Promise<void>;
@@ -173,24 +171,10 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
     await api.resumeWorkflow(workflowId);
   }, [workflowId]);
 
-  // #1789: the backend cancel blocks on the worker terminate grace period
-  // (SIGTERM → wait → SIGKILL), so the request can take several seconds. Without
-  // immediate feedback the Stop button looked unresponsive. Surface an optimistic
-  // "stopping" state the instant Stop is clicked and clear it when the request
-  // settles; the authoritative cancelled block states still arrive over the WS.
-  const [isStopping, setIsStopping] = useState(false);
-
   const cancelWorkflow = useCallback(async () => {
     if (!workflowId) return;
-    setIsStopping(true);
-    try {
-      await api.cancelWorkflow(workflowId);
-    } catch (error) {
-      surfaceExecutionError(setLastError, error);
-    } finally {
-      setIsStopping(false);
-    }
-  }, [workflowId, setLastError]);
+    await api.cancelWorkflow(workflowId);
+  }, [workflowId]);
 
   const startFromSelected = useCallback(async () => {
     if (!workflowId || !selectedNodeId) return;
@@ -242,7 +226,6 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
     pauseWorkflow,
     resumeWorkflow,
     cancelWorkflow,
-    isStopping,
     startFromSelected,
     handleRunBlock,
     handleRestartBlock,

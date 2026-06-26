@@ -252,6 +252,68 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-26T23:41:20.544942Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:0b4e3004ed0382a5dff74ba5cc2036c489880bf39756082a9882cec51408ed95",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-26T23:41:25.358469Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:844426412d5804c7ab69a8310af1a6e97d278619f5055425e63eebcd8ee9caa4",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:41:29.034212Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:986441f514580f599d9f57f8d5bbcfe1ce37c27c612d35542d0f1eec3ebee1ea",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-26T23:43:12.952418Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:785596d3a223993b31ce4bf37042e66090be656d15819ce5730e064c817355cf",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -481,6 +543,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:12.990326Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:12.999138Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.008181Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.017215Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.026087Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.035356Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.044191Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.054265Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.063601Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T23:43:13.075301Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -509,9 +653,9 @@
       "tests/api/test_ai_pty_audit_fixes.py",
       "tests/api/test_workflows.py"
     ],
-    "diff_fingerprint": "sha256:d6cb333e80f4abb47453c8078c642132c89a006677b5e636a3e0f09eb269dc15",
+    "diff_fingerprint": "sha256:c9c7bd8d3e5f2bd20513cebae3cd708c3f1b6437c12f60b2478847cdbb8eebd4",
     "head": "HEAD",
-    "head_sha": "1c46ae3d",
+    "head_sha": "e1848561",
     "surfaces": {
       "docs": 0,
       "frontend": 7,
@@ -547,6 +691,17 @@
     {
       "at": "2026-06-26T23:38:53.186686Z",
       "diff_fingerprint": "sha256:d6cb333e80f4abb47453c8078c642132c89a006677b5e636a3e0f09eb269dc15",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-06-26T23:43:13.075333Z",
+      "diff_fingerprint": "sha256:c9c7bd8d3e5f2bd20513cebae3cd708c3f1b6437c12f60b2478847cdbb8eebd4",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,

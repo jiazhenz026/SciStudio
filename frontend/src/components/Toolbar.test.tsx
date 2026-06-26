@@ -75,17 +75,19 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.getByRole("button", { name: /^note$/i })).toBeTruthy();
   });
 
-  it("workflow tab: Stop shows immediate 'Stopping' feedback and disables while cancelling (#1789)", () => {
-    const { rerender } = render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
+  it("workflow tab: clicking Stop shows immediate disabled 'Stopping' feedback (#1789)", () => {
+    const onStop = vi.fn();
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", isRunning: true, onStop })} />);
+
     // Idle: the button reads "Stop" and is enabled.
     const stop = screen.getByRole("button", { name: /^stop$/i });
-    expect(stop).toBeTruthy();
     expect(stop.hasAttribute("disabled")).toBe(false);
 
-    // A cancel request in flight flips it to a disabled "Stopping" spinner.
-    rerender(<Toolbar {...makeProps({ activeTabKind: "workflow", isStopping: true })} />);
+    // Clicking it fires onStop and optimistically flips to a disabled spinner so
+    // the user sees feedback while the backend works through its terminate grace.
+    fireEvent.click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
     const stopping = screen.getByRole("button", { name: /^stopping$/i });
-    expect(stopping).toBeTruthy();
     expect(stopping.hasAttribute("disabled")).toBe(true);
     expect(screen.queryByRole("button", { name: /^stop$/i })).toBeNull();
   });
