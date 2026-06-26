@@ -284,10 +284,7 @@ def test_1789_engine_pty_resized_to_client_viewport_on_join(
         run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789-size"),
     )
 
-    url = (
-        f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}"
-        "&dangerous=false&cols=100&rows=40"
-    )
+    url = f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}&dangerous=false&cols=100&rows=40"
     with client.websocket_connect(url) as ws, contextlib.suppress(Exception):
         ws.receive_json(timeout=0.5)
 
