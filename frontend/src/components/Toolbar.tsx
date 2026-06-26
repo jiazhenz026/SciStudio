@@ -210,7 +210,10 @@ export function Toolbar(props: ToolbarProps) {
           </Tooltip>
         </div>
       </header>
-      <PackageManagerDialog onClose={() => setPackageManagerOpen(false)} open={packageManagerOpen} />
+      <PackageManagerDialog
+        onClose={() => setPackageManagerOpen(false)}
+        open={packageManagerOpen}
+      />
     </TooltipProvider>
   );
 }

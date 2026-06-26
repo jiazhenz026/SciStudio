@@ -48,7 +48,9 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
   const refreshBlocks = useCallback(async () => {
     const payload = await api.listBlocks();
     startTransition(() => setBlocks(payload.blocks));
-    const schemas = await Promise.all(payload.blocks.map((block) => api.getBlockSchema(block.type_name)));
+    const schemas = await Promise.all(
+      payload.blocks.map((block) => api.getBlockSchema(block.type_name)),
+    );
     startTransition(() => {
       schemas.forEach((schema) => setBlockSchema(schema));
     });
@@ -258,7 +260,9 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
             </ul>
           )}
 
-          <h3 className="mb-2 mt-6 text-sm font-semibold text-stone-700">Install a local package</h3>
+          <h3 className="mb-2 mt-6 text-sm font-semibold text-stone-700">
+            Install a local package
+          </h3>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
