@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import tarfile
+from pathlib import Path
 
 import pytest
 
 from scistudio.blocks.base.package_info import PackageInfo, PackageOtaSource
-from scistudio.desktop.package_manager import check_package_updates, fetch_manifest_json
+from scistudio.desktop.package_manager import (
+    PackageUpdateError,
+    check_package_updates,
+    delete_package,
+    fetch_manifest_json,
+    list_installed_packages,
+    rollback_package,
+    update_package,
+)
 
 
 def _info(name: str, version: str, *, ota: bool = True) -> PackageInfo:
@@ -100,6 +112,195 @@ def test_check_one_bad_source_does_not_break_others():
     results = {r.package_name: r for r in check_package_updates(packages, core_base="0.2.1", fetch=fetch)}
     assert results["good"].status == "update"
     assert results["bad"].status == "error"
+
+
+def _make_source_package(tmp: Path, *, dist_name: str, module: str, version: str) -> Path:
+    """Build a minimal SciStudio source package tree and return its root."""
+    root = tmp / f"{dist_name}-src"
+    pkg = root / "src" / module
+    pkg.mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "{dist_name}"\nversion = "{version}"\n', encoding="utf-8"
+    )
+    (pkg / "__init__.py").write_text("BLOCKS = []\n", encoding="utf-8")
+    return root
+
+
+def _tar_gz_bytes(source_root: Path) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        tar.add(source_root, arcname=source_root.name)
+    return buffer.getvalue()
+
+
+def _install_one(install_root: Path, *, dist_name: str, module: str, version: str) -> Path:
+    """Install a freshly built source package into ``install_root``."""
+    from scistudio.desktop.package_installer import install_local_package
+
+    src_tmp = install_root.parent / f"build-{version}"
+    src_tmp.mkdir(parents=True, exist_ok=True)
+    source_root = _make_source_package(src_tmp, dist_name=dist_name, module=module, version=version)
+    return install_local_package(source_root, install_root=install_root, install_dependencies=False).install_path
+
+
+def test_list_installed_packages_reads_manifests(tmp_path):
+    install_root = tmp_path / "packages"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    listed = list_installed_packages(install_root=install_root, backups_root=tmp_path / "backups")
+    assert len(listed) == 1
+    assert listed[0].package_name == "scistudio-blocks-demo"
+    assert listed[0].version == "1.0.0"
+    assert listed[0].has_backup is False
+
+
+def test_update_package_downloads_verifies_and_backs_up(tmp_path):
+    install_root = tmp_path / "packages"
+    backups_root = tmp_path / "backups"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+
+    # Build the "new version" snapshot the manifest will point at.
+    new_src = _make_source_package(
+        tmp_path / "newbuild", dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.2.0"
+    )
+    tarball_bytes = _tar_gz_bytes(new_src)
+    sha = hashlib.sha256(tarball_bytes).hexdigest()
+
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json", channel="alpha"),
+    )
+
+    def fetch(url: str) -> dict:
+        return {
+            "package": "scistudio-blocks-demo",
+            "version": "1.2.0",
+            "url": "https://example.com/demo-1.2.0.tar.gz",
+            "sha256": sha,
+            "requires": {"min_core_base": "0.0.0"},
+        }
+
+    def download(url: str, dest: Path) -> None:
+        dest.write_bytes(tarball_bytes)
+
+    result = update_package(
+        "scistudio-blocks-demo",
+        packages={"scistudio-blocks-demo": info},
+        core_base="0.2.1",
+        fetch=fetch,
+        download=download,
+        install_root=install_root,
+        backups_root=backups_root,
+        install_dependencies=False,
+    )
+    assert result.action == "update"
+    assert result.version == "1.2.0"
+    assert result.previous_version == "1.0.0"
+    assert result.needs_relaunch is True
+
+    listed = {p.package_name: p for p in list_installed_packages(install_root=install_root, backups_root=backups_root)}
+    assert listed["scistudio-blocks-demo"].version == "1.2.0"
+    assert listed["scistudio-blocks-demo"].has_backup is True
+    assert listed["scistudio-blocks-demo"].backup_version == "1.0.0"
+    # Exactly one active version dir remains on the scan path.
+    assert len(list(install_root.iterdir())) == 1
+
+
+def test_update_package_rejects_checksum_mismatch(tmp_path):
+    install_root = tmp_path / "packages"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json"),
+    )
+
+    def fetch(url: str) -> dict:
+        return {
+            "package": "scistudio-blocks-demo",
+            "version": "1.2.0",
+            "url": "https://example.com/demo-1.2.0.tar.gz",
+            "sha256": "f" * 64,
+            "requires": {"min_core_base": "0.0.0"},
+        }
+
+    def download(url: str, dest: Path) -> None:
+        dest.write_bytes(b"corrupted")
+
+    with pytest.raises(PackageUpdateError, match="Checksum mismatch"):
+        update_package(
+            "scistudio-blocks-demo",
+            packages={"scistudio-blocks-demo": info},
+            core_base="0.2.1",
+            fetch=fetch,
+            download=download,
+            install_root=install_root,
+            backups_root=tmp_path / "backups",
+            install_dependencies=False,
+        )
+
+
+def test_rollback_restores_previous_version(tmp_path):
+    install_root = tmp_path / "packages"
+    backups_root = tmp_path / "backups"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+
+    new_src = _make_source_package(
+        tmp_path / "newbuild", dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.2.0"
+    )
+    tarball_bytes = _tar_gz_bytes(new_src)
+    sha = hashlib.sha256(tarball_bytes).hexdigest()
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json"),
+    )
+    update_package(
+        "scistudio-blocks-demo",
+        packages={"scistudio-blocks-demo": info},
+        core_base="0.2.1",
+        fetch=lambda url: {
+            "package": "scistudio-blocks-demo",
+            "version": "1.2.0",
+            "url": "https://example.com/demo-1.2.0.tar.gz",
+            "sha256": sha,
+            "requires": {"min_core_base": "0.0.0"},
+        },
+        download=lambda url, dest: dest.write_bytes(tarball_bytes),
+        install_root=install_root,
+        backups_root=backups_root,
+        install_dependencies=False,
+    )
+
+    result = rollback_package("scistudio-blocks-demo", install_root=install_root, backups_root=backups_root)
+    assert result.action == "rollback"
+    assert result.version == "1.0.0"
+    assert result.previous_version == "1.2.0"
+    listed = {p.package_name: p for p in list_installed_packages(install_root=install_root, backups_root=backups_root)}
+    assert listed["scistudio-blocks-demo"].version == "1.0.0"
+    assert listed["scistudio-blocks-demo"].has_backup is False
+
+
+def test_rollback_without_backup_raises(tmp_path):
+    install_root = tmp_path / "packages"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    with pytest.raises(PackageUpdateError, match="No rollback backup"):
+        rollback_package("scistudio-blocks-demo", install_root=install_root, backups_root=tmp_path / "backups")
+
+
+def test_delete_removes_active_and_backup(tmp_path):
+    install_root = tmp_path / "packages"
+    backups_root = tmp_path / "backups"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    result = delete_package("scistudio-blocks-demo", install_root=install_root, backups_root=backups_root)
+    assert result.action == "delete"
+    assert result.version == "1.0.0"
+    assert list_installed_packages(install_root=install_root, backups_root=backups_root) == []
+
+
+def test_delete_missing_package_raises(tmp_path):
+    with pytest.raises(PackageUpdateError, match="not installed"):
+        delete_package("nope", install_root=tmp_path / "packages", backups_root=tmp_path / "backups")
 
 
 def test_fetch_manifest_json_rejects_non_http_scheme():
