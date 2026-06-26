@@ -497,7 +497,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "e93c8b55a455018e0f6120a2683f5970fbb16996",
+    "shas": [
+      "e93c8b55a455018e0f6120a2683f5970fbb16996"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1048,6 +1054,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.255501Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/package_info.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/package_info.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.264094Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.272991Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.281358Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.289655Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.297989Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.307140Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.316381Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.324796Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-26T19:18:53.340537Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1085,9 +1195,9 @@
       "tests/desktop/test_package_manager.py",
       "tests/desktop/test_package_ota.py"
     ],
-    "diff_fingerprint": "sha256:394b6d9626e6ac6885d698de55835d5d283bc6b119595729ddc97ec44697c493",
+    "diff_fingerprint": "sha256:41021842d1ace74d44e72e8ffe0217b81fc0d82925dd3f86372438e912a4a57e",
     "head": "HEAD",
-    "head_sha": "4ec3e6ed",
+    "head_sha": "e93c8b55",
     "surfaces": {
       "docs": 1,
       "frontend": 9,
@@ -1103,7 +1213,14 @@
   },
   "owner_directive": "Extend desktop OTA to per-package hot-update driven by an in-app Update Manager UI. Packages self-declare OTA source via PackageInfo.ota; Python backend downloads/verifies/stages per-package patches; desktop recognizes patch dir and relaunches; semver-based, public repos, min_core_base gate. Owner approved admin-approved:core-change for PackageInfo.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1784
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-26T18:57:51.697997Z",
@@ -1153,6 +1270,14 @@
     {
       "at": "2026-06-26T19:18:15.786688Z",
       "diff_fingerprint": "sha256:394b6d9626e6ac6885d698de55835d5d283bc6b119595729ddc97ec44697c493",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-26T19:18:53.340567Z",
+      "diff_fingerprint": "sha256:41021842d1ace74d44e72e8ffe0217b81fc0d82925dd3f86372438e912a4a57e",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
