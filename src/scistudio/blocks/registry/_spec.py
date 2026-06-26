@@ -351,6 +351,10 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     # Fail loudly at scan time on malformed dynamic-port descriptors.
     BlockRegistry._validate_dynamic_ports(cls)
 
+    # ADR-051 FR-002: bind the interaction capability (InteractiveMixin) to
+    # execution_mode=INTERACTIVE and require a valid panel manifest at scan time.
+    BlockRegistry._validate_interactive_capability(cls)
+
     base_cat = _infer_category(cls)
     sub_cat = getattr(cls, "subcategory", "") or ""
 

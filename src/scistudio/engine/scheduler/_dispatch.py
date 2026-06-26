@@ -173,10 +173,10 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     if self._project_dir:
         enriched_config["project_dir"] = self._project_dir
 
-    # #591/#594: Interactive blocks run in-process (no subprocess) because
-    # they need bidirectional communication with the frontend. The block
-    # pauses, sends data to the frontend, waits for user response, then
-    # produces outputs.
+    # ADR-051: interactive blocks run as two worker subprocesses around an
+    # engine-held pause (prompt phase builds the panel view, the engine holds
+    # the wait with nothing resident, the compute phase runs with the user's
+    # decision). They are no longer the in-process exception to ADR-017.
     is_interactive = getattr(block, "execution_mode", None) == ExecutionMode.INTERACTIVE
 
     if is_interactive:
@@ -355,6 +355,35 @@ async def _run_and_finalize(
         self._check_completion()
 
 
+def _release_intermediate_refs(refs: list[dict[str, Any]]) -> None:
+    """Delete the on-disk scratch behind ADR-051 intermediate storage references.
+
+    The prompt phase may persist heavy intermediate work via the storage layer
+    and hand its references forward (ADR-051 §3). That work is scratch, not
+    provenance: it is released after the compute phase completes or on
+    cancellation. Best-effort — a missing or unreadable path is logged at debug
+    and skipped; storage backends have no first-class delete, so we remove the
+    referenced filesystem path directly.
+    """
+    import shutil
+    from pathlib import Path
+
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        raw_path = ref.get("path")
+        if not raw_path or not isinstance(raw_path, str):
+            continue
+        try:
+            target = Path(raw_path)
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+            elif target.exists():
+                target.unlink()
+        except OSError:
+            logger.debug("Failed to release interactive intermediate scratch %s", raw_path, exc_info=True)
+
+
 async def _run_interactive(
     self: DAGScheduler,
     node_id: str,
@@ -362,21 +391,52 @@ async def _run_interactive(
     inputs: dict[str, Any],
     config: dict[str, Any],
 ) -> None:
-    """Execute an interactive block: PAUSE, prompt frontend, await response, run.
+    """Execute an interactive block as two worker subprocesses around a pause (ADR-051).
 
-    #591/#594: Interactive blocks (DataRouter, PairEditor) run in-process
-    because they need bidirectional WebSocket communication. The flow is:
+    ADR-051 §3 replaces the former in-process interactive path. An interactive
+    block stays as isolated as any other block even while a human is in the
+    loop: it is only ever running inside a subprocess that runs to completion,
+    never while paused. The flow is:
 
-    1. Transition to PAUSED, emit BLOCK_PAUSED
-    2. Call ``block.prepare_prompt(inputs, config)`` to get data for the UI
-    3. Emit INTERACTIVE_PROMPT with the prepared data
-    4. Await the user's response via an asyncio.Future
-    5. Call ``block.run(inputs, config)`` with the response merged into config
-    6. Transition to DONE, emit BLOCK_DONE with outputs
+    1. **Prompt phase** (subprocess): ``block.prepare_prompt`` runs in an
+       isolated worker, builds the JSON-safe panel view, and exits. Optional
+       heavy intermediate work crosses the pause as engine-held storage
+       references (never in memory, never to the browser).
+    2. Transition to PAUSED (nothing resident); emit BLOCK_PAUSED and
+       INTERACTIVE_PROMPT carrying the panel manifest (FR-007/FR-015) and the
+       panel payload; await the user's decision via an asyncio.Future.
+    3. **Compute phase** (fresh subprocess): on confirmation, ``block.run``
+       runs in a new worker with the decision (and any intermediate references)
+       merged into config. The decision is recorded in lineage; the
+       intermediate scratch is released after the run (ADR-051 §3 / FR-011/FR-012).
+
+    Cancelling while paused transitions to CANCELLED, releases any intermediate
+    scratch, and spawns no compute phase (FR-012).
     """
+    from scistudio.blocks.base.interactive import (
+        INTERACTIVE_INTERMEDIATE_KEY,
+        INTERACTIVE_RESPONSE_KEY,
+    )
+
+    intermediate: list[dict[str, Any]] = []
     try:
         try:
-            # Step 1: Transition to PAUSED.
+            # Phase 1 (subprocess): build the panel view. The block runs to
+            # completion in an isolated worker (ADR-051 §3); nothing of it
+            # survives into the pause.
+            prompt_result = await self._runner.run_prompt(block, inputs, config)
+            panel_payload = prompt_result.get("panel_payload", {}) or {}
+            raw_intermediate = prompt_result.get("intermediate") or []
+            intermediate = list(raw_intermediate) if isinstance(raw_intermediate, list) else []
+            self._interactive_intermediate[node_id] = intermediate
+
+            # The user may have cancelled while the build subprocess ran.
+            if self._block_states.get(node_id) == BlockState.CANCELLED:
+                logger.info("Interactive block %s cancelled during prompt phase", node_id)
+                return
+
+            # Transition to PAUSED: the block now waits on a human with nothing
+            # resident. PAUSED is the cancellable state for the wait (ADR-018/019).
             self._block_states[node_id] = BlockState.PAUSED
             await self._event_bus.emit(
                 EngineEvent(
@@ -386,14 +446,12 @@ async def _run_interactive(
                 )
             )
 
-            # Step 2: Prepare the interactive prompt data.
-            prompt_data = {}
-            if hasattr(block, "prepare_prompt"):
-                from scistudio.blocks.base.config import BlockConfig
-
-                prompt_data = block.prepare_prompt(inputs, BlockConfig(**config))
-
-            # Step 3: Emit INTERACTIVE_PROMPT for the frontend.
+            # Emit INTERACTIVE_PROMPT. The panel manifest lets the frontend
+            # resolve the window without a hardcoded block-type branch (FR-007);
+            # block_type stays for identity (FR-015). The panel payload is
+            # nested (not spread) so it can never clobber the identity fields.
+            manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
+            panel_manifest = manifest.to_dict() if manifest is not None else None
             await self._event_bus.emit(
                 EngineEvent(
                     event_type=INTERACTIVE_PROMPT,
@@ -401,20 +459,20 @@ async def _run_interactive(
                     data={
                         "workflow_id": self._workflow.id,
                         "block_type": config.get("block_type", type(block).__name__),
-                        **prompt_data,
+                        "panel_manifest": panel_manifest,
+                        "panel_payload": panel_payload,
                     },
                 )
             )
 
-            # Step 4: Create a future and wait for interactive_complete.
+            # Await interactive_complete via a future keyed by block_id.
             loop = asyncio.get_running_loop()
             future: asyncio.Future[dict[str, Any]] = loop.create_future()
             self._interactive_futures[node_id] = future
 
             response_data = await future
 
-            # Step 5: Run the block with the user's response.
-            # Check for cancellation before running.
+            # Cancellation may have resolved between the await and here.
             if self._block_states.get(node_id) == BlockState.CANCELLED:
                 logger.info("Interactive block %s was cancelled while paused", node_id)
                 return
@@ -428,13 +486,16 @@ async def _run_interactive(
                 )
             )
 
-            # Merge the user response into config for the block's run().
-            enriched_config = dict(config)
-            enriched_config["interactive_response"] = response_data
+            # Phase 2 (fresh subprocess): compute. The decision and any
+            # intermediate references are merged into config; block.run reads
+            # ``interactive_response`` (and may load ``interactive_intermediate``
+            # by reference). Reuses the standard subprocess run path.
+            compute_config = dict(config)
+            compute_config[INTERACTIVE_RESPONSE_KEY] = response_data
+            if intermediate:
+                compute_config[INTERACTIVE_INTERMEDIATE_KEY] = intermediate
 
-            from scistudio.blocks.base.config import BlockConfig
-
-            result = block.run(inputs, BlockConfig(**enriched_config))
+            result = await self._runner.run(block, inputs, compute_config)
 
         except asyncio.CancelledError:
             raise
@@ -456,23 +517,17 @@ async def _run_interactive(
             self.save_checkpoint(self._checkpoint_manager)
             return
 
-        # Step 6: Transition to DONE.
-        # ADR-038 §5.2: interactive blocks run in-process so they have no
-        # worker-supplied environment sidecar; pass None and the recorder
-        # will fall back to inserting an empty environment for the row.
+        # Finalize. The compute phase ran in a subprocess, so the result carries
+        # the ADR-038 ``__scistudio_env__`` environment sidecar like any block.
         env_payload: dict[str, Any] | None = None
         if isinstance(result, dict) and "__scistudio_env__" in result:
             env_candidate = result.pop("__scistudio_env__")
             if isinstance(env_candidate, dict):
                 env_payload = env_candidate
 
-        # #1370: ADR-020 §3 contract enforcement at the interactive
-        # in-process boundary. The worker-subprocess path normalises
-        # inside ``worker.py`` and the regular in-process path does so
-        # in ``_run_and_finalize``; the interactive path used to skip
-        # the wrap, so a custom interactive block returning a bare
-        # ``DataObject`` or ``list[DataObject]`` on an
-        # ``is_collection=True`` port could leak through unwrapped.
+        # #1370: ADR-020 §3 contract enforcement. The compute worker already
+        # normalises, so this is an idempotent no-op on wire-format dicts; kept
+        # for parity with the in-process boundary.
         if isinstance(result, dict):
             from scistudio.engine.runners.worker import _normalize_outputs
 
@@ -483,11 +538,15 @@ async def _run_interactive(
             _normalize_outputs(result, effective_output_ports)
 
         self._block_outputs[node_id] = result
-        # ADR-038 §5.2: persist DataObject identity to the unified
-        # ``data_objects`` table. See the parallel callsite in
-        # :meth:`_run_and_finalize` for the rationale.
         self._persist_output_metadata(node_id, result, self._workflow.id)
         self._block_states[node_id] = BlockState.DONE
+        # ADR-051 / FR-011: record the user's decision in lineage by passing the
+        # response-merged config to ``_build_block_done_data`` (the former
+        # in-process path passed the pre-response config, dropping the
+        # decision). ``_build_block_done_data`` excludes the ephemeral
+        # ``interactive_intermediate`` scratch from the recorded config.
+        lineage_config = dict(config)
+        lineage_config[INTERACTIVE_RESPONSE_KEY] = response_data
         await self._event_bus.emit(
             EngineEvent(
                 event_type=BLOCK_DONE,
@@ -496,7 +555,7 @@ async def _run_interactive(
                     node_id=node_id,
                     block=block,
                     inputs=inputs,
-                    config=config,
+                    config=lineage_config,
                     outputs=result,
                     environment=env_payload,
                 ),
@@ -504,6 +563,12 @@ async def _run_interactive(
         )
         self.save_checkpoint(self._checkpoint_manager)
     finally:
+        # ADR-051 §3 / FR-012: the intermediate scratch is ephemeral, not
+        # provenance — release it after the run completes OR on cancellation
+        # (this finally runs on success, error, and CancelledError alike).
+        leftover = self._interactive_intermediate.pop(node_id, None)
+        if leftover:
+            _release_intermediate_refs(leftover)
         self._interactive_futures.pop(node_id, None)
         self._active_tasks.pop(node_id, None)
         self._check_completion()

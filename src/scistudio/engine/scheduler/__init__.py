@@ -164,6 +164,13 @@ class DAGScheduler:
         # interactive_complete message for that block.
         self._interactive_futures: dict[str, asyncio.Future[dict[str, Any]]] = {}
 
+        # ADR-051: engine-held intermediate storage references for a paused
+        # interactive block. Maps block_id to the serialized references the
+        # prompt phase produced; threaded into the compute phase and released
+        # (deleted) after the run completes or on cancellation. Never sent to
+        # the browser and never recorded in lineage.
+        self._interactive_intermediate: dict[str, list[dict[str, Any]]] = {}
+
         self._disposed = False
         self._event_bus.subscribe(BLOCK_DONE, self._on_block_done)
         self._event_bus.subscribe(BLOCK_ERROR, self._on_block_error)

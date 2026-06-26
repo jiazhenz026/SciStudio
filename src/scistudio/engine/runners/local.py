@@ -226,31 +226,22 @@ class LocalRunner:
         self._event_bus = event_bus
         self._registry = registry
 
-    async def run(
+    async def _spawn_worker(
         self,
         block: Any,
         inputs: dict[str, Any],
         config: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute *block* in an isolated subprocess.
+        *,
+        phase: str = "compute",
+    ) -> tuple[int | None, bytes, bytes, str, str]:
+        """Spawn the worker subprocess, exchange the payload, and return the result.
 
-        Uses ``asyncio.create_subprocess_exec`` to avoid ``os.fork()``
-        deadlock on macOS when native extensions have been imported (#483).
-
-        Parameters
-        ----------
-        block:
-            The block instance to run. Its class path is resolved for
-            serialization to the worker subprocess.
-        inputs:
-            Mapping of port names to input data references.
-        config:
-            Execution-time configuration for this invocation.
-
-        Returns
-        -------
-        dict[str, Any]
-            Parsed JSON result from the subprocess worker.
+        Shared by :meth:`run` (``phase="compute"``) and :meth:`run_prompt`
+        (``phase="prompt"``, ADR-051). Handles payload build, subprocess launch,
+        ProcessRegistry register/deregister, and stderr forwarding. Returns
+        ``(returncode, stdout, stderr, block_class_path, block_id)``; the caller
+        parses the phase-appropriate envelope. The compute path is byte-identical
+        to the pre-ADR-051 behaviour (``phase`` omitted from the payload).
         """
         from scistudio.engine.runners.process_handle import (
             ProcessRegistry,
@@ -283,6 +274,7 @@ class LocalRunner:
             output_dir=output_dir,
             block_file_path=block_file_path,
             runtime_import_roots=runtime_import_roots,
+            phase=phase,
         )
 
         # Launch via asyncio.create_subprocess_exec to avoid os.fork()
@@ -359,12 +351,44 @@ class LocalRunner:
                 if line.strip():
                     logger.info("worker[%s] %s", block_id, line)
 
-        if proc.returncode != 0:
+        return proc.returncode, stdout, stderr, block_class_path, block_id
+
+    async def run(
+        self,
+        block: Any,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Execute *block* in an isolated subprocess.
+
+        Uses ``asyncio.create_subprocess_exec`` to avoid ``os.fork()``
+        deadlock on macOS when native extensions have been imported (#483).
+
+        Parameters
+        ----------
+        block:
+            The block instance to run. Its class path is resolved for
+            serialization to the worker subprocess.
+        inputs:
+            Mapping of port names to input data references.
+        config:
+            Execution-time configuration for this invocation.
+
+        Returns
+        -------
+        dict[str, Any]
+            Parsed JSON result from the subprocess worker.
+        """
+        returncode, stdout, stderr, block_class_path, block_id = await self._spawn_worker(
+            block, inputs, config, phase="compute"
+        )
+
+        if returncode != 0:
             error_msg = stderr.decode(errors="replace") if stderr else "unknown error"
             logger.error(
-                "Block subprocess %s exited with code %d: %s",
+                "Block subprocess %s exited with code %s: %s",
                 block_class_path,
-                proc.returncode,
+                returncode,
                 error_msg,
             )
             # Try to parse stdout for structured error from worker
@@ -436,6 +460,66 @@ class LocalRunner:
                 raise RuntimeError(f"Failed to parse worker output: {exc}") from exc
 
         return {}
+
+    async def run_prompt(
+        self,
+        block: Any,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run an interactive block's prompt phase in an isolated subprocess (ADR-051).
+
+        Spawns the worker with ``phase="prompt"`` so it runs
+        ``block.prepare_prompt`` and exits, then parses the prompt envelope.
+
+        Returns
+        -------
+        dict[str, Any]
+            ``{"panel_payload": dict, "intermediate": list[dict], "environment": dict}``.
+            ``panel_payload`` is the JSON-safe window view; ``intermediate`` is a
+            list of serialized storage references the engine holds across the
+            pause and threads into the compute phase.
+        """
+        returncode, stdout, stderr, block_class_path, _block_id = await self._spawn_worker(
+            block, inputs, config, phase="prompt"
+        )
+
+        if returncode != 0:
+            error_msg = stderr.decode(errors="replace") if stderr else "unknown error"
+            logger.error(
+                "Interactive prompt subprocess %s exited with code %s: %s",
+                block_class_path,
+                returncode,
+                error_msg,
+            )
+            # A structured storage/worker error payload is raised typed; a bare
+            # prepare_prompt crash surfaces as an isolated block error (FR edge).
+            if stdout:
+                try:
+                    payload = dict(json.loads(stdout.decode()))
+                    _raise_for_worker_error_payload(payload)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+            raise RuntimeError(error_msg)
+
+        if stdout:
+            try:
+                parsed = json.loads(stdout.decode())
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise RuntimeError(f"Failed to parse worker prompt output: {exc}") from exc
+            if isinstance(parsed, dict) and parsed.get("phase") == "prompt":
+                return {
+                    "panel_payload": parsed.get("panel_payload", {}),
+                    "intermediate": parsed.get("intermediate", []),
+                    "environment": parsed.get("environment"),
+                }
+            # The worker may emit a structured error payload (e.g. a non-JSON
+            # panel payload raised inside prepare_prompt) even on a zero exit.
+            if isinstance(parsed, dict):
+                _raise_for_worker_error_payload(parsed)
+            raise RuntimeError(f"Worker prompt phase returned an unexpected envelope: {parsed!r}")
+
+        raise RuntimeError("Interactive prompt subprocess produced no output.")
 
     async def check_status(self, workflow_id: str, block_id: str) -> str:
         """Query the current status of a previously started run.

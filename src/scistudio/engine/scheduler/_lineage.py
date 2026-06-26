@@ -249,11 +249,17 @@ def _build_block_done_data(
     """
     block_type = self._resolve_block_type(node_id, block)
     block_version = self._resolve_block_version(block, block_type)
+    # ADR-051 / FR-011: the user's interactive decision travels inside the
+    # resolved config and IS recorded as provenance, but the engine-held
+    # intermediate scratch references are ephemeral optimisation, not
+    # provenance — strip them from the recorded config.
+    recorded_config = dict(config) if isinstance(config, dict) else {}
+    recorded_config.pop("interactive_intermediate", None)
     return {
         "workflow_id": self._workflow.id,
         "outputs": outputs,
         "inputs": inputs,
-        "config": dict(config) if isinstance(config, dict) else {},
+        "config": recorded_config,
         "block_type": block_type,
         "block_version": block_version,
         "environment": environment,

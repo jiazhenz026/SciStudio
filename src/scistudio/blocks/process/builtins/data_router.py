@@ -13,6 +13,7 @@ import logging
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt, PanelManifest
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.core.types.base import DataObject
@@ -20,18 +21,25 @@ from scistudio.core.types.base import DataObject
 logger = logging.getLogger(__name__)
 
 
-class DataRouter(ProcessBlock):
+class DataRouter(InteractiveMixin, ProcessBlock):
     """Interactive N-to-M data routing block.
 
     Users configure variadic input/output ports (ADR-029). At runtime the
     block pauses with a drag-and-drop UI for manually routing items from
     inputs to outputs.
 
+    ADR-051: a processing block that carries the interaction capability
+    (``InteractiveMixin`` + ``execution_mode = INTERACTIVE``). It runs as two
+    worker subprocesses around an engine-held pause and opens its window through
+    the :attr:`interactive_panel` manifest rather than a hardcoded frontend
+    branch. Its item-routing behaviour is unchanged.
+
     Runtime flow:
         1. User configures N input ports + M output ports via variadic editor
-        2. Workflow reaches DataRouter -> PAUSED
-        3. Frontend opens DataRouter modal (drag items from inputs to outputs)
-        4. Confirm -> assignments sent to backend -> block routes items -> DONE
+        2. Workflow reaches DataRouter; prompt phase builds the panel view
+           (subprocess) -> PAUSED
+        3. Frontend resolves the panel from the manifest (drag items inputs->outputs)
+        4. Confirm -> assignments sent to backend -> compute phase routes items -> DONE
     """
 
     name: ClassVar[str] = "Data Router"
@@ -41,6 +49,13 @@ class DataRouter(ProcessBlock):
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
+    # ADR-051: the block-owned window. Resolved by the frontend panel host from
+    # the built-in panel registry (core panel; no wheel-served module_url).
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
+        panel_id="core.interactive.data_router",
+        version="1",
+    )
+
     variadic_inputs: ClassVar[bool] = True
     variadic_outputs: ClassVar[bool] = True
     allowed_input_types: ClassVar[list[type]] = []
@@ -48,13 +63,16 @@ class DataRouter(ProcessBlock):
     min_input_ports: ClassVar[int | None] = 1
     min_output_ports: ClassVar[int | None] = 1
 
-    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Prepare data for the frontend interactive prompt.
+    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
+        """Build the panel view for the interactive prompt (ADR-051 prompt phase).
 
-        Returns a dict with:
+        Runs in an isolated worker subprocess. Returns an
+        :class:`~scistudio.blocks.base.interactive.InteractivePrompt` whose
+        ``panel_payload`` carries:
             input_ports: list of port name strings
             items_per_port: dict mapping port name to list of item descriptors
             output_ports: list of output port name strings
+        DataRouter needs no intermediate reuse, so it returns no references.
         """
         from scistudio.core.types.collection import Collection
 
@@ -89,11 +107,13 @@ class DataRouter(ProcessBlock):
         effective_output_ports = self.get_effective_output_ports()
         output_port_names = [p.name for p in effective_output_ports]
 
-        return {
-            "input_ports": input_ports,
-            "items_per_port": items_per_port,
-            "output_ports": output_port_names,
-        }
+        return InteractivePrompt(
+            panel_payload={
+                "input_ports": input_ports,
+                "items_per_port": items_per_port,
+                "output_ports": output_port_names,
+            }
+        )
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
         """Route items from inputs to outputs based on user assignments.

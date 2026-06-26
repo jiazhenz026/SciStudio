@@ -218,6 +218,13 @@ class BlockRegistry:
 
         _validate_dynamic_ports(cls)
 
+    @staticmethod
+    def _validate_interactive_capability(cls: type) -> None:
+        """Bind InteractiveMixin to ``execution_mode=INTERACTIVE`` at scan time (ADR-051 FR-002)."""
+        from scistudio.blocks.registry._capability import _validate_interactive_capability
+
+        _validate_interactive_capability(cls)
+
     def get_spec(self, identifier: str) -> BlockSpec | None:
         """Resolve a block spec by display name or public type name."""
         if identifier in self._registry:

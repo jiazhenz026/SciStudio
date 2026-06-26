@@ -440,6 +440,9 @@ def main() -> None:
         config: dict[str, Any] = payload.get("config", {})
         block_id = str(config.get("block_id") or block_class_path)
         output_dir: str = payload.get("output_dir", "")
+        # ADR-051: two-phase marker. "prompt" runs prepare_prompt and exits;
+        # absent / "compute" is the existing single-phase run path.
+        phase: str = payload.get("phase", "compute")
         # #706: For Tier-1 drop-in blocks, the parent registry passes the
         # absolute path of the source ``.py`` file. The synthetic module
         # name (``_scistudio_dropin_<stem>_<mtime>``) only exists in the
@@ -488,6 +491,32 @@ def main() -> None:
         from scistudio.blocks.base.config import BlockConfig
 
         block_config = BlockConfig(**config)
+
+        # ADR-051 prompt phase: build the panel view in this isolated worker
+        # (FR-003) and exit. The block stays as isolated as any other block
+        # while a human is in the loop. prepare_prompt receives the full input
+        # collections (one interaction spans the whole input, FR-005). Mirrors
+        # the pre-ADR-051 in-process path, which did not call validate() before
+        # prepare_prompt, so we skip it here too.
+        if phase == "prompt":
+            from scistudio.blocks.base.interactive import coerce_prompt, serialise_storage_ref
+            from scistudio.core.lineage.environment import EnvironmentSnapshot
+
+            prompt = coerce_prompt(block.prepare_prompt(inputs, block_config))
+            # FR-004: the panel payload must be JSON-safe; reject otherwise
+            # rather than pickling or truncating. json.dumps raises TypeError
+            # on a non-JSON value, which propagates to the generic handler.
+            json.dumps(prompt.panel_payload)
+            env_snapshot = EnvironmentSnapshot.capture()
+            prompt_envelope: dict[str, Any] = {
+                "wire_version": WIRE_FORMAT_VERSION,
+                "phase": "prompt",
+                "panel_payload": prompt.panel_payload,
+                "intermediate": [serialise_storage_ref(ref) for ref in prompt.intermediate],
+                "environment": env_snapshot.to_dict(),
+            }
+            print(json.dumps(prompt_envelope))
+            return
 
         # #1518 (DSN-2): enforce the documented Block.validate() contract on
         # the execution path. Before #1518 ``validate()`` had zero call sites

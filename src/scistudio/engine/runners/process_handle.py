@@ -185,6 +185,7 @@ def build_worker_payload(
     output_dir: str | None = None,
     block_file_path: str | None = None,
     runtime_import_roots: list[str] | tuple[str, ...] | None = None,
+    phase: str = "compute",
 ) -> bytes:
     """Build the JSON payload sent to the worker subprocess via stdin.
 
@@ -206,6 +207,11 @@ def build_worker_payload(
         Optional block-local import roots. These are applied inside the
         worker after core startup so plugin dependencies do not shadow core
         dependencies while the worker imports SciStudio itself.
+    phase:
+        ADR-051 two-phase marker. ``"compute"`` (default) runs the block's
+        ``run`` and is byte-identical to the pre-ADR-051 single-phase payload
+        (the key is omitted entirely). ``"prompt"`` runs the interactive
+        block's ``prepare_prompt`` to build the panel view and exits.
     """
     if isinstance(block_class, str):
         block_class_path = block_class
@@ -224,6 +230,10 @@ def build_worker_payload(
         payload_dict["block_file_path"] = block_file_path
     if runtime_import_roots:
         payload_dict["runtime_import_roots"] = list(runtime_import_roots)
+    # ADR-051: only stamp the phase when it is the new prompt phase, so the
+    # wire schema for the existing single-phase compute path is unchanged.
+    if phase != "compute":
+        payload_dict["phase"] = phase
 
     payload = json.dumps(payload_dict)
     return payload.encode("utf-8")

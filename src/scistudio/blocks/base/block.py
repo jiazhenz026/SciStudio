@@ -104,6 +104,20 @@ class Block(ABC):
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config: BlockConfig = BlockConfig(**(config or {}))
 
+    # -- ADR-051: interactive-block panel metadata -----------------------------
+
+    def get_panel_manifest(self) -> Any | None:
+        """Return this block's interactive panel manifest, if any (ADR-051 §4).
+
+        Surfaces the ``interactive_panel`` :class:`PanelManifest` an interactive
+        block declares (via ``InteractiveMixin``) as block metadata for
+        API/registry consumption. Returns ``None`` for non-interactive blocks.
+        The engine emits this manifest on the INTERACTIVE_PROMPT event so the
+        frontend resolves the window from the manifest rather than a hardcoded
+        block-type branch (FR-007).
+        """
+        return getattr(self, "interactive_panel", None)
+
     # -- ADR-028 Addendum 1 D2: effective-ports hooks --------------------------
 
     def get_effective_input_ports(self) -> list[InputPort]:

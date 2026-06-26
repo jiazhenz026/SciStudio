@@ -30,15 +30,20 @@ governs:
     - scistudio.engine.scheduler
     - scistudio.engine.runners
     - scistudio.blocks.base
+    - scistudio.blocks.base.interactive
     - scistudio.blocks.process.builtins
   contracts:
     - scistudio.blocks.base.state.ExecutionMode
+    - scistudio.blocks.base.interactive.InteractiveMixin
+    - scistudio.blocks.base.interactive.InteractivePrompt
+    - scistudio.blocks.base.interactive.PanelManifest
     - scistudio.engine.runners.local.LocalRunner
     - scistudio.engine.runners.worker.main
   entry_points: []
   files:
     - docs/specs/adr-051-interactive-blocks.md
     - src/scistudio/blocks/base/block.py
+    - src/scistudio/blocks/base/interactive.py
     - src/scistudio/blocks/base/state.py
     - src/scistudio/blocks/process/builtins/data_router.py
     - src/scistudio/blocks/process/builtins/pair_editor.py
@@ -59,15 +64,10 @@ governs:
     - docs/user/reference/**
     - docs/user/llms.txt
 planned_governs:
-  modules:
-    - scistudio.blocks.base.interactive
-  contracts:
-    - scistudio.blocks.base.interactive.InteractiveMixin
-    - scistudio.blocks.base.interactive.InteractivePrompt
-    - scistudio.blocks.base.interactive.PanelManifest
+  modules: []
+  contracts: []
   entry_points: []
-  files:
-    - src/scistudio/blocks/base/interactive.py
+  files: []
   excludes: []
 tests:
   - tests/blocks/test_interactive_mixin.py

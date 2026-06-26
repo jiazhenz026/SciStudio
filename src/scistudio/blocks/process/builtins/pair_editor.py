@@ -14,13 +14,14 @@ import logging
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt, PanelManifest
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 
 logger = logging.getLogger(__name__)
 
 
-class PairEditor(ProcessBlock):
+class PairEditor(InteractiveMixin, ProcessBlock):
     """Interactive item reordering block for fixing index-based pairing.
 
     Users configure N variadic input ports (2-8). Output ports are
@@ -29,11 +30,16 @@ class PairEditor(ProcessBlock):
     panels are "paired" (highlighted with same color). Users drag to
     reorder within each panel.
 
+    ADR-051: carries the interaction capability (``InteractiveMixin`` +
+    ``execution_mode = INTERACTIVE``); runs as two worker subprocesses around an
+    engine-held pause and opens its window through :attr:`interactive_panel`.
+    Its pair-reordering behaviour is unchanged.
+
     Runtime flow:
         1. User configures N input ports (2-8), output ports auto-mirror
-        2. Workflow reaches PairEditor -> PAUSED
-        3. Frontend opens PairEditor modal (N side-by-side sortable panels)
-        4. Confirm -> reordered indices sent to backend -> reordered Collections -> DONE
+        2. Workflow reaches PairEditor; prompt phase builds the view (subprocess) -> PAUSED
+        3. Frontend resolves the panel from the manifest (N side-by-side sortable panels)
+        4. Confirm -> reordered indices sent to backend -> compute phase reorders -> DONE
 
     Validation: All input Collections must have equal length.
     """
@@ -45,6 +51,12 @@ class PairEditor(ProcessBlock):
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
+    # ADR-051: the block-owned window, resolved from the built-in panel registry.
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
+        panel_id="core.interactive.pair_editor",
+        version="1",
+    )
+
     variadic_inputs: ClassVar[bool] = True
     variadic_outputs: ClassVar[bool] = True
     allowed_input_types: ClassVar[list[type]] = []
@@ -52,13 +64,13 @@ class PairEditor(ProcessBlock):
     min_input_ports: ClassVar[int | None] = 2
     max_input_ports: ClassVar[int | None] = 8
 
-    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Prepare data for the frontend interactive prompt.
+    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
+        """Build the panel view for the interactive prompt (ADR-051 prompt phase).
 
-        Validates equal-length Collections and returns item descriptors
-        for each port.
-
-        Returns a dict with:
+        Runs in an isolated worker subprocess. Validates equal-length
+        Collections and returns an
+        :class:`~scistudio.blocks.base.interactive.InteractivePrompt` whose
+        ``panel_payload`` carries:
             ports: list of port name strings
             items_per_port: dict mapping port name to list of item descriptors
             collection_length: int (common length of all Collections)
@@ -99,11 +111,13 @@ class PairEditor(ProcessBlock):
 
         collection_length = unique_lengths.pop() if unique_lengths else 0
 
-        return {
-            "ports": ports,
-            "items_per_port": items_per_port,
-            "collection_length": collection_length,
-        }
+        return InteractivePrompt(
+            panel_payload={
+                "ports": ports,
+                "items_per_port": items_per_port,
+                "collection_length": collection_length,
+            }
+        )
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
         """Reorder items in each Collection based on user-specified indices.

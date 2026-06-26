@@ -5,20 +5,24 @@
  */
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
+import type { InteractivePrompt, PanelManifestDescriptor } from "../../store/types";
 import type { WorkflowEventMessage } from "../../types/api";
 
 export interface LifecycleDeps {
-  setInteractivePrompt: (
-    prompt: { blockId: string; blockType: string; data: Record<string, unknown> } | null,
-  ) => void;
+  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
 }
 
 export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: LifecycleDeps): void {
-  // #591/#594: surface backend interactive_prompt events.
+  // #591/#594 + ADR-051: surface backend interactive_prompt events. The panel
+  // is resolved from the block's manifest (FR-007); the window-sized view lives
+  // nested under panel_payload (not spread, so it cannot clobber identity).
+  const data = payload.data ?? {};
   deps.setInteractivePrompt({
     blockId: payload.block_id ?? "",
-    blockType: (payload.data.block_type as string) ?? "",
-    data: payload.data,
+    blockType: (data.block_type as string) ?? "",
+    panelManifest: (data.panel_manifest as PanelManifestDescriptor | null) ?? null,
+    panelPayload: (data.panel_payload as Record<string, unknown>) ?? {},
+    data,
   });
 }
 

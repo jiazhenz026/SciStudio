@@ -55,9 +55,12 @@ packages — core ships only generic fallbacks (see
 
 ## Subprocess Isolation
 
-**ADR-017**: Most blocks execute in their own subprocess. Interactive blocks
-(AppBlock GUI sessions, AIBlock PTY sessions) are the exception and run
-in-process. Subprocess isolation gives you:
+**ADR-017**: Blocks execute in their own subprocess. Interactive
+data-processing blocks (`execution_mode = INTERACTIVE`) are no longer an
+exception — since ADR-051 they run as two subprocess phases around a pause
+(prepare the panel view, pause for the user, then compute). App/AI blocks
+(`execution_mode = EXTERNAL`) instead coordinate long-lived external processes.
+Subprocess isolation gives you:
 
 - **Library freedom**: Import any Python package, any version. Your block's
   subprocess has its own import namespace.

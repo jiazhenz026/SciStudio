@@ -1,0 +1,270 @@
+{
+  "branch": "feat/1781-adr-051-interactive-blocks",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/blocks/base/state.py",
+      "src/scistudio/blocks/base/block.py",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/engine/scheduler/_dispatch.py",
+      "src/scistudio/engine/scheduler/_events.py",
+      "src/scistudio/engine/scheduler/_lineage.py",
+      "src/scistudio/engine/scheduler/__init__.py",
+      "src/scistudio/engine/runners/worker.py",
+      "src/scistudio/engine/runners/local.py",
+      "src/scistudio/engine/runners/process_handle.py",
+      "src/scistudio/engine/events.py",
+      "src/scistudio/api/ws.py",
+      "src/scistudio/blocks/process/builtins/data_router.py",
+      "src/scistudio/blocks/process/builtins/pair_editor.py",
+      "frontend/src/**",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/block-development/**",
+      "docs/specs/adr-051-interactive-blocks.md",
+      "docs/planning/adr-051-interactive-blocks-checklist.md",
+      "docs/audit/**",
+      "tests/blocks/**",
+      "tests/engine/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-26T04:38:05.160024Z",
+      "owner_directive": "Plan: implement T-001..T-009 from docs/specs/adr-051-interactive-blocks.md (contract module -> registry validation -> worker phase marker -> two-phase scheduler -> lineage -> cancellation -> frontend panel host -> migrate DataRouter/PairEditor -> docs). Add 5 new + 2 modified backend test files and frontend panel tests. Then no-context audit + fix P1-P3, then test_engineer system/e2e smoke. One ready-for-review PR closing #1781.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-26T04:38:05.160052Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160060Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/block-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160063Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/architecture-for-block-devs.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160065Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/quickstart.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160066Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-051-interactive-blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079789Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-051.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079807Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-051-interactive-blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079810Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-017.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079811Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-019.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079813Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079814Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/block-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079816Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/architecture-for-block-devs.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079817Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development/quickstart.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T05:28:04.079819Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-051-interactive-blocks-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1781,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Lead full implementation of ADR-051 (interactive data-processing blocks): InteractiveMixin capability + INTERACTIVE mode registry validation, two-phase worker-subprocess orchestration replacing in-process _run_interactive, block-owned panel manifest reusing ADR-048 asset serving, lineage records the decision, migrate Data Router and Pair Editor, update architecture/block-dev docs and tests. Then dispatch 1 no-context audit agent and fix all P1-P3, then 1 test engineer for system/e2e smoke. Deliver as ONE ready-for-review PR closing #1781.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1781-feat-1781-adr-051-interactive-blocks",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-26T05:23:51.120989Z",
+      "pattern": "docs/adr/ADR-051.md",
+      "reason": "ADR-051 implementation resolves planned_governs and changes build_worker_payload signature; sync ADR-051/spec governs and ADR-017/ADR-019 documented signatures (doc-drift/closure/signature-drift)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T05:23:51.121010Z",
+      "pattern": "docs/adr/ADR-017.md",
+      "reason": "ADR-051 implementation resolves planned_governs and changes build_worker_payload signature; sync ADR-051/spec governs and ADR-017/ADR-019 documented signatures (doc-drift/closure/signature-drift)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-26T05:23:51.121013Z",
+      "pattern": "docs/adr/ADR-019.md",
+      "reason": "ADR-051 implementation resolves planned_governs and changes build_worker_payload signature; sync ADR-051/spec governs and ADR-017/ADR-019 documented signatures (doc-drift/closure/signature-drift)."
+    }
+  ],
+  "session_id": "70475682-a9b8-4d57-a585-3601264d858c",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-26T04:38:05.160070Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_mixin.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160073Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_registry_validation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160075Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_two_phase.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160076Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160078Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_cancellation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160079Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_data_router.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T04:38:05.160081Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_pair_editor.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

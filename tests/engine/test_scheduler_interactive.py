@@ -2,16 +2,17 @@
 
 #1338 added engine-side wrapping of bare ``DataObject`` / ``list[DataObject]``
 outputs on ``is_collection=True`` ports via
-:func:`scistudio.engine.runners.worker._normalize_outputs`, but the call site
-was only wired into the worker subprocess path and ``_run_and_finalize``'s
-in-process path. ``_run_interactive`` stored the interactive block's result
-directly, bypassing the ADR-020 §3 transport contract.
+:func:`scistudio.engine.runners.worker._normalize_outputs`. ``_run_interactive``
+must apply that contract too.
 
-These tests construct a minimal interactive block, drive
-``DAGScheduler._run_interactive`` end-to-end with a mock registry, and assert
-that bare-DataObject and bare-``list[DataObject]`` outputs on
-``is_collection=True`` ports are normalised into :class:`Collection` instances
-before they land in ``self._block_outputs``.
+ADR-051 changed ``_run_interactive`` to run the interactive block as two worker
+subprocesses (prompt phase via ``runner.run_prompt``, compute phase via
+``runner.run``) around an engine-held pause, rather than calling
+``block.prepare_prompt`` / ``block.run`` in-process. The mock runner here is
+wired so the compute phase returns the block's bare output, and the test still
+asserts that ``_run_interactive``'s finalize normalises bare-DataObject and
+bare-``list[DataObject]`` outputs on ``is_collection=True`` ports into
+:class:`Collection` instances before they land in ``self._block_outputs``.
 """
 
 from __future__ import annotations
@@ -120,7 +121,21 @@ def _make_scheduler(block_cls: type[Block]) -> tuple[DAGScheduler, EventBus]:
     resource_manager.can_dispatch.return_value = True
     process_registry = MagicMock()
     process_registry.get_handle.return_value = None
+    # ADR-051: the runner is the execution layer. The prompt phase returns a
+    # panel envelope; the compute phase runs the block and returns its (bare,
+    # un-normalised) output so the finalize-time _normalize_outputs assertion
+    # below still exercises the ADR-020 §3 contract at the interactive boundary.
     runner = AsyncMock()
+    runner.run_prompt.return_value = {
+        "panel_payload": {"prompt": "select"},
+        "intermediate": [],
+        "environment": None,
+    }
+
+    async def _compute(block: Block, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+        return block.run(inputs, BlockConfig(**config))
+
+    runner.run.side_effect = _compute
     scheduler = DAGScheduler(
         workflow=wf,
         event_bus=event_bus,

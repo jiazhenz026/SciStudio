@@ -119,10 +119,25 @@ export interface WorkflowSlice {
   redoWorkflow: () => void;
 }
 
-/** #591/#594: Data for an interactive block prompt (DataRouter, PairEditor). */
+/** ADR-051: descriptor for a block-owned interactive panel component. */
+export interface PanelManifestDescriptor {
+  panel_id: string;
+  module_url?: string;
+  export_name?: string;
+  css?: string[];
+  version?: string;
+  api_version?: string;
+}
+
+/** #591/#594 + ADR-051: Data for an interactive block prompt (DataRouter, PairEditor). */
 export interface InteractivePrompt {
   blockId: string;
   blockType: string;
+  /** ADR-051: panel manifest used to resolve the window component (FR-007). */
+  panelManifest: PanelManifestDescriptor | null;
+  /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
+  panelPayload: Record<string, unknown>;
+  /** Full event-data envelope (back-compat). */
   data: Record<string, unknown>;
 }
 

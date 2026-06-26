@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.builtins.data_router import DataRouter
 from scistudio.core.types.base import DataObject
@@ -59,7 +60,11 @@ class TestDataRouterPreparePrompt:
         inputs = {"images": col}
         config = BlockConfig()
 
-        result = block.prepare_prompt(inputs, config)
+        prompt = block.prepare_prompt(inputs, config)
+        # ADR-051: prepare_prompt now returns an InteractivePrompt whose
+        # panel_payload preserves the pre-migration dict shape.
+        assert isinstance(prompt, InteractivePrompt)
+        result = prompt.panel_payload
 
         assert result["input_ports"] == ["images"]
         assert len(result["items_per_port"]["images"]) == 2
@@ -86,7 +91,11 @@ class TestDataRouterPreparePrompt:
         inputs = {"port_a": col_a, "port_b": col_b}
         config = BlockConfig()
 
-        result = block.prepare_prompt(inputs, config)
+        prompt = block.prepare_prompt(inputs, config)
+        # ADR-051: prepare_prompt now returns an InteractivePrompt whose
+        # panel_payload preserves the pre-migration dict shape.
+        assert isinstance(prompt, InteractivePrompt)
+        result = prompt.panel_payload
 
         assert set(result["input_ports"]) == {"port_a", "port_b"}
         assert len(result["items_per_port"]["port_a"]) == 1
@@ -108,7 +117,7 @@ class TestDataRouterRun:
             }
         )
 
-        items = [StubItem("im1"), StubItem("im2"), StubItem("im3")]
+        items: list[DataObject] = [StubItem("im1"), StubItem("im2"), StubItem("im3")]
         col = Collection(items, item_type=StubItem)
         inputs = {"images": col}
 
@@ -197,3 +206,16 @@ class TestDataRouterRun:
         result = block.run({"input": col}, config)
         # Only the valid ref should be routed.
         assert len(result["output"]) == 1
+
+
+class TestDataRouterAdr051Migration:
+    """ADR-051: DataRouter carries the interaction capability and a panel manifest."""
+
+    def test_carries_interactive_capability(self) -> None:
+        assert issubclass(DataRouter, InteractiveMixin)
+        assert DataRouter.execution_mode == ExecutionMode.INTERACTIVE
+
+    def test_declares_panel_manifest(self) -> None:
+        manifest = DataRouter().get_panel_manifest()
+        assert manifest is not None
+        assert manifest.panel_id == "core.interactive.data_router"

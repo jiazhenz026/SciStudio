@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.builtins.pair_editor import PairEditor
 from scistudio.core.types.base import DataObject
@@ -66,7 +67,11 @@ class TestPairEditorPreparePrompt:
         inputs = {"A": col_a, "B": col_b}
         config = BlockConfig()
 
-        result = block.prepare_prompt(inputs, config)
+        prompt = block.prepare_prompt(inputs, config)
+        # ADR-051: prepare_prompt now returns an InteractivePrompt whose
+        # panel_payload preserves the pre-migration dict shape.
+        assert isinstance(prompt, InteractivePrompt)
+        result = prompt.panel_payload
 
         assert set(result["ports"]) == {"A", "B"}
         assert result["collection_length"] == 3
@@ -110,7 +115,7 @@ class TestPairEditorPreparePrompt:
                 ],
             }
         )
-        items = [StubItem(f"i{i}") for i in range(5)]
+        items: list[DataObject] = [StubItem(f"i{i}") for i in range(5)]
         inputs = {
             "X": Collection(items, item_type=StubItem),
             "Y": Collection(items, item_type=StubItem),
@@ -118,7 +123,11 @@ class TestPairEditorPreparePrompt:
         }
         config = BlockConfig()
 
-        result = block.prepare_prompt(inputs, config)
+        prompt = block.prepare_prompt(inputs, config)
+        # ADR-051: prepare_prompt now returns an InteractivePrompt whose
+        # panel_payload preserves the pre-migration dict shape.
+        assert isinstance(prompt, InteractivePrompt)
+        result = prompt.panel_payload
 
         assert result["collection_length"] == 5
         assert len(result["ports"]) == 3
@@ -180,8 +189,8 @@ class TestPairEditorRun:
             }
         )
 
-        items_a = [StubItem("x"), StubItem("y")]
-        items_b = [StubItem("p"), StubItem("q")]
+        items_a: list[DataObject] = [StubItem("x"), StubItem("y")]
+        items_b: list[DataObject] = [StubItem("p"), StubItem("q")]
         inputs = {
             "A": Collection(items_a, item_type=StubItem),
             "B": Collection(items_b, item_type=StubItem),
@@ -270,8 +279,8 @@ class TestPairEditorRun:
             }
         )
 
-        items_a = [StubItem("a0"), StubItem("a1")]
-        items_b = [StubItem("b0"), StubItem("b1")]
+        items_a: list[DataObject] = [StubItem("a0"), StubItem("a1")]
+        items_b: list[DataObject] = [StubItem("b0"), StubItem("b1")]
         inputs = {
             "A": Collection(items_a, item_type=StubItem),
             "B": Collection(items_b, item_type=StubItem),
@@ -295,3 +304,16 @@ class TestPairEditorRun:
         # B passes through unchanged.
         assert next(iter(result["B"])).name == "b0"
         assert list(result["B"])[1].name == "b1"
+
+
+class TestPairEditorAdr051Migration:
+    """ADR-051: PairEditor carries the interaction capability and a panel manifest."""
+
+    def test_carries_interactive_capability(self) -> None:
+        assert issubclass(PairEditor, InteractiveMixin)
+        assert PairEditor.execution_mode == ExecutionMode.INTERACTIVE
+
+    def test_declares_panel_manifest(self) -> None:
+        manifest = PairEditor().get_panel_manifest()
+        assert manifest is not None
+        assert manifest.panel_id == "core.interactive.pair_editor"

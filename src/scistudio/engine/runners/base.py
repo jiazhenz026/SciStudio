@@ -42,6 +42,23 @@ class BlockRunner(Protocol):
         """
         ...
 
+    async def run_prompt(
+        self,
+        block: Any,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run an interactive block's prompt phase in an isolated subprocess (ADR-051).
+
+        Spawns the worker with the ADR-051 ``phase="prompt"`` marker so it runs
+        ``block.prepare_prompt`` (not ``run``) and exits. Returns a dict with
+        ``panel_payload`` (the JSON-safe window view), ``intermediate`` (a list
+        of serialized storage references the engine holds across the pause), and
+        ``environment``. Called by the scheduler before pausing an interactive
+        block; the compute phase reuses :meth:`run`.
+        """
+        ...
+
     async def check_status(self, workflow_id: str, block_id: str) -> Any:
         """Query the current status of a previously started run.
 
