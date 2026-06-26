@@ -27,7 +27,9 @@ export function usePackageUpdates(): PackageUpdatesState {
     setChecking(true);
     try {
       const response = await api.checkPackageUpdates();
-      setStatuses(response.statuses);
+      // Tolerate a missing/partial payload (e.g. mocked api in tests, or an
+      // older backend): only an array of statuses is meaningful.
+      setStatuses(Array.isArray(response?.statuses) ? response.statuses : []);
     } catch {
       // Non-bundled run, offline, or backend not ready — no badge, no error.
       setStatuses([]);
@@ -40,6 +42,6 @@ export function usePackageUpdates(): PackageUpdatesState {
     void refresh();
   }, [refresh]);
 
-  const updateCount = statuses.filter((status) => status.update_available).length;
+  const updateCount = (statuses ?? []).filter((status) => status.update_available).length;
   return { statuses, updateCount, checking, refresh };
 }
