@@ -293,6 +293,14 @@
       "path": "tests/engine/test_interactive_run_scoping.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-26T06:22:24.962484Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_system_smoke.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }
