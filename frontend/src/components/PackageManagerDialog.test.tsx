@@ -45,6 +45,7 @@ function installedPackage(overrides: Partial<InstalledPackage> = {}): InstalledP
     modules: ["scistudio_blocks_demo"],
     has_backup: false,
     backup_version: "",
+    bundled: false,
     ...overrides,
   };
 }
@@ -123,6 +124,19 @@ describe("PackageManagerDialog (#1784)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));
     await waitFor(() => expect(deletePackage).toHaveBeenCalledWith("scistudio-blocks-demo"));
+  });
+
+  it("lists a bundled package as updatable but not deletable", async () => {
+    listInstalledPackages.mockResolvedValue({
+      packages: [installedPackage({ bundled: true, install_path: "" })],
+    });
+    checkPackageUpdates.mockResolvedValue({ core_base: "0.2.1", statuses: [updateStatus()] });
+
+    render(<PackageManagerDialog open onClose={() => {}} />);
+    await screen.findByText("scistudio-blocks-demo");
+    expect(screen.getByText("bundled")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^update$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
   });
 
   it("shows an empty state when no packages are installed", async () => {

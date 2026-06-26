@@ -190,6 +190,11 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
                         <p className="truncate text-sm font-medium text-ink">{pkg.package_name}</p>
                         <p className="text-xs text-stone-500">
                           v{pkg.version}
+                          {pkg.bundled ? (
+                            <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-stone-600">
+                              bundled
+                            </span>
+                          ) : null}
                           {status?.update_available ? (
                             <span className="ml-2 rounded-full bg-pine/15 px-2 py-0.5 text-pine">
                               → v{status.available_version}
@@ -237,21 +242,23 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
                             Rollback
                           </button>
                         ) : null}
-                        <button
-                          className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          disabled={busy}
-                          onClick={() =>
-                            void runAction(
-                              pkg.package_name,
-                              () => api.deletePackage(pkg.package_name),
-                              `Removed ${pkg.package_name}. Restart to finish.`,
-                            )
-                          }
-                          type="button"
-                        >
-                          <Trash2 className="size-3" />
-                          Delete
-                        </button>
+                        {pkg.bundled ? null : (
+                          <button
+                            className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            disabled={busy}
+                            onClick={() =>
+                              void runAction(
+                                pkg.package_name,
+                                () => api.deletePackage(pkg.package_name),
+                                `Removed ${pkg.package_name}. Restart to finish.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            <Trash2 className="size-3" />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </li>

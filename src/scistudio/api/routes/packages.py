@@ -39,6 +39,7 @@ class InstalledPackageModel(BaseModel):
     modules: list[str]
     has_backup: bool
     backup_version: str
+    bundled: bool
 
 
 class InstalledPackagesResponse(BaseModel):
@@ -131,10 +132,9 @@ async def install_local_package_route(
 
 @router.get("/installed", response_model=InstalledPackagesResponse)
 async def list_installed_packages_route(runtime: RuntimeDep) -> InstalledPackagesResponse:
-    """List user-installed packages from their on-disk install records."""
+    """List packages: on-disk user installs plus loaded bundled packages."""
     _require_bundled()
-    del runtime  # listing reads disk, not the live registry
-    installed = package_manager.list_installed_packages()
+    installed = package_manager.list_installed_packages(registry_packages=_registry_packages(runtime))
     return InstalledPackagesResponse(
         packages=[
             InstalledPackageModel(
@@ -144,6 +144,7 @@ async def list_installed_packages_route(runtime: RuntimeDep) -> InstalledPackage
                 modules=list(pkg.modules),
                 has_backup=pkg.has_backup,
                 backup_version=pkg.backup_version,
+                bundled=pkg.bundled,
             )
             for pkg in installed
         ]

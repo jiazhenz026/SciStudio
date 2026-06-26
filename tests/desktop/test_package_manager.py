@@ -206,6 +206,93 @@ def test_update_package_downloads_verifies_and_backs_up(tmp_path):
     assert len(list(install_root.iterdir())) == 1
 
 
+def test_list_includes_bundled_registry_packages(tmp_path):
+    install_root = tmp_path / "packages"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    registry = {
+        "scistudio-blocks-demo": PackageInfo(name="scistudio-blocks-demo", version="1.0.0"),  # on disk → not duplicated
+        "scistudio-blocks-bundled": PackageInfo(name="scistudio-blocks-bundled", version="2.0.0"),  # bundled only
+    }
+    listed = {
+        p.package_name: p
+        for p in list_installed_packages(
+            install_root=install_root, backups_root=tmp_path / "backups", registry_packages=registry
+        )
+    }
+    assert len(listed) == 2
+    assert listed["scistudio-blocks-demo"].bundled is False
+    bundled = listed["scistudio-blocks-bundled"]
+    assert bundled.bundled is True
+    assert bundled.version == "2.0.0"
+    assert str(bundled.install_path) in ("", ".")
+
+
+def test_update_rejects_manifest_package_mismatch(tmp_path):
+    install_root = tmp_path / "packages"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json"),
+    )
+    # Manifest claims to be a *different* package than the one requested.
+    with pytest.raises(PackageUpdateError, match="does not match requested"):
+        update_package(
+            "scistudio-blocks-demo",
+            packages={"scistudio-blocks-demo": info},
+            core_base="0.2.1",
+            fetch=lambda url: {
+                "package": "scistudio-blocks-evil",
+                "version": "1.2.0",
+                "url": "https://example.com/x.tar.gz",
+                "sha256": "a" * 64,
+                "requires": {"min_core_base": "0.0.0"},
+            },
+            download=lambda url, dest: dest.write_bytes(b""),
+            install_root=install_root,
+            backups_root=tmp_path / "backups",
+            install_dependencies=False,
+        )
+
+
+def test_update_rejects_archive_identity_mismatch(tmp_path):
+    install_root = tmp_path / "packages"
+    backups_root = tmp_path / "backups"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    # Manifest advertises 1.2.0 but the actual snapshot is built at 1.1.0.
+    wrong_src = _make_source_package(
+        tmp_path / "wrong", dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.1.0"
+    )
+    tarball_bytes = _tar_gz_bytes(wrong_src)
+    sha = hashlib.sha256(tarball_bytes).hexdigest()
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json"),
+    )
+    with pytest.raises(PackageUpdateError, match="does not match requested"):
+        update_package(
+            "scistudio-blocks-demo",
+            packages={"scistudio-blocks-demo": info},
+            core_base="0.2.1",
+            fetch=lambda url: {
+                "package": "scistudio-blocks-demo",
+                "version": "1.2.0",
+                "url": "https://example.com/demo-1.2.0.tar.gz",
+                "sha256": sha,
+                "requires": {"min_core_base": "0.0.0"},
+            },
+            download=lambda url, dest: dest.write_bytes(tarball_bytes),
+            install_root=install_root,
+            backups_root=backups_root,
+            install_dependencies=False,
+        )
+    # The active install is untouched and no backup was created.
+    listed = {p.package_name: p for p in list_installed_packages(install_root=install_root, backups_root=backups_root)}
+    assert listed["scistudio-blocks-demo"].version == "1.0.0"
+    assert listed["scistudio-blocks-demo"].has_backup is False
+
+
 def test_update_package_rejects_checksum_mismatch(tmp_path):
     install_root = tmp_path / "packages"
     _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")

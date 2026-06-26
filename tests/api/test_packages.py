@@ -119,10 +119,11 @@ def _bundled_app(runtime: object) -> FastAPI:
 
 def test_list_installed_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
-    monkeypatch.setattr(
-        package_manager,
-        "list_installed_packages",
-        lambda: [
+    captured: dict[str, object] = {}
+
+    def fake_list(**kwargs):
+        captured.update(kwargs)
+        return [
             package_manager.InstalledPackage(
                 package_name="scistudio-blocks-demo",
                 version="1.0.0",
@@ -130,14 +131,28 @@ def test_list_installed_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
                 modules=("scistudio_blocks_demo",),
                 has_backup=True,
                 backup_version="0.9.0",
-            )
-        ],
-    )
-    response = TestClient(_bundled_app(_Runtime())).get("/api/packages/installed")
+            ),
+            package_manager.InstalledPackage(
+                package_name="scistudio-blocks-bundled",
+                version="2.0.0",
+                install_path=tmp_path / "",
+                modules=(),
+                bundled=True,
+            ),
+        ]
+
+    monkeypatch.setattr(package_manager, "list_installed_packages", fake_list)
+    runtime = _Runtime()
+    runtime.block_registry = _RegistryWithPackages()
+    response = TestClient(_bundled_app(runtime)).get("/api/packages/installed")
     assert response.status_code == 200
     body = response.json()
     assert body["packages"][0]["package_name"] == "scistudio-blocks-demo"
     assert body["packages"][0]["has_backup"] is True
+    assert body["packages"][0]["bundled"] is False
+    assert body["packages"][1]["bundled"] is True
+    # The route forwards the live registry so bundled packages are surfaced.
+    assert "registry_packages" in captured
 
 
 def test_updates_route(monkeypatch: pytest.MonkeyPatch) -> None:

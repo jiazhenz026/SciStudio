@@ -144,7 +144,14 @@ def check_package_updates(
 
 @dataclass(frozen=True)
 class InstalledPackage:
-    """One user-installed package on disk, for the Package Manager list view."""
+    """One package shown in the Package Manager list.
+
+    ``bundled`` marks a package that is present only via the live registry
+    (shipped in the desktop bundle / installed as an entry point) and not yet
+    user-installed on disk. Such a package has no on-disk install dir and cannot
+    be deleted, but it can still be updated — the update installs a shadowing
+    copy into the scanned user packages dir.
+    """
 
     package_name: str
     version: str
@@ -152,6 +159,7 @@ class InstalledPackage:
     modules: tuple[str, ...]
     has_backup: bool = False
     backup_version: str = ""
+    bundled: bool = False
 
 
 @dataclass(frozen=True)
@@ -212,18 +220,31 @@ def list_installed_packages(
     *,
     install_root: str | Path | None = None,
     backups_root: str | Path | None = None,
+    registry_packages: Mapping[str, PackageInfo] | None = None,
 ) -> list[InstalledPackage]:
-    """List user-installed packages from their on-disk install manifests."""
+    """List packages for the Package Manager.
+
+    On-disk user installs come first (from their install manifests). When
+    ``registry_packages`` is provided, any loaded package not present on disk —
+    i.e. shipped in the bundle / installed as an entry point — is appended as a
+    ``bundled`` row so its OTA update is actually visible and applyable, not just
+    counted by the toolbar badge.
+    """
     root = Path(install_root).expanduser() if install_root is not None else paths.installed_packages_dir()
     backups = Path(backups_root).expanduser() if backups_root is not None else paths.package_backups_dir()
     packages: list[InstalledPackage] = []
+    seen: set[str] = set()
+
+    def _backup_version(name: str) -> tuple[bool, str]:
+        backup = _existing_backup(backups, name)
+        if backup is None:
+            return False, ""
+        return True, str((_read_install_manifest(backup) or {}).get("version") or "")
+
     for install_dir, manifest in _iter_install_dirs(root):
         name = str(manifest.get("package_name") or install_dir.name)
-        backup = _existing_backup(backups, name)
-        backup_version = ""
-        if backup is not None:
-            backup_manifest = _read_install_manifest(backup)
-            backup_version = str((backup_manifest or {}).get("version") or "")
+        seen.add(name)
+        has_backup, backup_version = _backup_version(name)
         modules = manifest.get("modules")
         packages.append(
             InstalledPackage(
@@ -231,8 +252,25 @@ def list_installed_packages(
                 version=str(manifest.get("version") or ""),
                 install_path=install_dir,
                 modules=tuple(m for m in modules if isinstance(m, str)) if isinstance(modules, list) else (),
-                has_backup=backup is not None,
+                has_backup=has_backup,
                 backup_version=backup_version,
+            )
+        )
+
+    for name, info in (registry_packages or {}).items():
+        if name in seen:
+            continue
+        seen.add(name)
+        has_backup, backup_version = _backup_version(name)
+        packages.append(
+            InstalledPackage(
+                package_name=name,
+                version=info.version,
+                install_path=Path(""),
+                modules=(),
+                has_backup=has_backup,
+                backup_version=backup_version,
+                bundled=True,
             )
         )
     return packages
@@ -334,6 +372,11 @@ def update_package(
         raise PackageUpdateError(
             f"No applicable update for {package_name!r} (status={evaluated.kind}, reason={evaluated.reason})."
         )
+    # The manifest must describe the package we were asked to update; a
+    # misconfigured/compromised source pointing at another package is rejected
+    # before anything is downloaded.
+    if manifest.package and manifest.package != package_name:
+        raise PackageUpdateError(f"Manifest package {manifest.package!r} does not match requested {package_name!r}.")
 
     root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".scistudio-pkg-ota-") as tmp:
@@ -349,6 +392,17 @@ def update_package(
             install_root=root,
             install_dependencies=install_dependencies,
             python_executable=python_executable,
+        )
+
+    # A valid checksum only proves the bytes match the manifest; it does not
+    # prove the manifest points at the right package/version. Verify the
+    # installed archive's identity before disturbing the current active install,
+    # and roll the bad install back out if it does not match.
+    if result.package_name != package_name or result.version != manifest.version:
+        shutil.rmtree(result.install_path, ignore_errors=True)
+        raise PackageUpdateError(
+            f"Downloaded archive identity {result.package_name!r} {result.version!r} does not match "
+            f"requested {package_name!r} {manifest.version!r}; update rejected."
         )
 
     previous = _move_old_active_to_backup(

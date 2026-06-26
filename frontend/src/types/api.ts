@@ -583,6 +583,9 @@ export interface InstalledPackage {
   modules: string[];
   has_backup: boolean;
   backup_version: string;
+  /** Present only via the live registry (bundled / entry point), not on disk.
+   *  Can be updated (installs a shadowing copy) but not deleted. */
+  bundled: boolean;
 }
 
 export interface InstalledPackagesResponse {
