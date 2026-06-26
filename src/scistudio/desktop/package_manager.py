@@ -276,6 +276,25 @@ def list_installed_packages(
     return packages
 
 
+def _repoint_install_source(install_dir: Path) -> None:
+    """Rewrite the install manifest's ``source_path`` to the install dir itself.
+
+    An OTA install is fed a snapshot in a temp dir that is deleted afterward, so
+    the installer-recorded ``source_path`` would dangle and break subsequent
+    dependency repair. The installed tree is itself a valid source package, so
+    point repair back at it.
+    """
+    manifest_path = install_dir / _INSTALL_MANIFEST_NAME
+    manifest = _read_install_manifest(install_dir)
+    if manifest is None:
+        return
+    manifest["source_path"] = str(install_dir)
+    try:
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError as exc:  # pragma: no cover - defensive
+        logger.warning("Failed to repoint OTA install source for %s: %s", install_dir, exc)
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -404,6 +423,13 @@ def update_package(
             f"Downloaded archive identity {result.package_name!r} {result.version!r} does not match "
             f"requested {package_name!r} {manifest.version!r}; update rejected."
         )
+
+    # The installer records ``source_path`` as the archive it was given — for an
+    # OTA install that is the snapshot in the temp dir above, which is now gone.
+    # Subsequent ABI dependency repair re-installs from ``source_path``, so
+    # repoint it at the persistent install dir (itself a valid source tree)
+    # before the temp dir is reaped.
+    _repoint_install_source(result.install_path)
 
     previous = _move_old_active_to_backup(
         install_root=root,

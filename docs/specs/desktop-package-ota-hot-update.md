@@ -114,11 +114,21 @@ otherwise `none` / `incompatible` / `invalid`.
 ## 5. Apply model and rollback
 
 `package_manager.update_package` fetches the manifest, downloads the snapshot,
-verifies sha256, installs it into `installed_packages_dir()` (which is on the
-block scan path and shadows any bundled copy), then moves the prior active
-version into `plugins/package-backups/<name>/`. Exactly one active version stays
-on the scan path — this also fixes a latent bug where a version bump left the old
+verifies sha256, validates the installed archive's identity (package name +
+version) against the manifest, repoints the install record's `source_path` at
+the persistent install dir (so later ABI dependency repair has a valid source),
+installs it into `installed_packages_dir()`, then moves the prior active version
+into `plugins/package-backups/<name>/`. Exactly one active version stays on the
+scan path — this also fixes a latent bug where a version bump left the old
 install dir discoverable.
+
+The install lands as a **Tier 3 source** package; within Tier 3,
+`installed_packages_dir()` is scanned before `bundled_packages_dir()`, so the
+OTA copy shadows a bundled source copy. This shadow does **not** override a
+package loaded as a **Tier 2 entry point** (entry points are registered before
+the Tier 3 scan, which skips already-registered names). The shipped desktop has
+no Tier 2 packages, so OTA applies; unifying install + OTA on the entry-point
+path so entry-point packages are also updatable is tracked in #1786.
 
 Because Python does not re-import an already-loaded module in-process, applying
 new code requires a fresh interpreter. The Package Manager prompts a restart and

@@ -293,6 +293,46 @@ def test_update_rejects_archive_identity_mismatch(tmp_path):
     assert listed["scistudio-blocks-demo"].has_backup is False
 
 
+def test_update_repoints_source_path_to_persistent_dir(tmp_path):
+    install_root = tmp_path / "packages"
+    backups_root = tmp_path / "backups"
+    _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
+    new_src = _make_source_package(
+        tmp_path / "newbuild", dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.2.0"
+    )
+    tarball_bytes = _tar_gz_bytes(new_src)
+    sha = hashlib.sha256(tarball_bytes).hexdigest()
+    info = PackageInfo(
+        name="scistudio-blocks-demo",
+        version="1.0.0",
+        ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json"),
+    )
+    result = update_package(
+        "scistudio-blocks-demo",
+        packages={"scistudio-blocks-demo": info},
+        core_base="0.2.1",
+        fetch=lambda url: {
+            "package": "scistudio-blocks-demo",
+            "version": "1.2.0",
+            "url": "https://example.com/demo-1.2.0.tar.gz",
+            "sha256": sha,
+            "requires": {"min_core_base": "0.0.0"},
+        },
+        download=lambda url, dest: dest.write_bytes(tarball_bytes),
+        install_root=install_root,
+        backups_root=backups_root,
+        install_dependencies=False,
+    )
+    assert result.version == "1.2.0"
+    # source_path must be the persistent install dir, not a (now-deleted) temp
+    # snapshot, so dependency repair can re-install from it (#1784 P2).
+    install_dir = next(install_root.iterdir())
+    manifest = json.loads((install_dir / "scistudio-local-package.json").read_text())
+    assert manifest["source_path"] == str(install_dir)
+    assert Path(manifest["source_path"]).is_dir()
+    assert ".scistudio-pkg-ota-" not in manifest["source_path"]
+
+
 def test_update_package_rejects_checksum_mismatch(tmp_path):
     install_root = tmp_path / "packages"
     _install_one(install_root, dist_name="scistudio-blocks-demo", module="scistudio_blocks_demo", version="1.0.0")
