@@ -430,8 +430,9 @@ async function maybeCheckForUpdate() {
       title: "Update available",
       message: "A newer SciStudio version is available.",
       detail:
-        `Build ${decision.build} requires a newer base version (${decision.minBase}) than ` +
-        `this installation (${baseline.base}). Please download and reinstall SciStudio to update.`,
+        `Version ${ota.displayBuildVersion(manifest.base, decision.build)} requires a newer base ` +
+        `version (${decision.minBase}) than this installation (${baseline.base}). ` +
+        `Please download and reinstall SciStudio to update.`,
       buttons: ["OK"],
       defaultId: 0
     });
@@ -444,7 +445,7 @@ async function maybeCheckForUpdate() {
   const choice = await dialog.showMessageBox(mainWindow || undefined, {
     type: "question",
     title: "Update available",
-    message: `Update SciStudio to build ${manifest.build}?`,
+    message: `Update SciStudio to ${ota.displayBuildVersion(manifest.base, manifest.build)}?`,
     detail:
       (manifest.notes ? `${manifest.notes}\n\n` : "") +
       "SciStudio will restart to apply the update.",

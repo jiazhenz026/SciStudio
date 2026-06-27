@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-27
+
+Patch release; the first internally-distributed 0.3.x build (0.3.0 was never
+distributed — internal testers were still on 0.2.x). The committed version
+embeds build `0000`; the real build number is injected at installer build time.
+
 ### Changed
 
+- [#1805] OTA update dialog now shows a version string (e.g. `0.3.1.0008`) instead of the engineering-flavored `build 7`. A pure `displayBuildVersion(base, build)` helper (`desktop/ota.js`) formats `base + zero-padded build`; used in the patch-available and incompatible dialogs in `desktop/main.js`. Shell-only — reaches users via a new installer, not OTA. Tests: `desktop/test/ota.test.js`. (@claude, 2026-06-27, branch: guided/1805-friendly-ota-dialog)
 - [#1803] Welcome screen hero layout: the **SciStudio** title is larger (`text-7xl`) and the title + tagline are vertically centered in the hero column, with the New/Open Project buttons pinned to the bottom (the left/right layout and Recent Workspaces panel are unchanged). Styling only. (`frontend/src/components/WelcomeScreen.tsx`) (@claude, 2026-06-27, branch: guided/1803-welcome-hero-layout)
 
 ## [0.3.0] - 2026-06-27
