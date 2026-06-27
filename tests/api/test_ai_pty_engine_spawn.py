@@ -60,6 +60,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
@@ -101,7 +102,9 @@ def test_open_engine_tab_stamps_metadata_on_pty(tmp_path: Path) -> None:
     tab_id = open_engine_initiated_tab(**_spec_kw(tmp_path, run_id="rid-2"))
     pty = _active_ptys[tab_id]
     assert pty._engine_block_run_id == "rid-2"
-    assert pty._engine_initial_stdin == "Hello agent\n"
+    # #1789: the prompt is delivered to the agent as a spawn CLI argument, so the
+    # engine no longer stamps it for a stdin replay (which would double-send).
+    assert pty._engine_initial_stdin == ""
 
 
 def test_open_engine_tab_rejects_relative_cwd() -> None:
@@ -137,6 +140,7 @@ def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypa
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         captured["provider"] = provider
         captured["dangerous"] = dangerous
@@ -169,6 +173,7 @@ def test_open_engine_tab_spawn_failure_propagates(tmp_path: Path, monkeypatch: p
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         raise FileNotFoundError("claude binary missing")
 

@@ -317,6 +317,11 @@ class AIBlock(Block):
             title=f"AI: {block_name}",
             spawn_argv=spawn_argv,
             cwd=str(project_dir),
+            # #1789: ``initial_stdin`` carries the composed prompt. The engine
+            # delivers it to claude/codex as a positional CLI argument at spawn
+            # (see open_engine_initiated_tab → _spawn → spawn_claude/spawn_codex),
+            # not by typing it into the TUI — a raw-mode TUI ignored the trailing
+            # carriage return, so the prompt sat unsubmitted.
             initial_stdin=_compose_initial_stdin(str(config.get("user_prompt", "")), str(manifest_path)),
             # ``block_run_id`` is the engine-surface field name (ADR-034
             # PtyTabSpec, kept for back-compat per ADR-038 §5.2). The

@@ -36,9 +36,15 @@ function ExecutionControls(props: WorkflowGroupsProps) {
     if (!isRunning) setIsStopping(false);
   }, [isRunning]);
   const handleStop = () => {
-    setIsStopping(true);
+    // Only enter the "Stopping" state when there is actually a live run to stop.
+    // Clicking Stop on an already-finished run must not latch the spinner: the
+    // clear effect above only fires on an isRunning true→false transition, so if
+    // it was already false the state would never clear (stuck-Stopping bug).
+    if (isRunning) setIsStopping(true);
     onStop();
   };
+  // Belt-and-suspenders: never render "Stopping" once the run is no longer live.
+  const showStopping = isStopping && isRunning;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -51,11 +57,11 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         onClick={onRun}
       />
       <ToolbarButton
-        icon={isStopping ? Loader2 : Square}
-        label={isStopping ? "Stopping" : "Stop"}
+        icon={showStopping ? Loader2 : Square}
+        label={showStopping ? "Stopping" : "Stop"}
         shortcut="Ctrl+."
-        disabled={!workflowId || isStopping}
-        iconClassName={isStopping ? "animate-spin" : undefined}
+        disabled={!workflowId || showStopping}
+        iconClassName={showStopping ? "animate-spin" : undefined}
         onClick={handleStop}
       />
       <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />

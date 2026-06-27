@@ -511,6 +511,11 @@
       "at": "2026-06-26T23:21:30.622225Z",
       "owner_directive": "Bug 6: only make Stop responsive (no external-process kill). Bug 4 also: small->fullscreen resize must make the agent TUI redraw to fill the enlarged PTY.",
       "reason": "Owner narrowed bug 6: do NOT kill external processes; only fix the post-Stop unresponsiveness (UI hangs on the worker terminate grace period). Fix is frontend-only optimistic feedback - no protected engine/blocks change. The previously authorized admin-approved:core-change is therefore no longer needed for this PR. Owner also extended bug 4: resizing a PTY from small to fullscreen grows the PTY but the TUI content stays small (resize/refit not propagating)."
+    },
+    {
+      "at": "2026-06-27T00:16:54.853501Z",
+      "owner_directive": "A: spawn the agent PTY with the prompt as a CLI argument instead of typing it in. B: fix CompletionWatcher so a stale leftover output file no longer completes the block immediately.",
+      "reason": "Owner authorized core-change to fix AI block lifecycle: (A) deliver the prompt as a spawn argv argument (typed-replay + carriage-return does not submit in claude-code or codex), (B) baseline pre-existing expected-output files so the FileWatcher completion path does not fire on stale outputs from a previous run. Both in protected blocks/ai."
     }
   ],
   "docs_events": [
@@ -1298,7 +1303,44 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-27T00:16:54.853658Z",
+      "pattern": "src/scistudio/blocks/ai/ai_block.py",
+      "reason": "Owner authorized core-change to fix AI block lifecycle: (A) deliver the prompt as a spawn argv argument (typed-replay + carriage-return does not submit in claude-code or codex), (B) baseline pre-existing expected-output files so the FileWatcher completion path does not fire on stale outputs from a previous run. Both in protected blocks/ai."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T00:16:54.853662Z",
+      "pattern": "src/scistudio/blocks/ai/completion.py",
+      "reason": "Owner authorized core-change to fix AI block lifecycle: (A) deliver the prompt as a spawn argv argument (typed-replay + carriage-return does not submit in claude-code or codex), (B) baseline pre-existing expected-output files so the FileWatcher completion path does not fire on stale outputs from a previous run. Both in protected blocks/ai."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:10:47.693306Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "Root-cause fix for AI block prompt: claude's variadic --mcp-config swallowed the trailing prompt (exit 1 in ask mode; bypass worked only because the bypass flag separated them). Deliver the prompt as a spawn CLI arg via _spawn/spawn_claude/spawn_codex with a -- separator (uniform, no per-provider special-casing). Stop responsiveness: scheduler cancel now backgrounds worker terminate so cancel returns immediately. Adds spawn plumbing + scheduler scope and their tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:10:47.693450Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/_state.py",
+      "reason": "Root-cause fix for AI block prompt: claude's variadic --mcp-config swallowed the trailing prompt (exit 1 in ask mode; bypass worked only because the bypass flag separated them). Deliver the prompt as a spawn CLI arg via _spawn/spawn_claude/spawn_codex with a -- separator (uniform, no per-provider special-casing). Stop responsiveness: scheduler cancel now backgrounds worker terminate so cancel returns immediately. Adds spawn plumbing + scheduler scope and their tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:10:47.693452Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/engine.py",
+      "reason": "Root-cause fix for AI block prompt: claude's variadic --mcp-config swallowed the trailing prompt (exit 1 in ask mode; bypass worked only because the bypass flag separated them). Deliver the prompt as a spawn CLI arg via _spawn/spawn_claude/spawn_codex with a -- separator (uniform, no per-provider special-casing). Stop responsiveness: scheduler cancel now backgrounds worker terminate so cancel returns immediately. Adds spawn plumbing + scheduler scope and their tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:10:47.693454Z",
+      "pattern": "src/scistudio/engine/scheduler/_events.py",
+      "reason": "Root-cause fix for AI block prompt: claude's variadic --mcp-config swallowed the trailing prompt (exit 1 in ask mode; bypass worked only because the bypass flag separated them). Deliver the prompt as a spawn CLI arg via _spawn/spawn_claude/spawn_codex with a -- separator (uniform, no per-provider special-casing). Stop responsiveness: scheduler cancel now backgrounds worker terminate so cancel returns immediately. Adds spawn plumbing + scheduler scope and their tests."
+    }
+  ],
   "session_id": "b73db3a8-d0a5-4e47-b9d1-5c6866d05d63",
   "strictness_tier": 2,
   "task_kind": "guided",
@@ -1332,6 +1374,22 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/Toolbar.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T01:10:47.693460Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_windows_executable_resolution.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T01:10:47.693474Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/ai/test_completion_skeleton.py",
       "rationale": null,
       "verified_in_diff": null
     }

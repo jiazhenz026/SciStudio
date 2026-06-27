@@ -92,6 +92,17 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.queryByRole("button", { name: /^stop$/i })).toBeNull();
   });
 
+  it("workflow tab: clicking Stop on an already-stopped run does not latch 'Stopping' (#1789)", () => {
+    const onStop = vi.fn();
+    // isRunning=false: clicking Stop must not get stuck showing the spinner,
+    // since the clear effect only fires on an isRunning true→false transition.
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", isRunning: false, onStop })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^stop$/i }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /^stop$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^stopping$/i })).toBeNull();
+  });
+
   it("workflow tab: Reload sits in the old Reset slot and calls reload blocks", () => {
     const onReloadBlocks = vi.fn();
     const onReset = vi.fn();

@@ -70,6 +70,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         return _RecordingPty(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
@@ -166,8 +167,6 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
             ws.receive_json(timeout=0.5)
         # Sanity: still the same PTY instance — not respawned.
         assert _active_ptys.get(tab_id) is pre_spawn_pty
-        # And the initial stdin replay sentinel was set.
-        assert getattr(pre_spawn_pty, "_engine_initial_stdin_sent", False) is True
 
     # The teardown drops the entry; only the original spawn happened.
     assert len(spawn_calls) == 1, (
@@ -176,36 +175,19 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
 
 
 # ---------------------------------------------------------------------------
-# #1789: the engine-supplied prompt must be typed into the agent TUI only after
-# it is up (first output seen) and submitted with a carriage return, not an LF.
+# #1789: the engine delivers the prompt to the agent as a spawn argument (the
+# raw-mode TUI ignored a carriage return typed over stdin), so open_engine_-
+# initiated_tab must forward it to _spawn and NOT stamp it for stdin replay.
 # ---------------------------------------------------------------------------
 
 
-def test_1789_initial_stdin_replayed_with_carriage_return_after_first_output(
+def test_1789_engine_passes_prompt_to_spawn_not_stdin(
     client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The engine prompt is typed after the child's first output and submitted
-    with a single ``\\r`` (Enter), with the composed trailing newline stripped.
-
-    Previously the prompt was written the instant the WS connected and ended in
-    an LF, so a raw-mode TUI never saw an Enter — the text sat unsent (#1789).
-    """
-    import time
-
-    writes: list[bytes] = []
-
-    # Child emits a banner immediately (so ``first_output`` fires), then idles so
-    # the PTY stays alive while we observe the deferred replay.
-    argv = [
-        sys.executable,
-        "-c",
-        "import sys, time\nsys.stdout.write('BANNER\\n'); sys.stdout.flush()\ntime.sleep(3)\n",
-    ]
-
-    class _RecordingPty(PtyProcess):
-        def write(self, data: bytes) -> int:  # type: ignore[override]
-            writes.append(data)
-            return super().write(data)
+    """The prompt (carried in ``initial_stdin``) is forwarded to ``_spawn`` so
+    spawn_claude/spawn_codex pass it as the agent's positional CLI argument, and
+    it is no longer stamped for a stdin replay (which would double-send)."""
+    captured: dict[str, str] = {}
 
     def fake(
         *,
@@ -213,8 +195,10 @@ def test_1789_initial_stdin_replayed_with_carriage_return_after_first_output(
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
-        return _RecordingPty(argv, cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
+        captured["prompt"] = prompt
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty._state, "_spawn", fake)
 
@@ -222,28 +206,16 @@ def test_1789_initial_stdin_replayed_with_carriage_return_after_first_output(
         title="🤖 demo",
         spawn_argv=["claude"],
         cwd=str(opened_project),
-        initial_stdin="Do the thing\n",
-        block_run_id="rid-1789",
+        initial_stdin="infer a metadata table from filenames",
+        block_run_id="rid-1789-prompt",
         permission_mode="safe",
-        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789"),
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789-prompt"),
     )
 
-    url = f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}&dangerous=false"
-    with client.websocket_connect(url) as ws:
-        # Drain frames until the deferred replay (first_output + settle) writes
-        # the submit byte, or we give up after a few seconds.
-        deadline = time.time() + 6.0
-        while time.time() < deadline and b"\r" not in writes:
-            with contextlib.suppress(Exception):
-                ws.receive_json(timeout=0.2)
-
-    assert writes, "expected the engine prompt to be replayed to the PTY"
-    # Submit byte is a lone carriage return, written last.
-    assert writes[-1] == b"\r", f"expected a trailing carriage-return submit, got {writes!r}"
-    # The body precedes it, carries the prompt, and has no trailing newline.
-    body = writes[-2] if len(writes) >= 2 else b""
-    assert b"Do the thing" in body
-    assert not body.endswith(b"\n"), f"composed trailing LF must be stripped, got {body!r}"
+    assert captured.get("prompt") == "infer a metadata table from filenames"
+    # The prompt went via the spawn argument, so nothing is left to replay.
+    pty = _active_ptys[tab_id]
+    assert getattr(pty, "_engine_initial_stdin", None) == ""
 
 
 def test_1789_engine_pty_resized_to_client_viewport_on_join(
@@ -269,6 +241,7 @@ def test_1789_engine_pty_resized_to_client_viewport_on_join(
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         return _RecordingPty(_echo_argv(), cwd=project_dir, cols=120, rows=30, extra_env=extra_env)
 

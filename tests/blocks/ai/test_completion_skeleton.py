@@ -108,6 +108,46 @@ def test_wait_file_watcher_returns_when_all_paths_stable(tmp_path: Path) -> None
     assert event.outputs["out"] == expected.resolve()
 
 
+def test_wait_file_watcher_ignores_stale_preexisting_output(tmp_path: Path) -> None:
+    """#1789: a leftover output from a previous run must NOT complete the block.
+
+    The ``<block_id>_outputs`` dir persists across runs, so an expected_path file
+    can already exist (and be size-stable) at run start. Before the fix this
+    immediately satisfied the FileWatcher path, completing the block in
+    ``stability_period`` seconds with stale data before the agent did anything.
+    """
+    expected = tmp_path / "out.csv"
+    expected.write_text("stale output from a previous run", encoding="utf-8")
+    _rd, watcher = _make_watcher(
+        tmp_path,
+        {"out": {"expected_path": "./out.csv"}},
+        stability_period=0.1,
+    )
+    # The stale file is stable but unchanged since baseline → no completion.
+    with pytest.raises(TimeoutError, match="no signal"):
+        watcher.wait(timeout_sec=0.5)
+
+
+def test_wait_file_watcher_completes_when_stale_output_is_rewritten(tmp_path: Path) -> None:
+    """#1789: once the agent rewrites the leftover file, FileWatcher completes."""
+    expected = tmp_path / "out.csv"
+    expected.write_text("stale", encoding="utf-8")
+    _rd, watcher = _make_watcher(
+        tmp_path,
+        {"out": {"expected_path": "./out.csv"}},
+        stability_period=0.2,
+    )
+
+    def rewriter() -> None:
+        time.sleep(0.1)
+        expected.write_text("fresh output produced by this run", encoding="utf-8")
+
+    threading.Thread(target=rewriter, daemon=True).start()
+    event = watcher.wait(timeout_sec=3.0)
+    assert event.source is CompletionSource.FILE_WATCHER
+    assert event.outputs["out"] == expected.resolve()
+
+
 def test_wait_user_mark_done_returns(tmp_path: Path) -> None:
     rd, watcher = _make_watcher(tmp_path, {"out": {"expected_path": "./out.csv"}})
     # No MCP signal, no output file. Mark-done fires.
