@@ -123,6 +123,16 @@
       "at": "2026-06-27T16:59:46.005031Z",
       "owner_directive": "Add ergonomic accessors to core types because ordinary/custom-block authors know pandas, not Arrow; each package defining its own to_pandas is unacceptable, so it belongs in core once. Constraint: accessors are public-only \u2014 core internal data flow must not use them; canonical to_memory()/Arrow/ndarray unchanged. Exception: planned Excel loader (#1810) must use pandas internally because pyarrow can't read Excel.",
       "reason": "Owner decided: add public-only ergonomic accessors (to_pandas/to_numpy) on core types, inherited by packages, barred from internal data flow (Excel loader #1810 the sole exception)"
+    },
+    {
+      "at": "2026-06-27T18:13:07.116114Z",
+      "owner_directive": "Create a companion spec under docs/specs recording the public API contract file by file and symbol by symbol; scaffold it first, then fill it in live during the session so nothing is missed.",
+      "reason": "Owner directed continuing PR #1821 to draft the exhaustive per-symbol public API contract that ADR-052 \u00a73 defers to implementation; adding a companion spec as additional docs scope on the existing ledger (docs-only, no source changes)."
+    },
+    {
+      "at": "2026-06-27T18:25:03.289268Z",
+      "owner_directive": "Owner decisions: (1) Since baseline = 0.3.1 (current BASE_VERSION on main). (2) Today cover the full affected surface \u2014 core modules, domain packages, and affected docs \u2014 not core-only. (3) AIBlock and SubWorkflowBlock are NOT public; correct ADR-052 \u00a73 to exclude them from the author surface.",
+      "reason": "Record owner framing decisions for the public-API-contract drafting session and bring ADR-052.md into explicit scope for the \u00a73 correction."
     }
   ],
   "docs_events": [
@@ -667,6 +677,18 @@
       "at": "2026-06-27T15:57:28.744930Z",
       "pattern": "docs/adr/**",
       "reason": "Owner refined ADR scope and key design decisions during live discussion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T18:13:07.116271Z",
+      "pattern": "docs/specs/adr-052-public-api-surface.md",
+      "reason": "Owner directed continuing PR #1821 to draft the exhaustive per-symbol public API contract that ADR-052 \u00a73 defers to implementation; adding a companion spec as additional docs scope on the existing ledger (docs-only, no source changes)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T18:25:03.289416Z",
+      "pattern": "docs/adr/ADR-052.md",
+      "reason": "Record owner framing decisions for the public-API-contract drafting session and bring ADR-052.md into explicit scope for the \u00a73 correction."
     }
   ],
   "session_id": "61f5e6ad-ca11-4eac-9e42-912159ae719f",
