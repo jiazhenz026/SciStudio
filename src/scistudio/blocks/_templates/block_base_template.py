@@ -172,8 +172,17 @@ from scistudio.blocks.base import (
     InputPort,
     OutputPort,
 )
+
+# All built-in data types are imported here so you can use any of them in your
+# ports and in run() without adding an import line. The trailing "unused
+# import" notes just silence the linter for the types you have not used yet --
+# delete the note once you start using one.
 from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact  # noqa: F401
 from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame  # noqa: F401
+from scistudio.core.types.series import Series  # noqa: F401
+from scistudio.core.types.text import Text  # noqa: F401
 
 
 class MyBlock(Block):

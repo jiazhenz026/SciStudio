@@ -173,3 +173,22 @@ def test_template_myblock_validates_via_harness(client: TestClient) -> None:
     my_block = namespace["MyBlock"]
     errors = BlockTestHarness(my_block).validate_block()
     assert not errors, errors
+
+
+def test_template_preimports_every_advertised_type(client: TestClient) -> None:
+    """Switching a port to any advertised type must not NameError (#1818 review).
+
+    Section 4 tells authors to change ``accepted_types`` to DataFrame / Series /
+    Text / Artifact. The old template only imported ``Array`` in the executable
+    body, so a non-programmer's copied module raised ``NameError`` at registry
+    import the moment they followed that instruction. Every base type named in
+    the guidance must be importable in the served module.
+    """
+    content = _template(client)
+    namespace: dict[str, object] = {}
+    exec(compile(content, "block_base_template.py", "exec"), namespace)
+    for type_name in ("Array", "DataFrame", "Series", "Text", "Artifact"):
+        assert type_name in namespace, (
+            f"{type_name} is advertised in the template but not imported in the "
+            "executable body — switching a port to it would NameError on import"
+        )
