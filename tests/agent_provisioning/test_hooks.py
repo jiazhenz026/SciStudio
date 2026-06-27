@@ -16,7 +16,6 @@ import pytest
 from scistudio.agent_provisioning.hooks import write_hooks
 
 _HOOK_NAMES = (
-    "worktree_write_guard.py",
     "deny_scistudio_cli.py",
     "protect_workflow_yaml.py",
     "enforce_list_blocks_before_block_write.py",
@@ -36,7 +35,7 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     assert "hooks" in data
     pre = data["hooks"]["PreToolUse"]
     post = data["hooks"]["PostToolUse"]
-    assert len(pre) == 4
+    assert len(pre) == 3
     assert len(post) == 3
 
     # Every entry references a python interpreter and a hook script path.
@@ -60,6 +59,21 @@ def test_write_hooks_copies_hook_scripts(tmp_project_dir: Path) -> None:
     hooks_dir = tmp_project_dir / ".claude" / "hooks"
     for name in _HOOK_NAMES:
         assert (hooks_dir / name).is_file(), f"missing hook: {name}"
+
+
+def test_write_hooks_excludes_worktree_write_guard(tmp_project_dir: Path) -> None:
+    """#1793: the SciStudio repo-dev worktree guard must not leak into user projects."""
+    written = write_hooks(tmp_project_dir, force=False)
+    assert not any("worktree_write_guard" in path for path in written)
+    assert not (tmp_project_dir / ".claude" / "hooks" / "worktree_write_guard.py").exists()
+
+    data = json.loads((tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    commands = [
+        handler["command"]
+        for group in (data["hooks"]["PreToolUse"] + data["hooks"]["PostToolUse"])
+        for handler in group["hooks"]
+    ]
+    assert not any("worktree_write_guard" in command for command in commands)
 
 
 def test_write_hooks_idempotent_preserves_user_edits(tmp_project_dir: Path) -> None:
