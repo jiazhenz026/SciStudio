@@ -63,6 +63,12 @@ interface WorkflowCanvasProps {
   onPaneClick?: () => void;
   /** ADR-043 FR-014 — `blockId -> output payload` for LossySaveWarning chip. */
   blockOutputs?: Record<string, Record<string, unknown>>;
+  /**
+   * ADR-044 — run-scope prefix for status/error lookups when this canvas is the
+   * expanded child of a subworkflow node (the flattened run keys carry the
+   * parent prefix). Empty for a top-level workflow. Forwarded to `useFlowNodes`.
+   */
+  runScopePrefix?: string;
   // --- ADR-050 §3 focus mode + tidy layout (all optional) ----------------
   /** Focus-mode view state from the UI slice (FR-017/FR-018). */
   focusMode?: { enabled: boolean; selectedIds: string[]; depth: number };
@@ -81,7 +87,7 @@ interface WorkflowCanvasProps {
    * tab. OPTIONAL so existing call sites compile; absent ⇒ double-click is a
    * no-op for subworkflow nodes.
    */
-  onOpenSubworkflow?: (refPath: string) => void;
+  onOpenSubworkflow?: (refPath: string, runPrefix?: string) => void;
   /**
    * ADR-044 §10 / spec US 6 acceptance #2 — broken-ref "locate file…"
    * affordance. Invoked by the placeholder's button and by double-clicking a
@@ -229,6 +235,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onResizeNode,
     selectedNodeId,
     blockOutputs,
+    runScopePrefix,
     focusMode,
     onEnterFocusMode,
     onExitFocusMode,
@@ -263,6 +270,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     blockErrorSummaries,
     selectedNodeId,
     blockOutputs,
+    runScopePrefix,
     dragPositions,
     dragSizes,
     onUpdateNodeConfig,
@@ -313,6 +321,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     reactFlow,
     edges,
     nodes,
+    runScopePrefix,
     onAddNode,
     onConnect,
     onDeleteEdge,

@@ -290,6 +290,8 @@ export interface SubWorkflowOpts {
   selectedNodeId: string | null;
   /** Shared type hierarchy (any block schema's copy) for port colours. */
   typeHierarchy?: TypeHierarchyEntry[];
+  /** ADR-044 — aggregated run status of the flattened inner blocks. */
+  status: string;
   onDelete: () => void;
   /** ADR-044 §10 — broken-ref "locate file…" affordance. */
   onLocateFile: () => void;
@@ -303,7 +305,8 @@ export interface SubWorkflowOpts {
  * truth for the path) so the broken placeholder can show the unresolved ref.
  */
 export function buildSubWorkflowNode(opts: SubWorkflowOpts): Node {
-  const { node, position, label, selectedNodeId, typeHierarchy, onDelete, onLocateFile } = opts;
+  const { node, position, label, selectedNodeId, typeHierarchy, status, onDelete, onLocateFile } =
+    opts;
 
   const resolved = node.resolved_ports;
 
@@ -334,6 +337,7 @@ export function buildSubWorkflowNode(opts: SubWorkflowOpts): Node {
     inputPorts,
     outputPorts,
     typeHierarchy,
+    status,
     selected: selectedNodeId === node.id,
     onDelete,
     onLocateFile,

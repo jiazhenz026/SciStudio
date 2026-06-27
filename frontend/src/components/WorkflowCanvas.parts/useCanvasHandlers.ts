@@ -15,6 +15,13 @@ export interface CanvasHandlersOpts {
    * call sites compile.
    */
   nodes?: WorkflowNode[];
+  /**
+   * ADR-044 — this canvas's run-scope prefix (`""` for a top-level workflow,
+   * `"<sw>__"` when it is the expanded child of a subworkflow). Used to COMPOSE
+   * the child prefix passed to `onOpenSubworkflow` so nested expansion maps to
+   * the right flattened run ids.
+   */
+  runScopePrefix?: string;
   onAddNode: (
     block: BlockSummary,
     position: { x: number; y: number },
@@ -36,7 +43,7 @@ export interface CanvasHandlersOpts {
    * ADR-044 §3 — open a (healthy) subworkflow node's referenced file in a
    * canvas tab on double-click. OPTIONAL.
    */
-  onOpenSubworkflow?: (refPath: string) => void;
+  onOpenSubworkflow?: (refPath: string, runPrefix?: string) => void;
   /**
    * ADR-044 §10 — surface the broken-ref "locate file…" affordance on
    * double-click of a `subworkflow_broken` / unresolved node. OPTIONAL.
@@ -49,6 +56,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     reactFlow,
     edges,
     nodes,
+    runScopePrefix = "",
     onAddNode,
     onConnect,
     onDeleteEdge,
@@ -216,9 +224,12 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
         onLocateSubworkflow?.(node.id);
         return;
       }
-      onOpenSubworkflow?.(refPath);
+      // Compose the child's run-scope prefix from this canvas's prefix + the
+      // node id so a nested expansion (child-of-child) still maps to the right
+      // flattened run ids `<parentPrefix><nodeId>__<innerId>`.
+      onOpenSubworkflow?.(refPath, `${runScopePrefix}${node.id}__`);
     },
-    [nodes, onOpenSubworkflow, onLocateSubworkflow],
+    [nodes, runScopePrefix, onOpenSubworkflow, onLocateSubworkflow],
   );
 
   const handleNodesDelete = useCallback(

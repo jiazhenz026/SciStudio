@@ -162,6 +162,27 @@ def import_subworkflow_file(self: ApiRuntime, source_path: str) -> str:
             counter += 1
 
     shutil.copy2(src, dest)
+
+    # ADR-044 Addendum 1: a referenced file with no authored ``exposed_ports``
+    # surfaces zero handles on the parent canvas and leaves its open boundary
+    # ports unconnectable (so the flattened run fails with "required input port
+    # has no incoming connection"). On import, auto-derive an exposed-port
+    # surface from the pipeline's open ports — every input with no incoming edge
+    # and every output with no outgoing edge — and write it into the project
+    # copy. Only when the file declares none, so a hand-authored surface stays
+    # authoritative.
+    from scistudio.workflow.subworkflow_ports import derive_exposed_ports
+
+    try:
+        imported = load_yaml(dest)
+    except Exception:
+        imported = None
+    if imported is not None and imported.exposed_ports is None:
+        derived = derive_exposed_ports(imported, registry=self.block_registry)
+        if derived.inputs or derived.outputs:
+            imported.exposed_ports = derived
+            save_yaml(imported, dest)
+
     return str(PurePosixPath(dest.relative_to(Path(project.path))))
 
 

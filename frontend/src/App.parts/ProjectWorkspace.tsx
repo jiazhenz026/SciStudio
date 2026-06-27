@@ -28,6 +28,8 @@ import { ProjectTree } from "../components/ProjectTree";
 import { TabBar } from "../components/TabBar";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
 import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
+import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subworkflowRunView";
+import { SUBWORKFLOW_BLOCK_TYPES } from "../components/WorkflowCanvas.parts/useFlowNodes";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 
@@ -95,7 +97,7 @@ export interface ProjectWorkspaceProps {
    * ADR-044 §3 — open a subworkflow node's referenced file
    * (`config.ref.path`) in a canvas tab on double-click.
    */
-  onOpenSubworkflow: (refPath: string) => void;
+  onOpenSubworkflow: (refPath: string, runPrefix?: string) => void;
   /**
    * ADR-044 §10 — broken-ref "locate file…" affordance for a
    * `subworkflow_broken` placeholder node.
@@ -174,6 +176,28 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
   );
 }
 
+/**
+ * ADR-044 — derive the active canvas's run-scope prefix (from the active tab's
+ * `runPrefix`, set when it was opened by expanding a subworkflow node) and the
+ * block-outputs map re-keyed for that canvas: child nodes aliased to their
+ * flattened run outputs, and each subworkflow node mapped from its exposed
+ * outputs to inner block outputs. Both the canvas (status) and the preview
+ * panels read from this so the collapsed/expanded views show live data.
+ */
+function deriveRunScope(props: ProjectWorkspaceProps): {
+  runScopePrefix: string;
+  scopedBlockOutputs: Record<string, Record<string, unknown>>;
+} {
+  const activeTab = props.tabs.find((tab) => tab.id === props.activeTabId);
+  const runScopePrefix = activeTab?.kind === "workflow" ? (activeTab.runPrefix ?? "") : "";
+  const scopedBlockOutputs = buildScopedBlockOutputs(
+    props.workflowNodes,
+    props.blockOutputs,
+    runScopePrefix,
+  );
+  return { runScopePrefix, scopedBlockOutputs };
+}
+
 function CanvasOrEditor(props: ProjectWorkspaceProps) {
   const {
     activeFileTab,
@@ -182,7 +206,6 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     blockStates,
     blockErrors,
     blockErrorSummaries,
-    blockOutputs,
     blocks,
     paletteSearch,
     workflowEdges,
@@ -206,6 +229,8 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     blockSchemas,
     readability,
   } = props;
+
+  const { runScopePrefix, scopedBlockOutputs } = deriveRunScope(props);
 
   if (activeFileTab) {
     return (
@@ -235,7 +260,8 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       blockStates={blockStates}
       blockErrors={blockErrors}
       blockErrorSummaries={blockErrorSummaries}
-      blockOutputs={blockOutputs}
+      blockOutputs={scopedBlockOutputs}
+      runScopePrefix={runScopePrefix}
       blocks={blocks.filter((block) => {
         const value =
           `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
@@ -288,10 +314,30 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     selectedNodeId,
     onUpdateNodeConfig,
     setPanelSize,
-    blockOutputs,
     workflowEdges,
     selectedNodeLabel,
   } = props;
+
+  // ADR-044 — preview panels read the same run-scoped, exposed-mapped outputs as
+  // the canvas, so selecting a subworkflow node (or a node in an expanded child
+  // canvas) shows its live data.
+  const { scopedBlockOutputs } = deriveRunScope(props);
+
+  // ADR-044 — when a subworkflow node is selected, surface its exposed-port
+  // surface (with owning-block provenance) so the preview pane can show which
+  // inner block each opaque "<block>.<port>" port belongs to.
+  const subworkflowPorts =
+    selectedNode &&
+    SUBWORKFLOW_BLOCK_TYPES.has(selectedNode.block_type) &&
+    selectedNode.resolved_ports
+      ? {
+          inputs: selectedNode.resolved_ports.inputs,
+          outputs: selectedNode.resolved_ports.outputs,
+          typeHierarchy: Object.values(props.blockSchemas).find(
+            (schema) => (schema.type_hierarchy?.length ?? 0) > 0,
+          )?.type_hierarchy,
+        }
+      : undefined;
 
   return (
     <ResizablePanelGroup
@@ -357,7 +403,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
             >
               <BottomPanel
                 activeTab={activeBottomTab}
-                blockOutputs={blockOutputs}
+                blockOutputs={scopedBlockOutputs}
                 edges={workflowEdges}
                 logEntries={logEntries}
                 onTabChange={onBottomTabChange}
@@ -381,7 +427,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       {/* Data Preview — full height right column */}
       <ResizablePanel defaultSize="22%" minSize="15%" maxSize="42%" collapsible collapsedSize="0%">
         <DataPreview
-          blockOutputs={blockOutputs}
+          blockOutputs={scopedBlockOutputs}
+          subworkflowPorts={subworkflowPorts}
           selectedNodeId={selectedNodeId}
           selectedNodeLabel={selectedNodeLabel}
           // #1326 port-info panel: resolve effective per-instance ports for

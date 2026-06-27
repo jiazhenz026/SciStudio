@@ -38,8 +38,12 @@ export function SubworkflowConfigEditor({ selectedNode }: { selectedNode: Workfl
   };
 
   return (
-    <div className="grid max-w-2xl gap-4" data-testid="subworkflow-config-editor">
-      <div className="grid gap-2 text-sm">
+    // Follow the same 2-column config contract every other block uses
+    // (ConfigPanel / CodeBlockConfigEditor render scalar fields in
+    // `grid gap-4 md:grid-cols-2`). The picker is a single field, so it
+    // occupies the left half-row cell — exactly like a one-field block.
+    <div className="grid gap-4 md:grid-cols-2" data-testid="subworkflow-config-editor">
+      <div className="grid min-w-0 gap-2 text-sm">
         <span className="font-medium text-ink">Subworkflow file</span>
         <p className="text-xs text-stone-500">
           References an external workflow file (project-relative). Choosing a file imports a copy

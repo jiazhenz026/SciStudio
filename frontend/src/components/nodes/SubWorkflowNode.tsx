@@ -28,6 +28,7 @@ import { type Node, type NodeProps } from "@xyflow/react";
 
 import type { BlockNodeData, SubWorkflowNodeData } from "../../types/ui";
 
+import { NodeStatusSurface } from "./BlockNode.parts/NodeStatusSurface";
 import { PortHandles } from "./BlockNode.parts/PortHandles";
 import { getCategoryVisual } from "./BlockNode.parts/categoryVisuals";
 import { NODE_BORDER_RADIUS, NODE_SIZE } from "./BlockNode.parts/nodeGeometry";
@@ -106,6 +107,12 @@ export function SubWorkflowNode({ id, data, selected }: NodeProps<Node<SubWorkfl
           canAddOutput={false}
           canRemoveOutput={false}
         />
+
+        {/* ADR-044 — run status rolled up from the flattened inner blocks. The
+            collapsed container has no run id of its own; `data.status` is the
+            aggregate so the same corner glyph as a BlockNode shows whether the
+            sub-pipeline is running/done/errored. Broken refs show no status. */}
+        {!broken && <NodeStatusSurface status={data.status} />}
       </div>
 
       {broken ? (

@@ -19,6 +19,7 @@ import {
   defaultLayout,
   paramsOf,
 } from "./flowNodeBuilder";
+import { aggregateSubworkflowStatus } from "./subworkflowRunView";
 
 /**
  * ADR-044 — block types rendered by `SubWorkflowNode` instead of `BlockNode`.
@@ -70,6 +71,14 @@ export interface UseFlowNodesOpts {
   blockErrorSummaries: Record<string, string>;
   selectedNodeId: string | null;
   blockOutputs?: Record<string, Record<string, unknown>>;
+  /**
+   * ADR-044 — run-scope prefix for status/error lookups. Empty for a top-level
+   * workflow; `"<subworkflowNodeId>__"` (composed for nesting) when this canvas
+   * is the expanded child of a subworkflow node, so each child node maps to its
+   * flattened run id `<prefix><nodeId>`. `blockOutputs` is pre-scoped by the
+   * caller (aliased to plain node ids), so only state/error lookups need it.
+   */
+  runScopePrefix?: string;
   dragPositions: Record<string, { x: number; y: number }>;
   /** Live size during a NodeResizer drag (keyed by node id). */
   dragSizes: Record<string, { width: number; height: number }>;
@@ -105,6 +114,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     blockErrorSummaries,
     selectedNodeId,
     blockOutputs,
+    runScopePrefix = "",
     dragPositions,
     dragSizes,
     onUpdateNodeConfig,
@@ -154,6 +164,8 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
           label: resolveSubWorkflowLabel(node),
           selectedNodeId,
           typeHierarchy: sharedTypeHierarchy,
+          // ADR-044 — roll the flattened inner blocks' states up into one glyph.
+          status: aggregateSubworkflowStatus(blockStates, `${runScopePrefix}${node.id}__`),
           onDelete: makeOnDelete(node.id),
           onLocateFile: makeOnLocateSubworkflow?.(node.id) ?? (() => {}),
         });
@@ -173,9 +185,11 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         params,
         summary,
         schema,
-        status: blockStates[node.id] ?? "idle",
-        errorMessage: blockErrors[node.id],
-        errorSummary: blockErrorSummaries[node.id],
+        // ADR-044 — in an expanded child canvas the run keys carry the parent
+        // prefix; runScopePrefix is "" for a top-level workflow.
+        status: blockStates[`${runScopePrefix}${node.id}`] ?? "idle",
+        errorMessage: blockErrors[`${runScopePrefix}${node.id}`],
+        errorSummary: blockErrorSummaries[`${runScopePrefix}${node.id}`],
         label: resolveLabel(node, summary, schema),
         upstreamOmeFields,
         selectedNodeId,
@@ -197,6 +211,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     blockErrors,
     blockErrorSummaries,
     blockOutputs,
+    runScopePrefix,
     dragPositions,
     dragSizes,
     edges,

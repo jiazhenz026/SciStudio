@@ -55,6 +55,15 @@ describe("SubworkflowConfigEditor", () => {
     );
   });
 
+  it("lays the picker out on the shared 2-column config grid (same contract as other blocks)", () => {
+    render(<SubworkflowConfigEditor selectedNode={makeNode()} />);
+
+    const root = screen.getByTestId("subworkflow-config-editor");
+    // The config contract is a 2-column grid (md:grid-cols-2), matching
+    // ConfigPanel / CodeBlockConfigEditor — not a single full-width column.
+    expect(root.className).toContain("md:grid-cols-2");
+  });
+
   it("shows an empty path field when no ref is set", () => {
     render(<SubworkflowConfigEditor selectedNode={makeNode({ config: { params: {} } })} />);
     expect(screen.getByTestId("subworkflow-config-ref-path")).toHaveValue("");

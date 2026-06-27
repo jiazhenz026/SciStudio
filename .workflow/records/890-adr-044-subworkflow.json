@@ -921,13 +921,325 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-27T07:25:11.565040Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9130222f41b42ac0317b889ce3ac549431069597ceefb9948ce75594381ddb7e",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:25:12.281517Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9198a411c47406651b963694ed46e13bb81eaa21a878d7222872a4ff9dbd5f66",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:25:12.615710Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:4272f53627d36cd7d9b34a7cb7ba8adecc5e24e0072535371d746746fea39130",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T07:25:16.379973Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5f1f3f0e44d39f192630a87b67234dc5b20395943e376e83a14af5d6bcbc3587",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:25:20.104652Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1089d8e5cb42e89fcaeaf7f40196a94b987bb52ecf43043efd52869a039802bf",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:25:20.608735Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:082eed31108f25d8a338295afa93df53e01aab20b9d1b76cc9f4da9a55803419",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:25:20.657884Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8d886cd86617dc52e38a98841af99cb07a41fa7b6f427f16b10ea12e643276f0",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T07:27:58.158215Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:21936387135dae9ac54dbfd9fc2d311449b51eac161c803ec5534430df799e20",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:29:49.052434Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cde4fcac8e79bcd16d1165e84f799db9b8cfc50a3671151f2ec2e5adf103ec48",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:29:55.844955Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:003ec804c140f13dd569bfdde644de35c765777530b212fd33c4a5d083212cb9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-27T07:33:47.349217Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b3f4fdfc10330d264ada3527ff6b0880f6f583a776f841ca32c0279663a1c86d",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:33:48.057840Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a5e4caa0ed46bf878a8259a699e2ce5547632df0253073ed03235021d3c2d0a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:33:48.100969Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:011cdd7296a8d63c83133bced61161221ffce45fdb38aec7c7d971da1e639808",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T07:33:51.425741Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5f1f3f0e44d39f192630a87b67234dc5b20395943e376e83a14af5d6bcbc3587",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:33:55.075924Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:109492aeef96117c0da9196e5f90573017f2c6367c0fb85d85a5b72ae03f65b8",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:33:55.192693Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1b4d8d4d2f7b55193cc968fde509300fece5570fc4e5419367c48bbf9f79080",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:33:55.212288Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2979d81743a87319365e6a5a463b6451e7f490e2a2d56c8fa22477b2d2e37edd",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T07:36:06.984334Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b760d8a451725d6ca99c5497fc145559ce45124cbec870a81b0e89e06d0078f1",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:37:59.274367Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:48e1da2ef228cd08865179b373e25618873b2c068860bdf2aae7d0193f9cefa6",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T07:38:02.247342Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d29dcf399e83e0f807715ccde77a333d34cce8e62a2bee9de9b7e1a16479181e",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "18ca95f46ca6f1e941d4ac06e82d466514759401",
+    "sha": "HEAD",
     "shas": [
-      "18ca95f46ca6f1e941d4ac06e82d466514759401"
+      "HEAD"
     ],
     "trailers": []
   },
@@ -951,6 +1263,31 @@
       "at": "2026-06-21T08:35:10.883435Z",
       "owner_directive": "Backend implemented by manager on umbrella; frontend dispatched (feature/adr-044-frontend-20260621); no-context auditor dispatched after integration. Decisions D1-D8 recorded in checklist.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-27T05:49:15.274074Z",
+      "owner_directive": "hotfix1: subworkflow block \u7684 config \u6ca1\u6309\u65b0\u5951\u7ea6\uff08config \u5206 2 \u5217\uff09\u6765\uff1b\u53ea\u6539 subworkflow\uff0c\u4e0d\u52a8\u5168\u5c40",
+      "reason": "owner-directed live hotfix on PR #1736: SubworkflowConfigEditor does not follow the 2-column config layout other blocks use"
+    },
+    {
+      "at": "2026-06-27T06:05:47.381914Z",
+      "owner_directive": "hotfix3: subworkflow \u5185\u90e8\u5f00\u653e\u7aef\u53e3\u6ca1\u66b4\u9732\u5230 block \u5916\u90e8\u3001\u8fd0\u884c\u62a5\u5fc5\u586b\u8f93\u5165\u672a\u8fde\u3002\u540c\u610f import \u65f6\u81ea\u52a8\u6d3e\u751f exposed_ports\uff0c\u66b4\u9732\u6240\u6709\u672a\u8fde\u8f93\u5165 + \u6240\u6709\u672a\u8fde\u8f93\u51fa",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "at": "2026-06-27T06:19:02.074943Z",
+      "owner_directive": "hotfix4: subworkflow block \u6ca1\u6709\u8fd0\u884c\u72b6\u6001\u63d0\u793a\uff08\u6298\u53e0\u8282\u70b9 + \u53cc\u51fb\u5c55\u5f00\u90fd\u770b\u4e0d\u51fa\u8dd1\u6ca1\u8dd1\uff09\uff0c\u8fd0\u884c\u65f6 preview \u4e0d\u663e\u793a\u6570\u636e",
+      "reason": "owner-directed live hotfix: subworkflow block shows no run status (collapsed + expanded) and preview shows no data, because flattened inner events are keyed by prefixed ids '<sw_id>__<inner>' the collapsed node id never matches"
+    },
+    {
+      "at": "2026-06-27T06:49:11.696734Z",
+      "owner_directive": "\u53cc\u51fb\u6253\u5f00\u7684 workflow \u6253\u5f00\u9519\u4e86\uff08\u4e0d\u662f subworkflows \u62f7\u8d1d\u90a3\u4e00\u7248\uff09\uff0c\u6240\u4ee5\u6ca1\u72b6\u6001\u6ca1 preview",
+      "reason": "hotfix4 followup: double-click opened the wrong file because workflow tabs dedup by shared workflow.id; subworkflow copies all share one id. Add a path-based tabKey identity so each referenced copy opens as its own tab with the correct run-scope prefix"
+    },
+    {
+      "at": "2026-06-27T07:11:20.690330Z",
+      "owner_directive": "hotfix5: \u66b4\u9732\u5728\u5916\u7684 port \u770b\u4e0d\u51fa\u5c5e\u4e8e subworkflow \u91cc\u54ea\u4e2a block\uff0c\u9700\u8981\u4e00\u4e2a port panel \u5199\u6e05\u695a\u6bcf\u4e2a port \u5c5e\u4e8e\u54ea\u4e2a block",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
     }
   ],
   "docs_events": [
@@ -967,6 +1304,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/planning/adr-044-subworkflow-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T07:23:05.409806Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-044-addendum1.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -3733,6 +4078,759 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.935291Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/definition.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/definition.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/flatten.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/flatten.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/schema.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/schema.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/serializer.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/serializer.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/subworkflow_ports.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/subworkflow_ports.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.944906Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.954331Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.963411Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.972416Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.981504Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:55.991187Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:56.001824Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:56.011889Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:29:56.045975Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.325623Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/definition.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/definition.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/flatten.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/flatten.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/schema.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/schema.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/serializer.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/serializer.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/subworkflow_ports.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/subworkflow_ports.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.335855Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.345312Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.354530Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.363625Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.373049Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.382387Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.391667Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.400666Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:38:02.432680Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.742647Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/definition.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/definition.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/flatten.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/flatten.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/schema.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/schema.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/serializer.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/serializer.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/subworkflow_ports.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/subworkflow_ports.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.753703Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.765621Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.777904Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.789423Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.801141Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.812607Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.823781Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.834995Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T07:40:52.872161Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -3745,10 +4843,11 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "1948ab2c18fafeb54c82c77646a2f00665e16332",
-    "base_sha": "1948ab2c",
+    "base": "39d58593847ed259f54a249cfbce1396f0d18930",
+    "base_sha": "39d58593",
     "changed_files": [
       ".workflow/records/890-adr-044-subworkflow.json",
+      "docs/adr/ADR-044-addendum1.md",
       "docs/architecture/ARCHITECTURE.md",
       "docs/audit/2026-06-21-adr-044-subworkflow-chrome-e2e.md",
       "docs/audit/2026-06-21-adr-044-subworkflow-no-context.md",
@@ -3764,9 +4863,14 @@
       "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
       "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.tsx",
       "frontend/src/components/BottomPanel.parts/subworkflowConfig.ts",
+      "frontend/src/components/DataPreview.parts/SubworkflowPortPanel.tsx",
+      "frontend/src/components/DataPreview.parts/__tests__/SubworkflowPortPanel.test.tsx",
+      "frontend/src/components/DataPreview.tsx",
       "frontend/src/components/WorkflowCanvas.parts/__tests__/subworkflowConnect.test.ts",
       "frontend/src/components/WorkflowCanvas.parts/__tests__/subworkflowRouting.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/subworkflowRunView.test.ts",
       "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "frontend/src/components/WorkflowCanvas.parts/subworkflowRunView.ts",
       "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
       "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
       "frontend/src/components/WorkflowCanvas.tsx",
@@ -3776,6 +4880,9 @@
       "frontend/src/lib/chooseSubworkflowFile.test.ts",
       "frontend/src/lib/chooseSubworkflowFile.ts",
       "frontend/src/store/__tests__/workflowSlice.subworkflowRef.test.ts",
+      "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+      "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
+      "frontend/src/store/tabSlice.test.ts",
       "frontend/src/store/types.ts",
       "frontend/src/store/workflowSlice.parts/workflowEditActions.ts",
       "frontend/src/store/workflowSlice.ts",
@@ -3802,19 +4909,19 @@
       "tests/workflow/test_subworkflow_ports.py",
       "tests/workflow/test_subworkflow_yaml_roundtrip.py"
     ],
-    "diff_fingerprint": "sha256:70264e6b600bacdfa34e3082dab1ba65a78c471f243b365f6ec3714c414a234f",
+    "diff_fingerprint": "sha256:c3c5e7b703f466c3d739865422f35cf0d4ab1b27433c7da98db33d2fd15016c8",
     "head": "HEAD",
-    "head_sha": "18ca95f4",
+    "head_sha": "0ce087f1",
     "surfaces": {
-      "docs": 7,
-      "frontend": 25,
+      "docs": 8,
+      "frontend": 33,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 39,
+      "implementation": 47,
       "packaging": 0,
       "protected_core": 8,
-      "sentrux": 46,
-      "test": 13,
+      "sentrux": 55,
+      "test": 16,
       "workflow_ci": 0
     }
   },
@@ -3949,10 +5056,57 @@
       "unsatisfied": [
         "guard.core_change_guard"
       ]
+    },
+    {
+      "at": "2026-06-27T07:29:56.046003Z",
+      "diff_fingerprint": "sha256:1ec6832451aecbbd079ee431c60aca7be912627eed02e1d93dbc3e8a65180b2b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.python_tests",
+        "checks.type_check"
+      ]
+    },
+    {
+      "at": "2026-06-27T07:38:02.432715Z",
+      "diff_fingerprint": "sha256:c3c5e7b703f466c3d739865422f35cf0d4ab1b27433c7da98db33d2fd15016c8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-06-27T07:40:52.872198Z",
+      "diff_fingerprint": "sha256:c3c5e7b703f466c3d739865422f35cf0d4ab1b27433c7da98db33d2fd15016c8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "890-adr-044-subworkflow",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [
       "admin-approved:core-change"
@@ -4008,6 +5162,180 @@
       "at": "2026-06-21T09:48:08.303529Z",
       "pattern": "src/scistudio/api/schemas.py",
       "reason": "FR-004 resolved_ports delivery + FR-011/US1-AS3 routes (by-path, import-subworkflow) require api/routes/workflows.py and the SubworkflowPortSurface model in api/schemas.py."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T05:49:15.274223Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.tsx",
+      "reason": "owner-directed live hotfix on PR #1736: SubworkflowConfigEditor does not follow the 2-column config layout other blocks use"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T05:49:15.274227Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
+      "reason": "owner-directed live hotfix on PR #1736: SubworkflowConfigEditor does not follow the 2-column config layout other blocks use"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:05:47.382044Z",
+      "pattern": "src/scistudio/workflow/subworkflow_ports.py",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:05:47.382047Z",
+      "pattern": "src/scistudio/api/runtime/_workflows.py",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:05:47.382049Z",
+      "pattern": "tests/workflow/test_subworkflow_ports.py",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:05:47.382050Z",
+      "pattern": "tests/api/test_runtime_subworkflow_flatten.py",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:05:47.382051Z",
+      "pattern": "docs/adr/ADR-044*.md",
+      "reason": "owner-directed live hotfix: subworkflow import must auto-derive exposed_ports from open (unconnected) ports; extends ADR-044 manual-author design"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:19:02.075096Z",
+      "pattern": "frontend/src/components/nodes/SubWorkflowNode.tsx",
+      "reason": "owner-directed live hotfix: subworkflow block shows no run status (collapsed + expanded) and preview shows no data, because flattened inner events are keyed by prefixed ids '<sw_id>__<inner>' the collapsed node id never matches"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:19:02.075100Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "reason": "owner-directed live hotfix: subworkflow block shows no run status (collapsed + expanded) and preview shows no data, because flattened inner events are keyed by prefixed ids '<sw_id>__<inner>' the collapsed node id never matches"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:19:02.075101Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "reason": "owner-directed live hotfix: subworkflow block shows no run status (collapsed + expanded) and preview shows no data, because flattened inner events are keyed by prefixed ids '<sw_id>__<inner>' the collapsed node id never matches"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:19:02.075103Z",
+      "pattern": "frontend/src/types/ui.ts",
+      "reason": "owner-directed live hotfix: subworkflow block shows no run status (collapsed + expanded) and preview shows no data, because flattened inner events are keyed by prefixed ids '<sw_id>__<inner>' the collapsed node id never matches"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898096Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/subworkflowRunView.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898270Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/__tests__/subworkflowRunView.test.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898273Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.tsx",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898275Z",
+      "pattern": "frontend/src/components/nodes/__tests__/SubWorkflowNode.test.tsx",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898276Z",
+      "pattern": "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898277Z",
+      "pattern": "frontend/src/App.parts/useProjectActions.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898278Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898279Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898280Z",
+      "pattern": "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T06:27:52.898281Z",
+      "pattern": "frontend/src/types/ui.ts",
+      "reason": "hotfix4 full frontend scope: thread run-scope prefix through tab\u2192canvas for collapsed+expanded subworkflow run status, and build scoped/exposed-mapped block outputs for preview"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690467Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690470Z",
+      "pattern": "frontend/src/types/api.ts",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690471Z",
+      "pattern": "frontend/src/components/DataPreview.parts/SubworkflowPortPanel.tsx",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690473Z",
+      "pattern": "frontend/src/components/DataPreview.parts/__tests__/SubworkflowPortPanel.test.tsx",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690474Z",
+      "pattern": "frontend/src/components/DataPreview.tsx",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:11:20.690475Z",
+      "pattern": "tests/workflow/test_subworkflow_ports.py",
+      "reason": "hotfix5: exposed subworkflow ports are named <inner>.<port> and the user cannot tell which inner block each belongs to. Enrich resolved_ports with owning block id/type/label and add a port panel"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:23:05.409625Z",
+      "pattern": "docs/adr/ADR-044-addendum1.md",
+      "reason": "record ADR-044 Addendum 1 documenting the live-session subworkflow usability changes; add remaining touched files to scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T07:23:05.409771Z",
+      "pattern": "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+      "reason": "record ADR-044 Addendum 1 documenting the live-session subworkflow usability changes; add remaining touched files to scope"
     }
   ],
   "session_id": "fc90ea1c-31da-4638-a74d-f5d989952bf6",

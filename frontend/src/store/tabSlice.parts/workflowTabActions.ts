@@ -15,7 +15,7 @@ type StoreSetter = StoreApi<AppStore>["setState"];
 type StoreGetter = StoreApi<AppStore>["getState"];
 
 export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["openTab"] {
-  return (workflow, displayName) => {
+  return (workflow, displayName, runPrefix, tabKey) => {
     const state = get();
     // #796: pick a non-empty display name. The backend's WorkflowModel.id has a
     // default of "" — if a YAML omits the id field, workflow.id arrives empty
@@ -23,11 +23,21 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     // supplied displayName (typically the filename stem), then "Untitled".
     const effectiveName = workflow.id || displayName || "Untitled";
 
-    const dedupeKey = workflow.id || displayName || "";
+    // ADR-044 — dedup identity. Defaults to the workflow id (legacy behavior);
+    // a subworkflow open passes its unique ref.path so copies sharing one id do
+    // not collide. Compare against each tab's tabKey, falling back to workflowId
+    // for tabs created/persisted before this field existed.
+    const dedupeKey = tabKey || workflow.id || displayName || "";
     const existing = dedupeKey
-      ? state.tabs.find((t) => t.kind === "workflow" && t.workflowId === dedupeKey)
+      ? state.tabs.find((t) => t.kind === "workflow" && (t.tabKey ?? t.workflowId) === dedupeKey)
       : undefined;
     if (existing) {
+      // ADR-044 — refresh the run-scope prefix when reopening from a (possibly
+      // different) parent subworkflow node so the expanded view maps to the
+      // current run; leave it untouched when opened directly (no prefix).
+      if (runPrefix !== undefined && existing.kind === "workflow") {
+        set({ tabs: state.tabs.map((t) => (t.id === existing.id ? { ...t, runPrefix } : t)) });
+      }
       state.switchTab(existing.id);
       return;
     }
@@ -66,6 +76,8 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       workflowHistory: [],
       workflowFuture: [],
       selectedNodeId: null,
+      tabKey: dedupeKey,
+      runPrefix,
     };
 
     set({

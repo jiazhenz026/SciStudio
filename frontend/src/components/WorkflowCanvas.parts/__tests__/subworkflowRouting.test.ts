@@ -42,6 +42,7 @@ describe("ADR-044 subworkflow routing", () => {
       selectedNodeId: null,
       typeHierarchy: [],
       onDelete: () => {},
+      status: "idle",
       onLocateFile: () => {},
     } as Parameters<typeof buildSubWorkflowNode>[0]);
 
@@ -71,6 +72,7 @@ describe("ADR-044 subworkflow routing", () => {
       selectedNodeId: null,
       typeHierarchy: [],
       onDelete: () => {},
+      status: "idle",
       onLocateFile: () => {},
     } as Parameters<typeof buildSubWorkflowNode>[0]);
 

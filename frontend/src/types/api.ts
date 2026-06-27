@@ -12,6 +12,13 @@ export interface Position {
 export interface ResolvedSubworkflowPort {
   name: string;
   accepted_types: string[];
+  /** ADR-044 — owning inner block provenance so the editor can show which inner
+   *  block each exposed port belongs to. Optional/`""` for older payloads or
+   *  unresolvable refs. */
+  block_id?: string;
+  block_type?: string;
+  block_label?: string;
+  port?: string;
 }
 
 /**

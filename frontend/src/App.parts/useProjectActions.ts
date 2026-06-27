@@ -34,7 +34,12 @@ export interface ProjectActionsDeps {
   setCurrentProject: (project: ProjectResponse | null) => void;
   setWorkflow: (workflow: WorkflowResponse | null) => void;
   resetExecution: () => void;
-  openTab: (workflow: WorkflowResponse, displayName?: string) => void;
+  openTab: (
+    workflow: WorkflowResponse,
+    displayName?: string,
+    runPrefix?: string,
+    tabKey?: string,
+  ) => void;
   openFileTab: (path: string, options?: { readOnly?: boolean }) => void;
   closeProjectDialog: () => void;
   setLastError: (message: string | null) => void;
@@ -403,18 +408,27 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
   // live under `subworkflows/` (FR-011 imports) or `workflows/`, so we open it
   // by PATH (not by workflow id, which only resolves `workflows/<id>.yaml`).
   const openSubworkflow = useCallback(
-    async (refPath: string) => {
+    async (refPath: string, runPrefix?: string) => {
       const displayName = subworkflowRefToWorkflowId(refPath);
       try {
         const workflow = await api.getWorkflowByPath(refPath);
-        openTab(workflow, displayName);
-        resetExecution();
+        // ADR-044 — pass the parent's run-scope prefix so the expanded child
+        // canvas maps each inner node to its flattened run id `<prefix><id>`.
+        // Do NOT resetExecution here: the whole point of expanding is to see the
+        // parent run's live/last status, which lives in the (global) execution
+        // state keyed by the prefixed ids. Resetting would blank it out.
+        //
+        // Key the tab by the unique ref PATH (not the shared workflow.id):
+        // several imported copies under `subworkflows/` carry the same internal
+        // id, so id-based dedup would open the wrong file. Path-keyed tabs open
+        // exactly the referenced copy.
+        openTab(workflow, displayName, runPrefix, refPath);
         setLastError(null);
       } catch (error) {
         setLastError((error as Error).message);
       }
     },
-    [openTab, resetExecution, setLastError],
+    [openTab, setLastError],
   );
 
   // ADR-044 FR-011 (US5) + §10 / US6 AS2 — the shared choose/import-subworkflow

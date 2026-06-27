@@ -159,3 +159,22 @@ describe("SubWorkflowNode — no reference (fresh node)", () => {
     expect(onLocateFile).toHaveBeenCalledTimes(1);
   });
 });
+
+// ADR-044 — the collapsed container shows its flattened inner blocks' rolled-up
+// run status via the same corner glyph as a BlockNode.
+describe("SubWorkflowNode — run status", () => {
+  it("renders the aggregated run status glyph for a healthy node", () => {
+    renderSubWorkflowNode({ status: "running" });
+    expect(screen.getByTestId("node-status-surface")).toHaveAttribute("data-status", "running");
+  });
+
+  it("defaults to idle when no status is supplied", () => {
+    renderSubWorkflowNode({});
+    expect(screen.getByTestId("node-status-surface")).toHaveAttribute("data-status", "idle");
+  });
+
+  it("renders no status glyph on a broken node", () => {
+    renderSubWorkflowNode({ broken: true, refPath: null });
+    expect(screen.queryByTestId("node-status-surface")).toBeNull();
+  });
+});

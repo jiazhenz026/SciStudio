@@ -3,9 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  PreviewTarget,
+  ResolvedSubworkflowPort,
+} from "../types/api";
 
 import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
+import { SubworkflowPortPanel } from "./DataPreview.parts/SubworkflowPortPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
 
@@ -50,6 +56,15 @@ interface DataPreviewProps {
    *  type-hierarchy → color lookup and the declared-port-name set that
    *  distinguishes static vs user-added variadic rows (#1326 §3). */
   selectedSchema?: BlockSchemaResponse;
+  /** ADR-044 — when the selected node is a subworkflow container, its exposed
+   *  port surface (with owning-block provenance). Renders the
+   *  SubworkflowPortPanel in place of the #1326 PortInfoPanel so the user can
+   *  see which inner block each opaque "<block>.<port>" port belongs to. */
+  subworkflowPorts?: {
+    inputs: ResolvedSubworkflowPort[];
+    outputs: ResolvedSubworkflowPort[];
+    typeHierarchy?: BlockSchemaResponse["type_hierarchy"];
+  };
 }
 
 export function DataPreview({
@@ -59,6 +74,7 @@ export function DataPreview({
   selectedInputPorts,
   selectedOutputPorts,
   selectedSchema,
+  subworkflowPorts,
 }: DataPreviewProps) {
   // #898 — pill labels become source filenames (with truncated-ref fallback).
   const refEntries: RefEntry[] = useMemo(() => {
@@ -143,15 +159,28 @@ export function DataPreview({
   // internal scroll. ``shrink-0`` keeps the panel from collapsing when
   // the preview content is tall. The single divider above the panel is
   // owned by PortInfoPanel's own ``border-t``.
+  // ADR-044 — a subworkflow node exposes opaque "<block>.<port>" ports; show the
+  // provenance panel instead of the generic #1326 PortInfoPanel (subworkflow
+  // nodes have no schema-static ports, so selectedInput/OutputPorts are empty).
+  const hasSubworkflowPorts =
+    (subworkflowPorts?.inputs.length ?? 0) > 0 || (subworkflowPorts?.outputs.length ?? 0) > 0;
+  const portPanelBody = hasSubworkflowPorts ? (
+    <SubworkflowPortPanel
+      inputs={subworkflowPorts?.inputs ?? []}
+      outputs={subworkflowPorts?.outputs ?? []}
+      typeHierarchy={subworkflowPorts?.typeHierarchy}
+    />
+  ) : (selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0 ? (
+    <PortInfoPanel
+      inputPorts={selectedInputPorts ?? []}
+      outputPorts={selectedOutputPorts ?? []}
+      schema={selectedSchema}
+    />
+  ) : null;
   const portPanel =
-    selectedNodeId &&
-    ((selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0) ? (
+    selectedNodeId && portPanelBody ? (
       <div className="flex shrink-0 basis-[38%] flex-col overflow-y-auto scrollbar-thin">
-        <PortInfoPanel
-          inputPorts={selectedInputPorts ?? []}
-          outputPorts={selectedOutputPorts ?? []}
-          schema={selectedSchema}
-        />
+        {portPanelBody}
       </div>
     ) : null;
 

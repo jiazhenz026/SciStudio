@@ -8,10 +8,20 @@ from pydantic import BaseModel, Field
 
 
 class SubworkflowPortEntry(BaseModel):
-    """One exposed port of a referenced subworkflow (ADR-044 FR-004)."""
+    """One exposed port of a referenced subworkflow (ADR-044 FR-004).
+
+    ``block_id`` / ``block_type`` / ``block_label`` / ``port`` carry the owning
+    inner block's provenance so the editor can show which inner block each
+    exposed port belongs to (the exposed ``name`` is the opaque ``"<block>.<port>"``
+    dot form). Defaulted so older clients and broken refs stay valid.
+    """
 
     name: str
     accepted_types: list[str] = Field(default_factory=list)
+    block_id: str = ""
+    block_type: str = ""
+    block_label: str = ""
+    port: str = ""
 
 
 class SubworkflowPortSurface(BaseModel):

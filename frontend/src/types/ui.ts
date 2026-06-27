@@ -102,6 +102,13 @@ export interface SubWorkflowNodeData extends Record<string, unknown> {
   outputPorts: BlockPortResponse[];
   /** Type hierarchy for port colour resolution (shared registry copy). */
   typeHierarchy?: BlockSchemaResponse["type_hierarchy"];
+  /**
+   * ADR-044 — aggregated run status of the flattened inner blocks
+   * (`idle`/`running`/`done`/`error`/`cancelled`). The collapsed container has
+   * no run id of its own; this is rolled up from the inner blocks' states so
+   * the node shows whether its sub-pipeline ran. Absent ⇒ "idle".
+   */
+  status?: string;
   selected?: boolean;
   onDelete?: () => void;
   /**
