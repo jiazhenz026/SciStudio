@@ -144,24 +144,6 @@ class CompletionWatcher:
         last_size: dict[Path, int] = {}
         stable_since: dict[Path, float] = {}
 
-        # #1789: baseline the expected-output files that already exist when the
-        # run starts. The FileWatcher path (b) must only fire on files THIS run
-        # produced; otherwise a stale leftover output from a previous run (the
-        # ``<block_id>_outputs`` dir persists across runs) is seen as "stable" and
-        # completes the block within ``stability_period`` before the agent does
-        # anything. A file counts as produced-this-run when it did not exist at
-        # baseline, or its ``(mtime, size)`` has changed since.
-        def _stat_pair(p: Path) -> tuple[float, int] | None:
-            try:
-                if p.is_file():
-                    st = p.stat()
-                    return (st.st_mtime, st.st_size)
-            except OSError:
-                pass
-            return None
-
-        baseline: dict[Path, tuple[float, int] | None] = {p: _stat_pair(p) for p in self._resolved.values()}
-
         while True:
             if self._cancel_event.is_set():
                 raise WatcherCancelledError("CompletionWatcher.wait was cancelled")
@@ -235,19 +217,9 @@ class CompletionWatcher:
                         stable_since.pop(p, None)
                         continue
                     try:
-                        st = p.stat()
+                        size = p.stat().st_size
                     except OSError:
                         all_stable = False
-                        continue
-                    size = st.st_size
-                    # #1789: a file unchanged from its run-start baseline is a
-                    # stale leftover, not output produced by this run — do not let
-                    # it satisfy completion. Once the agent (re)writes it, its
-                    # (mtime, size) changes and it becomes eligible below.
-                    if baseline.get(p) == (st.st_mtime, size):
-                        all_stable = False
-                        last_size.pop(p, None)
-                        stable_since.pop(p, None)
                         continue
                     if last_size.get(p) != size:
                         last_size[p] = size
