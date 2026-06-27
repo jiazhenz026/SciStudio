@@ -233,26 +233,38 @@ def _save_collection_xlsx(collection: Collection, config: BlockConfig) -> None:
         raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(configured).__name__}")
     configured_stem = Path(configured.strip()).stem if isinstance(configured, str) and configured.strip() else ""
 
-    # Group by source-workbook stem; preserve first-seen order. The empty-source
-    # group is keyed by "" and lands in a single configured-filename workbook.
+    # Group by the FULL source path, preserving first-seen order (P1-2): two
+    # distinct workbooks that share a basename (``/run1/exp.xlsx`` and
+    # ``/run2/exp.xlsx``) must stay separate, so the directory cannot be
+    # stripped from the grouping key. The empty-source group ("" key) bundles
+    # every source-less item into one configured-filename workbook.
     groups: dict[str, list[DataObject]] = {}
     for item in items:
-        stem, name = _source_file_stem(item)
-        key = stem if name.lower().endswith(".xlsx") else ""
+        source = str(getattr(item.framework, "source", "") or "")
+        key = source if source.lower().endswith(".xlsx") else ""
         groups.setdefault(key, []).append(item)
 
+    used_names: set[str] = set()
     for key, members in groups.items():
-        workbook_stem = key or configured_stem
-        if not workbook_stem:
+        base_stem = Path(key).stem if key else configured_stem
+        if not base_stem:
             raise ValueError(
                 "SaveData cannot name an .xlsx workbook for source-less Collection items: "
                 "set the Save block filename field."
             )
+        # Disambiguate output filenames when distinct source paths share a
+        # basename (e.g. run1/exp.xlsx vs run2/exp.xlsx -> exp.xlsx, exp-2.xlsx).
+        stem = base_stem
+        counter = 2
+        while f"{stem}.xlsx".casefold() in used_names:
+            stem = f"{base_stem}-{counter}"
+            counter += 1
+        used_names.add(f"{stem}.xlsx".casefold())
         named_tables = [
             (_sheet_name_of(item) or f"Sheet{idx}", _dataframe_to_arrow_table_for(item))
             for idx, item in enumerate(members, start=1)
         ]
-        dest = output_dir / f"{workbook_stem}.xlsx"
+        dest = output_dir / f"{stem}.xlsx"
         with atomic_path(dest) as tmp:
             _write_tables_to_xlsx(named_tables, tmp)
 
@@ -511,14 +523,18 @@ class SaveData(IOBlock):
             "Artifact": _save_artifact,
             "CompositeData": _save_composite_data,
         }
-        if isinstance(obj, Collection) and len(obj) > 1:
+        if isinstance(obj, Collection):
             # #1810: xlsx Collections regroup by source workbook into multi-sheet
-            # files instead of the one-file-per-item default.
+            # files instead of the one-file-per-item default. This runs for ANY
+            # length (P1-1): a single-sheet workbook loads as a length-one
+            # Collection, and unwrapping it to a bare DataFrame would resolve the
+            # folder path to the default CSV format and silently drop .xlsx.
             if _collection_targets_xlsx(obj, config):
                 _save_collection_xlsx(obj, config)
                 return
-            _save_collection(obj, target_cls=target_cls, dispatch_fn=dispatch[type_name], config=config)
-            return
+            if len(obj) > 1:
+                _save_collection(obj, target_cls=target_cls, dispatch_fn=dispatch[type_name], config=config)
+                return
 
         unwrapped = _unwrap_for_save(obj, target_cls)
         dispatch[type_name](unwrapped, config)

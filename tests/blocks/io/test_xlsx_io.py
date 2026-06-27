@@ -128,6 +128,46 @@ def test_save_sourceless_collection_into_one_workbook(tmp_path: Path) -> None:
     assert len(pd.ExcelFile(files[0]).sheet_names) == 3
 
 
+def test_single_sheet_collection_saves_back_as_xlsx(tmp_path: Path) -> None:
+    # P1-1: a single-sheet workbook loads as a length-one Collection; saving it
+    # to a folder path must write .xlsx, not silently fall back to .csv.
+    _write_workbook(tmp_path / "solo.xlsx", {"only": {"x": [1, 2, 3]}})
+    loaded = _load(tmp_path / "solo.xlsx", "DataFrame", tmp_path / "store")
+    assert len(loaded) == 1
+
+    out_dir = tmp_path / "saved"
+    sp = {"core_type": "DataFrame", "path": str(out_dir)}
+    SaveData(config={"params": sp}).save(loaded, BlockConfig(params=sp))
+    written = [p.name for p in out_dir.iterdir()]
+    assert written == ["solo.xlsx"]
+    assert pd.ExcelFile(out_dir / "solo.xlsx").sheet_names == ["only"]
+
+
+def test_same_basename_workbooks_stay_separate(tmp_path: Path) -> None:
+    # P1-2: two distinct workbooks sharing a basename (run1/exp.xlsx,
+    # run2/exp.xlsx) must not be merged into one file on save.
+    (tmp_path / "run1").mkdir()
+    (tmp_path / "run2").mkdir()
+    _write_workbook(tmp_path / "run1" / "exp.xlsx", {"a": {"v": [1]}})
+    _write_workbook(tmp_path / "run2" / "exp.xlsx", {"b": {"v": [2]}})
+    loaded = _load(
+        [tmp_path / "run1" / "exp.xlsx", tmp_path / "run2" / "exp.xlsx"],
+        "DataFrame",
+        tmp_path / "store",
+    )
+    assert len(loaded) == 2
+
+    out_dir = tmp_path / "saved"
+    sp = {"core_type": "DataFrame", "path": str(out_dir)}
+    SaveData(config={"params": sp}).save(loaded, BlockConfig(params=sp))
+    names = sorted(p.name for p in out_dir.glob("*.xlsx"))
+    # Two separate files (the second basename collision is disambiguated), each
+    # with exactly its own single sheet — not merged.
+    assert names == ["exp-2.xlsx", "exp.xlsx"]
+    sheets = sorted(sum((pd.ExcelFile(out_dir / n).sheet_names for n in names), []))
+    assert sheets == ["a", "b"]
+
+
 def test_series_sheets_round_trip(tmp_path: Path) -> None:
     _write_workbook(tmp_path / "s.xlsx", {"one": {"v": [1.0, 2.0]}, "two": {"v": [3.0]}})
     out = _load(tmp_path / "s.xlsx", "Series", tmp_path / "store")
