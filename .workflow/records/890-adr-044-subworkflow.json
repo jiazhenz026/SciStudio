@@ -5354,6 +5354,12 @@
       "at": "2026-06-27T08:02:01.353663Z",
       "pattern": "frontend/src/components/DataPreview.parts/NodePortPanel.tsx",
       "reason": "CI fixes: ruff format py, ADR addendum frontmatter (H1+1.1), extract useActiveTab + NodePortPanel modules to clear App max-lines and DataPreview complexity lint errors"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T08:08:37.447227Z",
+      "pattern": "frontend/src/components/DataPreview.parts/__tests__/NodePortPanel.test.tsx",
+      "reason": "add NodePortPanel branch-parity test locking the extracted port-panel behavior"
     }
   ],
   "session_id": "fc90ea1c-31da-4638-a74d-f5d989952bf6",
@@ -5397,6 +5403,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/workflow/test_subworkflow_yaml_roundtrip.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T08:08:37.447456Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/__tests__/NodePortPanel.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
