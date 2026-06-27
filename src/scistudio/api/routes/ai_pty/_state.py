@@ -92,8 +92,16 @@ def _spawn(
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
+    prompt: str = "",
 ) -> PtyProcess:
     spawner = _PROVIDER_SPAWNERS.get(provider)
     if spawner is None:
         raise ValueError(f"Unknown provider {provider!r}")
-    return spawner(project_dir=project_dir, dangerous=dangerous, cols=cols, rows=rows, extra_env=extra_env)
+    return spawner(
+        project_dir=project_dir,
+        dangerous=dangerous,
+        cols=cols,
+        rows=rows,
+        extra_env=extra_env,
+        prompt=prompt,
+    )

@@ -82,6 +82,17 @@ def installed_packages_dir() -> Path:
     return plugins_dir() / "packages"
 
 
+def package_backups_dir() -> Path:
+    """Return the per-package OTA rollback backup root (issue #1784).
+
+    The previous version of a package is moved here on update so the Package
+    Manager can roll back. It lives *outside* :func:`installed_packages_dir` so
+    it is never picked up by block discovery — only one active version per
+    package is ever scanned.
+    """
+    return plugins_dir() / "package-backups"
+
+
 def user_python_dir() -> Path:
     """Return the shared user dependency runtime directory."""
     return plugins_dir() / USER_PYTHON_DIR_NAME

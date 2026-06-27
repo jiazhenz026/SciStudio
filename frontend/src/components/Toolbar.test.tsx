@@ -75,6 +75,34 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.getByRole("button", { name: /^note$/i })).toBeTruthy();
   });
 
+  it("workflow tab: clicking Stop shows immediate disabled 'Stopping' feedback (#1789)", () => {
+    const onStop = vi.fn();
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", isRunning: true, onStop })} />);
+
+    // Idle: the button reads "Stop" and is enabled.
+    const stop = screen.getByRole("button", { name: /^stop$/i });
+    expect(stop.hasAttribute("disabled")).toBe(false);
+
+    // Clicking it fires onStop and optimistically flips to a disabled spinner so
+    // the user sees feedback while the backend works through its terminate grace.
+    fireEvent.click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+    const stopping = screen.getByRole("button", { name: /^stopping$/i });
+    expect(stopping.hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByRole("button", { name: /^stop$/i })).toBeNull();
+  });
+
+  it("workflow tab: clicking Stop on an already-stopped run does not latch 'Stopping' (#1789)", () => {
+    const onStop = vi.fn();
+    // isRunning=false: clicking Stop must not get stuck showing the spinner,
+    // since the clear effect only fires on an isRunning true→false transition.
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", isRunning: false, onStop })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^stop$/i }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /^stop$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^stopping$/i })).toBeNull();
+  });
+
   it("workflow tab: Reload sits in the old Reset slot and calls reload blocks", () => {
     const onReloadBlocks = vi.fn();
     const onReset = vi.fn();

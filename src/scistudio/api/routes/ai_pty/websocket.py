@@ -80,17 +80,16 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     if existing_pty is not None:
         pty = existing_pty
-        # Replay the engine-supplied initial prompt to the agent, exactly
-        # once, on first WS connect. Stamped sentinel attribute prevents
-        # double-replay on a StrictMode dev re-mount or a reconnect.
-        initial_stdin = getattr(pty, "_engine_initial_stdin", None)
-        already_replayed = getattr(pty, "_engine_initial_stdin_sent", False)
-        if initial_stdin and not already_replayed:
-            try:
-                pty.write(initial_stdin.encode("utf-8", errors="replace"))
-            except Exception:  # pragma: no cover - PTY may have died
-                logger.warning("engine-initiated PTY: failed to flush initial stdin", exc_info=True)
-            pty._engine_initial_stdin_sent = True  # type: ignore[attr-defined]
+        # #1789: the engine pre-spawns this PTY before any WS connects, so it was
+        # sized at the default 120x30 — not the frontend's real viewport. Without
+        # correcting it on join, the agent TUI keeps drawing at 120x30 while xterm
+        # renders at the fitted size, so the display is garbled and, when the pane
+        # is enlarged afterward, the TUI content still only fills the stale small
+        # grid. Resize the joined PTY to the connecting client's size so the
+        # baseline is correct from the first frame; subsequent ResizeObserver-driven
+        # resizes flow through the normal ``resize`` frames.
+        with contextlib.suppress(Exception):
+            pty.resize(cols=initial_cols, rows=initial_rows)
     else:
         # ---- Resource cap --------------------------------------------------
         async with _pkg._active_lock:

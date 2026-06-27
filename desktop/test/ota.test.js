@@ -79,3 +79,30 @@ test("evaluateUpdate: compares against effective build, not baseline", () => {
   const m = { build: 8, channel: "alpha", base: "0.2.1", requires: { min_base: "0.2.1" } };
   assert.equal(ota.evaluateUpdate(CONFIG, m, BASELINE, 9).reason, "up-to-date");
 });
+
+// #1787: an active patch must shadow the bundled baseline only when it is
+// strictly newer. A freshly installed bundle whose build is >= the patch build
+// supersedes it; otherwise a stale patch would silently shadow the new bundle.
+test("resolveActivePatch: no pointer => none", () => {
+  assert.deepEqual(ota.resolveActivePatch(null, 6, false), { kind: "none" });
+  assert.deepEqual(ota.resolveActivePatch({}, 6, true), { kind: "none" });
+  assert.deepEqual(ota.resolveActivePatch({ build: "9" }, 6, true), { kind: "none" });
+});
+
+test("resolveActivePatch: patch newer than baseline with src => active", () => {
+  assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 6, true), { kind: "active", build: 9 });
+});
+
+test("resolveActivePatch: patch newer than baseline but src gone => missing", () => {
+  assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 6, false), { kind: "missing", build: 9 });
+});
+
+test("resolveActivePatch: baseline >= patch build => stale (the #1787 bug)", () => {
+  // Newer bundle reinstalled over an old patch: baseline 12 supersedes patch 9.
+  assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 12, true), { kind: "stale", build: 9 });
+  // Equal builds (reinstall of the same build) also supersede the patch.
+  assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 9, true), { kind: "stale", build: 9 });
+  // Stale verdict wins even when the src tree is already gone, so the pointer
+  // still gets cleaned up.
+  assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 9, false), { kind: "stale", build: 9 });
+});

@@ -3,6 +3,7 @@
  * Hidden when a file tab is active. Extracted in #1413.
  */
 import { Eye, Loader2, Play, RefreshCw, Square, StickyNote } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -26,6 +27,24 @@ export interface WorkflowGroupsProps {
 
 function ExecutionControls(props: WorkflowGroupsProps) {
   const { currentProject, workflowId, isRunning, onRun, onStop, onReloadBlocks } = props;
+  // #1789: the backend cancel blocks on the worker terminate grace period
+  // (SIGTERM → wait → SIGKILL), so Stop looked dead for several seconds. Show an
+  // optimistic "Stopping" state the instant it is clicked; clear it once the run
+  // is no longer running (authoritative state arrives over the WS).
+  const [isStopping, setIsStopping] = useState(false);
+  useEffect(() => {
+    if (!isRunning) setIsStopping(false);
+  }, [isRunning]);
+  const handleStop = () => {
+    // Only enter the "Stopping" state when there is actually a live run to stop.
+    // Clicking Stop on an already-finished run must not latch the spinner: the
+    // clear effect above only fires on an isRunning true→false transition, so if
+    // it was already false the state would never clear (stuck-Stopping bug).
+    if (isRunning) setIsStopping(true);
+    onStop();
+  };
+  // Belt-and-suspenders: never render "Stopping" once the run is no longer live.
+  const showStopping = isStopping && isRunning;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ToolbarButton
@@ -38,11 +57,12 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         onClick={onRun}
       />
       <ToolbarButton
-        icon={Square}
-        label="Stop"
+        icon={showStopping ? Loader2 : Square}
+        label={showStopping ? "Stopping" : "Stop"}
         shortcut="Ctrl+."
-        disabled={!workflowId}
-        onClick={onStop}
+        disabled={!workflowId || showStopping}
+        iconClassName={showStopping ? "animate-spin" : undefined}
+        onClick={handleStop}
       />
       <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
     </div>

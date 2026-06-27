@@ -171,6 +171,72 @@ def test_spawn_codex_injects_project_mcp_config_overrides(monkeypatch: Any, tmp_
     assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in argv[-1]
 
 
+def test_spawn_claude_appends_prompt_after_dashdash(monkeypatch: Any, tmp_path: Path) -> None:
+    """#1789: the prompt is the agent's positional arg, separated by ``--``.
+
+    ``--mcp-config`` is variadic, so without the ``--`` end-of-options separator
+    claude swallows the trailing prompt as another MCP config path and exits
+    ("Invalid MCP configuration"). The ``--`` must therefore sit *after* the
+    ``--mcp-config`` value and immediately before the prompt.
+    """
+    spawned: dict[str, Any] = {}
+    prompt_path = tmp_path / "prompt.md"
+    mcp_config = tmp_path / ".scistudio" / "mcp.json"
+
+    class FakePtyProcess:
+        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+            spawned["argv"] = argv
+
+    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
+    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda project_dir: prompt_path)
+    monkeypatch.setattr(terminal, "_ensure_mcp_config", lambda project_dir: mcp_config)
+
+    terminal.spawn_claude(project_dir=tmp_path, dangerous=False, prompt="do the task")
+
+    argv = spawned["argv"]
+    assert argv[-2:] == ["--", "do the task"]
+    # The separator must come after --mcp-config's value, not before it.
+    assert argv.index("--mcp-config") < argv.index("--")
+
+
+def test_spawn_codex_appends_prompt_after_dashdash(monkeypatch: Any, tmp_path: Path) -> None:
+    """#1789: codex receives the prompt as its positional arg, after ``--``."""
+    spawned: dict[str, Any] = {}
+
+    class FakePtyProcess:
+        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+            spawned["argv"] = argv
+
+    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
+    monkeypatch.setattr(terminal, "_codex_mcp_config_overrides", lambda project_dir: [])
+
+    terminal.spawn_codex(project_dir=tmp_path, dangerous=False, prompt="do the task")
+
+    assert spawned["argv"][-2:] == ["--", "do the task"]
+
+
+def test_spawn_claude_omits_prompt_separator_when_no_prompt(monkeypatch: Any, tmp_path: Path) -> None:
+    """No prompt (e.g. a hand-launched tab) means no trailing ``--``."""
+    spawned: dict[str, Any] = {}
+    prompt_path = tmp_path / "prompt.md"
+    mcp_config = tmp_path / ".scistudio" / "mcp.json"
+
+    class FakePtyProcess:
+        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+            spawned["argv"] = argv
+
+    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
+    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda project_dir: prompt_path)
+    monkeypatch.setattr(terminal, "_ensure_mcp_config", lambda project_dir: mcp_config)
+
+    terminal.spawn_claude(project_dir=tmp_path, dangerous=False)
+
+    assert "--" not in spawned["argv"]
+
+
 def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path: Path) -> None:
     spawned: dict[str, Any] = {}
 

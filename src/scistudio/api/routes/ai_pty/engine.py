@@ -129,17 +129,22 @@ def open_engine_initiated_tab(
     if run_dir_path:
         extra_env["SCISTUDIO_AI_BLOCK_RUN_DIR"] = str(run_dir_path)
 
+    # #1789: deliver the prompt (carried in ``initial_stdin``) to claude/codex as
+    # a positional CLI argument at spawn rather than typing it into the TUI over
+    # stdin. A raw-mode agent TUI ignores the trailing carriage return, so the
+    # typed prompt sat unsubmitted and the agent never ran.
     pty = _pkg._spawn(
         provider=provider,
         project_dir=cwd_path,
         dangerous=dangerous,
         extra_env=extra_env or None,
+        prompt=initial_stdin,
     )
 
-    # Stamp with engine-side metadata so the join-WS path (I35c) can
-    # tell this tab apart from a user-launched one and replay the
-    # initial prompt to the agent.
-    pty._engine_initial_stdin = initial_stdin  # type: ignore[attr-defined]
+    # Stamp with engine-side metadata so the join-WS path can tell this tab apart
+    # from a user-launched one. The prompt was delivered as a spawn argument
+    # above, so there is nothing left to replay over stdin on connect.
+    pty._engine_initial_stdin = ""  # type: ignore[attr-defined]
     pty._engine_block_run_id = block_run_id  # type: ignore[attr-defined]
 
     tab_id = uuid.uuid4().hex[:12]

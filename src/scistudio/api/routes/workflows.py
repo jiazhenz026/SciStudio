@@ -496,6 +496,13 @@ async def execute_workflow(
         # #1525: a live run already exists; reject instead of silently
         # orphaning it by starting a second scheduler.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        # #1789: start_workflow raises ValueError for user-fixable preconditions
+        # (a hard validation failure such as a required input port with no
+        # incoming connection). Surface it as 422 instead of letting it escape
+        # as an uncaught 500. Mirrors the run-from-here handler below and the
+        # schema-validation handlers above.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
 
 

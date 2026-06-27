@@ -1,12 +1,14 @@
 import { Separator } from "@/components/ui/separator";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Package } from "lucide-react";
 import { useState } from "react";
 
 import type { ConnectionStatus } from "../hooks/connectionState";
+import { usePackageUpdates } from "../hooks/usePackageUpdates";
 import type { ProjectResponse } from "../types/api";
-import { PackageInstallerDialog } from "./PackageInstallerDialog";
+import { PackageManagerDialog } from "./PackageManagerDialog";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
-import { ProjectHeader, StatusPill } from "./Toolbar.parts/ProjectHeader";
+import { ProjectHeader } from "./Toolbar.parts/ProjectHeader";
 import { ProjectsDropdown } from "./Toolbar.parts/ProjectsDropdown";
 import { WorkflowGroups } from "./Toolbar.parts/WorkflowGroups";
 
@@ -105,8 +107,16 @@ export function Toolbar(props: ToolbarProps) {
   // typed as required props so App.tsx contracts don't change.
   void onResume;
   void onStartFromSelected;
+  // #1784 — the WS/Logs connection pills were replaced by the Packages button.
+  // The connection props stay on the contract (App.tsx still passes them) but
+  // are no longer rendered here.
+  void wsConnected;
+  void sseConnected;
+  void wsStatus;
+  void sseStatus;
   const isFileTab = activeTabKind === "file";
-  const [packageInstallerOpen, setPackageInstallerOpen] = useState(false);
+  const [packageManagerOpen, setPackageManagerOpen] = useState(false);
+  const { updateCount } = usePackageUpdates();
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -143,7 +153,7 @@ export function Toolbar(props: ToolbarProps) {
           onNewCustomBlock={onNewCustomBlock}
           onNewNote={onNewNote}
           onNewPlot={onNewPlot}
-          onInstallPackage={() => setPackageInstallerOpen(true)}
+          onInstallPackage={() => setPackageManagerOpen(true)}
           onImport={onImport}
           onSave={onSave}
           onSaveAs={onSaveAs}
@@ -169,15 +179,40 @@ export function Toolbar(props: ToolbarProps) {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Connection Status */}
+        {/* #1784 — Packages: opens the in-app Package Manager. Badge marks
+            available OTA updates found by the startup check. */}
         <div className="flex shrink-0 items-center gap-2">
-          <StatusPill connected={wsConnected} status={wsStatus} label="WS" />
-          <StatusPill connected={sseConnected} status={sseStatus} label="Logs" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label="Packages"
+                className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                onClick={() => setPackageManagerOpen(true)}
+                type="button"
+              >
+                <Package className="size-4" />
+                <span className="hidden xl:inline">Packages</span>
+                {updateCount > 0 ? (
+                  <span
+                    aria-label={`${updateCount} package update${updateCount === 1 ? "" : "s"} available`}
+                    className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pine px-1 text-[10px] font-semibold text-white"
+                  >
+                    {updateCount}
+                  </span>
+                ) : null}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {updateCount > 0
+                ? `Packages — ${updateCount} update${updateCount === 1 ? "" : "s"} available`
+                : "Packages"}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </header>
-      <PackageInstallerDialog
-        onClose={() => setPackageInstallerOpen(false)}
-        open={packageInstallerOpen}
+      <PackageManagerDialog
+        onClose={() => setPackageManagerOpen(false)}
+        open={packageManagerOpen}
       />
     </TooltipProvider>
   );

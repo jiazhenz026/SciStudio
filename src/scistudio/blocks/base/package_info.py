@@ -10,6 +10,20 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class PackageOtaSource:
+    """Where a package publishes its OTA hot-update manifest.
+
+    A package self-declares its update source (issue #1784) so core never has
+    to maintain a list of packages. ``manifest_url`` points at a per-package,
+    public ``manifest.json`` (see ``scistudio.desktop.package_ota``); ``channel``
+    selects which rolling release line to track (e.g. ``alpha``, ``stable``).
+    """
+
+    manifest_url: str
+    channel: str = "stable"
+
+
+@dataclass(frozen=True)
 class PackageInfo:
     """Metadata about a block package.
 
@@ -23,3 +37,8 @@ class PackageInfo:
     description: str = ""
     author: str = ""
     version: str = "0.1.0"
+    # OTA hot-update source (#1784). Optional so packages that never publish
+    # updates — and older packages built before this field existed — keep
+    # working unchanged. When set, the in-app Package Manager checks this
+    # source for newer releases.
+    ota: PackageOtaSource | None = None

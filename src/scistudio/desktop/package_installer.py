@@ -579,7 +579,15 @@ def _extract_tar(source: Path, destination: Path) -> None:
             if member.issym() or member.islnk():
                 raise PackageInstallError(f"Archive member links are not supported: {member.name}")
             _validate_archive_member(destination, member.name)
-        archive.extractall(destination)
+        # ``filter="data"`` is the safe extraction policy (rejects absolute
+        # paths, traversal, and special files) and silences the Python 3.14
+        # unfiltered-tarfile DeprecationWarning that warnings-as-error CI turns
+        # into a failure on 3.12+. The parameter only exists on 3.11.4+/3.12+,
+        # so older interpreters (which do not emit the warning) fall through.
+        if sys.version_info >= (3, 11, 4):
+            archive.extractall(destination, filter="data")
+        else:
+            archive.extractall(destination)
 
 
 def _validate_archive_member(destination: Path, member_name: str) -> None:
