@@ -237,12 +237,15 @@ def interactive_item_label(item: Any, index: int) -> str:
     identifying name in this order:
 
     1. an explicit ``name`` attribute, if the object carries one;
-    2. the originating file's basename from typed domain metadata
+    2. the generic ``user['display_name']`` presentation hook (#1810 interim,
+       #1812 convention) — e.g. ``"<file> — <sheet>"`` for an .xlsx sheet so
+       same-file/different-sheet items do not collide;
+    3. the originating file's basename from typed domain metadata
        (``item.meta.source_file`` — populated by the loaders for spectra,
        images, etc.);
-    3. an :class:`~scistudio.core.types.artifact.Artifact`-style ``file_path``
+    4. an :class:`~scistudio.core.types.artifact.Artifact`-style ``file_path``
        basename;
-    4. ``item_<index>`` as the last resort.
+    5. ``item_<index>`` as the last resort.
 
     The lookups are all duck-typed so the helper stays type-agnostic across the
     DataObject hierarchy and any plugin-provided type.
@@ -250,6 +253,11 @@ def interactive_item_label(item: Any, index: int) -> str:
     name = getattr(item, "name", None)
     if isinstance(name, str) and name:
         return name
+
+    user = getattr(item, "user", None)
+    display_name = user.get("display_name") if isinstance(user, dict) else None
+    if isinstance(display_name, str) and display_name:
+        return display_name
 
     meta = getattr(item, "meta", None)
     source_file = getattr(meta, "source_file", None) if meta is not None else None

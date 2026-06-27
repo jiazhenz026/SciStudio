@@ -93,6 +93,8 @@ from scistudio.blocks.io.savers._helpers import (
     _resolve_core_type_name,
     _slot_path_for,
     _unwrap_for_save,
+    _write_table_to_xlsx,
+    _write_tables_to_xlsx,
     logger,  # noqa: F401  re-export for backward compat
 )
 from scistudio.blocks.io.savers._streaming import (
@@ -127,6 +129,18 @@ def _source_file_stem(obj: DataObject) -> tuple[str, str]:
         return type(obj).__name__.lower(), ""
     source_path = Path(source_name)
     return source_path.stem or source_path.name, source_path.name
+
+
+def _sheet_name_of(obj: DataObject) -> str | None:
+    """Return the round-trip Excel sheet name recorded at load (#1810).
+
+    The loader stores the originating sheet name in ``user['sheet_name']`` so a
+    saved workbook can reproduce it. Returns ``None`` for objects that never
+    came from an .xlsx sheet.
+    """
+    user = getattr(obj, "user", None)
+    name = user.get("sheet_name") if isinstance(user, dict) else None
+    return str(name) if name else None
 
 
 def _collection_item_filename(
@@ -177,6 +191,82 @@ def _save_collection(
         params["filename"] = _collection_item_filename(configured, item, index=idx)
         item_config = BlockConfig(params=params)
         dispatch_fn(item, item_config)
+
+
+def _collection_targets_xlsx(collection: Collection, config: BlockConfig) -> bool:
+    """True when a DataFrame/Series Collection should be saved as .xlsx (#1810).
+
+    A Collection targets xlsx when the configured ``filename`` ends in ``.xlsx``,
+    or — when no filename is configured — when the items carry an .xlsx source
+    (the load → save round-trip case). DataFrame/Series only.
+    """
+    if collection.item_type not in (DataFrame, Series):
+        return False
+    configured = config.get("filename")
+    if isinstance(configured, str) and configured.strip():
+        return configured.strip().lower().endswith(".xlsx")
+    for item in collection:
+        _stem, name = _source_file_stem(item)
+        if name.lower().endswith(".xlsx"):
+            return True
+    return False
+
+
+def _save_collection_xlsx(collection: Collection, config: BlockConfig) -> None:
+    """Save a DataFrame/Series Collection to .xlsx, grouping by source workbook (#1810).
+
+    Items are grouped by their originating workbook (``framework.source`` stem):
+    each distinct source file becomes one multi-sheet workbook (sheets named by
+    ``user['sheet_name']``); every item with no source is written into ONE
+    workbook named by the configured ``filename`` (owner decision). This makes
+    the load → save round-trip reproduce the original file ↔ sheet grouping.
+    """
+    items = list(collection)
+    if not items:
+        raise ValueError("SaveData received an empty Collection; nothing to save.")
+    output_dir = _require_path(config)
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError("SaveData received a multi-item Collection; config.path must be a folder path.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    configured = config.get("filename")
+    if configured is not None and not isinstance(configured, str):
+        raise ValueError(f"SaveData: config['filename'] must be a string or omitted, got {type(configured).__name__}")
+    configured_stem = Path(configured.strip()).stem if isinstance(configured, str) and configured.strip() else ""
+
+    # Group by source-workbook stem; preserve first-seen order. The empty-source
+    # group is keyed by "" and lands in a single configured-filename workbook.
+    groups: dict[str, list[DataObject]] = {}
+    for item in items:
+        stem, name = _source_file_stem(item)
+        key = stem if name.lower().endswith(".xlsx") else ""
+        groups.setdefault(key, []).append(item)
+
+    for key, members in groups.items():
+        workbook_stem = key or configured_stem
+        if not workbook_stem:
+            raise ValueError(
+                "SaveData cannot name an .xlsx workbook for source-less Collection items: "
+                "set the Save block filename field."
+            )
+        named_tables = [
+            (_sheet_name_of(item) or f"Sheet{idx}", _dataframe_to_arrow_table_for(item))
+            for idx, item in enumerate(members, start=1)
+        ]
+        dest = output_dir / f"{workbook_stem}.xlsx"
+        with atomic_path(dest) as tmp:
+            _write_tables_to_xlsx(named_tables, tmp)
+
+
+def _dataframe_to_arrow_table_for(item: DataObject) -> Any:
+    """Return the Arrow table for a DataFrame or single-column Series item."""
+    if isinstance(item, Series):
+        import pyarrow as pa
+
+        raw = item.get_in_memory_data()
+        column_name = item.value_name or "value"
+        return raw if isinstance(raw, pa.Table) else pa.table({column_name: pa.array(raw)})
+    assert isinstance(item, DataFrame), f"Expected DataFrame, got {type(item).__name__}"
+    return _dataframe_to_arrow_table(item)
 
 
 def _delegate_save_collection(
@@ -422,6 +512,11 @@ class SaveData(IOBlock):
             "CompositeData": _save_composite_data,
         }
         if isinstance(obj, Collection) and len(obj) > 1:
+            # #1810: xlsx Collections regroup by source workbook into multi-sheet
+            # files instead of the one-file-per-item default.
+            if _collection_targets_xlsx(obj, config):
+                _save_collection_xlsx(obj, config)
+                return
             _save_collection(obj, target_cls=target_cls, dispatch_fn=dispatch[type_name], config=config)
             return
 
@@ -611,6 +706,15 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
+    if fmt == "xlsx":
+        # #1810: a single DataFrame -> single sheet. The sheet name is the
+        # round-trip ``user['sheet_name']`` when present, else "Sheet1".
+        table = _dataframe_to_arrow_table(obj)
+        sheet_name = _sheet_name_of(obj) or "Sheet1"
+        with atomic_path(path) as tmp:
+            _write_table_to_xlsx(table, tmp, sheet_name)
+        return
+
     raise ValueError(
         f"Unsupported DataFrame file extension {path.suffix.lower()!r}. "
         f"Supported extensions: {list(_supported_save_extensions(DataFrame))} "
@@ -682,6 +786,13 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
         records = table.to_pylist()
         with atomic_writer(path, mode="w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
+        return
+
+    if fmt == "xlsx":
+        # #1810: Series -> single-column single sheet.
+        sheet_name = _sheet_name_of(obj) or "Sheet1"
+        with atomic_path(path) as tmp:
+            _write_table_to_xlsx(table, tmp, sheet_name)
         return
 
     raise ValueError(

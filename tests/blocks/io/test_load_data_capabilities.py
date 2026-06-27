@@ -217,8 +217,8 @@ class TestLoadDataPerTypeCapabilityCoverage:
         ("data_type", "expected_format_ids"),
         [
             (Array, {"npy", "npz", "zarr", "parquet", "pickle"}),
-            (DataFrame, {"csv", "tsv", "parquet", "json", "pickle"}),
-            (Series, {"csv", "tsv", "parquet", "pickle"}),
+            (DataFrame, {"csv", "tsv", "parquet", "json", "xlsx", "pickle"}),
+            (Series, {"csv", "tsv", "parquet", "xlsx", "pickle"}),
             (Text, {"text"}),
             (CompositeData, {"json"}),
         ],

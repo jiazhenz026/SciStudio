@@ -70,6 +70,7 @@ from scistudio.blocks.io.loaders._helpers import (
     _MIME_GUESS,
     _TEXT_FORMAT_MAP,
     _check_pickle_allowed,
+    _read_xlsx_sheets,
     _resolve_path,
 )
 from scistudio.core.meta.framework import FrameworkMeta
@@ -87,6 +88,12 @@ def _source_framework(path: Path) -> FrameworkMeta:
     """Return framework metadata that preserves the boundary source path."""
 
     return FrameworkMeta(source=str(path))
+
+
+def _is_xlsx_path(path: Any) -> bool:
+    """True when *path* points at an Excel ``.xlsx`` file (#1810)."""
+
+    return str(path).lower().endswith(".xlsx")
 
 
 class LoadData(IOBlock):
@@ -194,8 +201,14 @@ class LoadData(IOBlock):
             from scistudio.blocks.io._unified_dispatch import resolve_type_class
 
             cls = resolve_type_class(str(type_name)) or DataObject
-        is_multi = isinstance(self.config.get("path"), list)
-        return [OutputPort(name="data", accepted_types=[cls], is_collection=is_multi)]
+        # #1810: a multi-path list is always a Collection; an .xlsx source is
+        # also always a Collection (one DataFrame/Series per sheet), so the port
+        # statically declares is_collection=True for it even on a single path.
+        raw_path = self.config.get("path")
+        path_list = raw_path if isinstance(raw_path, list) else ([raw_path] if raw_path else [])
+        is_multi = isinstance(raw_path, list)
+        is_xlsx = type_name in {"DataFrame", "Series"} and any(_is_xlsx_path(p) for p in path_list)
+        return [OutputPort(name="data", accepted_types=[cls], is_collection=is_multi or is_xlsx)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
         """Dispatch to one of the six private ``_load_*`` functions.
@@ -246,8 +259,17 @@ class LoadData(IOBlock):
             raise ValueError(f"Unknown core_type: {type_name}")
 
         raw_path = config.get("path")
-        if isinstance(raw_path, list):
-            # Multi-path: load each file and return a Collection.
+        path_list = raw_path if isinstance(raw_path, list) else [raw_path]
+        is_multi = isinstance(raw_path, list)
+        # #1810: a DataFrame/Series .xlsx source fans out into one object per
+        # sheet. Across a multi-path list, every sheet of every file is
+        # flattened into one Collection (engine stays unchanged — item strategy
+        # is the block's responsibility per ADR-020).
+        xlsx_active = type_name in {"DataFrame", "Series"} and any(
+            _is_xlsx_path(p) for p in path_list
+        )
+
+        if is_multi or xlsx_active:
             loader = dispatch[type_name]
             item_cls = _CORE_TYPE_MAP[type_name]
             shared_params: dict[str, Any] = {"core_type": type_name}
@@ -255,13 +277,73 @@ class LoadData(IOBlock):
             if allow_pickle is not None:
                 shared_params["allow_pickle"] = allow_pickle
             items: list[DataObject] = []
-            for single_path in raw_path:
+            for single_path in path_list:
                 single_config = BlockConfig(params={**shared_params, "path": str(single_path)})
-                items.append(loader(single_config, output_dir))
+                if xlsx_active and _is_xlsx_path(single_path):
+                    items.extend(self._load_xlsx_objects(single_config, output_dir, type_name))
+                else:
+                    items.append(loader(single_config, output_dir))
             return Collection(items=items, item_type=item_cls)
 
         result: DataObject = dispatch[type_name](config, output_dir)
         return result
+
+    def _load_xlsx_objects(
+        self, config: BlockConfig, output_dir: str, type_name: str
+    ) -> list[DataObject]:
+        """Load one DataFrame/Series per sheet of an .xlsx workbook (#1810).
+
+        Each sheet becomes its own DataObject carrying ``framework.source`` (the
+        workbook path — shared by all of that file's sheets so the saver can
+        regroup them) and ``user['sheet_name']`` (so the sheet name is visible
+        and the saver can re-name sheets on round-trip). Each sheet's table is
+        persisted to its own ``storage_ref`` via :meth:`persist_table`.
+        """
+        path = _resolve_path(config)
+        if not path.exists():
+            raise FileNotFoundError(f"LoadData: {type_name} source not found: {path}")
+        framework = _source_framework(path)
+        objects: list[DataObject] = []
+        for sheet_name, table in _read_xlsx_sheets(path):
+            # ``sheet_name`` is the structural identity (drives save grouping /
+            # sheet naming); ``display_name`` is the generic presentation hook
+            # (#1810 interim, #1812 convention) so same-file/different-sheet
+            # items don't collide in DataRouter / preview lists.
+            user = {"sheet_name": sheet_name, "display_name": f"{path.name} — {sheet_name}"}
+            storage_ref = self.persist_table(table, output_dir) if output_dir else None
+            if type_name == "Series":
+                if table.num_columns != 1:
+                    raise ValueError(
+                        f"LoadData(core_type='Series'): sheet {sheet_name!r} in {path} has "
+                        f"{table.num_columns} columns, expected a single-column Series sheet."
+                    )
+                objects.append(
+                    Series(
+                        index_name=None,
+                        value_name=table.column_names[0],
+                        length=int(table.num_rows),
+                        framework=framework,
+                        user=user,
+                        storage_ref=storage_ref,
+                        data=None if storage_ref is not None else table,
+                    )
+                )
+            else:
+                df = DataFrame(
+                    columns=list(table.column_names),
+                    row_count=int(table.num_rows),
+                    framework=framework,
+                    user=user,
+                    storage_ref=storage_ref,
+                )
+                # Mirror _load_dataframe: carry the table on ``_arrow_table`` when
+                # not persisted; the persisted case reads back via storage_ref.
+                if storage_ref is None:
+                    df._arrow_table = table  # type: ignore[attr-defined]
+                objects.append(df)
+        if not objects:
+            raise ValueError(f"LoadData: .xlsx workbook {path} contains no sheets.")
+        return objects
 
     def _load_array_with_persist(self, config: BlockConfig, output_dir: str) -> Array:
         """Load Array and persist to zarr storage.

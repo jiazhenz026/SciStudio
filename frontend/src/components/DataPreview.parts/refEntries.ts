@@ -31,6 +31,15 @@ export function deriveDisplayName(ref: string, dataItem: Record<string, unknown>
   const md = dataItem.metadata;
   if (md && typeof md === "object") {
     const mdRec = md as Record<string, unknown>;
+    // 0. Generic user-set display name (#1810 interim, #1812 convention). The
+    // producer composes a user-facing label — e.g. "<file> — <sheet>" for an
+    // .xlsx sheet — so same-file/different-sheet items don't collide. Preferred
+    // over file-based heuristics because it is an explicit presentation choice.
+    const user = mdRec.user;
+    if (user && typeof user === "object") {
+      const displayName = (user as Record<string, unknown>).display_name;
+      if (typeof displayName === "string" && displayName) return displayName;
+    }
     // 1. Typed source-file metadata. Imaging and spectroscopy loaders both
     // use this when the framework source is package provenance rather than a
     // user-facing filename.

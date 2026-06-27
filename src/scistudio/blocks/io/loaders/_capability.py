@@ -171,6 +171,14 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
     _load_capability(
         data_type=DataFrame,
         type_name="DataFrame",
+        format_id="xlsx",
+        extensions=(".xlsx",),
+        label="Excel",
+        handler="load",
+    ),
+    _load_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
         format_id="pickle",
         extensions=(".pkl", ".pickle"),
         label="Pickle",
@@ -200,6 +208,14 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
         format_id="parquet",
         extensions=(".parquet", ".pq"),
         label="Parquet",
+        handler="load",
+    ),
+    _load_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="xlsx",
+        extensions=(".xlsx",),
+        label="Excel",
         handler="load",
     ),
     _load_capability(

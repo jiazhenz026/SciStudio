@@ -160,6 +160,14 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
     _save_capability(
         data_type=DataFrame,
         type_name="DataFrame",
+        format_id="xlsx",
+        extensions=(".xlsx",),
+        label="Excel",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
         format_id="pickle",
         extensions=(".pkl", ".pickle"),
         label="Pickle",
@@ -197,6 +205,14 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
         format_id="json",
         extensions=(".json",),
         label="JSON",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="xlsx",
+        extensions=(".xlsx",),
+        label="Excel",
         handler="save",
     ),
     _save_capability(

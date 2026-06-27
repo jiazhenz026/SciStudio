@@ -37,6 +37,21 @@ describe("extractRefEntries", () => {
     ]);
   });
 
+  it("prefers user.display_name over framework.source (#1810 — disambiguates xlsx sheets)", () => {
+    // Two sheets of one workbook share framework.source; the per-item
+    // user.display_name is what keeps them distinct.
+    const result = extractRefEntries({
+      data_ref: "data-sheet2",
+      metadata: {
+        framework: { source: "/data/exp.xlsx" },
+        user: { sheet_name: "beta", display_name: "exp.xlsx — beta" },
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-sheet2", displayName: "exp.xlsx — beta" }),
+    ]);
+  });
+
   it("falls back to metadata.meta.source_file when framework absent", () => {
     const result = extractRefEntries({
       data_ref: "data-xyz",

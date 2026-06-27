@@ -224,6 +224,33 @@ Acceptance Scenarios:
 - AppBlock output directory contains files with the right extension but no
   reconstructing loader for the declared type.
 
+#### Excel (`.xlsx`) is collection-valued (#1810)
+
+The core `DataFrame`/`Series` `xlsx` capability is the one core format whose
+load is intrinsically multi-valued: an `.xlsx` workbook holds N sheets, so a
+single file loads as one DataObject **per sheet**. To keep the engine's static
+port contract honest (a port's `is_collection` is config-derivable; ADR-020 §3),
+`LoadData` declares `is_collection=True` for any `.xlsx` path and fans the
+workbook out into a `Collection` (one item per sheet) — a single-sheet file is a
+length-one Collection. Multiple `.xlsx` paths flatten every sheet of every file
+into one Collection. The fan-out lives in the block (`LoadData.load`), not the
+engine, per ADR-020's item-strategy delegation.
+
+Each sheet DataObject carries `framework.source` (the originating workbook —
+shared by all of that file's sheets) and `user["sheet_name"]` (the structural
+sheet identity) plus a generic `user["display_name"]` presentation hook
+(`"<file> — <sheet>"`) so same-file/different-sheet items do not collide in
+DataRouter / preview lists. The generic display-name convention is tracked
+separately (#1812).
+
+On save, an xlsx `Collection` regroups by `framework.source`: each distinct
+source workbook becomes one multi-sheet file (sheets named by
+`user["sheet_name"]`); source-less items are written into one workbook named by
+the configured filename. A single DataObject saves to a single sheet. This makes
+the load → save round-trip reproduce the original file ↔ sheet grouping. Excel's
+hard sheet limits (1,048,576 rows × 16,384 columns) are enforced with a clear
+error rather than silent truncation.
+
 ## 3. Requirements
 
 ### Functional Requirements

@@ -35,6 +35,7 @@ from scistudio.blocks.io.loaders.load_data import LoadData
 from scistudio.blocks.io.savers.save_data import SaveData
 from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
@@ -104,14 +105,18 @@ MATRIX: dict[str, dict[str, Any]] = {
     "DataFrame": {
         "build": _build_dataframe,
         "type": DataFrame,
-        "load": [".csv", ".tsv", ".parquet", ".pq", ".json", ".pkl", ".pickle"],
-        "save": [".csv", ".tsv", ".parquet", ".pq", ".json", ".pkl", ".pickle"],
+        # #1810 — .xlsx is collection-valued (one DataFrame per sheet); a
+        # single-sheet workbook round-trips as a length-one Collection, which
+        # the matrix unwraps. Multi-sheet / grouping semantics are covered in
+        # tests/blocks/io/test_xlsx_io.py.
+        "load": [".csv", ".tsv", ".parquet", ".pq", ".json", ".xlsx", ".pkl", ".pickle"],
+        "save": [".csv", ".tsv", ".parquet", ".pq", ".json", ".xlsx", ".pkl", ".pickle"],
     },
     "Series": {
         "build": _build_series,
         "type": Series,
-        "load": [".csv", ".tsv", ".parquet", ".pq", ".pkl", ".pickle"],
-        "save": [".csv", ".tsv", ".parquet", ".pq", ".pkl", ".pickle", ".json"],
+        "load": [".csv", ".tsv", ".parquet", ".pq", ".xlsx", ".pkl", ".pickle"],
+        "save": [".csv", ".tsv", ".parquet", ".pq", ".pkl", ".pickle", ".json", ".xlsx"],
     },
     "Text": {
         "build": _build_text,
@@ -227,9 +232,10 @@ def test_load_save_matrix(tmp_path: Path, core_type: str, load_ext: str, save_ex
     # LOAD under test: write a load_ext file, read it back.
     load_file = _save(src, tmp_path / "in", "seed", load_ext, core_type)
     loaded = _load(load_file, spec["type"], core_type, load_ext)
-    if isinstance(loaded, type(loaded)) and hasattr(loaded, "items"):
-        # LoadData may return a single-item Collection for the pickle path.
-        loaded = loaded[0] if not isinstance(loaded, spec["type"]) else loaded
+    # #1810 — .xlsx (and the pickle path) may return a length-one Collection;
+    # unwrap to the single item for the single-object invariant check.
+    if isinstance(loaded, Collection) and not isinstance(loaded, spec["type"]):
+        loaded = loaded[0]
     assert loaded is not None
 
     # SAVE under test: write the loaded object to save_ext.
@@ -244,7 +250,7 @@ def test_load_save_matrix(tmp_path: Path, core_type: str, load_ext: str, save_ex
     # If save_ext is reloadable, confirm the data survived the save.
     if save_ext in spec["load"] and (core_type, save_ext) not in BROKEN_RELOAD:
         reloaded = _load(out_file, spec["type"], core_type, save_ext)
-        if hasattr(reloaded, "items") and not isinstance(reloaded, spec["type"]):
+        if isinstance(reloaded, Collection) and not isinstance(reloaded, spec["type"]):
             reloaded = reloaded[0]
         _assert_invariant(core_type, src, reloaded)
 

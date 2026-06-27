@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.core.types.array import Array
@@ -124,11 +125,35 @@ def _check_pickle_allowed(path: Path, config: BlockConfig) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# Excel (.xlsx) read support (#1810)
+# ---------------------------------------------------------------------------
+
+
+def _read_xlsx_sheets(path: Path) -> list[tuple[str, Any]]:
+    """Read every sheet of an .xlsx workbook into ``(sheet_name, pa.Table)``.
+
+    Uses the pandas + openpyxl bridge (#1810). Returns one entry per sheet in
+    workbook order so the loader can fan a multi-sheet workbook out into a
+    Collection of one DataObject per sheet, preserving the sheet name.
+    """
+    import pandas as pd
+    import pyarrow as pa
+
+    # ``sheet_name=None`` returns an ordered dict {sheet_name: DataFrame}.
+    frames = pd.read_excel(path, sheet_name=None, engine="openpyxl")
+    return [
+        (str(name), pa.Table.from_pandas(frame, preserve_index=False))
+        for name, frame in frames.items()
+    ]
+
+
 __all__ = [
     "_CORE_TYPE_MAP",
     "_LOGGER",
     "_MIME_GUESS",
     "_TEXT_FORMAT_MAP",
     "_check_pickle_allowed",
+    "_read_xlsx_sheets",
     "_resolve_path",
 ]
