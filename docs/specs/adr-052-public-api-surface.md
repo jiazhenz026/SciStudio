@@ -106,6 +106,7 @@ root for every public symbol in that module, by ADR-052 §2), not repeated per r
 | 🤔 | Open — needs a decision before this contract is complete |
 | ⏸ | Deferred to a tracked follow-up (cite the issue in Notes) |
 | ➖ | Internal by inspection; listed so the file is accounted for, no promise attached |
+| ⚠️ | Public but **deprecated** — still importable, slated for removal under the §5 deprecation policy |
 
 A module section is complete only when its file checklist is fully ticked and no
 row is left 🤔.
@@ -150,7 +151,7 @@ File checklist:
 - [x] `artifact.py` (131) — `Artifact` → §3.6
 - [x] `composite.py` (152) — `CompositeData` → §3.7
 - [x] `collection.py` (83) — `Collection` → §3.8
-- [~] `registry.py` (647) — `TypeRegistry`/`TypeSpec` (in `__all__` today) → §3.9; disposition pending survey
+- [x] `registry.py` (647) — `TypeRegistry`/`TypeSpec` → §3.9; **demoted to internal** (owner, opt B)
 - [x] `serialization.py` (379) — fully internal → §3.9
 - [x] `_backend_defaults.py` (56) — internal module → §3.9
 
@@ -391,14 +392,16 @@ sweep found **0 author-facing importers** (all internal: serialization, api/runt
 engine/worker, ai/agent mcp). Background survey complete (2nd agent, 2026-06-27):
 **0 author-facing importers** in core src or either public package — both packages
 touch `TypeRegistry` only in tests via the internal path, and `TypeSpec` has no
-external reader at all. **Recommend demote both to internal (option B)**; awaiting
-owner confirm. Caveat: `tests/contracts/test_runtime_import_contract.py` frames a
-"TypeRegistry public-API contract" to reconcile with the internal disposition in #1817.
+external reader at all. **Owner confirmed (2026-06-27): demote both to internal
+(option B).** Remove both from `core.types.__all__` in #1817; the internal
+`scistudio.core.types.registry` path keeps working, so no package change is needed.
+Caveat: `tests/contracts/test_runtime_import_contract.py` frames a "TypeRegistry
+public-API contract" to reconcile with the internal disposition in #1817.
 
 | St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `TypeRegistry` | class | pending (lean Internal) | — | — | mutable runtime registry (register/scan/resolve); 0 author importers in core |
-| 🤔 | `TypeSpec` | dataclass | pending (lean Internal) | — | — | located-type descriptor (name/module_path/class_name/base_type/description) |
+| ➖ | `TypeRegistry` | class | Internal | — | — | owner 2026-06-27 (opt B); mutable runtime registry; 0 author importers; drop from `core.types.__all__` in #1817 |
+| ➖ | `TypeSpec` | dataclass | Internal | — | — | owner 2026-06-27 (opt B); located-type descriptor; 0 external readers; drop from `__all__` in #1817 |
 
 Recommendation pending the survey: **demote both to internal** (option B) — the
 author-facing "what types exist" need is ADR-052 §4.4's separate read-only discovery
@@ -410,66 +413,313 @@ Canonical root: `from scistudio.blocks.base import …`
 
 File checklist:
 
-- [ ] `block.py` (507) — `Block`
-- [ ] `config.py` (33) — `BlockConfig`
-- [ ] `ports.py` (170) — `InputPort`, `OutputPort`
-- [ ] `state.py` (38) — `ExecutionMode`
-- [ ] `package_info.py` (44) — `PackageInfo`
-- [ ] `interactive.py` (367) — `InteractiveMixin`, `InteractivePrompt`, `PanelManifest` (ADR-051)
-- [ ] `exceptions.py` (21) — block exceptions; public?
-- [ ] `result.py` (20) — block result; public?
+- [x] `block.py` (507) — `Block` → §4.1
+- [x] `config.py` (33) — `BlockConfig` → §4.2
+- [x] `ports.py` (170) — `InputPort`/`OutputPort` → §4.3 (`Port` + 4 helpers internal)
+- [x] `state.py` (38) — `ExecutionMode` → §4.4 (`BlockState` internal)
+- [x] `package_info.py` (44) — `PackageInfo` + `PackageOtaSource` → §4.5
+- [x] `interactive.py` (367) — interactive surface → §4.8 (public/provisional)
+- [x] `exceptions.py` (21) — `BlockCancelledByAppError` → §4.7 (Public/provisional)
+- [x] `result.py` (20) — `BlockResult` internal → §4.6
 
-| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+### 4.1 `block.py`
+
+Module exports (`__all__`): `Block` public. (It imports `BlockConfig`, the port
+helpers, and `ExecutionMode` from sibling modules — each covered in its own subsection.)
+
+**`Block`** — ✅ Public / `stable` / 0.3.1. The ABC every block subclasses.
+
+Block-authoring declaration (ClassVars an author sets on their block class):
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `Block` | class | Public | — | — | shared contract base |
-| 🤔 | `BlockConfig` | class | Public | — | — | config base |
-| 🤔 | `InputPort` | class | Public | — | — | |
-| 🤔 | `OutputPort` | class | Public | — | — | |
-| 🤔 | `ExecutionMode` | enum | Public | — | — | |
-| 🤔 | `PackageInfo` | class | Public | — | — | registration handshake (ADR-025) |
-| 🤔 | `InteractiveMixin` | class | Public | — | — | ADR-051 |
-| 🤔 | `InteractivePrompt` | class | Public | — | — | ADR-051 |
-| 🤔 | `PanelManifest` | class | Public | — | — | ADR-051 |
-| 🤔 | (exceptions) | class | Public? | — | — | enumerate from exceptions.py |
-| 🤔 | (result) | class | Public? | — | — | enumerate from result.py |
+| ✅ | `name` / `description` / `version` | ClassVar | Public | stable | 0.3.1 | identity / display |
+| ✅ | `subcategory` | ClassVar | Public | stable | 0.3.1 | palette grouping (#588) |
+| ✅ | `input_ports` / `output_ports` | ClassVar | Public | stable | 0.3.1 | static port declaration |
+| ✅ | `variadic_inputs` / `variadic_outputs` | ClassVar | Public | stable | 0.3.1 | ADR-029 variadic ports |
+| ✅ | `allowed_input_types` / `allowed_output_types` | ClassVar | Public | stable | 0.3.1 | ADR-029 type constraints |
+| ✅ | `min_input_ports` / `max_input_ports` / `min_output_ports` / `max_output_ports` | ClassVar | Public | stable | 0.3.1 | ADR-029 Add.1 count limits |
+| ✅ | `dynamic_ports` | ClassVar | Public | **provisional** | 0.3.1 | owner 2026-06-27: declarative dynamic-port descriptor (ADR-028 Add.1); still settling |
+| ✅ | `execution_mode` | ClassVar | Public | stable | 0.3.1 | `ExecutionMode` (§4.x state.py) |
+| ✅ | `terminate_grace_sec` | ClassVar | Public | stable | 0.3.1 | SIGTERM grace (ADR-019) |
+| ✅ | `key_dependencies` | ClassVar | Public | stable | 0.3.1 | declared pip deps |
+| ✅ | `config_schema` | ClassVar | Public | stable | 0.3.1 | JSON schema for the config UI |
+
+Lifecycle, hooks, and helpers:
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `__init__(config=None)` | method | Public | stable | 0.3.1 | sets `self.config` |
+| ✅ | `self.config` | attribute | Public | stable | 0.3.1 | a `BlockConfig` (§4.x config.py) |
+| ✅ | `validate(inputs)` | method | Public | stable | 0.3.1 | default port-contract check; overridable |
+| ✅ | `run(inputs, config)` | method | Public | stable | 0.3.1 | **@abstractmethod — authors MUST override** |
+| ✅ | `postprocess(outputs)` | method | Public | stable | 0.3.1 | optional; default passthrough |
+| ✅ | `process_item(item, config)` | method | Public | stable | 0.3.1 | Tier-1 override point (default `run()` lives in `ProcessBlock`, §5) |
+| ✅ | `get_effective_input_ports()` / `get_effective_output_ports()` | method | Public | stable | 0.3.1 | owner 2026-06-27; per-instance ports; dynamic/variadic blocks override (ADR-028 Add.1) |
+| ✅ | `get_panel_manifest()` | method | Public | provisional | 0.3.1 | owner 2026-06-27; returns the declared `PanelManifest`; override for a dynamic panel (ADR-051); tier tied to the interactive surface (interactive.py) |
+| ✅ | `pack` / `unpack` / `unpack_single` / `map_items` / `parallel_map` | staticmethod | Public | stable | 0.3.1 | ADR-020 Collection utilities |
+| ✅ | `persist_array(...)` / `persist_table(...)` | method | Public | stable | 0.3.1 | §11 large-data streaming writes |
+| ➖ | `_auto_flush(obj)` | staticmethod | Internal | — | — | called by pack / map_items / parallel_map |
 
 `AIBlock` and `SubWorkflowBlock` are **out of the public surface** (decided
 2026-06-27; ADR-052 §3 corrected): they are runtime base classes the engine and
 the embedded agent compose, not an author extension point.
 
+### 4.2 `config.py`
+
+Module exports: `BlockConfig` public. A Pydantic `BaseModel` with `extra="allow"`, so
+subclasses/plugins attach arbitrary validated fields.
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `BlockConfig` | class | Public | stable | 0.3.1 | Pydantic BaseModel, `extra="allow"` |
+| ✅ | `params` | field | Public | stable | 0.3.1 | `dict[str, Any]` |
+| ✅ | `get(key, default=None)` | method | Public | stable | 0.3.1 | params first, then Pydantic extras (#565) |
+
+(Pydantic's own BaseModel API — `model_dump`, etc. — is Pydantic's contract, not re-frozen here.)
+
+### 4.3 `ports.py`
+
+Canonical author types: `InputPort`, `OutputPort` (authors declare ports with these).
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `InputPort` | dataclass (kw-only) | Public | stable | 0.3.1 | input connection endpoint |
+| ✅ | `InputPort.name` / `.accepted_types` / `.is_collection` / `.description` / `.required` | field | Public | stable | 0.3.1 | shared port fields (from `Port` base) |
+| ✅ | `InputPort.default` / `.constraint` / `.constraint_description` | field | Public | stable | 0.3.1 | input-only: default value + constraint fn + its description |
+| ✅ | `OutputPort` | dataclass (kw-only) | Public | stable | 0.3.1 | output connection endpoint |
+| ✅ | `OutputPort.name` / `.accepted_types` / `.is_collection` / `.description` / `.required` | field | Public | stable | 0.3.1 | shared port fields (from `Port` base) |
+| ➖ | `Port` | dataclass | Internal | — | — | owner 2026-06-27: shared base; drop from `__all__` (authors use Input/OutputPort) |
+| ➖ | `port_accepts_type` / `port_accepts_signature` / `validate_connection` / `validate_port_constraint` | function | Internal | — | — | owner 2026-06-27: demote all 4 (survey: 0 author/package use; all callers framework); drop from `__all__`. `port_accepts_signature` = dead code (0 call sites) → keep/delete follow-up under #1817 |
+| ➖ | `ports_from_config_dicts` | function | Internal | — | — | ADR-029 variadic config conversion; not in `__all__` |
+
+### 4.4 `state.py`
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `ExecutionMode` | enum | Public | stable | 0.3.1 | AUTO/INTERACTIVE/EXTERNAL; authors set `execution_mode` |
+| ➖ | `BlockState` | enum | Internal | — | — | owner 2026-06-27: engine-managed lifecycle (ADR-018 scheduler owns state); drop from `__all__` |
+
+### 4.5 `package_info.py`
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `PackageInfo` | dataclass (frozen) | Public | stable | 0.3.1 | returned from the `scistudio.blocks` entry point |
+| ✅ | `PackageInfo.name` / `.description` / `.author` / `.version` | field | Public | stable | 0.3.1 | palette identity |
+| ✅ | `PackageInfo.ota` | field | Public | provisional | 0.3.1 | `PackageOtaSource \| None` OTA source (#1784); provisional |
+| ✅ | `PackageOtaSource` | dataclass (frozen) | Public | **provisional** | 0.3.1 | owner 2026-06-27: **add to `__all__`**; a package sets `ota=PackageOtaSource(...)` (#1784) |
+| ✅ | `PackageOtaSource.manifest_url` / `.channel` | field | Public | provisional | 0.3.1 | per-package manifest URL + release channel (default `"stable"`) |
+
+### 4.6 `result.py`
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ➖ | `BlockResult` | dataclass | Internal | — | — | owner 2026-06-27: engine execution-outcome container (outputs/duration_ms/error); authors return `dict[str, Collection]`; drop from `__all__` |
+
+### 4.7 `exceptions.py`
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `BlockCancelledByAppError` | exception | Public | provisional | 0.3.1 | owner 2026-06-27: AppBlock **package subclasses raise it** when their external app exits without output (#681). Not in `__all__` today → add. Canonical path: re-export from `scistudio.blocks.app` (AppBlock authoring); confirm in #1817 |
+
+### 4.8 `interactive.py` (ADR-051)
+
+Has its own `__all__` but is **not re-exported from the `blocks.base` root today**
+(deep path `scistudio.blocks.base.interactive` only). Per §2 the canonical public path
+is the root — #1817 re-exports the public interactive symbols from
+`blocks.base.__init__`. **Whole interactive surface = `provisional`** (owner
+2026-06-27; ADR-051 recent, still settling; this also sets `get_panel_manifest`'s tier).
+
+Author surface (Public / `provisional` / 0.3.1):
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `InteractiveMixin` | class | Public | provisional | 0.3.1 | the interaction capability mixin |
+| ✅ | `interactive_panel` | ClassVar | Public | provisional | 0.3.1 | author MUST set (a `PanelManifest`) |
+| ✅ | `prepare_prompt(inputs, config)` | method | Public | provisional | 0.3.1 | author overrides (default raises); → `InteractivePrompt` or dict |
+| ✅ | `remap_saved_decision(...)` | method | Public | provisional | 0.3.1 | author MAY override (interaction-memory remap) |
+| ✅ | `InteractivePrompt` | dataclass (frozen) | Public | provisional | 0.3.1 | the `prepare_prompt` return |
+| ✅ | `InteractivePrompt.panel_payload` | field | Public | provisional | 0.3.1 | JSON-safe, window-sized view the panel renders |
+| ✅ | `InteractivePrompt.intermediate` | field | Public | provisional | 0.3.1 | `tuple[StorageReference, ...]`; engine-held heavy reuse, excluded from lineage |
+| ✅ | `PanelManifest` | dataclass (frozen) | Public | provisional | 0.3.1 | the block's window descriptor |
+| ✅ | `PanelManifest.panel_id` | field | Public | provisional | 0.3.1 | frontend resolution key |
+| ✅ | `PanelManifest.module_url` | field | Public | provisional | 0.3.1 | package panel module URL (empty for core panels) |
+| ✅ | `PanelManifest.export_name` | field | Public | provisional | 0.3.1 | named export to mount (default `"default"`) |
+| ✅ | `PanelManifest.css` | field | Public | provisional | 0.3.1 | optional CSS asset URLs |
+| ✅ | `PanelManifest.version` | field | Public | provisional | 0.3.1 | panel bundle version |
+| ✅ | `PanelManifest.api_version` | field | Public | provisional | 0.3.1 | must match `PANEL_API_VERSION` major |
+| ✅ | `PanelManifest.response_schema` | field | Public | provisional | 0.3.1 | optional advisory response-shape declaration |
+| ✅ | `PanelManifest.asset_root` | field | Public | provisional | 0.3.1 | package asset-confinement dir; **never serialized** (backend validator only) |
+| ✅ | `PanelManifest.to_dict()` | method | Public | provisional | 0.3.1 | wire shape sent to the frontend (`asset_root` omitted) |
+| ✅ | `load_intermediate(config)` | function | Public | provisional | 0.3.1 | author helper: compute phase reads intermediate refs |
+| ✅ | `PANEL_API_VERSION` | constant | Public | provisional | 0.3.1 | panel API compat version |
+| ✅ | `INTERACTIVE_RESPONSE_KEY` | constant | Public | provisional | 0.3.1 | `config[...]` key carrying the user's decision |
+
+Internal (owner 2026-06-27 — demote from or keep out of `__all__`):
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ➖ | `SupportsInteraction` | protocol | Internal | — | — | registry validation protocol; was in `__all__` |
+| ➖ | `coerce_prompt` | function | Internal | — | — | worker prompt-phase normalizer; was in `__all__` |
+| ➖ | `serialise_storage_ref` / `deserialise_storage_ref` | function | Internal | — | — | intermediate-channel JSON; was in `__all__` |
+| ➖ | `INTERACTIVE_INTERMEDIATE_KEY` | constant | Internal | — | — | engine-threaded; authors use `load_intermediate` |
+| ➖ | `interactive_item_label` / `interactive_input_signature` | function | Internal | — | — | engine memory signatures; not in `__all__` |
+| ➖ | `load_interactive_memory(config)` | function | Internal | — | — | engine reads the remembered-decision record from config; not in `__all__` |
+| ➖ | `INTERACTIVE_MEMORY_KEY` | constant | Internal | — | — | engine/frontend memory record key; not in `__all__` |
+
+**Net `interactive.py __all__` change (#1817):** keep `InteractiveMixin`,
+`InteractivePrompt`, `PanelManifest`, `load_intermediate`, `PANEL_API_VERSION`,
+`INTERACTIVE_RESPONSE_KEY`; drop `SupportsInteraction`, `coerce_prompt`,
+`serialise_storage_ref`, `deserialise_storage_ref`, `INTERACTIVE_INTERMEDIATE_KEY`;
+re-export the kept symbols from the `blocks.base` root (§2).
+
+**Net `blocks.base.__all__` change (for #1817):** drop `Port`, `BlockState`,
+`BlockResult`, and the four port helpers
+(`port_accepts_type`/`port_accepts_signature`/`validate_connection`/`validate_port_constraint`,
+survey-confirmed); add `PackageOtaSource` and the re-exported interactive surface
+(§4.8). Keep `Block`, `BlockConfig`, `InputPort`, `OutputPort`, `ExecutionMode`,
+`PackageInfo`.
+
 ## 5. Process Blocks — `scistudio.blocks.process`
 
 Canonical root: `from scistudio.blocks.process import …`
 
+Module exports (`__all__`): `ProcessBlock` only (confirmed against `__init__.py`).
+
 File checklist:
 
-- [ ] `process_block.py` (206) — `ProcessBlock`
-- [ ] `utils.py` (23) — public helper, or internal?
+- [x] `process_block.py` (206) — `ProcessBlock`
+- [x] `utils.py` (23) — `to_arrow` (internal)
 
-| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+**`ProcessBlock(Block)`** — ✅ Public / `stable` / 0.3.1. The Tier-1 base authors
+subclass (deterministic transforms; ADR-027 D7 setup/teardown lifecycle).
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `ProcessBlock` | class | Public | — | — | the base authors subclass |
-| 🤔 | (utils contents) | function | Public? | — | — | enumerate from utils.py |
+| ✅ | `ProcessBlock` | class | Public | stable | 0.3.1 | |
+| ✅ | `algorithm` | ClassVar | Public | stable | 0.3.1 | human-readable transform id |
+| ✅ | `process_item(item, config, state=None)` | method | Public | stable | 0.3.1 | **the Tier-1 override** (3-arg, ADR-027 D7); overrides Block's 2-arg stub |
+| ✅ | `setup(config)` | method | Public | stable | 0.3.1 | ADR-027 D7 once-per-run init; default returns `None` |
+| ✅ | `teardown(state)` | method | Public | stable | 0.3.1 | ADR-027 D7 cleanup in `finally`; default no-op |
+| ✅ | `run(inputs, config)` | method | Public | stable | 0.3.1 | default Tier-1 impl (setup → process_item per item → auto-flush → pack → teardown); Tier-2/3 override directly |
+| ➖ | `_process_item_takes_state()` | method | Internal | — | — | signature-inspection shim (2-arg back-compat) |
+
+**`utils.py`** — `to_arrow(obj)` ➖ Internal (process-builtins helper; not in `__all__`).
+The canonical author path to the Arrow form is `DataFrame.to_memory()` (§3.1/§10);
+`to_pandas()`/`to_numpy()` are the ergonomic accessors for pandas/numpy, a different shape.
+
+Inherits the full `Block` surface (§4.1): authoring ClassVars, ports, `validate`,
+`postprocess`, Collection utilities, `persist_*`, etc.
 
 ## 6. IO Blocks — `scistudio.blocks.io`
 
 Canonical root: `from scistudio.blocks.io import …`
 
+Current `__all__` (16): `IOBlock`, `SimpleLoader`, `SimpleSaver`, `LoadData`,
+`SaveData`, `FormatCapability`, `MetadataFidelity`, `CapabilityDirection`,
+`MetadataFidelityLevel`, the 5 capability errors, `normalize_extension`,
+`normalize_extensions`.
+
 File checklist:
 
-- [ ] `io_block.py` (300) — `IOBlock`
-- [ ] `simple_io.py` (152) — simple loader/saver helpers (ADR-052 §3)
-- [ ] `capabilities.py` (232) — capability surface; public or internal?
-- [ ] `materialisation.py` (472) — has `__all__`; confirm what is author-facing
-- [ ] `_unified_dispatch.py` (363) — expected internal
-- [ ] `_config_enrichment.py` (73) — expected internal
+- [x] `io_block.py` (300) — `IOBlock` → §6.1
+- [x] `simple_io.py` (152) — `SimpleLoader` / `SimpleSaver` → §6.2
+- [x] `capabilities.py` (232) — ADR-043 capability surface → §6.3
+- [x] `materialisation.py` (472) — internal → §6.4
+- [x] `loaders/` + `savers/` — `LoadData` / `SaveData` → §6.5 (internal)
+- [x] `_unified_dispatch.py` (363) / `_config_enrichment.py` (73) — internal (underscore)
 
-| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+### 6.1 `io_block.py`
+
+**`IOBlock(Block)`** — ✅ Public / `stable` / 0.3.1. The ABC plugin IO blocks subclass
+(ADR-028 §D1); user loaders/savers subclass this or `SimpleLoader`/`SimpleSaver` (§6.2).
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `IOBlock` | class | Public | — | — | |
-| 🤔 | (simple loader/saver) | class | Public | — | — | enumerate from simple_io.py |
-| 🤔 | (capabilities) | ? | Public? | — | — | decide author-facing vs runtime-only |
-| 🤔 | (materialisation `__all__`) | ? | ? | — | — | reconcile existing `__all__` |
+| ✅ | `IOBlock` | class | Public | stable | 0.3.1 | |
+| ✅ | `direction` | ClassVar | Public | stable | 0.3.1 | `"input"` / `"output"` |
+| ✅ | `format_capabilities` | ClassVar | Public | stable | 0.3.1 | `tuple[FormatCapability, ...]` (ADR-043 go-forward declaration) |
+| ⚠️ | `supported_extensions` | ClassVar | Public | deprecated | 0.3.1 | owner 2026-06-27: legacy ext→format scaffolding; **use `format_capabilities`**; removal per §5 (#1817) |
+| ✅ | `get_format_capabilities()` | classmethod | Public | stable | 0.3.1 | returns explicit or synthesized capabilities; Simple* override |
+| ✅ | `load(config, output_dir="")` | method (abstract) | Public | stable | 0.3.1 | input-direction override |
+| ✅ | `save(obj, config)` | method (abstract) | Public | stable | 0.3.1 | output-direction override |
+| ✅ | `run(inputs, config)` | method | Public | stable | 0.3.1 | default dispatch by `direction`; auto-flush safety net |
+| ➖ | `__init_subclass__` | method | Internal | — | — | empty-input-port enforcement (#10) |
+| ➖ | `_legacy_capability_data_type` / `_resolved_*_port_name` / `_detect_format` | method | Internal | — | — | dispatch + port-resolution helpers |
+
+Inherits the `Block` surface (§4.1), incl. `persist_array`/`persist_table` (§11), and
+sets stable-tier defaults for the inherited `name`/`description`/`subcategory`/
+`input_ports`/`output_ports`/`config_schema` ClassVars.
+
+### 6.2 `simple_io.py`
+
+**`SimpleLoader(IOBlock)` / `SimpleSaver(IOBlock)`** — ✅ Public / `stable` / 0.3.1.
+Ergonomic single-format bases (ADR-043) that synthesize one conservative capability.
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `SimpleLoader` | class | Public | stable | 0.3.1 | single-format loader base |
+| ✅ | `SimpleLoader.output_type` / `.extensions` / `.format_id` / `.metadata_fidelity` | ClassVar | Public | stable | 0.3.1 | author declares these |
+| ✅ | `SimpleLoader.load_file(path, config)` | method (abstract) | Public | stable | 0.3.1 | **the author override** |
+| ✅ | `SimpleSaver` | class | Public | stable | 0.3.1 | single-format saver base |
+| ✅ | `SimpleSaver.input_type` / `.extensions` / `.format_id` / `.metadata_fidelity` | ClassVar | Public | stable | 0.3.1 | author declares these |
+| ✅ | `SimpleSaver.save_file(obj, path, config)` | method (abstract) | Public | stable | 0.3.1 | **the author override** |
+| ➖ | `_require_path` / `_simple_capability_id` / `_simple_label` / `_required_data_type` / `_required_format_id` / `_required_extensions` | function | Internal | — | — | module helpers |
+
+(Both also carry `direction`, `get_format_capabilities()`, `load`/`save` —
+inherited or overridden from `IOBlock` §6.1.)
+
+### 6.3 `capabilities.py` (ADR-043)
+
+Author declaration surface plus a **catchable** error hierarchy.
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `FormatCapability` | dataclass (frozen) | Public | stable | 0.3.1 | one external file-format conversion an IOBlock owns |
+| ✅ | `FormatCapability` fields: `id`/`direction`/`data_type`/`format_id`/`extensions`/`label`/`block_type`/`handler`/`is_default`/`priority`/`roundtrip_group`/`metadata_fidelity`/`is_synthesized` | field | Public | stable | 0.3.1 | author sets the declaration fields; `is_synthesized` is framework-set (legacy synthesis) |
+| ✅ | `FormatCapability.migration_scaffold` / `.normalized_extensions` | property | Public | stable | 0.3.1 | |
+| ✅ | `MetadataFidelity` | dataclass (frozen) | Public | stable | 0.3.1 | typed-`meta` preservation contract for one capability |
+| ✅ | `MetadataFidelity` fields: `level`/`typed_meta_reads`/`typed_meta_writes`/`format_metadata_reads`/`format_metadata_writes`/`notes` | field | Public | stable | 0.3.1 | author declares preserved metadata |
+| ✅ | `MetadataFidelity.typed_meta_fields` / `.format_metadata_fields` | property | Public | stable | 0.3.1 | |
+| ✅ | `MetadataFidelity.validate_typed_meta_fields(data_type)` | method | Public | stable | 0.3.1 | validate declared fields against `data_type.Meta` |
+| ✅ | `CapabilityDirection` / `MetadataFidelityLevel` | type-alias | Public | stable | 0.3.1 | `Literal` aliases (load/save; fidelity levels) |
+| ✅ | `CapabilityValidationError` + `InvalidExtensionError` / `InvalidMetadataFidelityError` / `InvalidFormatCapabilityError` / `SimpleIODeclarationError` | class | Public | stable | 0.3.1 | owner 2026-06-27: keep public — authors may **catch** for internal fallback |
+| ➖ | `normalize_extension` / `normalize_extensions` | function | Internal | — | — | owner 2026-06-27: demote; framework normalizes automatically (`FormatCapability.__post_init__`) |
+| ➖ | `VALID_CAPABILITY_DIRECTIONS` / `VALID_METADATA_FIDELITY_LEVELS` / `_normalize_string_tuple` / `_meta_model_fields` | constant/function | Internal | — | — | module internals |
+
+### 6.4 `materialisation.py`
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ➖ | `materialise_to_file` / `reconstruct_from_file` | function | Internal | — | — | owner 2026-06-27: AppBlock prepare/restore helpers; not re-exported from the io root (deep path only) |
+
+### 6.5 `loaders/` + `savers/` — `LoadData` / `SaveData`
+
+The concrete core dynamic-port IO blocks (`loaders/load_data.py`,
+`savers/save_data.py`), re-exported into `io.__all__` today.
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ➖ | `LoadData` / `SaveData` | class (block) | Internal | — | — | owner 2026-06-27: confirmed internal (survey: 0 author/package use; core GUI builtins; `_unified_dispatch` delegates user capabilities into the single Load/Save block — the "inject into loader" design); drop from `io.__all__`. Deep import path stays working for internal callers (`ai_block`, core tests) |
+
+**Net `io.__all__` change (for #1817):** keep `IOBlock`, `SimpleLoader`, `SimpleSaver`,
+`FormatCapability`, `MetadataFidelity`, `CapabilityDirection`, `MetadataFidelityLevel`,
+and the 5 capability errors; mark `IOBlock.supported_extensions` **deprecated**; drop
+`normalize_extension`/`normalize_extensions`, `LoadData`, and `SaveData` (all internal, owner-confirmed).
+
+**xlsx support (#1810, PR #1815 — OPEN, on `feature/1810-dataframe-xlsx-io`, not yet
+in `main`).** Surveyed 2026-06-27: adds native `.xlsx` read/write for
+`DataFrame`/`Series` but introduces **no new public symbol** — all new code is
+underscore-private (`_capability.py` / `_helpers.py` / `_`-prefixed functions). It
+layers behavior on already-inventoried public surface: new `xlsx` `FormatCapability`
+instances on `LoadData`/`SaveData` (the type is §6.3-public; instances are framework
+data), `LoadData` `.xlsx` fan-out (one `DataObject` per sheet, `is_collection=True`),
+`SaveData` regroup-by-workbook, and interim `user["sheet_name"]` /
+`user["display_name"]` conventions on the public `user` slot (canonical form tracked
+by **#1812**). It is exactly the ADR-052 §3.1 pandas exception and **conforms**
+(pandas/openpyxl only at the format boundary; Arrow-backed `DataObject` downstream).
+The exception covers the **saver** too, so the ADR-052 §3.1 wording should widen
+"loader" → "reader/writer" and cite PR #1815.
 
 ## 7. App Blocks — `scistudio.blocks.app`
 
@@ -540,8 +790,10 @@ the core version that ships them → baseline `0.3.1`.
 | ✅ | `Series` | `to_numpy()` | `ndarray` | stable | 0.3.1 | |
 
 `Text` / `Artifact` / `CompositeData` add no accessor (already ergonomic). The
-single sanctioned pandas-using data-flow exception is the planned `.xlsx` loader
-(#1810), per ADR-052 §3.1.
+single sanctioned pandas-using data-flow exception is the `.xlsx` reader/writer
+(#1810; impl. PR #1815, OPEN), per ADR-052 §3.1 — surveyed and verified to use
+pandas/openpyxl only at the format boundary and return Arrow-backed `DataObject`s
+downstream (see the §6 xlsx note).
 
 ## 11. Large-Data Access (ADR-052 §3.2)
 
@@ -775,3 +1027,14 @@ even after the tables are complete.
 | 2026-06-27 | `registry.py` `TypeRegistry`/`TypeSpec` disposition pending: background survey of imaging + spectroscopy package usage dispatched (core sweep already shows 0 author importers; lean demote-to-internal). | Owner asked to verify package usage before demoting. |
 | 2026-06-27 | CompositeData ergonomics resolved: keep `_slots` internal behind validating `get()`/`set()`; **do NOT add `__getitem__`/`__setitem__`** (owner 2026-06-27). `get()`/`set()` is the slot API. | Owner decided against dict-style slot access. |
 | 2026-06-27 | `TypeRegistry`/`TypeSpec` survey (2nd background agent): 0 author-facing importers in core or either public package; packages touch `TypeRegistry` only in tests via the internal path; `TypeSpec` has no external reader. Recommend demote both to internal (B). | Awaiting owner confirm. |
+| 2026-06-27 | **A confirmed (owner):** `TypeRegistry` + `TypeSpec` → **Internal** (drop from `core.types.__all__` in #1817; internal path unchanged, no package change). **core/types §3 now fully decided.** | Survey: 0 author importers. |
+| 2026-06-27 | `block.py` decided (§4.1): `Block` public/stable; all authoring ClassVars stable EXCEPT `dynamic_ports` provisional; `get_effective_input/output_ports` public/stable; `get_panel_manifest` public/provisional (returns public `PanelManifest`); Collection utils + `persist_*` stable; `_auto_flush` internal. | Owner 2026-06-27. PanelManifest class itself is public (interactive.py). |
+| 2026-06-27 | `blocks.base` remainder (§4.2–§4.7): `BlockConfig`/`InputPort`/`OutputPort`/`ExecutionMode`/`PackageInfo` public/stable; **demote** `Port`/`BlockState`/`BlockResult` to internal; **add** `PackageOtaSource` public/provisional; port-helper functions pending survey; `BlockCancelledByAppError` deferred to §7. | Owner 2026-06-27. |
+| 2026-06-27 | Port-helper survey (3rd background agent): all four (`port_accepts_type`/`port_accepts_signature`/`validate_connection`/`validate_port_constraint`) have **0 author/package use** — every caller is framework (`Block.validate`, workflow validator, `/validate-connection`); `port_accepts_signature` has 0 call sites anywhere (dead-code candidate). Recommend demote all 4. | Awaiting owner confirm; contradicts the "maybe author-useful" hypothesis. |
+| 2026-06-27 | **Confirmed (owner):** port helpers → all 4 internal (`port_accepts_signature` dead-code keep/delete tracked under #1817). `interactive.py` (§4.8): whole ADR-051 interactive surface public/**provisional**; `SupportsInteraction`/`coerce_prompt`/`serialise_storage_ref`/`deserialise_storage_ref`/`INTERACTIVE_INTERMEDIATE_KEY` → internal. **§4 blocks.base now fully decided.** | Owner 2026-06-27. |
+| 2026-06-27 | `BlockCancelledByAppError` → **Public/provisional** (owner 2026-06-27), resolving the §4.7 deferral: AppBlock package subclasses raise it when their external app exits without output (#681). Add to public (canonical path: `blocks.app` re-export; confirm #1817). | Owner 2026-06-27. |
+| 2026-06-27 | `process` (§5) recorded: `ProcessBlock` public/stable (`algorithm`/`setup`/`teardown`/`process_item`[3-arg]/`run`); `to_arrow` + `_process_item_takes_state` internal. No new decisions. | Mechanical; `__all__` = `ProcessBlock` only. |
+| 2026-06-27 | `io` (§6) decided: `IOBlock`/`SimpleLoader`/`SimpleSaver` public/stable; `FormatCapability`/`MetadataFidelity`/`CapabilityDirection`/`MetadataFidelityLevel` + the 5 capability errors public/stable (errors kept public — authors catch for fallback); `IOBlock.supported_extensions` → **deprecated** (⚠️); `normalize_*` + `materialise_to_file`/`reconstruct_from_file` → internal; `LoadData`/`SaveData` pending survey. | Owner 2026-06-27. |
+| 2026-06-27 | LoadData/SaveData survey (4th background agent): 0 author/package imports or subclasses (spectroscopy + imaging subclass `IOBlock` + register capabilities; never touch LoadData/SaveData); core GUI builtins; `_unified_dispatch` delegates to package blocks (confirms "inject into loader"). Recommend internal. | Awaiting owner confirm. |
+| 2026-06-27 | PR #1815 (xlsx, closes #1810) survey (5th agent): OPEN/unmerged; **no new public symbol** (all underscore-private); layers behavior on `FormatCapability`/`LoadData`/`SaveData`/`user` slot; **conforms** to the §3.1 pandas exception (pandas only at the format boundary). §10 citation refreshed to "#1810, PR #1815, reader/writer"; ADR-052 §3.1 "loader"→"reader/writer" widening proposed to owner. | Owner asked to survey 1815's public-API impact. |
+| 2026-06-27 | **Confirmed (owner):** `LoadData`/`SaveData` → Internal (drop from `io.__all__`; deep path stays for internal callers). **§6 io fully decided.** §7 app on hold (owner reviewing AppBlock). | Owner 2026-06-27. |
