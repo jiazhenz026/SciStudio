@@ -68,9 +68,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "1ae47a059aaf7350c62b9e9b210227d23f3cb6e2",
+    "sha": "ceb5ae3dbe5a4476ce97dceb165a3d31b7c64163",
     "shas": [
-      "1ae47a059aaf7350c62b9e9b210227d23f3cb6e2"
+      "ceb5ae3dbe5a4476ce97dceb165a3d31b7c64163"
     ],
     "trailers": []
   },
@@ -400,6 +400,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.643578Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.701233Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.762761Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.826180Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.881810Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.939745Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:03.996108Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:04.095276Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:04.150888Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:04.210542Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:17.821792Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:17.877341Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:17.931980Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.029796Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.083784Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.144446Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.200277Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.255445Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.317100Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:33:18.373015Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -412,7 +532,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "d7c3314bef0fee826620b5a675f156f60053c045",
     "base_sha": "d7c3314b",
     "changed_files": [
       ".workflow/records/1807-windows-standalone-python.json",
@@ -420,9 +540,9 @@
       "desktop/scripts/build-python-runtime.ps1",
       "desktop/test/build-python-runtime.test.js"
     ],
-    "diff_fingerprint": "sha256:a6c3c760824655dd165fb38d724c2f0394f68f6292c8a282b2d1042dece33893",
+    "diff_fingerprint": "sha256:56aa7aa78955c30e2f4a73e41146162a21218f3456492b306a190d47af3a9d86",
     "head": "HEAD",
-    "head_sha": "fe2406d6",
+    "head_sha": "ceb5ae3d",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -443,7 +563,7 @@
     "closes": [
       1807
     ],
-    "number": null,
+    "number": 1808,
     "url": null
   },
   "reconcile_events": [
@@ -484,6 +604,22 @@
     {
       "at": "2026-06-27T11:30:39.978525Z",
       "diff_fingerprint": "sha256:a6c3c760824655dd165fb38d724c2f0394f68f6292c8a282b2d1042dece33893",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T11:33:04.210577Z",
+      "diff_fingerprint": "sha256:56aa7aa78955c30e2f4a73e41146162a21218f3456492b306a190d47af3a9d86",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T11:33:18.373051Z",
+      "diff_fingerprint": "sha256:56aa7aa78955c30e2f4a73e41146162a21218f3456492b306a190d47af3a9d86",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
