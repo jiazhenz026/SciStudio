@@ -40,6 +40,41 @@ interface PortEditorTableProps {
 }
 
 /**
+ * #1789: a port's `allowedTypes` lists the *base* types the block accepts. A
+ * type is selectable if it IS one of those names or DESCENDS from one — i.e. its
+ * `base_type` ancestry chain reaches an allowed name. Filtering by exact name
+ * membership (the previous behaviour) meant a block that allows the root type
+ * `DataObject` only offered the literal "DataObject" and excluded every subtype
+ * (Image, DataFrame, Spectrum, …), even though they are all valid DataObjects.
+ * An empty `allowedTypes` means "no constraint": show the whole hierarchy.
+ */
+export function filterAllowedTypes(
+  typeHierarchy: TypeHierarchyEntry[],
+  allowedTypes: string[],
+): TypeHierarchyEntry[] {
+  if (allowedTypes.length === 0) {
+    return typeHierarchy;
+  }
+  const allowed = new Set(allowedTypes);
+  const byName = new Map(typeHierarchy.map((t) => [t.name, t]));
+  const isAllowed = (entry: TypeHierarchyEntry): boolean => {
+    let current: TypeHierarchyEntry | undefined = entry;
+    const seen = new Set<string>();
+    // Walk the base_type chain (Image -> Array -> DataObject -> ""), stopping at
+    // the root or a cycle. `seen` guards against a malformed self/loop chain.
+    while (current && !seen.has(current.name)) {
+      if (allowed.has(current.name)) {
+        return true;
+      }
+      seen.add(current.name);
+      current = current.base_type ? byName.get(current.base_type) : undefined;
+    }
+    return false;
+  };
+  return typeHierarchy.filter(isAllowed);
+}
+
+/**
  * Normalise an extension string the same way the backend does:
  * lowercase, strip any leading dots. Returns "" for empty input.
  */
@@ -62,10 +97,7 @@ export function PortEditorTable({
   showExtensionColumn,
   showCapabilityDropdown,
 }: PortEditorTableProps) {
-  const availableTypes =
-    allowedTypes.length > 0
-      ? typeHierarchy.filter((t) => allowedTypes.includes(t.name))
-      : typeHierarchy;
+  const availableTypes = filterAllowedTypes(typeHierarchy, allowedTypes);
 
   const defaultType = availableTypes[0]?.name ?? "DataObject";
 

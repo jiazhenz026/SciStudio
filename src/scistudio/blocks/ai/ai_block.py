@@ -45,6 +45,7 @@ References:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import shutil
@@ -306,6 +307,23 @@ class AIBlock(Block):
         except Exception as exc:
             raise RuntimeError(f"AIBlock: failed to write manifest: {exc}") from exc
 
+        # 4b. Resolve declared output specs and clear any stale leftovers BEFORE
+        # the agent starts (#1789). The FileWatcher completion path fires when all
+        # declared expected_path files exist and are size-stable; a leftover file
+        # from a previous run (the ``<block>_outputs`` dir persists) would
+        # otherwise complete the block instantly before the agent produces
+        # anything. Clearing them up front means completion only triggers on this
+        # run's output (or the MCP finish tool / user "Mark done").
+        output_specs: dict[str, dict[str, Any]] = {}
+        for port in effective_outputs:
+            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(str(block_name), port)
+            expected_type = port.accepted_types[0].__name__ if port.accepted_types else "DataObject"
+            output_specs[port.name] = {
+                "expected_path": expected_path,
+                "expected_type": expected_type,
+            }
+        _clear_expected_outputs(output_specs, project_dir)
+
         # 5. Build spawn argv.
         spawn_argv = self._build_spawn_argv(config, str(manifest_path))
 
@@ -317,6 +335,11 @@ class AIBlock(Block):
             title=f"AI: {block_name}",
             spawn_argv=spawn_argv,
             cwd=str(project_dir),
+            # #1789: ``initial_stdin`` carries the composed prompt. The engine
+            # delivers it to claude/codex as a positional CLI argument at spawn
+            # (see open_engine_initiated_tab → _spawn → spawn_claude/spawn_codex),
+            # not by typing it into the TUI — a raw-mode TUI ignored the trailing
+            # carriage return, so the prompt sat unsubmitted.
             initial_stdin=_compose_initial_stdin(str(config.get("user_prompt", "")), str(manifest_path)),
             # ``block_run_id`` is the engine-surface field name (ADR-034
             # PtyTabSpec, kept for back-compat per ADR-038 §5.2). The
@@ -333,16 +356,7 @@ class AIBlock(Block):
 
         # 7. Agent works in the PTY tab. PAUSED visibility is tracked in #56.
 
-        # 8. Race the three completion signals.
-        output_specs: dict[str, dict[str, Any]] = {}
-        for port in effective_outputs:
-            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(str(block_name), port)
-            expected_type = port.accepted_types[0].__name__ if port.accepted_types else "DataObject"
-            output_specs[port.name] = {
-                "expected_path": expected_path,
-                "expected_type": expected_type,
-            }
-
+        # 8. Race the three completion signals (output_specs resolved in step 4b).
         watcher = CompletionWatcher(
             run_dir=run_dir,
             output_specs=output_specs,
@@ -551,6 +565,30 @@ def _output_path_overrides(config: BlockConfig) -> dict[str, str]:
         if name and path:
             out[str(name)] = str(path)
     return out
+
+
+def _clear_expected_outputs(output_specs: dict[str, dict[str, Any]], project_dir: Any) -> None:
+    """#1789: remove pre-existing declared-output files before the agent runs.
+
+    The FileWatcher completion path (CompletionWatcher) fires when every declared
+    ``expected_path`` exists and is size-stable. The ``<block>_outputs`` dir
+    persists across runs, so a leftover file from a previous run would complete
+    the block immediately — before the agent produces anything. Clearing them up
+    front means completion only triggers on output this run actually creates (or
+    the MCP finish tool / user "Mark done"). Best-effort; missing files and
+    unlink errors are ignored.
+    """
+    from pathlib import Path
+
+    for spec in output_specs.values():
+        raw = spec.get("expected_path")
+        if not raw:
+            continue
+        path = Path(str(raw))
+        if not path.is_absolute():
+            path = (Path(str(project_dir)) / path).resolve()
+        with contextlib.suppress(OSError):
+            path.unlink(missing_ok=True)
 
 
 def _compose_initial_stdin(user_prompt: str, manifest_path: str) -> str:

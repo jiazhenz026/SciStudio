@@ -124,6 +124,25 @@ def test_build_argv_missing_binary_raises(monkeypatch: pytest.MonkeyPatch) -> No
         block._build_spawn_argv(cfg, "m.json")
 
 
+def test_clear_expected_outputs_removes_stale_files(project_dir: Path) -> None:
+    """#1789: leftover declared outputs are cleared before the agent runs, so a
+    stale file from a previous run cannot complete the block instantly via the
+    FileWatcher path."""
+    from scistudio.blocks.ai.ai_block import _clear_expected_outputs
+
+    stale = project_dir / "out.csv"
+    stale.write_text("stale output from a previous run", encoding="utf-8")
+    _clear_expected_outputs({"out": {"expected_path": "./out.csv", "expected_type": "DataFrame"}}, project_dir)
+    assert not stale.exists()
+
+
+def test_clear_expected_outputs_tolerates_missing_file(project_dir: Path) -> None:
+    """A fresh project with no prior output is a no-op, not an error."""
+    from scistudio.blocks.ai.ai_block import _clear_expected_outputs
+
+    _clear_expected_outputs({"out": {"expected_path": "./never-written.csv"}}, project_dir)
+
+
 # ---------------------------------------------------------------------------
 # validate_config
 # ---------------------------------------------------------------------------
@@ -289,10 +308,11 @@ def test_run_completion_via_file_watcher(project_dir: Path, stub_agent: StubAgen
 
 
 def test_run_completion_via_mark_done_button(project_dir: Path, stub_agent: StubAgent) -> None:
-    # Pre-create the file (so validation passes).
-    out_path = project_dir / "out.csv"
-    out_path.write_text("a,b\n1,2\n", encoding="utf-8")
-    stub_agent.outputs = {}  # Don't write anything else.
+    # The agent produces the output during the run, then the user clicks "Mark
+    # done". (#1789: declared outputs are cleared before the agent starts, so the
+    # file must be written by the agent during the run — not pre-created before
+    # run() — to survive and pass output validation.)
+    stub_agent.outputs = {"out": ("out.csv", "a,b\n1,2\n")}
     stub_agent.finish_via = "mark_done"
     block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
     cfg = _config(

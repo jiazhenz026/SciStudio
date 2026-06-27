@@ -522,6 +522,7 @@ def spawn_claude(
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
+    prompt: str = "",
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn ``claude`` inside a PTY, anchored at ``project_dir``.
@@ -567,6 +568,17 @@ def spawn_claude(
         if dangerous:
             argv.append("--dangerously-skip-permissions")
 
+    # #1789: deliver the AI Block prompt as claude's positional ``[prompt]`` arg
+    # so the agent starts already running it (typing it into the TUI over stdin
+    # never submitted — a raw-mode TUI ignores the trailing carriage return).
+    # The ``--`` end-of-options separator is REQUIRED: ``--mcp-config`` is
+    # variadic, so without it claude swallows the trailing prompt as another MCP
+    # config path ("Invalid MCP configuration") and exits. In bypass mode the
+    # ``--dangerously-skip-permissions`` flag happened to separate them, which is
+    # why bypass worked but ask mode did not.
+    if prompt:
+        argv.extend(["--", prompt])
+
     return PtyProcess(
         argv,
         cwd=project_dir,
@@ -584,6 +596,7 @@ def spawn_codex(
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
+    prompt: str = "",
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn ``codex`` inside a PTY, anchored at ``project_dir``.
@@ -625,6 +638,13 @@ def spawn_codex(
         if dangerous:
             argv.append("--dangerously-bypass-approvals-and-sandbox")
 
+    # #1789: deliver the AI Block prompt as codex's positional ``[PROMPT]`` arg
+    # so the session starts already running it (stdin typing did not submit). The
+    # ``--`` end-of-options separator keeps the prompt from being parsed as a flag
+    # value — uniform with spawn_claude (where it is required for ``--mcp-config``).
+    if prompt:
+        argv.extend(["--", prompt])
+
     return PtyProcess(
         argv,
         cwd=project_dir,
@@ -642,6 +662,8 @@ def spawn_user_terminal(
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
+    # A user shell has no initial prompt; accepted for a uniform spawner signature.
+    prompt: str = "",
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn a desktop user shell with SciStudio's user dependency env."""

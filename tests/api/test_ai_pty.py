@@ -56,6 +56,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Non
         cols: int = 80,
         rows: int = 24,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
 
@@ -203,6 +204,7 @@ def test_pty_ws_spawn_uses_initial_size_query(
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         captured["cols"] = cols
         captured["rows"] = rows
@@ -236,6 +238,7 @@ def test_pty_ws_accepts_user_terminal_provider(
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         captured["provider"] = provider
         return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
