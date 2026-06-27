@@ -28,12 +28,14 @@ export function WelcomeScreen({
     <div className="flex h-full items-center justify-center overflow-auto p-6">
       <div className="w-full max-w-4xl rounded-[2.5rem] border border-stone-200 bg-[radial-gradient(circle_at_top_left,_rgba(240,106,68,0.2),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-8 shadow-panel">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
-            <h1 className="max-w-xl font-display text-5xl leading-tight text-ink">SciStudio</h1>
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-stone-600">
-              Every tool. Every format. One workflow.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+          <div className="flex h-full flex-col">
+            <div className="my-auto">
+              <h1 className="max-w-xl font-display text-7xl leading-tight text-ink">SciStudio</h1>
+              <p className="mt-4 max-w-2xl text-lg leading-8 text-stone-600">
+                Every tool. Every format. One workflow.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3 pt-8">
               <button
                 className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-stone-50 transition hover:bg-pine"
                 onClick={onNewProject}

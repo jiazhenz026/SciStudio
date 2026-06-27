@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#1803] Welcome screen hero layout: the **SciStudio** title is larger (`text-7xl`) and the title + tagline are vertically centered in the hero column, with the New/Open Project buttons pinned to the bottom (the left/right layout and Recent Workspaces panel are unchanged). Styling only. (`frontend/src/components/WelcomeScreen.tsx`) (@claude, 2026-06-27, branch: guided/1803-welcome-hero-layout)
+
 ## [0.3.0] - 2026-06-27
 
 Internal-alpha minor release. Bumped from `0.2.1` to `0.3.0` (MINOR, not patch):
