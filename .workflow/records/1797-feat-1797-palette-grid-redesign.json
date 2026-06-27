@@ -38,7 +38,30 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-27T04:28:19.923882Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-664/popen-gw3/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-27T04:28:21.190135Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-664/popen-gw3/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -88,6 +111,24 @@
       "at": "2026-06-27T04:17:26.524027Z",
       "pattern": "docs/specs/frontend-block-palette.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T04:52:25.622574Z",
+      "pattern": "frontend/src/hooks/useReloadFlash.ts",
+      "reason": "Owner directive: reuse the palette reload flash on the project tree refresh too; extract a shared useReloadFlash hook."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T04:52:25.622735Z",
+      "pattern": "frontend/src/hooks/__tests__/useReloadFlash.test.ts",
+      "reason": "Owner directive: reuse the palette reload flash on the project tree refresh too; extract a shared useReloadFlash hook."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T04:52:25.622737Z",
+      "pattern": "frontend/src/components/ProjectTree.tsx",
+      "reason": "Owner directive: reuse the palette reload flash on the project tree refresh too; extract a shared useReloadFlash hook."
     }
   ],
   "session_id": "9a26c789-e5bc-4e2c-89c0-d376657eac6b",
@@ -107,6 +148,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T04:52:25.622744Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/__tests__/useReloadFlash.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

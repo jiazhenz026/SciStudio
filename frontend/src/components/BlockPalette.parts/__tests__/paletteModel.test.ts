@@ -96,6 +96,12 @@ describe("derivePackage", () => {
     expect(derivePackage(makeBlock({ type_name: "lcms.peak", name: "Peak" }))).toBe("LCMS");
     expect(derivePackage(makeBlock({ type_name: "imaging.seg", name: "Seg" }))).toBe("Imaging");
   });
+
+  it("treats the core ai namespace as Built-in (not a plugin package)", () => {
+    expect(
+      derivePackage(makeBlock({ type_name: "ai.agent", name: "Agent", base_category: "ai" })),
+    ).toBe("SciStudio Core");
+  });
 });
 
 describe("buildPaletteSections ordering", () => {

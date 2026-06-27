@@ -39,10 +39,10 @@ export function BlockTile({ block, onDragStart, onAddBlock, onEnter, onLeave }: 
       >
         <span
           aria-hidden="true"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border shadow-sm"
+          className="flex h-[72px] w-[72px] items-center justify-center rounded-xl border shadow-sm"
           style={{ backgroundColor: visual.bg, borderColor: visual.border }}
         >
-          <Icon color={visual.fg} size={22} strokeWidth={1.75} />
+          <Icon color={visual.fg} size={44} strokeWidth={1.6} />
         </span>
         <span className="line-clamp-2 text-center font-display text-[12px] font-medium leading-tight text-ink">
           {block.name}

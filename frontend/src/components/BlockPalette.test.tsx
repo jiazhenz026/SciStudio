@@ -105,12 +105,13 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     expect(headers[0].textContent).toBe("Data I/O");
   });
 
-  it("renders the six category filter chips", () => {
+  it("renders the category filter chips (no Subworkflow chip)", () => {
     render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
     const chips = screen.getByTestId("palette-category-chips");
-    ["IO", "Process", "Code", "App", "AI", "Subworkflow"].forEach((label) => {
+    ["IO", "Process", "Code", "App", "AI"].forEach((label) => {
       expect(within(chips).getByText(label)).toBeInTheDocument();
     });
+    expect(within(chips).queryByText("Subworkflow")).not.toBeInTheDocument();
   });
 
   it("activating a category chip filters the visible tiles", () => {
@@ -143,6 +144,41 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     // Typed port signature is split across text nodes; check the type names.
     expect(within(popover).getByText("Image")).toBeInTheDocument();
     expect(within(popover).getByText("Mask")).toBeInTheDocument();
+  });
+
+  it("pulses the whole palette content after a Reload resolves into a refreshed catalog", () => {
+    const animateMock = vi.fn();
+    const original = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animateMock as unknown as typeof original;
+    try {
+      const { rerender } = render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+      fireEvent.click(screen.getByText("Reload"));
+      expect(defaultProps.onReload).toHaveBeenCalled();
+      expect(animateMock).not.toHaveBeenCalled();
+
+      // Parent's refreshBlocks resolved -> a new blocks array is passed down.
+      rerender(<BlockPalette {...defaultProps} blocks={[{ ...cellpose }]} />);
+
+      expect(animateMock).toHaveBeenCalledTimes(1);
+      // Opacity keyframes pulse the whole content element.
+      const keyframes = animateMock.mock.calls[0][0];
+      expect(keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }]);
+    } finally {
+      HTMLElement.prototype.animate = original;
+    }
+  });
+
+  it("does not pulse when the catalog changes without a Reload click", () => {
+    const animateMock = vi.fn();
+    const original = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animateMock as unknown as typeof original;
+    try {
+      const { rerender } = render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+      rerender(<BlockPalette {...defaultProps} blocks={[{ ...cellpose }]} />);
+      expect(animateMock).not.toHaveBeenCalled();
+    } finally {
+      HTMLElement.prototype.animate = original;
+    }
   });
 
   it("collapsed (rail) mode renders icon-only swatches", () => {

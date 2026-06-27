@@ -9,7 +9,7 @@ import { primaryTypeName } from "../../config/typeColorMap";
 import type { BlockPortResponse, BlockSummary } from "../../types/api";
 
 /** Base categories shown as filter chips, in display order. */
-export const CATEGORY_KEYS = ["io", "process", "code", "app", "ai", "subworkflow"] as const;
+export const CATEGORY_KEYS = ["io", "process", "code", "app", "ai"] as const;
 export type CategoryKey = (typeof CATEGORY_KEYS)[number];
 
 /** Stable id for the pinned Data I/O section (not a real package name). */
@@ -18,6 +18,15 @@ export const DATA_IO_SECTION_ID = "__data_io__";
 export const BUILTIN_PACKAGE = "SciStudio Core";
 /** Package name custom user blocks resolve to. */
 export const CUSTOM_PACKAGE = "Custom";
+
+/**
+ * Dotted type_name namespaces that ship with core and must be treated as
+ * Built-in rather than as a standalone plugin package. The core AI block
+ * (`ai.agent`) uses the `ai.` namespace but is not a decoupled plugin, so it
+ * belongs under Built-in. Real plugins (imaging / lcms / spectroscopy / srs)
+ * are not listed here.
+ */
+const CORE_NAMESPACES = new Set(["ai"]);
 
 export interface PaletteSection {
   /** Stable key for React + collapse state. */
@@ -49,6 +58,9 @@ export function derivePackage(block: BlockSummary): string {
   const dotIndex = block.type_name.indexOf(".");
   if (dotIndex > 0) {
     const prefix = block.type_name.slice(0, dotIndex);
+    if (CORE_NAMESPACES.has(prefix)) {
+      return BUILTIN_PACKAGE;
+    }
     if (prefix.length <= 4) {
       return prefix.toUpperCase();
     }

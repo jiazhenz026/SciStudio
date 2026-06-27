@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useReloadFlash } from "../hooks/useReloadFlash";
 import { api } from "../lib/api";
 import { useAppStore } from "../store";
 import type { TreeEntry } from "../types/api";
@@ -119,6 +120,15 @@ export function ProjectTree({
 }: ProjectTreeProps) {
   const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  // Blink the tree once a Refresh actually lands (same feedback as the palette).
+  const { ref: treeRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TreeNodeData[]>(
+    rootNodes,
+  );
+
+  const handleRefresh = useCallback(() => {
+    triggerFlash();
+    void refresh();
+  }, [refresh, triggerFlash]);
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
@@ -165,17 +175,12 @@ export function ProjectTree({
     <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">Project</p>
-        <button
-          className="toolbar-button"
-          disabled={loading}
-          onClick={() => void refresh()}
-          type="button"
-        >
+        <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">
           {loading ? "..." : "Refresh"}
         </button>
       </div>
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-thin">
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-thin" ref={treeRef}>
         {rootNodes.length === 0 && !loading ? (
           <p className="text-xs text-stone-400">No files found</p>
         ) : null}

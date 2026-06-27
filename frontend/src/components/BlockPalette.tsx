@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import { useReloadFlash } from "../hooks/useReloadFlash";
 import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
 import { BlockDetailPopover, type PopoverAnchor } from "./BlockPalette.parts/BlockDetailPopover";
@@ -89,11 +90,20 @@ export function BlockPalette({
 }: BlockPaletteProps) {
   const dragImageRef = useRef<HTMLDivElement | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Blink the palette body (search + chips + grid) once a Reload actually lands.
+  const { ref: contentRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, BlockSummary[]>(
+    blocks,
+  );
 
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [hovered, setHovered] = useState<{ block: BlockSummary; anchor: PopoverAnchor } | null>(
     null,
   );
+
+  const handleReload = () => {
+    triggerFlash();
+    onReload();
+  };
 
   const sections = buildPaletteSections(blocks, search, activeCategories);
   const forceOpen = search.trim().length > 0 || activeCategories.length > 0;
@@ -151,10 +161,13 @@ export function BlockPalette({
     const railBlocks = sections.flatMap((section) => section.blocks);
     return (
       <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-2">
-        <button className="toolbar-button mb-2 self-center" onClick={onReload} type="button">
+        <button className="toolbar-button mb-2 self-center" onClick={handleReload} type="button">
           {"↻"}
         </button>
-        <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto scrollbar-thin">
+        <div
+          className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto scrollbar-thin"
+          ref={contentRef}
+        >
           {railBlocks.map((block) => {
             const visual = getCategoryVisual(block.base_category);
             const Icon = visual.Icon;
@@ -187,32 +200,34 @@ export function BlockPalette({
 
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">Palette</p>
-        <button className="toolbar-button" onClick={onReload} type="button">
+        <button className="toolbar-button" onClick={handleReload} type="button">
           Reload
         </button>
       </div>
 
-      <input
-        className="mt-4 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-ember"
-        onChange={(event) => onSearch(event.target.value)}
-        placeholder="Search blocks"
-        value={search}
-      />
+      <div className="flex min-h-0 flex-1 flex-col" data-testid="palette-content" ref={contentRef}>
+        <input
+          className="mt-4 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-ember"
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder="Search blocks"
+          value={search}
+        />
 
-      <CategoryChips active={activeCategories} onToggle={toggleCategory} />
+        <CategoryChips active={activeCategories} onToggle={toggleCategory} />
 
-      <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin">
-        {sections.map((section) => (
-          <SectionView
-            forceOpen={forceOpen}
-            key={section.id}
-            onAddBlock={onAddBlock}
-            onDragStart={handleDragStart}
-            onEnter={handleTileEnter}
-            onLeave={clearHover}
-            section={section}
-          />
-        ))}
+        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin">
+          {sections.map((section) => (
+            <SectionView
+              forceOpen={forceOpen}
+              key={section.id}
+              onAddBlock={onAddBlock}
+              onDragStart={handleDragStart}
+              onEnter={handleTileEnter}
+              onLeave={clearHover}
+              section={section}
+            />
+          ))}
+        </div>
       </div>
 
       {hovered ? <BlockDetailPopover anchor={hovered.anchor} block={hovered.block} /> : null}

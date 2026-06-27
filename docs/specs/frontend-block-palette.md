@@ -19,6 +19,7 @@ scope:
     - Section ordering — Data I/O, then Built-in (core), then Custom, then plugin packages A→Z.
     - A hover detail popover anchored to the right of a tile showing icon, name, full description, and typed port signature.
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
+    - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
   out:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
     - Per-block custom icons (still tracked as the categoryVisuals follow-up; palette keeps the category-icon fallback).
@@ -34,11 +35,14 @@ governs:
     - docs/specs/frontend-block-palette.md
     - frontend/src/components/BlockPalette.tsx
     - frontend/src/components/BlockPalette.parts
+    - frontend/src/hooks/useReloadFlash.ts
+    - frontend/src/components/ProjectTree.tsx
   excludes:
     - frontend/src/components/nodes/BlockNode.parts/categoryVisuals.ts
 tests:
   - frontend/src/components/BlockPalette.test.tsx
   - frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts
+  - frontend/src/hooks/__tests__/useReloadFlash.test.ts
 acceptance_source: issue
 language_source: en
 ---
@@ -103,7 +107,9 @@ category-free ordering. Top to bottom:
    `input_ports.length === 0`) and Save (io sink, `output_ports.length === 0`)
    blocks, lifted out of their package group so they never appear twice.
 2. **Built-in** — the remaining core blocks (`derivePackage` → "SciStudio Core"),
-   as one flat grid with **no category sub-grouping**.
+   as one flat grid with **no category sub-grouping**. Core blocks that use a
+   dotted namespace but ship with core (the `ai.` namespace, e.g. `ai.agent`)
+   resolve to Built-in rather than a standalone package.
 3. **Custom** — user `source === "custom"` blocks.
 4. **Plugin packages** — every other package, sorted **A→Z** by display name.
 
@@ -166,3 +172,22 @@ Component behavior is covered by the rewritten `BlockPalette.test.tsx`:
 - Data I/O section renders Load and Save pinned at the top.
 - Activating a category chip filters the visible tiles.
 - Hovering a tile reveals the detail popover with description and port signature.
+
+## 9. Reload Flash
+
+The palette Reload control gives an at-a-glance confirmation that the catalog
+refreshed: a single fast opacity blink (1 → 0 → 1 over ~100ms, like a browser
+refresh) across the whole palette body (search + chips + grid).
+
+The blink is driven by a shared `useReloadFlash` hook. The hook arms on the
+Reload click and fires only when the watched data (`blocks`) next changes — so
+it confirms the refresh actually landed and does not fire on mount, on
+background catalog syncs, or on a failed reload. It uses the Web Animations API
+so the subtree is not remounted (section-collapse state is preserved), guarded
+for environments without `Element.animate`.
+
+The same hook is wired to the project tree Refresh control (watching the tree
+nodes), so both side panels share one consistent reload feedback.
+
+The hook is covered by `frontend/src/hooks/__tests__/useReloadFlash.test.ts`;
+the palette wiring is covered by `BlockPalette.test.tsx`.
