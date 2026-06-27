@@ -197,13 +197,96 @@ def _dataframe_to_arrow_table(obj: DataFrame) -> Any:
     )
 
 
+# ---------------------------------------------------------------------------
+# Excel (.xlsx) write support (#1810)
+# ---------------------------------------------------------------------------
+
+# Hard sheet limits of the .xlsx (Office Open XML) format.
+_XLSX_MAX_ROWS = 1_048_576
+_XLSX_MAX_COLS = 16_384
+
+
+def _check_xlsx_dimensions(n_rows: int, n_cols: int) -> None:
+    """Raise :class:`ValueError` when a table exceeds Excel's hard sheet limits.
+
+    Pure (no I/O) so the guard is unit-testable at the real limits without
+    materialising a million-row table. ``to_excel`` always writes a header row,
+    so the data-row budget is one less than the absolute maximum.
+    """
+    if n_rows > _XLSX_MAX_ROWS - 1:
+        raise ValueError(
+            f"Cannot save to .xlsx: {n_rows} rows exceed the Excel sheet limit of "
+            f"{_XLSX_MAX_ROWS - 1} data rows (a header row is also written). Use "
+            f".parquet or .csv for tables this large."
+        )
+    if n_cols > _XLSX_MAX_COLS:
+        raise ValueError(
+            f"Cannot save to .xlsx: {n_cols} columns exceed the Excel sheet limit "
+            f"of {_XLSX_MAX_COLS} columns. Use .parquet or .csv for tables this wide."
+        )
+
+
+def _safe_sheet_name(name: str, used: set[str], index: int) -> str:
+    """Return an Excel-legal, unique sheet name.
+
+    Excel sheet names are <=31 chars, cannot contain ``[]:*?/\\``, cannot be
+    blank, and must be unique within a workbook. Falls back to ``Sheet{index}``
+    for an empty name and de-duplicates by appending ``~N``.
+    """
+    cleaned = "".join("_" if ch in r"[]:*?/\\" else ch for ch in (name or "")).strip()
+    if not cleaned:
+        cleaned = f"Sheet{index}"
+    cleaned = cleaned[:31]
+    candidate = cleaned
+    suffix = 1
+    while candidate.casefold() in used:
+        tail = f"~{suffix}"
+        candidate = cleaned[: 31 - len(tail)] + tail
+        suffix += 1
+    used.add(candidate.casefold())
+    return candidate
+
+
+def _write_table_to_xlsx(table: Any, dest_path: Path, sheet_name: str = "Sheet1") -> None:
+    """Write a :class:`pyarrow.Table` to ``dest_path`` as a single-sheet .xlsx.
+
+    Uses the pandas + openpyxl bridge (#1810). The caller owns atomicity (wrap
+    in ``atomic_path``); this writes straight to ``dest_path``.
+    """
+    _write_tables_to_xlsx([(sheet_name or "Sheet1", table)], dest_path)
+
+
+def _write_tables_to_xlsx(named_tables: list[tuple[str, Any]], dest_path: Path) -> None:
+    """Write one or more ``(sheet_name, pa.Table)`` pairs into a single .xlsx.
+
+    Each pair becomes one sheet (#1810). Used both for the single-sheet save and
+    for the Collection -> multi-sheet workbook grouping path. Sheet names are
+    made Excel-legal and unique; each table is dimension-checked. The caller owns
+    atomicity (wrap in ``atomic_path``).
+    """
+    import pandas as pd
+
+    if not named_tables:
+        raise ValueError("Cannot write an .xlsx workbook with no sheets.")
+    used: set[str] = set()
+    with pd.ExcelWriter(dest_path, engine="openpyxl") as writer:
+        for idx, (raw_name, table) in enumerate(named_tables, start=1):
+            _check_xlsx_dimensions(int(table.num_rows), int(table.num_columns))
+            sheet = _safe_sheet_name(str(raw_name or ""), used, idx)
+            table.to_pandas().to_excel(writer, sheet_name=sheet, index=False)
+
+
 __all__ = [
     "_CORE_TYPE_MAP",
     "_PICKLE_EXTENSIONS",
     "_check_pickle_gate",
+    "_check_xlsx_dimensions",
     "_dataframe_to_arrow_table",
     "_require_path",
     "_resolve_core_type_name",
+    "_safe_sheet_name",
     "_slot_path_for",
     "_unwrap_for_save",
+    "_write_table_to_xlsx",
+    "_write_tables_to_xlsx",
 ]

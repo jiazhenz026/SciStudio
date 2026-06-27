@@ -217,11 +217,11 @@ class TestSaveDataPerTypeCapabilityCoverage:
         ("data_type", "expected_format_ids"),
         [
             (Array, {"npy", "npz", "zarr", "parquet", "pickle"}),
-            (DataFrame, {"csv", "tsv", "parquet", "json", "pickle"}),
+            (DataFrame, {"csv", "tsv", "parquet", "json", "xlsx", "pickle"}),
             # Note: SaveData supports Series json (legacy code branch in
             # _save_series). LoadData does not — this asymmetry is
             # pre-existing and intentional.
-            (Series, {"csv", "tsv", "parquet", "json", "pickle"}),
+            (Series, {"csv", "tsv", "parquet", "json", "xlsx", "pickle"}),
             # Text + .json is a legacy save-only extension declared as a
             # separate Text capability with format_id="json" (Codex P1 on
             # PR #1300); LoadData's Text capability still excludes .json
