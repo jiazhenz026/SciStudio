@@ -12,6 +12,7 @@ import pytest
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.interactive import (
     INTERACTIVE_INTERMEDIATE_KEY,
+    INTERACTIVE_MEMORY_KEY,
     PANEL_API_VERSION,
     InteractiveMixin,
     InteractivePrompt,
@@ -19,10 +20,138 @@ from scistudio.blocks.base.interactive import (
     SupportsInteraction,
     coerce_prompt,
     deserialise_storage_ref,
+    interactive_input_signature,
+    interactive_item_label,
+    load_interactive_memory,
     load_intermediate,
     serialise_storage_ref,
 )
 from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+
+
+class TestInteractiveItemLabel:
+    """:func:`interactive_item_label` — duck-typed best-effort item naming."""
+
+    def test_prefers_explicit_name(self) -> None:
+        class Item:
+            name = "explicit.tif"
+
+        assert interactive_item_label(Item(), 3) == "explicit.tif"
+
+    def test_source_file_basename(self) -> None:
+        class Meta:
+            source_file = "/data/raw/io-coverage/spectrum_07.txt"
+
+        class Item:
+            meta = Meta()
+
+        assert interactive_item_label(Item(), 2) == "spectrum_07.txt"
+
+    def test_source_file_windows_separator(self) -> None:
+        class Meta:
+            source_file = r"C:\data\images\img_03.tif"
+
+        class Item:
+            meta = Meta()
+
+        assert interactive_item_label(Item(), 0) == "img_03.tif"
+
+    def test_artifact_file_path_basename(self) -> None:
+        from pathlib import Path
+
+        class Item:
+            meta = None
+            file_path = Path("/tmp/exports/report.pdf")
+
+        assert interactive_item_label(Item(), 1) == "report.pdf"
+
+    def test_empty_name_falls_through_to_source_file(self) -> None:
+        class Meta:
+            source_file = "/d/a.txt"
+
+        class Item:
+            name = ""
+            meta = Meta()
+
+        assert interactive_item_label(Item(), 0) == "a.txt"
+
+    def test_fallback_to_index_when_nothing_identifying(self) -> None:
+        assert interactive_item_label(object(), 9) == "item_9"
+
+
+class _SourceMeta:
+    def __init__(self, source_file: str) -> None:
+        self.source_file = source_file
+
+
+class _FileItem(DataObject):
+    """DataObject stub whose meta carries a source filename."""
+
+    def __init__(self, source_file: str) -> None:
+        super().__init__()
+        self._m = _SourceMeta(source_file)
+
+    @property
+    def meta(self) -> _SourceMeta:  # type: ignore[override]
+        return self._m
+
+
+class TestInteractiveInputSignature:
+    """:func:`interactive_input_signature` — generic identity fingerprint."""
+
+    def test_signature_is_per_port_filename_lists(self) -> None:
+        col = Collection([_FileItem("/d/a.txt"), _FileItem("/d/b.txt")], item_type=_FileItem)
+        sig = interactive_input_signature({"input_1": col})
+        assert sig == {"input_1": ["a.txt", "b.txt"]}
+
+    def test_signature_handles_multiple_ports_and_singletons(self) -> None:
+        col = Collection([_FileItem("/d/a.txt")], item_type=_FileItem)
+        sig = interactive_input_signature({"input_1": col, "input_2": _FileItem("/d/solo.txt")})
+        assert sig == {"input_1": ["a.txt"], "input_2": ["solo.txt"]}
+
+    def test_signature_order_sensitive(self) -> None:
+        c1 = Collection([_FileItem("/d/a.txt"), _FileItem("/d/b.txt")], item_type=_FileItem)
+        c2 = Collection([_FileItem("/d/b.txt"), _FileItem("/d/a.txt")], item_type=_FileItem)
+        assert interactive_input_signature({"p": c1}) != interactive_input_signature({"p": c2})
+
+
+class TestLoadInteractiveMemory:
+    """:func:`load_interactive_memory` — enabled-record extraction."""
+
+    def test_reads_top_level_record(self) -> None:
+        rec = {"enabled": True, "decision": {"x": 1}, "signature": {"p": ["a"]}}
+        assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: rec}) == rec
+
+    def test_reads_params_nested_record(self) -> None:
+        rec = {"enabled": True, "decision": {}, "signature": {}}
+        assert load_interactive_memory({"params": {INTERACTIVE_MEMORY_KEY: rec}}) == rec
+
+    def test_disabled_returns_none(self) -> None:
+        assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: {"enabled": False}}) is None
+
+    def test_absent_returns_none(self) -> None:
+        assert load_interactive_memory({"params": {}}) is None
+        assert load_interactive_memory({}) is None
+
+
+class TestRemapSavedDecisionDefault:
+    """Default :meth:`InteractiveMixin.remap_saved_decision` — exact-match replay."""
+
+    class _Block(InteractiveMixin):
+        interactive_panel = PanelManifest(panel_id="core.interactive.test")
+
+    def test_replays_on_identical_signature(self) -> None:
+        block = self._Block()
+        decision = {"assignments": {"port_1": ["input_1:0"]}}
+        sig = {"input_1": ["a.txt"]}
+        assert block.remap_saved_decision(decision, sig, sig) == decision
+
+    def test_falls_back_when_signature_differs(self) -> None:
+        block = self._Block()
+        decision = {"assignments": {"port_1": ["input_1:0"]}}
+        assert block.remap_saved_decision(decision, {"input_1": ["a.txt"]}, {"input_1": ["b.txt"]}) is None
 
 
 class TestPanelManifest:

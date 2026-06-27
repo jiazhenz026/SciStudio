@@ -14,7 +14,12 @@ import logging
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt, PanelManifest
+from scistudio.blocks.base.interactive import (
+    InteractiveMixin,
+    InteractivePrompt,
+    PanelManifest,
+    interactive_item_label,
+)
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 
@@ -88,7 +93,7 @@ class PairEditor(InteractiveMixin, ProcessBlock):
                 for i, item in enumerate(value):
                     item_desc: dict[str, Any] = {
                         "index": i,
-                        "name": getattr(item, "name", None) or f"item_{i}",
+                        "name": interactive_item_label(item, i),
                         "type": type(item).__name__,
                     }
                     items.append(item_desc)
@@ -97,7 +102,7 @@ class PairEditor(InteractiveMixin, ProcessBlock):
                 items.append(
                     {
                         "index": 0,
-                        "name": getattr(value, "name", None) or "item_0",
+                        "name": interactive_item_label(value, 0),
                         "type": type(value).__name__,
                     }
                 )
@@ -134,12 +139,21 @@ class PairEditor(InteractiveMixin, ProcessBlock):
         if not reorder:
             raise ValueError("PairEditor received no reorder data from interactive response")
 
+        # Outputs auto-mirror inputs positionally, but the output ports have
+        # their own names (e.g. inputs ``input_1``/``input_2`` -> outputs
+        # ``port_1``/``port_2``). The reorder decision is keyed by the *input*
+        # port names, while the engine validates the block's declared *output*
+        # port names — so emit each result under the i-th output port name, not
+        # the input name (which would leave the required output ports unproduced).
+        output_port_names = [p.name for p in self.get_effective_output_ports()]
+
         outputs: dict[str, Any] = {}
-        for port_name, value in inputs.items():
+        for idx, (port_name, value) in enumerate(inputs.items()):
+            out_name = output_port_names[idx] if idx < len(output_port_names) else port_name
             indices = reorder.get(port_name)
             if indices is None:
                 # If no reorder specified for this port, pass through unchanged.
-                outputs[port_name] = value
+                outputs[out_name] = value
                 continue
 
             if isinstance(value, Collection):
@@ -150,9 +164,9 @@ class PairEditor(InteractiveMixin, ProcessBlock):
                         f"Collection length ({len(items)}) for port '{port_name}'"
                     )
                 reordered = [items[i] for i in indices]
-                outputs[port_name] = Collection(reordered, item_type=value.item_type)
+                outputs[out_name] = Collection(reordered, item_type=value.item_type)
             else:
                 # Single item — pass through.
-                outputs[port_name] = value
+                outputs[out_name] = value
 
         return outputs

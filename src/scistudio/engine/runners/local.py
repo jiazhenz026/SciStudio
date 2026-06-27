@@ -512,6 +512,8 @@ class LocalRunner:
                     "panel_payload": parsed.get("panel_payload", {}),
                     "intermediate": parsed.get("intermediate", []),
                     "environment": parsed.get("environment"),
+                    # ADR-051 interaction memory: generic input fingerprint.
+                    "input_signature": parsed.get("input_signature", {}),
                 }
             # The worker may emit a structured error payload (e.g. a non-JSON
             # panel payload raised inside prepare_prompt) even on a zero exit.

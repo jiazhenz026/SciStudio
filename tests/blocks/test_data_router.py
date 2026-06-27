@@ -20,6 +20,29 @@ class StubItem(DataObject):
         self.name = name
 
 
+class _SourceMeta:
+    """Stand-in for a typed domain meta exposing ``source_file``."""
+
+    def __init__(self, source_file: str) -> None:
+        self.source_file = source_file
+
+
+class FileItem(DataObject):
+    """DataObject stub with a ``source_file`` meta and no ``name`` attribute.
+
+    Mirrors real loaded data, where the routing panel should surface the
+    originating filename rather than a generic ``item_N``.
+    """
+
+    def __init__(self, source_file: str) -> None:
+        super().__init__()
+        self._source_meta = _SourceMeta(source_file)
+
+    @property
+    def meta(self) -> _SourceMeta:  # type: ignore[override]
+        return self._source_meta
+
+
 class TestDataRouterMetadata:
     """Test DataRouter class-level metadata and variadic port declarations."""
 
@@ -101,6 +124,26 @@ class TestDataRouterPreparePrompt:
         assert len(result["items_per_port"]["port_a"]) == 1
         assert len(result["items_per_port"]["port_b"]) == 2
         assert set(result["output_ports"]) == {"out_x", "out_y"}
+
+    def test_item_name_uses_source_filename(self) -> None:
+        """Items surface their source filename, not a generic ``item_N`` label."""
+        block = DataRouter(
+            config={
+                "input_ports": [{"name": "input_1", "types": ["DataObject"]}],
+                "output_ports": [{"name": "port_1", "types": ["DataObject"]}],
+            }
+        )
+        col = Collection(
+            [FileItem("/data/raw/io-coverage/spectrum_10.txt"), FileItem("/data/raw/img_03.tif")],
+            item_type=FileItem,
+        )
+
+        prompt = block.prepare_prompt({"input_1": col}, BlockConfig())
+        items = prompt.panel_payload["items_per_port"]["input_1"]
+
+        assert [i["name"] for i in items] == ["spectrum_10.txt", "img_03.tif"]
+        # ref/index are unaffected by the label change.
+        assert items[0]["ref"] == "input_1:0"
 
 
 class TestDataRouterRun:

@@ -20,6 +20,29 @@ class StubItem(DataObject):
         self.name = name
 
 
+class _SourceMeta:
+    """Stand-in for a typed domain meta exposing ``source_file``."""
+
+    def __init__(self, source_file: str) -> None:
+        self.source_file = source_file
+
+
+class FileItem(DataObject):
+    """DataObject stub with a ``source_file`` meta and no ``name`` attribute.
+
+    Mirrors real loaded data (e.g. a Spectrum), where the interactive panel
+    should surface the originating filename rather than a generic ``item_N``.
+    """
+
+    def __init__(self, source_file: str) -> None:
+        super().__init__()
+        self._source_meta = _SourceMeta(source_file)
+
+    @property
+    def meta(self) -> _SourceMeta:  # type: ignore[override]
+        return self._source_meta
+
+
 class TestPairEditorMetadata:
     """Test PairEditor class-level metadata and variadic port declarations."""
 
@@ -131,6 +154,35 @@ class TestPairEditorPreparePrompt:
 
         assert result["collection_length"] == 5
         assert len(result["ports"]) == 3
+
+    def test_item_name_uses_source_filename(self) -> None:
+        """Items surface their source filename, not a generic ``item_N`` label."""
+        block = PairEditor(
+            config={
+                "input_ports": [
+                    {"name": "input_1", "types": ["DataObject"]},
+                    {"name": "input_2", "types": ["DataObject"]},
+                ],
+                "output_ports": [
+                    {"name": "port_1", "types": ["DataObject"]},
+                    {"name": "port_2", "types": ["DataObject"]},
+                ],
+            }
+        )
+        col_1 = Collection(
+            [FileItem("/data/raw/spectrum_01.txt"), FileItem("/data/raw/spectrum_02.txt")],
+            item_type=FileItem,
+        )
+        col_2 = Collection(
+            [FileItem("/data/raw/spectrum_06.txt"), FileItem("/data/raw/spectrum_07.txt")],
+            item_type=FileItem,
+        )
+
+        prompt = block.prepare_prompt({"input_1": col_1, "input_2": col_2}, BlockConfig())
+        items = prompt.panel_payload["items_per_port"]
+
+        assert [i["name"] for i in items["input_1"]] == ["spectrum_01.txt", "spectrum_02.txt"]
+        assert [i["name"] for i in items["input_2"]] == ["spectrum_06.txt", "spectrum_07.txt"]
 
 
 class TestPairEditorRun:
@@ -304,6 +356,50 @@ class TestPairEditorRun:
         # B passes through unchanged.
         assert next(iter(result["B"])).name == "b0"
         assert list(result["B"])[1].name == "b1"
+
+    def test_distinct_output_port_names_are_produced(self) -> None:
+        """Regression (#1781): outputs must be keyed by the OUTPUT port names.
+
+        Input and output ports are independent variadic lists with different
+        default names (inputs ``input_1``/``input_2``, outputs
+        ``port_1``/``port_2``). The reorder decision is keyed by the input
+        names, but run() must emit results under the positionally-mirrored
+        output port names — otherwise the engine fails with "Required output
+        port 'port_1' was not produced by the block."
+        """
+        block = PairEditor(
+            config={
+                "input_ports": [
+                    {"name": "input_1", "types": ["DataObject"]},
+                    {"name": "input_2", "types": ["DataObject"]},
+                ],
+                "output_ports": [
+                    {"name": "port_1", "types": ["DataObject"]},
+                    {"name": "port_2", "types": ["DataObject"]},
+                ],
+            }
+        )
+        col_1 = Collection([StubItem("a0"), StubItem("a1"), StubItem("a2")], item_type=StubItem)
+        col_2 = Collection([StubItem("b0"), StubItem("b1"), StubItem("b2")], item_type=StubItem)
+        inputs = {"input_1": col_1, "input_2": col_2}
+
+        config = BlockConfig(
+            **{
+                "interactive_response": {
+                    "reorder": {
+                        "input_1": [2, 0, 1],
+                        "input_2": [1, 2, 0],
+                    }
+                }
+            }
+        )
+
+        result = block.run(inputs, config)
+
+        # Keyed by OUTPUT port names (input_1 -> port_1, input_2 -> port_2).
+        assert set(result) == {"port_1", "port_2"}
+        assert [it.name for it in result["port_1"]] == ["a2", "a0", "a1"]
+        assert [it.name for it in result["port_2"]] == ["b1", "b2", "b0"]
 
 
 class TestPairEditorAdr051Migration:

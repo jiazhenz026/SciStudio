@@ -26,6 +26,8 @@ export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: Lif
     workflowId: payload.workflow_id ?? (data.workflow_id as string | undefined) ?? "",
     panelManifest: (data.panel_manifest as PanelManifestDescriptor | null) ?? null,
     panelPayload: (data.panel_payload as Record<string, unknown>) ?? {},
+    // ADR-051 interaction memory: the engine's input fingerprint for this run.
+    inputSignature: (data.input_signature as Record<string, string[]>) ?? {},
     data,
   });
 }

@@ -41,21 +41,26 @@ def test_builtins_init_does_not_export_register_block() -> None:
 
 
 def test_builtins_init_only_exports_collection_ops() -> None:
-    """The expected ``__all__`` set is the 6 collection-op blocks — no RegisterBlock."""
+    """``__all__`` is the current built-in process block set — no RegisterBlock.
+
+    #1781: the collection filter/slice/split blocks were retired (superseded by
+    the interactive DataRouter); MergeCollection remains. MergeBlock/SplitBlock
+    are DataFrame-level placeholders kept importable but out of the palette.
+    """
     expected = {
-        "FilterCollection",
+        "DataRouter",
         "MergeBlock",
         "MergeCollection",
-        "SliceCollection",
+        "PairEditor",
         "SplitBlock",
-        "SplitCollection",
     }
     actual = set(getattr(builtins_pkg, "__all__", []))
-    # T-TRK-003 (transform) and T-TRK-012 (filter_collection) may add to this set
-    # later; we only assert RegisterBlock is NOT present.
     assert "RegisterBlock" not in actual
-    # And the canonical 6 collection ops are still present.
-    assert expected.issubset(actual), f"Expected {expected} to be a subset of __all__; got {actual}"
+    # The retired collection blocks must not reappear.
+    assert "FilterCollection" not in actual
+    assert "SliceCollection" not in actual
+    assert "SplitCollection" not in actual
+    assert actual == expected, f"Expected __all__ == {expected}; got {actual}"
     # Importable check — these names should resolve on the package.
     for name in expected:
         assert hasattr(builtins_pkg, name), f"{name} missing from builtins package"

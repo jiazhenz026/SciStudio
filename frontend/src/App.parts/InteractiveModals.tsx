@@ -12,6 +12,7 @@
 import type { ReactElement } from "react";
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
+import { INTERACTIVE_MEMORY_KEY, readInteractiveMemory } from "../lib/interactiveMemory";
 import { useAppStore } from "../store";
 import type { InteractivePrompt } from "../store/types";
 
@@ -88,6 +89,26 @@ export function InteractiveModals() {
       workflow_id: promptWorkflowId,
       data: responseData,
     });
+
+    // ADR-051 interaction memory (Addendum 1): if this node has "remember and
+    // skip" enabled, persist the decision + the run's input fingerprint into the
+    // node config so future runs replay it without opening the dialog. Generic:
+    // stores the verbatim response, no block-specific knowledge — so a package
+    // block inherits it. Only persists when the user has opted in (enabled).
+    const node = useAppStore
+      .getState()
+      .workflowNodes.find((n) => n.id === interactivePrompt.blockId);
+    const memory = readInteractiveMemory(node?.config as Record<string, unknown> | undefined);
+    if (memory?.enabled) {
+      useAppStore.getState().updateNodeConfig(interactivePrompt.blockId, {
+        [INTERACTIVE_MEMORY_KEY]: {
+          enabled: true,
+          decision: responseData,
+          signature: interactivePrompt.inputSignature,
+        },
+      });
+    }
+
     setInteractivePrompt(null);
   };
 

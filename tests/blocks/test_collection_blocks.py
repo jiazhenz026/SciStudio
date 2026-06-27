@@ -1,4 +1,9 @@
-"""Tests for Collection operation blocks — merge, split, filter, slice (ADR-021)."""
+"""Tests for the MergeCollection block (ADR-021 / ADR-029).
+
+The former collection filter/slice/split blocks were retired in favour of the
+interactive DataRouter (#1781); MergeCollection remains as the variadic merge
+primitive and lives in the ``routing`` subcategory.
+"""
 
 from __future__ import annotations
 
@@ -6,10 +11,7 @@ from typing import Any
 
 import pytest
 
-from scistudio.blocks.process.builtins.filter_collection import FilterCollection
 from scistudio.blocks.process.builtins.merge_collection import MergeCollection
-from scistudio.blocks.process.builtins.slice_collection import SliceCollection
-from scistudio.blocks.process.builtins.split_collection import SplitCollection
 from scistudio.core.types.array import Array
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.dataframe import DataFrame
@@ -42,159 +44,73 @@ def _make_images(n: int) -> list[Image]:
     return [Image(shape=(i, i), ndim=2, dtype="uint8", user={"index": i}) for i in range(1, n + 1)]
 
 
-# ---------------------------------------------------------------------------
-# MergeCollection
-# ---------------------------------------------------------------------------
+def _variadic_config(n_ports: int) -> dict[str, Any]:
+    """Config declaring *n_ports* variadic input ports named ``input_1..N``."""
+    return {"input_ports": [{"name": f"input_{i}", "types": ["DataObject"]} for i in range(1, n_ports + 1)]}
 
 
-class TestMergeCollection:
-    """MergeCollection — concatenate two same-typed Collections."""
+class TestMergeCollectionMetadata:
+    """Class-level contract: variadic input side, routing subcategory."""
 
-    def test_merge_same_type(self) -> None:
-        images_a = _make_images(2)
-        images_b = _make_images(3)
-        col_a = Collection(images_a, item_type=Image)
-        col_b = Collection(images_b, item_type=Image)
+    def test_subcategory_is_routing(self) -> None:
+        assert MergeCollection.subcategory == "routing"
+
+    def test_variadic_inputs(self) -> None:
+        assert MergeCollection.variadic_inputs is True
+        assert MergeCollection.min_input_ports == 2
+        assert MergeCollection.max_input_ports == 8
+
+    def test_single_output_port(self) -> None:
+        assert [p.name for p in MergeCollection.output_ports] == ["output"]
+
+
+class TestMergeCollectionRun:
+    """MergeCollection — concatenate N same-typed Collections."""
+
+    def test_merge_two_collections(self) -> None:
+        col_a = Collection(_make_images(2), item_type=Image)
+        col_b = Collection(_make_images(3), item_type=Image)
 
         block = MergeCollection()
-        result = block.run({"input_a": col_a, "input_b": col_b}, block.config)
+        result = block.run({"input_1": col_a, "input_2": col_b}, block.config)
 
         merged = result["output"]
         assert isinstance(merged, Collection)
         assert len(merged) == 5
         assert merged.item_type is Image
 
-    def test_merge_type_mismatch(self) -> None:
-        col_images = Collection(_make_images(2), item_type=Image)
-        col_df = Collection(
+    def test_merge_many_collections_in_port_order(self) -> None:
+        col_1 = Collection(_make_images(1), item_type=Image)  # index 1
+        col_2 = Collection(_make_images(2), item_type=Image)  # index 1,2
+        col_3 = Collection(_make_images(3), item_type=Image)  # index 1,2,3
+
+        block = MergeCollection(config=_variadic_config(3))
+        result = block.run({"input_1": col_1, "input_2": col_2, "input_3": col_3}, block.config)
+
+        merged = result["output"]
+        assert len(merged) == 6
+        # Concatenated in input-port order (col_1, then col_2, then col_3).
+        assert [item.user["index"] for item in merged] == [1, 1, 2, 1, 2, 3]
+
+    def test_type_mismatch_in_any_input_raises(self) -> None:
+        """If any one input's item_type differs from the rest, error."""
+        col_1 = Collection(_make_images(2), item_type=Image)
+        col_2 = Collection(
             [DataFrame(columns=["a"]), DataFrame(columns=["b"])],
             item_type=DataFrame,
         )
+        col_3 = Collection(_make_images(1), item_type=Image)
 
-        block = MergeCollection()
+        block = MergeCollection(config=_variadic_config(3))
         with pytest.raises(TypeError, match="different item types"):
-            block.run({"input_a": col_images, "input_b": col_df}, block.config)
+            block.run({"input_1": col_1, "input_2": col_2, "input_3": col_3}, block.config)
 
-    def test_merge_non_collection_raises(self) -> None:
+    def test_non_collection_input_raises(self) -> None:
         block = MergeCollection()
         with pytest.raises(TypeError, match="requires Collection inputs"):
-            block.run({"input_a": "not_a_collection", "input_b": "neither"}, block.config)
+            block.run({"input_1": "not_a_collection", "input_2": "neither"}, block.config)
 
-
-# ---------------------------------------------------------------------------
-# SplitCollection
-# ---------------------------------------------------------------------------
-
-
-class TestSplitCollection:
-    """SplitCollection — split a Collection at an index."""
-
-    def test_split_at_index(self) -> None:
-        images = _make_images(4)
-        col = Collection(images, item_type=Image)
-
-        block = SplitCollection(config={"params": {"split_index": 2}})
-        result = block.run({"input": col}, block.config)
-
-        assert len(result["output_a"]) == 2
-        assert len(result["output_b"]) == 2
-        assert result["output_a"].item_type is Image
-        assert result["output_b"].item_type is Image
-
-    def test_split_default_midpoint(self) -> None:
-        images = _make_images(6)
-        col = Collection(images, item_type=Image)
-
-        block = SplitCollection()
-        result = block.run({"input": col}, block.config)
-
-        assert len(result["output_a"]) == 3
-        assert len(result["output_b"]) == 3
-
-    def test_split_non_collection_raises(self) -> None:
-        block = SplitCollection()
-        with pytest.raises(TypeError, match="requires a Collection input"):
-            block.run({"input": "not_a_collection"}, block.config)
-
-
-# ---------------------------------------------------------------------------
-# FilterCollection
-# ---------------------------------------------------------------------------
-
-
-class TestFilterCollection:
-    """FilterCollection — filter by metadata key/value."""
-
-    def test_filter_by_metadata(self) -> None:
-        images = _make_images(4)
-        col = Collection(images, item_type=Image)
-
-        block = FilterCollection(config={"params": {"predicate_key": "index", "predicate_value": 2}})
-        result = block.run({"input": col}, block.config)
-
-        filtered = result["output"]
-        assert isinstance(filtered, Collection)
-        assert len(filtered) == 1
-        assert filtered[0].user["index"] == 2
-        assert filtered.item_type is Image
-
-    def test_filter_empty_result(self) -> None:
-        images = _make_images(3)
-        col = Collection(images, item_type=Image)
-
-        block = FilterCollection(config={"params": {"predicate_key": "index", "predicate_value": 999}})
-        result = block.run({"input": col}, block.config)
-
-        filtered = result["output"]
-        assert isinstance(filtered, Collection)
-        assert len(filtered) == 0
-        assert filtered.item_type is Image
-
-    def test_filter_missing_key_raises(self) -> None:
-        col = Collection(_make_images(2), item_type=Image)
-
-        block = FilterCollection(config={"params": {}})
-        with pytest.raises(ValueError, match="predicate_key"):
-            block.run({"input": col}, block.config)
-
-    def test_filter_non_collection_raises(self) -> None:
-        block = FilterCollection(config={"params": {"predicate_key": "k", "predicate_value": "v"}})
-        with pytest.raises(TypeError, match="requires a Collection input"):
-            block.run({"input": "not_a_collection"}, block.config)
-
-
-# ---------------------------------------------------------------------------
-# SliceCollection
-# ---------------------------------------------------------------------------
-
-
-class TestSliceCollection:
-    """SliceCollection — extract sub-range from a Collection."""
-
-    def test_slice_range(self) -> None:
-        images = _make_images(5)
-        col = Collection(images, item_type=Image)
-
-        block = SliceCollection(config={"params": {"start": 0, "end": 2}})
-        result = block.run({"input": col}, block.config)
-
-        sliced = result["output"]
-        assert isinstance(sliced, Collection)
-        assert len(sliced) == 2
-        assert sliced[0].user["index"] == 1
-        assert sliced[1].user["index"] == 2
-        assert sliced.item_type is Image
-
-    def test_slice_default_full_range(self) -> None:
-        images = _make_images(3)
-        col = Collection(images, item_type=Image)
-
-        block = SliceCollection()
-        result = block.run({"input": col}, block.config)
-
-        assert len(result["output"]) == 3
-
-    def test_slice_non_collection_raises(self) -> None:
-        block = SliceCollection()
-        with pytest.raises(TypeError, match="requires a Collection input"):
-            block.run({"input": "not_a_collection"}, block.config)
+    def test_no_inputs_raises(self) -> None:
+        block = MergeCollection()
+        with pytest.raises(ValueError, match="at least one connected input"):
+            block.run({}, block.config)

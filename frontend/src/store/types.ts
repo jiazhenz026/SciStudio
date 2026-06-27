@@ -144,6 +144,12 @@ export interface InteractivePrompt {
   panelManifest: PanelManifestDescriptor | null;
   /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
   panelPayload: Record<string, unknown>;
+  /**
+   * ADR-051 interaction memory: the generic input fingerprint for this run,
+   * echoed by the engine so the frontend can persist it alongside the decision
+   * when the user enables "remember and skip the dialog".
+   */
+  inputSignature: Record<string, string[]>;
   /** Full event-data envelope (back-compat). */
   data: Record<string, unknown>;
 }

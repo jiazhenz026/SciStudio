@@ -499,7 +499,11 @@ def main() -> None:
         # the pre-ADR-051 in-process path, which did not call validate() before
         # prepare_prompt, so we skip it here too.
         if phase == "prompt":
-            from scistudio.blocks.base.interactive import coerce_prompt, serialise_storage_ref
+            from scistudio.blocks.base.interactive import (
+                coerce_prompt,
+                interactive_input_signature,
+                serialise_storage_ref,
+            )
             from scistudio.core.lineage.environment import EnvironmentSnapshot
 
             prompt = coerce_prompt(block.prepare_prompt(inputs, block_config))
@@ -519,6 +523,10 @@ def main() -> None:
                 "panel_payload": prompt.panel_payload,
                 "intermediate": [serialise_storage_ref(ref) for ref in prompt.intermediate],
                 "environment": env_snapshot.to_dict(),
+                # ADR-051 interaction memory: a generic identity fingerprint of
+                # the inputs, used to decide whether a remembered decision can be
+                # replayed (skipping the dialog) on a subsequent run.
+                "input_signature": interactive_input_signature(inputs),
             }
             print(json.dumps(prompt_envelope))
             return

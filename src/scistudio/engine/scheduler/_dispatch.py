@@ -416,6 +416,7 @@ async def _run_interactive(
     from scistudio.blocks.base.interactive import (
         INTERACTIVE_INTERMEDIATE_KEY,
         INTERACTIVE_RESPONSE_KEY,
+        load_interactive_memory,
     )
 
     intermediate: list[dict[str, Any]] = []
@@ -440,6 +441,7 @@ async def _run_interactive(
             # survives into the pause.
             prompt_result = await self._runner.run_prompt(block, inputs, config)
             panel_payload = prompt_result.get("panel_payload", {}) or {}
+            current_signature = prompt_result.get("input_signature", {}) or {}
             raw_intermediate = prompt_result.get("intermediate") or []
             intermediate = list(raw_intermediate) if isinstance(raw_intermediate, list) else []
             self._interactive_intermediate[node_id] = intermediate
@@ -448,6 +450,24 @@ async def _run_interactive(
             if self._block_states.get(node_id) == BlockState.CANCELLED:
                 logger.info("Interactive block %s cancelled during prompt phase", node_id)
                 return
+
+            # ADR-051 interaction memory: if the node remembers a prior decision
+            # and the block accepts it for the current inputs, replay it and skip
+            # the pause/UI entirely — the compute phase runs directly. Resolving
+            # the future here makes the announce-prompt block below a no-op.
+            memory = load_interactive_memory(config)
+            if memory is not None and not future.done():
+                replay = block.remap_saved_decision(
+                    memory.get("decision") or {},
+                    memory.get("signature") or {},
+                    current_signature,
+                )
+                if replay is not None:
+                    logger.info(
+                        "Interactive block %s replaying remembered decision (memory hit); skipping dialog",
+                        node_id,
+                    )
+                    future.set_result(replay)
 
             # Announce the prompt only if the decision has not already arrived
             # (the common case — nothing resolves the future before this point;
@@ -479,6 +499,10 @@ async def _run_interactive(
                             "block_type": config.get("block_type", type(block).__name__),
                             "panel_manifest": panel_manifest,
                             "panel_payload": panel_payload,
+                            # ADR-051 interaction memory: the current input
+                            # fingerprint, echoed so the frontend can persist it
+                            # alongside the decision when the user opts to remember.
+                            "input_signature": current_signature,
                         },
                     )
                 )

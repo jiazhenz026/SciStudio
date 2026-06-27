@@ -30,6 +30,7 @@ describe("handleInteractivePrompt (ADR-051)", () => {
         block_type: "DataRouter",
         panel_manifest: { panel_id: "core.interactive.data_router", version: "1" },
         panel_payload: { input_ports: ["x"], output_ports: ["y"], items_per_port: {} },
+        input_signature: { input_1: ["spectrum_01.txt", "spectrum_02.txt"] },
       },
       timestamp: "2026-06-26T00:00:00Z",
     });
@@ -37,6 +38,10 @@ describe("handleInteractivePrompt (ADR-051)", () => {
     expect(result).not.toBeNull();
     expect(result?.blockId).toBe("node-a");
     expect(result?.blockType).toBe("DataRouter");
+    // ADR-051 Addendum 1: the engine's input fingerprint is captured for memory.
+    expect(result?.inputSignature).toEqual({
+      input_1: ["spectrum_01.txt", "spectrum_02.txt"],
+    });
     // The prompt's own workflow id is lifted so confirm/cancel can run-scope it
     // (not the store's active workflow id) — codex P1.
     expect(result?.workflowId).toBe("wf-1");

@@ -13,7 +13,12 @@ import logging
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.interactive import InteractiveMixin, InteractivePrompt, PanelManifest
+from scistudio.blocks.base.interactive import (
+    InteractiveMixin,
+    InteractivePrompt,
+    PanelManifest,
+    interactive_item_label,
+)
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.core.types.base import DataObject
@@ -87,7 +92,7 @@ class DataRouter(InteractiveMixin, ProcessBlock):
                         "index": i,
                         "port": port_name,
                         "ref": f"{port_name}:{i}",
-                        "name": getattr(item, "name", None) or f"item_{i}",
+                        "name": interactive_item_label(item, i),
                         "type": type(item).__name__,
                     }
                     items.append(item_desc)
@@ -97,7 +102,7 @@ class DataRouter(InteractiveMixin, ProcessBlock):
                         "index": 0,
                         "port": port_name,
                         "ref": f"{port_name}:0",
-                        "name": getattr(value, "name", None) or "item_0",
+                        "name": interactive_item_label(value, 0),
                         "type": type(value).__name__,
                     }
                 )
