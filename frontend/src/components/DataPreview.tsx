@@ -10,8 +10,7 @@ import type {
   ResolvedSubworkflowPort,
 } from "../types/api";
 
-import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
-import { SubworkflowPortPanel } from "./DataPreview.parts/SubworkflowPortPanel";
+import { NodePortPanel } from "./DataPreview.parts/NodePortPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
 
@@ -153,36 +152,18 @@ export function DataPreview({
     plotPreviewTarget != null && plotPreviewTarget.source?.node_id === selectedNodeId;
   const activePlot = showPlotResult && plotBelongsToSelected ? plotPreviewTarget : null;
 
-  // Hotfix 2026-05-23 — split the preview region from the port-description
-  // panel so the panel no longer steals vertical space from the active
-  // preview. The panel reserves ~38% of the right column with its own
-  // internal scroll. ``shrink-0`` keeps the panel from collapsing when
-  // the preview content is tall. The single divider above the panel is
-  // owned by PortInfoPanel's own ``border-t``.
-  // ADR-044 — a subworkflow node exposes opaque "<block>.<port>" ports; show the
-  // provenance panel instead of the generic #1326 PortInfoPanel (subworkflow
-  // nodes have no schema-static ports, so selectedInput/OutputPorts are empty).
-  const hasSubworkflowPorts =
-    (subworkflowPorts?.inputs.length ?? 0) > 0 || (subworkflowPorts?.outputs.length ?? 0) > 0;
-  const portPanelBody = hasSubworkflowPorts ? (
-    <SubworkflowPortPanel
-      inputs={subworkflowPorts?.inputs ?? []}
-      outputs={subworkflowPorts?.outputs ?? []}
-      typeHierarchy={subworkflowPorts?.typeHierarchy}
-    />
-  ) : (selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0 ? (
-    <PortInfoPanel
+  // Hotfix 2026-05-23 — the port section reserves ~38% of the right column with
+  // its own internal scroll, split from the preview so it never steals vertical
+  // space. NodePortPanel owns the subworkflow-vs-generic branch (ADR-044) and
+  // returns null when there is nothing to show.
+  const portPanel = selectedNodeId ? (
+    <NodePortPanel
+      subworkflowPorts={subworkflowPorts}
       inputPorts={selectedInputPorts ?? []}
       outputPorts={selectedOutputPorts ?? []}
       schema={selectedSchema}
     />
   ) : null;
-  const portPanel =
-    selectedNodeId && portPanelBody ? (
-      <div className="flex shrink-0 basis-[38%] flex-col overflow-y-auto scrollbar-thin">
-        {portPanelBody}
-      </div>
-    ) : null;
 
   // #1795 — the output/plot pills are shared by the inline panel and the
   // maximized window, so extract them once. ``hasPreviewContent`` also gates

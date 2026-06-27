@@ -27,12 +27,13 @@ import { useMemo, useState } from "react";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
-import type { AnyTab, FileTab } from "./store/types";
+import type { AnyTab } from "./store/types";
 import type { ProjectResponse, WorkflowResponse } from "./types/api";
 
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
 import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
+import { useActiveTab } from "./App.parts/useActiveTab";
 import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
 import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
 import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
@@ -181,12 +182,7 @@ export default function App() {
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
 
   // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap.
-  const activeTab = useMemo<AnyTab | null>(() => {
-    const found = (tabs as AnyTab[]).find((t) => t.id === activeTabId);
-    return found ?? null;
-  }, [tabs, activeTabId]);
-  const activeFileTab: FileTab | null = activeTab && activeTab.kind === "file" ? activeTab : null;
-  const activeTabKind: "workflow" | "file" = activeFileTab ? "file" : "workflow";
+  const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");

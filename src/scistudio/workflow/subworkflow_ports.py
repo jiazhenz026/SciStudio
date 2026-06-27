@@ -84,9 +84,7 @@ def resolve_port_surface(
     ):
         for entry in entries:
             accepted = _accepted_types(node_by_id, entry.internal, direction, registry)
-            block_id, port, block_type, block_label = _block_provenance(
-                node_by_id, entry.internal, registry
-            )
+            block_id, port, block_type, block_label = _block_provenance(node_by_id, entry.internal, registry)
             target.append(
                 {
                     "name": entry.name,

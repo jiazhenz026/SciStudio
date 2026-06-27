@@ -49,9 +49,11 @@ language_source: en
 translations: []
 ---
 
-# ADR-044 Addendum 1: Usable SubWorkflow Authoring
+# ADR-044 Addendum 1: Usable SubWorkflow Authoring: Auto-Derived Exposed Ports, Port Provenance, And Run-Scoped Status
 
 ## 1. Decision Summary
+
+### 1.1 Problems Addressed
 
 ADR-044 made `SubWorkflowBlock` an authoring-only container whose port surface
 is derived from the referenced file's `exposed_ports` section, with the section
@@ -65,7 +67,7 @@ its open boundary inputs cannot be connected and a run fails strict validation
 This addendum makes subworkflow authoring usable end to end. The decisions
 below were taken in an owner-directed live session (issue #890 / PR #1736).
 
-### 1.1 Decisions
+### 1.2 Decisions
 
 1. **Auto-derive `exposed_ports` at import.** When a workflow file is imported
    as a subworkflow and declares no `exposed_ports`, the import writes a derived

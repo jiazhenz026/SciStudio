@@ -5336,6 +5336,24 @@
       "at": "2026-06-27T07:23:05.409771Z",
       "pattern": "frontend/src/store/tabSlice.parts/tabHelpers.ts",
       "reason": "record ADR-044 Addendum 1 documenting the live-session subworkflow usability changes; add remaining touched files to scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T08:02:01.353505Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "CI fixes: ruff format py, ADR addendum frontmatter (H1+1.1), extract useActiveTab + NodePortPanel modules to clear App max-lines and DataPreview complexity lint errors"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T08:02:01.353660Z",
+      "pattern": "frontend/src/App.parts/useActiveTab.ts",
+      "reason": "CI fixes: ruff format py, ADR addendum frontmatter (H1+1.1), extract useActiveTab + NodePortPanel modules to clear App max-lines and DataPreview complexity lint errors"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T08:02:01.353663Z",
+      "pattern": "frontend/src/components/DataPreview.parts/NodePortPanel.tsx",
+      "reason": "CI fixes: ruff format py, ADR addendum frontmatter (H1+1.1), extract useActiveTab + NodePortPanel modules to clear App max-lines and DataPreview complexity lint errors"
     }
   ],
   "session_id": "fc90ea1c-31da-4638-a74d-f5d989952bf6",

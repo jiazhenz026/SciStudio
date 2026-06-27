@@ -195,9 +195,7 @@ def test_derive_disambiguates_shared_port_names() -> None:
 
 def test_derive_without_registry_yields_empty_surface() -> None:
     """No registry means inner ports cannot be read, so nothing is exposed."""
-    definition = WorkflowDefinition(
-        nodes=[NodeDef(id="a", block_type="src", config={})], edges=[]
-    )
+    definition = WorkflowDefinition(nodes=[NodeDef(id="a", block_type="src", config={})], edges=[])
     exposed = derive_exposed_ports(definition, registry=None)
     assert exposed.inputs == [] and exposed.outputs == []
 
