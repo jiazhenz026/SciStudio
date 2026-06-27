@@ -98,9 +98,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "121bc4cb161a400d0c48c14ecaa57808c143ebf5",
+    "sha": "c522b8b14ef8e563108b7ffc89d62fb63146b643",
     "shas": [
-      "121bc4cb161a400d0c48c14ecaa57808c143ebf5"
+      "c522b8b14ef8e563108b7ffc89d62fb63146b643"
     ],
     "trailers": []
   },
@@ -382,6 +382,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:10.982081Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:10.992830Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.005273Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.018815Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.032651Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.047157Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.063053Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.078483Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.092037Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:11.106104Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.115612Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.127240Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.138247Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.148768Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.158839Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.168907Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.178431Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.188684Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.199859Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:02:31.212778Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -394,15 +558,15 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "647bf05e",
+    "base": "d7c3314bef0fee826620b5a675f156f60053c045",
+    "base_sha": "d7c3314b",
     "changed_files": [
       ".workflow/records/1819-guided-1819-public-api-contract-adr.json",
       "docs/adr/ADR-052.md"
     ],
-    "diff_fingerprint": "sha256:1c72720dcc78be7fd818e15e17f105b34fdfcf5a0dfc6469c792a4ed5abd3a81",
+    "diff_fingerprint": "sha256:ca99c3d2090a2eb91fc221e3f1794d2090c14e0c72396b2724d25fada2870adc",
     "head": "HEAD",
-    "head_sha": "121bc4cb",
+    "head_sha": "c522b8b1",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -423,8 +587,8 @@
     "closes": [
       1819
     ],
-    "number": null,
-    "url": null
+    "number": 1821,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1821"
   },
   "reconcile_events": [
     {
@@ -448,6 +612,22 @@
     {
       "at": "2026-06-27T18:01:48.913198Z",
       "diff_fingerprint": "sha256:1c72720dcc78be7fd818e15e17f105b34fdfcf5a0dfc6469c792a4ed5abd3a81",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T18:02:11.106144Z",
+      "diff_fingerprint": "sha256:ca99c3d2090a2eb91fc221e3f1794d2090c14e0c72396b2724d25fada2870adc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T18:02:31.212819Z",
+      "diff_fingerprint": "sha256:ca99c3d2090a2eb91fc221e3f1794d2090c14e0c72396b2724d25fada2870adc",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
