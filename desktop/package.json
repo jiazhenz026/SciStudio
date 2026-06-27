@@ -1,6 +1,6 @@
 {
   "name": "scistudio-desktop",
-  "version": "0.2.1-alpha-build0000",
+  "version": "0.3.0-alpha-build0000",
   "private": true,
   "description": "SciStudio ADR-037 desktop MVP shell",
   "author": "SciStudio",

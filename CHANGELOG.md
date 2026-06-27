@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-27
+
+Internal-alpha minor release. Bumped from `0.2.1` to `0.3.0` (MINOR, not patch):
+ADR-051 added a new package-facing public API — the inheritable `InteractiveMixin`
+interaction-memory contract — and retired public blocks (`FilterCollection` /
+`SliceCollection` / `SplitCollection`; `MergeCollection` became variadic). A new
+feature plus a breaking change is a MINOR bump under the 0.x convention. The
+committed version embeds build `0000`; the real build number is injected at dmg
+build time (run `python scripts/version.py sync` so the baseline build is `>=` the
+latest published OTA build, or a leftover patch could shadow the fresh bundle).
+
 ### Removed
 
 - [#1781] Retired the standalone collection `FilterCollection`, `SliceCollection`, and `SplitCollection` process blocks (and the `expression_evaluator` helper they used). The interactive **DataRouter** (ADR-051) supersedes them: arbitrary filtering, slicing, and splitting are done by routing items directly from inputs to outputs. Touches protected `src/scistudio/blocks/**` — owner-authorized (`admin-approved:core-change`). ADR-021 updated with a superseding banner. Tests: `tests/blocks/test_collection_blocks.py` (now Merge-only), `tests/blocks/test_registry.py`, `tests/blocks/test_register_stub_removed.py`. (@claude, 2026-06-26, branch: feat/1781-adr-051-interactive-blocks)
