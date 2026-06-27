@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BlockPalette } from "./BlockPalette";
@@ -6,22 +6,33 @@ import type { BlockSummary } from "../types/api";
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
+
+function port(name: string, types: string[] = []): BlockSummary["input_ports"][number] {
+  return {
+    name,
+    direction: "input",
+    accepted_types: types,
+    required: true,
+    description: "",
+    constraint_description: "",
+    is_collection: false,
+  };
+}
 
 function makeBlock(
   overrides: Partial<BlockSummary> & { type_name: string; name: string },
 ): BlockSummary {
-  const base_category = overrides.base_category ?? "process";
-  const subcategory = overrides.subcategory ?? "";
   return {
     name: overrides.name,
     type_name: overrides.type_name,
-    base_category,
-    subcategory,
+    base_category: overrides.base_category ?? "process",
+    subcategory: overrides.subcategory ?? "",
     description: overrides.description ?? "A block",
     version: "0.1.0",
-    input_ports: [],
-    output_ports: [],
+    input_ports: overrides.input_ports ?? [],
+    output_ports: overrides.output_ports ?? [],
     source: overrides.source,
     package_name: overrides.package_name,
     direction: overrides.direction,
@@ -36,145 +47,146 @@ const defaultProps = {
   onAddBlock: vi.fn(),
 };
 
-describe("BlockPalette — Stage 10.1 Part 2", () => {
-  it("renders a 3-level tree (package -> category -> block)", () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({
-        type_name: "imaging.cellpose_segment",
-        name: "Cellpose Segment",
-        base_category: "process",
-        subcategory: "segmentation",
-      }),
-      makeBlock({
-        type_name: "lcms.load_peak_table",
-        name: "Load Peak Table",
-        base_category: "io",
-        subcategory: "io",
-      }),
-      makeBlock({ type_name: "load_data", name: "Load", base_category: "io" }),
-    ];
+const load = makeBlock({
+  type_name: "load_data",
+  name: "Load",
+  base_category: "io",
+  direction: "input",
+  output_ports: [port("data", ["Image"])],
+});
+const save = makeBlock({
+  type_name: "save_data",
+  name: "Save",
+  base_category: "io",
+  direction: "output",
+  input_ports: [port("data", ["Image"])],
+});
+const cellpose = makeBlock({
+  type_name: "imaging.cellpose_segment",
+  name: "Cellpose Segment",
+  base_category: "process",
+  description: "Run Cellpose model on an image to produce instance masks.",
+  input_ports: [port("image", ["Image"])],
+  output_ports: [port("masks", ["Mask"])],
+});
+const annotate = makeBlock({
+  type_name: "ai.annotate",
+  name: "Annotate",
+  base_category: "ai",
+});
 
-    render(<BlockPalette {...defaultProps} blocks={blocks} />);
+describe("BlockPalette — grid redesign (#1797)", () => {
+  it("renders blocks as grid tiles with name but no always-on description or in/out text", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
 
-    // Package headers — CSS uppercases visually; text in DOM is as-derived.
-    expect(screen.getByText("Imaging")).toBeInTheDocument();
-    expect(screen.getByText("LCMS")).toBeInTheDocument();
-    expect(screen.getByText("SciStudio Core")).toBeInTheDocument();
-
-    // Category headers nested under packages (lowercase in DOM, uppercase via CSS)
-    expect(screen.getByText("segmentation")).toBeInTheDocument();
-
-    // Block cards
+    const tiles = screen.getAllByTestId("palette-block-tile");
+    expect(tiles).toHaveLength(1);
     expect(screen.getByText("Cellpose Segment")).toBeInTheDocument();
-    expect(screen.getByText("Load Peak Table")).toBeInTheDocument();
+    // Description is hover-only now, not rendered inline.
+    expect(
+      screen.queryByText("Run Cellpose model on an image to produce instance masks."),
+    ).not.toBeInTheDocument();
+    // No "X in / Y out" text line on the tile.
+    expect(screen.queryByText(/\bin\s*\/\s*\d+\s*out\b/i)).not.toBeInTheDocument();
   });
 
-  it('"Custom" package always sorts to the bottom', () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "imaging.foo", name: "Foo", source: undefined }),
-      makeBlock({ type_name: "custom_block", name: "My Custom Block", source: "custom" }),
-    ];
+  it("pins Load and Save in a Data I/O section at the top", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose, load, save]} />);
 
-    render(<BlockPalette {...defaultProps} blocks={blocks} />);
+    const dataIoHeader = screen.getByText("Data I/O");
+    expect(dataIoHeader).toBeInTheDocument();
 
-    const allButtons = Array.from(document.querySelectorAll("button"));
-    const imagingIndex = allButtons.findIndex((btn) => btn.textContent?.includes("Imaging"));
-    const customIndex = allButtons.findIndex((btn) => btn.textContent?.includes("Custom"));
-    expect(imagingIndex).toBeGreaterThanOrEqual(0);
-    expect(customIndex).toBeGreaterThanOrEqual(0);
-    expect(imagingIndex).toBeLessThan(customIndex);
+    const section = dataIoHeader.closest("section")!;
+    expect(within(section).getByText("Load")).toBeInTheDocument();
+    expect(within(section).getByText("Save")).toBeInTheDocument();
+
+    // Data I/O appears before the Built-in section in DOM order.
+    const headers = screen.getAllByText(/Data I\/O|Built-in/);
+    expect(headers[0].textContent).toBe("Data I/O");
   });
 
-  it("packages and categories are collapsible", () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({
-        type_name: "imaging.segment",
-        name: "Segment Block",
-        base_category: "process",
-        subcategory: "segmentation",
-      }),
-    ];
-
-    render(<BlockPalette {...defaultProps} blocks={blocks} />);
-
-    // Block is visible initially
-    expect(screen.getByText("Segment Block")).toBeInTheDocument();
-
-    // Collapse the package by clicking the package header button.
-    const allButtons = screen.getAllByRole("button");
-    const packageButton = allButtons.find((btn) => btn.textContent?.includes("Imaging"));
-    expect(packageButton).toBeDefined();
-    fireEvent.click(packageButton!);
-
-    // Block should no longer be visible
-    expect(screen.queryByText("Segment Block")).not.toBeInTheDocument();
-
-    // Re-expand
-    fireEvent.click(packageButton!);
-    expect(screen.getByText("Segment Block")).toBeInTheDocument();
+  it("renders the category filter chips (no Subworkflow chip)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    const chips = screen.getByTestId("palette-category-chips");
+    ["IO", "Process", "Code", "App", "AI"].forEach((label) => {
+      expect(within(chips).getByText(label)).toBeInTheDocument();
+    });
+    expect(within(chips).queryByText("Subworkflow")).not.toBeInTheDocument();
   });
 
-  it("search expands matching branches automatically", () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({
-        type_name: "imaging.cellpose_segment",
-        name: "Cellpose Segment",
-        base_category: "process",
-        subcategory: "segmentation",
-      }),
-      makeBlock({
-        type_name: "lcms.load_peak",
-        name: "Load Peak",
-        base_category: "io",
-        subcategory: "io",
-      }),
-    ];
-
-    // With a search filter that only matches the imaging block, the lcms block
-    // should not appear. Both matching blocks and their parents are rendered.
-    render(<BlockPalette {...defaultProps} blocks={blocks} search="cellpose" />);
-
+  it("activating a category chip filters the visible tiles", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose, annotate]} />);
     expect(screen.getByText("Cellpose Segment")).toBeInTheDocument();
-    expect(screen.queryByText("Load Peak")).not.toBeInTheDocument();
-    // Parent package header still rendered
-    expect(screen.getAllByText("Imaging").length).toBeGreaterThan(0);
-  });
+    expect(screen.getByText("Annotate")).toBeInTheDocument();
 
-  it("empty categories are hidden when filtered", () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({
-        type_name: "imaging.cellpose_segment",
-        name: "Cellpose Segment",
-        base_category: "process",
-        subcategory: "segmentation",
-      }),
-      makeBlock({
-        type_name: "imaging.load_image",
-        name: "Load Image",
-        base_category: "io",
-        subcategory: "io",
-      }),
-    ];
+    const chips = screen.getByTestId("palette-category-chips");
+    fireEvent.click(within(chips).getByText("AI"));
 
-    // Search that matches only the io category block
-    render(<BlockPalette {...defaultProps} blocks={blocks} search="load image" />);
-
-    expect(screen.getByText("Load Image")).toBeInTheDocument();
     expect(screen.queryByText("Cellpose Segment")).not.toBeInTheDocument();
-    // segmentation category should not appear
-    expect(screen.queryByText("segmentation")).not.toBeInTheDocument();
+    expect(screen.getByText("Annotate")).toBeInTheDocument();
   });
 
-  it("blocks render as-is without IO expansion", () => {
-    const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "load_data", name: "Load", base_category: "io", direction: "input" }),
-      makeBlock({ type_name: "save_data", name: "Save", base_category: "io", direction: "output" }),
-    ];
+  it("hovering a tile opens the detail popover with description and typed ports", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
 
-    render(<BlockPalette {...defaultProps} blocks={blocks} />);
+    expect(screen.queryByTestId("palette-detail-popover")).not.toBeInTheDocument();
 
-    // Blocks render with their actual names — no expansion
-    expect(screen.getAllByText("Load").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Save").length).toBeGreaterThan(0);
+    fireEvent.mouseEnter(screen.getByTestId("palette-block-tile"));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const popover = screen.getByTestId("palette-detail-popover");
+    expect(
+      within(popover).getByText("Run Cellpose model on an image to produce instance masks."),
+    ).toBeInTheDocument();
+    // Typed port signature is split across text nodes; check the type names.
+    expect(within(popover).getByText("Image")).toBeInTheDocument();
+    expect(within(popover).getByText("Mask")).toBeInTheDocument();
+  });
+
+  it("pulses the whole palette content after a Reload resolves into a refreshed catalog", () => {
+    const animateMock = vi.fn();
+    const original = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animateMock as unknown as typeof original;
+    try {
+      const { rerender } = render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+      fireEvent.click(screen.getByText("Reload"));
+      expect(defaultProps.onReload).toHaveBeenCalled();
+      expect(animateMock).not.toHaveBeenCalled();
+
+      // Parent's refreshBlocks resolved -> a new blocks array is passed down.
+      rerender(<BlockPalette {...defaultProps} blocks={[{ ...cellpose }]} />);
+
+      expect(animateMock).toHaveBeenCalledTimes(1);
+      // Opacity keyframes pulse the whole content element.
+      const keyframes = animateMock.mock.calls[0][0];
+      expect(keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }]);
+    } finally {
+      HTMLElement.prototype.animate = original;
+    }
+  });
+
+  it("does not pulse when the catalog changes without a Reload click", () => {
+    const animateMock = vi.fn();
+    const original = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animateMock as unknown as typeof original;
+    try {
+      const { rerender } = render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+      rerender(<BlockPalette {...defaultProps} blocks={[{ ...cellpose }]} />);
+      expect(animateMock).not.toHaveBeenCalled();
+    } finally {
+      HTMLElement.prototype.animate = original;
+    }
+  });
+
+  it("collapsed (rail) mode renders icon-only swatches", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} collapsed />);
+    // No grid tiles / chips in rail mode.
+    expect(screen.queryByTestId("palette-block-tile")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("palette-category-chips")).not.toBeInTheDocument();
+    // The block is still reachable by its title attribute.
+    expect(screen.getByTitle("Cellpose Segment")).toBeInTheDocument();
   });
 });
