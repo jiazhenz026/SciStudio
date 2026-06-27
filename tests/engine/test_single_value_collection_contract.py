@@ -1,4 +1,4 @@
-"""xfail baseline for the residual single-value transport drift (#1811).
+"""Single-value transport contract — every port crosses as a Collection (#1811).
 
 ADR-020 §3 states the runtime transport contract:
 
@@ -7,59 +7,36 @@ ADR-020 §3 states the runtime transport contract:
     multi-file/multi-object input is a longer Collection.
 
 #1330 (closed) enforced this **only** on ports already declared
-``is_collection=True`` — :func:`_normalize_outputs` wraps a bare
-DataObject into a length-one Collection on those ports. It did *not* make
-single-value ports (``is_collection=False``) always-Collection. As a
-result the engine still:
+``is_collection=True``. #1811 makes the wrap **unconditional**: the
+``is_collection`` flag is a UI hint only (collection-guide.md) and no
+longer gates transport, so single-value (``is_collection=False``) ports
+also cross the boundary as length-one Collections.
 
-- serialises a single DataObject as a bare ``{backend, path, metadata}``
-  reference (no ``_collection`` envelope) on ``is_collection=False`` ports
-  (:func:`serialise_outputs`);
-- reconstructs that wire shape as a **bare** DataObject downstream
-  (:func:`reconstruct_inputs`); and
-- re-emits a bare value from :meth:`ProcessBlock.run` when the primary
-  input was itself bare (the non-Collection fallback branch).
+Enforcement point
+-----------------
+:func:`_normalize_outputs` is the single engine boundary that guarantees
+the contract: it wraps every bare ``DataObject`` (or bare
+``list[DataObject]``) on every declared output port into a Collection,
+before serialisation and before the value lands in
+``DAGScheduler._block_outputs``. Because normalize always runs first, the
+downstream wire codec (:func:`serialise_outputs` /
+:func:`reconstruct_inputs`) only ever sees an already-wrapped Collection in
+the live flow and faithfully transports it as a ``_collection`` envelope —
+the primitives are not single-value-aware and do not need to be.
+:meth:`ProcessBlock.run` additionally wraps its own output so a block that
+is handed a bare primary still emits a Collection.
 
-Per ADR-020 §3 every one of these single values should be a length-one
-Collection. The tests below pin that **target** behaviour. They are
-marked ``xfail(strict=True)`` because the residual drift means they fail
-today; when the #1811 root-cause fix lands (option (a): treat every
-DataObject port as a Collection), each will start passing and the strict
-marker forces us to delete it — a self-cleaning regression ratchet.
+This file pins that contract at each boundary a single value passes:
 
-These tests are intentionally distinct from
-``tests/engine/test_collection_wrap.py`` (the #1330 suite), whose
-``TestEngineLeavesNonCollectionPortAlone`` pins the *current* drift as
-intended #1330 behaviour. When #1811 lands, that #1330 test must be
-revisited in the same change; this file documents why.
+- output produce — :func:`_normalize_outputs` (the enforcement point);
+- wire round-trip — a normalised single value serialises to a
+  ``_collection`` envelope and reconstructs to a length-one Collection;
+- in-memory consume + re-emit — :meth:`ProcessBlock.run`;
+- the scheduler in-process boundary (``_dispatch.py``).
 
-Completeness
-------------
-These boundaries are not a sample — they are the **closed set** of places a
-bare single value can enter or leave a block boundary. A bare DataObject can
-only exist where the transport codec produces or consumes one, and that codec
-is a small, greppable API:
-
-- In-memory raw objects enter ``DAGScheduler._block_outputs`` via exactly five
-  writers (``_dispatch.py`` 249/327/588, ``scheduler/__init__.py`` 452/461).
-  327/588 pass through ``_normalize_outputs`` first; 249 and 452/461 are
-  wire-format paths (worker terminal outputs and checkpoint restore) that carry
-  whatever the wire codec produced.
-- Wire-format single values are produced **only** by ``_serialise_one`` and
-  consumed **only** by ``_reconstruct_one``. At a port boundary the single-value
-  branches are ``worker.serialise_outputs`` (worker.py:383) and
-  ``worker.reconstruct_inputs`` (worker.py:176); every other caller is either
-  Collection-item recursion, CompositeData slot recursion, a deprecated
-  checkpoint deserialiser, or a metadata/preview side-channel.
-
-So the root-cause surface reduces to three engine locations — ``_normalize_outputs``
-(output produce), ``serialise_outputs`` (wire produce), ``reconstruct_inputs``
-(wire consume) — plus the ``ProcessBlock.run`` non-Collection fallback (in-memory
-consume + re-emit). The tests below pin all four. Checkpoint restore and worker
-terminal outputs inherit the same codec and are fixed transitively when it is;
-they are noted here so a future reviewer knows they were considered, not missed.
-A new leak would require adding a new call site to one of those three functions,
-which a grep-based guard can catch.
+These tests were the ``xfail(strict=True)`` baseline that pinned the
+residual drift before the fix (the Phase-1 ratchet, PR #1814); the strict
+markers were removed when the #1811 fix landed and flipped them green.
 
 References: ADR-020 §3, §5, §7.1; #1330 (closed); #1811.
 """
@@ -69,8 +46,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any, ClassVar
 from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
@@ -89,12 +64,6 @@ from scistudio.engine.runners.worker import (
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 
-_XFAIL_REASON = (
-    "#1811: ADR-020 §3 requires single values on is_collection=False ports to "
-    "transport as length-one Collections; the engine still uses the bare "
-    "DataObject path. Remove this xfail when the option (a) fix lands."
-)
-
 
 def _ref(path: str = "/tmp/test.zarr", backend: str = "zarr") -> StorageReference:
     """Minimal StorageReference so serialise_outputs skips auto-flush."""
@@ -106,25 +75,26 @@ def _make_array() -> Array:
     return Array(axes=["y", "x"], shape=(4, 4), dtype="uint8")
 
 
+def _single_value_port() -> OutputPort:
+    return OutputPort(name="out", accepted_types=[Array], is_collection=False)
+
+
 # ---------------------------------------------------------------------------
 # Output boundary: _normalize_outputs on single-value (is_collection=False)
 # ---------------------------------------------------------------------------
 
 
 class TestNormalizeSingleValuePort:
-    """``_normalize_outputs`` should treat every DataObject port as Collection."""
+    """``_normalize_outputs`` treats every DataObject port as Collection."""
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
     def test_normalize_wraps_bare_dataobject_on_single_value_port(self) -> None:
-        """Bare DataObject on an ``is_collection=False`` port should become a
-        length-one Collection. Today ``_normalize_outputs`` early-returns for
-        non-Collection ports ([worker.py:257]) and leaves the bare object.
+        """Bare DataObject on an ``is_collection=False`` port becomes a
+        length-one Collection (the #1811 unconditional wrap).
         """
         bare = _make_array()
-        ports = [OutputPort(name="out", accepted_types=[Array], is_collection=False)]
         outputs: dict = {"out": bare}
 
-        _normalize_outputs(outputs, ports)
+        _normalize_outputs(outputs, [_single_value_port()])
 
         wrapped = outputs["out"]
         assert isinstance(wrapped, Collection)
@@ -132,17 +102,15 @@ class TestNormalizeSingleValuePort:
         assert wrapped[0] is bare
         assert wrapped.item_type is Array
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
     def test_normalize_packs_bare_list_on_single_value_port(self) -> None:
-        """A bare ``list[DataObject]`` on an ``is_collection=False`` port should
-        pack into a Collection (ADR-020 §3 "multi-object input is a longer
-        Collection"). Today the non-Collection port is skipped entirely.
+        """A bare ``list[DataObject]`` on an ``is_collection=False`` port packs
+        into a Collection (ADR-020 §3 "multi-object input is a longer
+        Collection").
         """
         a, b = _make_array(), _make_array()
-        ports = [OutputPort(name="out", accepted_types=[Array], is_collection=False)]
         outputs: dict = {"out": [a, b]}
 
-        _normalize_outputs(outputs, ports)
+        _normalize_outputs(outputs, [_single_value_port()])
 
         packed = outputs["out"]
         assert isinstance(packed, Collection)
@@ -153,18 +121,17 @@ class TestNormalizeSingleValuePort:
 
 
 # ---------------------------------------------------------------------------
-# Wire format: serialise_outputs / reconstruct_inputs for single values
+# Wire round-trip: a normalised single value crosses as a _collection envelope
 # ---------------------------------------------------------------------------
 
 
 class TestSingleValueWireFormat:
-    """A single DataObject should cross the wire as a ``_collection`` envelope."""
+    """A normalised single value crosses the wire as a ``_collection`` envelope."""
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
-    def test_serialise_single_dataobject_emits_collection_envelope(self, tmp_path) -> None:
-        """``serialise_outputs`` of a single DataObject should produce a
-        ``{"_collection": True, "items": [...], "item_type": ...}`` payload,
-        not a bare ``{backend, path, metadata}`` reference ([worker.py:383]).
+    def test_normalized_single_value_serialises_as_collection_envelope(self, tmp_path) -> None:
+        """After the engine boundary wraps a single value, ``serialise_outputs``
+        emits a ``{"_collection": True, "items": [...], "item_type": ...}``
+        payload — not a bare ``{backend, path, metadata}`` reference.
         """
         import numpy as np
         import zarr
@@ -173,44 +140,18 @@ class TestSingleValueWireFormat:
         zarr.save(zarr_path, np.zeros((4, 4), dtype="uint8"))
         arr = Array(axes=["y", "x"], shape=(4, 4), dtype="uint8", storage_ref=_ref(zarr_path))
 
-        wire = serialise_outputs({"out": arr}, str(tmp_path))
-        payload = wire["out"]
+        outputs: dict = {"out": arr}
+        _normalize_outputs(outputs, [_single_value_port()])
+        payload = serialise_outputs(outputs, str(tmp_path))["out"]
 
         assert payload.get("_collection") is True
         assert payload["item_type"] == "Array"
         assert len(payload["items"]) == 1
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
-    def test_reconstruct_bare_wire_dict_yields_length_one_collection(self, tmp_path) -> None:
-        """A bare ``{backend, path, metadata}`` wire dict should reconstruct as a
-        length-one Collection, not a bare DataObject ([worker.py:174-176]).
-
-        Builds the bare wire shape via the existing single-value serialiser so
-        the metadata is realistic, then asserts the target reconstruct result.
-        """
-        import numpy as np
-        import zarr
-
-        zarr_path = str(tmp_path / "bare.zarr")
-        zarr.save(zarr_path, np.zeros((4, 4), dtype="uint8"))
-        arr = Array(axes=["y", "x"], shape=(4, 4), dtype="uint8", storage_ref=_ref(zarr_path))
-
-        bare_wire = serialise_outputs({"out": arr}, str(tmp_path))["out"]
-        # Guard the test's own premise: today this is a bare reference, the
-        # exact shape #1811 is about. (If this key appears, the fix landed and
-        # this xfail test plus its premise must be revisited.)
-        assert "backend" in bare_wire and "_collection" not in bare_wire
-
-        rebuilt = reconstruct_inputs({"inputs": {"out": bare_wire}})["out"]
-
-        assert isinstance(rebuilt, Collection)
-        assert len(rebuilt) == 1
-        assert isinstance(rebuilt[0], Array)
-
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
     def test_single_value_round_trip_is_length_one_collection(self, tmp_path) -> None:
-        """End-to-end ``serialise_outputs`` -> ``reconstruct_inputs`` of a single
-        value should hand the downstream block a length-one Collection.
+        """End-to-end ``_normalize_outputs`` -> ``serialise_outputs`` ->
+        ``reconstruct_inputs`` of a single value hands the downstream block a
+        length-one Collection.
         """
         import numpy as np
         import zarr
@@ -219,7 +160,9 @@ class TestSingleValueWireFormat:
         zarr.save(zarr_path, np.zeros((8, 8), dtype="float32"))
         original = Array(axes=["y", "x"], shape=(8, 8), dtype="float32", storage_ref=_ref(zarr_path))
 
-        wire = serialise_outputs({"out": original}, str(tmp_path))
+        outputs: dict = {"out": original}
+        _normalize_outputs(outputs, [_single_value_port()])
+        wire = serialise_outputs(outputs, str(tmp_path))
         rebuilt = reconstruct_inputs({"inputs": wire})["out"]
 
         assert isinstance(rebuilt, Collection)
@@ -228,20 +171,17 @@ class TestSingleValueWireFormat:
 
 
 # ---------------------------------------------------------------------------
-# Consumer boundary: ProcessBlock.run must not re-emit bare on bare input
+# Consumer boundary: ProcessBlock.run emits a Collection on bare input
 # ---------------------------------------------------------------------------
 
 
 class TestProcessBlockSingleValueOutput:
-    """The non-Collection fallback in :meth:`ProcessBlock.run` propagates drift."""
+    """:meth:`ProcessBlock.run` wraps even a bare primary input."""
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
     def test_process_block_emits_collection_for_bare_input(self) -> None:
         """When the primary input is a bare DataObject, ``ProcessBlock.run``
-        should still emit a Collection on its output port. Today the
-        non-Collection fallback ([process_block.py:174-177]) calls
-        ``process_item`` once and returns the bare result, so the drift
-        propagates transitively down the graph.
+        still emits a Collection on its output port, so the contract holds even
+        for a legacy bare value reaching the block directly.
         """
         from scistudio.blocks.process.process_block import ProcessBlock
 
@@ -263,18 +203,17 @@ class TestProcessBlockSingleValueOutput:
 
 
 # ---------------------------------------------------------------------------
-# Integration: scheduler in-process boundary (_dispatch.py:325)
+# Integration: scheduler in-process boundary (_dispatch.py)
 # ---------------------------------------------------------------------------
 
 
 class _BareSingleValueBlock(Block):
     """Non-interactive block returning a bare Array on an is_collection=False port.
 
-    Mirrors the in-process drift: a runner returning a raw Python
+    Mirrors the in-process path: a runner returning a raw Python
     :class:`DataObject` (not a wire dict) on a single-value port. The
-    engine's in-process ``_normalize_outputs`` call ([_dispatch.py:325])
-    skips non-Collection ports today, so the bare Array lands in
-    ``_block_outputs`` unwrapped.
+    engine's in-process ``_normalize_outputs`` call must wrap it before it
+    lands in ``_block_outputs``.
     """
 
     name: ClassVar[str] = "BareSingleValue"
@@ -296,7 +235,7 @@ def _make_single_value_scheduler() -> tuple[DAGScheduler, EventBus]:
 
     The mock runner returns the block's bare, un-normalised output so the
     in-process finalize ``_normalize_outputs`` call is the only thing that
-    could honour ADR-020 §3 before the value lands in ``_block_outputs``.
+    can honour ADR-020 §3 before the value lands in ``_block_outputs``.
     """
     wf = WorkflowDefinition(
         id="wf-1811-single-value",
@@ -332,14 +271,11 @@ def _make_single_value_scheduler() -> tuple[DAGScheduler, EventBus]:
 
 
 class TestSchedulerInProcessSingleValueBoundary:
-    """The second ``_normalize_outputs`` call site must wrap single values too."""
+    """The in-process ``_normalize_outputs`` call site wraps single values too."""
 
-    @pytest.mark.xfail(reason=_XFAIL_REASON, strict=True)
     def test_in_process_dispatch_wraps_bare_single_value(self) -> None:
         """A bare Array produced in-process on an ``is_collection=False`` port
-        should land in ``_block_outputs`` as a length-one Collection. Today the
-        in-process boundary ([_dispatch.py:325]) skips non-Collection ports, so
-        the bare value propagates to downstream blocks unwrapped.
+        lands in ``_block_outputs`` as a length-one Collection.
         """
         scheduler, _event_bus = _make_single_value_scheduler()
 

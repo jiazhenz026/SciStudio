@@ -1,0 +1,116 @@
+{
+  "branch": "guided/1811-single-value-collection-fix",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-27T14:15:39.905002Z",
+      "owner_directive": "Phase 2 plan: (1) write ratchet tests pinning single-value wire readers (preview target build, plot targets, serialize round-trip) \u2014 green today; (2) engine fix in worker._normalize_outputs (drop is_collection=False early-return, wrap unconditionally) + dispatch call sites + Collection validation; (3) run ratchet, strict-xfail the broken readers; (4) migrate readers, remove markers; (5) set core ports is_collection=True incl AIBlock.result, flip Phase-1 xfails, update test_collection_wrap, drop dead bare fallbacks.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-06-27T15:19:59.491272Z",
+      "owner_directive": "Scope narrowed (owner): keep PR focused \u2014 only AIBlock.result flipped to is_collection=True (it can emit a batch); the broader 'all core ports declare is_collection=True' sweep deferred to a separate follow-up (flag is inert post-fix: previewer routes on value kind, transport via _normalize_outputs). Codec primitives serialise_outputs/reconstruct_inputs left unchanged \u2014 _normalize_outputs is the single enforcement point; legacy bare wire handled by blocks' existing bare-input fallback.",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1811,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Root-fix #1811: make every block-boundary port transport a length-one Collection (ADR-020 \u00a73). Engine: remove is_collection=False early-return in _normalize_outputs, wrap unconditionally + validate Collection. Set core ports is_collection=True (incl AIBlock.result). Test-first ratchet: pin single-value wire readers (preview/plot/serialize) green today, mark broken-after-fix with strict-xfail = migration list, migrate + remove markers. Flip Phase-1 xfails. Core only; packages owner-managed.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1811-single-value-collection-fix",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-27T14:15:39.905158Z",
+      "pattern": "src/scistudio/engine/runners/worker.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T14:15:39.905171Z",
+      "pattern": "src/scistudio/engine/scheduler/_dispatch.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T14:15:39.905175Z",
+      "pattern": "src/scistudio/blocks/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T14:15:39.905176Z",
+      "pattern": "tests/engine/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491411Z",
+      "pattern": "src/scistudio/api/runtime/_data.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491416Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/targets.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491417Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_inspection/read.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491419Z",
+      "pattern": "src/scistudio/blocks/process/process_block.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491420Z",
+      "pattern": "src/scistudio/blocks/ai/ai_block.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:19:59.491421Z",
+      "pattern": "tests/ai/test_mcp_tools_inspection.py",
+      "reason": "Owner narrowed scope to AIBlock.result only; record consumer-migration paths touched (api/runtime, ai/agent/mcp, process_block, ai_block) not in original include."
+    }
+  ],
+  "session_id": "e389d8da-5dc3-4b8b-b886-b0a61974db31",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

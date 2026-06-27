@@ -158,7 +158,15 @@ def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
             "metadata": record.metadata,
         }
     if isinstance(payload, dict) and payload.get("_collection") is True:
-        items = [self.register_output_payload(item) for item in payload.get("items", [])]
+        raw_items = payload.get("items", [])
+        # #1811 Option 2: a length-one Collection is the canonical
+        # representation of a single value (ADR-020 §3). Register it as a
+        # single ``data_ref`` so the frontend opens the single-item viewer
+        # rather than rerouting to a collection/grid previewer. Genuine
+        # multi-item collections keep the ``kind="collection"`` payload.
+        if isinstance(raw_items, list) and len(raw_items) == 1:
+            return self.register_output_payload(raw_items[0])
+        items = [self.register_output_payload(item) for item in raw_items]
         return {
             "kind": "collection",
             "count": len(items),

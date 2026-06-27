@@ -171,10 +171,14 @@ class ProcessBlock(Block):
                 out_collection = Collection(results) if results else Collection([], item_type=primary.item_type)
                 return {output_name: out_collection}
 
-            # Fallback for non-Collection inputs (backward compatibility).
+            # Fallback for a bare (non-Collection) primary input: treat it as a
+            # single item and still emit a length-one Collection so the output
+            # honours the ADR-020 §3 transport contract (#1811) even when a bare
+            # value reaches the block directly (e.g. a legacy wire payload).
             result = self.process_item(primary, config, state) if takes_state else self.process_item(primary, config)
+            result = self._auto_flush(result)
             output_name = effective_output_ports[0].name if effective_output_ports else "output"
-            return {output_name: result}
+            return {output_name: Collection([result])}
         finally:
             # ADR-027 D7: teardown always runs, even on exception.
             self.teardown(state)

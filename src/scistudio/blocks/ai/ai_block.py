@@ -161,9 +161,12 @@ class AIBlock(Block):
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="result",
+            # #1811: the agent can emit one or many files; every port transports
+            # a Collection (ADR-020 §3), so declare it honestly as a collection
+            # rather than the historical single-value default.
             accepted_types=[DataObject],
-            is_collection=False,
-            description="Output port; the agent writes a file at the configured expected_path.",
+            is_collection=True,
+            description="Output port; the agent writes one or more files at the configured expected_path.",
         ),
     ]
 
