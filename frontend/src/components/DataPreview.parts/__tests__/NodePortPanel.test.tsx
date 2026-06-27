@@ -21,7 +21,12 @@ function genericPort(name: string): BlockPortResponse {
 }
 
 function exposed(name: string): ResolvedSubworkflowPort {
-  return { name, accepted_types: ["Spectrum"], block_label: "Baseline Correction", port: "spectra" };
+  return {
+    name,
+    accepted_types: ["Spectrum"],
+    block_label: "Baseline Correction",
+    port: "spectra",
+  };
 }
 
 describe("NodePortPanel", () => {
