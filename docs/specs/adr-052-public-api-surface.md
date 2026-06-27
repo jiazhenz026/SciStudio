@@ -829,19 +829,36 @@ Config models (`config.py`):
 |----|--------|------|-------------|------|-------|-------|
 | ✅ | `CodeBlockConfig` | class | Public | provisional | 0.3.1 | the validated config model |
 | ✅ | `PortFileConfig` | class | Public | provisional | 0.3.1 | per-port file config (name/direction/data_type/extension/capability_id/required/exchange_folder) |
+| ✅ | `CodeBlockConfigError` | exception | Public | provisional | 0.3.1 | owner 2026-06-27: raised on invalid CodeBlock config; authors catch it (cf. §6.3 capability errors); **add to `blocks.code.__all__`** (not in it today) |
+| ➖ | `MigrationDiagnostic` | class | Internal | — | — | legacy-config migration diagnostic model |
+| ➖ | `resolve_project_path(...)` / `legacy_migration_diagnostics(config)` | function | Internal | — | — | path resolution + legacy-config migration tooling |
 
-Backend-registration surface (`_backends_registry.py`) — **provisional; exact public subset
-deferred** until the accucor wrapper design shows whether authors register custom
-interpreters (deferred like the §13.2 package inventories):
+Backend-registration surface (`_backends_registry.py`) — all Public / provisional
+(owner 2026-06-27, publish-all):
 
 | St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `CodeBlockBackend` (Protocol) / `register_codeblock_backend` / `resolve_codeblock_backend` / `list_codeblock_backends` / `ensure_codeblock_backends_loaded` / `CodeBlockRuntimeContext` / `LazyList` | class/func | Public (lean) | provisional | 0.3.1 | author-facing only if a wrapper registers a custom interpreter backend; pin the exact set when accucor lands |
-| ➖ | `run_codeblock_process` / `unregister_codeblock_backend` / `CodeBlockTimeoutError` / `codeblock_exchange_env` | func/exc | Internal (lean) | — | — | runtime/test plumbing (the plot runtime imports `run_codeblock_process` internally) |
+| ✅ | `CodeBlockBackend` (Protocol) / `register_codeblock_backend` / `unregister_codeblock_backend` / `resolve_codeblock_backend` / `list_codeblock_backends` / `ensure_codeblock_backends_loaded` / `CodeBlockRuntimeContext` / `LazyList` | class/func | Public | provisional | 0.3.1 | backend-registration API + lazy list (already in `__all__`) |
+| ✅ | `run_codeblock_process` / `CodeBlockTimeoutError` / `codeblock_exchange_env` | func/exc | Public | provisional | 0.3.1 | subprocess runner + timeout exception + exchange-env helper |
 
-Built-in backends (`backends/python.py`, `r_quarto.py`, `notebook.py`, `shell.py`,
-`matlab.py`) + `runners/` are internal; the R/Quarto backend is what an accucor (R) wrapper
-would target.
+Full `blocks/code` module map. **Owner 2026-06-27: publish the entire `blocks/code`
+non-underscore surface as Public / provisional**, re-exported from `blocks.code.__all__`
+(#1817). The legacy runner layer is **dead code, deleted in #1817** (below; 0 production
+importers — owner chose removal over deprecation); leading-underscore names stay internal.
+
+| St | Module / symbol | Disposition | Notes |
+|----|-----------------|-------------|-------|
+| ✅ | `interpreters.InterpreterResolutionError` / `UnsupportedScriptExtensionError` | Public / provisional | catchable interpreter errors |
+| ✅ | `exchange.CodeBlockExchangeError` | Public / provisional | catchable exchange error |
+| ✅ | `introspect.introspect_script(path)` | Public / provisional | reads a script's declared ports |
+| ✅ | `exchange.MaterialiseAdapter` / `ReconstructAdapter` (Protocol) | Public / provisional | custom-exchange extension points |
+| ✅ | `exchange.*` records + functions (`CodeBlockExchangeManifest`/`Layout`/`Port`, `ExchangeFileRecord`/`Diagnostic`, `PortManifestRecord`, `OutputDiscoveryResult`; `prepare_codeblock_exchange`/`collect_codeblock_outputs`/`discover_declared_outputs`/`create_*`/`allocate_*`/`plan_*`/`initialise_*`/`normalise_extension`/`safe_exchange_name`) | Public / provisional | file-exchange surface |
+| ✅ | `interpreters.ResolvedInterpreter` / `resolve_script_interpreter` / `InterpreterFamily` | Public / provisional | interpreter resolution |
+| ✅ | `provenance.*` (`ScriptProvenance`/`EnvironmentSnapshot`/`CodeBlockProvenancePayload` + `capture_*`/`build_*`/`utc_now_iso`) | Public / provisional | provenance models/capture |
+| ✅ | `validation.*` (`validate_codeblock_config` + `CodeBlockValidationDiagnostic` + `codeblock_config_payload`/`resolve_codeblock_data_type`/`selected_codeblock_capabilities`) | Public / provisional | config validation |
+| ✅ | `backends/*` (`python`/`r_quarto`/`notebook`/`shell`/`matlab` backend classes) | Public / provisional | concrete backends; subclassable for a custom backend |
+| ➖ | `runner_registry.RunnerRegistry` + `runners/*` (`python_runner`/`r_runner`/`julia_runner`/`base`) | **Delete (dead code)** | owner 2026-06-27: **delete** — 0 production importers (`code_block.py` uses `backends/`); #1817 removes `runner_registry.py` + `runners/*` + their tests (`test_runner_registry.py`/`test_runners_subprocess.py` + the `test_code_block.py` runner import). Not public |
+| ➖ | leading-underscore internals (`_backends_registry` privates, `_SAFE_NAME_PATTERN`, `_ITEM_COUNT_WARNING_THRESHOLD`, …) | Internal | underscore convention |
 
 ## 8. Previewer Authoring — `scistudio.previewers.models`
 
@@ -1115,8 +1132,9 @@ once their callers migrate.
   interpreter; exact backend symbol set deferred until that design lands (like §13.2).
   `run_codeblock_process` / `unregister_codeblock_backend` / `CodeBlockTimeoutError` /
   `codeblock_exchange_env` lean internal. **Resolved (owner 2026-06-27): added as §7A,
-  default provisional.** Pending: `ADR-052.md` `governs.modules` + §3 addition (batched
-  with the §3.1 xlsx wording); exact backend public subset deferred until accucor.
+  default provisional.** `ADR-052.md` `governs.modules` + §3 done. Owner 2026-06-27:
+  **entire `blocks/code` non-underscore surface Public/provisional** (backend subset
+  un-deferred); legacy runner layer **deprecated**.
 
 ## 18. Decision Log
 
@@ -1165,3 +1183,7 @@ even after the tables are complete.
 | 2026-06-27 | Owner principle: **core should not infer from file extensions** — questions whether `_guess_mime` (extension→MIME) should exist in core at all (2 copies: `blocks/app/bridge.py`, `previewers/data_access.py`). Dispatched guess_mime caller survey (8th agent) to map callers + assess remove/replace (c) vs consolidate (b) vs expose (a). | Owner 2026-06-27. Reframes the §7.2 `_guess_mime` resolution. |
 | 2026-06-27 | guess_mime survey (8th agent): extension→MIME is **non-load-bearing** (`Artifact.mime_type` only written to a provenance sidecar — nothing branches on it; dispatch uses extension→format-id) and **copy-pasted 4× in core** (bridge, data_access, load_data `_MIME_GUESS`, plot `_PLOT_MIME`). §7.2/§12 `_guess_mime` → **(c) remove/replace, not public** (applies owner's "core must not infer from extensions"); #1817 replaces callers with `None`/authoritative source; imaging import is a cross-repo deferral. | Owner principle 2026-06-27 + survey. |
 | 2026-06-27 | **Resolved (owner):** `_PopenProcessAdapter` → (b) — #1817 makes `FileWatcher` accept a plain `subprocess.Popen`; adapter stays internal (concept removed from the surface); imaging passes the raw Popen (cross-repo). **§7 app fully decided** — facilities public/provisional; both reach-throughs internal; `BlockCancelledByAppError` re-exported to `blocks.app`. | Owner 2026-06-27. |
+| 2026-06-27 | Owner: `CodeBlockConfigError` (config.py) → **Public/provisional** (authors catch invalid-config errors; cf. §6.3 capability errors); add to `blocks.code.__all__` (#1817). config.py `MigrationDiagnostic` / `resolve_project_path` / `legacy_migration_diagnostics` → internal. | Owner 2026-06-27. |
+| 2026-06-27 | **Owner: publish the entire `blocks/code` non-underscore surface Public/provisional** (un-defers the backend-registration subset; full exchange/interpreters/introspect/provenance/validation/backends surface in). Fixed stray non-English text in §7A (docs English-only). | Owner 2026-06-27. |
+| 2026-06-27 | **Correction (owner asked to verify code behavior):** the legacy runner layer is NOT marked deprecated in code and has **0 production importers** (`code_block.py` uses `backends/`); only `tests/blocks/test_runner_registry.py` / `test_runners_subprocess.py` / `test_code_block.py` reference it. It is **dead code**, not "deprecated" — prior row corrected. Recommend **deletion** (+ those tests) in #1817; not public. Owner to pick delete vs formal deprecate. | Owner 2026-06-27. |
+| 2026-06-27 | **Owner: delete** the legacy runner layer (`runner_registry.py` + `runners/*`) as dead code in #1817 (+ remove `test_runner_registry.py` / `test_runners_subprocess.py` and the `test_code_block.py` runner import). Not public. **§7A CodeBlock fully decided.** | Owner 2026-06-27. |
