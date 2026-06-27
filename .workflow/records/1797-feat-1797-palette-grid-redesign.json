@@ -174,7 +174,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "71003f7ae27b6c69a90870731bb604075950940f",
+    "shas": [
+      "71003f7ae27b6c69a90870731bb604075950940f"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -396,6 +402,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.035746Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.044777Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.053280Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.061726Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.069921Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.078288Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.086698Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.095823Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.103938Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T05:05:45.117500Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -424,9 +512,9 @@
       "frontend/src/hooks/__tests__/useReloadFlash.test.ts",
       "frontend/src/hooks/useReloadFlash.ts"
     ],
-    "diff_fingerprint": "sha256:988909d70eabf39a07e4bcdd4af7476fcc1155efb2920052081a64a5fe5d7fee",
+    "diff_fingerprint": "sha256:064ebd068d57520c9dd6ca47ebb68ef07466ee6a9f3ddcfc74dc27330ac4b8c9",
     "head": "HEAD",
-    "head_sha": "af170e0e",
+    "head_sha": "71003f7a",
     "surfaces": {
       "docs": 1,
       "frontend": 10,
@@ -442,7 +530,14 @@
   },
   "owner_directive": "Redesign block palette: 2-up category-colored grid (reuse canvas categoryVisuals), pinned Data I/O (Load/Save), top type filter chips, drop description/in-out text/category layer, hover detail popover. Owner wants a small frontend spec to fix the design first, then implement.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1797
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-27T05:02:02.426746Z",
@@ -458,6 +553,14 @@
       "at": "2026-06-27T05:05:05.431267Z",
       "diff_fingerprint": "sha256:988909d70eabf39a07e4bcdd4af7476fcc1155efb2920052081a64a5fe5d7fee",
       "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T05:05:45.117531Z",
+      "diff_fingerprint": "sha256:064ebd068d57520c9dd6ca47ebb68ef07466ee6a9f3ddcfc74dc27330ac4b8c9",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
