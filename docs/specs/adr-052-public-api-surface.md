@@ -34,7 +34,6 @@ governs:
     - docs/specs/adr-052-public-api-surface.md
   excludes:
     - docs/user/reference/**
-    - docs/user/llms.txt
 planned_governs:
   modules: []
   contracts: []
@@ -51,7 +50,7 @@ language_source: en
 
 # ADR-052 Public API Surface Inventory And Per-Symbol Contract
 
-## 1. Purpose And How To Read This
+## 1. Change Summary
 
 ADR-052 is the **policy**: it draws the public/private boundary (canonical root
 import paths, `__all__`-defined membership), defines the three stability tiers and
@@ -155,12 +154,13 @@ File checklist:
 - [x] `serialization.py` (379) — fully internal → §3.9
 - [x] `_backend_defaults.py` (56) — internal module → §3.9
 
-Cross-module symbols surfaced by these files but **defined outside** `core/types/`
-(part of the core.types author surface via re-export — canonical path
-`scistudio.core.types`): `StorageReference` (`scistudio.core.storage.ref`),
-`FrameworkMeta` and the `with_meta_changes` helper (`scistudio.core.meta`). Flagged
-in §17 because `scistudio.core.meta` / `scistudio.core.storage` are not in ADR-052
-`governs.modules`.
+Cross-module symbols surfaced by these files but **defined outside** `core/types/`:
+`StorageReference` (`scistudio.core.storage.ref`) is public via the
+`scistudio.core.types` re-export (§3.1); `core.storage` itself stays **ungoverned**
+(backends/router are storage-engine internals). `FrameworkMeta`,
+`with_meta_changes`, and `ChannelInfo` (`scistudio.core.meta`) are inventoried in
+**§3.10** — `scistudio.core.meta` was **added to ADR-052 `governs.modules`** (owner
+2026-06-27), resolving the §17 governed-modules gap.
 
 ### 3.1 `base.py`
 
@@ -406,6 +406,32 @@ public-API contract" to reconcile with the internal disposition in #1817.
 Recommendation pending the survey: **demote both to internal** (option B) — the
 author-facing "what types exist" need is ADR-052 §4.4's separate read-only discovery
 API (#1817), not the raw mutable registry.
+
+### 3.10 `scistudio.core.meta` (ADR-027 metadata framework)
+
+Canonical root: `from scistudio.core.meta import …`. A **sibling module** to
+`core.types`, newly **added to ADR-052 `governs.modules`** (owner 2026-06-27): its
+3 author-facing symbols are proven public by package use (spectroscopy constructs
+`FrameworkMeta(source=…)` + calls `with_meta_changes`; imaging imports
+`ChannelInfo`), but the module was not in the governed surface. `core.meta.__all__`
+already declares exactly these 3, so governing the module is accurate and needs no
+package migration. (`StorageReference` is the parallel case but is already governed
+via the `core.types` re-export, §3.1; `core.storage` stays ungoverned — its
+backends/router are storage-engine internals.)
+
+| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `FrameworkMeta` | class (pydantic, frozen) | Public | stable | 0.3.1 | ADR-027 framework slot; authors **construct** it to stamp provenance (`source`); the framework fills the rest. Frozen (mutation raises) |
+| ✅ | `FrameworkMeta.source` | field | Public | stable | 0.3.1 | `str = ""`; the one field authors set (origin: file path / package name) |
+| ✅ | `FrameworkMeta.created_at` / `object_id` / `lineage_id` / `derived_from` | field | Public (read) | stable | 0.3.1 | framework-written: UTC ts / uuid4 hex / lineage FK / parent `object_id` for derived slices |
+| ➖ | `FrameworkMeta.derive(**changes)` | method | Internal | — | — | framework propagation on `sel`/`iter_over`; authors do not call |
+| ✅ | `with_meta_changes(meta, **changes) -> T` | function | Public | stable | 0.3.1 | returns an updated copy of a pydantic Meta; spectroscopy uses it. `DataObject.with_meta()` (§3.1) delegates here — the instance method is the more common author path |
+| ✅ | `ChannelInfo` | class (pydantic) | Public | stable | 0.3.1 | imaging imports it; fields `name: str`, `dye`, `excitation_nm`, `emission_nm` |
+
+Reach-through note: spectroscopy currently imports `FrameworkMeta` from
+`scistudio.core.types.base` (incidental — `base.py` imports it there). Canonical
+path is `scistudio.core.meta`; the package import is a minor reach to normalize in
+the package refactor (§13.2).
 
 ## 4. Block Authoring — `scistudio.blocks.base`
 
@@ -1145,11 +1171,11 @@ Read/write without materializing the whole object. ADR-052 §3.2 fixes these as
 
 | St | Method | On | Semantics | Tier | Since | Notes |
 |----|--------|----|-----------|------|-------|-------|
-| ✅ | `sel(**axes)` | `Array` | partial read by named axes (Zarr) | stable | 0.3.1 | |
-| ✅ | `slice(...)` | `DataObject` | array sub-region / row range / byte range | stable | 0.3.1 | confirm signature |
-| ✅ | `iter_chunks(chunk_size)` | `DataObject` | streaming chunks / row batches / byte chunks | stable | 0.3.1 | confirm signature |
-| ✅ | `persist_array(...)` | `Block` | streaming array write (Zarr) | stable | 0.3.1 | confirm signature |
-| ✅ | `persist_table(...)` | `Block` | streaming table write (Arrow/Parquet) | stable | 0.3.1 | confirm signature |
+| ✅ | `sel(**axes: int \| slice) -> Array` | `Array` | partial read by named axes (Zarr) | stable | 0.3.1 | verified `array.py:143` |
+| ✅ | `slice(*args) -> Any` | `DataObject` | sub-selection without full materialisation; delegates to the storage backend's `slice` (array sub-region / row range / byte range) | stable | 0.3.1 | verified `base.py:430`; ADR-031 D2 |
+| ✅ | `iter_chunks(chunk_size: int) -> Iterator` | `DataObject` | streaming chunks; delegates to the backend's `iter_chunks` | stable | 0.3.1 | verified `base.py:443`; ADR-031 D2 |
+| ✅ | `persist_array(data_or_iterator, shape, dtype, output_dir=None, chunks=None) -> StorageReference` | `Block` | streaming array write (Zarr); accepts an ndarray or an `(index, chunk)` iterator for constant-memory writes | stable | 0.3.1 | verified `block.py:329`; ADR-031 D4 |
+| ✅ | `persist_table(table, output_dir=None) -> StorageReference` | `Block` | table write (Arrow/Parquet) | stable | 0.3.1 | verified `block.py:401`; ADR-031 D4 |
 
 ## 12. Reach-Through Register (ADR-052 §6)
 
@@ -1162,62 +1188,83 @@ ADR-052 lands; each migrates only once its public replacement exists.
 | St | Reach | Importer | Class | Disposition | Tracking |
 |----|-------|----------|-------|-------------|----------|
 | ⏸ | `scistudio.utils.axis_iter` | imaging | a | relocate into core; axis-iteration public surface (incl. `Array.iter_over`) deferred pending imaging rewrite (owner 2026-06-27) | #1729 |
-| 🤔 | `scistudio.utils.constraints.has_axes` | imaging | a | public home or alternative | #1817 |
+| ⏸ | `scistudio.utils.constraints.has_axes` | imaging | a | public home or alternative; deferred with the axis surface + imaging rewrite | #1729 |
 | ✅ | `scistudio.blocks.app.bridge._guess_mime` | imaging | a | **(c) remove/replace** — extension→MIME is non-contract (non-load-bearing; 4 copies in core); **not public**; imaging migrates to the declared type / `None` (cross-repo) | #1817 |
 | ✅ | `scistudio.blocks.app.app_block._PopenProcessAdapter` | imaging | a | **(b) remove the need** — `FileWatcher` accepts a plain `Popen`; adapter stays internal; imaging passes the raw `Popen` (cross-repo) | #1817 |
 | ✅ | `scistudio.previewers.data_access` (internals) | — | a | resolved §8: `data_access` is a canonical author root; the `StorageReference` / `_storage` leak is closed via typed `request.storage` (§8.5) | #1823 |
-| 🤔 | `build_spectrum` | spectroscopy | b | package exposes on `Spectrum` (ADR-052 §4.2) | #1817 |
-| 🤔 | `spectrum_arrays` | spectroscopy | b | replaced by inherited `to_numpy`/`to_pandas` | #1817 |
-| 🤔 | `coerce_spectra` | spectroscopy | b | package public helper | #1817 |
-| 🤔 | `dataframe_from_rows` | multiple | c | promote only if proven generic | #1817 |
-| 🤔 | `dataframe_from_pandas` | multiple | c | promote only if proven generic | #1817 |
-| 🤔 | `dataframe_collection` | multiple | c | promote only if proven generic | #1817 |
+| ⏸ | `build_spectrum` | spectroscopy | b | package exposes on `Spectrum` (ADR-052 §4.2); gated on package refactor (§13.2) | #1817 |
+| ⏸ | `spectrum_arrays` | spectroscopy | b | replaced by inherited `to_numpy`/`to_pandas`; gated on package refactor (§13.2) | #1817 |
+| ⏸ | `coerce_spectra` | spectroscopy | b | package public helper; gated on package refactor (§13.2) | #1817 |
+| ⏸ | `dataframe_from_rows` | multiple | c | promote to core only if proven generic across packages; gated on package refactor (§13.2) | #1817 |
+| ⏸ | `dataframe_from_pandas` | multiple | c | promote to core only if proven generic; gated on package refactor (§13.2) | #1817 |
+| ⏸ | `dataframe_collection` | multiple | c | promote to core only if proven generic; gated on package refactor (§13.2) | #1817 |
 
-## 13. Package Public Surface (ADR-052 §4)
+## 13. Package Developer-Facing API (ADR-052 §4)
 
-A package exposes a **registration surface to core** (entry-point callables —
-unchanged, ADR-025/§4.1) and a **reuse surface to authors** (§4.2), and the reuse
-surface follows the same rules as core's. Per-symbol package decisions are recorded
-here; each package then transcribes its own subsection into its repo against its
-own version line (the external repos are not edited from here — see scope).
+This section governs a package's **developer-facing reuse API** — the **types,
+constructors, and accessors** that other developers (and the embedded agent)
+import and call. It is standardized so a consumer sees the same shape across every
+package. Per-symbol package decisions are recorded here; each package transcribes
+its own subsection into its repo against its own version line.
 
-### 13.1 Contract rules every package satisfies (ADR-052 §4, already decided)
+### 13.1 The developer-facing contract (ADR-052 §4)
 
-- [ ] Every type a package's blocks consume/produce is **public at the package top
-  level** (`from scistudio_blocks_X import T`), not a deep path.
-- [ ] Construction + reading live **on the type**, following the core idiom (`data=`
-  constructor; inherited `to_memory()`, `sel()`, `with_meta()`, and the §10
-  accessors). A package **SHOULD** add a public domain constructor that packs
-  domain-native inputs to canonical form.
-- [ ] A package **MUST NOT** define its own `to_pandas`/`to_numpy` (no shadowing of
-  the inherited core accessors).
-- [ ] Blocks are **not author-facing by default**; a package MAY publish a block
-  class only as an opt-in marked `stable`.
-- [ ] Previewers are **not author-facing**.
-- [ ] `__all__` on the package top level and any public submodule.
-- [ ] **No underscore-named author-facing helper** (`_support`-style modules are
-  package-internal only).
-- [ ] Public symbols carry the §5 decorators + `Since` against the **package's own
-  version line**.
-- [ ] A public discovery surface exists (ADR-052 §4.4).
+The reuse surface is **types + their constructors + inherited accessors**,
+standardized so a consumer (or the embedded agent) reads the same shape in every
+package. The standardized member set for a package domain type `T` (the contract
+every package satisfies against its own version line):
+
+| St | Member | Kind | Rule | Template | Tier | Notes |
+|----|--------|------|------|----------|------|-------|
+| ✅ | `T` (top-level; subclasses a core `DataObject`) | class | MUST | skeleton stub | stable | public at `from scistudio_blocks_X import T`; never a deep path |
+| ✅ | `T(data=…, meta=…, user=…)` | constructor | MUST | inherited (core idiom) | stable | canonical construction; signature not redefined |
+| ✅ | `T.Meta` | class (pydantic) | MUST | skeleton stub | stable | typed metadata schema for `T` |
+| ✅ | `T.expected_slots` | ClassVar | MUST (composite `T` only) | skeleton stub | stable | slot→type schema when `T` subclasses `CompositeData` |
+| ✅ | `T.from_<domain>(…)` | classmethod | SHOULD provide / **MUST shape** | skeleton `raise NotImplementedError` | stable | domain-native packing constructor **on the type**; not a free function / `_module` (a module-level builder → `T.from_arrays(...)`) |
+| ✅ | `T.to_memory()` | method | MUST (inherited; no override) | inherited | stable | canonical in-memory form |
+| ✅ | `T.to_pandas()` / `T.to_numpy()` | method | MUST NOT shadow | inherited | stable | ergonomic accessors (§10) stay core's |
+| ✅ | `T.sel(…)` / `T.with_meta(…)` | method | MUST (inherited) | inherited | stable | large-data read / meta update |
+| ✅ | package `__all__` (top level + each public submodule) | module attr | MUST | declared in template | — | the package's public surface |
+| ✅ | §5 decorators + `Since` on each public symbol | decorator | MUST | declared in template | — | against the **package's own** version line |
+| ✅ | discovery surface (ADR-052 §4.4) | function | MUST | skeleton `raise NotImplementedError` | provisional | "what public types + constructors exist" |
+| ✅ | extra domain constructors / helpers | classmethod / func | SHOULD | empty file | — | optional; if author-facing, on the type or top level — never a `_module` |
+
+Prohibitions (lint / freeze-test enforced, not skeletons): **no** `to_pandas` /
+`to_numpy` shadowing; **no** underscore-named author-facing helper
+(`_support`-style modules are internal only); block / previewer classes are not
+part of the reuse surface.
 
 ### 13.2 Per-package reuse-surface inventories
 
-Reference repos (ADR-052 §4.4): `scistudio-package-template` (canonical layout),
-`scistudio-blocks-spectroscopy`, `scistudio-blocks-imaging`.
+> Deferred (owner, 2026-06-27). Existing domain packages still need substantial
+> refactoring — many will be rewritten or retired — so their current source is not
+> the final shape and the set of packages is volatile. **Do not enumerate
+> per-package symbols here, and do not name specific packages** (the list churns).
+>
+> Each package instead carries **its own §13.1 contract table in its own repo**,
+> against its own version line, once it stabilizes. This section is only the
+> placeholder recording that per-package obligation; it is filled (if at all) with
+> generic, name-free guidance, never a roster of soon-to-change packages.
 
-> Deferred (owner, 2026-06-27): the packages still need substantial refactoring,
-> so their current source is not the final shape — do **not** enumerate from it
-> now. Finish the core inventory first; fill these in when the owner signals the
-> packages are ready. Do not fetch the package repos until then.
+### 13.3 Template enforcement + build/test parity
 
-- [ ] **spectroscopy** — `Spectrum` (subclasses core `Series`); `build_spectrum`
-  → public constructor on `Spectrum`; `spectrum_arrays` → inherited
-  `to_numpy`/`to_pandas`; `coerce_spectra` → public helper. (table TBD)
-- [ ] **imaging** — image type(s); reaches `axis_iter`/`has_axes`/`_guess_mime`/
-  `_PopenProcessAdapter` resolved per §12. (table TBD)
-- [ ] **lcms** — (table TBD)
-- [ ] **srs** (private repo) — (table TBD)
+`scistudio-package-template` makes the developer-facing contract self-enforcing, so
+a scaffolded package is correct-by-construction and cannot silently drift:
+
+- [ ] **MUST → a skeleton that raises `NotImplementedError`.** The template ships a
+  domain-type stub (core subclass + typed `Meta` + a `from_<domain>` classmethod)
+  whose bodies `raise NotImplementedError`, so a package that leaves a MUST item
+  unimplemented fails loudly at test/runtime rather than shipping a half-contract.
+- [ ] **SHOULD → an empty file.** Optional extra constructors / helpers ship as
+  empty placeholders the author may fill in.
+- [ ] **Build + freeze parity with core.** The template carries the **same**
+  generated API reference (mkdocstrings/griffe, §7) + golden-snapshot freeze test
+  (§15) over the package's developer-facing surface, run against the package's own
+  version line — every package gets identical anti-drift enforcement.
+
+Implementation (in the template repo): turn the example into MUST stubs + SHOULD
+empty files, and add the generated-reference build + the surface freeze test.
+Tracked in **#1826**.
 
 ## 14. Affected Documentation Surface
 
@@ -1229,16 +1276,36 @@ edits themselves land with #1817 (not in this docs-only PR).
 - [ ] `docs/user/reference/**` — generated output target (ADR-052
   `planned_governs`); stays generated, not hand-edited.
 - [ ] `mkdocs.yml` — reference nav (ADR-052 `planned_governs`).
-- [ ] `docs/block-development/*` (block-contract, quickstart,
-  architecture-for-block-devs) — point authors at the public surface and the
-  canonical import roots.
+- [ ] `docs/block-development/**` — **delete the entire hand-written set and rewrite
+  from scratch** as guide + example docs only (owner 2026-06-27; tracked in **#1825**,
+  owner-paced). The generated API reference (ADR-052 §7) + this spec are the
+  authoritative contract; the rewritten guides/examples **link to** the reference
+  instead of restating it. Deletes coordinate with #1817 so there is never a window
+  with no contract docs.
 - [ ] `docs/architecture/ARCHITECTURE.md` — record the public/private boundary.
 - [ ] CHANGELOG — the contract, the `Since` baseline, and any deprecations.
 - [ ] `scistudio-package-template` — adopt the §13.1 rules (separate repo).
 - [ ] Custom-block GUI starter template — teaching surface for the public API
   (#1816/#1817).
-- [ ] `docs/user/llms.txt` / embedded-agent context — point the agent at the
-  public surface so it stops reaching into internals.
+- [ ] **Embedded-agent skills** (`src/scistudio/_skills/scistudio/**`) — the in-app
+  SciStudio agent's primary teaching surface (a base `SKILL.md` + 6 task skills).
+  They ship inside the package and carry worked-example code, so they must teach the
+  **public surface + canonical import roots only** (currently some reach into
+  internals). Highest-impact: `scistudio-write-block` (block authoring API + example
+  imports → canonical roots, public symbols), `scistudio-write-plot` (must match the
+  §9 `render(collection)` contract and survive the #1824 relocation),
+  `scistudio-inspect-data` (ergonomic accessors §10 + large-data access §11). The
+  base `SKILL.md`, `scistudio-build-workflow`, `scistudio-debug-run`, and
+  `scistudio-project-qa` get a lighter pass. — #1817.
+- [ ] **Per-project provisioned agent docs** (`scistudio.agent_provisioning`,
+  ADR-040 §3.5–3.8) — in production, `install_project_agent_assets` writes a
+  per-project agent asset set into the project's hidden dirs at create/open-project
+  (`<project>/.claude/` + `AGENTS.md`/`CLAUDE.md`, hooks, the skills split, MCP
+  config, a provision-version marker). This set **must also include the complete
+  generated contract manual** (the ADR-052 §7 reference) so the in-project embedded
+  agent reads the authoritative public API contract instead of reaching into
+  internals. **This batch is not yet written**; provisioning the contract manual is
+  new work that depends on #1817 producing the generated reference.
 
 ## 15. Enforcement And Anti-Drift
 
@@ -1330,27 +1397,30 @@ once their callers migrate.
   refactoring first, so enumerating from current source would capture
   soon-to-change symbols. Finish core first; fill §13.2 when the owner signals.
   Do not fetch the package repos until then.
-- **🤔 `registry.py` / `serialization.py` public exports.** Are `TypeSignature`
-  and `StorageReference` public (named in ADR-052 §3), and what are their canonical
-  paths — re-exported from `scistudio.core.types`, or elsewhere?
-- **🤔 Reconcile against existing `__all__`.** `core/types/__init__.py`,
-  `previewers/models.py`, and `blocks/io/materialisation.py` already declare
-  `__all__`; confirm whether today's surface matches or revises them.
-- **🤔 Governed-modules gap.** `base.py` surfaces `StorageReference`
-  (`scistudio.core.storage.ref`), `FrameworkMeta` and `with_meta_changes`
-  (`scistudio.core.meta`) as part of the core.types author surface, but
-  `scistudio.core.meta` / `scistudio.core.storage` are not in ADR-052
-  `governs.modules`. Decide: add them (or the specific re-exported symbols) to the
-  governed surface, or treat the `scistudio.core.types` re-export as the canonical
-  governed path.
+- **✅ `registry.py` / `serialization.py` public exports (resolved §3).**
+  `TypeSignature` → public/stable; `TypeRegistry` / `TypeSpec` → Internal (owner;
+  0 author importers); `serialization.py` Internal. `TypeSignature` and
+  `StorageReference` are public via the `scistudio.core.types` re-export; the
+  remaining canonical-path question for `StorageReference` is folded into the
+  governed-modules gap below.
+- **⏸ Reconcile against existing `__all__`** (→ #1817 implementation phase). Each
+  module section records its target `__all__`; #1817 transcribes those and diffs
+  against today's declarations (`core/types/__init__.py`, `previewers/*`,
+  `blocks/**`, …), revising membership to match this contract.
+- **✅ Governed-modules gap (resolved §3.10, owner 2026-06-27).** `FrameworkMeta`,
+  `with_meta_changes`, `ChannelInfo` are author-facing (proven by package use), so
+  **`scistudio.core.meta` was added to ADR-052 `governs.modules`** (its `__all__` is
+  already exactly those 3 — no package migration). `StorageReference` stays governed
+  via the `scistudio.core.types` re-export (§3.1); **`scistudio.core.storage` stays
+  ungoverned** (its backends/router are storage-engine internals, not author API).
 - **✅ Plot `collection` vs `core.types.Collection` (resolved §9).** §9's plot
   `render(collection)` shape (`.types`, `.items.open()/open_one()`,
   `item.type/metadata/open()`) is a distinct object from `core.types.Collection`
   (ADR-020: `item_type`, `__iter__`, `storage_refs`) — same name, different objects.
   Located in the harness (`scistudio.ai.agent.mcp.tools_plot._harness`; relocation
   tracked #1824) and inventoried in §9 as an import-free, provisional contract.
-- **🤔 CodeBlock missing from the governed surface (survey done, owner to confirm).**
-  `scistudio.blocks.code` / `CodeBlock` is not in ADR-052 `governs.modules`, but the
+- **✅ CodeBlock added to the governed surface (resolved §7A, owner 2026-06-27).**
+  `scistudio.blocks.code` / `CodeBlock` was not in ADR-052 `governs.modules`, but the
   survey confirms CodeBlock **is** a genuine authoring base — `registry/_spec`
   categorizes it as one of the six bases (io/process/**code**/app/ai/subworkflow)
   exactly like `AppBlock`, and the write-block skill teaches it as a base to extend. It
@@ -1366,7 +1436,7 @@ once their callers migrate.
   `codeblock_exchange_env` lean internal. **Resolved (owner 2026-06-27): added as §7A,
   default provisional.** `ADR-052.md` `governs.modules` + §3 done. Owner 2026-06-27:
   **entire `blocks/code` non-underscore surface Public/provisional** (backend subset
-  un-deferred); legacy runner layer **deprecated**.
+  un-deferred); legacy runner layer **deleted as dead code** (#1817; 0 production importers — corrected from an earlier "deprecated" mislabel).
 
 ## 18. Decision Log
 
@@ -1429,3 +1499,13 @@ even after the tables are complete.
 | 2026-06-27 | Filed **#1823** (refactor: previewer authoring surface) to track the previewer-specific work: option-B storage closure (typed `request.storage`), `sanitize_svg` relocation to a public helper home, and the imaging previewer rewrite to the spectroscopy shape. Pure `__all__` membership edits stay with the master contract transcription (#1817); the design/relocation/cross-repo items are #1823. Spec §8/§8.5/§12 refs repointed accordingly. | Owner 2026-06-27 ("file an issue to refactor the package previewer system properly"). |
 | 2026-06-27 | §9 plot `render(collection)` decided: **provisional**, **no behavior change** (owner: plot is currently stable). Recorded the import-free dual-interpreter (Py + R) contract from the harness verbatim — `collection.types`/`.items` (`open`/`open_one`), `item.type`/`.metadata` (strip-list) /`.open()` native-payload-by-type (Array→ndarray, DataFrame→pandas, Series→Series-or-DataFrame per #1750, Text→str, Artifact→Path, CompositeData→dict), and the return contract (figure / in-working-dir path / list; rejects None/other). Runs in a confined CodeBlock subprocess; implementing classes (`_PlotCollection`/`_PlotItem`/`_PlotItems`) private. `item.open()` native objects logged as a second sanctioned pandas/numpy boundary (§10, distinct from the xlsx data-flow exception). Freeze via a behavior-pinning Py+R contract test (§15). **§9 fully decided.** | Owner 2026-06-27. |
 | 2026-06-27 | Filed **#1824** (relocate the plot `render(collection)` contract out of the MCP-tools namespace). Owner reversed the earlier "leave it": the contract + runtime sit under `scistudio.ai.agent.mcp.tools_plot`, but it is a first-class user feature and the REST route `api/routes/plots.py` already imports up into `tools_plot` (run_plot_job / validation / scaffold / relink / targets) — backwards. Behavior-preserving relocation to a first-class home (e.g. `scistudio.plots`); §9 contract unchanged. §9 prose repointed. Scope refined (owner): it is an **8-module engine** (`_harness`/`runtime`/`validation`/`models`/`targets`/`scaffold`/`relink`/`examples`), not a one-file move, and it must **sever the `ai.agent.mcp._context` coupling** (3 modules import `get_context`/`_resolve_project_root`/path helpers) via **dependency injection (approach b)** so nothing under the new home imports `ai.agent.mcp`; `tools.py` stays as a thin MCP wrapper. | Owner 2026-06-27 ("the plot contract living in the MCP tools is outrageous — file a migration issue"; chose approach b). |
+| 2026-06-27 | §11 large-data signatures verified against source (no "confirm" placeholders left): `Array.sel(**axes: int\|slice)->Array` (`array.py:143`); `DataObject.slice(*args)->Any` + `iter_chunks(chunk_size:int)->Iterator` (delegate to the backend; `base.py:430/443`); `Block.persist_array(data_or_iterator, shape, dtype, output_dir=None, chunks=None)->StorageReference` (`block.py:329`, accepts ndarray or `(index,chunk)` iterator) + `persist_table(table, output_dir=None)->StorageReference` (`block.py:401`). All stable/0.3.1 per ADR-052 §3.2. | Verification pass. |
+| 2026-06-27 | Parking-lot (§17) + reach-through (§12) reconciliation. §17: `registry`/`serialization` exports and the CodeBlock governed-surface gap marked **resolved** (decided in §3 / §7A); "reconcile against existing `__all__`" → ⏸ #1817 (implementation phase). §12: the 6 remaining package-side reach-throughs (`has_axes`, `build_spectrum`, `spectrum_arrays`, `coerce_spectra`, `dataframe_from_rows`/`_from_pandas`/`_collection`) → ⏸, gated on the package refactor (§13.2) / imaging rewrite (#1729). **Only one open question remains: the governed-modules gap (core.meta / core.storage).** | Bookkeeping; applies existing owner directives. |
+| 2026-06-27 | **Governed-modules gap resolved (owner):** added `scistudio.core.meta` to ADR-052 `governs.modules` and inventoried it as **§3.10** — `FrameworkMeta` (+ `source` author-set, other fields framework-written, `derive()` Internal), `with_meta_changes`, `ChannelInfo` all Public/stable/0.3.1 (proven by spectroscopy + imaging use; `core.meta.__all__` already = exactly these 3, so no package migration). `StorageReference` stays governed via the `core.types` re-export; **`core.storage` stays ungoverned** (backends/router are engine internals). §3 intro + §17 item marked resolved. **No open 🤔 items remain in the contract.** | Owner 2026-06-27. |
+| 2026-06-27 | §14 docs surface: added the **embedded-agent skills** (`src/scistudio/_skills/scistudio/**`) as an affected surface (owner flagged it as missing). The in-app agent's base `SKILL.md` + 6 task skills ship inside the package and carry worked-example code; #1817 must point them at the public surface + canonical roots. Highest-impact: `scistudio-write-block`, `scistudio-write-plot` (track §9 + #1824), `scistudio-inspect-data` (§10/§11). | Owner 2026-06-27. |
+| 2026-06-27 | Dropped the `docs/user/llms.txt` references (owner: the file does not exist anywhere in the repo). It was a speculative embedded-agent-context file; the real, existing embedded-agent teaching surface is `src/scistudio/_skills/` (the §14 skills entry above). Removed from the §14 list and from both `governs.excludes` blocks (spec + `ADR-052.md`); kept the `docs/user/reference/**` exclude. | Owner 2026-06-27. |
+| 2026-06-27 | §14 `docs/block-development/**`: owner — **delete the entire hand-written set and rewrite from scratch** as guide + example docs only (not a per-file keep/delete). The generated API reference (ADR-052 §7) + this spec are the authoritative contract; rewritten guides/examples link to the reference rather than restate it. Filed **#1825** (owner-paced rewrite). Deletes coordinate with #1817 so there is never a window with no contract docs. | Owner 2026-06-27 ("delete all, rewrite all; open an issue, I'll write it slowly"). |
+| 2026-06-27 | §14: added the **per-project provisioned agent docs** as an affected surface (owner). `scistudio.agent_provisioning` (ADR-040 §3.5–3.8) writes a per-project agent asset set into the project's hidden dirs at create/open-project (CLAUDE.md/AGENTS.md, hooks, skills split, MCP config, version marker) — verified it does **not** currently include a contract manual. That set **must include the complete generated contract manual** (ADR-052 §7 reference) so the in-project agent reads the authoritative contract. Not yet written; depends on #1817 producing the reference. | Owner 2026-06-27 ("the per-project agent docs aren't written yet and must include the full generated contract manual"). |
+| 2026-06-27 | §13 rewritten to the **developer-facing reuse API only** (owner correction: the core-facing registration contract — entry points / `PackageInfo` / OTA — is **not** ADR-052 and is not mentioned here at all). The reuse contract **standardizes types + constructors + accessors**: types public at top level subclassing a core `DataObject`; **domain constructors MUST be classmethods on the type** (`Type.from_<domain>`), not free functions (`build_spectrum` → `Spectrum.from_arrays`); no `to_pandas`/`to_numpy` shadowing; `__all__` + decorators + discovery. §13.3: the template makes it self-enforcing — **MUST → `NotImplementedError` skeleton, SHOULD → empty file**, plus generated-reference build + freeze-test **parity with core** (§7/§15) against the package's own version line. §13.2 per-package inventories stay deferred. | Owner 2026-06-27. |
+| 2026-06-27 | §13 refined: (a) §13.1 expressed as a **per-member contract table** (St/Member/Kind/Rule/Template/Tier/Notes) like the core sections — not prose — enumerating the standardized type + constructor + accessor surface with each item's MUST/SHOULD rule and its template treatment (skeleton `NotImplementedError` / empty file / inherited / declared). (b) §13.2 **genericized — no package names** (owner: many domain packages are being rewritten or retired, so the roster is volatile); each package carries its own §13.1 table in its own repo. §13.1's constructor example de-named too. | Owner 2026-06-27 ("define an actual contract as a table, not prose"; "§13.2 must not name packages — many are abandoned"). |
+| 2026-06-27 | Filed **#1826** (build `scistudio-package-template` to self-enforce the §13.1 developer-facing contract: MUST→`NotImplementedError` skeletons + SHOULD→empty files, developer-facing contract validation, and generated-reference + freeze-test parity with core). §13.3 repointed from "issue TBD" → #1826. | Owner 2026-06-27 ("open the issue"). |
