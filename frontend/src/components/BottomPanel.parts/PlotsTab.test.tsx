@@ -70,7 +70,12 @@ beforeEach(() => {
   createPlot.mockReset();
   listPlots.mockResolvedValue({ plots: [], count: 0, warnings: [] });
   listPlotTargets.mockResolvedValue({ targets: [] });
-  useAppStore.setState({ workflowId: "main", selectedNodeId: null });
+  useAppStore.setState({
+    workflowId: "main",
+    selectedNodeId: null,
+    highlightedNodeId: null,
+    plotPicker: null,
+  });
   useAppStore.getState().setPlotPreviewTarget(null);
 });
 
@@ -161,19 +166,24 @@ describe("PlotsTab", () => {
     expect(useAppStore.getState().plotPreviewTarget).toBeNull();
   });
 
-  it("opens the Relink dialog from a card", async () => {
+  it("opens the in-panel relink picker from a card (#1799)", async () => {
     listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
     render(<PlotsTab />);
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Relink data source for plot My Plot" }),
     );
+    // #1799 — the picker is an in-place content mode of this panel, not a modal.
     expect(await screen.findByText("Relink data source")).toBeInTheDocument();
+    expect(useAppStore.getState().plotPicker).toEqual({ mode: "relink", plotId: "p1" });
   });
 
-  it("opens the New plot dialog", async () => {
+  it("opens the in-panel new-plot picker (#1799)", async () => {
     render(<PlotsTab />);
     fireEvent.click(await screen.findByRole("button", { name: /New plot/i }));
-    expect(await screen.findByRole("heading", { name: "New plot" })).toBeInTheDocument();
+    // The picker renders inline (Name field + the bind prompt), not a modal heading.
+    expect(await screen.findByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByText(/Bind to a block output/i)).toBeInTheDocument();
+    expect(useAppStore.getState().plotPicker).toEqual({ mode: "new" });
   });
 });

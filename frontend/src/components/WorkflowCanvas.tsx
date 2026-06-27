@@ -1,8 +1,9 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { resolveTypeColor } from "../config/typeColorMap";
+import { useAppStore } from "../store";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
@@ -211,6 +212,11 @@ function useFlowEdges(
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
   const reactFlow = useReactFlow();
+  // #1799 — the plot target picker sets this transient highlight (hover/select
+  // a target row). Read directly from the store to avoid threading a prop down
+  // through ProjectWorkspace. The canvas rings the node (via useFlowNodes) and
+  // pans it into view above the bottom panel.
+  const highlightedNodeId = useAppStore((s) => s.highlightedNodeId);
   const {
     blocks,
     schemas,
@@ -269,6 +275,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     blockErrors,
     blockErrorSummaries,
     selectedNodeId,
+    highlightedNodeId,
     blockOutputs,
     runScopePrefix,
     dragPositions,
@@ -280,6 +287,23 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
       : undefined,
     ...flowCallbacks,
   });
+
+  // #1799 — pan the highlighted node into view when the picker selects/hovers a
+  // target. Guard `getNode`: a broken plot (or empty workflowId) can reference a
+  // node that is not on the current canvas — then this is a safe no-op. Keep the
+  // current zoom so the canvas only translates, never zooms unexpectedly.
+  useEffect(() => {
+    if (!highlightedNodeId) return;
+    const node = reactFlow.getNode(highlightedNodeId);
+    if (!node) return;
+    const width = node.measured?.width ?? node.width ?? 0;
+    const height = node.measured?.height ?? node.height ?? 0;
+    void reactFlow.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+      zoom: reactFlow.getZoom(),
+      // Owner UX: a slower pan reads as a smooth glide rather than a jarring snap.
+      duration: 700,
+    });
+  }, [highlightedNodeId, reactFlow]);
 
   const baseFlowEdges = useFlowEdges(edges, nodes, schemas);
 

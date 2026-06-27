@@ -5,8 +5,7 @@ import { api } from "../../lib/api";
 import { plotTargetFromRunResponse } from "../../lib/api/data";
 import { useAppStore } from "../../store";
 import type { PlotListItem } from "../../types/api";
-import { NewPlotDialog } from "../NewPlotDialog";
-import { RelinkPlotDialog } from "../RelinkPlotDialog";
+import { PlotTargetPicker } from "./PlotTargetPicker";
 
 /**
  * #1713 — dedicated Plots panel.
@@ -20,15 +19,27 @@ import { RelinkPlotDialog } from "../RelinkPlotDialog";
  * Running a plot publishes its result to `plotPreviewTarget` in the store so it
  * still renders in the right-hand Preview panel (`DataPreview`), keeping the
  * Run behavior identical to the pre-#1713 chip row.
+ *
+ * #1799 — the new-plot / relink target picker is no longer a centered modal: it
+ * is an in-place content mode of this panel (`plotPicker` in the UI slice), so
+ * the canvas stays visible above it and hovering a target highlights/centers
+ * the matching block on the canvas. Cards bound to the selected/highlighted
+ * node are ringed, completing the canvas ↔ card mapping.
  */
 export function PlotsTab() {
   const workflowId = useAppStore((s) => s.workflowId);
   const selectedNodeId = useAppStore((s) => s.selectedNodeId);
   const setSelectedNodeId = useAppStore((s) => s.setSelectedNodeId);
+  const highlightedNodeId = useAppStore((s) => s.highlightedNodeId);
   const setPlotPreviewTarget = useAppStore((s) => s.setPlotPreviewTarget);
   const openFileTab = useAppStore((s) => s.openFileTab);
   const bumpProjectTreeRefresh = useAppStore((s) => s.bumpProjectTreeRefresh);
   const setLastError = useAppStore((s) => s.setLastError);
+  // #1799 — picker content mode + entry points.
+  const plotPicker = useAppStore((s) => s.plotPicker);
+  const openNewPlotPicker = useAppStore((s) => s.openNewPlotPicker);
+  const openRelinkPlotPicker = useAppStore((s) => s.openRelinkPlotPicker);
+  const closePlotPicker = useAppStore((s) => s.closePlotPicker);
 
   const [plots, setPlots] = useState<PlotListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,8 +48,6 @@ export function PlotsTab() {
   // the error is tied to a specific plot_id rather than a single global string.
   const [runError, setRunError] = useState<{ plotId: string; message: string } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
-  const [relinkTarget, setRelinkTarget] = useState<PlotListItem | null>(null);
-  const [newPlotOpen, setNewPlotOpen] = useState(false);
   // Bumped after relink / create so the list re-fetches. Also re-runs whenever
   // the tab is (re)mounted — BottomPanel unmounts inactive tabs, so switching
   // to Plots refreshes the list.
@@ -94,6 +103,40 @@ export function PlotsTab() {
     }
   }
 
+  // #1799 — picker content mode. Relink resolves its plot from the loaded list.
+  if (plotPicker) {
+    const relinkPlot =
+      plotPicker.mode === "relink"
+        ? (plots.find((p) => p.plot_id === plotPicker.plotId) ?? null)
+        : null;
+    return (
+      <PlotTargetPicker
+        defaultNodeId={selectedNodeId}
+        mode={plotPicker.mode}
+        onClose={closePlotPicker}
+        onCreated={(created) => {
+          bumpProjectTreeRefresh();
+          openFileTab(created.script_path);
+          setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
+          setRefreshToken((token) => token + 1);
+        }}
+        onRelinked={(result) => {
+          if (!result.valid && relinkPlot) {
+            setRunError({
+              plotId: relinkPlot.plot_id,
+              message: result.errors[0] ?? "Relinked plot did not validate.",
+            });
+          } else {
+            setRunError(null);
+          }
+          setRefreshToken((token) => token + 1);
+        }}
+        plot={relinkPlot}
+        workflowId={workflowId}
+      />
+    );
+  }
+
   const showEmpty = !loading && !listError && plots.length === 0;
 
   return (
@@ -105,7 +148,7 @@ export function PlotsTab() {
         <button
           className="inline-flex items-center gap-1 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:border-ink disabled:opacity-50"
           disabled={!workflowId}
-          onClick={() => setNewPlotOpen(true)}
+          onClick={() => openNewPlotPicker()}
           title="Create a new plot"
           type="button"
         >
@@ -137,10 +180,19 @@ export function PlotsTab() {
                 plot.output_type ? ` (${plot.output_type})` : ""
               }`;
           const name = plot.title || plot.plot_id;
+          // #1799 — ring the card whose bound block is selected on the canvas
+          // (click block → highlight cards) or transiently highlighted by the
+          // picker. Skip broken plots: their node no longer exists.
+          const linked =
+            !plot.broken && (plot.node_id === selectedNodeId || plot.node_id === highlightedNodeId);
           return (
             <div
               className={`flex min-h-[9rem] flex-col gap-1.5 rounded-2xl border p-3 shadow-sm ${
-                plot.broken ? "border-amber-400 bg-amber-50/50" : "border-stone-200 bg-white"
+                plot.broken
+                  ? "border-amber-400 bg-amber-50/50"
+                  : linked
+                    ? "border-emerald-500 ring-2 ring-emerald-400/60 bg-white"
+                    : "border-stone-200 bg-white"
               }`}
               data-testid={`plot-card-${plot.plot_id}`}
               key={plot.plot_id}
@@ -182,7 +234,7 @@ export function PlotsTab() {
                     aria-label={`Relink data source for plot ${name}`}
                     className="shrink-0 rounded-full border border-stone-300 px-2.5 py-1 text-xs text-stone-600 hover:text-ink disabled:opacity-50"
                     disabled={runningId !== null}
-                    onClick={() => setRelinkTarget(plot)}
+                    onClick={() => openRelinkPlotPicker(plot.plot_id)}
                     title="Relink data source"
                     type="button"
                   >
@@ -221,36 +273,6 @@ export function PlotsTab() {
           {listError}
         </div>
       ) : null}
-
-      <RelinkPlotDialog
-        open={relinkTarget !== null}
-        plot={relinkTarget}
-        workflowId={workflowId}
-        onClose={() => setRelinkTarget(null)}
-        onRelinked={(result) => {
-          if (!result.valid && relinkTarget) {
-            setRunError({
-              plotId: relinkTarget.plot_id,
-              message: result.errors[0] ?? "Relinked plot did not validate.",
-            });
-          } else {
-            setRunError(null);
-          }
-          setRefreshToken((token) => token + 1);
-        }}
-      />
-      <NewPlotDialog
-        open={newPlotOpen}
-        workflowId={workflowId}
-        selectedNodeId={selectedNodeId}
-        onClose={() => setNewPlotOpen(false)}
-        onCreated={(created) => {
-          bumpProjectTreeRefresh();
-          openFileTab(created.script_path);
-          setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
-          setRefreshToken((token) => token + 1);
-        }}
-      />
     </div>
   );
 }

@@ -189,6 +189,8 @@ interface BlockOpts {
   label: string;
   upstreamOmeFields: string[] | undefined;
   selectedNodeId: string | null;
+  /** #1799 — true when the plot picker is hovering/selecting this node. */
+  highlighted?: boolean;
 }
 
 export function buildBlockNode(opts: BlockOpts): Node {
@@ -205,6 +207,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
     label,
     upstreamOmeFields,
     selectedNodeId,
+    highlighted,
   } = opts;
   const category = summary?.base_category ?? schema?.base_category ?? "custom";
   // ADR-050 §2.5 — highest-priority problem signal, surfaced by the node's
@@ -249,6 +252,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
       errorSummary,
       problemSeverity,
       selected: selectedNodeId === node.id,
+      highlighted: highlighted ?? false,
       onRun: callbacks.onRun,
       onRestart: callbacks.onRestart,
       onDelete: callbacks.onDelete,
