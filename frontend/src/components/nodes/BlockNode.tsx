@@ -129,6 +129,10 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
         data-testid="block-node-body"
         className={`relative flex items-center justify-center border shadow-sm ${
           selected ? "border-ember shadow-panel" : ""
+        } ${
+          // #1799 — plot picker highlight: a ring that reads as "this is the
+          // block that target row points at", without the selection semantics.
+          data.highlighted ? "ring-2 ring-ember ring-offset-2 ring-offset-canvas" : ""
         }`}
         style={{
           width: NODE_SIZE,

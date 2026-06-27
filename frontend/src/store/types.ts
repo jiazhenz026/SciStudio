@@ -185,8 +185,27 @@ export interface FocusModeState {
   depth: number;
 }
 
+/**
+ * #1799 — which content the bottom Plots panel is showing. `null` = the normal
+ * plot-card grid. `{ mode: "new" }` = the new-plot target picker. `{ mode:
+ * "relink", plotId }` = the relink picker for an existing plot. The picker is
+ * an in-place content mode of the Plots panel (no full-screen modal), so the
+ * canvas stays visible above it for the hover/select → highlight + auto-center
+ * interaction.
+ */
+export type PlotPickerState = { mode: "new" } | { mode: "relink"; plotId: string };
+
 export interface UISlice {
   selectedNodeId: string | null;
+  /**
+   * #1799 — transient highlight target driven by the plot target picker (hover
+   * or select a row). Distinct from `selectedNodeId` so hovering a picker row
+   * does not change the Config/Preview selection. The canvas draws a ring on
+   * this node and auto-centers it; plot cards bound to it also highlight.
+   */
+  highlightedNodeId: string | null;
+  /** #1799 — bottom Plots panel content mode (cards vs. target picker). */
+  plotPicker: PlotPickerState | null;
   activeBottomTab: BottomTab;
   /** ADR-050 §3.1 — focus-mode view state (frontend-only, not persisted). */
   focusMode: FocusModeState;
@@ -220,6 +239,17 @@ export interface UISlice {
    */
   blockCatalogRefreshCounter: number;
   setSelectedNodeId: (nodeId: string | null) => void;
+  /** #1799 — set/clear the transient picker highlight target. */
+  setHighlightedNodeId: (nodeId: string | null) => void;
+  /**
+   * #1799 — open the new-plot target picker in the bottom Plots panel: ensure
+   * the panel is expanded, switch to the Plots tab, and enter picker mode.
+   */
+  openNewPlotPicker: () => void;
+  /** #1799 — open the relink picker for an existing plot (panel already open). */
+  openRelinkPlotPicker: (plotId: string) => void;
+  /** #1799 — leave picker mode and return the Plots panel to the card grid. */
+  closePlotPicker: () => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   /**
    * ADR-050 §3.1 — enter focus mode around the given selection. A no-op when

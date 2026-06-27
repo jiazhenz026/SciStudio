@@ -46,7 +46,6 @@ import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionAct
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { ProjectDialog } from "./components/ProjectDialog";
-import { NewPlotDialog } from "./components/NewPlotDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -159,7 +158,6 @@ export default function App() {
   const toggleMinimap = useAppStore((state) => state.toggleMinimap);
   const setPanelSize = useAppStore((state) => state.setPanelSize);
   const setLastError = useAppStore((state) => state.setLastError);
-  const bumpProjectTreeRefresh = useAppStore((state) => state.bumpProjectTreeRefresh);
 
   const blocks = useAppStore((state) => state.blocks);
   const blockSchemas = useAppStore((state) => state.blockSchemas);
@@ -190,7 +188,8 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
-  const [newPlotDialogOpen, setNewPlotDialogOpen] = useState(false);
+  // #1799 — toolbar "New plot" opens the in-panel picker via the UI slice.
+  const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
   // Promise-based replacement for window.prompt (unsupported in Electron).
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
 
@@ -413,7 +412,10 @@ export default function App() {
             onNewPlot={
               currentProject
                 ? () => {
-                    setNewPlotDialogOpen(true);
+                    // #1799 — save first so freshly-added blocks appear as
+                    // targets, then open the in-panel picker (which expands the
+                    // bottom panel + switches to the Plots tab).
+                    void saveWorkflow().then(() => openNewPlotPicker());
                   }
                 : undefined
             }
@@ -514,19 +516,6 @@ export default function App() {
             open={projectDialogOpen}
             path={projectDialog.path}
             recentProjects={recentProjects}
-          />
-
-          <NewPlotDialog
-            onClose={() => setNewPlotDialogOpen(false)}
-            onCreated={(created) => {
-              bumpProjectTreeRefresh();
-              openFileTab(created.script_path);
-              setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
-            }}
-            open={Boolean(currentProject && newPlotDialogOpen)}
-            saveWorkflow={saveWorkflow}
-            selectedNodeId={selectedNodeId}
-            workflowId={workflowId}
           />
 
           <PromptDialog request={promptRequest} onClose={clearPrompt} />

@@ -4,6 +4,10 @@ import type { AppStore, UISlice } from "./types";
 
 export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get) => ({
   selectedNodeId: null,
+  // #1799 — transient picker highlight, separate from selectedNodeId.
+  highlightedNodeId: null,
+  // #1799 — bottom Plots panel content mode; null = card grid.
+  plotPicker: null,
   activeBottomTab: "config",
   // ADR-050 §3.1 — focus mode is frontend-only view state, off by default.
   focusMode: { enabled: false, selectedIds: [], depth: 1 },
@@ -27,6 +31,28 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   projectTreeRefreshCounter: 0,
   blockCatalogRefreshCounter: 0,
   setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
+  // #1799 — picker hover/select highlight. Cleared on picker close.
+  setHighlightedNodeId: (nodeId) => set({ highlightedNodeId: nodeId }),
+  // #1799 — toolbar / Plots-tab "New plot" entry point. Expanding the panel and
+  // switching to the Plots tab are required so the picker (which lives in the
+  // Plots tab content) is actually on screen when triggered from the toolbar.
+  openNewPlotPicker: () =>
+    set({
+      bottomPanelCollapsed: false,
+      activeBottomTab: "plots",
+      plotPicker: { mode: "new" },
+      highlightedNodeId: null,
+    }),
+  // #1799 — relink is triggered from a plot card, so the panel is already open;
+  // still normalize panel/tab state for safety.
+  openRelinkPlotPicker: (plotId) =>
+    set({
+      bottomPanelCollapsed: false,
+      activeBottomTab: "plots",
+      plotPicker: { mode: "relink", plotId },
+      highlightedNodeId: null,
+    }),
+  closePlotPicker: () => set({ plotPicker: null, highlightedNodeId: null }),
   // ADR-050 §3.1 — enter/exit focus mode. Pure view state: these actions never
   // touch workflow nodes, edges, config, or the dirty flag (FR-018).
   enterFocusMode: (selectedIds, depth) =>

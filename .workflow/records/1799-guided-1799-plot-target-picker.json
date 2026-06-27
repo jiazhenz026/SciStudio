@@ -1,0 +1,614 @@
+{
+  "branch": "guided/1799-plot-target-picker",
+  "check_events": [
+    {
+      "at": "2026-06-27T08:09:11.168415Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T08:09:16.301889Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ed4085385e5307f56574f4a5e0b5d5ef44a65c404dfea4255add9f278ca96f9e",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:09:20.242837Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6d190ee52879d22e2cac3aae82d6251d9230288dcf92bf59e534e7d6f39357ab",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:09:20.280714Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T08:11:32.021637Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e16d926347769e839700ad924b5592990173466bf05196d2102394c33a9d9286",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:13:29.907351Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:07c083b87ad748df6cfb79332f4289c365e7806b273e009a02d5a28a37fcfbf7",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:13:33.778367Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b619363a1bd5d7849952a7ce991f240cbf1cd479769345ba8a4132c56521a946",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:15:54.826093Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6f09a8227e386b4244d8cd075a6c978b31fca58ea90e92666b9d7c29979184f8",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "98faf0ee6833c15a8a0041abcad743e9936fea05",
+    "shas": [
+      "98faf0ee6833c15a8a0041abcad743e9936fea05"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-27T07:39:34.656600Z",
+      "owner_directive": "Handle the case where a plot (or picker target) is bound to a block that is not in the currently-open workflow tab: clarify whether plot-configurable blocks are limited to the open workflow, and define canvas highlight/center behavior for cross-workflow targets.",
+      "reason": "owner raised edge case: picker target / plot bound to a block not in the currently-open workflow tab"
+    },
+    {
+      "at": "2026-06-27T08:04:27.994923Z",
+      "owner_directive": "Three picker tweaks: (1) move the Create button next to the Language select (new-plot form row), not the header; (2) change the canvas-block\u2192plot-card highlight ring to a green/striking color instead of ink; (3) make the 'Bind to' target rows single-line instead of two lines to save vertical space.",
+      "reason": "owner UX feedback after live test of the in-panel picker"
+    },
+    {
+      "at": "2026-06-27T08:06:08.859183Z",
+      "owner_directive": "Revert tweak #1 (do NOT move the Create button). Keep: (2) green/striking card highlight ring for canvas-block\u2192plot-card, (3) single-line Bind-to rows, and (4) slow down the canvas auto-center pan (350ms\u2192700ms) so it glides instead of snapping.",
+      "reason": "owner narrowed UX tweaks after live test"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-27T08:12:18.775674Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Frontend-only UX change to the plot link/relink target picker (in-panel content mode, readable labels, canvas highlight). No contract, schema, REST API, storage, or plugin behavior changed \u2014 backend GET /api/plots and POST /api/plots/{id}/relink are unchanged.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-27T08:11:32.078017Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.088877Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.tsx",
+              "frontend/src/components/BottomPanel.parts/PlotTargetPicker.test.tsx",
+              "frontend/src/components/BottomPanel.parts/PlotTargetPicker.tsx",
+              "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
+              "frontend/src/components/BottomPanel.parts/PlotsTab.tsx",
+              "frontend/src/components/NewPlotDialog.test.tsx",
+              "frontend/src/components/NewPlotDialog.tsx",
+              "frontend/src/components/RelinkPlotDialog.test.tsx",
+              "frontend/src/components/RelinkPlotDialog.tsx",
+              "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+              "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+              "frontend/src/components/WorkflowCanvas.tsx",
+              "frontend/src/components/nodes/BlockNode.tsx",
+              "frontend/src/lib/plotTargetLabel.test.ts",
+              "frontend/src/lib/plotTargetLabel.ts",
+              "frontend/src/store/types.ts",
+              "frontend/src/store/uiSlice.ts",
+              "frontend/src/types/ui.ts"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-27T08:11:32.098792Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.108777Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.119450Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.129466Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.139137Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.148993Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.158596Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:11:32.174295Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.888424Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.898099Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.907344Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.916471Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.925278Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.934134Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.942834Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.953700Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.962864Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:15:54.978254Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.896301Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.905773Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.914867Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.924359Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.933876Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.946141Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.955941Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.965723Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.974545Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:16:17.988980Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1799,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "39d58593",
+    "changed_files": [
+      ".workflow/records/1799-guided-1799-plot-target-picker.json",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotTargetPicker.test.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotTargetPicker.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.tsx",
+      "frontend/src/components/NewPlotDialog.test.tsx",
+      "frontend/src/components/NewPlotDialog.tsx",
+      "frontend/src/components/RelinkPlotDialog.test.tsx",
+      "frontend/src/components/RelinkPlotDialog.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/lib/plotTargetLabel.test.ts",
+      "frontend/src/lib/plotTargetLabel.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/uiSlice.ts",
+      "frontend/src/types/ui.ts"
+    ],
+    "diff_fingerprint": "sha256:3f9aad3511af992f6b724854d9e7db9229145a27d07f9cb7ce55b9b85de23c99",
+    "head": "HEAD",
+    "head_sha": "98faf0ee",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 18,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 18,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 18,
+      "test": 5,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Improve plot link/relink target picker UX (issue #1799): (A) replace opaque node_id rows with readable '<block name> \u00b7 <port> (<type>)' + stable same-name index, reusing canvas registry name; (B) convert centered modal new-plot/relink dialog into an in-place bottom Plots-panel content mode (cards<->picker), keep canvas rendered above, toolbar new-plot auto-opens panel+Plots tab+picker, custom hoverable list replacing native select, hover/select row highlights+auto-centers the block on canvas above the panel, and bidirectional highlight via shared highlightedNodeId store state (click block -> highlight bound plot cards; select block in picker -> highlight block). Frontend-focused. Options C (block rename) and D (canvas port click-to-link) are out of scope/deferred.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1799
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-27T08:11:32.174334Z",
+      "diff_fingerprint": "sha256:67c220cf00696b062f40f4554d71f0a57063447e3c2e2cc5bd2fe63e8e55c6ad",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-27T08:15:54.978287Z",
+      "diff_fingerprint": "sha256:35d5ce10543375b38e70d98c5a019d447c520c2df364d33b38a4c70a98631ea2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T08:16:17.989023Z",
+      "diff_fingerprint": "sha256:3f9aad3511af992f6b724854d9e7db9229145a27d07f9cb7ce55b9b85de23c99",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1799-guided-1799-plot-target-picker",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "63cf82bd-d0b0-4b70-b838-2771ee068539",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-27T08:12:18.775827Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/plotTargetLabel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T08:12:18.775830Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.parts/PlotTargetPicker.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T08:12:18.775832Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

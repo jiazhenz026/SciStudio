@@ -43,6 +43,8 @@ export interface UseFlowNodesOpts {
   blockErrors: Record<string, string>;
   blockErrorSummaries: Record<string, string>;
   selectedNodeId: string | null;
+  /** #1799 — node the plot picker is hovering/selecting; rings it on the canvas. */
+  highlightedNodeId: string | null;
   blockOutputs?: Record<string, Record<string, unknown>>;
   dragPositions: Record<string, { x: number; y: number }>;
   /** Live size during a NodeResizer drag (keyed by node id). */
@@ -72,6 +74,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     blockErrors,
     blockErrorSummaries,
     selectedNodeId,
+    highlightedNodeId,
     blockOutputs,
     dragPositions,
     dragSizes,
@@ -124,6 +127,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         label: resolveLabel(node, summary, schema),
         upstreamOmeFields,
         selectedNodeId,
+        highlighted: highlightedNodeId === node.id,
         callbacks: {
           onRun: makeOnRun(node.id),
           onRestart: makeOnRestart(node.id),
@@ -155,5 +159,6 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     onUpdateNodeConfig,
     schemas,
     selectedNodeId,
+    highlightedNodeId,
   ]);
 }

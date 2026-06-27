@@ -48,6 +48,12 @@ export interface BlockNodeData extends Record<string, unknown> {
   problemSeverity?: "none" | "warning" | "error";
   outputPreviewLabel?: string;
   selected?: boolean;
+  /**
+   * #1799 — transient highlight from the plot target picker (hover/select a
+   * target row). Distinct from `selected`; renders a ring without changing the
+   * Config/Preview selection. Drawn by `BlockNode` alongside the square body.
+   */
+  highlighted?: boolean;
   onRun?: () => void;
   onRestart?: () => void;
   onDelete?: () => void;
