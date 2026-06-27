@@ -105,6 +105,29 @@ describe("PackageManagerDialog (#1784)", () => {
     expect(relaunch).toHaveBeenCalledTimes(1);
   });
 
+  it("degrades gracefully when the desktop bridge has no relaunch method (#1792)", async () => {
+    listInstalledPackages.mockResolvedValue({ packages: [installedPackage()] });
+    checkPackageUpdates.mockResolvedValue({ core_base: "0.2.1", statuses: [updateStatus()] });
+    updatePackage.mockResolvedValue({
+      package_name: "scistudio-blocks-demo",
+      version: "1.2.0",
+      action: "update",
+      previous_version: "1.0.0",
+      needs_relaunch: true,
+    });
+    // OTA-newer frontend on an older shell: the bridge exists but predates the
+    // `relaunch` method. Must not throw "relaunch is not a function".
+    (window as unknown as { scistudioDesktop: unknown }).scistudioDesktop = {};
+
+    render(<PackageManagerDialog open onClose={() => {}} />);
+    await screen.findByText("scistudio-blocks-demo");
+
+    fireEvent.click(screen.getByRole("button", { name: /^update$/i }));
+    const restart = await screen.findByRole("button", { name: /restart now/i });
+    expect(() => fireEvent.click(restart)).not.toThrow();
+    expect(await screen.findByText(/quit and reopen SciStudio/i)).toBeTruthy();
+  });
+
   it("offers rollback when a backup exists and deletes on request", async () => {
     listInstalledPackages.mockResolvedValue({
       packages: [installedPackage({ has_backup: true, backup_version: "0.9.0" })],
