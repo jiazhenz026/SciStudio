@@ -124,6 +124,51 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T04:14:39.356583Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aa37094d07550b3d01bdf087ec15519d5f6de868f8bfdb8308b18b5966cf4f76",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T04:14:43.096512Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3e9579d3263588779425c9e4fb7bed2082c7c88a177492eb087caf5c218d49d4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T04:16:42.217330Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0063bf25a2589925b3dc9da87cc33955d89239a2ca6e382ffdc00ec746fac51a",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -146,6 +191,11 @@
       "at": "2026-06-27T03:43:25.297022Z",
       "owner_directive": "Submit the PR directly; I'll test later.",
       "reason": "Owner directed: implement maximize pop-out window and submit PR now; include the DataPreview test file in scope and record docs N/A"
+    },
+    {
+      "at": "2026-06-27T04:09:16.964924Z",
+      "owner_directive": "Fix the audit: preserve the existing PreviewHost (its query/drill-down/session state) when maximizing instead of remounting a fresh one.",
+      "reason": "Audit P2: maximizing remounts PreviewHost (placeholder inline + fresh host in overlay), resetting query/drill-down/session state. Owner approved fix on the open PR before merge."
     }
   ],
   "docs_events": [
@@ -569,6 +619,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.253517Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.263030Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.273157Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.283079Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.292430Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.301789Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.310841Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.320171Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.329268Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T04:16:42.341048Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -581,16 +713,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "85271be74076db87196068944a51c04c900b6d6e",
+    "base": "origin/main",
     "base_sha": "85271be7",
     "changed_files": [
       ".workflow/records/1795-guided-1795-preview-popout-window.json",
       "frontend/src/components/DataPreview.test.tsx",
       "frontend/src/components/DataPreview.tsx"
     ],
-    "diff_fingerprint": "sha256:b5103a1c266e4b22cedd4ef33a0eb5c9c487aae7c35eff1de3c5e136d2855f71",
+    "diff_fingerprint": "sha256:5e5d8c59e5b66cd927a3ff6c3c28d6c9ae39a571f0ec6e632f3f760d8e589dcf",
     "head": "HEAD",
-    "head_sha": "b85c610b",
+    "head_sha": "0e52c5bb",
     "surfaces": {
       "docs": 0,
       "frontend": 2,
@@ -652,6 +784,14 @@
     {
       "at": "2026-06-27T03:51:20.881781Z",
       "diff_fingerprint": "sha256:b5103a1c266e4b22cedd4ef33a0eb5c9c487aae7c35eff1de3c5e136d2855f71",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T04:16:42.341091Z",
+      "diff_fingerprint": "sha256:5e5d8c59e5b66cd927a3ff6c3c28d6c9ae39a571f0ec6e632f3f760d8e589dcf",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,

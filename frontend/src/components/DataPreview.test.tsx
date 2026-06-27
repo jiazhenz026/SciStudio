@@ -264,13 +264,45 @@ describe("DataPreview", () => {
 
     fireEvent.click(maximize);
     expect(screen.getByTestId("preview-maximized-overlay")).toBeInTheDocument();
-    // The maximized window keeps the routed preview alive (its own host mounts).
+    // The same host stays mounted inside the maximized window.
     await waitFor(() => expect(screen.getByTestId("preview-host")).toBeInTheDocument());
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() =>
       expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument(),
     );
+  });
+
+  // #1795 audit P2 — maximizing must NOT remount PreviewHost. PreviewHost owns
+  // the query/drill-down state and creates the preview session on mount, so a
+  // remount would reset the active preview (paging, slice, drill-down) and open
+  // a fresh session. The single host is reconciled in place, so its DOM node is
+  // reused and no extra session is created when popping out and back.
+  it("preserves the same PreviewHost instance across maximize/restore (#1795)", async () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Process Block"
+      />,
+    );
+
+    const hostBefore = await screen.findByTestId("preview-host");
+    const sessionsAfterMount = createPreviewSession.mock.calls.length;
+
+    // Maximize: the host DOM node is reused (in-place reconcile, not remount)
+    // and no new preview session is opened.
+    fireEvent.click(screen.getByRole("button", { name: "Maximize preview" }));
+    const hostMaximized = screen.getByTestId("preview-host");
+    expect(hostMaximized).toBe(hostBefore);
+
+    // Restore (Esc): still the same node, still no extra session.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("preview-host")).toBe(hostBefore);
+    expect(createPreviewSession.mock.calls.length).toBe(sessionsAfterMount);
   });
 
   it("closes the maximized window via the close control and backdrop (#1795)", async () => {

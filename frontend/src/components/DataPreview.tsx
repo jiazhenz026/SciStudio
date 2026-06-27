@@ -188,9 +188,14 @@ export function DataPreview({
     </div>
   ) : null;
 
-  // The routed preview host. Only one instance mounts at a time (inline OR the
-  // maximized window) so a single preview session is active.
-  const renderHost = () => (
+  // #1795 — a SINGLE PreviewHost instance backs both the inline panel and the
+  // maximized window. PreviewHost owns the query / drill-down state and creates
+  // the preview session on mount, so it is rendered exactly once at a stable
+  // position in the element tree. Maximizing only restyles its wrapper (inline
+  // flow ⇄ fixed overlay window); the host is never unmounted, so the active
+  // preview (table paging/sort, array slice, child-resource drill-down, dynamic
+  // previewer state, session) is preserved when popping out instead of reset.
+  const host = (
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
@@ -200,89 +205,112 @@ export function DataPreview({
     />
   );
 
-  return (
-    <>
-      <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
-            <h2 className="mt-2 font-display text-2xl text-ink">
-              {selectedNodeId ? selectedNodeLabel : "Select a block"}
-            </h2>
-          </div>
-          {hasPreviewContent ? (
-            <button
-              aria-label="Maximize preview"
-              className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
-              onClick={() => setIsMaximized(true)}
-              title="Maximize preview"
-              type="button"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-
-        {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
-            (BottomPanel). This panel renders preview content: the selected node's
-            outputs and/or the persisted plot Run result, toggled by the "Plot
-            artifact" pill. The result stays put when switching blocks. */}
-        {!selectedNodeId ? (
-          <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-            Pick a block to inspect its latest outputs and cached previews.
-          </div>
-        ) : (
-          <>
-            {pillsRow ? <div className="mt-5">{pillsRow}</div> : null}
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-              {isMaximized ? (
-                <div className="flex h-full items-center justify-center px-4 text-center text-sm text-stone-400">
-                  Preview opened in a separate window.
-                </div>
-              ) : (
-                renderHost()
-              )}
-            </div>
-          </>
-        )}
-        {portPanel}
-      </aside>
-
-      {/* #1795 — maximized preview window. Reuses the shared overlay pattern
-          (DataRouterModal / PairEditorModal). Backdrop click, the close
-          control, and Escape all dismiss it. */}
-      {isMaximized ? (
+  // The preview surface keeps an identical element structure in both modes so
+  // React reconciles in place and never remounts the host. Only class names and
+  // the maximize chrome change. Stable keys keep the host's identity even if the
+  // pills row appears/disappears as outputs arrive. When maximized the surface
+  // itself becomes the fixed backdrop (reusing the DataRouterModal /
+  // PairEditorModal overlay pattern); backdrop click, the close control, and
+  // Escape all dismiss it. The aside ancestors are flexbox panels with no
+  // transform, so the fixed overlay positions against the viewport correctly.
+  const previewSurface = (
+    <div
+      className={
+        isMaximized
+          ? "fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-6"
+          : "mt-4 flex min-h-0 flex-1 flex-col"
+      }
+      data-testid={isMaximized ? "preview-maximized-overlay" : undefined}
+      onClick={isMaximized ? () => setIsMaximized(false) : undefined}
+    >
+      <div
+        className={
+          isMaximized
+            ? "flex h-[88vh] w-[88vw] flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl"
+            : "flex min-h-0 flex-1 flex-col"
+        }
+        onClick={isMaximized ? (event) => event.stopPropagation() : undefined}
+      >
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-6"
-          onClick={() => setIsMaximized(false)}
-          data-testid="preview-maximized-overlay"
+          key="max-header"
+          className={
+            isMaximized
+              ? "flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-3"
+              : "hidden"
+          }
         >
-          <div
-            className="flex h-[88vh] w-[88vw] flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-3">
-              <div className="flex min-w-0 flex-col">
-                <span className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</span>
-                <span className="truncate font-display text-lg text-ink">{selectedNodeLabel}</span>
-              </div>
-              <button
-                aria-label="Close preview window"
-                className="shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
-                onClick={() => setIsMaximized(false)}
-                title="Close (Esc)"
-                type="button"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {pillsRow ? (
-              <div className="border-b border-stone-100 px-5 py-3">{pillsRow}</div>
-            ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-5">{renderHost()}</div>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</span>
+            <span className="truncate font-display text-lg text-ink">{selectedNodeLabel}</span>
           </div>
+          <button
+            aria-label="Close preview window"
+            className="shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
+            onClick={() => setIsMaximized(false)}
+            title="Close (Esc)"
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-      ) : null}
-    </>
+        {pillsRow ? (
+          <div
+            key="pills"
+            className={
+              isMaximized ? "shrink-0 border-b border-stone-100 px-5 py-3" : "mb-3 shrink-0"
+            }
+          >
+            {pillsRow}
+          </div>
+        ) : null}
+        <div
+          key="host"
+          className={
+            isMaximized
+              ? "min-h-0 flex-1 overflow-y-auto scrollbar-thin p-5"
+              : "min-h-0 flex-1 overflow-y-auto scrollbar-thin"
+          }
+        >
+          {host}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
+          <h2 className="mt-2 font-display text-2xl text-ink">
+            {selectedNodeId ? selectedNodeLabel : "Select a block"}
+          </h2>
+        </div>
+        {hasPreviewContent && !isMaximized ? (
+          <button
+            aria-label="Maximize preview"
+            className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
+            onClick={() => setIsMaximized(true)}
+            title="Maximize preview"
+            type="button"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
+          (BottomPanel). This panel renders preview content: the selected node's
+          outputs and/or the persisted plot Run result, toggled by the "Plot
+          artifact" pill. The result stays put when switching blocks. */}
+      {!selectedNodeId ? (
+        <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+          Pick a block to inspect its latest outputs and cached previews.
+        </div>
+      ) : (
+        previewSurface
+      )}
+      {portPanel}
+    </aside>
   );
 }
