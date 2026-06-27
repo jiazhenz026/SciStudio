@@ -11,6 +11,7 @@
  */
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
+import type { InteractivePrompt } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
@@ -24,9 +25,7 @@ import { handleWorkflowChanged } from "./handleWorkflowChanged";
 
 export interface DispatchDeps {
   appendLog: (entry: LogEntry) => void;
-  setInteractivePrompt: (
-    prompt: { blockId: string; blockType: string; data: Record<string, unknown> } | null,
-  ) => void;
+  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
   setWorkflow: (workflow: VersionedWorkflowResponse | null) => void;
 }
 

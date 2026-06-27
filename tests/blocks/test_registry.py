@@ -26,16 +26,19 @@ class TestBlockRegistryBuiltins:
         specs = reg.all_specs()
         names = list(specs.keys())
         # First-party core blocks registered in _scan_builtins.
-        for expected in ("Load", "Save", "Data Router", "Merge Collection", "Split Collection"):
+        for expected in ("Load", "Save", "Data Router", "Merge Collection", "Pair Editor"):
             assert expected in names, f"{expected!r} missing from palette: {names}"
         # All first-party blocks carry the sanitized 'builtin' source.
         assert specs["Data Router"].source == "builtin"
         # Base classes are never registered.
         assert "IOBlock" not in names
-        # #1779: DataFrame-level Merge/Split placeholders stay out of the palette;
-        # the collection-level blocks above are the user-facing equivalents.
+        # #1779: DataFrame-level Merge/Split placeholders stay out of the palette.
         assert "Merge" not in names
         assert "Split" not in names
+        # #1781: collection filter/slice/split retired (superseded by Data Router).
+        assert "Filter Collection" not in names
+        assert "Slice Collection" not in names
+        assert "Split Collection" not in names
 
     def test_instantiate_by_name(self) -> None:
         reg = BlockRegistry()
@@ -69,9 +72,6 @@ class TestBlockRegistryBuiltins:
             "App Block",
             "Data Router",
             "Merge Collection",
-            "Split Collection",
-            "Filter Collection",
-            "Slice Collection",
             "Pair Editor",
         ):
             assert expected in names, f"{expected!r} missing from metadata-less palette: {sorted(names)}"

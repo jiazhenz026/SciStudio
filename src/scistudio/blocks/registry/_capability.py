@@ -282,6 +282,54 @@ def _validate_dynamic_ports(cls: type) -> None:
                     )
 
 
+def _validate_interactive_capability(cls: type) -> None:
+    """Bind the interaction capability to ``INTERACTIVE`` mode at scan time (ADR-051 FR-002).
+
+    Mirrors :func:`_validate_dynamic_ports`: a pure module-level scan-time
+    class-shape validator that raises ``ValueError`` (the scanners catch and
+    drop the offending block, except builtins which must pass). Enforces the
+    biconditional between ``execution_mode == ExecutionMode.INTERACTIVE`` and
+    inheriting :class:`~scistudio.blocks.base.interactive.InteractiveMixin`, and
+    that an interactive block defines ``prepare_prompt`` and declares a valid
+    :class:`~scistudio.blocks.base.interactive.PanelManifest`. A no-op for the
+    common AUTO/EXTERNAL case (neither half present).
+    """
+    # Local imports keep this registry helper import-light and avoid a cycle
+    # with blocks.base (mirrors the lazy-import style used across this module).
+    from scistudio.blocks.base.interactive import InteractiveMixin, PanelManifest
+    from scistudio.blocks.base.state import ExecutionMode
+
+    cls_name = cls.__name__
+    is_interactive_mode = getattr(cls, "execution_mode", None) == ExecutionMode.INTERACTIVE
+    try:
+        is_mixin = issubclass(cls, InteractiveMixin)
+    except TypeError:
+        is_mixin = False
+
+    # Common non-interactive case: neither half declared -> nothing to validate.
+    if not is_interactive_mode and not is_mixin:
+        return
+
+    if is_interactive_mode and not is_mixin:
+        raise ValueError(
+            f"{cls_name}: execution_mode=INTERACTIVE requires inheriting InteractiveMixin (ADR-051 FR-002)."
+        )
+    if is_mixin and not is_interactive_mode:
+        raise ValueError(f"{cls_name}: InteractiveMixin requires execution_mode=INTERACTIVE (ADR-051 FR-002).")
+
+    # Interactive block: prepare_prompt must be overridden (the mixin default
+    # raises NotImplementedError) and a valid panel manifest must be declared.
+    prepare = getattr(cls, "prepare_prompt", None)
+    if not callable(prepare) or prepare is InteractiveMixin.prepare_prompt:
+        raise ValueError(f"{cls_name}: INTERACTIVE block must implement prepare_prompt() (ADR-051 FR-002).")
+    panel = getattr(cls, "interactive_panel", None)
+    if not isinstance(panel, PanelManifest) or not panel.panel_id:
+        raise ValueError(
+            f"{cls_name}: INTERACTIVE block must declare a valid interactive_panel "
+            f"PanelManifest with a non-empty panel_id (ADR-051 FR-002)."
+        )
+
+
 def _resolve_class(spec: BlockSpec) -> type | None:
     """Load the class referenced by *spec*. Returns ``None`` on import failure.
 
@@ -579,6 +627,7 @@ __all__ = [
     "_resolve_first_capability_class",
     "_validate_capability_id",
     "_validate_dynamic_ports",
+    "_validate_interactive_capability",
     "find_loader_capability",
     "find_saver_capability",
     "list_format_capabilities",

@@ -199,7 +199,40 @@ Fine-grained palette grouping label (e.g., `"segmentation"`,
 
 ### `execution_mode: ClassVar[ExecutionMode]`
 
-Execution mode hint. Default: `ExecutionMode.AUTO`.
+Execution mode hint. Default: `ExecutionMode.AUTO`. `EXTERNAL` is used by
+App/AI blocks that coordinate long-lived external processes. `INTERACTIVE`
+marks an interactive data-processing block and is gated by the capability
+described below.
+
+### Interactive blocks: `InteractiveMixin` capability (ADR-051)
+
+A block that pauses mid-workflow, opens a block-owned window onto its real
+input data, and computes from a user decision is **interactive**. Interactivity
+is a *capability* layered onto an existing block category (e.g. `ProcessBlock`),
+not a new base class. A block becomes interactive by:
+
+1. Inheriting `scistudio.blocks.base.interactive.InteractiveMixin`.
+2. Declaring `execution_mode = ExecutionMode.INTERACTIVE`.
+3. Declaring an `interactive_panel: ClassVar[PanelManifest]` naming the frontend
+   window component (resolved same-origin like an ADR-048 previewer).
+4. Implementing `prepare_prompt(self, inputs, config) -> InteractivePrompt`.
+
+The registry binds the capability and the mode together at scan time: declaring
+one without the other, omitting `prepare_prompt`, or omitting a valid panel
+manifest is rejected at load time (ADR-051 FR-002).
+
+Runtime contract (ADR-051): the block runs as **two worker-subprocess phases**
+around an engine-held pause. The **prompt phase** runs `prepare_prompt` and
+returns an `InteractivePrompt(panel_payload, intermediate)` — `panel_payload`
+is a JSON-safe, window-sized view sent to the browser; `intermediate` is an
+optional tuple of storage references for heavy work to reuse, held engine-side
+and never sent to the browser. The engine emits `INTERACTIVE_PROMPT` (carrying
+the panel manifest and payload) and pauses with nothing resident. On
+confirmation, the **compute phase** runs the block's own `run`, which reads the
+user's decision from `config["interactive_response"]` (and may load intermediate
+references via `config["interactive_intermediate"]`). The decision is recorded
+in lineage; the intermediate scratch is not. `DataRouter` and `PairEditor` are
+the reference implementations.
 
 ### `terminate_grace_sec: ClassVar[float]`
 

@@ -119,10 +119,38 @@ export interface WorkflowSlice {
   redoWorkflow: () => void;
 }
 
-/** #591/#594: Data for an interactive block prompt (DataRouter, PairEditor). */
+/** ADR-051: descriptor for a block-owned interactive panel component. */
+export interface PanelManifestDescriptor {
+  panel_id: string;
+  module_url?: string;
+  export_name?: string;
+  css?: string[];
+  version?: string;
+  api_version?: string;
+}
+
+/** #591/#594 + ADR-051: Data for an interactive block prompt (DataRouter, PairEditor). */
 export interface InteractivePrompt {
   blockId: string;
   blockType: string;
+  /**
+   * ADR-051: the workflow id the prompt belongs to, carried by the prompt event.
+   * Confirm/cancel MUST use this (not the store's active workflow id), so the
+   * response is run-scoped to the right run even if the user switches tabs while
+   * the prompt is open.
+   */
+  workflowId: string;
+  /** ADR-051: panel manifest used to resolve the window component (FR-007). */
+  panelManifest: PanelManifestDescriptor | null;
+  /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
+  panelPayload: Record<string, unknown>;
+  /**
+   * ADR-051 interaction memory: the generic input fingerprint for this run,
+   * echoed by the engine so the frontend can persist it alongside the decision
+   * when the user enables "remember and skip the dialog".
+   */
+  inputSignature: Record<string, string[]>;
+  /** Full event-data envelope (back-compat). */
   data: Record<string, unknown>;
 }
 

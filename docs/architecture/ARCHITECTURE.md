@@ -787,7 +787,8 @@ records transitions, handles cancellation, and collects outputs. The worker
 process reconstructs typed inputs from references, executes the block, and
 returns typed outputs.
 
-For non-interactive blocks, subprocess isolation provides three guarantees:
+Subprocess isolation provides three guarantees for **every** block, interactive
+or not:
 
 - **Reliable cancellation**: the runtime can terminate a block without killing
   the engine.
@@ -797,27 +798,31 @@ For non-interactive blocks, subprocess isolation provides three guarantees:
   exchange carries references and metadata rather than full data whenever
   possible.
 
-#### 5.3.1 Interactive blocks run in-process
+#### 5.3.1 Interactive blocks run as two subprocess phases
 
 Interactive blocks (for example `DataRouter` and `PairEditor`, identified by
-`execution_mode == ExecutionMode.INTERACTIVE`) are a deliberate exception: they
-run **in-process inside the scheduler coroutine**, not in a worker subprocess.
-This is the design decision established by ADR-018 and issues #591/#594.
+`execution_mode == ExecutionMode.INTERACTIVE` plus the `InteractiveMixin`
+capability) are **not** an exception to subprocess isolation. Since ADR-051 they
+run as **two worker-subprocess phases around an engine-held pause**, so a block
+is only ever executing inside a subprocess that runs to completion, never while
+a human is in the loop.
 
-The reason is bidirectional communication. An interactive block transitions to
-`PAUSED`, calls `prepare_prompt(inputs, config)` to build data for the frontend,
-emits an `INTERACTIVE_PROMPT` event over the WebSocket, awaits the user's
-response, and only then calls `run(inputs, config)` with that response merged
-into its config. This prompt round-trip requires a live bidirectional channel to
-the frontend that a one-shot worker subprocess does not provide. Running these
-blocks in-process avoids building a separate IPC transport for prompt
-round-trips (the rejected alternative in #1331).
+The flow is: a **prompt phase** worker runs `prepare_prompt(inputs, config)` to
+build a JSON-safe, window-sized view of the data and exits; the engine
+transitions the block to `PAUSED` and holds the wait with **nothing resident**,
+emitting an `INTERACTIVE_PROMPT` event (carrying the block's panel manifest and
+the panel payload) over the WebSocket; when the user confirms, a fresh
+**compute phase** worker runs `run(inputs, config)` with the decision merged
+into config and exits. Heavy intermediate work may cross the pause as
+engine-held storage references (never through the browser), and the user's
+decision is recorded in lineage through `block_config_resolved` (ADR-038).
 
-Consequently, the crash-isolation guarantee above does **not** apply to
-interactive blocks: a fault in an interactive block runs in the same process as
-the engine. Interactive blocks are framework-provided and intentionally kept
-small for this reason. See `scistudio/engine/scheduler/_dispatch.py`
-(`_run_interactive`) for the implementation.
+Because no block code is resident during the pause, the crash-isolation and
+cancellation guarantees above apply to interactive blocks too: cancelling a
+paused interaction releases any intermediate scratch and starts no compute
+phase. See `scistudio/engine/scheduler/_dispatch.py` (`_run_interactive`),
+`scistudio/engine/runners/worker.py` (the phase marker), and
+`scistudio/blocks/base/interactive.py` (the capability) for the implementation.
 
 ### 5.4 Core Block Classes
 

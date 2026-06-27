@@ -115,10 +115,11 @@ def _scan_builtins(registry: BlockRegistry) -> None:
 
     Only concrete, user-facing blocks are registered. The DataFrame-level
     process placeholders ``MergeBlock`` (``Merge``) and ``SplitBlock``
-    (``Split``) are intentionally excluded from the palette — the
-    collection-level :class:`MergeCollection` / :class:`SplitCollection`
-    blocks are the user-facing equivalents. The excluded classes remain
-    importable for plugin development and tests.
+    (``Split``) are intentionally excluded from the palette. The interactive
+    :class:`DataRouter` supersedes the former collection filter/slice/split
+    blocks; :class:`MergeCollection` remains as the variadic merge primitive.
+    The excluded classes remain importable for plugin development
+    and tests.
     """
     from scistudio.blocks.ai.ai_block import AIBlock
     from scistudio.blocks.app import AppBlock
@@ -126,11 +127,8 @@ def _scan_builtins(registry: BlockRegistry) -> None:
     from scistudio.blocks.io.loaders.load_data import LoadData
     from scistudio.blocks.io.savers.save_data import SaveData
     from scistudio.blocks.process.builtins.data_router import DataRouter
-    from scistudio.blocks.process.builtins.filter_collection import FilterCollection
     from scistudio.blocks.process.builtins.merge_collection import MergeCollection
     from scistudio.blocks.process.builtins.pair_editor import PairEditor
-    from scistudio.blocks.process.builtins.slice_collection import SliceCollection
-    from scistudio.blocks.process.builtins.split_collection import SplitCollection
     from scistudio.blocks.registry._spec import _spec_from_class
     from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
 
@@ -143,9 +141,6 @@ def _scan_builtins(registry: BlockRegistry) -> None:
         AppBlock,
         DataRouter,
         MergeCollection,
-        SplitCollection,
-        FilterCollection,
-        SliceCollection,
         PairEditor,
     ):
         _register_spec(registry, _spec_from_class(cls, source="builtin"))

@@ -351,6 +351,10 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     # Fail loudly at scan time on malformed dynamic-port descriptors.
     BlockRegistry._validate_dynamic_ports(cls)
 
+    # ADR-051 FR-002: bind the interaction capability (InteractiveMixin) to
+    # execution_mode=INTERACTIVE and require a valid panel manifest at scan time.
+    BlockRegistry._validate_interactive_capability(cls)
+
     base_cat = _infer_category(cls)
     sub_cat = getattr(cls, "subcategory", "") or ""
 
@@ -358,6 +362,16 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     # lists for the API.  Empty list on the class means "any DataObject".
     allowed_in: list[str] = [t.__name__ for t in (getattr(cls, "allowed_input_types", None) or [])]
     allowed_out: list[str] = [t.__name__ for t in (getattr(cls, "allowed_output_types", None) or [])]
+
+    # ADR-051: surface the execution mode and the interactive panel manifest as
+    # block metadata for registry/API/palette consumption and package panel
+    # asset serving. Read directly off the class ClassVars (the registry never
+    # instantiates the block here).
+    _mode = getattr(cls, "execution_mode", None)
+    execution_mode = _mode.value if _mode is not None and hasattr(_mode, "value") else "auto"
+    _panel = getattr(cls, "interactive_panel", None)
+    panel_manifest = _panel.to_dict() if _panel is not None and hasattr(_panel, "to_dict") else None
+    panel_asset_root = getattr(_panel, "asset_root", None) if _panel is not None else None
 
     return BlockSpec(
         name=getattr(cls, "name", cls.__name__),
@@ -391,4 +405,8 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
         # ADR-043: capture normalized IO format capabilities at scan time so
         # lookup does not need to re-import block classes for ordinary queries.
         format_capabilities=_format_capabilities_from_class(cls),
+        # ADR-051: execution mode + interactive panel manifest (None unless INTERACTIVE).
+        execution_mode=execution_mode,
+        panel_manifest=panel_manifest,
+        panel_asset_root=panel_asset_root,
     )

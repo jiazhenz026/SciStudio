@@ -30,15 +30,20 @@ governs:
     - scistudio.engine.scheduler
     - scistudio.engine.runners
     - scistudio.blocks.base
+    - scistudio.blocks.base.interactive
     - scistudio.blocks.process.builtins
   contracts:
     - scistudio.blocks.base.state.ExecutionMode
+    - scistudio.blocks.base.interactive.InteractiveMixin
+    - scistudio.blocks.base.interactive.InteractivePrompt
+    - scistudio.blocks.base.interactive.PanelManifest
     - scistudio.engine.runners.local.LocalRunner
     - scistudio.engine.runners.worker.main
   entry_points: []
   files:
     - docs/specs/adr-051-interactive-blocks.md
     - src/scistudio/blocks/base/block.py
+    - src/scistudio/blocks/base/interactive.py
     - src/scistudio/blocks/base/state.py
     - src/scistudio/blocks/process/builtins/data_router.py
     - src/scistudio/blocks/process/builtins/pair_editor.py
@@ -59,15 +64,10 @@ governs:
     - docs/user/reference/**
     - docs/user/llms.txt
 planned_governs:
-  modules:
-    - scistudio.blocks.base.interactive
-  contracts:
-    - scistudio.blocks.base.interactive.InteractiveMixin
-    - scistudio.blocks.base.interactive.InteractivePrompt
-    - scistudio.blocks.base.interactive.PanelManifest
+  modules: []
+  contracts: []
   entry_points: []
-  files:
-    - src/scistudio/blocks/base/interactive.py
+  files: []
   excludes: []
 tests:
   - tests/blocks/test_interactive_mixin.py
@@ -222,9 +222,13 @@ each is rejected at scan time; cancel a paused interaction and assert the block 
 - **FR-006**: On reaching an interactive block the engine MUST transition it to
   `PAUSED`, deliver the `panel_payload` to the frontend, and hold the pause with no
   block process resident.
-- **FR-007**: The panel component MUST be resolved and loaded from the block's
-  manifest through the ADR-048 same-origin asset-serving mechanism; the frontend
-  MUST NOT select panels by hardcoded `blockType` branching.
+- **FR-007**: The panel component MUST be resolved from the block's panel
+  manifest, and the frontend MUST NOT select panels by hardcoded `blockType`
+  branching. Core panels resolve from the manifest's `panel_id` against a
+  built-in panel registry (they are bundled with the app, not wheel-served, so
+  their `module_url` is empty); a package-provided panel loads its module from
+  the manifest's `module_url` through the ADR-048 same-origin asset-serving
+  mechanism. Both paths are manifest-driven; only the load mechanism differs.
 - **FR-008**: The interaction MUST be a single round; the runtime MUST NOT
   re-invoke block computation to refresh the window while it is open.
 - **FR-009**: On confirmation the engine MUST transition the block to `RUNNING` and
@@ -300,11 +304,24 @@ resolved config the compute phase runs with (ADR-038 `block_config_resolved`),
 while intermediate references are stripped from the recorded config.
 
 The frontend replaces the hardcoded `InteractiveModals` `blockType` branching with
-a panel host that resolves the component from the block's manifest and loads it via
-the ADR-048 asset-serving route and validator. `DataRouterModal` and
-`PairEditorModal` are repackaged as manifest-served components and their blocks
-declare manifests. Their `prepare_prompt` implementations are aligned to return
-`InteractivePrompt`.
+a panel host that resolves the component from the block's manifest `panel_id`.
+Core panels resolve against a built-in panel registry (the bundled
+`DataRouterModal` / `PairEditorModal` keyed by `panel_id`); a package panel loads
+its module from the manifest's `module_url` by dynamically importing it
+(same-origin, reusing the ADR-048 `@vite-ignore` import + version/CSS handling)
+and mounting it with a panel host API (`panelPayload`, `confirm`, `cancel`).
+The backend serves those package panel assets from a path-confined,
+suffix-allowlisted route (`GET /api/blocks/panels/{panel_id}/{asset_path}`,
+mirroring the ADR-048 previewer asset route) keyed by the block's
+`PanelManifest.asset_root`. No core block ships a wheel-served panel, so the
+dynamic-import / asset-serving path is exercised only by packages.
+
+The panel manifest is also surfaced as block metadata for registry/API/palette
+consumption: `BlockSpec`, the `BlockSummary` palette DTO, and the
+`get_block_schema` response carry `execution_mode` and the serialized
+`panel_manifest` (the server-only `asset_root` stays off the wire, used by the
+asset route for path confinement). The two core blocks declare manifests, and
+their `prepare_prompt` implementations are aligned to return `InteractivePrompt`.
 
 ### 4.2 Affected Files
 

@@ -139,6 +139,19 @@ class BlockSpec:
     # exposed to the core process globally. The runner passes these to the
     # worker payload for block-local imports.
     runtime_import_roots: list[str] = field(default_factory=list)
+    # ADR-051: execution mode hint ("auto" | "interactive" | "external") copied
+    # from the ``Block.execution_mode`` ClassVar so consumers (palette/API) can
+    # tell an interactive block apart without instantiating it.
+    execution_mode: str = "auto"
+    # ADR-051: the interactive panel manifest (serialized wire shape) for
+    # INTERACTIVE blocks, surfaced for registry/API/palette consumption and for
+    # package panel asset serving/validation. ``None`` for non-interactive blocks.
+    panel_manifest: dict[str, Any] | None = None
+    # ADR-051: server-side-only filesystem root a package confines its panel
+    # assets under (never serialized to the wire, mirroring ADR-048 asset_root).
+    # Used by the panel asset-serving route for path confinement. ``None`` for
+    # core/bundled panels and non-interactive blocks.
+    panel_asset_root: str | None = None
 
 
 class BlockRegistry:
@@ -217,6 +230,13 @@ class BlockRegistry:
         from scistudio.blocks.registry._capability import _validate_dynamic_ports
 
         _validate_dynamic_ports(cls)
+
+    @staticmethod
+    def _validate_interactive_capability(cls: type) -> None:
+        """Bind InteractiveMixin to ``execution_mode=INTERACTIVE`` at scan time (ADR-051 FR-002)."""
+        from scistudio.blocks.registry._capability import _validate_interactive_capability
+
+        _validate_interactive_capability(cls)
 
     def get_spec(self, identifier: str) -> BlockSpec | None:
         """Resolve a block spec by display name or public type name."""

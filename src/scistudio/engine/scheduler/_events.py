@@ -67,14 +67,34 @@ async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> No
 
     Resolves the pending future for the block so that
     ``_run_interactive`` can proceed with the user's response.
+
+    #1517/#1596: the EventBus is process-global, so this handler is run-scoped
+    like the other lifecycle handlers — an ``interactive_complete`` that carries
+    a ``workflow_id`` is only honoured by the matching run, preventing one
+    browser confirm from resolving a colliding ``block_id`` future in a
+    different concurrent run (ADR-051 audit P2-1). ``_event_is_for_run`` is
+    fail-open on an absent ``workflow_id`` so legacy callers keep working.
+
+    The scoping ``workflow_id`` is carried alongside the decision (the decision
+    is nested under ``response`` by ``api/ws.py``); it is stripped here so it
+    never leaks into ``interactive_response`` / lineage.
     """
     block_id = event.block_id
     if block_id is None:
         return
+    if not _event_is_for_run(self, event):
+        return
 
     future = self._interactive_futures.get(block_id)
     if future is not None and not future.done():
-        future.set_result(event.data)
+        data = event.data if isinstance(event.data, dict) else {}
+        if "response" in data:
+            response = data["response"]
+        else:
+            # Legacy / test callers emit the decision flat; drop any scoping
+            # workflow_id so the recorded response is the decision only.
+            response = {key: value for key, value in data.items() if key != "workflow_id"}
+        future.set_result(response)
     else:
         logger.warning(
             "Received interactive_complete for block %s but no pending future found",

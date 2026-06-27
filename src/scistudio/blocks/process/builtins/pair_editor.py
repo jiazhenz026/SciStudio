@@ -14,13 +14,19 @@ import logging
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.interactive import (
+    InteractiveMixin,
+    InteractivePrompt,
+    PanelManifest,
+    interactive_item_label,
+)
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 
 logger = logging.getLogger(__name__)
 
 
-class PairEditor(ProcessBlock):
+class PairEditor(InteractiveMixin, ProcessBlock):
     """Interactive item reordering block for fixing index-based pairing.
 
     Users configure N variadic input ports (2-8). Output ports are
@@ -29,11 +35,16 @@ class PairEditor(ProcessBlock):
     panels are "paired" (highlighted with same color). Users drag to
     reorder within each panel.
 
+    ADR-051: carries the interaction capability (``InteractiveMixin`` +
+    ``execution_mode = INTERACTIVE``); runs as two worker subprocesses around an
+    engine-held pause and opens its window through :attr:`interactive_panel`.
+    Its pair-reordering behaviour is unchanged.
+
     Runtime flow:
         1. User configures N input ports (2-8), output ports auto-mirror
-        2. Workflow reaches PairEditor -> PAUSED
-        3. Frontend opens PairEditor modal (N side-by-side sortable panels)
-        4. Confirm -> reordered indices sent to backend -> reordered Collections -> DONE
+        2. Workflow reaches PairEditor; prompt phase builds the view (subprocess) -> PAUSED
+        3. Frontend resolves the panel from the manifest (N side-by-side sortable panels)
+        4. Confirm -> reordered indices sent to backend -> compute phase reorders -> DONE
 
     Validation: All input Collections must have equal length.
     """
@@ -45,6 +56,12 @@ class PairEditor(ProcessBlock):
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
+    # ADR-051: the block-owned window, resolved from the built-in panel registry.
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
+        panel_id="core.interactive.pair_editor",
+        version="1",
+    )
+
     variadic_inputs: ClassVar[bool] = True
     variadic_outputs: ClassVar[bool] = True
     allowed_input_types: ClassVar[list[type]] = []
@@ -52,13 +69,13 @@ class PairEditor(ProcessBlock):
     min_input_ports: ClassVar[int | None] = 2
     max_input_ports: ClassVar[int | None] = 8
 
-    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Prepare data for the frontend interactive prompt.
+    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
+        """Build the panel view for the interactive prompt (ADR-051 prompt phase).
 
-        Validates equal-length Collections and returns item descriptors
-        for each port.
-
-        Returns a dict with:
+        Runs in an isolated worker subprocess. Validates equal-length
+        Collections and returns an
+        :class:`~scistudio.blocks.base.interactive.InteractivePrompt` whose
+        ``panel_payload`` carries:
             ports: list of port name strings
             items_per_port: dict mapping port name to list of item descriptors
             collection_length: int (common length of all Collections)
@@ -76,7 +93,7 @@ class PairEditor(ProcessBlock):
                 for i, item in enumerate(value):
                     item_desc: dict[str, Any] = {
                         "index": i,
-                        "name": getattr(item, "name", None) or f"item_{i}",
+                        "name": interactive_item_label(item, i),
                         "type": type(item).__name__,
                     }
                     items.append(item_desc)
@@ -85,7 +102,7 @@ class PairEditor(ProcessBlock):
                 items.append(
                     {
                         "index": 0,
-                        "name": getattr(value, "name", None) or "item_0",
+                        "name": interactive_item_label(value, 0),
                         "type": type(value).__name__,
                     }
                 )
@@ -99,11 +116,13 @@ class PairEditor(ProcessBlock):
 
         collection_length = unique_lengths.pop() if unique_lengths else 0
 
-        return {
-            "ports": ports,
-            "items_per_port": items_per_port,
-            "collection_length": collection_length,
-        }
+        return InteractivePrompt(
+            panel_payload={
+                "ports": ports,
+                "items_per_port": items_per_port,
+                "collection_length": collection_length,
+            }
+        )
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
         """Reorder items in each Collection based on user-specified indices.
@@ -120,12 +139,21 @@ class PairEditor(ProcessBlock):
         if not reorder:
             raise ValueError("PairEditor received no reorder data from interactive response")
 
+        # Outputs auto-mirror inputs positionally, but the output ports have
+        # their own names (e.g. inputs ``input_1``/``input_2`` -> outputs
+        # ``port_1``/``port_2``). The reorder decision is keyed by the *input*
+        # port names, while the engine validates the block's declared *output*
+        # port names — so emit each result under the i-th output port name, not
+        # the input name (which would leave the required output ports unproduced).
+        output_port_names = [p.name for p in self.get_effective_output_ports()]
+
         outputs: dict[str, Any] = {}
-        for port_name, value in inputs.items():
+        for idx, (port_name, value) in enumerate(inputs.items()):
+            out_name = output_port_names[idx] if idx < len(output_port_names) else port_name
             indices = reorder.get(port_name)
             if indices is None:
                 # If no reorder specified for this port, pass through unchanged.
-                outputs[port_name] = value
+                outputs[out_name] = value
                 continue
 
             if isinstance(value, Collection):
@@ -136,9 +164,9 @@ class PairEditor(ProcessBlock):
                         f"Collection length ({len(items)}) for port '{port_name}'"
                     )
                 reordered = [items[i] for i in indices]
-                outputs[port_name] = Collection(reordered, item_type=value.item_type)
+                outputs[out_name] = Collection(reordered, item_type=value.item_type)
             else:
                 # Single item — pass through.
-                outputs[port_name] = value
+                outputs[out_name] = value
 
         return outputs

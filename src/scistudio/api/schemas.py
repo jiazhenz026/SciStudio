@@ -148,6 +148,11 @@ class BlockSummary(BaseModel):
     # ADR-043: capabilities are metadata for aggregate IOBlocks, not separate
     # palette entries. The frontend uses them for format selection only.
     format_capabilities: list[FormatCapabilityResponse] = Field(default_factory=list)
+    # ADR-051: execution mode + the interactive panel manifest (None unless the
+    # block is interactive) so the palette/API can identify interactive blocks
+    # and resolve their window without instantiating the block.
+    execution_mode: str = "auto"
+    panel_manifest: dict[str, Any] | None = None
 
 
 class BlockListResponse(BaseModel):
