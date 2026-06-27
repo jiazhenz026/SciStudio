@@ -29,7 +29,6 @@ $ResourcesRoot = Join-Path $DesktopRoot "resources"
 $PythonRoot = Join-Path $ResourcesRoot "python"
 $CacheRoot = Join-Path $DesktopRoot ".cache\python-runtime"
 $AssetJson = Join-Path $CacheRoot "python-build-standalone-release.json"
-$Tarball = Join-Path $CacheRoot "python-build-standalone-windows.tar.gz"
 $ExtractRoot = Join-Path $CacheRoot "extract"
 
 function Reset-Directory {
@@ -63,6 +62,13 @@ if (-not $Asset) {
     $names = ($Release.assets | ForEach-Object { $_.name }) -join "`n"
     throw "No python-build-standalone asset for $PythonVersionPrefix $TargetTriple.`n$names"
 }
+
+# Key the cached archive by the selected asset name (which embeds the CPython
+# version + build date). Changing SCISTUDIO_DESKTOP_PYTHON_VERSION_PREFIX or a
+# newer release selecting a different asset therefore picks a different cache
+# file and re-downloads, instead of silently extracting a stale runtime from a
+# fixed filename (#1807 review).
+$Tarball = Join-Path $CacheRoot $Asset.name
 
 if (-not (Test-Path $Tarball)) {
     Write-Host "Downloading $($Asset.browser_download_url)"

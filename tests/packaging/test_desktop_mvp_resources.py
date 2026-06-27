@@ -109,8 +109,15 @@ def test_desktop_has_portable_python_runtime_builder() -> None:
     content = script.read_text(encoding="utf-8")
 
     assert script.exists()
-    assert "python.org/ftp/python" in content
-    assert "get-pip.py" in content
+    # #1807: Windows stages python-build-standalone (a full CPython, no
+    # ``._pth``) so PYTHONPATH works like macOS — NOT the python.org embeddable
+    # zip, whose ``._pth`` makes CPython ignore PYTHONPATH and broke base launch
+    # and OTA on Windows.
+    assert "python-build-standalone" in content
+    assert "x86_64-pc-windows-msvc" in content
+    assert "install_only" in content
+    assert "python.org/ftp/python" not in content
+    assert "get-pip.py" not in content
     assert "pip install --no-warn-script-location $RepoRoot" in content
     assert "import scistudio, fastapi, uvicorn, winpty" in content
 

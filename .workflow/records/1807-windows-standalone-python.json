@@ -77,9 +77,7 @@
   "declared_scope": {
     "exclude": [],
     "include": [
-      "desktop/scripts/build-python-runtime.ps1",
-      "desktop/test/build-python-runtime.test.js",
-      "desktop/README.md"
+      "tests/packaging/test_desktop_mvp_resources.py"
     ]
   },
   "directive_events": [
@@ -520,6 +518,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:34.774115Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:34.833291Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:34.887187Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:34.941583Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.039358Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.100651Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.154086Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.207891Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.269188Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:35.325835Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:55.844905Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:55.899560Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:55.954511Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.014987Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.075540Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.135549Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.194601Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.247528Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.301222Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T11:45:56.356497Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -532,7 +650,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "d7c3314bef0fee826620b5a675f156f60053c045",
+    "base": "origin/main",
     "base_sha": "d7c3314b",
     "changed_files": [
       ".workflow/records/1807-windows-standalone-python.json",
@@ -540,9 +658,9 @@
       "desktop/scripts/build-python-runtime.ps1",
       "desktop/test/build-python-runtime.test.js"
     ],
-    "diff_fingerprint": "sha256:56aa7aa78955c30e2f4a73e41146162a21218f3456492b306a190d47af3a9d86",
+    "diff_fingerprint": "sha256:9bd38e698c37454289d234687e8452342ea19f9c366f8179dca9e62542abea60",
     "head": "HEAD",
-    "head_sha": "ceb5ae3d",
+    "head_sha": "96cb8d51",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -624,6 +742,24 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T11:45:35.325878Z",
+      "diff_fingerprint": "sha256:9bd38e698c37454289d234687e8452342ea19f9c366f8179dca9e62542abea60",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-06-27T11:45:56.356534Z",
+      "diff_fingerprint": "sha256:9bd38e698c37454289d234687e8452342ea19f9c366f8179dca9e62542abea60",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "1807-windows-standalone-python",
@@ -652,7 +788,26 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-27T11:45:54.798268Z",
+      "pattern": "desktop/scripts/build-python-runtime.ps1",
+      "reason": "Re-include the original desktop scope alongside the Codex-review packaging-test fix"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T11:45:54.798288Z",
+      "pattern": "desktop/test/build-python-runtime.test.js",
+      "reason": "Re-include the original desktop scope alongside the Codex-review packaging-test fix"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T11:45:54.798291Z",
+      "pattern": "desktop/README.md",
+      "reason": "Re-include the original desktop scope alongside the Codex-review packaging-test fix"
+    }
+  ],
   "session_id": "ee049bc2-aa8b-41ca-a6b5-9f2a7f387d44",
   "strictness_tier": 2,
   "task_kind": "bugfix",
