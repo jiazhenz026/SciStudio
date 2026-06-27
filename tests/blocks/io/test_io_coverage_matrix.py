@@ -35,8 +35,8 @@ from scistudio.blocks.io.loaders.load_data import LoadData
 from scistudio.blocks.io.savers.save_data import SaveData
 from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.core.types.array import Array
-from scistudio.core.types.collection import Collection
 from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.collection import Collection
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series

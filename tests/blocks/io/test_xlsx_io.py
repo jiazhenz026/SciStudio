@@ -37,9 +37,7 @@ def _write_workbook(path: Path, sheets: dict[str, dict[str, list]]) -> None:
 def _load(paths, core_type: str, output_dir: Path):
     raw = [str(p) for p in paths] if isinstance(paths, list) else str(paths)
     params = {"core_type": core_type, "path": raw}
-    return LoadData(config={"params": params}).load(
-        BlockConfig(params=params), output_dir=str(output_dir)
-    )
+    return LoadData(config={"params": params}).load(BlockConfig(params=params), output_dir=str(output_dir))
 
 
 def test_single_multisheet_file_fans_out_into_a_collection(tmp_path: Path) -> None:
@@ -118,9 +116,7 @@ def test_save_sourceless_collection_into_one_workbook(tmp_path: Path) -> None:
 
     from scistudio.core.types.dataframe import DataFrame
 
-    items = [
-        DataFrame(columns=["a"], row_count=1, data=pa.table({"a": [i]})) for i in range(3)
-    ]
+    items = [DataFrame(columns=["a"], row_count=1, data=pa.table({"a": [i]})) for i in range(3)]
     coll = Collection(items=items, item_type=DataFrame)
 
     out_dir = tmp_path / "saved"

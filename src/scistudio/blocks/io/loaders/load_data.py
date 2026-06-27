@@ -265,9 +265,7 @@ class LoadData(IOBlock):
         # sheet. Across a multi-path list, every sheet of every file is
         # flattened into one Collection (engine stays unchanged — item strategy
         # is the block's responsibility per ADR-020).
-        xlsx_active = type_name in {"DataFrame", "Series"} and any(
-            _is_xlsx_path(p) for p in path_list
-        )
+        xlsx_active = type_name in {"DataFrame", "Series"} and any(_is_xlsx_path(p) for p in path_list)
 
         if is_multi or xlsx_active:
             loader = dispatch[type_name]
@@ -288,9 +286,7 @@ class LoadData(IOBlock):
         result: DataObject = dispatch[type_name](config, output_dir)
         return result
 
-    def _load_xlsx_objects(
-        self, config: BlockConfig, output_dir: str, type_name: str
-    ) -> list[DataObject]:
+    def _load_xlsx_objects(self, config: BlockConfig, output_dir: str, type_name: str) -> list[DataObject]:
         """Load one DataFrame/Series per sheet of an .xlsx workbook (#1810).
 
         Each sheet becomes its own DataObject carrying ``framework.source`` (the

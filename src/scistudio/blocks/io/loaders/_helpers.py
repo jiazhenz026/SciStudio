@@ -142,10 +142,7 @@ def _read_xlsx_sheets(path: Path) -> list[tuple[str, Any]]:
 
     # ``sheet_name=None`` returns an ordered dict {sheet_name: DataFrame}.
     frames = pd.read_excel(path, sheet_name=None, engine="openpyxl")
-    return [
-        (str(name), pa.Table.from_pandas(frame, preserve_index=False))
-        for name, frame in frames.items()
-    ]
+    return [(str(name), pa.Table.from_pandas(frame, preserve_index=False)) for name, frame in frames.items()]
 
 
 __all__ = [
