@@ -23,6 +23,10 @@ vi.mock("../../lib/api", () => ({
       this.status = status;
     }
   },
+  // ADR-044: ConfigPanel now imports SubworkflowConfigEditor, which pulls in the
+  // zustand store; the store's initializer calls setWorkflowWriteStartedListener
+  // from this module, so the mock must export it (no-op) to instantiate.
+  setWorkflowWriteStartedListener: vi.fn(),
   api: {
     browseFilesystem: apiMocks.browseFilesystem,
     openNativeDialog: apiMocks.openNativeDialog,

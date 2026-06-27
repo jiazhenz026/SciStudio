@@ -8,6 +8,7 @@
 import type {
   CancelPropagationResponse,
   ExecuteFromResponse,
+  ImportSubworkflowResponse,
   WorkflowExecutionOptions,
   WorkflowExecutionResponse,
   WorkflowResponse,
@@ -55,6 +56,10 @@ export const workflowsApi = {
   },
   getWorkflow: (workflowId: string) =>
     apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
+  // ADR-044 US1 AS3 — open a workflow file by project-relative path (e.g. a
+  // referenced subworkflow under `subworkflows/`) rather than by id.
+  getWorkflowByPath: (path: string) =>
+    apiFetch<VersionedWorkflowResponse>(`/api/workflows/by-path?path=${encodeURIComponent(path)}`),
   updateWorkflow: async (
     workflowId: string,
     body: WorkflowResponse,
@@ -120,5 +125,16 @@ export const workflowsApi = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ workflow_id: workflowId, path }),
+    }),
+  // ADR-044 FR-011 / US5 — import an external subworkflow file into the current
+  // project's `subworkflows/` directory. The backend copies the file (numeric
+  // suffix on filename collision), records a project-relative `ref_path`, and
+  // returns the freshly resolved exposed-port surface so the caller can write
+  // `config.ref.path` and refresh the node's handles without a full reload.
+  importSubworkflow: (sourcePath: string) =>
+    apiFetch<ImportSubworkflowResponse>("/api/workflows/import-subworkflow", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ source_path: sourcePath }),
     }),
 };

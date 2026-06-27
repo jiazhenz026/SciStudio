@@ -36,7 +36,11 @@ export function captureWorkflowTab(state: AppStore): WorkflowTab {
 
 export function captureActiveTab(state: AppStore, tab: TabState): TabState {
   if (tab.kind === "workflow") {
-    return captureWorkflowTab(state);
+    // ADR-044 — `tabKey` and `runPrefix` are per-tab identity fields, not part
+    // of the workflow slice that `captureWorkflowTab` rebuilds from. Preserve
+    // them from the existing tab object so a capture cycle (switch/open) does
+    // not blank the tab's dedup identity or its expanded-view run prefix.
+    return { ...captureWorkflowTab(state), tabKey: tab.tabKey, runPrefix: tab.runPrefix };
   }
   return tab;
 }

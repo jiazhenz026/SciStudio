@@ -74,6 +74,41 @@ describe("tabSlice.openTab (#796 display-name fallback)", () => {
   });
 });
 
+describe("tabSlice.openTab — ADR-044 path-keyed subworkflow tabs", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  it("opens copies that share a workflow.id as DISTINCT tabs when keyed by path", () => {
+    // Two imported subworkflow copies carry the same internal id but live at
+    // different paths. Keyed by path (the runPrefix arg is left default), each
+    // gets its own tab instead of colliding into one.
+    useAppStore.getState().openTab(workflow("fig1"), "fig1", "sw1__", "subworkflows/fig1.yaml");
+    useAppStore.getState().openTab(workflow("fig1"), "fig1", "sw2__", "subworkflows/fig1_1.yaml");
+    const tabs = useAppStore.getState().tabs;
+    expect(tabs).toHaveLength(2);
+    expect(asWorkflowTab(tabs[0]).tabKey).toBe("subworkflows/fig1.yaml");
+    expect(asWorkflowTab(tabs[1]).tabKey).toBe("subworkflows/fig1_1.yaml");
+    // workflowId stays the real shared id so save/run are unaffected.
+    expect(asWorkflowTab(tabs[1]).workflowId).toBe("fig1");
+  });
+
+  it("de-duplicates a re-opened path-keyed tab and refreshes its run prefix", () => {
+    useAppStore.getState().openTab(workflow("fig1"), "fig1", "sw1__", "subworkflows/fig1.yaml");
+    useAppStore.getState().openTab(workflow("fig1"), "fig1", "sw9__", "subworkflows/fig1.yaml");
+    const tabs = useAppStore.getState().tabs;
+    expect(tabs).toHaveLength(1);
+    expect(asWorkflowTab(tabs[0]).runPrefix).toBe("sw9__");
+  });
+
+  it("still de-duplicates ordinary id-keyed opens (no tabKey) as before", () => {
+    useAppStore.getState().openTab(workflow("main"));
+    useAppStore.getState().openTab(workflow("main"));
+    expect(useAppStore.getState().tabs).toHaveLength(1);
+    expect(asWorkflowTab(useAppStore.getState().tabs[0]).tabKey).toBe("main");
+  });
+});
+
 describe("uiSlice unread counters (#793 no auto-tab-switch)", () => {
   beforeEach(() => {
     resetStore();

@@ -1,255 +1,106 @@
-"""Tests for SubWorkflowBlock — sequential executor and scheduler factory injection."""
+"""ADR-044 — SubWorkflowBlock authoring-only container.
+
+Replaces the pre-ADR-044 stub tests (sequential executor + scheduler-factory
+injection). Covers FR-004 (effective ports derived from the referenced file's
+``exposed_ports``), FR-010 (broken ref -> no ports), FR-012 / SC-005 (the
+nested-execution stub symbols are gone), and the authoring-only ``run()`` guard.
+"""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+import textwrap
+from pathlib import Path
 
 import pytest
 
-from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.process.process_block import ProcessBlock
-from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock, _sequential_execute
-from scistudio.core.types.base import DataObject
-from scistudio.core.types.collection import Collection
+from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock, SubWorkflowBroken
 
 
-class AddOneBlock(ProcessBlock):
-    """Trivial block that adds 1 to input value."""
-
-    name = "AddOne"
-    algorithm = "add_one"
-
-    input_ports: ClassVar[list[InputPort]] = [InputPort(name="x", accepted_types=[])]
-    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="x", accepted_types=[])]
-
-    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        return {"x": inputs["x"] + 1}
-
-
-class DoubleBlock(ProcessBlock):
-    """Trivial block that doubles input value."""
-
-    name = "Double"
-    algorithm = "double"
-
-    input_ports: ClassVar[list[InputPort]] = [InputPort(name="x", accepted_types=[])]
-    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="x", accepted_types=[])]
-
-    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        return {"x": inputs["x"] * 2}
-
-
-class CollectionPassthroughBlock(ProcessBlock):
-    """Block that receives a Collection on 'items' and passes it through unchanged."""
-
-    name = "CollectionPassthrough"
-    algorithm = "passthrough"
-
-    input_ports: ClassVar[list[InputPort]] = [
-        InputPort(name="items", accepted_types=[], required=True),
-    ]
-    output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="items", accepted_types=[]),
-    ]
-
-    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        return {"items": inputs["items"]}
+def _write_child(tmp_path: Path) -> None:
+    (tmp_path / "subworkflows").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "subworkflows" / "child.yaml").write_text(
+        textwrap.dedent(
+            """
+            workflow:
+              id: child
+              nodes:
+                - id: load
+                  block_type: load_block
+                  config: {}
+                - id: proc
+                  block_type: process_block
+                  config: {}
+              edges:
+                - source: "load:data"
+                  target: "proc:in"
+              exposed_ports:
+                inputs:
+                  - name: raw_in
+                    internal: load.in
+                outputs:
+                  - name: report
+                    internal: proc.out
+            """
+        ),
+        encoding="utf-8",
+    )
 
 
-class TestSequentialExecute:
-    """_sequential_execute — chains blocks in order."""
-
-    def test_single_block(self) -> None:
-        blocks = [AddOneBlock()]
-        result = _sequential_execute(blocks, {"x": 10})
-        assert result["x"] == 11
-
-    def test_chain_two_blocks(self) -> None:
-        blocks = [AddOneBlock(), DoubleBlock()]
-        result = _sequential_execute(blocks, {"x": 5})
-        # (5 + 1) * 2 = 12
-        assert result["x"] == 12
-
-    def test_empty_chain(self) -> None:
-        result = _sequential_execute([], {"x": 42})
-        assert result["x"] == 42
+def _block(tmp_path: Path, ref: str = "subworkflows/child.yaml") -> SubWorkflowBlock:
+    return SubWorkflowBlock(config={"ref": {"path": ref}, "params": {"project_dir": str(tmp_path)}})
 
 
-class TestSubWorkflowBlock:
-    """SubWorkflowBlock — input/output mapping and child execution."""
+def test_effective_ports_derived_from_exposed_ports(tmp_path: Path) -> None:
+    """FR-004: port names come from the referenced file's exposed_ports."""
+    _write_child(tmp_path)
+    block = _block(tmp_path)
 
-    def test_with_child_blocks(self) -> None:
-        child_blocks = [AddOneBlock(), DoubleBlock()]
-        block = SubWorkflowBlock(
-            config={
-                "params": {
-                    "child_blocks": child_blocks,
-                    "input_mapping": {"data": "x"},
-                    "output_mapping": {"x": "result"},
-                }
-            }
-        )
-        result = block.run({"data": 10}, block.config)
-        # (10 + 1) * 2 = 22
-        assert result["result"] == 22
-
-    def test_unmapped_passthrough(self) -> None:
-        block = SubWorkflowBlock(config={"params": {"child_blocks": [], "input_mapping": {}, "output_mapping": {}}})
-        result = block.run({"extra": 99}, block.config)
-        assert result["extra"] == 99
-
-    def test_state_transitions(self) -> None:
-        """An empty subworkflow with unmapped inputs passes them through (#1541).
-
-        Previously this test ran the block and asserted nothing. Assert the
-        real contract: with no child blocks and no mappings, inputs flow
-        straight to the outputs unchanged.
-        """
-        block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-        result = block.run({"a": 1, "b": 2}, block.config)
-        assert result == {"a": 1, "b": 2}
-
-    def test_scheduler_factory_injection(self) -> None:
-        """Verify that _scheduler_factory ClassVar can be set and triggers _run_with_scheduler."""
-        call_log: list[str] = []
-
-        def fake_factory() -> None:
-            """Sentinel — not called directly; _run_with_scheduler is the real hook."""
-
-        original = SubWorkflowBlock._scheduler_factory
-        try:
-            SubWorkflowBlock._scheduler_factory = fake_factory
-
-            child_blocks = [AddOneBlock()]
-            block = SubWorkflowBlock(
-                config={
-                    "params": {
-                        "child_blocks": child_blocks,
-                        "input_mapping": {"data": "x"},
-                        "output_mapping": {"x": "result"},
-                    }
-                }
-            )
-
-            # Monkey-patch _run_with_scheduler to prove it gets called.
-            original_method = block._run_with_scheduler
-
-            def tracking_run_with_scheduler(child_inputs: dict, config: BlockConfig) -> dict:
-                call_log.append("_run_with_scheduler")
-                return original_method(child_inputs, config)
-
-            block._run_with_scheduler = tracking_run_with_scheduler  # type: ignore[assignment]
-
-            result = block.run({"data": 10}, block.config)
-            assert result["result"] == 11
-            assert call_log == ["_run_with_scheduler"]
-        finally:
-            SubWorkflowBlock._scheduler_factory = original
-
-    def test_run_with_scheduler_factory_none_uses_sequential(self) -> None:
-        """When _scheduler_factory is None, run() uses _sequential_execute (fallback)."""
-        assert SubWorkflowBlock._scheduler_factory is None  # default
-
-        child_blocks = [AddOneBlock(), DoubleBlock()]
-        block = SubWorkflowBlock(
-            config={
-                "params": {
-                    "child_blocks": child_blocks,
-                    "input_mapping": {"data": "x"},
-                    "output_mapping": {"x": "result"},
-                }
-            }
-        )
-        result = block.run({"data": 5}, block.config)
-        # (5 + 1) * 2 = 12
-        assert result["result"] == 12
-
-    def test_collection_passthrough(self) -> None:
-        """Collections flow through child workflow without unwrapping."""
-        obj1 = DataObject()
-        obj2 = DataObject()
-        coll = Collection([obj1, obj2])
-
-        child_blocks = [CollectionPassthroughBlock()]
-        block = SubWorkflowBlock(
-            config={
-                "params": {
-                    "child_blocks": child_blocks,
-                    "input_mapping": {"data": "items"},
-                    "output_mapping": {"items": "result"},
-                }
-            }
-        )
-        result = block.run({"data": coll}, block.config)
-
-        assert isinstance(result["result"], Collection)
-        assert len(result["result"]) == 2
-        assert result["result"][0] is obj1
-        assert result["result"][1] is obj2
+    assert [p.name for p in block.get_effective_input_ports()] == ["raw_in"]
+    assert [p.name for p in block.get_effective_output_ports()] == ["report"]
 
 
-class TestCleanupCallback:
-    """Tests for _cleanup_callback — ADR-017/019 nested subprocess cleanup."""
+def test_effective_ports_empty_for_unresolved_ref(tmp_path: Path) -> None:
+    """FR-010: a missing referenced file yields no ports (no exception)."""
+    block = _block(tmp_path, ref="subworkflows/missing.yaml")
 
-    def test_cleanup_callback_called_on_success(self) -> None:
-        """Cleanup callback is called after successful run."""
-        callback_called: list[bool] = []
-        SubWorkflowBlock._cleanup_callback = lambda: callback_called.append(True)
-        try:
-            block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            block.run({}, block.config)
-            assert len(callback_called) == 1
-        finally:
-            SubWorkflowBlock._cleanup_callback = None
+    assert block.get_effective_input_ports() == []
+    assert block.get_effective_output_ports() == []
 
-    def test_cleanup_callback_called_on_error(self) -> None:
-        """Cleanup callback is called even when run() raises."""
-        callback_called: list[bool] = []
-        SubWorkflowBlock._cleanup_callback = lambda: callback_called.append(True)
-        try:
-            block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            # Monkey-patch _run_with_scheduler to force an error during execution.
 
-            def boom(*a: Any, **kw: Any) -> dict[str, Any]:
-                raise RuntimeError("boom")
-
-            block._run_with_scheduler = boom  # type: ignore[assignment]
-            SubWorkflowBlock._scheduler_factory = lambda: None  # Trigger _run_with_scheduler path
-            with pytest.raises(RuntimeError, match="boom"):
-                block.run({}, block.config)
-            assert len(callback_called) == 1
-        finally:
-            SubWorkflowBlock._cleanup_callback = None
-            SubWorkflowBlock._scheduler_factory = None
-
-    def test_cleanup_callback_exception_does_not_mask_original(self) -> None:
-        """If cleanup callback itself raises, the original error is preserved."""
-
-        def bad_cleanup() -> None:
-            raise OSError("cleanup failed")
-
-        SubWorkflowBlock._cleanup_callback = bad_cleanup
-        try:
-            block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            # Monkey-patch _run_with_scheduler to force an error during execution.
-
-            def boom(*a: Any, **kw: Any) -> dict[str, Any]:
-                raise RuntimeError("original error")
-
-            block._run_with_scheduler = boom  # type: ignore[assignment]
-            SubWorkflowBlock._scheduler_factory = lambda: None  # Trigger _run_with_scheduler path
-            # The original RuntimeError should propagate, not the OSError from cleanup.
-            with pytest.raises(RuntimeError, match="original error"):
-                block.run({}, block.config)
-        finally:
-            SubWorkflowBlock._cleanup_callback = None
-            SubWorkflowBlock._scheduler_factory = None
-
-    def test_cleanup_callback_none_is_default(self) -> None:
-        """When no callback is set, no error occurs in finally block."""
-        assert SubWorkflowBlock._cleanup_callback is None
-        block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
+def test_run_is_authoring_only_and_raises(tmp_path: Path) -> None:
+    """The container is flattened away before dispatch; run() must never execute."""
+    block = _block(tmp_path)
+    with pytest.raises(RuntimeError, match="authoring-only"):
         block.run({}, block.config)
-        # Block no longer sets own DONE state (scheduler owns that).
-        # Just verify run() completes without error.
+
+
+def test_subworkflow_broken_exposes_no_ports() -> None:
+    """SubWorkflowBroken marker has a stable type_name and no ports."""
+    broken = SubWorkflowBroken(config={})
+    assert broken.type_name == "subworkflow_broken"
+    assert broken.get_effective_input_ports() == []
+    assert broken.get_effective_output_ports() == []
+
+
+@pytest.mark.parametrize(
+    "symbol",
+    [
+        "_scheduler_factory",
+        "_cleanup_callback",
+        "_run_with_scheduler",
+        "_sequential_execute",
+        "input_mapping",
+        "output_mapping",
+        "workflow_ref",
+    ],
+)
+def test_stub_symbols_removed(symbol: str) -> None:
+    """SC-005 / FR-012: the nested-execution stub surface is deleted."""
+    assert not hasattr(SubWorkflowBlock, symbol), f"{symbol} should be removed from SubWorkflowBlock"
+
+
+def test_module_level_sequential_execute_removed() -> None:
+    """SC-005: the module-level sequential fallback executor is gone."""
+    import scistudio.blocks.subworkflow.subworkflow_block as mod
+
+    assert not hasattr(mod, "_sequential_execute")
