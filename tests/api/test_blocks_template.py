@@ -91,3 +91,85 @@ def test_template_documents_real_run_contract(client: TestClient) -> None:
     assert "item.to_memory()" in content
     # A worked, paste-over example is part of the user-friendly rewrite.
     assert "Minimal example" in content
+
+
+# #1816 — the template is the only thing our non-programmer authors actually
+# read, so the teaching content lives in the template itself. These tests pin
+# the sections the rewrite promised so they cannot silently disappear.
+
+
+def _template(client: TestClient) -> str:
+    return client.get("/api/blocks/template?kind=basic").json()["content"]
+
+
+def test_template_teaches_block_family(client: TestClient) -> None:
+    """Section 1 — authors must learn which base classes exist and when to use them."""
+    content = _template(client)
+    # The default base plus the realistic alternatives a human might subclass.
+    for base in ("ProcessBlock", "IOBlock", "AppBlock", "CodeBlock"):
+        assert base in content, f"template should mention the {base} base class"
+
+
+def test_template_teaches_type_to_memory_returns(client: TestClient) -> None:
+    """Section 2 — the type table must surface the differing to_memory() returns.
+
+    The #1 newbie trap is that Array.to_memory() is a numpy array while
+    DataFrame.to_memory() is an Arrow table. Both must be named explicitly.
+    """
+    content = _template(client)
+    for type_name in ("Array", "DataFrame", "Series", "Text", "Artifact"):
+        assert type_name in content, f"template should list the {type_name} type"
+    assert "numpy" in content
+    assert "pyarrow" in content or "Arrow" in content
+    assert "to_pandas()" in content, "template must show how to get a pandas frame"
+
+
+def test_template_teaches_collection_helpers(client: TestClient) -> None:
+    """Section 3 — Collection is exposed directly, so its helpers must be taught."""
+    content = _template(client)
+    for helper in ("map_items", "parallel_map", "pack", "unpack"):
+        assert helper in content, f"template should mention the {helper} helper"
+
+
+def test_template_has_array_and_dataframe_examples(client: TestClient) -> None:
+    """Section 6 — owner directive: two batch examples, one Array and one DataFrame."""
+    content = _template(client)
+    assert "from scistudio.core.types.array import Array" in content
+    assert "from scistudio.core.types.dataframe import DataFrame" in content
+    # Both examples drive the point that batch processing is the default.
+    assert content.count("self.map_items(") >= 2
+
+
+def test_template_ports_use_concrete_type_not_empty(client: TestClient) -> None:
+    """The default ports must declare a concrete type, never ``accepted_types=[]``.
+
+    The old template used ``[]``, which contradicts the block contract that
+    requires concrete types for connection checks and preview routing.
+    """
+    content = _template(client)
+    assert "accepted_types=[]" not in content
+    assert "accepted_types=[Array]" in content
+
+
+def test_template_points_authors_at_package_docs(client: TestClient) -> None:
+    """Section 7 — authors must be told where domain (package) types come from."""
+    content = _template(client)
+    assert "package" in content
+    # Warn against the private internals AI code is seen reaching into (#1817).
+    assert "_support" in content
+
+
+def test_template_myblock_validates_via_harness(client: TestClient) -> None:
+    """The served template must define a block that passes the contract harness.
+
+    Executing the template content also guarantees the worked ``run()`` body is
+    importable and syntactically sound, not just the file as a whole.
+    """
+    from scistudio.testing import BlockTestHarness
+
+    content = _template(client)
+    namespace: dict[str, object] = {}
+    exec(compile(content, "block_base_template.py", "exec"), namespace)
+    my_block = namespace["MyBlock"]
+    errors = BlockTestHarness(my_block).validate_block()
+    assert not errors, errors
