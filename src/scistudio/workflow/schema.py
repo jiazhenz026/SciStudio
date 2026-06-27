@@ -6,7 +6,67 @@ from typing import Any
 
 from pydantic import BaseModel, field_validator
 
-from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.definition import (
+    EdgeDef,
+    ExposedPort,
+    ExposedPorts,
+    NodeDef,
+    WorkflowDefinition,
+)
+
+
+class ExposedPortModel(BaseModel):
+    """One ``exposed_ports`` entry (ADR-044 §6).
+
+    ``internal`` uses the dot form ``block_id.port`` (NOT the colon wire form
+    enforced by :class:`EdgeModel`); it points at a block + port inside the
+    same subworkflow file.
+    """
+
+    name: str
+    internal: str
+
+    @field_validator("name", "internal")
+    @classmethod
+    def must_be_nonempty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("exposed_ports entries require non-empty 'name' and 'internal'")
+        return v
+
+    @field_validator("internal")
+    @classmethod
+    def internal_must_be_block_dot_port(cls, v: str) -> str:
+        parts = v.split(".")
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+            raise ValueError(f"exposed_ports.internal must be 'block_id.port', got '{v}'")
+        return v
+
+    def to_exposed_port(self) -> ExposedPort:
+        return ExposedPort(name=self.name, internal=self.internal)
+
+    @classmethod
+    def from_exposed_port(cls, ep: ExposedPort) -> ExposedPortModel:
+        return cls(name=ep.name, internal=ep.internal)
+
+
+class ExposedPortsModel(BaseModel):
+    """Top-level ``exposed_ports`` section of a workflow YAML file (ADR-044 §6)."""
+
+    inputs: list[ExposedPortModel] = []
+    outputs: list[ExposedPortModel] = []
+
+    def to_exposed_ports(self) -> ExposedPorts:
+        return ExposedPorts(
+            inputs=[p.to_exposed_port() for p in self.inputs],
+            outputs=[p.to_exposed_port() for p in self.outputs],
+        )
+
+    @classmethod
+    def from_exposed_ports(cls, ep: ExposedPorts) -> ExposedPortsModel:
+        return cls(
+            inputs=[ExposedPortModel.from_exposed_port(p) for p in ep.inputs],
+            outputs=[ExposedPortModel.from_exposed_port(p) for p in ep.outputs],
+        )
 
 
 class NodeModel(BaseModel):
@@ -81,6 +141,10 @@ class WorkflowModel(BaseModel):
     nodes: list[NodeModel] = []
     edges: list[EdgeModel] = []
     metadata: dict[str, Any] = {}
+    # ADR-044 §6: optional. Defaults to None so files without the section
+    # serialise without an ``exposed_ports`` key (model_dump exclude_none),
+    # preserving the byte-for-byte save round-trip (Codex P1 on PR #1359).
+    exposed_ports: ExposedPortsModel | None = None
 
     def to_definition(self) -> WorkflowDefinition:
         """Convert to the runtime :class:`WorkflowDefinition` dataclass."""
@@ -91,6 +155,7 @@ class WorkflowModel(BaseModel):
             nodes=[n.to_node_def() for n in self.nodes],
             edges=[e.to_edge_def() for e in self.edges],
             metadata=self.metadata,
+            exposed_ports=(self.exposed_ports.to_exposed_ports() if self.exposed_ports is not None else None),
         )
 
     @classmethod
@@ -103,6 +168,9 @@ class WorkflowModel(BaseModel):
             nodes=[NodeModel.from_node_def(n) for n in wf.nodes],
             edges=[EdgeModel.from_edge_def(e) for e in wf.edges],
             metadata=wf.metadata,
+            exposed_ports=(
+                ExposedPortsModel.from_exposed_ports(wf.exposed_ports) if wf.exposed_ports is not None else None
+            ),
         )
 
 

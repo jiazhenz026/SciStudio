@@ -19,7 +19,7 @@ from scistudio.api._block_source import (
 from scistudio.api._block_source import (
     map_block_origin as _map_source,
 )
-from scistudio.api.deps import get_block_registry, get_type_registry
+from scistudio.api.deps import get_block_registry, get_runtime, get_type_registry
 from scistudio.api.schemas import (
     BlockConnectionValidation,
     BlockListResponse,
@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 BlockRegistryDep = Annotated[Any, Depends(get_block_registry)]
 TypeRegistryDep = Annotated[Any, Depends(get_type_registry)]
+RuntimeDep = Annotated[Any, Depends(get_runtime)]
 
 
 def _port_response(port: Any, *, direction: str) -> BlockPortResponse:
@@ -470,10 +471,45 @@ def _resolve_effective_port(
     return None
 
 
+def _resolve_subworkflow_port(
+    spec: Any,
+    runtime: Any,
+    node_config: dict[str, Any] | None,
+    port_name: str,
+    direction: str,
+) -> InputPort | OutputPort | None:
+    """ADR-044 — resolve a SubWorkflowBlock node's exposed connection port.
+
+    A subworkflow node's ports are derived from the referenced file's
+    ``exposed_ports`` (not the static spec / a config enum), so the generic
+    resolver cannot find them. Resolve the exposed-port surface from the node's
+    ``config.ref.path`` against the active project root; if *port_name* is a real
+    exposed port, return a permissive (accept-any) port. Exposed ports are
+    accept-any at authoring time — the authoritative type check runs on the
+    flattened DAG at run start (ADR-044 §4 / §9.1), so the connection hint stays
+    permissive rather than blocking the wire.
+    """
+    if getattr(spec, "base_category", None) != "subworkflow":
+        return None
+    from scistudio.core.types.base import DataObject
+    from scistudio.workflow.definition import NodeDef
+    from scistudio.workflow.subworkflow_ports import resolve_port_surface, subworkflow_ref_path
+
+    ref = subworkflow_ref_path(NodeDef(id="_probe", block_type="subworkflow_block", config=dict(node_config or {})))
+    base_dir = str(runtime.active_project.path) if getattr(runtime, "active_project", None) else "."
+    surface = resolve_port_surface(ref, base_dir, registry=runtime.block_registry)
+    entries = surface["inputs"] if direction == "input" else surface["outputs"]
+    if any(entry["name"] == port_name for entry in entries):
+        cls = InputPort if direction == "input" else OutputPort
+        return cls(name=port_name, accepted_types=[DataObject])
+    return None
+
+
 @router.post("/validate-connection", response_model=ConnectionValidationResponse)
 async def validate_connection_route(
     body: BlockConnectionValidation,
     registry: BlockRegistryDep,
+    runtime: RuntimeDep,
 ) -> ConnectionValidationResponse:
     """Validate whether two ports can be connected.
 
@@ -482,17 +518,22 @@ async def validate_connection_route(
     ports per ADR-028 / ADR-029 (LoadData ``core_type`` drives the
     output type; variadic blocks read their ports from config). The
     legacy payload — block types and port names alone — still works
-    against the class-level static spec.
+    against the class-level static spec. ADR-044: subworkflow nodes resolve
+    their exposed ports from the referenced file (``_resolve_subworkflow_port``).
     """
     source = registry.get_spec(body.source_block)
     target = registry.get_spec(body.target_block)
     if source is None or target is None:
         raise HTTPException(status_code=404, detail="Unknown block in connection validation.")
 
-    source_port = _resolve_effective_port(
+    source_port = _resolve_subworkflow_port(
+        source, runtime, body.source_node_config, body.source_port, "output"
+    ) or _resolve_effective_port(
         source, registry, body.source_block, body.source_port, body.source_node_config, direction="output"
     )
-    target_port = _resolve_effective_port(
+    target_port = _resolve_subworkflow_port(
+        target, runtime, body.target_node_config, body.target_port, "input"
+    ) or _resolve_effective_port(
         target, registry, body.target_block, body.target_port, body.target_node_config, direction="input"
     )
     if not isinstance(source_port, OutputPort) or not isinstance(target_port, InputPort):

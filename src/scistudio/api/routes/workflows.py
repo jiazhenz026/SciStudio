@@ -123,6 +123,29 @@ def _request_source(request: Request, *, changed_by: str | None = None, default:
     return default
 
 
+def _resolved_ports_for_node(runtime: ApiRuntime | None, node: Any) -> Any:
+    """Compute the ADR-044 FR-004 ``resolved_ports`` surface for a node.
+
+    Returns a :class:`SubworkflowPortSurface` for ``subworkflow`` /
+    ``subworkflow_broken`` nodes (so the editor can render handles from the
+    referenced file's ``exposed_ports``), or ``None`` for every other block
+    type. Response-only; never persisted. Requires *runtime* (registry + active
+    project root); returns ``None`` without it.
+    """
+    if runtime is None:
+        return None
+    from scistudio.api.schemas import SubworkflowPortSurface
+    from scistudio.workflow.flatten import SUBWORKFLOW_BROKEN_TYPE, SUBWORKFLOW_TYPE, subworkflow_ref_path
+    from scistudio.workflow.subworkflow_ports import resolve_port_surface
+
+    if node.block_type not in (SUBWORKFLOW_TYPE, SUBWORKFLOW_BROKEN_TYPE):
+        return None
+    base_dir = str(runtime.active_project.path) if runtime.active_project else "."
+    ref = subworkflow_ref_path(node)
+    surface = resolve_port_surface(ref, base_dir, registry=runtime.block_registry)
+    return SubworkflowPortSurface.model_validate(surface)
+
+
 def _workflow_response(
     definition: Any,
     *,
@@ -131,6 +154,7 @@ def _workflow_response(
     source_id: str | None = None,
     kind: str = "current",
     timestamp: str | None = None,
+    runtime: ApiRuntime | None = None,
 ) -> VersionedWorkflowResponse:
     return VersionedWorkflowResponse(
         id=definition.id,
@@ -145,6 +169,7 @@ def _workflow_response(
                 config=node.config,
                 execution_mode=node.execution_mode,
                 layout=node.layout,
+                resolved_ports=_resolved_ports_for_node(runtime, node),
             )
             for node in definition.nodes
         ],
@@ -255,6 +280,7 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> VersionedWor
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -302,6 +328,7 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -335,6 +362,39 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
+    )
+
+
+@router.get("/by-path", response_model=VersionedWorkflowResponse)
+async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkflowResponse:
+    """Retrieve a workflow by project-relative path (ADR-044 US1 AS3).
+
+    Declared BEFORE the greedy ``/{workflow_id}`` route so ``/api/workflows/
+    by-path`` is not swallowed by ``get_workflow`` with ``workflow_id="by-path"``
+    (same route-ordering rule as ``/template`` in ``blocks.py``). Used by the
+    editor to open a SubWorkflowBlock's referenced file (which may live under
+    ``subworkflows/``) in its own tab.
+    """
+    from pydantic import ValidationError
+
+    try:
+        definition = runtime.load_workflow_by_path(path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": f"Workflow '{path}' failed schema validation.", "errors": exc.errors()},
+        ) from exc
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=422, detail=_yaml_error_detail(path, exc)) from exc
+    return _workflow_response(
+        definition,
+        state_version=runtime.current_workflow_version(definition.id),
+        runtime=runtime,
     )
 
 
@@ -367,7 +427,11 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkfl
         raise HTTPException(status_code=422, detail=_yaml_error_detail(workflow_id, exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _workflow_response(definition, state_version=runtime.current_workflow_version(definition.id))
+    return _workflow_response(
+        definition,
+        state_version=runtime.current_workflow_version(definition.id),
+        runtime=runtime,
+    )
 
 
 @router.put("/{workflow_id}", response_model=VersionedWorkflowResponse)
@@ -417,6 +481,7 @@ async def update_workflow(
         source_id=change["source_id"],
         kind=change["kind"],
         timestamp=change["timestamp"],
+        runtime=runtime,
     )
 
 
@@ -446,6 +511,34 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _mark_self_write(target)
     return {"status": "ok", "path": str(target)}
+
+
+@router.post("/import-subworkflow")
+async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
+    """ADR-044 FR-011: import an external workflow file as a project subworkflow.
+
+    Expects ``{"source_path": str}`` (an absolute or project-external path to a
+    workflow YAML). Copies it into ``<project>/subworkflows/`` (numeric suffix on
+    name collision) and returns ``{"ref_path": "<project-relative>",
+    "resolved_ports": {...}}``. The caller writes ``ref_path`` to the
+    SubWorkflowBlock's ``config.ref.path`` and refreshes the node's handles from
+    ``resolved_ports`` in one step (no reload round-trip).
+    """
+    source_path = body.get("source_path")
+    if not source_path:
+        raise HTTPException(status_code=400, detail="Missing 'source_path' field.")
+    try:
+        ref_path = runtime.import_subworkflow_file(source_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise _workflow_session_error(exc) from exc
+
+    from scistudio.workflow.subworkflow_ports import resolve_port_surface
+
+    base_dir = str(runtime.active_project.path) if runtime.active_project else "."
+    resolved = resolve_port_surface(ref_path, base_dir, registry=runtime.block_registry)
+    return {"ref_path": ref_path, "resolved_ports": resolved}
 
 
 @router.delete("/{workflow_id}", status_code=204)
@@ -497,10 +590,14 @@ async def execute_workflow(
         # orphaning it by starting a second scheduler.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
-        # #1789: start_workflow raises ValueError for user-fixable preconditions
-        # (a hard validation failure such as a required input port with no
-        # incoming connection). Surface it as 422 instead of letting it escape
-        # as an uncaught 500. Mirrors the run-from-here handler below and the
+        # start_workflow raises ValueError for user-fixable preconditions that
+        # are rejected before dispatch rather than surfacing as a 500:
+        #   - ADR-044 FR-010 / US6.3: a graph that fails strict validation at
+        #     start — e.g. an unresolved SubWorkflowBlock reference or a
+        #     reference cycle.
+        #   - #1789: a hard validation failure such as a required input port
+        #     with no incoming connection.
+        # Surface as 422. Mirrors the run-from-here handler below and the
         # schema-validation handlers above.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)

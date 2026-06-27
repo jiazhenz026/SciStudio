@@ -936,7 +936,10 @@ Per-node port handles and dangling-edge detection come from the
 **dynamic-ports** mechanism, deriving ports from the referenced subworkflow's
 **`exposed_ports`** rather than from whole-graph flattening, and
 double-clicking the canvas node opens the referenced file in its own editor
-tab. Because the lineage record's `workflow_yaml_snapshot` captures the
+tab. When a reference cannot be resolved the editor renders a broken-reference
+placeholder (a `subworkflow_broken` node) so the rest of the canvas still
+loads, and run start rejects any unresolved reference rather than dispatching
+it. Because the lineage record's `workflow_yaml_snapshot` captures the
 flattened YAML, past runs stay reproducible automatically; reproducibility of
 a reference against future edits is delegated to git branches or tags rather
 than embedded in the tool.

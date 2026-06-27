@@ -235,6 +235,27 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         return errors  # empty workflow is valid
 
     # ------------------------------------------------------------------
+    # Check 1.5 (ADR-044 FR-010): unresolved subworkflow references.
+    # ------------------------------------------------------------------
+    # The inline flattener (run start) replaces a SubWorkflowBlock whose
+    # ``config.ref.path`` cannot be resolved with a ``subworkflow_broken``
+    # marker. In strict mode (run start) any remaining marker is a
+    # hard error so an unresolved reference can never be dispatched (US6.3). In
+    # draft mode (editor autosave) it is tolerated so the rest of the canvas
+    # still saves while the user repairs the reference. This check is registry-
+    # independent, so it runs before the ``registry is None`` early return.
+    if mode != "draft":
+        from scistudio.workflow.flatten import BROKEN_REF_CONFIG_KEY, SUBWORKFLOW_BROKEN_TYPE
+
+        for node in workflow.nodes:
+            if node.block_type == SUBWORKFLOW_BROKEN_TYPE:
+                ref = ""
+                if isinstance(node.config, dict):
+                    ref = str(node.config.get(BROKEN_REF_CONFIG_KEY, "") or "")
+                detail = f" '{ref}'" if ref else ""
+                errors.append(f"Node '{node.id}': subworkflow reference{detail} could not be resolved")
+
+    # ------------------------------------------------------------------
     # Check 2 & 3: Edge format and node reference validation
     # ------------------------------------------------------------------
     has_edge_errors = False

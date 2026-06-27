@@ -9,6 +9,7 @@ import type {
   LogEntry,
   PreviewTarget,
   ProjectResponse,
+  ResolvedSubworkflowPorts,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
@@ -99,6 +100,22 @@ export interface WorkflowSlice {
   ) => void;
   addAnnotationNode: (position: { x: number; y: number }) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
+  /**
+   * ADR-044 FR-011 / US5 + US6 — repoint a `subworkflow` / `subworkflow_broken`
+   * node's referenced file by writing `config.ref.path` at the TOP level of the
+   * node config (NOT under `config.params`, where `updateNodeConfig` merges). The
+   * canvas (`buildSubWorkflowNode`) and the flattener read `config.ref.path`, so
+   * the ref must live there. Marks the workflow dirty so the autosave persists it.
+   */
+  setNodeRef: (nodeId: string, refPath: string) => void;
+  /**
+   * ADR-044 FR-004 / US5 — set the response-only `resolved_ports` surface on a
+   * subworkflow node so its exposed-port handles refresh immediately (un-break +
+   * show `raw_in` / `report`) after an import or repoint, WITHOUT a workflow
+   * reload. `resolved_ports` is never persisted, so this does NOT mark dirty and
+   * does NOT push history.
+   */
+  setNodeResolvedPorts: (nodeId: string, resolvedPorts: ResolvedSubworkflowPorts) => void;
   updateNodeLayout: (nodeId: string, position: { x: number; y: number }) => void;
   updateNodeSize: (nodeId: string, size: { width: number; height: number }) => void;
   /**
@@ -438,6 +455,24 @@ export interface WorkflowTab {
   workflowHistory: WorkflowHistoryEntry[];
   workflowFuture: WorkflowHistoryEntry[];
   selectedNodeId: string | null;
+  /**
+   * ADR-044 — tab dedup identity. Defaults to `workflowId`, so normal opens
+   * (project tree, load-by-id, new workflow) dedup exactly as before. A
+   * subworkflow opened by double-click passes its project-relative `ref.path`,
+   * so each referenced copy gets its own tab even though several copies share
+   * the same internal `workflow.id` (which would otherwise collide into one
+   * tab). `workflowId` is unchanged, so save/run keep using the real id.
+   */
+  tabKey?: string;
+  /**
+   * ADR-044 — run-scope prefix when this tab is the expanded child of a
+   * subworkflow node. At run start the parser flattens each subworkflow, so its
+   * inner blocks emit status/output events keyed `<parentNodeId>__<innerId>`
+   * (composed for nesting). A child tab opened by double-clicking a subworkflow
+   * node carries the parent's prefix so the canvas can map each inner node to
+   * its flattened run id. Absent/`""` for a top-level workflow opened directly.
+   */
+  runPrefix?: string;
 }
 
 /**
@@ -504,7 +539,12 @@ export interface TabSlice {
    * empty (e.g. a workflow YAML missing the ``id:`` field). Without it, the tab
    * label and top-left title render as a blank string.
    */
-  openTab: (workflow: WorkflowResponse, displayName?: string) => void;
+  openTab: (
+    workflow: WorkflowResponse,
+    displayName?: string,
+    runPrefix?: string,
+    tabKey?: string,
+  ) => void;
   /** Switch to an existing tab. */
   switchTab: (tabId: string) => void;
   /** Close a tab by ID. Returns true if closed, false if cancelled. */

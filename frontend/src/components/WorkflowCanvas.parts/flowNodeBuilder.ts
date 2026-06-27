@@ -13,10 +13,12 @@ import type {
   BlockSchemaResponse,
   BlockSummary,
   FormatCapabilityResponse,
+  ResolvedSubworkflowPort,
+  TypeHierarchyEntry,
   WorkflowEdge,
   WorkflowNode,
 } from "../../types/api";
-import type { BlockNodeData } from "../../types/ui";
+import type { BlockNodeData, SubWorkflowNodeData } from "../../types/ui";
 import { collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
 
 import { NODE_SIZE } from "../nodes/BlockNode.parts/nodeGeometry";
@@ -259,6 +261,99 @@ export function buildBlockNode(opts: BlockOpts): Node {
       onWarningClick: callbacks.onWarningClick,
       upstreamOmeFields,
     },
+    selected: selectedNodeId === node.id,
+  };
+}
+
+/**
+ * ADR-044 §3 — convert one `resolved_ports` entry into the `BlockPortResponse`
+ * shape `PortHandles` consumes. The port `name` becomes the React Flow handle
+ * id (ADR-044 locked contract item 4), and `accepted_types` drive the port
+ * colour. The remaining BlockPortResponse fields are inert placeholders;
+ * subworkflow ports are never variadic and never user-editable.
+ */
+function resolvedPortToBlockPort(
+  port: ResolvedSubworkflowPort,
+  direction: "input" | "output",
+): BlockPortResponse {
+  return {
+    name: port.name,
+    direction,
+    accepted_types: port.accepted_types ?? [],
+    required: false,
+    description: "",
+    constraint_description: "",
+    is_collection: false,
+  };
+}
+
+export interface SubWorkflowOpts {
+  node: WorkflowNode;
+  position: { x: number; y: number };
+  label: string;
+  selectedNodeId: string | null;
+  /** Shared type hierarchy (any block schema's copy) for port colours. */
+  typeHierarchy?: TypeHierarchyEntry[];
+  /** ADR-044 — aggregated run status of the flattened inner blocks. */
+  status: string;
+  onDelete: () => void;
+  /** ADR-044 §10 — broken-ref "locate file…" affordance. */
+  onLocateFile: () => void;
+}
+
+/**
+ * ADR-044 §3 — build the ReactFlow node for a `subworkflow` /
+ * `subworkflow_broken` authoring container. Ports are packed from the
+ * response-only `node.resolved_ports` surface; `refPath` and `broken` are
+ * derived from `resolved_ports` (with `config.ref.path` as the source of
+ * truth for the path) so the broken placeholder can show the unresolved ref.
+ */
+export function buildSubWorkflowNode(opts: SubWorkflowOpts): Node {
+  const { node, position, label, selectedNodeId, typeHierarchy, status, onDelete, onLocateFile } =
+    opts;
+
+  const resolved = node.resolved_ports;
+
+  const ref = node.config.ref as { path?: string } | undefined;
+  // Prefer the persisted config.ref.path; fall back to the response ref_path so
+  // a broken placeholder still shows something useful.
+  const refPath = ref?.path ?? resolved?.ref_path ?? null;
+
+  // ADR-044 §10 / FR-011 — `subworkflow_broken` is broken by block_type; a
+  // `subworkflow_block` node is also treated as broken when its resolved_ports
+  // surface flags it (unresolved ref) OR when it has no usable ref at all. A
+  // freshly dropped node has no ref, so it MUST surface the "Choose subworkflow
+  // file…" affordance (the same shared flow as the broken-ref "Locate file…").
+  const broken = node.block_type === "subworkflow_broken" || resolved?.broken === true || !refPath;
+
+  const inputPorts = broken
+    ? []
+    : (resolved?.inputs ?? []).map((port) => resolvedPortToBlockPort(port, "input"));
+  const outputPorts = broken
+    ? []
+    : (resolved?.outputs ?? []).map((port) => resolvedPortToBlockPort(port, "output"));
+
+  const data: SubWorkflowNodeData = {
+    label,
+    blockType: node.block_type,
+    refPath,
+    broken,
+    inputPorts,
+    outputPorts,
+    typeHierarchy,
+    status,
+    selected: selectedNodeId === node.id,
+    onDelete,
+    onLocateFile,
+  };
+
+  return {
+    id: node.id,
+    type: "subworkflow",
+    position,
+    initialWidth: NODE_SIZE,
+    initialHeight: NODE_SIZE,
+    data,
     selected: selectedNodeId === node.id,
   };
 }

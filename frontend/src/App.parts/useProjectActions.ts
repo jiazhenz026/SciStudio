@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import type { PromptRequest } from "../components/PromptDialog";
 import { ApiError, api } from "../lib/api";
+import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
 import { probeProjectFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
 import type { ProjectResponse, WorkflowResponse } from "../types/api";
@@ -33,7 +34,12 @@ export interface ProjectActionsDeps {
   setCurrentProject: (project: ProjectResponse | null) => void;
   setWorkflow: (workflow: WorkflowResponse | null) => void;
   resetExecution: () => void;
-  openTab: (workflow: WorkflowResponse, displayName?: string) => void;
+  openTab: (
+    workflow: WorkflowResponse,
+    displayName?: string,
+    runPrefix?: string,
+    tabKey?: string,
+  ) => void;
   openFileTab: (path: string, options?: { readOnly?: boolean }) => void;
   closeProjectDialog: () => void;
   setLastError: (message: string | null) => void;
@@ -61,6 +67,31 @@ export interface ProjectActions {
   createNewCustomBlock: () => Promise<void>;
   createNewNote: () => Promise<void>;
   importWorkflow: () => Promise<void>;
+  /**
+   * ADR-044 §3 — open a subworkflow node's referenced file (`config.ref.path`,
+   * project-relative) in a canvas tab on double-click.
+   */
+  openSubworkflow: (refPath: string) => void;
+  /**
+   * ADR-044 FR-011 (US5) + §10 / US6 AS2 — run the shared choose/import
+   * subworkflow flow for a node that has no usable ref ("Choose subworkflow
+   * file…") OR a broken ref ("Locate file…"). Picks an external file via the
+   * native dialog, imports it into `<project>/subworkflows/`, repoints
+   * `config.ref.path`, and refreshes the node's resolved ports in place.
+   */
+  locateSubworkflow: (nodeId: string) => void;
+}
+
+/**
+ * ADR-044 — derive the workflow id (filename stem) from a project-relative
+ * `config.ref.path`. `loadWorkflowById` resolves a workflow by its id, which is
+ * the filename stem (matching ProjectTree's `.yaml` double-click convention),
+ * so a ref path like `subworkflows/bar.swf.yaml` resolves to id `bar`.
+ */
+export function subworkflowRefToWorkflowId(refPath: string): string {
+  const base = refPath.split("/").pop() ?? refPath;
+  const stem = base.replace(/\.(swf\.)?(yaml|yml)$/i, "");
+  return stem || base;
 }
 
 async function ensureNewNoteDirectory(
@@ -372,6 +403,50 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     resetExecution();
   }, [openTab, resetExecution, promptInput]);
 
+  // ADR-044 §3 / US1 AS3 — double-click a (healthy) subworkflow node → open its
+  // referenced file in a canvas tab. The ref path is project-relative and may
+  // live under `subworkflows/` (FR-011 imports) or `workflows/`, so we open it
+  // by PATH (not by workflow id, which only resolves `workflows/<id>.yaml`).
+  const openSubworkflow = useCallback(
+    async (refPath: string, runPrefix?: string) => {
+      const displayName = subworkflowRefToWorkflowId(refPath);
+      try {
+        const workflow = await api.getWorkflowByPath(refPath);
+        // ADR-044 — pass the parent's run-scope prefix so the expanded child
+        // canvas maps each inner node to its flattened run id `<prefix><id>`.
+        // Do NOT resetExecution here: the whole point of expanding is to see the
+        // parent run's live/last status, which lives in the (global) execution
+        // state keyed by the prefixed ids. Resetting would blank it out.
+        //
+        // Key the tab by the unique ref PATH (not the shared workflow.id):
+        // several imported copies under `subworkflows/` carry the same internal
+        // id, so id-based dedup would open the wrong file. Path-keyed tabs open
+        // exactly the referenced copy.
+        openTab(workflow, displayName, runPrefix, refPath);
+        setLastError(null);
+      } catch (error) {
+        setLastError((error as Error).message);
+      }
+    },
+    [openTab, setLastError],
+  );
+
+  // ADR-044 FR-011 (US5) + §10 / US6 AS2 — the shared choose/import-subworkflow
+  // flow. Picks an external file via the native dialog, imports it into
+  // `<project>/subworkflows/`, repoints `config.ref.path` (top-level, via
+  // `setNodeRef`), and refreshes the node's exposed-port handles in place (via
+  // `setNodeResolvedPorts`) so a broken / no-ref node un-breaks immediately.
+  // Reads the store actions directly so the canvas affordance and the Config-tab
+  // editor share ONE implementation (see `lib/chooseSubworkflowFile`).
+  const setNodeRef = useAppStore((state) => state.setNodeRef);
+  const setNodeResolvedPorts = useAppStore((state) => state.setNodeResolvedPorts);
+  const locateSubworkflow = useCallback(
+    (nodeId: string) => {
+      void chooseSubworkflowFile(nodeId, { setNodeRef, setNodeResolvedPorts, setLastError });
+    },
+    [setNodeRef, setNodeResolvedPorts, setLastError],
+  );
+
   const importWorkflow = useCallback(async () => {
     if (!currentProject) return;
     const input = document.createElement("input");
@@ -409,5 +484,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     createNewCustomBlock,
     createNewNote,
     importWorkflow,
+    openSubworkflow,
+    locateSubworkflow,
   };
 }

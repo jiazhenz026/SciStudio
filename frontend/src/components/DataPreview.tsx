@@ -3,9 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { BlockPortResponse, BlockSchemaResponse, PreviewTarget } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  PreviewTarget,
+  ResolvedSubworkflowPort,
+} from "../types/api";
 
-import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
+import { NodePortPanel } from "./DataPreview.parts/NodePortPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
 
@@ -50,6 +55,15 @@ interface DataPreviewProps {
    *  type-hierarchy → color lookup and the declared-port-name set that
    *  distinguishes static vs user-added variadic rows (#1326 §3). */
   selectedSchema?: BlockSchemaResponse;
+  /** ADR-044 — when the selected node is a subworkflow container, its exposed
+   *  port surface (with owning-block provenance). Renders the
+   *  SubworkflowPortPanel in place of the #1326 PortInfoPanel so the user can
+   *  see which inner block each opaque "<block>.<port>" port belongs to. */
+  subworkflowPorts?: {
+    inputs: ResolvedSubworkflowPort[];
+    outputs: ResolvedSubworkflowPort[];
+    typeHierarchy?: BlockSchemaResponse["type_hierarchy"];
+  };
 }
 
 export function DataPreview({
@@ -59,6 +73,7 @@ export function DataPreview({
   selectedInputPorts,
   selectedOutputPorts,
   selectedSchema,
+  subworkflowPorts,
 }: DataPreviewProps) {
   // #898 — pill labels become source filenames (with truncated-ref fallback).
   const refEntries: RefEntry[] = useMemo(() => {
@@ -137,23 +152,18 @@ export function DataPreview({
     plotPreviewTarget != null && plotPreviewTarget.source?.node_id === selectedNodeId;
   const activePlot = showPlotResult && plotBelongsToSelected ? plotPreviewTarget : null;
 
-  // Hotfix 2026-05-23 — split the preview region from the port-description
-  // panel so the panel no longer steals vertical space from the active
-  // preview. The panel reserves ~38% of the right column with its own
-  // internal scroll. ``shrink-0`` keeps the panel from collapsing when
-  // the preview content is tall. The single divider above the panel is
-  // owned by PortInfoPanel's own ``border-t``.
-  const portPanel =
-    selectedNodeId &&
-    ((selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0) ? (
-      <div className="flex shrink-0 basis-[38%] flex-col overflow-y-auto scrollbar-thin">
-        <PortInfoPanel
-          inputPorts={selectedInputPorts ?? []}
-          outputPorts={selectedOutputPorts ?? []}
-          schema={selectedSchema}
-        />
-      </div>
-    ) : null;
+  // Hotfix 2026-05-23 — the port section reserves ~38% of the right column with
+  // its own internal scroll, split from the preview so it never steals vertical
+  // space. NodePortPanel owns the subworkflow-vs-generic branch (ADR-044) and
+  // returns null when there is nothing to show.
+  const portPanel = selectedNodeId ? (
+    <NodePortPanel
+      subworkflowPorts={subworkflowPorts}
+      inputPorts={selectedInputPorts ?? []}
+      outputPorts={selectedOutputPorts ?? []}
+      schema={selectedSchema}
+    />
+  ) : null;
 
   // #1795 — the output/plot pills are shared by the inline panel and the
   // maximized window, so extract them once. ``hasPreviewContent`` also gates

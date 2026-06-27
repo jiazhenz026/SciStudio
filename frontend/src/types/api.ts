@@ -3,12 +3,69 @@ export interface Position {
   y: number;
 }
 
+/**
+ * ADR-044 §3 / spec FR-004 — one exposed port surfaced by a SubWorkflowBlock,
+ * derived (response-only) from the referenced subworkflow's `exposed_ports`.
+ * `name` MUST equal the React Flow handle id so existing colon-ref edge
+ * connect/persist logic works unchanged (`<node_id>:<port_name>`).
+ */
+export interface ResolvedSubworkflowPort {
+  name: string;
+  accepted_types: string[];
+  /** ADR-044 — owning inner block provenance so the editor can show which inner
+   *  block each exposed port belongs to. Optional/`""` for older payloads or
+   *  unresolvable refs. */
+  block_id?: string;
+  block_type?: string;
+  block_label?: string;
+  port?: string;
+}
+
+/**
+ * ADR-044 — the response-only port surface attached to `subworkflow` /
+ * `subworkflow_broken` nodes on the `GET /api/workflows/{id}` response. This
+ * field is NEVER persisted; the backend recomputes it per load from the
+ * referenced file's `exposed_ports` (or marks `broken: true` with empty port
+ * lists when `config.ref.path` does not resolve).
+ */
+export interface ResolvedSubworkflowPorts {
+  inputs: ResolvedSubworkflowPort[];
+  outputs: ResolvedSubworkflowPort[];
+  /** True for `subworkflow_broken` nodes whose `config.ref.path` is unresolved. */
+  broken: boolean;
+  /** The (unresolved-or-resolved) project-relative reference path, or null. */
+  ref_path: string | null;
+}
+
+/**
+ * ADR-044 FR-011 / US5 — response of `POST /api/workflows/import-subworkflow`.
+ * The backend copies the chosen external file into `<project>/subworkflows/`,
+ * returns its new project-relative `ref_path`, and re-resolves the referenced
+ * file's exposed-port surface (`resolved_ports`) so the caller can repoint a
+ * node's `config.ref.path` AND refresh its handles without a full reload. The
+ * `resolved_ports` shape mirrors the response-only surface attached to
+ * `subworkflow` / `subworkflow_broken` nodes on the workflow GET response.
+ */
+export interface ImportSubworkflowResponse {
+  /** Project-relative path of the copied file (e.g. `subworkflows/foo.swf.yaml`). */
+  ref_path: string;
+  resolved_ports: ResolvedSubworkflowPorts;
+}
+
 export interface WorkflowNode {
   id: string;
   block_type: string;
   config: Record<string, unknown>;
   execution_mode?: string | null;
   layout?: Position | null;
+  /**
+   * ADR-044 — present only on `subworkflow` / `subworkflow_broken` nodes. The
+   * authored graph (load path, NOT flattened) carries this so the editor can
+   * render handles for the referenced subworkflow's exposed ports without
+   * whole-graph flattening (spec FR-002 / FR-004). Response-only; absent on
+   * every other block type.
+   */
+  resolved_ports?: ResolvedSubworkflowPorts;
 }
 
 export interface WorkflowEdge {
