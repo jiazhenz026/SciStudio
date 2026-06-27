@@ -63,10 +63,19 @@ The ADR-037 MVP is expected to ship with a staged Python under
 npm --prefix desktop run build:python
 ```
 
-On Windows, that portable runtime includes `pywinpty`/`winpty` because embedded
-agent terminals are PTY-backed. System Python is only a developer fallback; an
-end-user desktop build should include `resources/python` so a user can launch
-SciStudio without installing Python first.
+On Windows, that portable runtime is staged from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+(`x86_64-pc-windows-msvc-install_only`) — a full CPython, the same source macOS
+uses. It deliberately does **not** use the python.org *embeddable* zip: the
+embeddable distribution ships a `pythonXX._pth` file that makes CPython ignore
+`PYTHONPATH`, and the bundled app loads `scistudio` from `resources/backend/src`
+(and OTA patches from a userData dir) purely through `PYTHONPATH`
+(`main.js` `runtimeEnv`). An embeddable runtime therefore could not import
+`scistudio` and broke OTA on Windows (#1807). The runtime includes
+`pywinpty`/`winpty` because embedded agent terminals are PTY-backed. System
+Python is only a developer fallback; an end-user desktop build should include
+`resources/python` so a user can launch SciStudio without installing Python
+first.
 
 On macOS, `build:python:mac` stages a standalone Python under
 `resources/python/bin/python3` before `dist:dmg` builds the DMG.
