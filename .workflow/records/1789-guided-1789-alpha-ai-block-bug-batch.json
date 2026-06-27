@@ -487,6 +487,162 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-06-27T01:13:01.304306Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aa05c0452de03ba8ad0488057a7bc82a509718039b18574717d245dda3fc3753",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:13:02.004351Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4364440c6a31ff769004dadc22c7c44a24c5834886a4da7b1d5b8e987b462f21",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:13:02.060085Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:68d119dc24437c12f658be0f7b6e5e1f00a3fe23c1ba6cb4ac32c48c00628d3e",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T01:13:40.329302Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7fe19298bda714e9f026c564acf1209babded346c1d6cfa89a03855bf6ae5627",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:13:44.287880Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c52a7ccf1d38e55cbf90f648f3e4bb5bd9385e5536d17e4ec75c613d7b53b642",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:13:44.420286Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f678352167a2d30d4780cf60ad14e56eacadd672c0766c190bb981d171341d81",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:13:44.467627Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:61b170fe3e4060fb93627a4bae84037ce296221595d61750ced5da4200c8b644",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T01:14:49.065541Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:01630226fe33e6f97ddbc7135cae516d90ac6b0d33d46c3e4b1952f470e2aeb5",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:16:32.931356Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d35230ee1066b2a9a1fb970cd8f7836e011e454f6bd09b43e2d73322af84af18",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T01:16:33.807609Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:25592943e6d272d08a1b97b4d2e89a4240a8464685a7129cd1a20b77528ecd7d",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -1137,6 +1293,152 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.870880Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/completion.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/completion.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_events.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_events.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.881473Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.892025Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.902856Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.913172Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.923223Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.932880Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.947353Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.958295Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T01:16:33.974375Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1149,7 +1451,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "8c0dba8f70a66ad4a1ef1cf9494989cca1feb40c",
+    "base": "origin/main",
     "base_sha": "8c0dba8f",
     "changed_files": [
       ".workflow/records/1789-guided-1789-alpha-ai-block-bug-batch.json",
@@ -1157,24 +1459,36 @@
       "frontend/src/components/PortEditorTable.tsx",
       "frontend/src/components/Toolbar.parts/WorkflowGroups.tsx",
       "frontend/src/components/Toolbar.test.tsx",
+      "src/scistudio/ai/agent/terminal.py",
+      "src/scistudio/api/routes/ai_pty/_state.py",
+      "src/scistudio/api/routes/ai_pty/engine.py",
       "src/scistudio/api/routes/ai_pty/websocket.py",
       "src/scistudio/api/routes/workflows.py",
+      "src/scistudio/blocks/ai/ai_block.py",
+      "src/scistudio/blocks/ai/completion.py",
+      "src/scistudio/engine/scheduler/_events.py",
+      "tests/ai/test_windows_executable_resolution.py",
+      "tests/api/routes/ai_pty/test_public_surface.py",
+      "tests/api/test_ai_pty.py",
       "tests/api/test_ai_pty_audit_fixes.py",
-      "tests/api/test_workflows.py"
+      "tests/api/test_ai_pty_engine_spawn.py",
+      "tests/api/test_workflows.py",
+      "tests/blocks/ai/test_ai_block_skeleton.py",
+      "tests/blocks/ai/test_completion_skeleton.py"
     ],
-    "diff_fingerprint": "sha256:caf984916cb2900d09a001d575139579d68396c065493acb385351193e6a2947",
+    "diff_fingerprint": "sha256:0d1158a4297fc547af73d4025844ad12080bb139b1526c7047f40c24e57d141c",
     "head": "HEAD",
-    "head_sha": "f03ce75a",
+    "head_sha": "4a8765c2",
     "surfaces": {
       "docs": 0,
       "frontend": 4,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 12,
       "packaging": 0,
-      "protected_core": 0,
-      "sentrux": 8,
-      "test": 4,
+      "protected_core": 3,
+      "sentrux": 20,
+      "test": 10,
       "workflow_ci": 0
     }
   },
@@ -1259,6 +1573,17 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T01:16:33.974437Z",
+      "diff_fingerprint": "sha256:0d1158a4297fc547af73d4025844ad12080bb139b1526c7047f40c24e57d141c",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "1789-guided-1789-alpha-ai-block-bug-batch",
@@ -1271,8 +1596,12 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
     "checks": [
+      "architecture_tests",
+      "deferral_discipline",
       "format_check",
       "frontend",
       "full_audit",
@@ -1339,10 +1668,28 @@
       "at": "2026-06-27T01:10:47.693454Z",
       "pattern": "src/scistudio/engine/scheduler/_events.py",
       "reason": "Root-cause fix for AI block prompt: claude's variadic --mcp-config swallowed the trailing prompt (exit 1 in ask mode; bypass worked only because the bypass flag separated them). Deliver the prompt as a spawn CLI arg via _spawn/spawn_claude/spawn_codex with a -- separator (uniform, no per-provider special-casing). Stop responsiveness: scheduler cancel now backgrounds worker terminate so cancel returns immediately. Adds spawn plumbing + scheduler scope and their tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:17:37.507391Z",
+      "pattern": "frontend/src/components/**",
+      "reason": "Tier-1 escalation requires explicit scope for the frontend bug-fix files: PortEditorTable (bug 3 subtype filter), Toolbar/WorkflowGroups (bug 6 Stop feedback), and App wiring touched during iteration (net-reverted)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:17:37.507534Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "Tier-1 escalation requires explicit scope for the frontend bug-fix files: PortEditorTable (bug 3 subtype filter), Toolbar/WorkflowGroups (bug 6 Stop feedback), and App wiring touched during iteration (net-reverted)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-27T01:17:37.507537Z",
+      "pattern": "frontend/src/App.parts/**",
+      "reason": "Tier-1 escalation requires explicit scope for the frontend bug-fix files: PortEditorTable (bug 3 subtype filter), Toolbar/WorkflowGroups (bug 6 Stop feedback), and App wiring touched during iteration (net-reverted)."
     }
   ],
   "session_id": "b73db3a8-d0a5-4e47-b9d1-5c6866d05d63",
-  "strictness_tier": 2,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

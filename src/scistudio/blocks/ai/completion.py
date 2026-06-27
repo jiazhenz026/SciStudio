@@ -160,9 +160,7 @@ class CompletionWatcher:
                 pass
             return None
 
-        baseline: dict[Path, tuple[float, int] | None] = {
-            p: _stat_pair(p) for p in self._resolved.values()
-        }
+        baseline: dict[Path, tuple[float, int] | None] = {p: _stat_pair(p) for p in self._resolved.values()}
 
         while True:
             if self._cancel_event.is_set():
