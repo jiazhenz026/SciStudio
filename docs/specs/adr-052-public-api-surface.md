@@ -120,9 +120,9 @@ releases still records `since="0.3.1"` because that is when it *first became
 public on its declared surface* (ADR-052 §5). Symbols added after the baseline
 record their own later version.
 
-> Branch note: this branch (`guided/1819-public-api-contract-adr`) still carries
-> `BASE_VERSION = 0.3.0` and is ~10 commits behind `main` (now `0.3.1`). It must
-> catch up to `main` before finalize so the baseline matches the shipping line.
+> Branch note: this branch (`guided/1819-public-api-contract-adr`) carries
+> `BASE_VERSION = 0.3.1` and is current with `origin/main` (rebased; 0 behind),
+> so the baseline already matches the shipping line.
 
 ### 2.4 Tier defaults
 
@@ -374,7 +374,7 @@ Module exports (`__all__`): `Collection` public. `Collection` is **not** a
 `render(collection)` contract (§9) describes a *different* object (ADR-048 plot-render:
 `.types`, `.items.open()/open_one()`, `item.type/metadata/open()`) that merely shares
 the name. This `core.types.Collection` (ADR-020 transport wrapper) is inventoried above
-as-is; the plot object is located and inventoried in the §8/§9 plot-preview pass (§17).
+as-is; the plot object is now inventoried in §9 (the import-free `render(collection)` contract).
 
 ### 3.9 `registry.py`, `serialization.py`, `_backend_defaults.py`
 
@@ -860,37 +860,256 @@ importers — owner chose removal over deprecation); leading-underscore names st
 | ➖ | `runner_registry.RunnerRegistry` + `runners/*` (`python_runner`/`r_runner`/`julia_runner`/`base`) | **Delete (dead code)** | owner 2026-06-27: **delete** — 0 production importers (`code_block.py` uses `backends/`); #1817 removes `runner_registry.py` + `runners/*` + their tests (`test_runner_registry.py`/`test_runners_subprocess.py` + the `test_code_block.py` runner import). Not public |
 | ➖ | leading-underscore internals (`_backends_registry` privates, `_SAFE_NAME_PATTERN`, `_ITEM_COUNT_WARNING_THRESHOLD`, …) | Internal | underscore convention |
 
-## 8. Previewer Authoring — `scistudio.previewers.models`
+## 8. Previewer Authoring — `scistudio.previewers`
 
-Canonical root: `from scistudio.previewers.models import …` (ADR-048)
+**Canonical author roots (regularized):**
 
-`models.py` already declares an `__all__`; reconcile against it.
+- `scistudio.previewers.models` — spec / manifest / request / envelope / enum /
+  error-info / provider-protocol types.
+- `scistudio.previewers.data_access` — the injected `PreviewDataAccess` reader and
+  its bounded-read result dataclasses.
+- One helper, `sanitize_svg`, currently lives in `scistudio.previewers.fallbacks`
+  (otherwise a core-internal module). It is author-facing (a package SVG/plot
+  previewer reuses it) and is **mis-homed**: relocate it to a public helper home
+  in #1823 so the author surface is `models` + `data_access` + that helper, with
+  no author import from `fallbacks`.
+
+The operational classes (`PreviewerRegistry`, `PreviewRouter`,
+`PreviewSessionManager`, `PreviewService`, `build_preview_service`,
+`get_preview_service`, `load_project_previewers`) remain importable but are
+**Internal** — core owns routing, session lifecycle, safety limits, bounded data
+access, asset serving, and the generic fallback viewers (ADR-048); packages only
+*register* previewers through the `scistudio.previewers` entry point. They appear
+in `previewers/__init__.__all__` today; #1817 reconciles that `__all__` against
+this contract (presence in `__all__` is not an author stability promise — §2).
+
+**Subsystem tier:** the whole preview subsystem is **`provisional`** (owner
+2026-06-27) — it is young (ADR-048; refactors #1579/#1598) and expected to settle,
+the same posture taken for app blocks (§7) and code blocks (§7A).
+
+**Reference implementation:** `scistudio-blocks-spectroscopy` is the canonical
+shape — it splits registration (`previewers/__init__.py`: only `PreviewerSpec` /
+`FrontendManifest`) from provider logic (`previewers/providers.py`), reads every
+payload through the injected `PreviewDataAccess`, raises `ProviderError` for hard
+failures while embedding `PreviewErrorInfo` for routine ones, and reuses
+`sanitize_svg`. `scistudio-blocks-imaging` is **not** a model to follow (monolithic
+module; its own array loader bypassing `PreviewDataAccess`; uses the legacy
+`png_data_uri`); it is being rewritten, so symbols only it touches carry no weight.
 
 File checklist:
 
-- [ ] `models.py` (650) — `PreviewerSpec`, `FrontendManifest`, owner-kind + API-version constants, preview-error types
+- [x] `models.py` (650) — author type surface (§8.1)
+- [x] `data_access.py` (804) — `PreviewDataAccess` + result types (§8.2)
+- [x] `fallbacks.py` (629) — `sanitize_svg` public; 8 core providers + `core_previewer_specs` internal (§8.3)
+- [x] `__init__.py` (164), `registry.py` (282), `router.py` (234), `session.py` (617), `project.py` (120), `assets.py` (161) — operational layer, Internal (§8.4)
+- [x] `_raster.py` (101), `_table_cache.py` (127) — underscore-private internals
+
+### 8.1 `models.py`
+
+Canonical root: `from scistudio.previewers.models import …`. `__all__` declares 29
+symbols. Both public packages import from here; usage is cited per row.
 
 | St | Symbol | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `PreviewerSpec` | class | Public | — | — | ADR-048 |
-| 🤔 | `FrontendManifest` | class | Public | — | — | |
-| 🤔 | (owner-kind constants) | constant | Public | — | — | enumerate |
-| 🤔 | (API-version constants) | constant | Public | — | — | enumerate |
-| 🤔 | (preview-error types) | class | Public | — | — | enumerate |
+| ✅ | `PREVIEWER_API_VERSION` | constant | Public | provisional | 0.3.1 | both packages stamp it on spec/manifest |
+| ✅ | `OwnerKind` | class (StrEnum) | Public | provisional | 0.3.1 | author sets `OwnerKind.PACKAGE` |
+| ✅ | `EnvelopeKind` | class (StrEnum) | Public | provisional | 0.3.1 | author sets the envelope kind (SERIES/ARRAY/COMPOSITE/ERROR seen) |
+| ✅ | `TargetKind` | class (StrEnum) | Public | provisional | 0.3.1 | provider reads `target.kind` |
+| ✅ | `PreviewErrorCode` | class (StrEnum) | Public | provisional | 0.3.1 | author embeds the code in `PreviewErrorInfo`; the canonical error vocabulary |
+| ✅ | `PreviewerSpec` | class | Public | provisional | 0.3.1 | author returns these from `get_previewers` |
+| ✅ | `FrontendManifest` | class | Public | provisional | 0.3.1 | same-origin UI descriptor the author ships |
+| ✅ | `PreviewRequest` | class | Public | provisional | 0.3.1 | provider input (carries `target`/`spec`/`query`/`data_access`/`limits`); #1823 adds typed `storage`/`record_metadata` fields — see §8.5 |
+| ✅ | `PreviewTarget` | class | Public | provisional | 0.3.1 | read off the request; shape: `kind`/`ref`/`recorded_type`/`type_chain`/`collection_item_type`/`is_collection` |
+| ✅ | `PreviewSource` | class | Public | provisional | 0.3.1 | optional display identity on `target.source` (no runtime truth) |
+| ✅ | `PreviewLimits` | class | Public | provisional | 0.3.1 | session budgets surfaced on `request.limits` |
+| ✅ | `PreviewEnvelope` | class | Public | provisional | 0.3.1 | author returns it; `with_session()` is runtime-only (manager binds the session id) |
+| ✅ | `PreviewMetadata` | class | Public | provisional | 0.3.1 | author sets the six FR-011 flags + `extra` |
+| ✅ | `PreviewResource` | class | Public | provisional | 0.3.1 | author declares bounded follow-up resources |
+| ✅ | `PreviewErrorInfo` | class | Public | provisional | 0.3.1 | author embeds a typed error in a failed envelope |
+| ✅ | `PreviewProvider` | type-alias | Public | provisional | 0.3.1 | `Callable[[PreviewRequest], PreviewEnvelope]` — the provider shape |
+| ✅ | `PreviewResourceProvider` | type-alias | Public | provisional | 0.3.1 | optional follow-up resource reader shape |
+| ✅ | `PreviewerEntryPoint` | protocol | Public | provisional | 0.3.1 | `() -> list[PreviewerSpec]` entry-point shape |
+| ✅ | `PreviewerSpecList` | type-alias | Public | provisional | 0.3.1 | `list[PreviewerSpec]` return alias |
+| ✅ | `PreviewError` | class (Exception) | Public | provisional | 0.3.1 | base; authors catch |
+| ✅ | `ProviderError` | class (Exception) | Public | provisional | 0.3.1 | authors raise for hard failures (spectroscopy raises it 5×) |
+| ✅ | `PreviewSession` | class | Internal | — | — | backend-owned session record; neither package imports it |
+| ✅ | `RoutingAmbiguityError` | class (Exception) | Internal | — | — | runtime raises (router); author signals via `PreviewErrorCode` instead |
+| ✅ | `UnknownPreviewerError` | class (Exception) | Internal | — | — | runtime raises |
+| ✅ | `UnknownTargetError` | class (Exception) | Internal | — | — | runtime raises |
+| ✅ | `MissingBundleError` | class (Exception) | Internal | — | — | runtime raises (asset layer) |
+| ✅ | `InvalidSpecError` | class (Exception) | Internal | — | — | runtime raises (registry) |
+| ✅ | `DuplicatePreviewerIdError` | class (Exception) | Internal | — | — | runtime raises (registry) |
+
+Note: every public dataclass here carries a `to_dict()` wire-serialization hook the
+API layer calls; it is framework-facing, not part of the authoring path. #1817 drops
+the 7 Internal rows (`PreviewSession` + the 6 runtime-raised errors) from
+`models.__all__`.
+
+### 8.2 `data_access.py`
+
+Canonical root: `from scistudio.previewers.data_access import …`. `__all__` declares
+15 symbols. `PreviewDataAccess` is **constructed by the runtime and injected** on
+`request.data_access`; authors call its methods and never instantiate it. The
+result dataclasses are **read-only outputs** authors receive, not types they build.
+
+| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `PreviewDataAccess` | class | Public | provisional | 0.3.1 | the only sanctioned payload-read surface; runtime-injected, not author-constructed |
+| ✅ | `PreviewDataAccess.dataframe_page` | method | Public | provisional | 0.3.1 | bounded table page (spectroscopy uses) |
+| ✅ | `PreviewDataAccess.table_xy_points` | method | Public | provisional | 0.3.1 | complete x/y points from two columns (spectroscopy uses) |
+| ✅ | `PreviewDataAccess.array_plane` | method | Public | provisional | 0.3.1 | bounded N-D plane (imaging uses) |
+| ✅ | `PreviewDataAccess.array_tile` | method | Public | provisional | 0.3.1 | bounded 2-D tile |
+| ✅ | `PreviewDataAccess.series_points` | method | Public | provisional | 0.3.1 | complete curve points |
+| ✅ | `PreviewDataAccess.text_chunk` | method | Public | provisional | 0.3.1 | bounded text chunk |
+| ✅ | `PreviewDataAccess.artifact_metadata` | method | Public | provisional | 0.3.1 | bounded artifact metadata + small-image data URI |
+| ✅ | `PreviewDataAccess.composite_slots` | method | Public | provisional | 0.3.1 | slot inventory (both packages use) |
+| ✅ | `PreviewDataAccess.composite_raster_slot` | method | Public | provisional | 0.3.1 | bounded composite raster-slot read (imaging uses) |
+| ✅ | `PreviewDataAccess.collection_sample` | method | Public | provisional | 0.3.1 | bounded collection item sample |
+| ✅ | `PreviewDataAccess.png_data_uri` | method | Internal | — | — | legacy grayscale-PNG path; docstring "legacy-compat only"; sole caller is imaging, which is being rewritten |
+| ✅ | `DataFramePage` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `ArrayPlane` | class | Public | provisional | 0.3.1 | return type (imaging imports it) |
+| ✅ | `SliceAxis` | class | Public | provisional | 0.3.1 | nested in `ArrayPlane.slice_axes` (imaging imports it) |
+| ✅ | `ArrayTile` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `SeriesPoints` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `TableXYPoints` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `TextChunk` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `ArtifactInfo` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `CompositeSlots` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `CollectionSample` | class | Public | provisional | 0.3.1 | return type |
+| ✅ | `DEFAULT_MAX_ROWS` | constant | Internal | — | — | runtime budget default; authors read budgets via `PreviewLimits` |
+| ✅ | `DEFAULT_MAX_BYTES` | constant | Internal | — | — | as above |
+| ✅ | `DEFAULT_MAX_ITEMS` | constant | Internal | — | — | as above |
+| ✅ | `DEFAULT_MAX_TILE` | constant | Internal | — | — | as above |
+| ✅ | `DEFAULT_MAX_DIM` | constant | Internal | — | — | as above |
+
+### 8.3 `fallbacks.py`
+
+Not an author root. Holds core's own fallback viewers; one helper escaped here and
+is author-facing.
+
+| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `sanitize_svg` | function | Reach-through (relocate) | provisional | 0.3.1 | spectroscopy imports it for SVG/plot previewers; relocate out of `fallbacks` to a public helper home in #1823 |
+| ➖ | `dataframe_previewer` / `array_previewer` / `series_previewer` / `text_previewer` / `artifact_previewer` / `composite_previewer` / `collection_previewer` / `plot_previewer` / `base_fallback_previewer` | function | Internal | — | — | core's own fallback viewers; authors may read as reference impls, do not import |
+| ➖ | `core_previewer_specs` | function | Internal | — | — | builds the core spec list at registry load |
+
+### 8.4 Operational layer — Internal
+
+Neither public package imports any of these; core owns the machinery (ADR-048).
+
+| St | Symbol | Module | Disposition | Notes |
+|----|--------|--------|-------------|-------|
+| ➖ | `PreviewerRegistry` | registry.py | Internal | spec registration + entry-point discovery |
+| ➖ | `PREVIEWER_ENTRY_POINT_GROUP` / `COMPANION_ENTRY_POINT_GROUPS` | registry.py | Internal | authors write the literal `"scistudio.previewers"` group in `pyproject.toml`, not the constant |
+| ➖ | `PreviewRouter` | router.py | Internal | resolution order / precedence |
+| ➖ | `PreviewSessionManager` | session.py | Internal | session lifecycle, framework manifest-stamping |
+| ➖ | `PreviewService` / `build_preview_service` / `get_preview_service` | __init__.py | Internal | API-runtime bundle + accessor |
+| ➖ | `load_project_previewers` / `PROJECT_PREVIEWERS_DIR` / `PROJECT_PREVIEWERS_MANIFEST` | project.py | Internal | project-local drop-in loading |
+| ➖ | `validate_manifest` / `resolve_asset` / `is_remote_url` / `ManifestValidation` / `ServedAsset` | assets.py | Internal | backend asset validator / path-confinement (FR-024) |
+
+### 8.5 Storage access — `request.storage` (closing the `_storage` leak)
+
+Providers must read payloads **without catalog access** (FR-009), so the runtime
+resolves the storage reference and hands it to the provider. That need is
+legitimate and not package-specific — core's own fallback viewers (`fallbacks.py`),
+spectroscopy, and imaging all rely on it. The *mechanism*, however, leaks a core
+type into author code and is to be closed in #1823.
+
+**Today (verified data flow):** `ApiRuntime.enrich_preview_query`
+(`api/runtime/_data.py`) already holds a typed `StorageReference` (`record.ref`)
+but **downgrades it to a JSON dict** under `request.query["_storage"]` (plus
+`["_record_metadata"]`), because `query` crosses REST and is persisted on
+`PreviewSession.query`. Every provider then re-imports
+`scistudio.core.storage.ref.StorageReference` and rebuilds it from that dict
+before calling `PreviewDataAccess`.
+
+**Target (#1823):** add typed fields `storage: StorageReference | None` and
+`record_metadata: dict` to `PreviewRequest` — an in-process object that already
+carries the live `PreviewDataAccess` and is never serialized — populated by the
+`PreviewSessionManager`. Providers then read `request.storage` and forward it to
+`data_access.*`; they **no longer import `StorageReference` or touch `_storage`**.
+The `_storage` / `_record_metadata` query keys demote to a **runtime-internal
+serialization detail** (session persistence / resume), not an author contract.
+
+| St | Surface element | Disposition | Tier | Since | Notes |
+|----|-----------------|-------------|------|-------|-------|
+| ✅ | `PreviewRequest.storage` (typed field, adds in #1823) | Public | provisional | — | the sanctioned way a provider obtains its `StorageReference`; replaces the `_storage` rebuild |
+| ✅ | `PreviewRequest.record_metadata` (typed field, adds in #1823) | Public | provisional | — | replaces the `_record_metadata` query read |
+| ✅ | `request.query["_storage"]` / `["_record_metadata"]` | Internal | — | — | runtime serialization form for session persistence; not an author contract (was an implicit one) |
+| ➖ | `StorageReference` (`scistudio.core.storage.ref`) | Public (via `core.types` re-export, §3) | — | — | appears in `PreviewDataAccess` signatures + the new `request.storage` field; previewer authors only pass it through, never import or construct it. Canonical inventory tracked under the core.storage governed-modules gap (§17), unchanged by this section |
 
 ## 9. Plot `render(collection)` Contract
 
-Canonical usage: a plot script **imports nothing** from `scistudio`. The public
-surface is the shape of the `collection` object the harness passes, plus the
-return contract (ADR-052 §3). It is documented here as a supported authoring usage
-even though it has no importable symbol.
+This is an **import-free, duck-typed, dual-interpreter (Python + R) authoring
+contract**, not an importable-symbol surface. A plot script defines exactly
+`def render(collection):` (R: `render <- function(collection)`) — the validator
+rejects any other entrypoint, including `render(collection, context)`. The harness
+runs the script in a **confined CodeBlock subprocess** (§7A), injects a
+`collection` object, calls `render(collection)`, and collects the return value. The
+script **imports nothing from `scistudio`**.
 
-| St | Surface element | Disposition | Since | Notes |
-|----|-----------------|-------------|-------|-------|
-| 🤔 | `collection.types` | Public (shape) | — | |
-| 🤔 | `collection.items.open()` / `open_one()` | Public (shape) | — | |
-| 🤔 | `item.type` / `item.metadata` / `item.open()` | Public (shape) | — | |
-| 🤔 | return contract (figure object or artifact path) | Public (shape) | — | confirm exact accepted return types |
+The implementing classes (`_PlotCollection`, `_PlotItem`, `_PlotItems`) are private
+and live in `scistudio.ai.agent.mcp.tools_plot._harness`; the input envelope
+(`{schema_version, collection: {types, items}}`) is built by
+`scistudio.ai.agent.mcp.tools_plot.runtime._input_envelope`. None of these are
+author-importable. The public contract is therefore the **shape** of the injected
+object plus the **return contract**, recorded below. (These module paths are the
+relocation target of #1824; the contract shape does not depend on where they live.)
+
+**Tier = `provisional` (owner 2026-06-27); no behavior change.** The plot feature
+is currently stable; this section records the contract exactly as it ships at
+`0.3.1` and proposes **no behavior change**. Its current home under the AI-agent
+MCP tooling is architecturally wrong, though — the user-facing REST route
+`api/routes/plots.py` already imports up into `tools_plot` — so a
+**behavior-preserving relocation** to a first-class home is tracked in **#1824**
+(the `render(collection)` shape and return contract are unchanged by that move).
+Enforcement (§15)
+is a **behavior-pinning contract test** (a Python + R reference `render(collection)`
+that asserts the shape and the return handling) added in the #1817 enforcement
+phase — it freezes current behavior and changes nothing.
+
+**Injected `collection` shape:**
+
+| St | Surface element | Disposition | Tier | Since | Notes |
+|----|-----------------|-------------|------|-------|-------|
+| ✅ | `collection.types` | Public (shape) | provisional | 0.3.1 | `tuple[str, ...]` (Py) / character vector (R); distinct non-`DataObject` type names present |
+| ✅ | `collection.items` | Public (shape) | provisional | 0.3.1 | ordered container: `len()` / iterate / `[i]` |
+| ✅ | `collection.items.open(max_items=None)` | Public (shape) | provisional | 0.3.1 | list of opened payloads; byte-budget guarded (`max_input_bytes`) |
+| ✅ | `collection.items.open_one()` | Public (shape) | provisional | 0.3.1 | first item opened; empty → `IndexError` (Py) / `stop` (R) |
+| ✅ | `item.type` | Public (shape) | provisional | 0.3.1 | `str`; one of `Array`/`DataFrame`/`Series`/`Text`/`Artifact`/`CompositeData`; default `"DataObject"` |
+| ✅ | `item.metadata` | Public (shape) | provisional | 0.3.1 | read-only (`MappingProxyType`); public keys only (strip-list below) |
+| ✅ | `item.open()` | Public (shape) | provisional | 0.3.1 | materialized **native** payload per `item.type` (table below) — not a `DataObject` |
+
+**`item.open()` return type by `item.type`:**
+
+| `item.type` | `open()` returns |
+|-------------|------------------|
+| `Array` | `numpy.ndarray` |
+| `DataFrame` | `pandas.DataFrame` |
+| `Series` | `pandas.Series` (single column) / `pandas.DataFrame` (≥2 columns, #1750 — preserves both axes, e.g. a Spectrum's `{lambda, intensity}`) |
+| `Text` | `str` |
+| `Artifact` | `pathlib.Path` |
+| `CompositeData` | `dict[str, <opened slot payload>]` (recurses one level) |
+
+`item.open()` hands the author **vanilla scientific objects** (numpy / pandas / str /
+Path / dict), never a `scistudio` `DataObject` — a deliberate non-`DataObject`
+authoring boundary consistent with "a plot script imports nothing from
+`scistudio`". It is a sanctioned pandas/numpy surface, logged in the §10 boundary
+ledger.
+
+**`item.metadata` strip-list:** the harness removes the storage/lineage-internal
+keys `backend`, `format`, `path`, `storage_ref`, `storage`, `type_chain`,
+`item_type`, `slots`; everything else passes through read-only. This filter is part
+of the contract (it defines what a plot author may read).
+
+**Return contract** — `render(collection)` returns one of:
+
+| St | Returned value | Handling | Notes |
+|----|----------------|----------|-------|
+| ✅ | a Matplotlib figure (duck-typed: has `.savefig`) | saved to the working dir | format from the manifest's preferred/allowed set |
+| ✅ | an artifact path (`str` / `pathlib.Path`) | collected | **must resolve inside the plot working dir** (else `PermissionError`) and exist (else `FileNotFoundError`) |
+| ✅ | a `list` / `tuple` of the above | each collected | mixed figures + paths allowed |
+| ✅ | `None`, or any other type | rejected | `None` → `ValueError`; other → `TypeError` |
 
 ## 10. Ergonomic Accessors (ADR-052 §3.1)
 
@@ -912,6 +1131,12 @@ single sanctioned pandas-using data-flow exception is the `.xlsx` reader/writer
 (#1810; impl. PR #1815, OPEN), per ADR-052 §3.1 — surveyed and verified to use
 pandas/openpyxl only at the format boundary and return Arrow-backed `DataObject`s
 downstream (see the §6 xlsx note).
+
+A second, distinct sanctioned boundary is the **plot `render(collection)` output
+path** (§9): `item.open()` hands the plot author native numpy / pandas / str /
+Path / dict, never a `DataObject`. This is an author-output boundary (a plot script
+imports nothing from `scistudio`), not a data-flow block, so it is recorded
+separately from the `.xlsx` data-flow exception. Provisional, no behavior change.
 
 ## 11. Large-Data Access (ADR-052 §3.2)
 
@@ -940,7 +1165,7 @@ ADR-052 lands; each migrates only once its public replacement exists.
 | 🤔 | `scistudio.utils.constraints.has_axes` | imaging | a | public home or alternative | #1817 |
 | ✅ | `scistudio.blocks.app.bridge._guess_mime` | imaging | a | **(c) remove/replace** — extension→MIME is non-contract (non-load-bearing; 4 copies in core); **not public**; imaging migrates to the declared type / `None` (cross-repo) | #1817 |
 | ✅ | `scistudio.blocks.app.app_block._PopenProcessAdapter` | imaging | a | **(b) remove the need** — `FileWatcher` accepts a plain `Popen`; adapter stays internal; imaging passes the raw `Popen` (cross-repo) | #1817 |
-| 🤔 | `scistudio.previewers.data_access` (internals) | — | a | public previewer-authoring alternative | #1817 |
+| ✅ | `scistudio.previewers.data_access` (internals) | — | a | resolved §8: `data_access` is a canonical author root; the `StorageReference` / `_storage` leak is closed via typed `request.storage` (§8.5) | #1823 |
 | 🤔 | `build_spectrum` | spectroscopy | b | package exposes on `Spectrum` (ADR-052 §4.2) | #1817 |
 | 🤔 | `spectrum_arrays` | spectroscopy | b | replaced by inherited `to_numpy`/`to_pandas` | #1817 |
 | 🤔 | `coerce_spectra` | spectroscopy | b | package public helper | #1817 |
@@ -1049,6 +1274,14 @@ documented**, and that *accidental* change is impossible. The design:
   freeze to the deprecation policy instead of just asserting a string.
 - **Single source of truth.** The snapshot can be the same artifact the generated
   docs consume, so the freeze test, the docs, and the contract can never disagree.
+- **Import-free contracts get a behavior-pinning test.** The §9 plot
+  `render(collection)` contract has no importable symbol, so the symbol snapshot
+  cannot cover it. It is frozen instead by a **contract test**: a Python + R
+  reference `render(collection)` that asserts the injected shape
+  (`collection.types` / `.items` / `open` / `open_one`; `item.type` / `.metadata` /
+  `.open()` return types) and the return handling (figure / in-dir path / list /
+  rejects). The test pins current behavior and changes nothing; it lives under the
+  same owner-reviewed `tests/api/**` protection.
 
 Net: you cannot change the API **by accident** (CI catches it), and you cannot
 change it **on purpose** without owner review **and** a changelog/policy entry.
@@ -1110,13 +1343,12 @@ once their callers migrate.
   `governs.modules`. Decide: add them (or the specific re-exported symbols) to the
   governed surface, or treat the `scistudio.core.types` re-export as the canonical
   governed path.
-- **🤔 Plot `collection` vs `core.types.Collection`.** §9's plot
+- **✅ Plot `collection` vs `core.types.Collection` (resolved §9).** §9's plot
   `render(collection)` shape (`.types`, `.items.open()/open_one()`,
-  `item.type/metadata/open()`) does not match `core.types.Collection` (ADR-020:
-  `item_type`, `__iter__`, `storage_refs`) — they share a name but are different
-  objects. The plot `collection` is ADR-048's plot-render object. Locate it (plot /
-  preview subsystem) and inventory its public shape; decide whether it is in this
-  contract's scope (§9 / §3.8).
+  `item.type/metadata/open()`) is a distinct object from `core.types.Collection`
+  (ADR-020: `item_type`, `__iter__`, `storage_refs`) — same name, different objects.
+  Located in the harness (`scistudio.ai.agent.mcp.tools_plot._harness`; relocation
+  tracked #1824) and inventoried in §9 as an import-free, provisional contract.
 - **🤔 CodeBlock missing from the governed surface (survey done, owner to confirm).**
   `scistudio.blocks.code` / `CodeBlock` is not in ADR-052 `governs.modules`, but the
   survey confirms CodeBlock **is** a genuine authoring base — `registry/_spec`
@@ -1187,3 +1419,13 @@ even after the tables are complete.
 | 2026-06-27 | **Owner: publish the entire `blocks/code` non-underscore surface Public/provisional** (un-defers the backend-registration subset; full exchange/interpreters/introspect/provenance/validation/backends surface in). Fixed stray non-English text in §7A (docs English-only). | Owner 2026-06-27. |
 | 2026-06-27 | **Correction (owner asked to verify code behavior):** the legacy runner layer is NOT marked deprecated in code and has **0 production importers** (`code_block.py` uses `backends/`); only `tests/blocks/test_runner_registry.py` / `test_runners_subprocess.py` / `test_code_block.py` reference it. It is **dead code**, not "deprecated" — prior row corrected. Recommend **deletion** (+ those tests) in #1817; not public. Owner to pick delete vs formal deprecate. | Owner 2026-06-27. |
 | 2026-06-27 | **Owner: delete** the legacy runner layer (`runner_registry.py` + `runners/*`) as dead code in #1817 (+ remove `test_runner_registry.py` / `test_runners_subprocess.py` and the `test_code_block.py` runner import). Not public. **§7A CodeBlock fully decided.** | Owner 2026-06-27. |
+| 2026-06-27 | Stale §2.3 branch note corrected: branch is now on `BASE_VERSION = 0.3.1` and current with `origin/main` (0 behind, 7 ahead) after the earlier rebase — the prior "still 0.3.0 / ~10 behind" prose was out of date. | Accurate-record hygiene; historical log rows left intact. |
+| 2026-06-27 | Previewer reference survey (spectroscopy + imaging clones): only these two public packages ship a previewer. spectroscopy is the canonical shape (split `__init__`/`providers`; reads via `PreviewDataAccess`; raises `ProviderError`; reuses `sanitize_svg`). imaging is **not** a model (monolithic; own array loader bypassing `PreviewDataAccess`; uses legacy `png_data_uri`) — owner: imaging will be rewritten, so symbols only it touches carry no weight. | Owner 2026-06-27 (imaging's implementation is not a proper reference). |
+| 2026-06-27 | §8 previewers decided. (1) Whole subsystem tier = **provisional** (young; cf. §7/§7A). (2) Author surface **regularized** to two canonical roots `scistudio.previewers.models` + `scistudio.previewers.data_access`, plus the single helper `sanitize_svg` to be **relocated** out of core-internal `fallbacks` in #1823; operational classes (registry/router/session/service/build/get/load_project) are Internal despite sitting in `previewers/__init__.__all__` (#1817 reconciles `__all__`). | Owner 2026-06-27. |
+| 2026-06-27 | §8 dispositions: `models.py` author types all Public/provisional/0.3.1 (spec/manifest/request/envelope/metadata/resource/error-info/enums incl. `PreviewErrorCode`/provider protocols; `ProviderError` + base `PreviewError`). `PreviewSession` + the 6 runtime-raised error classes → **Internal** (owner #4); drop from `models.__all__` in #1817. | Owner 2026-06-27. |
+| 2026-06-27 | §8 `data_access.py`: `PreviewDataAccess` Public/provisional (runtime-injected, author-called, never constructed) with its 10 bounded-read methods + 10 result dataclasses Public/provisional; `png_data_uri` → **Internal** (legacy-compat; sole caller imaging being rewritten — owner #3); `DEFAULT_MAX_*` constants Internal. | Owner 2026-06-27. |
+| 2026-06-27 | §8.5 storage access investigated (owner: "why does a previewer need `StorageReference` — imaging hack or legitimate?"). Verdict: **legitimate need, leaky mechanism** — FR-009 requires providers to read without catalog access, and core fallbacks + spectroscopy + imaging all rely on it; but `enrich_preview_query` (`api/runtime/_data.py`) already holds a typed `StorageReference` (`record.ref`) and downgrades it to a JSON dict in `request.query["_storage"]` (because `query` is REST-crossing + persisted), forcing every provider to re-import `StorageReference` and rebuild it. | Owner 2026-06-27. Supersedes the initial "provisional author contract" take after tracing the data flow. |
+| 2026-06-27 | **Owner chose option B:** #1823 adds typed `PreviewRequest.storage` / `.record_metadata` fields (the request is in-process, never serialized — it already carries live `PreviewDataAccess`); providers read `request.storage` and stop importing `StorageReference` / touching `_storage`. The `_storage` / `_record_metadata` query keys demote to a **runtime-internal serialization detail** (not an author contract). `StorageReference` stays Public via the `core.types` re-export (§3) and is only passed through by previewer authors — no previewer-driven core.storage burden. **§8 previewers fully decided.** | Owner 2026-06-27. |
+| 2026-06-27 | Filed **#1823** (refactor: previewer authoring surface) to track the previewer-specific work: option-B storage closure (typed `request.storage`), `sanitize_svg` relocation to a public helper home, and the imaging previewer rewrite to the spectroscopy shape. Pure `__all__` membership edits stay with the master contract transcription (#1817); the design/relocation/cross-repo items are #1823. Spec §8/§8.5/§12 refs repointed accordingly. | Owner 2026-06-27 ("file an issue to refactor the package previewer system properly"). |
+| 2026-06-27 | §9 plot `render(collection)` decided: **provisional**, **no behavior change** (owner: plot is currently stable). Recorded the import-free dual-interpreter (Py + R) contract from the harness verbatim — `collection.types`/`.items` (`open`/`open_one`), `item.type`/`.metadata` (strip-list) /`.open()` native-payload-by-type (Array→ndarray, DataFrame→pandas, Series→Series-or-DataFrame per #1750, Text→str, Artifact→Path, CompositeData→dict), and the return contract (figure / in-working-dir path / list; rejects None/other). Runs in a confined CodeBlock subprocess; implementing classes (`_PlotCollection`/`_PlotItem`/`_PlotItems`) private. `item.open()` native objects logged as a second sanctioned pandas/numpy boundary (§10, distinct from the xlsx data-flow exception). Freeze via a behavior-pinning Py+R contract test (§15). **§9 fully decided.** | Owner 2026-06-27. |
+| 2026-06-27 | Filed **#1824** (relocate the plot `render(collection)` contract out of the MCP-tools namespace). Owner reversed the earlier "leave it": the contract + runtime sit under `scistudio.ai.agent.mcp.tools_plot`, but it is a first-class user feature and the REST route `api/routes/plots.py` already imports up into `tools_plot` (run_plot_job / validation / scaffold / relink / targets) — backwards. Behavior-preserving relocation to a first-class home (e.g. `scistudio.plots`); §9 contract unchanged. §9 prose repointed. Scope refined (owner): it is an **8-module engine** (`_harness`/`runtime`/`validation`/`models`/`targets`/`scaffold`/`relink`/`examples`), not a one-file move, and it must **sever the `ai.agent.mcp._context` coupling** (3 modules import `get_context`/`_resolve_project_root`/path helpers) via **dependency injection (approach b)** so nothing under the new home imports `ai.agent.mcp`; `tools.py` stays as a thin MCP wrapper. | Owner 2026-06-27 ("the plot contract living in the MCP tools is outrageous — file a migration issue"; chose approach b). |
