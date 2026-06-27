@@ -725,22 +725,123 @@ The exception covers the **saver** too, so the ADR-052 §3.1 wording should wide
 
 Canonical root: `from scistudio.blocks.app import …`
 
-ADR-052 §6 flags this module as a reach-through hotspot (`_guess_mime`,
-`_PopenProcessAdapter`); AppBlock authoring surface is "incomplete" today.
+**Whole §7 surface = `provisional`** (owner 2026-06-27: this area is expected to churn
+with bug-fixes). Today `app.__all__ = ["AppBlock"]` only; ADR-052 §3 names the
+file-exchange/watcher facilities as author surface and §6(a)/§12 record two
+reach-throughs (`_guess_mime`, `_PopenProcessAdapter`). The file-exchange/watcher
+facilities are now public/provisional (app survey, 6th agent; only imaging authors
+AppBlocks — `FijiBlock`/`NapariBlock`). Both reach-throughs are resolved (owner):
+`_PopenProcessAdapter` (b) — `FileWatcher` accepts a plain `Popen`; `_guess_mime` (c) —
+extension→MIME removed/replaced. **§7 fully decided.**
 
 File checklist:
 
-- [ ] `app_block.py` (499) — `AppBlock`, `_PopenProcessAdapter` (reach-through)
-- [ ] `bridge.py` (456) — file-exchange/bridge; `_guess_mime` (reach-through)
-- [ ] `watcher.py` (159) — file watcher facilities
-- [ ] `command_validator.py` (67) — public or internal?
+- [x] `app_block.py` (499) — `AppBlock` provisional; `_PopenProcessAdapter` → internal (b) → §7.1
+- [x] `bridge.py` (456) — `FileExchangeBridge`/`ExternalAppBridge` provisional; `_guess_mime` → remove/replace (c) → §7.2
+- [x] `watcher.py` (159) — `FileWatcher`/`ProcessExitedWithoutOutputError` provisional → §7.3
+- [x] `command_validator.py` (67) — `validate_app_command` provisional → §7.4
 
-| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+### 7.1 `app_block.py`
+
+**`AppBlock(Block)`** — ✅ Public / `provisional` / 0.3.1 (owner 2026-06-27). The base
+for blocks that delegate to an external GUI app via a file-exchange protocol.
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| 🤔 | `AppBlock` | class | Public | — | — | |
-| 🤔 | (file-exchange/watcher) | ? | Public | — | — | ADR-052 §3 "file-exchange/watcher facilities" — enumerate |
-| 🤔 | `_guess_mime` | function | Reach-through (a) | — | — | see §12; needs public home |
-| 🤔 | `_PopenProcessAdapter` | class | Reach-through (a) | — | — | see §12; needs public home |
+| ✅ | `AppBlock` | class | Public | provisional | 0.3.1 | external-app base |
+| ✅ | `app_command` | ClassVar | Public | provisional | 0.3.1 | executable path/command |
+| ✅ | `output_patterns` | ClassVar | Public | provisional | 0.3.1 | watcher globs |
+| ✅ | `run(inputs, config)` | method | Public | provisional | 0.3.1 | prepare → launch → watch → collect/bin |
+| ➖ | `_output_port_extensions` / `_output_port_capability_ids` / `_bin_outputs_by_extension` | method | Internal | — | — | output binning (#680) |
+| ✅ | `_PopenProcessAdapter` | class | **Internal — resolved (b)** | — | — | owner 2026-06-27 (b): #1817 teaches `FileWatcher` to accept a plain `subprocess.Popen` (treat `.poll() is None` as alive) → adapter stays internal, the concept leaves the public surface; imaging passes the raw `Popen` directly (cross-repo migration) |
+| ➖ | `_normalize_extension` / `_cleanup_process` | function | Internal | — | — | module helpers |
+
+Inherits the `Block` surface (§4.1); sets provisional defaults for `execution_mode`
+(EXTERNAL), `variadic_inputs`/`variadic_outputs`, `terminate_grace_sec`, ports, and
+`config_schema`.
+
+### 7.2 `bridge.py` — file-exchange facilities (pending survey)
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `FileExchangeBridge` | class | Public | provisional | 0.3.1 | survey: imaging uses `bridge.launch(...)` (proven demand); default bridge (prepare/launch/watch/collect) |
+| ✅ | `ExternalAppBridge` | protocol | Public | provisional | 0.3.1 | bridge protocol; owner "all provisional"; ⚠️ zero current importers + `launch` signature drift vs impl (missing `argv_override`) — reconcile in #1817 |
+| ✅ | `_guess_mime` | function | **Internal — remove/replace (c)** | — | — | survey: extension→MIME is **non-load-bearing** (`Artifact.mime_type` only written to a provenance sidecar; nothing branches on it; dispatch uses extension→format-id, not MIME) and **copy-pasted 4× in core** (bridge, `data_access`, `load_data._MIME_GUESS`, plot `_PLOT_MIME`). Per owner's "core must not infer from extensions": **not public**. #1817 replaces each caller with `None` or an authoritative source (declared type / `FormatCapability.format_id` / `StorageReference.format` / sidecar); typed path already sets `mime_type=None`. imaging's `from …bridge import _guess_mime` is a cross-repo migration (tracked deferral) |
+| ➖ | `_external_app_launch_env` / `_materialise_data_object` / `_bridge_materialise_to_file` / `_bridge_default_extension_for` / `_resolve_saver_capability_for` / `_resolve_core_type_param` / `_get_registry` / `_default_extension_for_obj` / `_normalise_config_extension` / `_normalise_capability_id` / `_port_config_by_name` / `_try_mount_existing_path` / `_CORE_TYPE_DEFAULT_EXTENSION` | function/const | Internal | — | — | bridge internals |
+
+### 7.3 `watcher.py` (pending survey)
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `FileWatcher` | class | Public | provisional | 0.3.1 | survey: imaging instantiates with full kwargs (`process_handle`/`timeout`/`stability_period`/`done_marker`) — proven demand. Per owner (b), #1817 makes `process_handle` accept a plain `subprocess.Popen` (no adapter needed) |
+| ✅ | `ProcessExitedWithoutOutputError` | exception | Public | provisional | 0.3.1 | survey: imaging + core catch it; the watcher's documented raise contract |
+| ➖ | `_snapshot` / `_diff` / `_matches` | method | Internal | — | — | polling internals |
+
+### 7.4 `command_validator.py` (pending survey)
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `validate_app_command(command)` | function | Public | provisional | 0.3.1 | owner "all provisional": publish to complete the facility set (#70 security contract). Survey: not reached by imaging today (bridge validates internally) — weak demand but cheap/harmless |
+| ➖ | `_SHELL_META` | constant | Internal | — | — | |
+
+**`BlockCancelledByAppError`** (defined in `blocks.base.exceptions`, §4.7;
+Public/provisional) — re-export from `scistudio.blocks.app` as its AppBlock-authoring
+home (#1817).
+
+**Net `app.__all__` change (#1817):** keep `AppBlock`; add `FileExchangeBridge`,
+`FileWatcher`, `ProcessExitedWithoutOutputError`, `validate_app_command`, and
+`ExternalAppBridge` (all provisional) + re-export `BlockCancelledByAppError`. Both
+reach-throughs stay **internal** (owner-resolved): `_PopenProcessAdapter` (b) —
+`FileWatcher` accepts a plain `Popen`; `_guess_mime` (c) — extension→MIME removed/replaced.
+**§7 fully decided.**
+
+## 7A. Code Blocks — `scistudio.blocks.code`
+
+Added per owner 2026-06-27 (add CodeBlock; default provisional). `CodeBlock` is a
+block-authoring base on par with `ProcessBlock` (§5) / `IOBlock` (§6) / `AppBlock` (§7) —
+`registry/_spec` categorizes it as one of the six bases (io/process/**code**/app/ai/
+subworkflow) and the write-block skill teaches it — but it was missing from the governed
+surface. **Whole CodeBlock surface = `provisional`** (ADR-041-recent; no package subclasses
+it yet — `accucor`/`accucor2` are planned, not written). Numbered §7A to avoid renumbering
+§8–§18 and their cross-references.
+
+> Requires an `ADR-052.md` `governs.modules` (+ §3 prose) addition of
+> `scistudio.blocks.code` — batched with the §3.1 xlsx wording, pending owner.
+
+Canonical root: `from scistudio.blocks.code import …`. Current `__all__`: `CodeBlock`,
+`CodeBlockBackend`, `CodeBlockRuntimeContext`, `LazyList`, `register_codeblock_backend`,
+`unregister_codeblock_backend`, `list_codeblock_backends`, `resolve_codeblock_backend`,
+`ensure_codeblock_backends_loaded`, `run_codeblock_process`.
+
+**`CodeBlock(Block)`** — ✅ Public / `provisional` / 0.3.1. Base for user scripts
+(Python / R / Julia) run via an interpreter backend over a file-exchange boundary (ADR-041).
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `CodeBlock` | class | Public | provisional | 0.3.1 | script-authoring base; subclass to pin a packaged script + ports (e.g. an R/accucor wrapper) |
+| ✅ | `name` / `description` / `variadic_inputs` / `variadic_outputs` / `input_ports` / `output_ports` | ClassVar | Public | provisional | 0.3.1 | inherited Block ClassVars (defaults) |
+| ✅ | `config_schema` | ClassVar | Public | provisional | 0.3.1 | `script_path` / `interpreter_mode` / `interpreter_path` / `exchange_root` / declared `inputs`/`outputs` + port editor |
+| ✅ | `__init__(config)` / `run(inputs, config)` | method | Public | provisional | 0.3.1 | `run` does exchange → launch → collect (no `process_item` hook; subclassing pins config/script) |
+
+Config models (`config.py`):
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| ✅ | `CodeBlockConfig` | class | Public | provisional | 0.3.1 | the validated config model |
+| ✅ | `PortFileConfig` | class | Public | provisional | 0.3.1 | per-port file config (name/direction/data_type/extension/capability_id/required/exchange_folder) |
+
+Backend-registration surface (`_backends_registry.py`) — **provisional; exact public subset
+deferred** until the accucor wrapper design shows whether authors register custom
+interpreters (deferred like the §13.2 package inventories):
+
+| St | Member | Kind | Disposition | Tier | Since | Notes |
+|----|--------|------|-------------|------|-------|-------|
+| 🤔 | `CodeBlockBackend` (Protocol) / `register_codeblock_backend` / `resolve_codeblock_backend` / `list_codeblock_backends` / `ensure_codeblock_backends_loaded` / `CodeBlockRuntimeContext` / `LazyList` | class/func | Public (lean) | provisional | 0.3.1 | author-facing only if a wrapper registers a custom interpreter backend; pin the exact set when accucor lands |
+| ➖ | `run_codeblock_process` / `unregister_codeblock_backend` / `CodeBlockTimeoutError` / `codeblock_exchange_env` | func/exc | Internal (lean) | — | — | runtime/test plumbing (the plot runtime imports `run_codeblock_process` internally) |
+
+Built-in backends (`backends/python.py`, `r_quarto.py`, `notebook.py`, `shell.py`,
+`matlab.py`) + `runners/` are internal; the R/Quarto backend is what an accucor (R) wrapper
+would target.
 
 ## 8. Previewer Authoring — `scistudio.previewers.models`
 
@@ -820,8 +921,8 @@ ADR-052 lands; each migrates only once its public replacement exists.
 |----|-------|----------|-------|-------------|----------|
 | ⏸ | `scistudio.utils.axis_iter` | imaging | a | relocate into core; axis-iteration public surface (incl. `Array.iter_over`) deferred pending imaging rewrite (owner 2026-06-27) | #1729 |
 | 🤔 | `scistudio.utils.constraints.has_axes` | imaging | a | public home or alternative | #1817 |
-| 🤔 | `scistudio.blocks.app.bridge._guess_mime` | imaging | a | public AppBlock-authoring home | #1817 |
-| 🤔 | `scistudio.blocks.app.app_block._PopenProcessAdapter` | imaging | a | public AppBlock-authoring home | #1817 |
+| ✅ | `scistudio.blocks.app.bridge._guess_mime` | imaging | a | **(c) remove/replace** — extension→MIME is non-contract (non-load-bearing; 4 copies in core); **not public**; imaging migrates to the declared type / `None` (cross-repo) | #1817 |
+| ✅ | `scistudio.blocks.app.app_block._PopenProcessAdapter` | imaging | a | **(b) remove the need** — `FileWatcher` accepts a plain `Popen`; adapter stays internal; imaging passes the raw `Popen` (cross-repo) | #1817 |
 | 🤔 | `scistudio.previewers.data_access` (internals) | — | a | public previewer-authoring alternative | #1817 |
 | 🤔 | `build_spectrum` | spectroscopy | b | package exposes on `Spectrum` (ADR-052 §4.2) | #1817 |
 | 🤔 | `spectrum_arrays` | spectroscopy | b | replaced by inherited `to_numpy`/`to_pandas` | #1817 |
@@ -999,6 +1100,23 @@ once their callers migrate.
   objects. The plot `collection` is ADR-048's plot-render object. Locate it (plot /
   preview subsystem) and inventory its public shape; decide whether it is in this
   contract's scope (§9 / §3.8).
+- **🤔 CodeBlock missing from the governed surface (survey done, owner to confirm).**
+  `scistudio.blocks.code` / `CodeBlock` is not in ADR-052 `governs.modules`, but the
+  survey confirms CodeBlock **is** a genuine authoring base — `registry/_spec`
+  categorizes it as one of the six bases (io/process/**code**/app/ai/subworkflow)
+  exactly like `AppBlock`, and the write-block skill teaches it as a base to extend. It
+  is also a single GUI builtin and has a real R/Quarto backend (the accucor fit).
+  `accucor`/`accucor2` do **not** exist yet (LCMS is the bare template) — demand is
+  latent/planned. **Recommend:** add a new §-section (provisional, mirroring AppBlock §7)
+  + `governs.modules` + §3 update. `CodeBlock` base public/provisional; the
+  backend-registration surface (`CodeBlockBackend`, `register_codeblock_backend`,
+  `resolve`/`list`/`ensure_codeblock_backends_loaded`, `CodeBlockRuntimeContext`,
+  `LazyList`) public/provisional **if** an accucor wrapper registers a custom
+  interpreter; exact backend symbol set deferred until that design lands (like §13.2).
+  `run_codeblock_process` / `unregister_codeblock_backend` / `CodeBlockTimeoutError` /
+  `codeblock_exchange_env` lean internal. **Resolved (owner 2026-06-27): added as §7A,
+  default provisional.** Pending: `ADR-052.md` `governs.modules` + §3 addition (batched
+  with the §3.1 xlsx wording); exact backend public subset deferred until accucor.
 
 ## 18. Decision Log
 
@@ -1038,3 +1156,12 @@ even after the tables are complete.
 | 2026-06-27 | LoadData/SaveData survey (4th background agent): 0 author/package imports or subclasses (spectroscopy + imaging subclass `IOBlock` + register capabilities; never touch LoadData/SaveData); core GUI builtins; `_unified_dispatch` delegates to package blocks (confirms "inject into loader"). Recommend internal. | Awaiting owner confirm. |
 | 2026-06-27 | PR #1815 (xlsx, closes #1810) survey (5th agent): OPEN/unmerged; **no new public symbol** (all underscore-private); layers behavior on `FormatCapability`/`LoadData`/`SaveData`/`user` slot; **conforms** to the §3.1 pandas exception (pandas only at the format boundary). §10 citation refreshed to "#1810, PR #1815, reader/writer"; ADR-052 §3.1 "loader"→"reader/writer" widening proposed to owner. | Owner asked to survey 1815's public-API impact. |
 | 2026-06-27 | **Confirmed (owner):** `LoadData`/`SaveData` → Internal (drop from `io.__all__`; deep path stays for internal callers). **§6 io fully decided.** §7 app on hold (owner reviewing AppBlock). | Owner 2026-06-27. |
+| 2026-06-27 | `app` (§7) tiering: owner 2026-06-27 — **whole AppBlock surface `provisional`** (area expected to churn with bug-fixes). `AppBlock` public/provisional; file-exchange/watcher facilities (Bridge/Watcher) lean public/provisional per §3; `_guess_mime`/`_PopenProcessAdapter` reach-throughs need public homes. Dispatched app survey (6th agent) to resolve the exact public facility set + reach-through homes. | Owner 2026-06-27. |
+| 2026-06-27 | Owner: LCMS may wrap `accucor`/`accucor2` by subclassing `CodeBlock` (`scistudio.blocks.code`), which is **not** in ADR-052 governed surface. Dispatched lcms/CodeBlock survey (7th agent) to confirm + scope a public CodeBlock authoring API. Potential governed-surface gap (§17). | Owner 2026-06-27. |
+| 2026-06-27 | App survey (6th agent): only imaging authors AppBlocks (`FijiBlock`/`NapariBlock`); it reaches `FileExchangeBridge`/`FileWatcher`/`ProcessExitedWithoutOutputError` (proven) + the 2 reach-throughs. §7 facilities → public/provisional (incl. `validate_app_command` + `ExternalAppBridge` per owner "all provisional"; ExternalAppBridge has 0 importers + signature drift). Reach-throughs `_PopenProcessAdapter`/`_guess_mime`: resolution options presented — prefer removing the need. | Owner to pick reach-through resolutions. |
+| 2026-06-27 | CodeBlock/lcms survey (7th agent): accucor/accucor2 do NOT exist yet (LCMS is the bare template) — forward-looking intent. But CodeBlock IS a genuine authoring base (registry/_spec categorizes it as one of the 6 bases, like AppBlock; skill teaches it) — a real ADR-052 gap. Recommend: add `scistudio.blocks.code` as a new §-section (provisional, like AppBlock); `CodeBlock` base + backend-registration surface public/provisional; exact backend symbol set deferred until accucor design lands. | Owner to confirm adding CodeBlock + backend depth. |
+| 2026-06-27 | **Confirmed (owner):** CodeBlock added, default **provisional** → recorded as **§7A** (`scistudio.blocks.code`): `CodeBlock` base + `CodeBlockConfig`/`PortFileConfig` public/provisional; backend-registration surface provisional with exact public subset deferred until accucor. | Owner 2026-06-27. §7A numbered to avoid renumbering §8–§18. |
+| 2026-06-27 | ADR-052.md edited (owner-authorized; ADR carries `agent_editable: false`, owner-directed in-session): added `scistudio.blocks.code` to `governs.modules`; §3 names `CodeBlock` as an author base; §3.1 + §8 widened the xlsx pandas exception "loader"→"reader/writer" and cite PR #1815. Also removed stray non-English text from spec §7A (docs are English-only). | Owner 2026-06-27. |
+| 2026-06-27 | Owner principle: **core should not infer from file extensions** — questions whether `_guess_mime` (extension→MIME) should exist in core at all (2 copies: `blocks/app/bridge.py`, `previewers/data_access.py`). Dispatched guess_mime caller survey (8th agent) to map callers + assess remove/replace (c) vs consolidate (b) vs expose (a). | Owner 2026-06-27. Reframes the §7.2 `_guess_mime` resolution. |
+| 2026-06-27 | guess_mime survey (8th agent): extension→MIME is **non-load-bearing** (`Artifact.mime_type` only written to a provenance sidecar — nothing branches on it; dispatch uses extension→format-id) and **copy-pasted 4× in core** (bridge, data_access, load_data `_MIME_GUESS`, plot `_PLOT_MIME`). §7.2/§12 `_guess_mime` → **(c) remove/replace, not public** (applies owner's "core must not infer from extensions"); #1817 replaces callers with `None`/authoritative source; imaging import is a cross-repo deferral. | Owner principle 2026-06-27 + survey. |
+| 2026-06-27 | **Resolved (owner):** `_PopenProcessAdapter` → (b) — #1817 makes `FileWatcher` accept a plain `subprocess.Popen`; adapter stays internal (concept removed from the surface); imaging passes the raw Popen (cross-repo). **§7 app fully decided** — facilities public/provisional; both reach-throughs internal; `BlockCancelledByAppError` re-exported to `blocks.app`. | Owner 2026-06-27. |
