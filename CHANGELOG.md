@@ -7,16 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-27
+
+Internal-alpha minor release. Bumped from `0.2.1` to `0.3.0` (MINOR, not patch):
+ADR-051 added a new package-facing public API — the inheritable `InteractiveMixin`
+interaction-memory contract — and retired public blocks (`FilterCollection` /
+`SliceCollection` / `SplitCollection`; `MergeCollection` became variadic). A new
+feature plus a breaking change is a MINOR bump under the 0.x convention. The
+committed version embeds build `0000`; the real build number is injected at dmg
+build time (run `python scripts/version.py sync` so the baseline build is `>=` the
+latest published OTA build, or a leftover patch could shadow the fresh bundle).
+
 ### Removed
 
 - [#1781] Retired the standalone collection `FilterCollection`, `SliceCollection`, and `SplitCollection` process blocks (and the `expression_evaluator` helper they used). The interactive **DataRouter** (ADR-051) supersedes them: arbitrary filtering, slicing, and splitting are done by routing items directly from inputs to outputs. Touches protected `src/scistudio/blocks/**` — owner-authorized (`admin-approved:core-change`). ADR-021 updated with a superseding banner. Tests: `tests/blocks/test_collection_blocks.py` (now Merge-only), `tests/blocks/test_registry.py`, `tests/blocks/test_register_stub_removed.py`. (@claude, 2026-06-26, branch: feat/1781-adr-051-interactive-blocks)
 
 ### Changed
 
+- [#1801] Welcome screen copy for internal alpha: dropped the small uppercase eyebrow and the promotional description; the hero title is now simply **SciStudio** with the tagline "Every tool. Every format. One workflow." (`frontend/src/components/WelcomeScreen.tsx`). (@claude, 2026-06-27, branch: guided/1801-alpha-0-3-0-housekeeping)
 - [#1781] **MergeCollection** is now a **variadic-input** block (2–8 input ports) in the `routing` subcategory, so users can merge multiple Collections in a single block instead of chaining pairwise merges. All inputs must share the same `item_type`; if any input's type differs, the merge errors. Items are concatenated in input-port order. Touches protected `src/scistudio/blocks/**` — owner-authorized (`admin-approved:core-change`). Tests: `tests/blocks/test_collection_blocks.py`. (@claude, 2026-06-26, branch: feat/1781-adr-051-interactive-blocks)
 
 ### Fixed
 
+- [#1801] Desktop **dev** runtime no longer runs stale source: when launched unpackaged from a source checkout (`npm run dev`), a leftover applied OTA patch under `userData/patches/` and/or a stale staged `desktop/resources/backend/src` copy used to shadow the worktree `src` on `PYTHONPATH`, so edits did not take effect (the #1787 stale check can't catch it — a dev build's baseline build is `0`, so any applied patch always compares as newer). Now, when `!app.isPackaged`, `getActivePatch()` returns `null` (non-destructively — the user's `active.json` is untouched) and a new pure `ota.pythonPathFor({isPackaged, patchSrc, stagedSrc, checkoutSrc})` resolves `PYTHONPATH` to the worktree `src` alone. The packaged client's layered patch/staged/checkout order is unchanged. Spec: `docs/specs/desktop-ota-hot-update.md` §5–6. Tests: `desktop/test/ota.test.js`. (@claude, 2026-06-27, branch: guided/1801-alpha-0-3-0-housekeeping)
+- [#1792] Package Manager "Restart now" no longer throws `relaunch is not a function`. The frontend rides OTA but the desktop preload bridge does not, so an OTA-updated frontend can run on an older installed shell whose bridge predates the `relaunch` method; the previous optional chain (`window.scistudioDesktop?.relaunch()`) guarded a missing bridge but not a missing method. `relaunch()` now feature-detects the method and, when absent, degrades gracefully by prompting the user to quit and reopen the app instead of throwing. Tests: `frontend/src/components/PackageManagerDialog.test.tsx`. (@claude, 2026-06-27, branch: guided/1801-alpha-0-3-0-housekeeping)
 - [#1781] ADR-051 interactive-block live-test fixes: (1) **DataRouter** and **PairEditor** panels now label each input item by its **source filename** (from `meta.source_file`) instead of a generic `item_0`/`item_1`, via a shared `interactive_item_label` helper in `scistudio.blocks.base.interactive`. (2) **PairEditor** no longer fails compute with `Required output port 'port_1' was not produced` — `run()` now maps the i-th input port's reordered result to the i-th **output** port name (input and output are independent variadic port lists). Touches protected `src/scistudio/blocks/**` — owner-authorized (`admin-approved:core-change`). Tests: `tests/blocks/test_pair_editor.py`, `tests/blocks/test_data_router.py`, `tests/blocks/test_interactive_mixin.py`. (@claude, 2026-06-26, branch: feat/1781-adr-051-interactive-blocks)
 
 ### Added

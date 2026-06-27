@@ -15,7 +15,7 @@ Keep this module import-cheap and dependency-free: it is imported very early
 from __future__ import annotations
 
 #: Base semantic version ``a.b.c`` (no channel/build suffix).
-BASE_VERSION = "0.2.1"
+BASE_VERSION = "0.3.0"
 
 #: Release channel. One of ``"alpha"``, ``"beta"``, ``"stable"``.
 CHANNEL = "alpha"

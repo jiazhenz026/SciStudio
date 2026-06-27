@@ -106,3 +106,44 @@ test("resolveActivePatch: baseline >= patch build => stale (the #1787 bug)", () 
   // still gets cleaned up.
   assert.deepEqual(ota.resolveActivePatch({ build: 9 }, 9, false), { kind: "stale", build: 9 });
 });
+
+// #1801: PYTHONPATH resolution. Packaged keeps the #1775 layered order; dev
+// (unpackaged, run from a source checkout) uses the worktree src alone so a
+// leftover OTA patch or a stale staged copy can never shadow it.
+test("pythonPathFor: packaged with a patch keeps patch > staged > checkout", () => {
+  assert.deepEqual(
+    ota.pythonPathFor({
+      isPackaged: true,
+      patchSrc: "/u/patches/build9/src",
+      stagedSrc: "/app/backend/src",
+      checkoutSrc: "/repo/src"
+    }),
+    ["/u/patches/build9/src", "/app/backend/src", "/repo/src"]
+  );
+});
+
+test("pythonPathFor: packaged without a patch drops the null patch entry", () => {
+  assert.deepEqual(
+    ota.pythonPathFor({
+      isPackaged: true,
+      patchSrc: null,
+      stagedSrc: "/app/backend/src",
+      checkoutSrc: "/repo/src"
+    }),
+    ["/app/backend/src", "/repo/src"]
+  );
+});
+
+test("pythonPathFor: dev uses only the worktree checkout src", () => {
+  // Even when a patch and a staged copy are present, dev must ignore both so
+  // edits to the worktree src take effect (the #1801 dev-shadow bug).
+  assert.deepEqual(
+    ota.pythonPathFor({
+      isPackaged: false,
+      patchSrc: "/u/patches/build9/src",
+      stagedSrc: "/repo/desktop/resources/backend/src",
+      checkoutSrc: "/repo/src"
+    }),
+    ["/repo/src"]
+  );
+});

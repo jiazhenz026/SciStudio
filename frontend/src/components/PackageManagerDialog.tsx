@@ -132,7 +132,17 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
   }
 
   function relaunch() {
-    void window.scistudioDesktop?.relaunch();
+    const bridge = window.scistudioDesktop;
+    if (typeof bridge?.relaunch === "function") {
+      void bridge.relaunch();
+      return;
+    }
+    // #1792: the frontend rides OTA but the desktop preload bridge does not, so
+    // an OTA-updated frontend can run on an older installed shell whose bridge
+    // predates `relaunch`. The optional chain alone guarded a missing bridge but
+    // not a missing method, throwing `relaunch is not a function`. Degrade
+    // gracefully: ask the user to restart the app manually.
+    setRelaunchPrompt("Update staged. Please quit and reopen SciStudio to finish updating.");
   }
 
   return (

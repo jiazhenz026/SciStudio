@@ -1,0 +1,1247 @@
+{
+  "branch": "guided/1801-alpha-0-3-0-housekeeping",
+  "check_events": [
+    {
+      "at": "2026-06-27T08:39:11.185543Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f172ecede9ae330c5f43a2df7cb2b9e6fb08a603da04f3c31fd00cd63de05c0b",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:39:12.027980Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d8773e99cb17c1d3c158e3a38134f2f51eb4d3993e453f53127f735d5c7ae230",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:39:12.372716Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6f3b4b19413ae30861cdfcf0332f826aff3b1efbae76ada7a2e9fad9681d6758",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T08:39:58.903109Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cbb489c105a03bb8c7df47b8e18fc1af1b546e088a9ec0d3ce7256d891a09785",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:40:02.497586Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b95b19f37e47e3b2afa891b1d477582102dcbb3c50a3485bcade88df1d04977e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:40:03.006377Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9153f1a15eec4ac3dc2724330bd970e4f1b04ed53d489e8293cf77010c45f0ba",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:40:03.076278Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:03791221f74d04ee89f54f4e0011f29c29f77dc2a0d8a4ea7b9b9d54c325d730",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T08:43:36.907129Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:475b89a6f096eed30cd26b501e07eca61ffe5c402b1da0badd09bffb34ad05ef",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:45:58.981523Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fb3e1f5c8a3c7b0542e9499295d62a14319642dcaea6b1c9da7a0f2790575340",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:46:05.671306Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c45a8a88ac44ff839f2b18ea35fd835a80f1e5b790580f26b0ec10016eccd509",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-27T08:46:07.932940Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a21171778088821f872d517d0c9a2ba6519ae90cab0b743fa52b3e3c1e3b77ae",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:48:50.980831Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:25dbe05de6bf2b78b9bcdaeadf0103a1b1129a53110bc69bb9005effd568792a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:48:54.771515Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:30653b0d2f000fe47bb66fb4e26279edfd5cdb714bcd6f704d1713060987d190",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T08:50:56.271881Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:475b89a6f096eed30cd26b501e07eca61ffe5c402b1da0badd09bffb34ad05ef",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "5d4519d454045caf6f9ea36f5505b8a7d234421e",
+    "shas": [
+      "5d4519d454045caf6f9ea36f5505b8a7d234421e"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-27T08:26:05.603458Z",
+      "owner_directive": "Bump 0.2.1 -> 0.3.0 (MINOR per semver: new package-facing interactive API + retired public blocks). Edit BASE_VERSION, version.py sync at build0, roll CHANGELOG [Unreleased] -> [0.3.0].",
+      "reason": "record owner directive: version bump 0.3.0"
+    },
+    {
+      "at": "2026-06-27T08:29:56.581730Z",
+      "owner_directive": "Purge historical clutter: delete all .workflow/records/* (keep .gitkeep; my active ledger is untracked) and historical docs/audit/* one-offs. Keep load-bearing: docs/audit/baselines (CI), docs/audit/latest (full_audit output), README, and the 2 ADR-cited audit files (avoid governance edits to ADR-042-addendum2 / ADR-046).",
+      "reason": "record owner directive: repo cleanup of gate records + audit clutter"
+    },
+    {
+      "at": "2026-06-27T08:33:57.645705Z",
+      "owner_directive": "Dev (npm run dev) gets OTA patch / staged copy shadowing worktree src \u2014 solve it. Gate new behavior behind !app.isPackaged (packaged path unchanged): getActivePatch returns null in dev; pure pythonPathFor in ota.js resolves dev PYTHONPATH to worktree src only. Unit tests + spec.",
+      "reason": "record owner directive: dev OTA-shadow fix"
+    },
+    {
+      "at": "2026-06-27T08:36:27.684878Z",
+      "owner_directive": "Fix #1792 only (declined broader desktop hardening): PackageManagerDialog relaunch() feature-detects the bridge method; when an OTA-newer frontend runs on an older shell without relaunch, degrade gracefully (prompt manual restart) instead of throwing. Frontend rides OTA.",
+      "reason": "record owner directive: fix #1792 relaunch graceful-degrade"
+    },
+    {
+      "at": "2026-06-27T08:37:40.527405Z",
+      "owner_directive": "WelcomeScreen for internal alpha: remove small uppercase eyebrow; big title -> 'SciStudio'; intro -> 'Every tool. Every format. One workflow.'",
+      "reason": "record owner directive: WelcomeScreen alpha copy"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-27T08:33:57.645850Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-ota-hot-update.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-27T08:46:07.968325Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:07.978610Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:07.988530Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:07.998587Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:08.009564Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-27T08:46:08.019396Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:08.028271Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:08.038091Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:08.047316Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:46:08.056866Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.304129Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.313227Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.322692Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.332180Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.341740Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-27T08:50:56.350799Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.360015Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.369547Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.378777Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:50:56.388361Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.527203Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.538480Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.548482Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.557553Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.566321Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.575088Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.584332Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.595253Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.605443Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:52:09.615461Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.502046Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.519744Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.530038Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.539305Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.548703Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.558738Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.568263Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.577607Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.586534Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:53:23.595747Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.704057Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.713713Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.723307Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.732139Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.740594Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.750375Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.760669Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.770579Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.779918Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:02.789505Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.773743Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.782640Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.792216Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.801097Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.810122Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.819488Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.828996Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.838675Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.847673Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T08:54:19.856824Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1801,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1792,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "92fa56bf90ff58ee3b4a54b275114d7e7e40ce7d",
+    "base_sha": "92fa56bf",
+    "changed_files": [
+      ".workflow/records/1109-1309-registry-codeblock-cwd.json",
+      ".workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json",
+      ".workflow/records/1269-gate-record-hooks-final.json",
+      ".workflow/records/1285-scieasy-e2e-test-skill.json",
+      ".workflow/records/1288-adr-addendum-util-loader.json",
+      ".workflow/records/1289-adr-001-040-rewrite.json",
+      ".workflow/records/1291-sentrux-baseline.json",
+      ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
+      ".workflow/records/1296-a1-core-io.json",
+      ".workflow/records/1296-a2-imaging-io.json",
+      ".workflow/records/1296-a3-frontend.json",
+      ".workflow/records/1296-adr-043-package-migration-manager.json",
+      ".workflow/records/1296-b1-imaging-propagation.json",
+      ".workflow/records/1296-b2-srs-propagation.json",
+      ".workflow/records/1296-c1-audit.json",
+      ".workflow/records/1296-c1-fixes.json",
+      ".workflow/records/1305-adr-043-phase-d-hotfix.json",
+      ".workflow/records/1306-1371-imaging-ome-fidelity.json",
+      ".workflow/records/1311-untrack-full-audit-umbrella.json",
+      ".workflow/records/1313-lossy-save-collection-walk-and-null-skip.json",
+      ".workflow/records/1316-workflow-records-mod-guard-whitelist.json",
+      ".workflow/records/1318-rename-scieasy-to-scistudio.json",
+      ".workflow/records/1320-gui-bugs-20260521.json",
+      ".workflow/records/1327-block-ready-emit.json",
+      ".workflow/records/1329-storage-reference-normalized-errors.json",
+      ".workflow/records/1330-umbrella-arch-drift.json",
+      ".workflow/records/1334-vestigial-block-state.json",
+      ".workflow/records/1335-1337-no-cycles-umbrella.json",
+      ".workflow/records/1335-router-defaults.json",
+      ".workflow/records/1337-pair-cycles.json",
+      ".workflow/records/1340-wire-vulture.json",
+      ".workflow/records/1343-1365-types-registry-worker.json",
+      ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json",
+      ".workflow/records/1352-adr-039-addendum-1-impl-manager.json",
+      ".workflow/records/1353-remove-stash-and-auto-commit.json",
+      ".workflow/records/1355-inline-history-row-buttons.json",
+      ".workflow/records/1356-branch-delete-orphan-guard.json",
+      ".workflow/records/1357-adr-044-subworkflow.json",
+      ".workflow/records/1360-pr-create-wrapper.json",
+      ".workflow/records/1362-governance-records-helper.json",
+      ".workflow/records/1366-port-capability-clear.json",
+      ".workflow/records/1367-1370-scheduler-emit-normalize.json",
+      ".workflow/records/1376-scheduler-state-machine-contract.json",
+      ".workflow/records/1382-wrapper-base-detection.json",
+      ".workflow/records/1389-test-path-vitest.json",
+      ".workflow/records/1390-claude-p1p2-core-c4-versioning.json",
+      ".workflow/records/1400-git-tab-top-toolbar.json",
+      ".workflow/records/1401-a1-backend-versioning.json",
+      ".workflow/records/1401-a2-file-tabs.json",
+      ".workflow/records/1401-a3-frontend-reconcile.json",
+      ".workflow/records/1401-adr-045-workflow-state-version.json",
+      ".workflow/records/1405-semantic-dup-ci.json",
+      ".workflow/records/1407-adr-045-manager-1407-drift.json",
+      ".workflow/records/1408-sentrux-advisory.json",
+      ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json",
+      ".workflow/records/1412-frontend-ci-tooling.json",
+      ".workflow/records/1413-1414-lint-fn-complexity.json",
+      ".workflow/records/1416-1417-1419-tests-unused-depth.json",
+      ".workflow/records/1418-editor-soft-dark.json",
+      ".workflow/records/1420-1421-hooks-order.json",
+      ".workflow/records/1422-god-app-blocknode.json",
+      ".workflow/records/1422-god-datapreview-bottompanel.json",
+      ".workflow/records/1422-god-rundetail-api-conflict.json",
+      ".workflow/records/1426-frontend-cleanup-1412-manager.json",
+      ".workflow/records/1426-w4-audit-wc.json",
+      ".workflow/records/1427-backend-god-file-refactor.json",
+      ".workflow/records/1430-api-runtime.json",
+      ".workflow/records/1430-pr-body.md",
+      ".workflow/records/1431-mcp-tools-pair.json",
+      ".workflow/records/1432-api-ai-pty.json",
+      ".workflow/records/1433-gate-record-refactor.json",
+      ".workflow/records/1455-runtime-contract-tests.json",
+      ".workflow/records/1459-io-data-helpers.json",
+      ".workflow/records/1465-adr-046-047-drafts.json",
+      ".workflow/records/1465-audit-1465-phase3.json",
+      ".workflow/records/1465-phase3-bucket-d-umbrella.json",
+      ".workflow/records/1466-adr-042-test-engineer-persona.json",
+      ".workflow/records/1467-test-engineer-persona-implementation.json",
+      ".workflow/records/1470-scheduler-decomp.json",
+      ".workflow/records/1471-registry-decomp.json",
+      ".workflow/records/1472-git-engine-binding-split.json",
+      ".workflow/records/1482-break-cycles-1482.json",
+      ".workflow/records/1484-hotfix-workflow-refresh-restore.json",
+      ".workflow/records/1486-system-tests.json",
+      ".workflow/records/1488-ai-context-and-port-ux.json",
+      ".workflow/records/1492-adr042-local-gate-receipts.json",
+      ".workflow/records/1493-port-ux-and-validators-hotfix.json",
+      ".workflow/records/1496-adr042-addendum5-routing.json",
+      ".workflow/records/1500-adr043-unified-io-gui-hotfix.json",
+      ".workflow/records/1502-adr-037-desktop-mvp-manager.json",
+      ".workflow/records/1502-desktop-pty-env-hotfix.json",
+      ".workflow/records/1503-custom-block-parent-dir-hotfix.json",
+      ".workflow/records/1505-hotfix-save-data-extension.json",
+      ".workflow/records/1509-umbrella-integration.json",
+      ".workflow/records/1513-repo-comprehensive-audit.json",
+      ".workflow/records/1515-p1p2-core-umbrella.json",
+      ".workflow/records/1520-p1p2-doc-umbrella.json",
+      ".workflow/records/1522-p1p2-test-umbrella.json",
+      ".workflow/records/1524-claude-p1p2-api-a1-security.json",
+      ".workflow/records/1524-p1p2-api-umbrella.json",
+      ".workflow/records/1568-finalized-ledger-ci.json",
+      ".workflow/records/1570-codex-adr-048-previewers-plot-jobs.json",
+      ".workflow/records/1574-track-adr-048-spec1-preview-system.json",
+      ".workflow/records/1575-track-adr-048-spec2-plot-tools.json",
+      ".workflow/records/1576-track-adr-048-spec3-docs.json",
+      ".workflow/records/1579-issue-1579-frontend-manifest.json",
+      ".workflow/records/1584-governance-gate-audit-bugs.json",
+      ".workflow/records/1602-code-health-gates.json",
+      ".workflow/records/1603-reland-array-viewer.json",
+      ".workflow/records/1604-table-migration.json",
+      ".workflow/records/1606-fix-adr-048-plot-wiring-1606b.json",
+      ".workflow/records/1607-fix-1607-core-mypy.json",
+      ".workflow/records/1609-fix-git-env-leak-and-gate-hooks-1609.json",
+      ".workflow/records/1623-fix-pr1577-user-preview-plot-flow.json",
+      ".workflow/records/1627-gate-base-env.json",
+      ".workflow/records/1628-feat-gate-precommit-lighten-inline-findings.json",
+      ".workflow/records/1644-pr1577-adr048-final-blockers.json",
+      ".workflow/records/1649-pr1577-preview-cache-legacy-cleanup.json",
+      ".workflow/records/1649-pr1577-resolved-cache-only.json",
+      ".workflow/records/1655-hotfix-plugin-discovery-visibility.json",
+      ".workflow/records/1661-codex-pr1666-spectroscopy-audit-fixes.json",
+      ".workflow/records/1661-pr1666-ci-fastapi-pin.json",
+      ".workflow/records/1661-pr1666-spectroscopy-quality-fixes.json",
+      ".workflow/records/1661-spectroscopy-package.json",
+      ".workflow/records/1680-hotfix-spectrum-preview-zarr-directory.json",
+      ".workflow/records/1682-desktop.json",
+      ".workflow/records/1684-plot-render-collection-api.json",
+      ".workflow/records/1687-canvas-node-readability-adr.json",
+      ".workflow/records/1694-1697-hotfix-batch.json",
+      ".workflow/records/1698-canvas-node-readability.json",
+      ".workflow/records/1701-hotfix-desktop-toolbar-project-label-layout.json",
+      ".workflow/records/1703-desktop-live-session.json",
+      ".workflow/records/1707-mcp-project-socket.json",
+      ".workflow/records/1709-hotfix-r-parquet-dataframe.json",
+      ".workflow/records/1711-hotfix-ai-chat-pty-resize-scroll.json",
+      ".workflow/records/1713-hotfix-live-ux-bugs-20260620.json",
+      ".workflow/records/1721-hotfix-live-session-20260620.json",
+      ".workflow/records/1730-hotfix-live-session2-20260620.json",
+      ".workflow/records/1737-alpha-test-cases.json",
+      ".workflow/records/1737-pr-body.md",
+      ".workflow/records/1740-hotfix-live-session-20260621.json",
+      ".workflow/records/1745-guided-log-improvements-20260622.json",
+      ".workflow/records/1747-guided-desktop-spa-packaging-20260622.json",
+      ".workflow/records/1750-hotfix-live-session-20260622.json",
+      ".workflow/records/1755-hotfix-live-session-20260624.json",
+      ".workflow/records/1758-block-view-source.json",
+      ".workflow/records/1760-guided-save-io-extension-20260624.json",
+      ".workflow/records/1764-guided-save-default-format-20260624.json",
+      ".workflow/records/1769-starlette-route-introspection.json",
+      ".workflow/records/177-p1p2-frontend-umbrella.json",
+      ".workflow/records/1770-refactor-1770-package-decoupling-core.json",
+      ".workflow/records/1772-guided-plugin-shared-deps-20260625.json",
+      ".workflow/records/1775-guided-ota-hot-update-20260625.json",
+      ".workflow/records/1779-guided-1779-core-blocks-builtin-registration.json",
+      ".workflow/records/1781-adr-051-interactive-blocks.json",
+      ".workflow/records/1781-feat-1781-adr-051-interactive-blocks.json",
+      ".workflow/records/1784-guided-1784-package-ota-hotupdate.json",
+      ".workflow/records/1787-guided-1787-ota-stale-patch-shadows-bundled.json",
+      ".workflow/records/1789-guided-1789-alpha-ai-block-bug-batch.json",
+      ".workflow/records/1793-worktree-guard-prod-leak.json",
+      ".workflow/records/1795-guided-1795-preview-popout-window.json",
+      ".workflow/records/1797-feat-1797-palette-grid-redesign.json",
+      ".workflow/records/1801-alpha-0-3-0-housekeeping.json",
+      ".workflow/records/709-imaging-variadic-inputs.json",
+      ".workflow/records/841-888-891-1329-709-manager-bugfix-batch.json",
+      ".workflow/records/841-windows-npm-shim-resolution.json",
+      ".workflow/records/888-axis-iter-zarr-lazy.json",
+      ".workflow/records/889-multi-fix-1376-827-1487.json",
+      ".workflow/records/890-adr-044-subworkflow.json",
+      ".workflow/records/891-require-frontend-wheel.json",
+      ".workflow/records/902-1369-completion-saveimg.json",
+      ".workflow/records/audit-1352-addendum-1-completeness.json",
+      ".workflow/records/audit-1427-phase1.json",
+      ".workflow/records/audit-issue-triage-20260521.json",
+      ".workflow/records/codex-spectroscopy-package-spec-codex-spectroscopy-package-spec.json",
+      ".workflow/records/design-package-validator-contract-survey-design-package-validator-contract-survey.json",
+      ".workflow/records/guided-live-docs-20260620-guided-live-docs-20260620.json",
+      ".workflow/records/guided-live-round3-20260620-guided-live-round3-20260620.json",
+      ".workflow/records/guided-live-round4-20260621-no-cycles-round4.json",
+      ".workflow/records/guided-live-round5-20260621-guided-live-round5-20260621.json",
+      ".workflow/records/hotfix-live-bugs-20260619-live-bugs-20260619.json",
+      ".workflow/records/hotfix-live-bugs-20260620-hotfix-live-bugs-20260620.json",
+      ".workflow/records/manager-2026-05-21-bug-sweep.json",
+      "CHANGELOG.md",
+      "README.md",
+      "desktop/main.js",
+      "desktop/ota.js",
+      "desktop/package-lock.json",
+      "desktop/package.json",
+      "desktop/test/ota.test.js",
+      "docs/audit/1355-chrome-smoke-list-view.png",
+      "docs/audit/1355-chrome-smoke-notes.md",
+      "docs/audit/1472-full-audit.json",
+      "docs/audit/1472-sentrux.json",
+      "docs/audit/1482-full-audit.json",
+      "docs/audit/1482-sentrux-evidence.json",
+      "docs/audit/1484-full-audit.json",
+      "docs/audit/1486-full-audit.json",
+      "docs/audit/2026-05-14-1253-adr-035-implementation.md",
+      "docs/audit/2026-05-14-adr-035-skeleton.md",
+      "docs/audit/2026-05-14-adr-036-implementation.md",
+      "docs/audit/2026-05-14-adr-036-skeleton.md",
+      "docs/audit/2026-05-15-adr-038-039-docs-audit.md",
+      "docs/audit/2026-05-15-adr-038-039-integration-audit.md",
+      "docs/audit/2026-05-15-adr-038-bug-audit.md",
+      "docs/audit/2026-05-15-adr-038-code-scope-audit.md",
+      "docs/audit/2026-05-15-adr-038-drift-audit.md",
+      "docs/audit/2026-05-15-adr-039-combined-audit.md",
+      "docs/audit/2026-05-16-adr-040-a1-completeness.md",
+      "docs/audit/2026-05-16-adr-040-a2-wiring-docs.md",
+      "docs/audit/2026-05-16-adr-040-a3-agent-pov.md",
+      "docs/audit/2026-05-16-adr-040-integration.md",
+      "docs/audit/2026-05-20-adr-001-040-full-audit.md",
+      "docs/audit/2026-05-20-adr-041-final-audit.md",
+      "docs/audit/2026-05-20-adr-043-package-migration-no-context.md",
+      "docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md",
+      "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json",
+      "docs/audit/2026-05-21-open-issue-triage.md",
+      "docs/audit/2026-05-21-track-a-1337-sentrux.json",
+      "docs/audit/2026-05-22-1376-scheduler-state-machine-contract-full-audit.json",
+      "docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md",
+      "docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md",
+      "docs/audit/2026-05-22-umbrella-1465-phase3-with-context.md",
+      "docs/audit/2026-05-23-adr042-addendum5-routing-audit.md",
+      "docs/audit/2026-05-23-hotfix-1493/summary.md",
+      "docs/audit/2026-05-24-adr-037-desktop-mvp-audit.md",
+      "docs/audit/2026-06-10-adr-048-spec1.md",
+      "docs/audit/2026-06-10-adr-048-spec2.md",
+      "docs/audit/2026-06-10-adr-048-spec3.md",
+      "docs/audit/2026-06-10-async-loop-and-ws-runstate.md",
+      "docs/audit/2026-06-10-comprehensive-repo-audit.md",
+      "docs/audit/2026-06-10-deferred-architectural-investigations.md",
+      "docs/audit/2026-06-11-adr-048-smoke-tests.md",
+      "docs/audit/2026-06-14-spectroscopy-package.md",
+      "docs/audit/2026-06-18-adr-050-canvas-node-readability-no-context.md",
+      "docs/audit/2026-06-21-adr-044-subworkflow-chrome-e2e.md",
+      "docs/audit/2026-06-21-adr-044-subworkflow-no-context.md",
+      "docs/audit/2026-06-26-adr-051-no-context.md",
+      "docs/audit/889-multi-fix-full-audit.json",
+      "docs/audit/889-multi-fix-sentrux-evidence.json",
+      "docs/audit/adr-042-addendum4-full-audit.json",
+      "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+      "docs/audit/adr-043-imaging-propagation-audit.md",
+      "docs/audit/adr-043-package-migration-e2e-cases.md",
+      "docs/audit/adr-043-srs-propagation-audit.md",
+      "docs/audit/adr-045-a1-full-audit.json",
+      "docs/audit/adr-045-a2-full-audit.json",
+      "docs/audit/adr-045-a3-full-audit.json",
+      "docs/audit/adr-045-drift-fix-audit.json",
+      "docs/audit/adr-045-full-audit.json",
+      "docs/audit/adr-045-pre-drift-audit.json",
+      "docs/audit/adr-045-sentrux.json",
+      "docs/audit/adr-045-status-spec-audit.json",
+      "docs/audit/audit-issue-triage-full-audit.json",
+      "docs/audit/d38-3-1b-smoke.gif",
+      "docs/audit/full-audit-1422.json",
+      "docs/audit/full-audit-1432.json",
+      "docs/audit/full-audit-track-a.json",
+      "docs/audit/full-audit-track-b.json",
+      "docs/audit/full-audit-umbrella-final.json",
+      "docs/audit/impl-records/phase-minus-1/issue-1073-f56a5517.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1074-db12292.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1075-e98cb8f.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1076-8528846.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1077-8643343.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1078-33312d0.md",
+      "docs/audit/impl-records/phase-minus-1/issue-1079-cea007d.md",
+      "docs/audit/smoke/2026-05-21-1353-1354-rest-smoke.md",
+      "docs/audit/smoke/2026-05-21-1356-branch-delete-orphan-guard-rest-smoke.md",
+      "docs/specs/desktop-ota-hot-update.md",
+      "frontend/package-lock.json",
+      "frontend/package.json",
+      "frontend/src/components/PackageManagerDialog.test.tsx",
+      "frontend/src/components/PackageManagerDialog.tsx",
+      "frontend/src/components/WelcomeScreen.tsx",
+      "pyproject.toml",
+      "src/scistudio/_version.py"
+    ],
+    "diff_fingerprint": "sha256:8bbbd432ea883cf329fe7aa6aa269d0006e1d0930dcdd965a524e77095a4984a",
+    "head": "HEAD",
+    "head_sha": "5d4519d4",
+    "surfaces": {
+      "docs": 80,
+      "frontend": 5,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 7,
+      "packaging": 1,
+      "protected_core": 0,
+      "sentrux": 7,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Internal-alpha housekeeping bundle: bump 0.3.0 (version.py sync + CHANGELOG), purge historical .workflow/records + docs/audit clutter (keep baselines/_latest), dev OTA-shadow fix in desktop shell, #1792 relaunch graceful-degrade, WelcomeScreen alpha copy. One PR closing #1801 + #1792.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1801
+    ],
+    "number": 1802,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1802"
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-27T08:46:08.056918Z",
+      "diff_fingerprint": "sha256:b7099ba7ba8aba545935e1b29dc9422025c22a6149ff214f418e955e0b5d2230",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-06-27T08:50:56.388402Z",
+      "diff_fingerprint": "sha256:cd14d1821feaeb654bcc09b9117b909dc9ac202a2a1a13d772afd9e9bcb1e8ce",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-06-27T08:52:09.615498Z",
+      "diff_fingerprint": "sha256:cd14d1821feaeb654bcc09b9117b909dc9ac202a2a1a13d772afd9e9bcb1e8ce",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T08:53:23.595780Z",
+      "diff_fingerprint": "sha256:cd14d1821feaeb654bcc09b9117b909dc9ac202a2a1a13d772afd9e9bcb1e8ce",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T08:54:02.789557Z",
+      "diff_fingerprint": "sha256:8bbbd432ea883cf329fe7aa6aa269d0006e1d0930dcdd965a524e77095a4984a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T08:54:19.856856Z",
+      "diff_fingerprint": "sha256:8bbbd432ea883cf329fe7aa6aa269d0006e1d0930dcdd965a524e77095a4984a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1801-alpha-0-3-0-housekeeping",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "68f7796d-fd29-4149-9017-195c29b1f1bc",
+  "strictness_tier": 1,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-27T08:33:57.645869Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/ota.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T08:36:27.685159Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/PackageManagerDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

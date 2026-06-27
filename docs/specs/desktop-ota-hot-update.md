@@ -121,7 +121,8 @@ Update decision (pure logic in `desktop/ota.js`, `evaluateUpdate`):
   `active.json` pointer → `app.relaunch()`.
 - `runtimeEnv()` prepends `userData/patches/build<N>/src` to `PYTHONPATH`; the
   app bundle is never modified (works under a read-only/signed bundle and avoids
-  Windows `Program Files` permission issues).
+  Windows `Program Files` permission issues). The ordered entries are resolved by
+  the pure `ota.pythonPathFor({isPackaged, patchSrc, stagedSrc, checkoutSrc})`.
 - **Supersession (#1787)**: an active patch shadows the bundled baseline only
   while it is strictly newer. `getActivePatch()` consults
   `ota.resolveActivePatch(pointer, baselineBuild, srcExists)`; when the installed
@@ -143,6 +144,19 @@ local build is never disturbed or overwritten. A release build sets
 `SCISTUDIO_OTA_CHANNEL` (and optionally `SCISTUDIO_OTA_MANIFEST_URL`) to enable
 checks. Publishing is a separate explicit step; run it from the same checkout
 that was built and tested.
+
+**Dev source-of-truth (#1801).** Disabling the OTA *check* (`enabled:false`) is
+not enough on its own: a developer who previously ran a packaged build may have a
+leftover applied patch under `userData/patches/`, and the staged
+`desktop/resources/backend/src` copy may also exist in the checkout. Both sit
+ahead of the worktree `src` on `PYTHONPATH`, and the #1787 stale check cannot
+catch them because a dev build's baseline build is `0`, so any applied patch
+(build > 0) always compares as newer. Therefore, when the app is **not packaged**
+(`!app.isPackaged` — a `npm run dev` source-checkout run, never an installed
+app), `getActivePatch()` returns `null` (non-destructively — the user's
+`active.json` is left intact) and `pythonPathFor` resolves `PYTHONPATH` to the
+worktree `src` alone. Edits to the worktree always take effect in dev; the
+packaged client's layered patch/staged/checkout order is unchanged.
 
 ## 7. Security
 
