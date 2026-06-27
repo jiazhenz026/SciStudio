@@ -141,16 +141,18 @@ class TestEngineDoesNotDoubleWrap:
         assert len(outputs["out"]) == 2
 
 
-class TestEngineLeavesNonCollectionPortAlone:
-    """Bare DataObject on an ``is_collection=False`` port is NOT wrapped."""
+class TestEngineWrapsBareOnNonCollectionPort:
+    """#1811: a bare DataObject on an ``is_collection=False`` port IS wrapped.
 
-    def test_engine_leaves_bare_alone_on_non_collection_port(self) -> None:
+    This reverses the original #1330 behaviour (single-value ports kept the
+    bare wire format). ADR-020 §3 makes the Collection-as-transport contract
+    unconditional; ``is_collection`` is a UI hint only (collection-guide.md)
+    and no longer gates the wrap.
+    """
+
+    def test_engine_wraps_bare_on_non_collection_port(self) -> None:
         """Block returns ``{"out": bare_array}`` for an ``is_collection=False``
-        port; post-normalize value is the same bare object (no wrap).
-
-        ADR-020 §3 only mandates Collection-as-transport on Collection
-        ports. Scalar / single-item ports keep their bare-DataObject
-        wire format.
+        port; post-normalize value is a length-one Collection.
         """
         bare = _make_array()
         ports = [
@@ -160,8 +162,10 @@ class TestEngineLeavesNonCollectionPortAlone:
 
         _normalize_outputs(outputs, ports)
 
-        assert outputs["out"] is bare
-        assert not isinstance(outputs["out"], Collection)
+        wrapped = outputs["out"]
+        assert isinstance(wrapped, Collection)
+        assert len(wrapped) == 1
+        assert wrapped[0] is bare
 
 
 class TestEngineNormalizeEdgeCases:

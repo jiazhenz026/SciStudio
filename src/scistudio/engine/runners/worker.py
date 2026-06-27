@@ -173,6 +173,14 @@ def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
             result[key] = Collection(items, item_type=item_type)
         elif isinstance(value, dict) and "backend" in value and "path" in value:
             # Single typed DataObject — delegate to _reconstruct_one.
+            # #1811: in the live flow this branch is not reached for block
+            # outputs — every port output is wrapped into a Collection at the
+            # engine boundary (_normalize_outputs) and serialised as a
+            # ``_collection`` envelope, which the branch above decodes. This
+            # bare branch faithfully decodes any legacy bare-wire payload
+            # (e.g. an old checkpoint); such a value is delivered as a bare
+            # DataObject and handled by the consuming block's existing
+            # bare-input fallback.
             result[key] = _reconstruct_one(value)
         else:
             # Scalar / list / dict / None — pass through for non-DataObject
@@ -192,36 +200,39 @@ def _normalize_outputs(
     boundary is represented as a :class:`Collection`. A single item is a
     length-one Collection; a multi-file or multi-object input is a longer
     Collection. The engine, not the block, is responsible for honouring
-    that contract — block authors who follow the docs and return a bare
-    :class:`DataObject` on a port with ``is_collection=True`` would
-    otherwise silently produce a wire-format mismatch at the downstream
-    port (#1330).
+    that contract.
+
+    #1811: this wrap is **unconditional** — it applies to every declared
+    output port, not just ``is_collection=True`` ports. ``is_collection``
+    is a UI hint only and does not change runtime transport
+    (collection-guide.md). The earlier ``is_collection=True``-gated wrap
+    (#1330) left single-value ports transporting a bare DataObject, which
+    violated the contract and produced wire-format drift at the downstream
+    port; gating is removed so the wire format is uniform.
 
     For each ``(port_name, value)`` pair:
 
     1. Look up the matching :class:`OutputPort` by name. If the port name
        is not declared (e.g. sentinels like ``__scistudio_env__``), leave
        the value unchanged.
-    2. If ``port.is_collection=True`` and ``value`` is a bare
-       :class:`DataObject` (not already a :class:`Collection`), wrap it as
+    2. If ``value`` is a bare :class:`DataObject` (not already a
+       :class:`Collection`), wrap it as
        ``Collection([value], item_type=type(value))``. The ``type(value)``
        strategy matches the precedent in
        :mod:`scistudio.blocks.ai.ai_block` (``ai_block.py:532``) and is
        stable under Add6's ``port_accepts_type`` check.
-    3. If ``port.is_collection=True`` and ``value`` is a bare ``list`` of
-       :class:`DataObject` items (every element is a DataObject and the
-       list is non-empty), pack it as
+    3. If ``value`` is a bare ``list`` of :class:`DataObject` items (every
+       element is a DataObject and the list is non-empty), pack it as
        ``Collection(value, item_type=type(value[0]))``. Catches the
        ADR-020 §3 "multi-file → longer Collection" case where a block
        returned a native list without packing — without this, the bare
        list would either fall through unwrapped or be wrapped as a single
        1-item Collection containing the list (which violates Collection's
        homogeneity invariant).
-    4. For all other shapes (already-wrapped Collection, non-Collection
-       port, scalar/dict/None, wire-format dict from a serialised payload,
-       mixed-type lists, empty lists), leave the value untouched and let
-       the existing serialisation / validation layer surface a clear
-       error.
+    4. For all other shapes (already-wrapped Collection, scalar/dict/None,
+       wire-format dict from a serialised payload, mixed-type lists, empty
+       lists), leave the value untouched and let the existing
+       serialisation / validation layer surface a clear error.
 
     The helper is idempotent: calling it twice on the same dict yields
     the same result. It is safe to invoke on both raw-Python outputs
@@ -254,8 +265,12 @@ def _normalize_outputs(
             # Unknown port name (e.g. ``__scistudio_env__`` sentinel) —
             # leave it alone.
             continue
-        if not getattr(port, "is_collection", False):
-            continue
+        # #1811: ADR-020 §3 makes the Collection transport contract
+        # unconditional — EVERY declared port carries a Collection, not just
+        # ``is_collection=True`` ports. The ``is_collection`` flag is a UI
+        # hint only (collection-guide.md) and must not gate the wrap. A bare
+        # single value on any port is wrapped into a length-one Collection
+        # here, so the wire format is uniform regardless of the flag.
         if isinstance(value, Collection):
             continue
         if isinstance(value, list) and value and all(isinstance(item, DataObject) for item in value):
@@ -566,12 +581,13 @@ def main() -> None:
             print(json.dumps(envelope))
             return
 
-        # #1330: enforce ADR-020 §3 transport contract — wrap bare
-        # DataObject values on ``is_collection=True`` ports into length-one
-        # Collections at the engine boundary. Idempotent and a no-op for
-        # blocks that already self-wrap (six concrete blocks in
-        # blocks/process|code|app|ai). Skipped when ``run`` returned a
-        # non-dict (handled below by the ``_result`` fallback).
+        # #1330/#1811: enforce ADR-020 §3 transport contract — wrap bare
+        # DataObject values on EVERY declared output port into length-one
+        # Collections at the engine boundary (unconditional as of #1811;
+        # the ``is_collection`` flag no longer gates the wrap). Idempotent
+        # and a no-op for blocks that already self-wrap. Skipped when
+        # ``run`` returned a non-dict (handled below by the ``_result``
+        # fallback).
         if isinstance(outputs, dict):
             try:
                 effective_output_ports = block.get_effective_output_ports()

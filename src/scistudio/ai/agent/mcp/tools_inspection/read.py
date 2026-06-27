@@ -78,15 +78,27 @@ async def get_block_output(
         value = block_payload[port]
     else:
         raise KeyError(f"Block '{block_id}' has no output port '{port}' in run '{run_id}'")
+    # #1811 Option 2: a length-one Collection is the canonical single-value
+    # shape (ADR-020 §3). Surface the inner item's type and ref so inspection
+    # matches the single-item preview instead of losing the type to the
+    # collection envelope (which carries no top-level ``metadata``).
+    effective = value
+    if (
+        isinstance(value, dict)
+        and value.get("_collection")
+        and isinstance(value.get("items"), list)
+        and len(value["items"]) == 1
+    ):
+        effective = value["items"][0]
     type_chain: list[str] = []
-    if isinstance(value, dict):
-        meta = value.get("metadata") or {}
+    if isinstance(effective, dict):
+        meta = effective.get("metadata") or {}
         if isinstance(meta, dict):
             chain = meta.get("type_chain")
             if isinstance(chain, list):
                 type_chain = [str(x) for x in chain]
     return GetBlockOutputResult(
-        ref=value if isinstance(value, dict) else {"value": value},
+        ref=effective if isinstance(effective, dict) else {"value": effective},
         type=TypeChainInfo(
             type_chain=type_chain,
             type_name=type_chain[-1] if type_chain else "",

@@ -122,12 +122,17 @@ def _latest_output_for(ctx: Any, node_id: str, output_port: str) -> tuple[str | 
 
 def _looks_like_collection(value: Any) -> bool:
     if isinstance(value, dict):
+        if value.get("_collection"):
+            # #1811 Option 2: a length-one Collection represents a single
+            # value (ADR-020 §3); only >1 items is a real collection target.
+            items = value.get("items")
+            return not (isinstance(items, list) and len(items) == 1)
         meta = value.get("metadata")
         if isinstance(meta, dict):
             chain = meta.get("type_chain")
             if isinstance(chain, list) and any("Collection" in str(x) for x in chain):
                 return True
-        if value.get("_collection") or value.get("collection_item_type"):
+        if value.get("collection_item_type"):
             return True
     return isinstance(value, (list, tuple))
 

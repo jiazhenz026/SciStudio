@@ -89,6 +89,50 @@ def test_get_block_output_happy(ctx: _StubRuntime) -> None:
     assert result.type.type_name == "Array"
 
 
+def test_get_block_output_single_value_keeps_type(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#1811: a single-value output must keep its type after the engine wraps
+    it into a length-one Collection.
+
+    Builds the recorded output through the real engine output codec
+    (``_normalize_outputs`` -> ``serialise_outputs``) so the stored shape is
+    whatever the engine actually produces. Green today (bare wire ->
+    ``type_name == "Array"``). When the engine wraps single values the value
+    becomes ``{_collection: True, items: [...], item_type: "Array"}`` with no
+    top-level ``metadata`` — ``get_block_output`` would return ``type_name ==
+    ""`` — until the Option-2 migration teaches it to read the single item's
+    type from a length-one collection envelope.
+    """
+    import numpy as np
+    import zarr
+
+    from scistudio.blocks.base.ports import OutputPort
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.types.array import Array
+    from scistudio.engine.runners.worker import _normalize_outputs, serialise_outputs
+
+    zarr_path = str(tmp_path / "single.zarr")
+    zarr.save(zarr_path, np.zeros((4, 4), dtype="uint8"))
+    arr = Array(
+        axes=["y", "x"],
+        shape=(4, 4),
+        dtype="uint8",
+        storage_ref=StorageReference(backend="zarr", path=zarr_path),
+    )
+    outputs: dict[str, Any] = {"out": arr}
+    _normalize_outputs(outputs, [OutputPort(name="out", accepted_types=[Array], is_collection=False)])
+    wire = serialise_outputs(outputs, str(tmp_path))["out"]
+
+    class _Sched:
+        _block_outputs: ClassVar[dict[str, Any]] = {"b1": {"out": wire}}
+
+    class _Run:
+        scheduler = _Sched()
+
+    ctx.workflow_runs["r1"] = _Run()
+    result = _run(tools_inspection.get_block_output(run_id="r1", block_id="b1", port="out"))
+    assert result.type.type_name == "Array"
+
+
 # --- inspect_data ----------------------------------------------------------
 
 
