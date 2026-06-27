@@ -134,6 +134,14 @@ test("pythonPathFor: packaged without a patch drops the null patch entry", () =>
   );
 });
 
+// #1805: user-facing version string for the update dialogs.
+test("displayBuildVersion: base + zero-padded 4-digit build", () => {
+  assert.equal(ota.displayBuildVersion("0.3.1", 8), "0.3.1.0008");
+  assert.equal(ota.displayBuildVersion("0.3.1", 7), "0.3.1.0007");
+  assert.equal(ota.displayBuildVersion("0.3.0", 1234), "0.3.0.1234");
+  assert.equal(ota.displayBuildVersion("0.3.1", 0), "0.3.1.0000");
+});
+
 test("pythonPathFor: dev uses only the worktree checkout src", () => {
   // Even when a patch and a staged copy are present, dev must ignore both so
   // edits to the worktree src take effect (the #1801 dev-shadow bug).

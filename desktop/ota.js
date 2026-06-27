@@ -40,6 +40,15 @@ function patchDirName(build) {
   return `build${build}`;
 }
 
+// #1805: a user-facing version string for the update dialogs — "0.3.1.0008"
+// (base + zero-padded build) instead of the engineering-flavored "build 8".
+// The build is zero-padded to 4 digits to match the display/SemVer form
+// (a.b.c-channel-buildNNNN) used elsewhere.
+function displayBuildVersion(base, build) {
+  const padded = String(Math.max(0, Number(build) || 0)).padStart(4, "0");
+  return `${base}.${padded}`;
+}
+
 // Decide what to do with a fetched manifest given local state.
 //
 // Returns one of:
@@ -123,5 +132,6 @@ module.exports = {
   patchDirName,
   evaluateUpdate,
   resolveActivePatch,
-  pythonPathFor
+  pythonPathFor,
+  displayBuildVersion
 };

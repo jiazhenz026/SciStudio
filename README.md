@@ -25,7 +25,7 @@ SciStudio is a **modality-agnostic, building-block workflow framework** where:
 - Multiple data modalities coexist in a **single workflow graph**, enabling true cross-modal fusion analysis.
 - The framework is **AI-native**: AI can generate blocks, synthesize workflows, and optimize parameters at runtime.
 
-> **Status**: SciStudio is in **pre-alpha** (v0.3.0a0). The core runtime, block system, execution engine, API layer, and frontend workflow editor are implemented and under active development. See [Current Status](#current-status) for details.
+> **Status**: SciStudio is in **pre-alpha** (v0.3.1a0). The core runtime, block system, execution engine, API layer, and frontend workflow editor are implemented and under active development. See [Current Status](#current-status) for details.
 
 ---
 
@@ -424,7 +424,7 @@ Significant design decisions are documented as ADRs in [`docs/adr/`](docs/adr/).
 
 ## Current Status
 
-SciStudio is in **pre-alpha** (v0.3.0a0). The following is implemented and under active development:
+SciStudio is in **pre-alpha** (v0.3.1a0). The following is implemented and under active development:
 
 **Implemented:**
 - Core data type hierarchy with six base types and domain-specific subtypes
