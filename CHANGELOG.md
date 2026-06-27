@@ -24,6 +24,7 @@ latest published OTA build, or a leftover patch could shadow the fresh bundle).
 
 ### Changed
 
+- [#1801] Welcome screen copy for internal alpha: dropped the small uppercase eyebrow and the promotional description; the hero title is now simply **SciStudio** with the tagline "Every tool. Every format. One workflow." (`frontend/src/components/WelcomeScreen.tsx`). (@claude, 2026-06-27, branch: guided/1801-alpha-0-3-0-housekeeping)
 - [#1781] **MergeCollection** is now a **variadic-input** block (2–8 input ports) in the `routing` subcategory, so users can merge multiple Collections in a single block instead of chaining pairwise merges. All inputs must share the same `item_type`; if any input's type differs, the merge errors. Items are concatenated in input-port order. Touches protected `src/scistudio/blocks/**` — owner-authorized (`admin-approved:core-change`). Tests: `tests/blocks/test_collection_blocks.py`. (@claude, 2026-06-26, branch: feat/1781-adr-051-interactive-blocks)
 
 ### Fixed

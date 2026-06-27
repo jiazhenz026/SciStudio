@@ -29,13 +29,9 @@ export function WelcomeScreen({
       <div className="w-full max-w-4xl rounded-[2.5rem] border border-stone-200 bg-[radial-gradient(circle_at_top_left,_rgba(240,106,68,0.2),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-8 shadow-panel">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">SciStudio</p>
-            <h1 className="mt-4 max-w-xl font-display text-5xl leading-tight text-ink">
-              Every tool. Every format. One workflow.
-            </h1>
+            <h1 className="max-w-xl font-display text-5xl leading-tight text-ink">SciStudio</h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-stone-600">
-              Build typed scientific workflows that connect Python, R, CLI tools, and GUI
-              applications in a single backend-owned runtime.
+              Every tool. Every format. One workflow.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
