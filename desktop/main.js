@@ -205,6 +205,14 @@ function discardStalePatch(dir) {
 // pure decision lives in ota.resolveActivePatch; here we gather the on-disk facts
 // and act on a "stale" verdict by discarding the patch.
 function getActivePatch() {
+  if (!app.isPackaged) {
+    // Dev (unpackaged, run from a source checkout): ignore any userData OTA
+    // patch entirely so the worktree src is authoritative and effectiveBuild
+    // falls back to the baseline (0). Non-destructive — the user's active.json
+    // is left intact for when they next run a packaged build. The packaged
+    // path below is unchanged.
+    return null;
+  }
   const pointer = readJsonSafe(activePointerPath());
   const build = pointer && typeof pointer.build === "number" ? pointer.build : null;
   const dir = build !== null ? path.join(patchesRoot(), ota.patchDirName(build)) : null;
@@ -638,11 +646,16 @@ function runtimeEnv() {
   const stagedSrc = path.join(resources, "backend", "src");
   const checkoutSrc = path.join(repoRoot(), "src");
   // #1775: an applied OTA patch shadows the bundled baseline by sitting first on
-  // PYTHONPATH; the bundle is never modified.
+  // PYTHONPATH; the bundle is never modified. #1801: in dev (unpackaged) the
+  // worktree src wins outright — neither a userData patch nor a stale staged
+  // copy may shadow it. getActivePatch() already returns null in dev.
   const activePatch = getActivePatch();
-  const pythonPathEntries = [activePatch ? activePatch.srcDir : null, stagedSrc, checkoutSrc].filter(
-    Boolean
-  );
+  const pythonPathEntries = ota.pythonPathFor({
+    isPackaged: app.isPackaged,
+    patchSrc: activePatch ? activePatch.srcDir : null,
+    stagedSrc,
+    checkoutSrc
+  });
   const loginShellEnv = macLoginShellEnv();
   const baseEnv = {
     ...loginShellEnv,

@@ -95,11 +95,33 @@ function resolveActivePatch(pointer, baselineBuild, srcExists) {
   return { kind: "active", build: pointer.build };
 }
 
+// Resolve the ordered PYTHONPATH entries for the bundled Python runtime.
+//
+// Packaged (installed app): an applied OTA patch (if any) shadows the staged
+// bundle, which shadows the checkout src — the #1775 layered model, unchanged.
+//
+// Dev (unpackaged, launched from a source checkout via `npm run dev`): the
+// worktree `src` is the single source of truth. A leftover userData OTA patch
+// or a stale staged `resources/backend/src` copy must NEVER shadow it. This is
+// not covered by resolveActivePatch's #1787 stale check, because a dev build's
+// baseline build is 0, so any applied patch (build > 0) always compares as
+// "newer" and would win. isPackaged is the correct discriminator: an installed
+// app is packaged; a source-checkout dev run is not.
+//
+// Falsy entries are dropped so callers can pass a null patchSrc.
+function pythonPathFor({ isPackaged, patchSrc, stagedSrc, checkoutSrc }) {
+  if (!isPackaged) {
+    return [checkoutSrc].filter(Boolean);
+  }
+  return [patchSrc, stagedSrc, checkoutSrc].filter(Boolean);
+}
+
 module.exports = {
   VERSION_RE,
   parseVersion,
   compareBase,
   patchDirName,
   evaluateUpdate,
-  resolveActivePatch
+  resolveActivePatch,
+  pythonPathFor
 };
