@@ -426,7 +426,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "cbde3827a5a03606fbf11bc42313e45dc5ffefbd",
+    "shas": [
+      "cbde3827a5a03606fbf11bc42313e45dc5ffefbd"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -875,6 +881,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.609877Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/block_base_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/block_base_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.618555Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.626874Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.635156Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.643451Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.651658Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.659957Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.668976Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.678085Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T15:13:40.690007Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -894,9 +1004,9 @@
       "src/scistudio/blocks/_templates/block_base_template.py",
       "tests/api/test_blocks_template.py"
     ],
-    "diff_fingerprint": "sha256:a592ad08dd1a275ae0cb967f54dd3266c63b8fa6d22e74b7057a49644be251c6",
+    "diff_fingerprint": "sha256:5355258b4238964568cfc07f33049e1a1b7945e61b523509bb8a1798cd36cc67",
     "head": "HEAD",
-    "head_sha": "defd2e66",
+    "head_sha": "cbde3827",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -912,7 +1022,14 @@
   },
   "owner_directive": "Rewrite the GUI custom-block starter template to be friendly to non-programmer authors: put teaching content in the template docstring (block family, data types + to_memory returns + construction, ports/params, Collection/item/helpers, how to write run(), where package types/helpers come from). Expose Collection directly (batch is fundamental). Default ports use a concrete type, not []. Provide batch-processing minimal examples for both Array and DataFrame.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1816
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-27T15:02:43.749180Z",
@@ -949,6 +1066,14 @@
     {
       "at": "2026-06-27T15:12:58.166524Z",
       "diff_fingerprint": "sha256:a592ad08dd1a275ae0cb967f54dd3266c63b8fa6d22e74b7057a49644be251c6",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T15:13:40.690066Z",
+      "diff_fingerprint": "sha256:5355258b4238964568cfc07f33049e1a1b7945e61b523509bb8a1798cd36cc67",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
