@@ -97,7 +97,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "121bc4cb161a400d0c48c14ecaa57808c143ebf5",
+    "shas": [
+      "121bc4cb161a400d0c48c14ecaa57808c143ebf5"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": []
@@ -294,6 +300,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.821390Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.831352Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.840760Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.850111Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.860073Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.870534Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.881142Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.891510Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.900829Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:48.913161Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -312,9 +400,9 @@
       ".workflow/records/1819-guided-1819-public-api-contract-adr.json",
       "docs/adr/ADR-052.md"
     ],
-    "diff_fingerprint": "sha256:ed66dc9412f97bc56b2dbbc914ca506f0872c5acebf8431b4b8e9e1ad342de9a",
+    "diff_fingerprint": "sha256:1c72720dcc78be7fd818e15e17f105b34fdfcf5a0dfc6469c792a4ed5abd3a81",
     "head": "HEAD",
-    "head_sha": "d11eaf3f",
+    "head_sha": "121bc4cb",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -330,7 +418,14 @@
   },
   "owner_directive": "Define a fixed public API contract for SciStudio core+packages ahead of alpha: which surfaces users write code against (custom blocks, custom plots, core types, package authoring/discovery) and which APIs are public. Phase A produces ONE ADR covering: public-surface boundary, stability tiers (stable/provisional/internal)+Since+deprecation, docstring->API doc generation toolchain, doc versioning policy, and relationship to #1817 migration.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1819
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-27T17:54:32.530895Z",
@@ -345,6 +440,14 @@
     {
       "at": "2026-06-27T18:01:36.481391Z",
       "diff_fingerprint": "sha256:ed66dc9412f97bc56b2dbbc914ca506f0872c5acebf8431b4b8e9e1ad342de9a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-27T18:01:48.913198Z",
+      "diff_fingerprint": "sha256:1c72720dcc78be7fd818e15e17f105b34fdfcf5a0dfc6469c792a4ed5abd3a81",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
