@@ -1,3 +1,4 @@
+import { Maximize2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../store";
@@ -100,9 +101,28 @@ export function DataPreview({
   // pills turn it off; the "Plot artifact" pill turns it back on.
   const [showPlotResult, setShowPlotResult] = useState(false);
 
+  // #1795 — maximize the active preview into a floating window over the canvas
+  // so a cramped right-sidebar preview can be inspected at a larger size.
+  // PreviewHost adapts to its container, so the larger window renders a
+  // correspondingly larger preview with no host changes.
+  const [isMaximized, setIsMaximized] = useState(false);
+
   useEffect(() => {
     setPickedEntryId(null);
+    // A new selection retargets the preview; close any stale maximized window.
+    setIsMaximized(false);
   }, [selectedNodeId]);
+
+  // #1795 — close the maximized window on Escape. The listener is attached only
+  // while maximized so it never shadows canvas/editor shortcuts otherwise.
+  useEffect(() => {
+    if (!isMaximized) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMaximized(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMaximized]);
 
   // A fresh plot Run (new plotPreviewTarget) switches the view to the result.
   useEffect(() => {
@@ -135,67 +155,134 @@ export function DataPreview({
       </div>
     ) : null;
 
-  return (
-    <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
-          <h2 className="mt-2 font-display text-2xl text-ink">
-            {selectedNodeId ? selectedNodeLabel : "Select a block"}
-          </h2>
-        </div>
-      </div>
+  // #1795 — the output/plot pills are shared by the inline panel and the
+  // maximized window, so extract them once. ``hasPreviewContent`` also gates
+  // the maximize control: there is nothing to enlarge until an output exists.
+  const hasPreviewContent = outputEntryIds.length > 0 || plotBelongsToSelected;
+  const pillsRow = hasPreviewContent ? (
+    <div className="flex flex-wrap gap-2">
+      {refEntries.map((entry) => (
+        <button
+          className={`rounded-full px-3 py-1 text-xs ${!activePlot && activeEntry?.id === entry.id ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+          key={entry.id}
+          onClick={() => {
+            setPickedEntryId(entry.id);
+            setShowPlotResult(false);
+          }}
+          title={entry.ref}
+          type="button"
+        >
+          {entry.displayName}
+        </button>
+      ))}
+      {plotBelongsToSelected ? (
+        <button
+          className={`rounded-full px-3 py-1 text-xs ${showPlotResult ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+          onClick={() => setShowPlotResult(true)}
+          title={plotPreviewTarget?.ref}
+          type="button"
+        >
+          Plot artifact
+        </button>
+      ) : null}
+    </div>
+  ) : null;
 
-      {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
-          (BottomPanel). This panel renders preview content: the selected node's
-          outputs and/or the persisted plot Run result, toggled by the "Plot
-          artifact" pill. The result stays put when switching blocks. */}
-      {!selectedNodeId ? (
-        <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-          Pick a block to inspect its latest outputs and cached previews.
-        </div>
-      ) : (
-        <>
-          {outputEntryIds.length > 0 || plotBelongsToSelected ? (
-            <div className="mt-5 flex flex-wrap gap-2">
-              {refEntries.map((entry) => (
-                <button
-                  className={`rounded-full px-3 py-1 text-xs ${!activePlot && activeEntry?.id === entry.id ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-                  key={entry.id}
-                  onClick={() => {
-                    setPickedEntryId(entry.id);
-                    setShowPlotResult(false);
-                  }}
-                  title={entry.ref}
-                  type="button"
-                >
-                  {entry.displayName}
-                </button>
-              ))}
-              {plotBelongsToSelected ? (
-                <button
-                  className={`rounded-full px-3 py-1 text-xs ${showPlotResult ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-                  onClick={() => setShowPlotResult(true)}
-                  title={plotPreviewTarget?.ref}
-                  type="button"
-                >
-                  Plot artifact
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-            <PreviewHost
-              target={activePlot ?? target}
-              initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
-              getCachedEnvelope={(key) => previewEnvelopeCache[key]}
-              cacheEnvelope={cachePreviewEnvelope}
-              buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
-            />
+  // The routed preview host. Only one instance mounts at a time (inline OR the
+  // maximized window) so a single preview session is active.
+  const renderHost = () => (
+    <PreviewHost
+      target={activePlot ?? target}
+      initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
+      getCachedEnvelope={(key) => previewEnvelopeCache[key]}
+      cacheEnvelope={cachePreviewEnvelope}
+      buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
+    />
+  );
+
+  return (
+    <>
+      <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
+            <h2 className="mt-2 font-display text-2xl text-ink">
+              {selectedNodeId ? selectedNodeLabel : "Select a block"}
+            </h2>
           </div>
-        </>
-      )}
-      {portPanel}
-    </aside>
+          {hasPreviewContent ? (
+            <button
+              aria-label="Maximize preview"
+              className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
+              onClick={() => setIsMaximized(true)}
+              title="Maximize preview"
+              type="button"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
+            (BottomPanel). This panel renders preview content: the selected node's
+            outputs and/or the persisted plot Run result, toggled by the "Plot
+            artifact" pill. The result stays put when switching blocks. */}
+        {!selectedNodeId ? (
+          <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+            Pick a block to inspect its latest outputs and cached previews.
+          </div>
+        ) : (
+          <>
+            {pillsRow ? <div className="mt-5">{pillsRow}</div> : null}
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              {isMaximized ? (
+                <div className="flex h-full items-center justify-center px-4 text-center text-sm text-stone-400">
+                  Preview opened in a separate window.
+                </div>
+              ) : (
+                renderHost()
+              )}
+            </div>
+          </>
+        )}
+        {portPanel}
+      </aside>
+
+      {/* #1795 — maximized preview window. Reuses the shared overlay pattern
+          (DataRouterModal / PairEditorModal). Backdrop click, the close
+          control, and Escape all dismiss it. */}
+      {isMaximized ? (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-6"
+          onClick={() => setIsMaximized(false)}
+          data-testid="preview-maximized-overlay"
+        >
+          <div
+            className="flex h-[88vh] w-[88vw] flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</span>
+                <span className="truncate font-display text-lg text-ink">{selectedNodeLabel}</span>
+              </div>
+              <button
+                aria-label="Close preview window"
+                className="shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
+                onClick={() => setIsMaximized(false)}
+                title="Close (Esc)"
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {pillsRow ? (
+              <div className="border-b border-stone-100 px-5 py-3">{pillsRow}</div>
+            ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-5">{renderHost()}</div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

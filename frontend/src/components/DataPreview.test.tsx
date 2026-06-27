@@ -236,4 +236,60 @@ describe("DataPreview", () => {
     // Fallback when no metadata source: truncated ref.
     expect(screen.getByRole("button", { name: "data-xyz78" })).toBeInTheDocument();
   });
+
+  // #1795 — the maximize control pops the active preview into a floating window
+  // so a cramped right-sidebar preview can be inspected at a larger size.
+  it("offers no maximize control without previewable output (#1795)", () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": {} }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Empty Block"
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Maximize preview" })).not.toBeInTheDocument();
+  });
+
+  it("maximizes the active preview into an overlay window and closes on Escape (#1795)", async () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Process Block"
+      />,
+    );
+
+    const maximize = await screen.findByRole("button", { name: "Maximize preview" });
+    expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument();
+
+    fireEvent.click(maximize);
+    expect(screen.getByTestId("preview-maximized-overlay")).toBeInTheDocument();
+    // The maximized window keeps the routed preview alive (its own host mounts).
+    await waitFor(() => expect(screen.getByTestId("preview-host")).toBeInTheDocument());
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("closes the maximized window via the close control and backdrop (#1795)", async () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "data-123" } } }}
+        selectedNodeId="node-1"
+        selectedNodeLabel="Process Block"
+      />,
+    );
+
+    // Close control dismisses it.
+    fireEvent.click(await screen.findByRole("button", { name: "Maximize preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close preview window" }));
+    expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument();
+
+    // Re-open, then a backdrop click dismisses it.
+    fireEvent.click(screen.getByRole("button", { name: "Maximize preview" }));
+    fireEvent.click(screen.getByTestId("preview-maximized-overlay"));
+    expect(screen.queryByTestId("preview-maximized-overlay")).not.toBeInTheDocument();
+  });
 });
