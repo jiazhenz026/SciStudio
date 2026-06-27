@@ -1,0 +1,410 @@
+{
+  "branch": "guided/1819-public-api-contract-adr",
+  "check_events": [
+    {
+      "at": "2026-06-27T17:52:27.162475Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T17:52:31.076547Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:079ca170ed5b7826e1b8e1b4f27907d8995ba60a7a678d850e9d1a3264e67dcc",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T17:52:31.114446Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-27T17:54:32.390482Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cb922d9d795e212d7d2529c810956f49af56d11fef60543c99601669bca18d4c",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T17:58:54.011806Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e96ba6ea10c125c69cb98b68127eda97fe022e043ddfd3619f9f6905ad407894",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-27T18:01:36.347458Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6523ad40e461ee23517ebdf5e3a776a3c1d17cecb89d1e2e5390fc8068c2cc11",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-27T15:57:28.744784Z",
+      "owner_directive": "Public surface spans more than blocks.base+process: expose other scistudio.blocks types too, and core types to block authors. Package-author surface must expose as much as possible \u2014 previewer + type + block protocols (owner has a template repo to reference). Decisions: (1) declare public surface via __all__, NOT a separate sdk/api re-export module (avoids churning all templates/packages); (2) stability via decorators that the doc generator auto-renders; (3) include the plot render(collection) contract in the ADR as one documented usage.",
+      "reason": "Owner refined ADR scope and key design decisions during live discussion"
+    },
+    {
+      "at": "2026-06-27T16:09:29.666454Z",
+      "owner_directive": "Agree with decision A (curated root modules = public; deep paths = internal, non-breaking). Doubt that the package _support helpers are truly generic \u2014 ADR must NOT mandate moving them into core; treat core promotion as case-by-case, evidence-gated. The ADR must ALSO specify the package-side public API contract (how a package declares its own public types/blocks/previewers/helpers, no underscore author-facing helpers, package stability/Since, package-side docs). Reference repos: scistudio-package-template, scistudio-blocks-spectroscopy, scistudio-blocks-imaging.",
+      "reason": "Owner refined ADR content: confirm decision A (root modules canonical), do NOT presume core absorption of package helpers (genericity unproven), and the ADR must also govern each package's OWN public API contract; imaging repo added as reference"
+    },
+    {
+      "at": "2026-06-27T16:59:46.005031Z",
+      "owner_directive": "Add ergonomic accessors to core types because ordinary/custom-block authors know pandas, not Arrow; each package defining its own to_pandas is unacceptable, so it belongs in core once. Constraint: accessors are public-only \u2014 core internal data flow must not use them; canonical to_memory()/Arrow/ndarray unchanged. Exception: planned Excel loader (#1810) must use pandas internally because pyarrow can't read Excel.",
+      "reason": "Owner decided: add public-only ergonomic accessors (to_pandas/to_numpy) on core types, inherited by packages, barred from internal data flow (Excel loader #1810 the sole exception)"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-27T16:15:29.563222Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-052.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-27T17:54:32.441306Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.451450Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.460742Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.469838Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.478984Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.489077Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.498903Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.510647Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.519858Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T17:54:32.530854Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.391966Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.402696Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.412116Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.423218Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.432594Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.442293Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.451768Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.461291Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.470146Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-27T18:01:36.481358Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1819,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "647bf05e",
+    "changed_files": [
+      ".workflow/records/1819-guided-1819-public-api-contract-adr.json",
+      "docs/adr/ADR-052.md"
+    ],
+    "diff_fingerprint": "sha256:ed66dc9412f97bc56b2dbbc914ca506f0872c5acebf8431b4b8e9e1ad342de9a",
+    "head": "HEAD",
+    "head_sha": "d11eaf3f",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 1,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Define a fixed public API contract for SciStudio core+packages ahead of alpha: which surfaces users write code against (custom blocks, custom plots, core types, package authoring/discovery) and which APIs are public. Phase A produces ONE ADR covering: public-surface boundary, stability tiers (stable/provisional/internal)+Since+deprecation, docstring->API doc generation toolchain, doc versioning policy, and relationship to #1817 migration.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-27T17:54:32.530895Z",
+      "diff_fingerprint": "sha256:9fc628353e3f811b8c04e5adf0be14f130ca0d1a44952495c123c66a116ba838",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-06-27T18:01:36.481391Z",
+      "diff_fingerprint": "sha256:ed66dc9412f97bc56b2dbbc914ca506f0872c5acebf8431b4b8e9e1ad342de9a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1819-guided-1819-public-api-contract-adr",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-27T15:57:28.744930Z",
+      "pattern": "docs/adr/**",
+      "reason": "Owner refined ADR scope and key design decisions during live discussion"
+    }
+  ],
+  "session_id": "61f5e6ad-ca11-4eac-9e42-912159ae719f",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-27T17:51:45.908996Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-052 is a planning decision document; the diff is docs/adr only with no code; implementation and its tests land in Phase B/C tracked by #1817",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-27T17:58:48.246170Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-052 is a planning decision document; the diff is docs/adr only with no code; implementation and its tests land in Phase B/C tracked by #1817",
+      "verified_in_diff": null
+    }
+  ]
+}
