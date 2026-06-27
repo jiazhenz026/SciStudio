@@ -151,7 +151,12 @@ def _upsert_wire_row(
     type_chain = metadata.get("type_chain")
     type_name = "DataObject"
     if isinstance(type_chain, list) and type_chain:
-        leaf = type_chain[0]
+        # type_chain is ordered most-general -> most-specific; the leaf
+        # (concrete output type) is the LAST element, matching
+        # LineageRecorder._extract_type_name. Reading [0] recorded the base
+        # "DataObject" for every object on the scheduler/no-recorder (CLI)
+        # write path (#1757).
+        leaf = type_chain[-1]
         if isinstance(leaf, str):
             type_name = leaf
     elif isinstance(wire_dict.get("type_name"), str):
@@ -244,11 +249,17 @@ def _build_block_done_data(
     """
     block_type = self._resolve_block_type(node_id, block)
     block_version = self._resolve_block_version(block, block_type)
+    # ADR-051 / FR-011: the user's interactive decision travels inside the
+    # resolved config and IS recorded as provenance, but the engine-held
+    # intermediate scratch references are ephemeral optimisation, not
+    # provenance — strip them from the recorded config.
+    recorded_config = dict(config) if isinstance(config, dict) else {}
+    recorded_config.pop("interactive_intermediate", None)
     return {
         "workflow_id": self._workflow.id,
         "outputs": outputs,
         "inputs": inputs,
-        "config": dict(config) if isinstance(config, dict) else {},
+        "config": recorded_config,
         "block_type": block_type,
         "block_version": block_version,
         "environment": environment,

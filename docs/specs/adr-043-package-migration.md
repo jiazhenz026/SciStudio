@@ -37,22 +37,12 @@ governs:
   files:
     - src/scistudio/blocks/io/loaders/load_data.py
     - src/scistudio/blocks/io/savers/save_data.py
-    - packages/scistudio-blocks-imaging/src/**
-    - packages/scistudio-blocks-imaging/pyproject.toml
-    - packages/scistudio-blocks-srs/src/**
     - frontend/src/**
     - tests/blocks/io/**
-    - packages/scistudio-blocks-imaging/tests/**
-    - packages/scistudio-blocks-srs/tests/**
     - docs/specs/adr-043-package-migration.md
 tests:
   - tests/blocks/io/test_load_data_capabilities.py
   - tests/blocks/io/test_save_data_capabilities.py
-  - packages/scistudio-blocks-imaging/tests/test_format_capabilities.py
-  - packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py
-  - packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py
-  - packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py
-  - packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py
   - frontend/src/__tests__/CapabilityDropdown.test.tsx
   - frontend/src/__tests__/OMEMetadataPanel.test.tsx
   - frontend/src/__tests__/LossySaveWarning.test.tsx
@@ -416,10 +406,13 @@ persists `capability_id` on the port.
   optional install extra, following the existing `imaging[cellpose]` pattern. The
   handler module MUST defer the `python-bioformats` / `javabridge` / `ome-types`
   imports to lazy load time. When extras are missing, the handler MUST raise a
-  clear error naming the install command
-  `pip install scistudio-blocks-imaging[bioformats]`. The registry MUST hide
-  Bio-Formats capabilities from `list_format_capabilities` results when the
-  extras are not importable.
+  clear error naming an install command that works in the desktop runtime —
+  the in-app Python terminal command
+  `pip install python-bioformats python-javabridge` (the
+  `scistudio-blocks-imaging` distribution is not published to PyPI, so the
+  `[bioformats]` extras specifier is not installable by end users; see #1772).
+  The registry MUST hide Bio-Formats capabilities from
+  `list_format_capabilities` results when the extras are not importable.
 
 - **FR-009:** The spec codifies a ProcessBlock OME metadata propagation contract
   with three modes:

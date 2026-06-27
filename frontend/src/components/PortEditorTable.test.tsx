@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type PortRow, PortEditorTable } from "./PortEditorTable";
+import { type PortRow, PortEditorTable, filterAllowedTypes } from "./PortEditorTable";
 
 const TYPE_HIERARCHY = [
   { name: "DataObject", base_type: "DataObject", description: "" },
@@ -246,5 +246,44 @@ describe("PortEditorTable", () => {
         },
       ]);
     }
+  });
+});
+
+describe("filterAllowedTypes (#1789)", () => {
+  // Realistic ancestry: Image -> Array -> DataObject, plus a parallel branch.
+  const HIERARCHY = [
+    { name: "DataObject", base_type: "", description: "" },
+    { name: "Array", base_type: "DataObject", description: "" },
+    { name: "Image", base_type: "Array", description: "" },
+    { name: "DataFrame", base_type: "DataObject", description: "" },
+  ];
+
+  it("returns the whole hierarchy when there is no constraint", () => {
+    expect(filterAllowedTypes(HIERARCHY, [])).toEqual(HIERARCHY);
+  });
+
+  it("includes subtypes of an allowed base type, not just the literal name", () => {
+    // allowing the root DataObject must offer every descendant, not only itself.
+    const names = filterAllowedTypes(HIERARCHY, ["DataObject"]).map((t) => t.name);
+    expect(names).toEqual(["DataObject", "Array", "Image", "DataFrame"]);
+  });
+
+  it("restricts to a mid-hierarchy base type and its descendants", () => {
+    // allowing Array offers Array + Image, but excludes DataObject and DataFrame.
+    const names = filterAllowedTypes(HIERARCHY, ["Array"]).map((t) => t.name);
+    expect(names).toEqual(["Array", "Image"]);
+  });
+
+  it("does not match an unrelated allowed name", () => {
+    const names = filterAllowedTypes(HIERARCHY, ["DataFrame"]).map((t) => t.name);
+    expect(names).toEqual(["DataFrame"]);
+  });
+
+  it("tolerates a self-referential/cyclic base_type chain", () => {
+    const cyclic = [
+      { name: "DataObject", base_type: "DataObject", description: "" },
+      { name: "Image", base_type: "Image", description: "" },
+    ];
+    expect(filterAllowedTypes(cyclic, ["DataObject"]).map((t) => t.name)).toEqual(["DataObject"]);
   });
 });

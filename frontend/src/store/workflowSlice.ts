@@ -17,7 +17,12 @@ import {
   createUpdateNodeLayoutBatch,
   createUpdateNodeSize,
 } from "./workflowSlice.parts/workflowEditActions";
-import { markDirty, snapshot, stateVersionOf } from "./workflowSlice.parts/workflowHelpers";
+import {
+  markDirty,
+  normalizeLoadedNodes,
+  snapshot,
+  stateVersionOf,
+} from "./workflowSlice.parts/workflowHelpers";
 import {
   createBeginWorkflowSave,
   createConfirmWorkflowVersion,
@@ -57,7 +62,9 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
           workflowDescription: workflow?.description ?? "",
           workflowVersion: workflow?.version ?? "1.0.0",
           workflowMetadata: workflow?.metadata ?? {},
-          workflowNodes: workflow?.nodes ?? [],
+          // #11: wrap flat (agent/hand-authored) node configs into the canonical
+          // { params } shape so the config panel shows the real stored values.
+          workflowNodes: normalizeLoadedNodes(workflow?.nodes ?? []),
           workflowEdges: workflow?.edges ?? [],
           workflowDirty: false,
           workflowBaseVersion: baseVersion,

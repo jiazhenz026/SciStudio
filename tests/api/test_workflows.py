@@ -417,6 +417,31 @@ def test_execute_after_completion_is_allowed(client: TestClient, runtime: ApiRun
     wait_for_workflow_completion(runtime, "rerun-after-done")
 
 
+def test_execute_with_hard_validation_error_returns_422(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path, monkeypatch
+) -> None:
+    """#1789: a hard validation failure must surface as 422, not an uncaught 500.
+
+    ``start_workflow`` re-validates the loaded graph and raises a bare
+    ``ValueError`` on a hard error (e.g. a required input port with no incoming
+    connection). The execute route previously only caught FileNotFoundError and
+    WorkflowAlreadyRunningError, so this user-fixable error escaped as a 500.
+    """
+    payload = build_linear_workflow(opened_project, workflow_id="invalid-flow")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    def _raise_validation(*args, **kwargs):
+        raise ValueError(
+            "Cannot start workflow; validation failed: Node 'ai.agent-1': "
+            "required input port 'port_1' has no incoming connection"
+        )
+
+    monkeypatch.setattr(runtime, "start_workflow", _raise_validation)
+    resp = client.post("/api/workflows/invalid-flow/execute")
+    assert resp.status_code == 422
+    assert "validation failed" in resp.json()["detail"].lower()
+
+
 def test_is_workflow_running_helper(runtime: ApiRuntime) -> None:
     """``_is_workflow_running`` reflects task liveness for a workflow."""
     import asyncio

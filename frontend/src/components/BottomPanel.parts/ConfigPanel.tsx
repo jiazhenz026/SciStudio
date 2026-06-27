@@ -6,6 +6,11 @@ import type {
   WorkflowNode,
 } from "../../types/api";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
+import {
+  INTERACTIVE_MEMORY_KEY,
+  isInteractiveBlock,
+  readInteractiveMemory,
+} from "../../lib/interactiveMemory";
 import { lossyOmeFields } from "../../api/capabilities";
 import { LossySaveWarning, collectUpstreamOmeFields } from "../WorkflowEditor/LossySaveWarning";
 
@@ -295,6 +300,56 @@ export function ConfigPanel({
           </div>
         </div>
       )}
+      {isInteractiveBlock(schema.execution_mode) &&
+        (() => {
+          // ADR-051 interaction memory (Addendum 1): generic for every
+          // interactive block (core or package), rendered from execution_mode
+          // like the variadic-port editor renders from variadic_inputs.
+          const memory = readInteractiveMemory(selectedNode.config as Record<string, unknown>);
+          const enabled = memory?.enabled === true;
+          const hasSaved = enabled && memory?.decision != null;
+          return (
+            <div className="mb-4 max-w-2xl rounded-lg border border-stone-200 bg-stone-50 p-3">
+              <label className="flex items-start gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={enabled}
+                  onChange={(e) =>
+                    onUpdateConfig({
+                      [INTERACTIVE_MEMORY_KEY]: {
+                        enabled: e.target.checked,
+                        decision: memory?.decision ?? null,
+                        signature: memory?.signature ?? null,
+                      },
+                    })
+                  }
+                />
+                <span>
+                  <span className="font-medium">Remember my choice and skip this dialog</span>
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    The first run still opens the dialog. After you confirm once, future runs reuse
+                    your choice and run without the dialog — as long as the inputs are unchanged.
+                    Changing the inputs re-opens it automatically.
+                  </span>
+                </span>
+              </label>
+              {hasSaved && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-stone-600 underline hover:text-ink"
+                  onClick={() =>
+                    onUpdateConfig({
+                      [INTERACTIVE_MEMORY_KEY]: { enabled: true, decision: null, signature: null },
+                    })
+                  }
+                >
+                  Choose again (re-open the dialog on the next run)
+                </button>
+              )}
+            </div>
+          );
+        })()}
       {!hasCoreTypeField && formatSelector ? (
         <div className="mb-4 max-w-2xl">{formatSelector}</div>
       ) : null}

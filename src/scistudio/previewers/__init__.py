@@ -22,7 +22,6 @@ Public surface:
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -83,22 +82,18 @@ class PreviewService:
 def build_preview_service(
     *,
     project_dir: Path | None = None,
-    include_monorepo: bool | None = None,
     child_context_resolver: Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
     | None = None,
 ) -> PreviewService:
     """Build a fully-loaded :class:`PreviewService` (FR-001/FR-002/FR-030).
 
-    Loads core specs unconditionally, then package specs (entry points + a
-    monorepo dev fallback gated by ``SCISTUDIO_DEV=1`` unless *include_monorepo*
-    is given explicitly), then project-local specs/defaults for *project_dir*.
+    Loads core specs unconditionally, then package specs (discovered via
+    ``scistudio.previewers`` entry points), then project-local specs/defaults
+    for *project_dir*.
     """
-    if include_monorepo is None:
-        include_monorepo = os.environ.get("SCISTUDIO_DEV") == "1"
-
     registry = PreviewerRegistry()
     registry.load_core()
-    registry.load_packages(include_monorepo=include_monorepo)
+    registry.load_packages()
     load_project_previewers(registry, project_dir)
 
     router = PreviewRouter(registry)

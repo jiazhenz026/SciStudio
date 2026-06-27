@@ -18,6 +18,10 @@ Writes ``<project>/.codex/config.toml`` containing:
     `tool_name`, `tool_input`, exit code 2 + stderr blocks the call) —
     so a single set of Python scripts covers both providers.
 
+``worktree_write_guard.py`` is intentionally excluded (#1793): it enforces
+SciStudio *repository* development policy (ADR-042 worktree + gate scope) and
+must not be provisioned into end-user projects — see ``hooks.py``.
+
 This reverses ADR-040 §3.10's original "Codex hook coverage deferred"
 gap per Phase 4 e2e user directive — Codex must enforce the same rules
 Claude Code does. See ADR-040 Addendum 4 for the rationale and the
@@ -44,11 +48,6 @@ _TARGET_REL = ".codex/config.toml"
 # compatibility) and ``^apply_patch$`` so the same hook fires regardless
 # of which surface Codex routes through on a given turn.
 _PRE_HOOKS: tuple[tuple[str, str, str], ...] = (
-    (
-        "^(Edit|Write|MultiEdit|apply_patch)$",
-        "worktree_write_guard.py",
-        "Checking ADR-042 worktree and gate scope",
-    ),
     ("^Bash$", "deny_scistudio_cli.py", "Checking SciStudio CLI usage"),
     (
         "^(Edit|Write|MultiEdit|apply_patch)$",

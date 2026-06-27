@@ -470,21 +470,18 @@ class TypeRegistry:
                 )
                 logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep.name)
 
-    def scan_all(self, *, include_monorepo: bool = False) -> None:
+    def scan_all(self) -> None:
         """Register built-in types and then scan entry-points for external types.
 
-        Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point and
-        monorepo passes, this also walks every directory registered via
-        :meth:`add_scan_dir` and registers any drop-in :class:`DataObject`
-        subclass found in a ``.py`` file there. Entry-point and monorepo
-        registrations win on duplicates (this matches
+        Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point pass,
+        this also walks every directory registered via :meth:`add_scan_dir` and
+        registers any drop-in :class:`DataObject` subclass found in a ``.py``
+        file there. Entry-point registrations win on duplicates (this matches
         :meth:`BlockRegistry.scan`'s ordering).
         """
         self.scan_builtins()
         self._scan_entrypoint_types()
         self._scan_package_src_dirs()
-        if include_monorepo:
-            self._scan_monorepo_types()
         self._scan_filesystem_dirs()
 
     def _scan_package_src_dirs(self) -> None:
@@ -629,59 +626,6 @@ class TypeRegistry:
                             py_file,
                             exc_info=True,
                         )
-
-    def _scan_monorepo_types(self) -> None:
-        """Development fallback for plugin type discovery in the monorepo.
-
-        Mirrors the plugin skeleton smoke tests: when plugin packages live in
-        ``packages/*/src`` but have not been installed in editable mode yet,
-        import them directly from source and register any types returned by a
-        conventional ``get_types()`` callable.
-        """
-        repo_root = Path(__file__).resolve().parents[4]
-        packages_dir = repo_root / "packages"
-        if not packages_dir.is_dir():
-            return
-
-        for pkg_dir in packages_dir.glob("scistudio-blocks-*"):
-            src_dir = pkg_dir / "src"
-            if not src_dir.is_dir():
-                continue
-
-            src_dir_str = str(src_dir)
-            if src_dir_str not in sys.path:
-                sys.path.insert(0, src_dir_str)
-
-            module_name = pkg_dir.name.replace("-", "_")
-            try:
-                module = importlib.import_module(module_name)
-            except Exception:
-                logger.warning("Failed to import monorepo plugin types from '%s'", module_name, exc_info=True)
-                continue
-
-            get_types = getattr(module, "get_types", None)
-            if not callable(get_types):
-                continue
-
-            try:
-                type_classes = get_types()
-            except Exception:
-                logger.warning("Monorepo plugin '%s' get_types() raised", module_name, exc_info=True)
-                continue
-
-            if not isinstance(type_classes, (list, tuple)):
-                continue
-
-            for cls in type_classes:
-                try:
-                    self.register_class(cls)
-                except Exception:
-                    logger.warning(
-                        "Failed to register monorepo plugin type %r from '%s'",
-                        cls,
-                        module_name,
-                        exc_info=True,
-                    )
 
 
 def _looks_like_missing_required_field(exc: BaseException) -> bool:

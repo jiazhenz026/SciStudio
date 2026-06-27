@@ -106,7 +106,7 @@ class TestCLIServe:
     def test_serve_starts_uvicorn_with_factory(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
 
-        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool, log_config: object = None) -> None:
             calls.update(
                 {
                     "app_target": app_target,
@@ -137,7 +137,7 @@ class TestCLIServe:
     def test_serve_custom_host_port(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
 
-        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool, log_config: object = None) -> None:
             calls.update(
                 {
                     "app_target": app_target,
@@ -167,7 +167,7 @@ class TestCLIGui:
     def test_gui_starts_uvicorn_with_factory(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
 
-        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool, log_config: object = None) -> None:
             calls.update({"app_target": app_target, "host": host, "port": port, "factory": factory})
 
         monkeypatch.setattr("uvicorn.run", fake_run)  # type: ignore[union-attr]
@@ -189,7 +189,7 @@ class TestCLIGui:
     def test_gui_custom_port(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
 
-        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool, log_config: object = None) -> None:
             calls["port"] = port
 
         monkeypatch.setattr("uvicorn.run", fake_run)  # type: ignore[union-attr]
@@ -210,7 +210,7 @@ class TestCLIGui:
     def test_gui_bundled_uses_loopback_and_emits_ready_json(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
 
-        def fake_run(app_target: str, *, host: str, port: int, factory: bool) -> None:
+        def fake_run(app_target: str, *, host: str, port: int, factory: bool, log_config: object = None) -> None:
             calls.update({"app_target": app_target, "host": host, "port": port, "factory": factory})
 
         monkeypatch.setattr("uvicorn.run", fake_run)  # type: ignore[union-attr]

@@ -12,25 +12,69 @@ from scistudio.blocks.base.package_info import PackageInfo
 from scistudio.blocks.registry import BlockRegistry, BlockSpec
 
 
-class TestBlockRegistryTier2:
-    """Tier 2: entry_point discovery (always available from installed package)."""
+class TestBlockRegistryBuiltins:
+    """First-party core blocks are registered by direct import (#1779).
 
-    def test_scan_discovers_entry_points(self) -> None:
+    Core's palette no longer depends on ``scistudio.blocks`` entry points, so
+    these blocks appear even in a packaged build that carries no
+    ``*.dist-info`` metadata.
+    """
+
+    def test_scan_discovers_builtin_palette(self) -> None:
         reg = BlockRegistry()
         reg.scan()
         specs = reg.all_specs()
-        # Should find at least the built-in blocks from pyproject.toml entry_points.
-        assert len(specs) >= 3
         names = list(specs.keys())
-        assert "Merge" in names
-        assert "Split" in names
+        # First-party core blocks registered in _scan_builtins.
+        for expected in ("Load", "Save", "Data Router", "Merge Collection", "Pair Editor"):
+            assert expected in names, f"{expected!r} missing from palette: {names}"
+        # All first-party blocks carry the sanitized 'builtin' source.
+        assert specs["Data Router"].source == "builtin"
+        # Base classes are never registered.
         assert "IOBlock" not in names
+        # #1779: DataFrame-level Merge/Split placeholders stay out of the palette.
+        assert "Merge" not in names
+        assert "Split" not in names
+        # #1781: collection filter/slice/split retired (superseded by Data Router).
+        assert "Filter Collection" not in names
+        assert "Slice Collection" not in names
+        assert "Split Collection" not in names
 
     def test_instantiate_by_name(self) -> None:
         reg = BlockRegistry()
         reg.scan()
-        block = reg.instantiate("Merge")
-        assert block.name == "Merge"
+        block = reg.instantiate("Merge Collection")
+        assert block.name == "Merge Collection"
+
+    def test_core_palette_survives_without_entry_point_metadata(self) -> None:
+        """Regression for #1779: the core palette must not depend on entry points.
+
+        The desktop bundle ships core as raw source on PYTHONPATH and carries no
+        ``*.dist-info`` metadata, so ``importlib.metadata.entry_points()`` finds
+        nothing for the ``scistudio.blocks`` group. Before #1779 the whole
+        process/code/app palette vanished in that environment, leaving only a
+        few hard-registered blocks. Simulate the metadata-less bundle by forcing
+        entry-point discovery to return an empty set and assert the first-party
+        palette is still complete.
+        """
+        empty_eps = MagicMock()
+        empty_eps.select.return_value = []
+
+        reg = BlockRegistry()
+        with patch("importlib.metadata.entry_points", return_value=empty_eps):
+            reg.scan()
+
+        names = set(reg.all_specs())
+        for expected in (
+            "Load",
+            "Save",
+            "Code Block",
+            "App Block",
+            "Data Router",
+            "Merge Collection",
+            "Pair Editor",
+        ):
+            assert expected in names, f"{expected!r} missing from metadata-less palette: {sorted(names)}"
 
     def test_instantiate_unknown_raises(self) -> None:
         reg = BlockRegistry()
@@ -766,78 +810,14 @@ class TestMergeConfigSchema:
         assert merged["required"].count("y") == 1
 
 
-class TestAppBlockSubclassConfigCleanup:
-    """#572: FijiBlock and ElMAVENBlock must not redeclare AppBlock base fields."""
-
-    def test_fiji_own_config_schema_has_no_watch_timeout(self) -> None:
-        """FijiBlock's own config_schema must not include watch_timeout."""
-        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
-
-        own_schema = FijiBlock.__dict__.get("config_schema", {})
-        props = own_schema.get("properties", {})
-        assert "watch_timeout" not in props, "watch_timeout should be removed from FijiBlock config_schema"
-
-    def test_fiji_own_config_schema_has_no_app_command(self) -> None:
-        """FijiBlock must not redeclare app_command in its own config_schema."""
-        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
-
-        own_schema = FijiBlock.__dict__.get("config_schema", {})
-        props = own_schema.get("properties", {})
-        assert "app_command" not in props, "app_command should be inherited from AppBlock, not redeclared"
-
-    def test_fiji_own_config_schema_has_no_output_patterns(self) -> None:
-        """FijiBlock must not redeclare output_patterns in its own config_schema."""
-        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
-
-        own_schema = FijiBlock.__dict__.get("config_schema", {})
-        props = own_schema.get("properties", {})
-        assert "output_patterns" not in props, "output_patterns should be inherited from AppBlock, not redeclared"
-
-    def test_fiji_mro_merged_includes_app_command(self) -> None:
-        """FijiBlock's MRO-merged config_schema includes app_command from AppBlock."""
-        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
-
-        from scistudio.blocks.registry import _merge_config_schema
-
-        merged = _merge_config_schema(FijiBlock)
-        props = merged.get("properties", {})
-        assert "app_command" in props, "app_command should be inherited via MRO merge from AppBlock"
-
-    def test_fiji_mro_merged_includes_output_dir(self) -> None:
-        """FijiBlock's MRO-merged config_schema includes output_dir from AppBlock."""
-        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
-
-        from scistudio.blocks.registry import _merge_config_schema
-
-        merged = _merge_config_schema(FijiBlock)
-        props = merged.get("properties", {})
-        assert "output_dir" in props, "output_dir should be inherited via MRO merge from AppBlock"
-
-    def test_elmaven_own_config_schema_has_no_app_command(self) -> None:
-        """ElMAVENBlock must not redeclare app_command in its own config_schema."""
-        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
-
-        own_schema = ElMAVENBlock.__dict__.get("config_schema", {})
-        props = own_schema.get("properties", {})
-        assert "app_command" not in props, "app_command should be inherited from AppBlock, not redeclared"
-
-    def test_elmaven_own_config_schema_has_no_output_patterns(self) -> None:
-        """ElMAVENBlock must not redeclare output_patterns in its own config_schema."""
-        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
-
-        own_schema = ElMAVENBlock.__dict__.get("config_schema", {})
-        props = own_schema.get("properties", {})
-        assert "output_patterns" not in props, "output_patterns should be inherited from AppBlock, not redeclared"
-
-    def test_elmaven_mro_merged_includes_app_command(self) -> None:
-        """ElMAVENBlock's MRO-merged config_schema includes app_command from AppBlock."""
-        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
-
-        from scistudio.blocks.registry import _merge_config_schema
-
-        merged = _merge_config_schema(ElMAVENBlock)
-        props = merged.get("properties", {})
-        assert "app_command" in props, "app_command should be inherited via MRO merge from AppBlock"
+# NOTE (issue #1770): ``TestAppBlockSubclassConfigCleanup`` was removed here.
+# It asserted that the imaging ``FijiBlock`` and lcms ``ElMAVENBlock`` do not
+# redeclare AppBlock base fields — pure plugin-behaviour coverage that now
+# lives in the decoupled package repos. The core AppBlock MRO-merge behaviour
+# it leaned on is still covered by ``TestMergeConfigSchema`` above
+# (``test_appblock_subclass_inherits_output_dir`` /
+# ``test_appblock_subclass_priority_enforcement``) using in-test AppBlock
+# subclasses rather than the domain packages.
 
 
 class TestVariadicPortsSpec:

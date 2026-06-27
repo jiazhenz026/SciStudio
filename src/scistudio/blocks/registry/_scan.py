@@ -12,8 +12,8 @@ Owns:
   scan directories.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
   (ADR-025 callable protocol).
-- ``_scan_monorepo_packages`` — development fallback for the
-  ``packages/scistudio-blocks-*`` monorepo plugins.
+- ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
+  ``packages/*/src`` source packages (desktop runtime).
 - ``_register_spec`` — apply per-spec validation and write into the
   registry's ``_registry`` + ``_aliases`` dicts.
 - ``_validate_capability_registration`` — ADR-043 capability-id and
@@ -38,7 +38,6 @@ from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
     prepended_sys_paths,
-    source_package_import_roots,
     user_python_import_roots,
 )
 
@@ -100,18 +99,36 @@ def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) 
 
 
 def _scan_builtins(registry: BlockRegistry) -> None:
-    """Register built-in core blocks used by the API/frontend.
+    """Register first-party core blocks shipped inside ``scistudio`` itself.
 
-    Only concrete, user-facing blocks are registered here.  Base
-    classes (AppBlock, CodeBlock, IOBlock) and non-functional process
-    placeholders (Merge, Split, …) are excluded from the palette so
-    end users see only the blocks they can actually use.  The
-    excluded classes remain importable for plugin development and
-    tests.
+    Issue #1779: core's own palette blocks are registered here by direct
+    import, **not** via ``scistudio.blocks`` entry points. Entry-point
+    discovery (:func:`_scan_tier2`) depends on installed ``*.dist-info``
+    metadata, which the desktop bundle does not carry — it ships core as raw
+    source on ``PYTHONPATH`` and strips build metadata (``stage-resources.sh``,
+    #1775). Relying on entry points for first-party blocks made the whole
+    process/code/app palette vanish in packaged builds, leaving only the
+    handful already hard-registered here. Direct registration is
+    environment-independent (source checkout, editable install, bundled
+    source, or frozen), so the ``scistudio.blocks`` entry-point group is now
+    reserved for third-party plugin packages only.
+
+    Only concrete, user-facing blocks are registered. The DataFrame-level
+    process placeholders ``MergeBlock`` (``Merge``) and ``SplitBlock``
+    (``Split``) are intentionally excluded from the palette. The interactive
+    :class:`DataRouter` supersedes the former collection filter/slice/split
+    blocks; :class:`MergeCollection` remains as the variadic merge primitive.
+    The excluded classes remain importable for plugin development
+    and tests.
     """
     from scistudio.blocks.ai.ai_block import AIBlock
+    from scistudio.blocks.app import AppBlock
+    from scistudio.blocks.code import CodeBlock
     from scistudio.blocks.io.loaders.load_data import LoadData
     from scistudio.blocks.io.savers.save_data import SaveData
+    from scistudio.blocks.process.builtins.data_router import DataRouter
+    from scistudio.blocks.process.builtins.merge_collection import MergeCollection
+    from scistudio.blocks.process.builtins.pair_editor import PairEditor
     from scistudio.blocks.registry._spec import _spec_from_class
     from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
 
@@ -120,6 +137,11 @@ def _scan_builtins(registry: BlockRegistry) -> None:
         SaveData,
         AIBlock,
         SubWorkflowBlock,
+        CodeBlock,
+        AppBlock,
+        DataRouter,
+        MergeCollection,
+        PairEditor,
     ):
         _register_spec(registry, _spec_from_class(cls, source="builtin"))
 
@@ -227,6 +249,11 @@ def _scan_tier1(registry: BlockRegistry) -> None:
 def _scan_tier2(registry: BlockRegistry) -> None:
     """Tier 2: scan ``scistudio.blocks`` entry-points using callable protocol.
 
+    This group is reserved for third-party plugin packages (#1779). Core's own
+    first-party blocks are registered directly in :func:`_scan_builtins` and do
+    not appear here, so a packaged build with no ``*.dist-info`` metadata still
+    gets the full core palette.
+
     Each entry-point resolves to a callable.  When invoked, it returns
     either:
 
@@ -308,6 +335,10 @@ def _scan_tier2(registry: BlockRegistry) -> None:
                     block_spec.module_path = cls.__module__
                     block_spec.class_name = cls.__name__
                     block_spec.package_name = pkg_name
+                    # #1772: surface shared user-site deps (installed via the
+                    # in-app Python terminal) to the worker for entry-point
+                    # blocks too, matching the source-package path.
+                    block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
                     _register_spec(registry, block_spec)
                 elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
                     logger.warning(
@@ -385,7 +416,14 @@ def _process_package_protocol_result(
         block_spec.module_path = cls.__module__
         block_spec.class_name = cls.__name__
         block_spec.package_name = pkg_name
-        block_spec.runtime_import_roots = [str(path) for path in runtime_import_roots or []]
+        # #1772: a worker running this block must also resolve dependencies the
+        # user installed through the in-app Python terminal, which land in the
+        # shared user dependency site. Append that site after the package's own
+        # roots so per-package deps keep precedence while shared-site extras
+        # (e.g. ``cellpose``) become importable.
+        block_spec.runtime_import_roots = list(
+            dict.fromkeys(str(path) for path in [*(runtime_import_roots or []), *_desktop_user_python_import_roots()])
+        )
         if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
             continue
         _register_spec(registry, block_spec)
@@ -442,43 +480,4 @@ def _scan_package_src_dirs(registry: BlockRegistry) -> None:
             import_roots=import_roots,
             module_name=module_name,
             source="package_src",
-        )
-
-
-def _scan_monorepo_packages(registry: BlockRegistry) -> None:
-    """Development fallback for plugin packages living in the monorepo.
-
-    The desktop/app development workflow often runs the core package from
-    source without separately installing Phase 11 plugin packages in
-    editable mode. In that case there are no ``scistudio.blocks`` entry
-    points for the plugins yet, but the plugin sources are still present
-    under ``packages/*/src`` in the same repository checkout.
-
-    This fallback mirrors the entry-point callable protocol for any
-    ``scistudio_blocks_*`` package found in the monorepo:
-
-    - prefer ``get_block_package() -> (PackageInfo, list[type[Block]])``
-    - fall back to ``get_blocks() -> list[type[Block]]``
-
-    Installed entry-points remain authoritative because this scan runs
-    after :func:`_scan_tier2` and skips any block type that is already
-    registered.
-    """
-    # ``__file__`` of this module sits at
-    # ``src/scistudio/blocks/registry/_scan.py``. The repo root is
-    # therefore ``parents[4]`` (registry → blocks → scistudio → src → root).
-    repo_root = Path(__file__).resolve().parents[4]
-    packages_dir = repo_root / "packages"
-    if not packages_dir.is_dir():
-        return
-
-    for pkg_dir in packages_dir.glob("scistudio-blocks-*"):
-        src_dir = pkg_dir / "src"
-        if not src_dir.is_dir():
-            continue
-        _scan_source_package_module(
-            registry,
-            import_roots=source_package_import_roots(src_dir),
-            module_name=pkg_dir.name.replace("-", "_"),
-            source="monorepo",
         )

@@ -70,6 +70,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         project_dir: Path,
         dangerous: bool,
         extra_env: dict[str, str] | None = None,
+        prompt: str = "",
     ) -> PtyProcess:
         return _RecordingPty(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
@@ -166,13 +167,101 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
             ws.receive_json(timeout=0.5)
         # Sanity: still the same PTY instance — not respawned.
         assert _active_ptys.get(tab_id) is pre_spawn_pty
-        # And the initial stdin replay sentinel was set.
-        assert getattr(pre_spawn_pty, "_engine_initial_stdin_sent", False) is True
 
     # The teardown drops the entry; only the original spawn happened.
     assert len(spawn_calls) == 1, (
         f"_spawn must NOT be called a second time for engine-initiated join; got {spawn_calls}"
     )
+
+
+# ---------------------------------------------------------------------------
+# #1789: the engine delivers the prompt to the agent as a spawn argument (the
+# raw-mode TUI ignored a carriage return typed over stdin), so open_engine_-
+# initiated_tab must forward it to _spawn and NOT stamp it for stdin replay.
+# ---------------------------------------------------------------------------
+
+
+def test_1789_engine_passes_prompt_to_spawn_not_stdin(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The prompt (carried in ``initial_stdin``) is forwarded to ``_spawn`` so
+    spawn_claude/spawn_codex pass it as the agent's positional CLI argument, and
+    it is no longer stamped for a stdin replay (which would double-send)."""
+    captured: dict[str, str] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+        prompt: str = "",
+    ) -> PtyProcess:
+        captured["prompt"] = prompt
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    tab_id = open_engine_initiated_tab(
+        title="🤖 demo",
+        spawn_argv=["claude"],
+        cwd=str(opened_project),
+        initial_stdin="infer a metadata table from filenames",
+        block_run_id="rid-1789-prompt",
+        permission_mode="safe",
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789-prompt"),
+    )
+
+    assert captured.get("prompt") == "infer a metadata table from filenames"
+    # The prompt went via the spawn argument, so nothing is left to replay.
+    pty = _active_ptys[tab_id]
+    assert getattr(pty, "_engine_initial_stdin", None) == ""
+
+
+def test_1789_engine_pty_resized_to_client_viewport_on_join(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#1789: joining an engine-pre-spawned PTY must resize it to the connecting
+    client's viewport.
+
+    The engine spawns the PTY at the default 120x30 before any WS exists; without
+    this correction the agent TUI renders at 120x30 while xterm shows the fitted
+    size, producing a garbled display that does not fill the pane.
+    """
+    resizes: list[tuple[int, int]] = []
+
+    class _RecordingPty(PtyProcess):
+        def resize(self, cols: int, rows: int) -> None:  # type: ignore[override]
+            resizes.append((cols, rows))
+            return super().resize(cols, rows)
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+        prompt: str = "",
+    ) -> PtyProcess:
+        return _RecordingPty(_echo_argv(), cwd=project_dir, cols=120, rows=30, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    tab_id = open_engine_initiated_tab(
+        title="🤖 demo",
+        spawn_argv=["claude"],
+        cwd=str(opened_project),
+        initial_stdin="",
+        block_run_id="rid-1789-size",
+        permission_mode="safe",
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-1789-size"),
+    )
+
+    url = f"/api/ai/pty/{tab_id}?provider=claude-code&project_dir={opened_project}&dangerous=false&cols=100&rows=40"
+    with client.websocket_connect(url) as ws, contextlib.suppress(Exception):
+        ws.receive_json(timeout=0.5)
+
+    assert (100, 40) in resizes, f"expected join to resize the PTY to the client viewport, got {resizes!r}"
 
 
 # ---------------------------------------------------------------------------

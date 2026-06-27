@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scistudio-blocks-fixture"
+version = "0.1.0"
+description = "Fake in-repo SciStudio block package used as a core-test fixture."
+readme = "README.md"
+authors = [
+    {name = "SciStudio Contributors"},
+]
+requires-python = ">=3.11"
+# Depends on scistudio (core) for base classes / capability declarations.
+# This package is NEVER globally installed; a conftest puts its ``src`` on
+# sys.path and tests inject its entry points per-test via monkeypatch.
+dependencies = [
+    "scistudio",
+    "numpy>=1.24",
+    "pydantic>=2.0",
+    "tifffile>=2024.1",
+]
+
+[project.entry-points."scistudio.blocks"]
+fixture = "scistudio_blocks_fixture:get_block_package"
+
+[project.entry-points."scistudio.types"]
+fixture = "scistudio_blocks_fixture:get_types"
+
+[project.entry-points."scistudio.previewers"]
+fixture = "scistudio_blocks_fixture.previewers:get_previewers"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scistudio_blocks_fixture"]
+artifacts = [
+    "src/scistudio_blocks_fixture/previewers/assets/*.js",
+]

@@ -62,6 +62,10 @@ export interface CanvasHandlersDeps {
   ) => void;
   connectNodes: (edge: WorkflowEdge) => void;
   openFileTab: (path: string, options?: { readOnly?: boolean }) => void;
+  // #1758: selected canvas node id (or null) + the read-only block-source
+  // opener. When a node is selected, "View source" shows that block's code.
+  selectedNodeId: string | null;
+  openBlockSourceTab: (blockType: string) => void;
   saveFileTab: (tabId: string) => Promise<void>;
   saveWorkflow: () => Promise<void>;
   setLastError: (message: string | null) => void;
@@ -117,6 +121,8 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
     addNode,
     connectNodes,
     openFileTab,
+    selectedNodeId,
+    openBlockSourceTab,
     saveFileTab,
     saveWorkflow,
     setLastError,
@@ -228,7 +234,20 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
   );
 
   const handleViewSource = useCallback(async () => {
-    if (!currentProject || !workflowId) return;
+    if (!currentProject) return;
+    // #1758: when a real block is selected, "View source" shows that block's
+    // source code (core / package / custom) instead of the workflow YAML.
+    // Annotation notes (block_type "_annotation") are canvas-only pseudo-nodes
+    // with no registered block source, so they fall through to the workflow
+    // YAML view rather than hitting the source endpoint with a 404.
+    if (selectedNodeId) {
+      const selected = workflowNodes.find((node) => node.id === selectedNodeId);
+      if (selected?.block_type && selected.block_type !== "_annotation") {
+        openBlockSourceTab(selected.block_type);
+        return;
+      }
+    }
+    if (!workflowId) return;
     // #878: ensure the workflow exists on disk before opening its YAML.
     try {
       await saveWorkflow();
@@ -237,7 +256,15 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
       return;
     }
     openFileTab(`workflows/${workflowId}.yaml`, { readOnly: true });
-  }, [currentProject, openFileTab, saveWorkflow, workflowId]);
+  }, [
+    currentProject,
+    selectedNodeId,
+    workflowNodes,
+    openBlockSourceTab,
+    openFileTab,
+    saveWorkflow,
+    workflowId,
+  ]);
 
   const handleSave = useCallback(() => {
     // ADR-036 §3.7 — route Save by active tab kind.

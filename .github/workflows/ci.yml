@@ -26,7 +26,7 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -42,7 +42,7 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -63,7 +63,7 @@ jobs:
     name: Architecture Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -79,7 +79,7 @@ jobs:
     name: Full Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -110,7 +110,7 @@ jobs:
       matrix:
         python-version: ["3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -121,8 +121,6 @@ jobs:
       - run: uv pip install --system -e ".[dev]" pytest-timeout
       - name: Run tests
         shell: bash {0}
-        env:
-          SCISTUDIO_DEV: "1"
         # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
         # past 60 s and prints its traceback, so a stuck CI surfaces a
         # diagnosable failure instead of timing out the whole job at 6 h.
@@ -148,7 +146,7 @@ jobs:
     name: Import Contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -171,7 +169,7 @@ jobs:
   #   # Not yet implemented — frontend/src/ does not exist.
   #   # Enable this job when frontend development begins.
   #   steps:
-  #     - uses: actions/checkout@v6
+  #     - uses: actions/checkout@v7
   #     - uses: actions/setup-node@v6
   #       with:
   #         node-version: "20"
@@ -181,7 +179,7 @@ jobs:
     name: Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
@@ -210,7 +208,7 @@ jobs:
     name: Wheel Release Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"

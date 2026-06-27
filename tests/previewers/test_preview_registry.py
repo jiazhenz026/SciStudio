@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.metadata
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
@@ -88,8 +89,14 @@ def test_raising_factory_is_diagnosed_not_fatal() -> None:
     assert any("raised" in d for d in reg.diagnostics)
 
 
-def test_monorepo_fallback_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
-    """FR-030: a monorepo package exposing get_previewers() is discovered."""
+def test_factory_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A package exposing ``get_previewers()`` is discovered via the factory path.
+
+    Issue #1770 removed the monorepo dev-fallback source scan; discovery is now
+    entry-point only. This narrowly proves the factory-registration contract
+    shape (the entry-point path is covered by
+    ``test_companion_package_entry_point_discovers_get_previewers`` below).
+    """
     import sys
     import types
 
@@ -99,8 +106,6 @@ def test_monorepo_fallback_discovers_get_previewers(monkeypatch: pytest.MonkeyPa
     fake_module.get_previewers = lambda: [_spec("pkg.fake.viewer")]  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "scistudio_blocks_fake", fake_module)
 
-    # Drive the factory path directly (filesystem glob is exercised by the
-    # imaging package's own monorepo test); this proves the contract shape.
     reg._register_from_factory("scistudio_blocks_fake", fake_module.get_previewers)
     assert reg.get("pkg.fake.viewer") is not None
     assert reg.diagnostics == []
@@ -134,10 +139,61 @@ def test_companion_package_entry_point_discovers_get_previewers(
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
 
     reg = PreviewerRegistry()
-    reg.load_packages(include_monorepo=False)
+    reg.load_packages()
 
     assert reg.get("pkg.fake.viewer") is not None
     assert reg.diagnostics == []
+
+
+def test_load_packages_activates_installed_plugin_roots_for_entry_points(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1752: entry-point discovery must activate user-installed plugin import
+    roots so ``importlib.metadata`` sees their dist-info.
+
+    Mirrors a packaged install where a plugin's ``scistudio.previewers`` entry
+    point is only visible while the plugin root is on ``sys.path``. Before the
+    fix, the registry scanned entry points without activating the plugin roots,
+    so the canonical entry-point path found nothing.
+    """
+    sentinel = str(tmp_path)
+
+    fake_module = types.ModuleType("scistudio_blocks_fake")
+    fake_module.get_previewers = lambda: [_spec("pkg.fake.viewer")]  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scistudio_blocks_fake", fake_module)
+
+    prev_ep = importlib.metadata.EntryPoint(
+        name="fake",
+        value="scistudio_blocks_fake:get_previewers",
+        group="scistudio.previewers",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        group = kwargs.get("group")
+        if group == "scistudio.previewers":
+            # The plugin's dist-info is only "visible" once its root is on sys.path.
+            return (prev_ep,) if sentinel in sys.path else ()
+        if group in ("scistudio.blocks", "scistudio.types"):
+            return ()
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    monkeypatch.setattr(
+        "scistudio.previewers.registry.installed_package_import_roots",
+        lambda: [tmp_path],
+    )
+
+    reg = PreviewerRegistry()
+    reg.load_packages()
+
+    # Discovered via the entry-point path — only possible if the plugin root was
+    # activated on sys.path during the scan.
+    assert reg.get("pkg.fake.viewer") is not None
+    assert reg.diagnostics == []
+    # The scoped activation must restore sys.path afterwards.
+    assert sentinel not in sys.path
 
 
 def test_project_default_declaration_roundtrips() -> None:

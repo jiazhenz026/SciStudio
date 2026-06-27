@@ -25,6 +25,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   // already viewing Logs. Cleared when the Logs tab is opened.
   unreadLogsCount: 0,
   projectTreeRefreshCounter: 0,
+  blockCatalogRefreshCounter: 0,
   setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
   // ADR-050 §3.1 — enter/exit focus mode. Pure view state: these actions never
   // touch workflow nodes, edges, config, or the dirty flag (FR-018).
@@ -58,6 +59,10 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   },
   bumpProjectTreeRefresh: () =>
     set((state) => ({ projectTreeRefreshCounter: state.projectTreeRefreshCounter + 1 })),
+  // #9: bumped on a ``blocks.reloaded`` WS event (e.g. the agent scaffolded +
+  // reloaded a custom block) so App re-fetches the block catalog.
+  bumpBlockCatalogRefresh: () =>
+    set((state) => ({ blockCatalogRefreshCounter: state.blockCatalogRefreshCounter + 1 })),
   togglePalette: () => set((state) => ({ paletteCollapsed: !state.paletteCollapsed })),
   togglePreview: () => set((state) => ({ previewCollapsed: !state.previewCollapsed })),
   toggleBottomPanel: () => set((state) => ({ bottomPanelCollapsed: !state.bottomPanelCollapsed })),

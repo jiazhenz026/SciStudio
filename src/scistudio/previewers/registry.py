@@ -1,14 +1,13 @@
-"""PreviewerRegistry — core / package / monorepo / project discovery (FR-002).
+"""PreviewerRegistry — core / package / project discovery (FR-002).
 
 Loads :class:`PreviewerSpec` declarations from three tiers:
 
 1. **core** — always loaded, unconditionally, from
    :func:`scistudio.previewers.fallbacks.core_previewer_specs`.
 2. **package** — installed packages that ship a ``scistudio.previewers``
-   entry point (``importlib.metadata.entry_points(group="scistudio.previewers")``)
-   plus a monorepo dev fallback that scans ``packages/scistudio-blocks-*`` for a
-   module-level ``get_previewers()`` callable, gated by ``SCISTUDIO_DEV=1`` in
-   the same spirit as :meth:`TypeRegistry._scan_monorepo_types` (FR-030).
+   entry point (``importlib.metadata.entry_points(group="scistudio.previewers")``),
+   plus companion ``get_previewers()`` factories re-exported by installed
+   block/type packages, plus bundled desktop source packages (FR-030).
 3. **project** — project-local specs registered via
    :mod:`scistudio.previewers.project`.
 
@@ -24,13 +23,12 @@ import importlib
 import importlib.metadata
 import logging
 import os
-import sys
-from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from scistudio.desktop.paths import (
     candidate_package_dirs,
+    installed_package_import_roots,
     iter_source_package_module_candidates,
     prepended_sys_paths,
 )
@@ -43,40 +41,12 @@ logger = logging.getLogger(__name__)
 
 PREVIEWER_ENTRY_POINT_GROUP = "scistudio.previewers"
 COMPANION_ENTRY_POINT_GROUPS = ("scistudio.blocks", "scistudio.types")
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_PACKAGES_DIR = _REPO_ROOT / "packages"
 
 
 def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
     if os.environ.get("SCISTUDIO_BUNDLED") != "1":
         return ()
     return tuple(candidate_package_dirs())
-
-
-def _monorepo_package_module_names() -> list[str]:
-    if not _PACKAGES_DIR.is_dir():
-        return []
-    return [p.name.replace("-", "_") for p in sorted(_PACKAGES_DIR.glob("scistudio-blocks-*")) if (p / "src").is_dir()]
-
-
-def _prepend_monorepo_src(module_name: str) -> None:
-    src_dir = _PACKAGES_DIR / module_name.replace("_", "-") / "src"
-    if src_dir.is_dir() and str(src_dir) not in sys.path:
-        sys.path.insert(0, str(src_dir))
-
-
-def _import_monorepo_module(module_name: str) -> Any | None:
-    _prepend_monorepo_src(module_name)
-    with suppress(Exception):
-        return importlib.import_module(module_name)
-    logger.warning("Failed to import monorepo package '%s' for previewers", module_name)
-    return None
-
-
-def _previewer_factory_for(module_name: str) -> Any | None:
-    module = _import_monorepo_module(module_name)
-    factory = getattr(module, "get_previewers", None) if module else None
-    return factory if callable(factory) else None
 
 
 class PreviewerRegistry:
@@ -149,13 +119,27 @@ class PreviewerRegistry:
         for spec in core_previewer_specs():
             self.register(spec)
 
-    def load_packages(self, *, include_monorepo: bool = False) -> None:
-        """Load package previewers from entry points + monorepo fallback (FR-002/FR-030)."""
-        self._scan_entry_points()
-        self._scan_companion_entry_point_packages()
+    def load_packages(self) -> None:
+        """Load package previewers from entry points (FR-002/FR-030).
+
+        The entry-point scans run with the user-installed plugin import roots
+        activated on ``sys.path`` (their ``site-packages`` carry the dist-info),
+        so ``importlib.metadata.entry_points()`` can actually see installed
+        plugins' ``scistudio.previewers`` entry points. Without this the
+        canonical entry-point path silently finds nothing in the packaged app —
+        the plugin ``site-packages`` is off ``sys.path`` — and previewer
+        discovery falls entirely to the source-dir scan fallback (#1752). The
+        block/type registries already activate these roots the same way.
+        """
+        try:
+            plugin_roots = tuple(installed_package_import_roots())
+        except Exception:  # pragma: no cover - defensive; never fail discovery
+            logger.debug("Failed to resolve installed plugin import roots", exc_info=True)
+            plugin_roots = ()
+        with prepended_sys_paths(plugin_roots):
+            self._scan_entry_points()
+            self._scan_companion_entry_point_packages()
         self._scan_package_src_dirs()
-        if include_monorepo:
-            self._scan_monorepo_packages()
 
     def _scan_entry_points(self) -> None:
         try:
@@ -225,11 +209,6 @@ class PreviewerRegistry:
                         skip_existing=True,
                     )
                     break
-
-    def _scan_monorepo_packages(self) -> None:
-        for module_name in _monorepo_package_module_names():
-            if factory := _previewer_factory_for(module_name):
-                self._register_from_factory(module_name, factory)
 
     def _scan_package_src_dirs(self) -> None:
         """Discover bundled desktop source-package previewers via ``get_previewers()``."""

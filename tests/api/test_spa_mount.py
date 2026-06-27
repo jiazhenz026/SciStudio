@@ -93,6 +93,45 @@ def test_resolve_spa_ignores_empty_static_dir(tmp_path: Path, monkeypatch: pytes
     assert resolved == dev_fallback
 
 
+def test_resolve_spa_bundled_serves_only_packaged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1747: ``SCISTUDIO_BUNDLED=1`` serves the embedded static even when a
+    stray ``frontend/dist`` sits in a parent dir — the bundled UI must be
+    environment-independent (not depend on the .app's filesystem location)."""
+    fake_api_dir = tmp_path / "pkg" / "scistudio" / "api"
+    fake_api_dir.mkdir(parents=True)
+    fake_app_py = fake_api_dir / "app.py"
+    fake_app_py.write_text("", encoding="utf-8")
+
+    packaged = _make_spa_dir(fake_api_dir / "static")
+    dev_build = _make_spa_dir(tmp_path / "frontend" / "dist")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(app_module, "__file__", str(fake_app_py))
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+
+    resolved = app_module._resolve_spa_static_dir()
+    assert resolved == packaged
+    assert resolved != dev_build
+
+
+def test_resolve_spa_bundled_never_uses_dev_walkup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1747: in bundled mode with no packaged static, the resolver returns
+    ``None`` rather than serving a stray ``frontend/dist`` from a parent dir."""
+    fake_api_dir = tmp_path / "pkg" / "scistudio" / "api"
+    fake_api_dir.mkdir(parents=True)
+    fake_app_py = fake_api_dir / "app.py"
+    fake_app_py.write_text("", encoding="utf-8")
+
+    # A dev build exists up the tree, but bundled mode must ignore it.
+    _make_spa_dir(tmp_path / "frontend" / "dist")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(app_module, "__file__", str(fake_app_py))
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+
+    assert app_module._resolve_spa_static_dir() is None
+
+
 def test_root_redirects_to_docs_without_spa(monkeypatch: pytest.MonkeyPatch) -> None:
     """When no SPA is available, GET / still yields a 307 to /docs."""
     monkeypatch.setattr(app_module, "_resolve_spa_static_dir", lambda: None)

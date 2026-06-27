@@ -25,10 +25,13 @@ from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
-# Plugin type imports (imaging plugin)
+# Plugin type imports (fixture stand-in package; issue #1770)
 # ---------------------------------------------------------------------------
+# The real imaging plugin was decoupled out of the core repo. These tests
+# exercise *core* serialization machinery against a plugin-shaped stand-in
+# type, so they import the in-repo fixture package instead.
 try:
-    from scistudio_blocks_imaging.types import Image, Label, Mask
+    from scistudio_blocks_fixture.types import Image, Label, Mask
 
     HAS_IMAGING = True
 except ImportError:
@@ -97,7 +100,7 @@ def _make_composite(tmp_path: Path) -> CompositeData:
 
 # Imaging plugin factories (only available when plugin is installed)
 def _make_image(tmp_path: Path) -> Any:
-    """8x8 Image (imaging plugin)."""
+    """8x8 Image (fixture plugin)."""
     img = Image(axes=["y", "x"], shape=(8, 8), dtype="float32")
     img._data = np.random.rand(8, 8).astype(np.float32)  # type: ignore[attr-defined]
     img.save(str(tmp_path / "image.zarr"))
@@ -105,7 +108,7 @@ def _make_image(tmp_path: Path) -> Any:
 
 
 def _make_mask(tmp_path: Path) -> Any:
-    """4x4 boolean Mask (imaging plugin)."""
+    """4x4 boolean Mask (fixture plugin)."""
     m = Mask(axes=["y", "x"], shape=(4, 4), dtype="bool")
     m._data = np.ones((4, 4), dtype=bool)  # type: ignore[attr-defined]
     m.save(str(tmp_path / "mask.zarr"))
@@ -113,7 +116,7 @@ def _make_mask(tmp_path: Path) -> Any:
 
 
 def _make_label(tmp_path: Path) -> Any:
-    """Label with raster Array slot (imaging plugin)."""
+    """Label with raster Array slot (fixture plugin)."""
     raster = Array(axes=["y", "x"], shape=(4, 4), dtype="int32")
     raster._data = np.arange(16, dtype=np.int32).reshape(4, 4)  # type: ignore[attr-defined]
     raster.save(str(tmp_path / "label_raster.zarr"))
@@ -146,8 +149,16 @@ if HAS_IMAGING:
 
 
 @pytest.mark.parametrize("type_name,factory", CORE_FACTORIES, ids=[f[0] for f in CORE_FACTORIES])
+@pytest.mark.usefixtures("_fixture_types_resolvable")
 def test_serialise_deserialise_roundtrip(type_name: str, factory: Any, tmp_path: Path) -> None:
-    """Each core DataObject type must survive _serialise_one -> _reconstruct_one -> to_memory()."""
+    """Each core DataObject type must survive _serialise_one -> _reconstruct_one -> to_memory().
+
+    The ``_fixture_types_resolvable`` fixture registers the in-repo fixture's
+    ``scistudio.types`` entry point so reconstruction resolves the plugin type
+    names ("Image"/"Mask"/"Label") back to the fixture classes (issue #1770).
+    It is a no-op for the core types (Array/DataFrame/...) which the registry
+    always knows.
+    """
     obj = factory(tmp_path)
 
     # Serialise
@@ -174,11 +185,51 @@ def test_serialise_deserialise_roundtrip(type_name: str, factory: Any, tmp_path:
 
 
 # ---------------------------------------------------------------------------
+# Plugin-type reconstruction helper
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def _fixture_types_resolvable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make plugin type names ("Image"/"Label") reconstruct to the fixture types.
+
+    Reconstruction (``_reconstruct_one`` / ``reconstruct_inputs``) resolves a
+    recorded type name through the process-wide ``TypeRegistry`` singleton in
+    ``scistudio.core.types.serialization``. Issue #1770 decoupled the real
+    domain packages, so this injects the fixture package's ``scistudio.types``
+    entry point and resets the cached singleton so the registry rescans and
+    resolves "Image"/"Label" to the in-repo fixture classes (the only provider
+    of those names in a clean decoupled environment).
+    """
+    import importlib.metadata
+
+    import scistudio.core.types.serialization as ser
+
+    type_ep = importlib.metadata.EntryPoint(
+        name="fixture",
+        value="scistudio_blocks_fixture:get_types",
+        group="scistudio.types",
+    )
+    real_entry_points = importlib.metadata.entry_points
+
+    def _entry_points(*args: object, **kwargs: object) -> object:
+        if kwargs.get("group") == "scistudio.types":
+            return importlib.metadata.EntryPoints((type_ep,))
+        return real_entry_points(*args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    # Reset the cached registry so it rescans under the patched entry points.
+    # ``monkeypatch`` restores the previous singleton value after the test.
+    monkeypatch.setattr(ser, "_registry_instance", None)
+
+
+# ---------------------------------------------------------------------------
 # Composite slot round-trip
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_imaging not installed")
+@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_fixture not importable")
+@pytest.mark.usefixtures("_fixture_types_resolvable")
 def test_composite_slot_roundtrip(tmp_path: Path) -> None:
     """Label (CompositeData with raster Array slot) must round-trip with slots intact."""
     label = _make_label(tmp_path)
@@ -210,7 +261,8 @@ def test_composite_slot_roundtrip(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_imaging not installed")
+@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_fixture not importable")
+@pytest.mark.usefixtures("_fixture_types_resolvable")
 def test_collection_roundtrip(tmp_path: Path) -> None:
     """Collection[Image] must survive serialise_outputs -> reconstruct_inputs."""
     from scistudio.engine.runners.worker import reconstruct_inputs, serialise_outputs

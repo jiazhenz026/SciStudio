@@ -136,10 +136,38 @@ export interface WorkflowSlice {
   redoWorkflow: () => void;
 }
 
-/** #591/#594: Data for an interactive block prompt (DataRouter, PairEditor). */
+/** ADR-051: descriptor for a block-owned interactive panel component. */
+export interface PanelManifestDescriptor {
+  panel_id: string;
+  module_url?: string;
+  export_name?: string;
+  css?: string[];
+  version?: string;
+  api_version?: string;
+}
+
+/** #591/#594 + ADR-051: Data for an interactive block prompt (DataRouter, PairEditor). */
 export interface InteractivePrompt {
   blockId: string;
   blockType: string;
+  /**
+   * ADR-051: the workflow id the prompt belongs to, carried by the prompt event.
+   * Confirm/cancel MUST use this (not the store's active workflow id), so the
+   * response is run-scoped to the right run even if the user switches tabs while
+   * the prompt is open.
+   */
+  workflowId: string;
+  /** ADR-051: panel manifest used to resolve the window component (FR-007). */
+  panelManifest: PanelManifestDescriptor | null;
+  /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
+  panelPayload: Record<string, unknown>;
+  /**
+   * ADR-051 interaction memory: the generic input fingerprint for this run,
+   * echoed by the engine so the frontend can persist it alongside the decision
+   * when the user enables "remember and skip the dialog".
+   */
+  inputSignature: Record<string, string[]>;
+  /** Full event-data envelope (back-compat). */
   data: Record<string, unknown>;
 }
 
@@ -202,6 +230,12 @@ export interface UISlice {
    * the Refresh button.
    */
   projectTreeRefreshCounter: number;
+  /**
+   * #9 — bumped on a ``blocks.reloaded`` WS event so the app re-fetches the
+   * block catalog (palette summaries + per-block schemas) without a manual
+   * palette reload.
+   */
+  blockCatalogRefreshCounter: number;
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   /**
@@ -215,6 +249,7 @@ export interface UISlice {
   setFocusDepth: (depth: number) => void;
   bumpUnreadLogs: () => void;
   bumpProjectTreeRefresh: () => void;
+  bumpBlockCatalogRefresh: () => void;
   togglePalette: () => void;
   togglePreview: () => void;
   toggleBottomPanel: () => void;
@@ -424,6 +459,13 @@ export interface FileTab {
    * ``content`` is populated.
    */
   loading?: boolean;
+  /**
+   * #1758: set when this is a read-only "View source" tab for a registered
+   * block type (core / package / custom). Its ``content`` comes from
+   * ``GET /api/blocks/{blockType}/source`` rather than a project file, so the
+   * tab is not persisted across reload (see ``partializeTabs``).
+   */
+  blockSourceType?: string;
 }
 
 /**
@@ -465,6 +507,13 @@ export interface TabSlice {
    *      language from extension, build a FileTab, append to tabs, set active.
    */
   openFileTab: (filePath: string, opts?: { readOnly?: boolean }) => void;
+  /**
+   * #1758 — open a read-only tab showing a registered block's source code
+   * (core / package / custom). Fetches ``GET /api/blocks/{blockType}/source``
+   * and renders the returned source inline (the file lives outside the
+   * project, so it cannot use the project-file fetch path).
+   */
+  openBlockSourceTab: (blockType: string) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *

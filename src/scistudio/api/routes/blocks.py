@@ -4,17 +4,28 @@ from __future__ import annotations
 
 import importlib.resources as importlib_resources
 import logging
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from scistudio.api._block_source import (
+    BlockSourceUnavailableError,
+    resolve_block_source,
+)
+from scistudio.api._block_source import (
+    map_block_origin as _map_source,
+)
 from scistudio.api.deps import get_block_registry, get_runtime, get_type_registry
 from scistudio.api.schemas import (
     BlockConnectionValidation,
     BlockListResponse,
     BlockPortResponse,
     BlockSchemaResponse,
+    BlockSourceResponse,
     BlockSummary,
     ConnectionValidationResponse,
     FormatCapabilityResponse,
@@ -22,6 +33,9 @@ from scistudio.api.schemas import (
     TypeHierarchyEntry,
 )
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
+from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
+from scistudio.previewers.assets import resolve_asset
+from scistudio.previewers.models import MissingBundleError
 
 logger = logging.getLogger(__name__)
 
@@ -49,59 +63,22 @@ def _type_names_for_io_direction(
     *,
     direction: str,
 ) -> list[str]:
-    """Return all registered type names, with IO-capable types first."""
-    registered = set(type_registry.all_types().keys())
-    capable = {capability.data_type.__name__ for capability in registry.list_format_capabilities(direction=direction)}
-    core_order = ["Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"]
-    ordered = [name for name in core_order if name in registered]
-    ordered.extend(sorted(capable - set(ordered)))
-    ordered.extend(sorted(registered - set(ordered)))
-    return ordered
+    """Return all registered type names, with IO-capable types first.
+
+    Delegates to the shared :mod:`scistudio.blocks.io._config_enrichment` source
+    of truth so the HTTP API and the MCP tools serve an identical ``core_type``
+    enum (see that module's docstring for the rationale).
+    """
+    return io_capable_type_names(registry, type_registry, direction=direction)
 
 
 def _config_schema_for_block(spec: Any, registry: Any = None, type_registry: Any = None) -> dict[str, Any]:
-    schema = spec.config_schema or {"type": "object", "properties": {}}
-    if registry is None or type_registry is None:
-        return schema
-    if spec.type_name not in {"load_data", "save_data"}:
-        return schema
+    """Return *spec*'s config schema with the dynamic ``core_type`` enum applied.
 
-    import copy
-
-    direction = "load" if spec.type_name == "load_data" else "save"
-    merged = copy.deepcopy(schema)
-    properties = merged.setdefault("properties", {})
-    properties.pop("allow_pickle", None)
-    type_names = _type_names_for_io_direction(registry, type_registry, direction=direction)
-    properties["core_type"] = {
-        **properties.get("core_type", {}),
-        "title": "Type",
-        "enum": type_names,
-        "default": "DataFrame" if "DataFrame" in type_names else (type_names[0] if type_names else ""),
-        "ui_priority": 1,
-    }
-    if "path" in properties:
-        properties["path"]["title"] = "Path"
-        properties["path"]["ui_priority"] = 0
-        properties["path"]["ui_widget"] = "file_browser" if spec.type_name == "load_data" else "directory_browser"
-    merged["required"] = ["path", "core_type"]
-    return merged
-
-
-def _map_source(raw: str) -> str:
-    """Map internal source labels to palette-friendly values.
-
-    tier1 -> "custom" (project-local hot-loaded blocks)
-    entry_point / monorepo / package_src -> "package" (installed plugin blocks)
-    builtin -> "builtin" (core blocks)
+    Thin wrapper over the shared enrichment helper so the GUI (this API) and the
+    AI agent (MCP ``get_block_schema`` / ``list_blocks``) stay in lockstep.
     """
-    if raw == "tier1":
-        return "custom"
-    if raw in ("entry_point", "monorepo", "package_src"):
-        return "package"
-    if raw == "builtin":
-        return "builtin"
-    return raw
+    return enrich_io_config_schema(spec, registry, type_registry)
 
 
 def _format_capability_response(capability: Any) -> FormatCapabilityResponse:
@@ -232,6 +209,10 @@ def _summary(spec: Any, registry: Any = None) -> BlockSummary:
         variadic_inputs=bool(getattr(spec, "variadic_inputs", False)),
         variadic_outputs=bool(getattr(spec, "variadic_outputs", False)),
         format_capabilities=_format_capability_responses_for_spec(spec, registry),
+        # ADR-051: surface execution mode + interactive panel manifest so the
+        # palette/API can identify interactive blocks and resolve their window.
+        execution_mode=getattr(spec, "execution_mode", "auto") or "auto",
+        panel_manifest=getattr(spec, "panel_manifest", None),
     )
 
 
@@ -372,6 +353,62 @@ async def get_block_schema(
         min_output_ports=getattr(spec, "min_output_ports", None),
         max_output_ports=getattr(spec, "max_output_ports", None),
     )
+
+
+@router.get("/{block_type}/source", response_model=BlockSourceResponse)
+async def get_block_source(
+    block_type: str,
+    registry: BlockRegistryDep,
+) -> BlockSourceResponse:
+    """Return the read-only Python source backing a registered block type.
+
+    Powers the homepage "View source" action when a block is selected on the
+    canvas (#1758): core, package, and custom blocks alike resolve to their
+    on-disk source file. Read-only and registry-gated — only a registered
+    block type resolves, never an arbitrary filesystem path.
+    """
+    try:
+        resolved = resolve_block_source(registry, block_type)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown block type: {block_type}") from exc
+    except BlockSourceUnavailableError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return BlockSourceResponse(block_type=block_type, **resolved)
+
+
+@router.get("/panels/{panel_id}/{asset_path:path}")
+async def serve_panel_asset(
+    panel_id: str,
+    asset_path: str,
+    registry: BlockRegistryDep,
+) -> FileResponse:
+    """Serve a validated, path-confined same-origin interactive panel asset (ADR-051 / ADR-048).
+
+    A package interactive block declares a ``PanelManifest`` with an
+    ``asset_root``; this route serves that panel's frontend module/assets,
+    path-confined under the root with the same suffix allowlist ADR-048 uses, so
+    the server never leaks arbitrary filesystem reads. Core panels are bundled
+    (no ``asset_root``) and resolve from the frontend registry, not this route.
+    """
+    asset_root: str | None = None
+    for spec in registry.all_specs().values():
+        manifest = getattr(spec, "panel_manifest", None)
+        if isinstance(manifest, dict) and manifest.get("panel_id") == panel_id:
+            asset_root = getattr(spec, "panel_asset_root", None)
+            break
+    if not asset_root:
+        raise HTTPException(status_code=404, detail=f"no servable panel asset_root for panel {panel_id!r}")
+    # ``resolve_asset`` reads ``asset_root`` for path confinement + the suffix
+    # allowlist, and ``previewer_id`` for its diagnostics; a lightweight
+    # namespace carrying both satisfies that contract.
+    try:
+        served = resolve_asset(
+            cast(Any, SimpleNamespace(asset_root=asset_root, previewer_id=panel_id)),
+            asset_path,
+        )
+    except MissingBundleError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return FileResponse(path=Path(served.path), media_type=served.media_type)
 
 
 def _resolve_effective_port(

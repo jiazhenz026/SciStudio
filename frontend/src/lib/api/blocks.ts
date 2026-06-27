@@ -7,6 +7,7 @@
 import type {
   BlockListResponse,
   BlockSchemaResponse,
+  BlockSourceResponse,
   ConnectionValidationResponse,
 } from "../../types/api";
 import { apiFetch, JSON_HEADERS } from "./core";
@@ -15,6 +16,10 @@ export const blocksApi = {
   listBlocks: () => apiFetch<BlockListResponse>("/api/blocks/"),
   getBlockSchema: (blockType: string) =>
     apiFetch<BlockSchemaResponse>(`/api/blocks/${encodeURIComponent(blockType)}/schema`),
+  // #1758: read-only source for a selected block (core / package / custom),
+  // backing the homepage "View source" action when a block is selected.
+  getBlockSource: (blockType: string) =>
+    apiFetch<BlockSourceResponse>(`/api/blocks/${encodeURIComponent(blockType)}/source`),
   // #889: ``source_node_config`` / ``target_node_config`` let the
   // backend resolve effective ports for LoadData (``core_type``
   // chooses the output type) and variadic blocks (config-declared

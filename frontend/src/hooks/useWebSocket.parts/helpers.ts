@@ -46,3 +46,20 @@ export function fileIsDirty(tabId: string): boolean {
       tab.pendingVersion > tab.baseVersion)
   );
 }
+
+/**
+ * Whether a ``workflow.changed`` / ``file.changed`` event represents a change
+ * to the project tree's *structure* (and so warrants a tree refresh) rather
+ * than a pure content edit.
+ *
+ * A ``"modified"`` event rewrites an existing file's contents — the tree
+ * structure is unchanged. Only created / deleted / renamed / moved entries
+ * change it. Gating the project-tree refresh on this stops the app's own
+ * repeated workflow-YAML saves during a run — and filesystem-watcher echoes of
+ * them (amplified on cloud-synced project dirs that delete+recreate the file) —
+ * from thrashing the project tree (#1751). The canvas already ignores those
+ * echoes via the version-vector guards; the tree refresh had no such gate.
+ */
+export function isStructuralTreeChange(kind: string | null | undefined): boolean {
+  return kind !== "modified";
+}

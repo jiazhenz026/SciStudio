@@ -16,7 +16,8 @@ fact (see ADR-042 + the doc/closure audit walker).
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import threading
+from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import (
@@ -29,6 +30,20 @@ if TYPE_CHECKING:
     from . import DAGScheduler
 
 logger = logging.getLogger("scistudio.engine.scheduler")
+
+
+def _reap_cancelled_workers(terminations: list[tuple[str, Any]]) -> None:
+    """Terminate cancelled block subprocesses off the event loop (#1789).
+
+    Run in a daemon thread by ``_on_cancel_workflow`` so the cancel request can
+    return immediately instead of blocking on each ``terminate_tree`` grace
+    period. Best-effort: a failure is logged, not raised.
+    """
+    for block_id, handle in terminations:
+        try:
+            handle.terminate()
+        except Exception:
+            logger.exception("Background terminate failed for block %s during cancel", block_id)
 
 
 def _event_is_for_run(self: DAGScheduler, event: EngineEvent) -> bool:
@@ -52,14 +67,34 @@ async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> No
 
     Resolves the pending future for the block so that
     ``_run_interactive`` can proceed with the user's response.
+
+    #1517/#1596: the EventBus is process-global, so this handler is run-scoped
+    like the other lifecycle handlers — an ``interactive_complete`` that carries
+    a ``workflow_id`` is only honoured by the matching run, preventing one
+    browser confirm from resolving a colliding ``block_id`` future in a
+    different concurrent run (ADR-051 audit P2-1). ``_event_is_for_run`` is
+    fail-open on an absent ``workflow_id`` so legacy callers keep working.
+
+    The scoping ``workflow_id`` is carried alongside the decision (the decision
+    is nested under ``response`` by ``api/ws.py``); it is stripped here so it
+    never leaks into ``interactive_response`` / lineage.
     """
     block_id = event.block_id
     if block_id is None:
         return
+    if not _event_is_for_run(self, event):
+        return
 
     future = self._interactive_futures.get(block_id)
     if future is not None and not future.done():
-        future.set_result(event.data)
+        data = event.data if isinstance(event.data, dict) else {}
+        if "response" in data:
+            response = data["response"]
+        else:
+            # Legacy / test callers emit the decision flat; drop any scoping
+            # workflow_id so the recorded response is the decision only.
+            response = {key: value for key, value in data.items() if key != "workflow_id"}
+        future.set_result(response)
     else:
         logger.warning(
             "Received interactive_complete for block %s but no pending future found",
@@ -233,6 +268,13 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
         bid for bid, state in self._block_states.items() if state in (BlockState.RUNNING, BlockState.PAUSED)
     ]
 
+    # #1789: subprocess teardown (terminate_tree: SIGTERM → grace → SIGKILL) can
+    # take several seconds, and awaiting it inline made Stop feel frozen — the UI
+    # only saw CANCELLED after the grace elapsed. Mark CANCELLED and emit the
+    # event synchronously (instant feedback), then reap the worker subprocess out
+    # of band. The block is already terminal, so a late process exit is ignored.
+    pending_terminations: list[tuple[str, Any]] = []
+
     for block_id in cancelable_blocks:
         handle = None
         if self._process_registry is not None:
@@ -243,13 +285,7 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
         self._block_states[block_id] = BlockState.CANCELLED
 
         if handle is not None:
-            try:
-                handle.terminate()
-            except Exception:
-                logger.exception(
-                    "Failed to terminate subprocess for block %s during workflow cancel",
-                    block_id,
-                )
+            pending_terminations.append((block_id, handle))
         else:
             task = self._active_tasks.get(block_id)
             if task is not None and not task.done():
@@ -260,12 +296,6 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
         interactive_future = self._interactive_futures.pop(block_id, None)
         if interactive_future is not None and not interactive_future.done():
             interactive_future.cancel()
-
-        if hasattr(self._runner, "cancel"):
-            try:
-                await self._runner.cancel(self._workflow.id, block_id)
-            except Exception:
-                logger.exception("Failed to cancel block %s during workflow cancel", block_id)
 
         await self._event_bus.emit(
             EngineEvent(
@@ -289,3 +319,15 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
 
     self._check_completion()
     self.save_checkpoint(self._checkpoint_manager)
+
+    # #1789: reap the cancelled workers off the event loop so the cancel returns
+    # immediately. terminate() is the slow SIGTERM→grace→SIGKILL path; a daemon
+    # thread is not garbage-collected while running and mirrors the PTY teardown
+    # pattern. ``runner.cancel`` is intentionally omitted — for the local runner
+    # it only re-calls the same ``handle.terminate``.
+    if pending_terminations:
+        threading.Thread(
+            target=_reap_cancelled_workers,
+            args=(list(pending_terminations),),
+            daemon=True,
+        ).start()

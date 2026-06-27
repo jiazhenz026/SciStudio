@@ -27,8 +27,9 @@ Build your first SciStudio block in five minutes.
 
 A **block** is a self-contained unit of computation with typed inputs, typed
 outputs, and validated configuration. Users wire blocks together on a visual
-canvas to form workflows. The runtime executes most blocks in an isolated
-subprocess; interactive blocks are the exception and run in-process (see
+canvas to form workflows. The runtime executes blocks in isolated subprocesses;
+interactive blocks run as two subprocess phases around a pause (ADR-051) rather
+than in-process (see
 [Architecture for Block Devs](architecture-for-block-devs.md)).
 
 ---

@@ -6,7 +6,6 @@ import tomllib
 from pathlib import Path
 
 from packaging.requirements import Requirement
-from packaging.version import Version
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -26,22 +25,12 @@ def test_root_project_and_commitizen_versions_match() -> None:
     assert project_version == commitizen_version
 
 
-def test_plugin_core_dependency_accepts_current_root_version() -> None:
-    """Plugin dependency floors must accept the currently published core version."""
-    pyproject = _load_toml(REPO_ROOT / "pyproject.toml")
-    root_version = Version(pyproject["project"]["version"])
-
-    plugin_files = [
-        REPO_ROOT / "packages" / "scistudio-blocks-imaging" / "pyproject.toml",
-        REPO_ROOT / "packages" / "scistudio-blocks-lcms" / "pyproject.toml",
-        REPO_ROOT / "packages" / "scistudio-blocks-srs" / "pyproject.toml",
-    ]
-
-    for plugin_file in plugin_files:
-        plugin = _load_toml(plugin_file)
-        dependencies = plugin["project"]["dependencies"]
-        req = next(Requirement(dep) for dep in dependencies if dep.startswith("scistudio>="))
-        assert root_version in req.specifier, f"{plugin_file} does not accept core version {root_version}"
+# NOTE (issue #1770): ``test_plugin_core_dependency_accepts_current_root_version``
+# was removed. It read ``packages/scistudio-blocks-*/pyproject.toml`` to assert
+# each plugin's ``scistudio>=`` dependency floor accepted the current core
+# version. The domain packages were decoupled into their own repositories, so
+# that floor check now belongs to each package repo's own CI; core no longer
+# vendors those pyproject files.
 
 
 def test_core_runtime_dependencies_cover_core_imports_without_image_decoders() -> None:

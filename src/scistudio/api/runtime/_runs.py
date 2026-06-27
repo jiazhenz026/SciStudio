@@ -412,21 +412,31 @@ def start_workflow(
         project_dir=str(self.active_project.path) if self.active_project else None,
     )
 
+    # #1741: per-run diagnostic log. Reuse the lineage run_id when available so
+    # the ``run-<id>.log`` filename matches the lineage ``runs`` row; otherwise
+    # synthesize one. Captures engine events, worker output, and tracebacks for
+    # this run only (scoped by the run_id contextvar).
+    run_log_id = getattr(lineage_recorder, "run_id", None) or uuid4().hex
+    project_root_for_log = str(self.active_project.path) if self.active_project else None
+
     async def _run() -> None:
-        if execute_from is not None:
-            await self.log_broadcaster.publish(
-                level="info",
-                message=f"execute from {execute_from}",
-                workflow_id=workflow_id,
-            )
-            await scheduler.execute_from(execute_from)
-        else:
-            await self.log_broadcaster.publish(
-                level="info",
-                message="workflow execution started",
-                workflow_id=workflow_id,
-            )
-            await scheduler.execute()
+        from scistudio.engine.run_logging import run_log_context
+
+        with run_log_context(run_log_id, project_root=project_root_for_log):
+            if execute_from is not None:
+                await self.log_broadcaster.publish(
+                    level="info",
+                    message=f"execute from {execute_from}",
+                    workflow_id=workflow_id,
+                )
+                await scheduler.execute_from(execute_from)
+            else:
+                await self.log_broadcaster.publish(
+                    level="info",
+                    message="workflow execution started",
+                    workflow_id=workflow_id,
+                )
+                await scheduler.execute()
 
     task = asyncio.create_task(_run())
     task.add_done_callback(lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished)))

@@ -1,40 +1,52 @@
-"""Structured logging configuration (JSON formatter, level routing).
+"""Structured logging configuration (level routing, layered file sink).
 
-#827: replaces the original ``NotImplementedError`` stub with a small
-adapter on top of :func:`scistudio.utils.event_logger.install_default_handler`.
-The function stays intentionally small — its only job is to make
-``configure_logging("INFO")`` work as the simplest entry point for a
-process that wants engine events on stderr. Anything more complex
-(rotating files, JSON shipping, per-module level routing) should be
-configured by the application itself.
-
-Out of scope per #827: refactoring the 30 ``logging.getLogger(__name__)``
-callers across the codebase to use a unified logger, persistent
-on-disk event archive, log-shipping infrastructure.
+#827 introduced the minimal stderr entry point. #1741 extends it:
+``configure_logging`` now also installs rotating human-readable file handlers
+(via :mod:`scistudio.utils.log_setup`) so backend / engine / event-bus /
+websocket logs persist to disk for alpha closed-beta bug reproduction. On-disk
+output is a combined ``scistudio-<pid>.log`` plus one file per layer
+(``api`` / ``engine`` / ``frontend``), human-readable with correlation/run ids
+(owner direction: no JSON files on disk). File logging is best-effort and
+degrades to stderr-only when the log directory is unwritable, so it never
+crashes a process.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from scistudio.utils.event_logger import install_default_handler
 
 
-def configure_logging(level: str = "INFO", json_output: bool | None = None) -> None:
-    """Install a minimal stdlib-logging configuration.
+def configure_logging(
+    level: str | int = "INFO",
+    json_output: bool | None = None,
+    *,
+    log_dir: str | Path | None = None,
+    project_root: str | Path | None = None,
+    log_to_file: bool | None = None,
+) -> Path | None:
+    """Install console + (optional) on-disk logging.
 
     Parameters
     ----------
     level:
-        Root logger level. Accepts both the standard string names
-        (``"DEBUG"``, ``"INFO"``, ...) and integer values for
-        symmetry with :mod:`logging`.
+        Root logger level. Accepts standard string names (``"DEBUG"``,
+        ``"INFO"``, ...) and integer values.
     json_output:
-        When ``True`` install a one-line JSON formatter; when ``None``
-        defer to the ``SCISTUDIO_LOG_JSON`` environment variable (any
-        truthy value enables JSON); otherwise install the default
-        human-readable formatter.
+        Console formatter: ``True`` = one-line JSON; ``None`` = defer to the
+        ``SCISTUDIO_LOG_JSON`` environment variable; ``False`` = human-readable.
+        Affects the console stream only; on-disk files are always human-readable.
+    log_dir / project_root:
+        Override / hint for the file-sink directory (see
+        :func:`scistudio.utils.log_setup.resolve_log_dir`).
+    log_to_file:
+        Force file logging on/off; ``None`` defers to ``SCISTUDIO_LOG_TO_FILE``.
+
+    Returns the active log file path, or ``None`` when file logging is disabled
+    or unavailable.
     """
     if isinstance(level, str):
         numeric_level = logging.getLevelName(level.upper())
@@ -48,6 +60,17 @@ def configure_logging(level: str = "INFO", json_output: bool | None = None) -> N
         json_output = env in {"1", "true", "yes", "on"}
 
     install_default_handler(json_output=bool(json_output), level=numeric_level)
+
+    # #1741: add the persistent rotating JSON-line file sink. Imported lazily so
+    # the simplest stderr-only callers do not pay for it until they opt in.
+    from scistudio.utils.log_setup import install_file_logging
+
+    return install_file_logging(
+        level=numeric_level,
+        log_dir=log_dir,
+        project_root=project_root,
+        enabled=log_to_file,
+    )
 
 
 __all__ = ["configure_logging"]

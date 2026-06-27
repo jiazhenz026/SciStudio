@@ -82,6 +82,17 @@ def installed_packages_dir() -> Path:
     return plugins_dir() / "packages"
 
 
+def package_backups_dir() -> Path:
+    """Return the per-package OTA rollback backup root (issue #1784).
+
+    The previous version of a package is moved here on update so the Package
+    Manager can roll back. It lives *outside* :func:`installed_packages_dir` so
+    it is never picked up by block discovery — only one active version per
+    package is ever scanned.
+    """
+    return plugins_dir() / "package-backups"
+
+
 def user_python_dir() -> Path:
     """Return the shared user dependency runtime directory."""
     return plugins_dir() / USER_PYTHON_DIR_NAME
@@ -95,6 +106,20 @@ def user_python_site_dir() -> Path:
 def user_python_bin_dir() -> Path:
     """Return the directory containing SciStudio Python command wrappers."""
     return user_python_dir() / ("Scripts" if sys.platform == "win32" else "bin")
+
+
+def user_python_script_dir() -> Path:
+    """Return the directory holding console scripts installed into the shared
+    user dependency site.
+
+    Dependencies installed through the in-app Python terminal land in the
+    shared user site via ``pip install --target`` (#1772). pip drops any
+    console-script launchers (e.g. the ``napari`` command) into a ``bin`` /
+    ``Scripts`` subdirectory of that target, which is distinct from the
+    command-wrapper directory returned by :func:`user_python_bin_dir`. External
+    app blocks need this directory on ``PATH`` to resolve user-installed GUI
+    launchers."""
+    return user_python_site_dir() / ("Scripts" if sys.platform == "win32" else "bin")
 
 
 def user_python_import_roots() -> list[Path]:

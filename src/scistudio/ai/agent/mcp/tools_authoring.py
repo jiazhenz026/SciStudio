@@ -436,6 +436,26 @@ async def reload_blocks() -> ReloadBlocksResult:
     added = sorted(after - before)
     removed = sorted(before - after)
     logger.info("reload_blocks: added=%s removed=%s", added, removed)
+
+    # #9: broadcast ``blocks.reloaded`` so connected GUI clients refresh their
+    # block catalog (palette + schemas) right after the agent scaffolds/edits and
+    # reloads a custom block — instead of the user having to hit palette reload.
+    # The HTTP block-save endpoint already emits this event; the MCP reload path
+    # did not. Best-effort: a headless/test context with no event bus just skips.
+    event_bus = getattr(ctx, "event_bus", None)
+    if event_bus is not None:
+        try:
+            from scistudio.engine.events import EngineEvent
+
+            await event_bus.emit(
+                EngineEvent(
+                    event_type="blocks.reloaded",
+                    data={"added": added, "removed": removed, "reloaded": sorted(after), "source": "agent"},
+                )
+            )
+        except Exception:
+            logger.exception("reload_blocks: blocks.reloaded broadcast failed")
+
     return ReloadBlocksResult(reloaded=len(after), added=added, removed=removed)
 
 

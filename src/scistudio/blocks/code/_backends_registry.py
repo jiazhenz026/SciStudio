@@ -61,6 +61,25 @@ class CodeBlockRuntimeContext:
     environment_config: Mapping[str, Any]
 
 
+def codeblock_exchange_env(context: CodeBlockRuntimeContext) -> dict[str, str]:
+    """``SCISTUDIO_*`` env vars that let a script locate its exchange dirs.
+
+    Shared by the R/Quarto and Python backends (FIND-F, #1740) so a CodeBlock
+    script can resolve its declared inputs/outputs regardless of language. The
+    Python backend previously injected none of these, leaving Python scripts —
+    the primary CodeBlock language — with no supported way to find
+    ``exchange/.../inputs`` and ``outputs`` (its cwd is the project root and the
+    run id is a random uuid).
+    """
+
+    return {
+        "SCISTUDIO_EXCHANGE_DIR": str(context.exchange_dir),
+        "SCISTUDIO_INPUTS_DIR": str(context.exchange_dir / "inputs"),
+        "SCISTUDIO_OUTPUTS_DIR": str(context.exchange_dir / "outputs"),
+        "SCISTUDIO_SCRIPT_PATH": str(context.script_path),
+    }
+
+
 class CodeBlockBackend(Protocol):
     """Registration surface for CodeBlock v2 interpreter backends."""
 

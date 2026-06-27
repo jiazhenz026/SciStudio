@@ -54,6 +54,8 @@ def render(collection):
       * collection.items[index].type      -> normalized core base type
       * collection.items[index].metadata  -> read-only non-storage metadata
       * collection.items[index].open()    -> one native value
+        (a Series-backed item such as a spectrum opens to its full
+        {index, value} table, e.g. a DataFrame with lambda + intensity columns)
 
     Figure size / aspect ratio:
       The default figure is 6.4 x 4.8 inches (4:3). To use a different size or
@@ -127,6 +129,8 @@ _R_TEMPLATE = """# Render script created by SciStudio.
 #   * collection$items[[index]]$type        -> normalized core base type
 #   * collection$items[[index]]$metadata    -> non-storage metadata
 #   * collection$items[[index]]$open()      -> one native value
+#     (a Series-backed item such as a spectrum opens to its full
+#     {index, value} table, e.g. a data.frame with lambda + intensity columns)
 #
 # Figure size / aspect ratio:
 #   The plot defaults to 6.4 x 4.8 inches (4:3), matching the Python renderer.

@@ -428,9 +428,12 @@ def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeyp
     """#1097 P0 hardening: ``SCISTUDIO_DEV=1`` MUST NOT re-open the leak.
 
     An earlier draft of the #1097 fix gated the parents-walk fallback
-    behind ``SCISTUDIO_DEV=1`` (mirroring the monorepo-scan convention).
-    That was rejected because any env-var-controlled escape into "dev
-    mode" is a soft attack surface: a compromised shell init, a
+    behind ``SCISTUDIO_DEV=1`` (which at the time mirrored a now-removed
+    monorepo source-scan dev convention; ``SCISTUDIO_DEV`` no longer gates
+    anything in core as of issue #1770). That was rejected because any
+    env-var-controlled escape into "dev mode" is a soft attack surface:
+    even with the env knob now inert, this regression guard keeps it that
+    way. A compromised shell init, a
     malicious launcher script, or a supply-chain dependency could set
     ``SCISTUDIO_DEV=1`` and silently re-disclose developer source paths.
 

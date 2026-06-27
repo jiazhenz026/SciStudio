@@ -10,6 +10,8 @@
  * ``isRunning``.
  */
 import type { VersionedWorkflowResponse } from "../../lib/api";
+import { useAppStore } from "../../store";
+import type { InteractivePrompt } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
@@ -23,9 +25,7 @@ import { handleWorkflowChanged } from "./handleWorkflowChanged";
 
 export interface DispatchDeps {
   appendLog: (entry: LogEntry) => void;
-  setInteractivePrompt: (
-    prompt: { blockId: string; blockType: string; data: Record<string, unknown> } | null,
-  ) => void;
+  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
   setWorkflow: (workflow: VersionedWorkflowResponse | null) => void;
 }
 
@@ -53,6 +53,14 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   }
   if (payload.type === "file.changed") {
     handleFileChanged(payload, { appendLog: deps.appendLog });
+    return true;
+  }
+  if (payload.type === "blocks.reloaded") {
+    // #9: the block registry was hot-reloaded (e.g. the agent scaffolded +
+    // reloaded a custom block). Signal App to re-fetch the block catalog so the
+    // palette and canvas nodes pick up the new/changed block without a manual
+    // palette reload.
+    useAppStore.getState().bumpBlockCatalogRefresh();
     return true;
   }
   if (payload.type === "git.head_changed") {

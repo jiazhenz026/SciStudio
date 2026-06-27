@@ -1,6 +1,6 @@
 [project]
 name = "scistudio"
-version = "0.2.1"
+version = "0.2.1a0"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
 license = {text = "MIT"}
@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
-    "fastapi>=0.110,<0.136",  # Keep API route path contract stable; FastAPI 0.137/Starlette 1.3 drops router paths.
+    "fastapi>=0.110,<0.139",  # Starlette 1.3 nests included routers under _IncludedRouter; route-contract tests handle both layouts (#1769).
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
     "numpy>=1.25",  # Core Array/storage/preview/plot paths import NumPy directly.
@@ -60,8 +60,10 @@ dev = [
     # and wheel_release_smoke do not fail as environment-parity gaps.
     "setuptools>=68.0",
     "build>=1.2",
-    # Monorepo plugin tests exercise the imaging package directly from source.
-    # Keep this test-only helper out of the core runtime dependency set.
+    # The in-repo test fixture package (tests/fixtures/scistudio-blocks-fixture)
+    # performs minimal real TIFF round-trips so core IO/previewer machinery
+    # tests can exercise a package-owned capability. Keep this test-only helper
+    # out of the core runtime dependency set.
     "tifffile>=2024.8",
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
@@ -71,39 +73,26 @@ dev = [
     # CI installs fastembed explicitly for the same ratchet job; keep the dev
     # extra in sync so auto-provisioned local parity environments can run it.
     "fastembed>=0.7",
-    # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
-    # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
-    # ``ome: OME | None`` field. Listed here as well so the skeleton import
-    # tests in ``tests/plugins/test_phase11_skeleton.py`` (which exercise
-    # ``importlib.import_module(scistudio_blocks_imaging...)`` directly without
-    # installing the plugin package) can succeed in CI.
-    "ome-types>=0.5,<0.7",
 ]
 
 [project.scripts]
 scistudio = "scistudio.cli.main:app"
 
+# Issue #1779: core's own first-party blocks are NOT declared here. They are
+# registered by direct import in ``scistudio.blocks.registry._scan._scan_builtins``
+# so the palette is environment-independent. Entry-point discovery depends on
+# installed ``*.dist-info`` metadata, which the desktop bundle does not carry
+# (it ships core as raw source on PYTHONPATH and strips build metadata —
+# ``desktop/scripts/stage-resources.sh``, #1775). Declaring first-party blocks
+# here made the entire process/code/app palette disappear in packaged builds.
+# This group is now reserved for third-party plugin packages only.
 [project.entry-points."scistudio.blocks"]
-load_data = "scistudio.blocks.io.loaders.load_data:LoadData"
-save_data = "scistudio.blocks.io.savers.save_data:SaveData"
-process_merge = "scistudio.blocks.process.builtins.merge:MergeBlock"
-process_split = "scistudio.blocks.process.builtins.split:SplitBlock"
-code_block = "scistudio.blocks.code:CodeBlock"
-app_block = "scistudio.blocks.app:AppBlock"
-ai_block = "scistudio.blocks.ai:AIBlock"
-subworkflow_block = "scistudio.blocks.subworkflow:SubWorkflowBlock"
-merge_collection = "scistudio.blocks.process.builtins.merge_collection:MergeCollection"
-split_collection = "scistudio.blocks.process.builtins.split_collection:SplitCollection"
-filter_collection = "scistudio.blocks.process.builtins.filter_collection:FilterCollection"
-slice_collection = "scistudio.blocks.process.builtins.slice_collection:SliceCollection"
-data_router = "scistudio.blocks.process.builtins.data_router:DataRouter"
-pair_editor = "scistudio.blocks.process.builtins.pair_editor:PairEditor"
 
 # T-TRK-004 / ADR-028 §D4: the ``scistudio.adapters`` entry-point group
 # has been removed. Plugin-owned IO blocks now register via the
 # ``scistudio.blocks`` entry-point group as ``IOBlock`` subclasses
-# (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` and ``SaveData``
-# entry-points will be added by T-TRK-007 / T-TRK-008.
+# (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` / ``SaveData`` are
+# first-party blocks registered in ``_scan_builtins`` (#1779), not here.
 
 # T-008 / ADR-027 D2: the previous entry-points here pointed at
 # core ``Image``, ``Spectrum``, and ``PeakTable`` classes that were
@@ -192,6 +181,10 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+# Respect per-module follow_imports="skip" for stub (.pyi) packages too, so the
+# numpy/zarr/tifffile overrides below actually skip their 3.12-syntax stubs under
+# our python_version = "3.11" target (otherwise stub parse errors leak through).
+follow_imports_for_stubs = true
 mypy_path = "src"
 packages = ["scistudio"]
 
@@ -208,6 +201,14 @@ follow_imports = "skip"
 # target is still Python 3.11, so do not parse tifffile internals.
 [[tool.mypy.overrides]]
 module = ["tifffile", "tifffile.*"]
+follow_imports = "skip"
+
+# numpy 2.x ships PEP 695 type-alias syntax (`type X = ...`) in its stubs, valid
+# only in Python 3.12+. mypy is pinned to python_version = "3.11" (see above), so
+# it cannot parse numpy's stubs. Skip following imports into numpy to avoid the
+# stub syntax error; SciStudio code does not rely on numpy's internal types.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
 follow_imports = "skip"
 
 [tool.pytest.ini_options]
@@ -227,9 +228,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "requires_imaging: marks tests that need scistudio-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
-    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scistudio-blocks-imaging/pyproject.toml.",
+    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"').",
 ]
 # filterwarnings policy (issue #1560):
 #   - "error" is NOT applied globally — the suite uses third-party libraries
@@ -441,7 +441,7 @@ ancestors = ["scistudio.ai.agent.mcp.tools_inspection"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.2.1"
+version = "0.2.1a0"
 tag_format = "v$version"
 
 # Issue #1340 / ADR-042 code-quality stack: vulture runs as an informational

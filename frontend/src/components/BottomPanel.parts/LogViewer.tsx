@@ -1,12 +1,27 @@
 import { useMemo, useState } from "react";
 
+import { exportDiagnosticBundle } from "../../lib/logger";
 import type { LogEntry } from "../../types/api";
 
 export function LogViewer({ entries }: { entries: LogEntry[] }) {
   const [level, setLevel] = useState("all");
+  const [exporting, setExporting] = useState(false);
   const filtered = useMemo(() => {
     return entries.filter((entry) => level === "all" || entry.level === level);
   }, [entries, level]);
+
+  // #1760 bug2: disable + label the button while the bundle is built/written so
+  // the click has immediate feedback and can't be double-fired. The native save
+  // dialog now appears first, so this state mostly covers the background write.
+  const onExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportDiagnosticBundle();
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -25,6 +40,17 @@ export function LogViewer({ entries }: { entries: LogEntry[] }) {
           <option value="info">Info</option>
           <option value="error">Error</option>
         </select>
+        {/* #1741: one-click diagnostic bundle (logs + environment + run logs)
+            so a beta tester can attach everything a developer needs to a report. */}
+        <button
+          type="button"
+          onClick={() => void onExport()}
+          disabled={exporting}
+          className="ml-auto rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Export logs + environment as a zip for bug reports"
+        >
+          {exporting ? "Exporting…" : "Export logs"}
+        </button>
       </div>
       {filtered.length ? (
         <ul role="list" className="min-h-0 flex-1 overflow-y-auto">

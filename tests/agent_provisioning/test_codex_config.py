@@ -59,11 +59,10 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
 
     pre = data.get("hooks", {}).get("PreToolUse", [])
     post = data.get("hooks", {}).get("PostToolUse", [])
-    assert len(pre) == 4, f"expected 4 PreToolUse hooks, got {len(pre)}"
+    assert len(pre) == 3, f"expected 3 PreToolUse hooks, got {len(pre)}"
     assert len(post) == 3, f"expected 3 PostToolUse hooks, got {len(post)}"
 
     expected_pre_scripts = {
-        "worktree_write_guard.py",
         "deny_scistudio_cli.py",
         "protect_workflow_yaml.py",
         "enforce_list_blocks_before_block_write.py",
@@ -91,6 +90,13 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
 
     assert _script_names(pre) == expected_pre_scripts
     assert _script_names(post) == expected_post_scripts
+
+
+def test_codex_config_excludes_worktree_write_guard(tmp_project_dir: Path) -> None:
+    """#1793: the SciStudio repo-dev worktree guard must not leak into user projects."""
+    write_codex_config(tmp_project_dir, force=False)
+    raw = (tmp_project_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "worktree_write_guard" not in raw
 
 
 def test_idempotent_preserves_user_managed_toml(tmp_project_dir: Path) -> None:

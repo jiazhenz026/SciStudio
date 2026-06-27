@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,34 @@ from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 if TYPE_CHECKING:
     from scistudio.blocks.registry import BlockRegistry
+
+
+def _external_app_launch_env() -> dict[str, str] | None:
+    """Return a process environment for launching an external app, or ``None``.
+
+    External-app blocks (e.g. :class:`NapariBlock`) launch user-installed GUI
+    commands by name. Console scripts installed through the in-app Python
+    terminal land in the shared user dependency site's script directory, which
+    is not on the backend's inherited ``PATH``. Prepend that directory so
+    commands like ``napari`` resolve at launch time (#1772).
+
+    Returns ``None`` when the script directory does not exist so the subprocess
+    inherits the parent environment unchanged (``env=None`` to ``Popen``).
+    """
+    try:
+        from scistudio.desktop.paths import user_python_script_dir
+    except Exception:  # pragma: no cover - desktop paths always importable here
+        return None
+    script_dir = user_python_script_dir()
+    if not script_dir.is_dir():
+        return None
+    env = dict(os.environ)
+    parts = [str(script_dir)]
+    for part in env.get("PATH", "").split(os.pathsep):
+        if part and part not in parts:
+            parts.append(part)
+    env["PATH"] = os.pathsep.join(parts)
+    return env
 
 
 @runtime_checkable
@@ -190,6 +219,7 @@ class FileExchangeBridge:
         return subprocess.Popen(
             cmd,
             cwd=str(exchange_dir),
+            env=_external_app_launch_env(),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             shell=False,

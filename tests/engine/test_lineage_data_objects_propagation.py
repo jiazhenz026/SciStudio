@@ -28,7 +28,7 @@ import pytest
 from scistudio.core.lineage.record import RunRecord
 from scistudio.core.lineage.recorder import LineageRecorder
 from scistudio.core.lineage.store import LineageStore
-from scistudio.engine.events import EventBus
+from scistudio.engine.events import EngineEvent, EventBus
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 
@@ -211,3 +211,111 @@ class TestDataObjectsBlockIoPropagation:
         output_edges = [r for r in io_rows if r["direction"] == "output"]
         assert len(output_edges) == 3, "Collection of 3 items → 3 block_io rows"
         assert {r["position"] for r in output_edges} == {0, 1, 2}
+
+    def test_registered_collection_kind_form_types_every_item(
+        self,
+        event_bus: EventBus,
+        lineage_store: LineageStore,
+        recorder: LineageRecorder,
+    ) -> None:
+        """#1757: recorder must unroll the ApiRuntime-registered ``kind`` form.
+
+        In a desktop / ApiRuntime run, ``register_output_payload`` mutates
+        the BLOCK_DONE event's ``outputs`` in place, rewriting the worker's
+        ``{"_collection": True, ...}`` wrapper into the data-catalog
+        ``{"kind": "collection", ...}`` form — while ``output_object_ids``
+        was already computed from the ``_collection`` form (N ids).
+
+        Pre-fix, ``_wire_items_for_port`` only recognised ``_collection`` and
+        returned the whole ``kind`` dict as a single item: position 0 was
+        typed (via the whole-collection short-circuit) and positions 1..N-1
+        fell to ``wire_dict=None`` → empty ``DataObject`` placeholders,
+        losing type AND metadata for every item after the first.
+
+        This emits the mismatched event directly (N object_ids vs the
+        ``kind`` wrapper) and asserts every item is recorded with its
+        concrete type and non-empty wire payload.
+        """
+        n = 4
+        object_ids = [f"reg-item-{i}" for i in range(n)]
+        registered_items = [
+            {
+                "data_ref": f"data-{i}",
+                "type_name": "Image",
+                "metadata": {
+                    "type_chain": ["DataObject", "Array", "Image"],
+                    "framework": {"object_id": object_ids[i]},
+                    "backend": "zarr",
+                    "path": f"/data/zarr/{object_ids[i]}.zarr",
+                },
+            }
+            for i in range(n)
+        ]
+        event = EngineEvent(
+            event_type="block_done",
+            block_id="D",
+            data={
+                "workflow_id": "wf-regression",
+                "block_type": "proc",
+                "block_version": "1",
+                "config": {},
+                # Computed from the pre-mutation ``_collection`` form → N ids.
+                "output_object_ids": {"images": list(object_ids)},
+                # The ApiRuntime-mutated, data-catalog ``kind`` form.
+                "outputs": {
+                    "images": {
+                        "kind": "collection",
+                        "count": n,
+                        "item_type": "Image",
+                        "items": registered_items,
+                    }
+                },
+            },
+        )
+
+        asyncio.run(event_bus.emit(event))
+
+        # Every item — not just index 0 — keeps its concrete type and a
+        # populated wire payload (no empty ``{}`` placeholder).
+        for object_id in object_ids:
+            row = lineage_store.get_data_object(object_id)
+            assert row is not None, f"{object_id} must have a data_objects row"
+            assert row["type_name"] == "Image", (
+                f"{object_id} lost its type (#1757 regression: only the first "
+                f"collection item was typed, the rest degraded to DataObject)"
+            )
+            assert row["wire_payload"] not in (None, {}, "{}"), (
+                f"{object_id} must retain its metadata, not an empty placeholder"
+            )
+
+        execs = lineage_store.list_block_executions("run-d38-2-3-regression")
+        assert len(execs) == 1
+        io_rows = lineage_store.list_block_io(execs[0]["block_execution_id"])
+        output_edges = [r for r in io_rows if r["direction"] == "output"]
+        assert len(output_edges) == n, f"registered collection of {n} → {n} block_io rows"
+        assert {r["position"] for r in output_edges} == set(range(n))
+
+
+class TestSchedulerNoRecorderLeafType:
+    """#1757: scheduler/no-recorder write path records the concrete leaf type."""
+
+    def test_upsert_wire_row_records_leaf_not_base(self, lineage_store: LineageStore) -> None:
+        """``_upsert_wire_row`` must read ``type_chain[-1]`` (concrete leaf).
+
+        This is the scheduler-side write path used when no LineageRecorder is
+        bound (CLI / direct runners that bypass ApiRuntime). It previously
+        read ``type_chain[0]`` — the most general base — and recorded every
+        object as the bare ``DataObject``, inconsistent with the recorder's
+        ``_extract_type_name`` which already used ``type_chain[-1]``.
+        """
+        from scistudio.engine.scheduler import _lineage
+
+        wire = _wire_dict("cli-obj-1", type_chain=["DataObject", "Array", "Image"])
+        # ``_upsert_wire_row`` does not touch ``self``; pass None for it.
+        _lineage._upsert_wire_row(None, lineage_store, wire, "node-A", "out")
+
+        row = lineage_store.get_data_object("cli-obj-1")
+        assert row is not None
+        assert row["type_name"] == "Image", (
+            "scheduler/no-recorder path must record the concrete leaf type, not the base DataObject (#1757)"
+        )

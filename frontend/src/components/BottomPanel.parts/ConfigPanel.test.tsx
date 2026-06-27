@@ -128,6 +128,63 @@ describe("ConfigPanel", () => {
     expect(apiMocks.browseFilesystem).not.toHaveBeenCalled();
   });
 
+  it("seeds browse from the first path when a multi-file field holds an array (#1753)", async () => {
+    // A multi-select file field stores an array. Re-browsing must start from the
+    // first file's directory, NOT String(array) — a comma-joined concatenation
+    // of every path that builds an over-length path and 500s the backend.
+    apiMocks.openNativeDialog.mockResolvedValueOnce({ paths: [] });
+
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{
+          id: "load-1",
+          block_type: "load_data",
+          config: {
+            params: {
+              path: [
+                "/data/imaging/LA0Hr.txt",
+                "/data/imaging/LA1Hr.txt",
+                "/data/imaging/LA2Hr.txt",
+              ],
+            },
+          },
+        }}
+        schema={{
+          name: "Load",
+          type_name: "load_data",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "input",
+          config_schema: {
+            properties: {
+              path: {
+                type: "array",
+                title: "Path",
+                ui_priority: 0,
+                ui_widget: "file_browser",
+              },
+            },
+          },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Browse filesystem"));
+
+    await waitFor(() =>
+      expect(apiMocks.openNativeDialog).toHaveBeenCalledWith("file", "/data/imaging"),
+    );
+    // The seeded directory must be a single real path, never a comma-joined blob.
+    const [, initialDir] = apiMocks.openNativeDialog.mock.calls[0];
+    expect(initialDir).not.toContain(",");
+  });
+
   it("falls back to the in-app file browser when native dialog fails", async () => {
     const { ApiError } = await import("../../lib/api");
     apiMocks.openNativeDialog.mockRejectedValueOnce(
@@ -381,6 +438,91 @@ describe("ConfigPanel", () => {
         { name: "port_3", types: ["Image"] },
       ],
     });
+  });
+
+  it("renders the interaction-memory toggle for interactive blocks (ADR-051 Addendum 1)", () => {
+    const onUpdateConfig = vi.fn();
+
+    const interactiveSchema = {
+      name: "Data Router",
+      type_name: "data_router",
+      base_category: "process",
+      subcategory: "routing",
+      description: "",
+      version: "1",
+      input_ports: [],
+      output_ports: [],
+      execution_mode: "interactive",
+      config_schema: { properties: {} },
+      type_hierarchy: [],
+    };
+
+    const { rerender } = render(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{ id: "dr-1", block_type: "data_router", config: { params: {} } }}
+        schema={interactiveSchema}
+      />,
+    );
+
+    // Generic toggle is present (rendered from execution_mode, not per-block).
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(screen.getByText(/Remember my choice and skip this dialog/)).toBeInTheDocument();
+
+    fireEvent.click(checkbox);
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      interactive_memory: { enabled: true, decision: null, signature: null },
+    });
+
+    // With a saved decision, "Choose again" clears it (keeps memory enabled).
+    onUpdateConfig.mockClear();
+    rerender(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "dr-1",
+          block_type: "data_router",
+          config: {
+            params: {
+              interactive_memory: {
+                enabled: true,
+                decision: { assignments: { port_1: ["input_1:0"] } },
+                signature: { input_1: ["a.txt"] },
+              },
+            },
+          },
+        }}
+        schema={interactiveSchema}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Choose again/ }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      interactive_memory: { enabled: true, decision: null, signature: null },
+    });
+  });
+
+  it("omits the interaction-memory toggle for non-interactive blocks", () => {
+    render(
+      <ConfigPanel
+        onUpdateConfig={vi.fn()}
+        selectedNode={{ id: "n", block_type: "x", config: { params: {} } }}
+        schema={{
+          name: "X",
+          type_name: "x",
+          base_category: "process",
+          subcategory: "",
+          description: "",
+          version: "1",
+          input_ports: [],
+          output_ports: [],
+          execution_mode: "auto",
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+    expect(screen.queryByText(/Remember my choice and skip this dialog/)).not.toBeInTheDocument();
   });
 
   it("renders the CodeBlock config editor in BottomPanel (SC-003)", () => {

@@ -106,6 +106,30 @@ class TestBrowseFilesystem:
         )
         assert resp.status_code == 400
 
+    def test_overlength_path_returns_400_not_500(self, client: TestClient, browse_dir: Path) -> None:
+        # Regression (#1753): a multi-file field stringifies to a comma-joined
+        # value thousands of characters long. ``os.stat`` on such a path raises
+        # ``OSError(ENAMETOOLONG)``; the endpoint must surface a clean 400 rather
+        # than letting it become a 500 "Internal Server Error".
+        #
+        # Use an over-length *component* (> NAME_MAX 255) rather than a long path
+        # of short components: the latter stays under Linux's 4096 PATH_MAX and
+        # only 404s there, while an over-length component raises ENAMETOOLONG on
+        # both Linux and macOS.
+        long_path = str(browse_dir) + "/" + ("x" * 600)
+        resp = client.get("/api/filesystem/browse", params={"path": long_path})
+        assert resp.status_code == 400
+
+    def test_safe_is_dir_swallows_oserror_on_overlength_path(self) -> None:
+        # Regression (#1753): the native-dialog ``initial_dir`` guard must treat
+        # an over-length / unreadable path as "not a directory" instead of
+        # letting ``Path.is_dir()`` raise OSError up into a 500.
+        from scistudio.api.routes.filesystem import _safe_is_dir
+
+        overlong_component = "/" + ("a" * 300) + "/sub"  # 300 > NAME_MAX -> OSError
+        assert _safe_is_dir(overlong_component) is False
+        assert _safe_is_dir("/nonexistent/place/xyz") is False
+
     def test_entries_sorted_alphabetically(self, client: TestClient, browse_dir: Path) -> None:
         resp = client.get(
             "/api/filesystem/browse",

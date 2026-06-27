@@ -440,6 +440,9 @@ def main() -> None:
         config: dict[str, Any] = payload.get("config", {})
         block_id = str(config.get("block_id") or block_class_path)
         output_dir: str = payload.get("output_dir", "")
+        # ADR-051: two-phase marker. "prompt" runs prepare_prompt and exits;
+        # absent / "compute" is the existing single-phase run path.
+        phase: str = payload.get("phase", "compute")
         # #706: For Tier-1 drop-in blocks, the parent registry passes the
         # absolute path of the source ``.py`` file. The synthetic module
         # name (``_scistudio_dropin_<stem>_<mtime>``) only exists in the
@@ -488,6 +491,45 @@ def main() -> None:
         from scistudio.blocks.base.config import BlockConfig
 
         block_config = BlockConfig(**config)
+
+        # ADR-051 prompt phase: build the panel view in this isolated worker
+        # (FR-003) and exit. The block stays as isolated as any other block
+        # while a human is in the loop. prepare_prompt receives the full input
+        # collections (one interaction spans the whole input, FR-005). Mirrors
+        # the pre-ADR-051 in-process path, which did not call validate() before
+        # prepare_prompt, so we skip it here too.
+        if phase == "prompt":
+            from scistudio.blocks.base.interactive import (
+                coerce_prompt,
+                interactive_input_signature,
+                serialise_storage_ref,
+            )
+            from scistudio.core.lineage.environment import EnvironmentSnapshot
+
+            prompt = coerce_prompt(block.prepare_prompt(inputs, block_config))
+            # FR-004: the panel payload must be a JSON object (a dict) and
+            # strictly JSON-safe; reject otherwise rather than pickling or
+            # truncating. allow_nan=False also rejects NaN/Infinity (non-standard
+            # JSON). Failures propagate to the generic handler as a block error.
+            if not isinstance(prompt.panel_payload, dict):
+                raise TypeError(
+                    f"panel_payload must be a JSON object (dict), got {type(prompt.panel_payload).__name__}"
+                )
+            json.dumps(prompt.panel_payload, allow_nan=False)
+            env_snapshot = EnvironmentSnapshot.capture()
+            prompt_envelope: dict[str, Any] = {
+                "wire_version": WIRE_FORMAT_VERSION,
+                "phase": "prompt",
+                "panel_payload": prompt.panel_payload,
+                "intermediate": [serialise_storage_ref(ref) for ref in prompt.intermediate],
+                "environment": env_snapshot.to_dict(),
+                # ADR-051 interaction memory: a generic identity fingerprint of
+                # the inputs, used to decide whether a remembered decision can be
+                # replayed (skipping the dialog) on a subsequent run.
+                "input_signature": interactive_input_signature(inputs),
+            }
+            print(json.dumps(prompt_envelope))
+            return
 
         # #1518 (DSN-2): enforce the documented Block.validate() contract on
         # the execution path. Before #1518 ``validate()`` had zero call sites

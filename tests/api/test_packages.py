@@ -90,3 +90,177 @@ def test_install_local_package_route_rejects_non_bundled_runs(
     assert response.status_code == 403
     assert runtime.refreshed is False
     assert response.json()["detail"] == "Local package installation is only available in bundled desktop runs."
+
+
+# --------------------------------------------------------------------------- #
+# Package Manager endpoints (#1784)
+# --------------------------------------------------------------------------- #
+from scistudio.blocks.base.package_info import PackageInfo, PackageOtaSource  # noqa: E402
+from scistudio.desktop import package_manager  # noqa: E402
+
+
+class _RegistryWithPackages(_Registry):
+    def packages(self) -> dict[str, PackageInfo]:
+        return {
+            "scistudio-blocks-demo": PackageInfo(
+                name="scistudio-blocks-demo",
+                version="1.0.0",
+                ota=PackageOtaSource(manifest_url="https://example.com/demo/manifest.json", channel="alpha"),
+            )
+        }
+
+
+def _bundled_app(runtime: object) -> FastAPI:
+    app = FastAPI()
+    app.state.runtime = runtime
+    app.include_router(package_routes.router)
+    return app
+
+
+def test_list_installed_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    captured: dict[str, object] = {}
+
+    def fake_list(**kwargs):
+        captured.update(kwargs)
+        return [
+            package_manager.InstalledPackage(
+                package_name="scistudio-blocks-demo",
+                version="1.0.0",
+                install_path=tmp_path / "demo",
+                modules=("scistudio_blocks_demo",),
+                has_backup=True,
+                backup_version="0.9.0",
+            ),
+            package_manager.InstalledPackage(
+                package_name="scistudio-blocks-bundled",
+                version="2.0.0",
+                install_path=tmp_path / "",
+                modules=(),
+                bundled=True,
+            ),
+        ]
+
+    monkeypatch.setattr(package_manager, "list_installed_packages", fake_list)
+    runtime = _Runtime()
+    runtime.block_registry = _RegistryWithPackages()
+    response = TestClient(_bundled_app(runtime)).get("/api/packages/installed")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["packages"][0]["package_name"] == "scistudio-blocks-demo"
+    assert body["packages"][0]["has_backup"] is True
+    assert body["packages"][0]["bundled"] is False
+    assert body["packages"][1]["bundled"] is True
+    # The route forwards the live registry so bundled packages are surfaced.
+    assert "registry_packages" in captured
+
+
+def test_updates_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    captured: dict[str, object] = {}
+
+    def fake_check(packages, *, core_base):
+        captured["packages"] = packages
+        captured["core_base"] = core_base
+        return [
+            package_manager.PackageUpdateStatus(
+                package_name="scistudio-blocks-demo",
+                current_version="1.0.0",
+                channel="alpha",
+                manifest_url="https://example.com/demo/manifest.json",
+                status="update",
+                available_version="1.2.0",
+                notes="fix",
+            )
+        ]
+
+    monkeypatch.setattr(package_manager, "check_package_updates", fake_check)
+    runtime = _Runtime()
+    runtime.block_registry = _RegistryWithPackages()
+    response = TestClient(_bundled_app(runtime)).get("/api/packages/updates")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["statuses"][0]["update_available"] is True
+    assert body["statuses"][0]["available_version"] == "1.2.0"
+    assert "scistudio-blocks-demo" in captured["packages"]
+
+
+def test_update_route_refreshes_and_returns_relaunch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+
+    def fake_update(name, *, packages, core_base):
+        return package_manager.PackageActionResult(
+            package_name=name, version="1.2.0", action="update", previous_version="1.0.0"
+        )
+
+    monkeypatch.setattr(package_manager, "update_package", fake_update)
+    runtime = _Runtime()
+    runtime.block_registry = _RegistryWithPackages()
+    response = TestClient(_bundled_app(runtime)).post("/api/packages/scistudio-blocks-demo/update")
+    assert response.status_code == 200
+    assert response.json()["needs_relaunch"] is True
+    assert runtime.refreshed is True
+
+
+def test_update_route_maps_known_error_to_400(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+
+    def boom(name, *, packages, core_base):
+        raise package_manager.PackageUpdateError("Checksum mismatch")
+
+    monkeypatch.setattr(package_manager, "update_package", boom)
+    runtime = _Runtime()
+    runtime.block_registry = _RegistryWithPackages()
+    response = TestClient(_bundled_app(runtime)).post("/api/packages/scistudio-blocks-demo/update")
+    assert response.status_code == 400
+    assert "Checksum mismatch" in response.json()["detail"]
+
+
+def test_rollback_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    monkeypatch.setattr(
+        package_manager,
+        "rollback_package",
+        lambda name: package_manager.PackageActionResult(
+            package_name=name, version="1.0.0", action="rollback", previous_version="1.2.0"
+        ),
+    )
+    runtime = _Runtime()
+    response = TestClient(_bundled_app(runtime)).post("/api/packages/scistudio-blocks-demo/rollback")
+    assert response.status_code == 200
+    assert response.json()["action"] == "rollback"
+    assert runtime.refreshed is True
+
+
+def test_delete_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    monkeypatch.setattr(
+        package_manager,
+        "delete_package",
+        lambda name: package_manager.PackageActionResult(package_name=name, version="1.0.0", action="delete"),
+    )
+    runtime = _Runtime()
+    response = TestClient(_bundled_app(runtime)).delete("/api/packages/scistudio-blocks-demo")
+    assert response.status_code == 200
+    assert response.json()["action"] == "delete"
+    assert runtime.refreshed is True
+
+
+def test_delete_route_missing_is_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+
+    def missing(name):
+        raise package_manager.PackageUpdateError("Package 'x' is not installed.")
+
+    monkeypatch.setattr(package_manager, "delete_package", missing)
+    response = TestClient(_bundled_app(_Runtime())).delete("/api/packages/x")
+    assert response.status_code == 404
+
+
+def test_package_manager_routes_reject_non_bundled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SCISTUDIO_BUNDLED", raising=False)
+    client = TestClient(_bundled_app(_Runtime()))
+    assert client.get("/api/packages/installed").status_code == 403
+    assert client.get("/api/packages/updates").status_code == 403
+    assert client.post("/api/packages/x/update").status_code == 403
+    assert client.delete("/api/packages/x").status_code == 403

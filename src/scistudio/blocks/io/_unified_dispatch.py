@@ -8,6 +8,8 @@ owning block while preserving the stable core block surface in workflow YAML.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,7 +27,7 @@ def _scan_runtime_registry(
         registry.add_scan_dir(Path(project_dir) / project_child)
     if always_home or project_dir:
         registry.add_scan_dir(Path.home() / ".scistudio" / home_child)
-    getattr(registry, scan_method)(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+    getattr(registry, scan_method)()
     return registry
 
 
@@ -77,10 +79,23 @@ def capability_owner_class(registry: Any, capability: FormatCapability) -> type[
 
 
 def _path_extension(params: dict[str, Any]) -> str | None:
-    """Infer the lookup extension from a single path or a multi-path list."""
+    """Infer the lookup extension from the ``path`` and/or ``filename`` config.
+
+    The core Save block exposes ``path`` as a *directory* browser, so the
+    filename and its extension are entered in the separate ``filename`` field
+    (see :class:`SaveData.config_schema`). Capability selection for a
+    package-registered multi-format type (e.g. ``Image`` → tiff/zarr/png/jpeg)
+    is driven by this extension, so a folder ``path`` plus ``filename="foo.tiff"``
+    must still infer ``.tiff``. ``path`` is consulted first (a concrete file path
+    wins), then ``filename`` as a fallback. Returning ``None`` here leaves the
+    saver/loader lookup without a discriminator; the callers turn the resulting
+    ambiguity into an actionable error rather than a misleading "no capability
+    registered" message.
+    """
     raw_path = params.get("path")
     paths = raw_path if isinstance(raw_path, list) else [raw_path]
-    for candidate in paths:
+    candidates = [*paths, params.get("filename")]
+    for candidate in candidates:
         if isinstance(candidate, str) and candidate:
             suffixes = Path(candidate).suffixes
             if suffixes:
@@ -105,10 +120,62 @@ def selected_capability(
         return registry, None
     extension = _path_extension(params)
     finder = registry.find_loader_capability if direction == "load" else registry.find_saver_capability
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     try:
         return registry, finder(data_type, extension)
+    except AmbiguousCapabilityError as exc:
+        # A multi-format type with neither an explicit format/capability nor a
+        # filename extension to disambiguate. For SAVE, honour the type's
+        # declared default format so the user only has to type a filename and
+        # accept (or change) the format shown in the Save block's Format
+        # dropdown — the chosen format's extension is appended downstream. Pick
+        # the FIRST ``is_default=True`` candidate to mirror the frontend dropdown
+        # default (``capabilities.find(c => c.is_default)`` in
+        # ``FormatCapabilityConfig``), keeping backend and UI in agreement.
+        # Package types (e.g. imaging ``Image`` -> tiff) declare a default; core
+        # IO types declare none (all ``is_default=False``), so they still surface
+        # the actionable "choose a format" error below rather than the runtime
+        # guessing a columnar/binary format on the user's behalf.
+        if direction == "save":
+            default = next((cap for cap in exc.candidates if getattr(cap, "is_default", False)), None)
+            if default is not None:
+                return registry, default
+        # No single default to fall back on: propagate so the caller can render
+        # an actionable "choose a format / add a file extension" error instead
+        # of swallowing this into the misleading "no capability is registered"
+        # fallback.
+        raise
     except Exception:
         return registry, None
+
+
+def _ambiguous_capability_message(*, direction: str, core_type: str, exc: Any) -> str:
+    """Build an actionable error when a multi-format type selects no unique IO format.
+
+    ``exc`` is an ``AmbiguousCapabilityError`` carrying the candidate
+    capabilities. The user reached here because the type (e.g. ``Image``) has
+    several registered formats and neither a file extension nor an explicit
+    format was supplied. Tell them how to disambiguate instead of claiming the
+    type has no save/load capability.
+    """
+    extensions = sorted({ext for cap in getattr(exc, "candidates", ()) for ext in (cap.extensions or ())})
+    if extensions:
+        detail = f"include a file extension ({', '.join(extensions)})"
+    else:
+        formats = sorted({cap.format_id for cap in getattr(exc, "candidates", ()) if cap.format_id})
+        detail = f"select a format ({', '.join(formats)})" if formats else "select a format"
+    if direction == "save":
+        return (
+            f"Save: cannot determine the output format for type {core_type!r}: it supports "
+            f"multiple save formats and none was selected. Set the Save block's path or filename to "
+            f"{detail}, or choose a save format explicitly."
+        )
+    return (
+        f"Load: cannot determine the input format for type {core_type!r}: it supports "
+        f"multiple load formats and none was selected. Set the Load block's path to "
+        f"{detail}, or choose a load format explicitly."
+    )
 
 
 def delegate_params(params: dict[str, Any], capability: FormatCapability) -> dict[str, Any]:
@@ -189,6 +256,58 @@ def _resolve_delegated_save_path(
         )
 
 
+@contextmanager
+def _activated_package_import_roots() -> Iterator[None]:
+    """Activate installed package import roots around a delegated IO call.
+
+    The engine worker that runs a *core* ``Load`` / ``Save`` block does not carry
+    the delegated package's import roots: ``engine/runners/local.py`` ``_worker_env``
+    strips plugin paths from ``PYTHONPATH`` and the core block's
+    ``runtime_import_roots`` are empty. The package *module* is importable only
+    because block discovery cached it in ``sys.modules`` under a scoped
+    ``prepended_sys_paths`` that is then reverted — so any *lazy* third-party
+    import inside the package loader/saver (e.g. the ``tifffile`` import in the
+    imaging ``LoadImage`` loader) runs a fresh import at call time, finds the
+    plugin ``site-packages`` missing from ``sys.path``, and raises
+    ``ModuleNotFoundError``. Re-activate the installed package roots (each
+    plugin's ``src`` + ``site-packages``) for the duration of the delegated
+    call so those deferred imports resolve. Best-effort and a no-op outside the
+    desktop/bundled layout, where the plugin deps are already importable.
+    """
+    try:
+        from scistudio.desktop.paths import installed_package_import_roots, prepended_sys_paths
+
+        roots = list(installed_package_import_roots())
+    except Exception:
+        yield
+        return
+    if not roots:
+        yield
+        return
+    with prepended_sys_paths(roots):
+        yield
+
+
+def _effective_params(config: BlockConfig) -> dict[str, Any]:
+    """Return the block's effective params, merging Pydantic *extra* fields.
+
+    The engine worker constructs ``BlockConfig(**config)``
+    (``engine/runners/worker.py`` ``main``), so the user/runtime config
+    (``path``, ``core_type``, ``format``, ``capability_id``, …) lands in
+    Pydantic *extra* fields rather than in ``params``. Reading
+    ``config.params`` directly therefore sees an empty dict and breaks package
+    IO capability selection: with no ``path`` there is no extension, so
+    :func:`selected_capability` matches no format capability and core ``Load`` /
+    ``Save`` of a package-registered type fails with "no load/save capability is
+    registered for type ...". Mirror :meth:`BlockConfig.get` (#565) by merging
+    the extras with explicit ``params`` (explicit ``params`` wins on conflict).
+    """
+    extras = getattr(config, "__pydantic_extra__", None) or {}
+    merged: dict[str, Any] = dict(extras)
+    merged.update(config.params or {})
+    return merged
+
+
 def delegate_load(
     *,
     config: BlockConfig,
@@ -196,16 +315,23 @@ def delegate_load(
     core_type: str,
 ) -> DataObject:
     """Load through the package block selected by a core Load capability."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     data_type = resolve_type_class(core_type)
-    registry, capability = selected_capability(direction="load", params=dict(config.params), data_type=data_type)
+    effective = _effective_params(config)
+    try:
+        registry, capability = selected_capability(direction="load", params=effective, data_type=data_type)
+    except AmbiguousCapabilityError as exc:
+        raise ValueError(_ambiguous_capability_message(direction="load", core_type=core_type, exc=exc)) from exc
     if capability is None:
         raise ValueError(f"Load: no load capability is registered for type {core_type!r}.")
     if capability.block_type == "LoadData":
         raise ValueError(f"Load: selected capability {capability.id!r} did not resolve to a package loader.")
     loader_cls = capability_owner_class(registry, capability)
-    params = delegate_params(dict(config.params), capability)
+    params = delegate_params(effective, capability)
     loader = loader_cls(config={"params": params})
-    return cast(DataObject, loader.load(BlockConfig(params=params), output_dir))
+    with _activated_package_import_roots():
+        return cast(DataObject, loader.load(BlockConfig(params=params), output_dir))
 
 
 def delegate_save(
@@ -215,16 +341,23 @@ def delegate_save(
     core_type: str,
 ) -> None:
     """Save through the package block selected by a core Save capability."""
+    from scistudio.blocks.registry import AmbiguousCapabilityError
+
     data_type = resolve_type_class(core_type) or type(obj)
-    registry, capability = selected_capability(direction="save", params=dict(config.params), data_type=data_type)
+    effective = _effective_params(config)
+    try:
+        registry, capability = selected_capability(direction="save", params=effective, data_type=data_type)
+    except AmbiguousCapabilityError as exc:
+        raise ValueError(_ambiguous_capability_message(direction="save", core_type=core_type, exc=exc)) from exc
     if capability is None:
         raise ValueError(f"Save: no save capability is registered for type {core_type!r}.")
     if capability.block_type == "SaveData":
         raise ValueError(f"Save: selected capability {capability.id!r} did not resolve to a package saver.")
     saver_cls = capability_owner_class(registry, capability)
-    params = delegate_params(dict(config.params), capability)
+    params = delegate_params(effective, capability)
     _resolve_delegated_save_path(params, obj=obj, data_type=data_type, capability=capability)
-    if params.get("path") != config.params.get("path"):
+    if params.get("path") != effective.get("path"):
         config.params["path"] = params["path"]
     saver = saver_cls(config={"params": params})
-    saver.save(obj, BlockConfig(params=params))
+    with _activated_package_import_roots():
+        saver.save(obj, BlockConfig(params=params))

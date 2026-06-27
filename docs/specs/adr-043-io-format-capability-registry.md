@@ -61,7 +61,6 @@ governs:
     - src/scistudio/blocks/app/bridge.py
     - src/scistudio/workflow/validator.py
     - frontend/src/**
-    - packages/scistudio-blocks-*/src/**/io/**
     - docs/architecture/ARCHITECTURE.md
     - docs/block-development/**
 tests:

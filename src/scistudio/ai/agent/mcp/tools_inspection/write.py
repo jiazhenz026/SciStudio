@@ -60,12 +60,30 @@ async def update_block_config(
     # Followup: https://github.com/zjzcpj/SciStudio/issues/732.
     from ruamel.yaml import YAML
 
+    # #4 (config-panel sync): mirror write_workflow's versioned event emission so
+    # an agent config patch reaches the GUI's config panel immediately instead of
+    # relying solely on the FS watcher (whose event the frontend version-vector
+    # gate can drop). Reuse the same private helpers from the workflow write tool.
+    from scistudio.ai.agent.mcp.tools_workflow.write import (
+        _emit_agent_workflow_changed,
+        _workflow_change_context,
+    )
+
     p = _resolve_project_path(workflow_path)
     if not p.exists():
         raise FileNotFoundError(f"Workflow file not found: {p}")
     lock_path = str(p) + ".lock"
     yaml_rt = YAML(typ="rt")
     yaml_rt.preserve_quotes = True
+
+    # Best-effort: the versioned event is an enhancement for GUI sync, not part
+    # of the patch contract. A minimal/headless MCP context (no workflow runtime)
+    # must still patch the YAML, so degrade to "no event" instead of raising.
+    try:
+        version_context = _workflow_change_context()
+    except Exception:
+        version_context = None
+    version: int | None = None
 
     try:
         with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
@@ -92,6 +110,21 @@ async def update_block_config(
                 for key, value in params.items():
                     config_node[key] = value
 
+            if version_context is not None:
+                _, runtime = version_context
+                version = runtime.bump_workflow_version(p.stem)
+                mark_entity_write = getattr(runtime, "mark_entity_first_party_write", None)
+                if mark_entity_write is not None:
+                    with contextlib.suppress(TypeError):
+                        mark_entity_write(
+                            "workflow",
+                            p.stem,
+                            version,
+                            path=p,
+                            kind="modified",
+                            pending=True,
+                        )
+
             fd, tmp = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=str(p.parent))
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as out_fh:
@@ -104,6 +137,18 @@ async def update_block_config(
                 raise
     except Timeout as exc:
         raise TimeoutError(f"update_block_config: could not acquire lock for {p}") from exc
+
+    # Emit the same ADR-045 versioned workflow.changed event that write_workflow
+    # emits, so the GUI config panel re-syncs to the patched config immediately.
+    # Only when a workflow runtime is available (see best-effort note above).
+    if version_context is not None:
+        await _emit_agent_workflow_changed(
+            workflow_id=p.stem,
+            path=p,
+            kind="modified",
+            version=version,
+            version_context=version_context,
+        )
 
     new = p.read_text(encoding="utf-8")
     diff_summary = f"{len(new.encode('utf-8'))} bytes (was {len(old.encode('utf-8'))})"

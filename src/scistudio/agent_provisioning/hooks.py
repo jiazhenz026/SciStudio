@@ -7,8 +7,7 @@ Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
 review on PR #1047 — Claude Code treats ``MultiEdit`` as a distinct
 tool name; omitting it leaves a bypass path):
 
-  PreToolUse (4):
-    - hook_worktree_write_guard.py                 (matcher: Edit|Write|MultiEdit)
+  PreToolUse (3):
     - hook_deny_scistudio_cli.py                      (matcher: Bash)
     - hook_protect_workflow_yaml.py                 (matcher: Edit|Write|MultiEdit)
     - hook_enforce_list_blocks_before_block_write.py
@@ -37,8 +36,14 @@ _HOOKS_DIR_REL = ".claude/hooks"
 _SETTINGS_REL = ".claude/settings.json"
 
 # (template_filename, destination_filename) — strip the "hook_" prefix.
+#
+# NOTE: ``hook_worktree_write_guard.py`` is intentionally NOT provisioned into
+# user projects (#1793). It enforces SciStudio *repository* development policy
+# (ADR-042 worktree + gate scope) and has no meaning in an end-user data
+# project; provisioned into production it could even wrongly block the in-app
+# agent's writes. It remains available for SciStudio-repo development via
+# ``scripts/hooks/check-worktree-write-guard.sh``.
 _HOOK_FILES: tuple[tuple[str, str], ...] = (
-    ("hook_worktree_write_guard.py", "worktree_write_guard.py"),
     ("hook_deny_scistudio_cli.py", "deny_scistudio_cli.py"),
     ("hook_protect_workflow_yaml.py", "protect_workflow_yaml.py"),
     (
@@ -80,7 +85,6 @@ def _build_settings_json(hooks_dir_rel: str) -> dict:
     # matcher so multi-edit operations are not a bypass path. Claude Code
     # treats MultiEdit as a distinct tool name.
     pre = [
-        ("Edit|Write|MultiEdit", "worktree_write_guard.py"),
         ("Bash", "deny_scistudio_cli.py"),
         ("Edit|Write|MultiEdit", "protect_workflow_yaml.py"),
         (

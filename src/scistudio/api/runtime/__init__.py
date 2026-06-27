@@ -404,9 +404,6 @@ class ApiRuntime:
         self._workflow_runs = registry
 
     def _configure_static_registries(self) -> None:
-        include_monorepo = os.environ.get("SCISTUDIO_DEV") == "1"
-        if include_monorepo:
-            logger.info("SCISTUDIO_DEV=1: monorepo package scan enabled")
         _repair_desktop_package_dependencies()
         self.refresh_type_registry()
         self.refresh_block_registry()

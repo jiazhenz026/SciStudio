@@ -105,14 +105,105 @@ export function createOpenFileTab(set: StoreSetter, get: StoreGetter): TabSlice[
       .catch((err) => {
         const message = err instanceof ApiError ? err.message : String(err);
         window.alert(`Failed to open ${filePath}: ${message}`);
+        removeFailedTab(get, set, id);
+      });
+  };
+}
+
+// #1758 — drop a placeholder tab whose content fetch failed, restoring focus
+// to the last remaining tab. Shared by the file and block-source open paths.
+function removeFailedTab(get: StoreGetter, set: StoreSetter, id: string): void {
+  const after = get();
+  const remaining = after.tabs.filter((t) => t.id !== id);
+  const fallback = remaining[remaining.length - 1] ?? null;
+  if (fallback) {
+    set({ tabs: remaining, ...restoreTab(fallback) });
+  } else {
+    set({ tabs: remaining, activeTabId: null });
+  }
+}
+
+/**
+ * #1758 — open a read-only tab showing a registered block's source code.
+ *
+ * Unlike {@link createOpenFileTab}, the source is fetched from
+ * ``GET /api/blocks/{blockType}/source`` and rendered inline: the block's file
+ * lives outside the project (core/package blocks resolve to importable module
+ * files), so it cannot go through the project-file fetch path. The tab is
+ * tagged with ``blockSourceType`` and is intentionally not persisted across
+ * reload (see ``partializeTabs``).
+ */
+export function createOpenBlockSourceTab(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["openBlockSourceTab"] {
+  return (blockType) => {
+    const state = get();
+    const id = `block-source:${blockType}`;
+
+    const existing = state.tabs.find((t) => t.id === id);
+    const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
+    if (existing && !needsRefetch) {
+      state.switchTab(id);
+      return;
+    }
+
+    if (!existing) {
+      if (state.tabs.length >= 50) {
+        window.alert("Maximum 50 tabs reached.");
+        return;
+      }
+      const placeholder: FileTab = {
+        kind: "file",
+        id,
+        // Replaced with the resolved absolute path once the fetch resolves.
+        filePath: blockType,
+        displayName: `${blockType} (source)`,
+        language: "python",
+        content: "",
+        contentLoadedAt: 0,
+        baseVersion: null,
+        pendingVersion: null,
+        pendingSourceId: null,
+        conflict: null,
+        dirty: false,
+        readOnly: true,
+        loading: true,
+        blockSourceType: blockType,
+      };
+      const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+      const updatedTabs = currentActive
+        ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+        : [...state.tabs];
+      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+    } else {
+      state.switchTab(id);
+    }
+
+    api
+      .getBlockSource(blockType)
+      .then((response) => {
         const after = get();
-        const remaining = after.tabs.filter((t) => t.id !== id);
-        const fallback = remaining[remaining.length - 1] ?? null;
-        if (fallback) {
-          set({ tabs: remaining, ...restoreTab(fallback) });
-        } else {
-          set({ tabs: remaining, activeTabId: null });
-        }
+        const current = after.tabs.find((t) => t.id === id);
+        if (!current || current.kind !== "file") return;
+        const populated: FileTab = {
+          ...current,
+          filePath: response.path,
+          displayName: `${basename(response.path)} (source)`,
+          content: response.source,
+          contentLoadedAt: 0,
+          baseVersion: null,
+          pendingVersion: null,
+          pendingSourceId: null,
+          conflict: null,
+          loading: false,
+        };
+        set(replaceTab(after, id, populated));
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError ? err.message : String(err);
+        window.alert(`Failed to open source for ${blockType}: ${message}`);
+        removeFailedTab(get, set, id);
       });
   };
 }

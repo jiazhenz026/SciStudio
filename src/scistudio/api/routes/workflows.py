@@ -590,10 +590,15 @@ async def execute_workflow(
         # orphaning it by starting a second scheduler.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
-        # ADR-044 FR-010 / US6.3 (and run-start validation generally): a
-        # graph that fails strict validation at start — e.g. an unresolved
-        # SubWorkflowBlock reference or a reference cycle — is rejected before
-        # dispatch with a clear message rather than surfacing as a 500.
+        # start_workflow raises ValueError for user-fixable preconditions that
+        # are rejected before dispatch rather than surfacing as a 500:
+        #   - ADR-044 FR-010 / US6.3: a graph that fails strict validation at
+        #     start — e.g. an unresolved SubWorkflowBlock reference or a
+        #     reference cycle.
+        #   - #1789: a hard validation failure such as a required input port
+        #     with no incoming connection.
+        # Surface as 422. Mirrors the run-from-here handler below and the
+        # schema-validation handlers above.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return WorkflowExecutionResponse(**result)
 

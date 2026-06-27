@@ -65,6 +65,20 @@ def _resolve_safe_path(user_path: str | Path) -> Path:
     raise ValueError(f"path must be under user home or system temp; got {candidate}")
 
 
+def _safe_is_dir(path: str | Path) -> bool:
+    """``Path.is_dir()`` that never raises (#1753).
+
+    A path longer than the platform ``PATH_MAX`` (``ENAMETOOLONG``) or an item on
+    an offline cloud/network File Provider mount (Box, iCloud — ``ENOTCONN`` /
+    ``ETIMEDOUT``) makes ``stat`` raise ``OSError``. Treat any such failure as
+    "not a usable directory" so dialog/browse callers degrade instead of 500ing.
+    """
+    try:
+        return Path(path).is_dir()
+    except OSError:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Shared models
 # ---------------------------------------------------------------------------
@@ -247,14 +261,21 @@ async def browse_filesystem(
     # (e.g. ``?path=/etc``).
     try:
         target = _resolve_safe_path(path)
+        if not target.exists():
+            raise HTTPException(status_code=404, detail=f"Path does not exist: {path}")
+        if not target.is_dir():
+            raise HTTPException(status_code=400, detail=f"Path is not a directory: {path}")
+        entries = _list_directory(target)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not target.exists():
-        raise HTTPException(status_code=404, detail=f"Path does not exist: {path}")
-    if not target.is_dir():
-        raise HTTPException(status_code=400, detail=f"Path is not a directory: {path}")
-
-    entries = _list_directory(target)
+    except OSError as exc:
+        # An over-length path (ENAMETOOLONG) or an offline cloud/network mount
+        # (ENOTCONN/ETIMEDOUT) makes exists()/is_dir()/iterdir() raise OSError.
+        # Return a clean 400 instead of letting it become a 500 (#1753).
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read path (too long, offline, or unreadable): {path[:120]}",
+        ) from exc
     return FilesystemBrowseResponse(path=str(target), entries=entries)
 
 
@@ -268,15 +289,15 @@ async def stat_filesystem(
         target = _resolve_safe_path(path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not target.exists():
+    try:
+        if not target.exists():
+            return FilesystemStatResponse(path=str(target), exists=False)
+        kind = "directory" if target.is_dir() else "file"
+        size = target.stat().st_size if target.is_file() else None
+    except OSError:
+        # Over-length (ENAMETOOLONG) or offline cloud/network path: report as
+        # not-present rather than raising a 500 (#1753).
         return FilesystemStatResponse(path=str(target), exists=False)
-    kind = "directory" if target.is_dir() else "file"
-    size: int | None = None
-    if target.is_file():
-        try:
-            size = target.stat().st_size
-        except OSError:
-            size = None
     return FilesystemStatResponse(path=str(target), exists=True, type=kind, size=size)
 
 
@@ -290,9 +311,13 @@ async def reveal_in_explorer(body: RevealRequest) -> dict[str, str]:
     """Open the native file explorer and select/reveal the given path."""
     try:
         target = _resolve_safe_path(body.path)
+        exists = target.exists()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not target.exists():
+    except OSError as exc:
+        # Over-length or offline path: clean 400 rather than a 500 (#1753).
+        raise HTTPException(status_code=400, detail="Path is too long or unreadable") from exc
+    if not exists:
         raise HTTPException(status_code=404, detail="Path does not exist")
 
     system = platform.system()
@@ -626,11 +651,13 @@ async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
     """
     global _last_used_directory
 
-    # Determine starting directory: request param > last-used > home
+    # Determine starting directory: request param > last-used > home.
+    # ``_safe_is_dir`` swallows OSError so an over-length or offline ``initial_dir``
+    # falls back to home instead of raising a 500 (#1753).
     initial_dir = body.initial_dir
-    if not initial_dir or not Path(initial_dir).is_dir():
+    if not initial_dir or not _safe_is_dir(initial_dir):
         initial_dir = _last_used_directory
-    if not initial_dir or not Path(initial_dir).is_dir():
+    if not initial_dir or not _safe_is_dir(initial_dir):
         initial_dir = str(Path.home())
 
     system = platform.system()

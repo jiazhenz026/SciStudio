@@ -545,9 +545,10 @@ class TestFullIntegration:
         reg = BlockRegistry()
         reg.scan()
 
-        # Merge block has type_name "merge_block".
-        spec_by_name = reg.get_spec("Merge")
-        spec_by_type = reg.get_spec("merge_block")
+        # Merge Collection (a first-party builtin, #1779) has type_name
+        # "mergecollection_block".
+        spec_by_name = reg.get_spec("Merge Collection")
+        spec_by_type = reg.get_spec("mergecollection_block")
         assert spec_by_name is not None
         assert spec_by_type is not None
         assert spec_by_name.name == spec_by_type.name

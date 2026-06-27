@@ -18,6 +18,7 @@ from scistudio.api.routes import (
     ai_pty,
     blocks,
     data,
+    diagnostics,
     filesystem,
     lint,
     packages,
@@ -223,21 +224,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    import logging
+    # #1741: install console + persistent JSON-line file logging. Idempotent, so
+    # it is safe whether the CLI already configured logging (``scistudio gui``)
+    # or this is standalone API usage (``uvicorn scistudio.api.app:create_app``).
+    from scistudio.utils.logging import configure_logging
 
-    # Ensure a SciStudio-specific handler exists so logger calls are not
-    # silently discarded.  When invoked via ``scistudio gui`` the CLI already
-    # configures logging with ``force=True``; this fallback only fires for
-    # standalone API usage (e.g. ``uvicorn scistudio.api.app:create_app``).
     log_level = os.environ.get("SCISTUDIO_LOG_LEVEL", "INFO").upper()
-    if not logging.getLogger().handlers:
-        logging.basicConfig(
-            level=getattr(logging, log_level, logging.INFO),
-            format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-            datefmt="%H:%M:%S",
-        )
+    configure_logging(log_level)
 
-    app = FastAPI(title="SciStudio API", version="0.1.0", lifespan=lifespan)
+    # #1742: the FastAPI app version derives from the single source of truth.
+    from scistudio.version import get_version
+
+    app = FastAPI(title="SciStudio API", version=get_version().pep440, lifespan=lifespan)
     cors_origins_raw = os.getenv("SCISTUDIO_CORS_ORIGINS", "").strip()
     if cors_origins_raw == "*":
         origins: list[str] = ["*"]
@@ -257,6 +255,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # #1741: request/exception logging with correlation ids. Added after CORS so
+    # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing
+    # every request and any exception that escapes the routes.
+    from scistudio.api._logging_middleware import RequestLoggingMiddleware
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.include_router(workflows.router)
     app.include_router(blocks.router)
@@ -283,10 +288,19 @@ def create_app() -> FastAPI:
     # ops / merge / cherry-pick). D39-2.2b made these live. ADR-039 Addendum 1
     # (#1352) removed the stash CRUD surface (#1353).
     app.include_router(git_routes.router)
+    # #1741/#1742: diagnostics — /api/version, /api/client-logs, /api/diagnostics/bundle.
+    app.include_router(diagnostics.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
         return await sse_handler(request)
+
+    @app.get("/version")
+    async def version() -> object:
+        # #1742: convenience top-level alias of /api/version for bug reports.
+        from scistudio.version import get_version
+
+        return get_version().as_dict()
 
     @app.websocket("/ws")
     async def ws_endpoint(websocket: WebSocket) -> None:
@@ -294,12 +308,12 @@ def create_app() -> FastAPI:
         await websocket_handler(websocket, runtime.event_bus)
 
     # SPA static files. Must be registered AFTER all /api/* and /ws routes.
-    # Two locations are checked, in order:
-    #   1. Packaged assets at ``scistudio/api/static/`` — populated by the
-    #      setuptools build hook from ``frontend/dist/`` when building wheels.
-    #   2. Editable-install fallback at ``<repo-root>/frontend/dist/`` — so
-    #      developers can ``pip install -e . && (cd frontend && npm run build)``
-    #      and get the SPA without running the full wheel build.
+    # Resolution depends on the run mode (see ``_resolve_spa_static_dir``):
+    #   - Bundled desktop app (``SCISTUDIO_BUNDLED=1``): ONLY the embedded
+    #     ``scistudio/api/static/`` is served, so the UI never depends on where
+    #     the ``.app`` sits (#1747).
+    #   - Editable/dev install: ``<repo-root>/frontend/dist/`` (latest
+    #     ``npm run build``) is preferred, falling back to the packaged copy.
     # If neither is present, ``GET /`` redirects to the API docs so users
     # still land on something useful.
     static_dir = _resolve_spa_static_dir()
@@ -317,15 +331,28 @@ def create_app() -> FastAPI:
 def _resolve_spa_static_dir() -> Path | None:
     """Locate the built SPA assets.
 
-    For editable installs (development), ``frontend/dist/`` is preferred
-    because it reflects the latest ``npm run build``.  The packaged copy
-    at ``src/scistudio/api/static/`` is only used as a fallback — it is
-    written once during ``pip install`` and quickly becomes stale when
-    the developer rebuilds the frontend.
+    A bundled/packaged desktop app (``SCISTUDIO_BUNDLED=1``) MUST serve only its
+    own embedded ``scistudio/api/static/`` — never the dev walk-up below.
+    Otherwise the served frontend would depend on where the ``.app`` physically
+    sits: inside a source checkout the walk-up finds a stray ``frontend/dist``
+    and serves that; in ``/Applications`` it falls back to the packaged copy.
+    Same bundle, different UI (#1747).
 
-    Returns the first directory that contains an ``index.html``, or
-    ``None`` if no built SPA is available.
+    For editable installs (development), ``frontend/dist/`` is preferred because
+    it reflects the latest ``npm run build``. The packaged copy at
+    ``src/scistudio/api/static/`` is the fallback.
+
+    Returns the first directory that contains an ``index.html``, or ``None`` if
+    no built SPA is available.
     """
+    packaged = Path(__file__).parent / "static"
+
+    # Bundled desktop app: only ever serve the embedded SPA so the UI is
+    # environment-independent (does not depend on the .app's filesystem
+    # location). #1747.
+    if os.environ.get("SCISTUDIO_BUNDLED") == "1":
+        return packaged if (packaged / "index.html").is_file() else None
+
     # 1. Prefer frontend/dist/ (fresh dev build).
     #    Walk up from ``src/scistudio/api/app.py`` to the repo root.
     for parent in Path(__file__).resolve().parents:
@@ -355,7 +382,6 @@ def _resolve_spa_static_dir() -> Path | None:
             break
 
     # 2. Fall back to packaged static/ (wheel installs).
-    packaged = Path(__file__).parent / "static"
     if (packaged / "index.html").is_file():
         return packaged
 

@@ -39,6 +39,14 @@ export interface ProjectActionsDeps {
   closeProjectDialog: () => void;
   setLastError: (message: string | null) => void;
   refreshProjects: () => Promise<void>;
+  /**
+   * Re-fetch the block catalog (summaries + schemas). Called on project
+   * open/create so the new project's project-scoped custom blocks and any
+   * package blocks are in the catalog before the canvas renders their nodes
+   * — otherwise those nodes fall back to a generic, port-less placeholder
+   * until the user manually reloads the palette (bug #2 / #8).
+   */
+  refreshBlocks: () => Promise<void>;
   setBusy: (busy: boolean) => void;
   /** Promise-based prompt (window.prompt is unsupported in Electron). */
   promptInput: (opts: Omit<PromptRequest, "resolve">) => Promise<string | null>;
@@ -151,6 +159,7 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     closeProjectDialog,
     setLastError,
     refreshProjects,
+    refreshBlocks,
     setBusy,
     loadWorkflowForProject,
   } = deps;
@@ -169,6 +178,10 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
         setCurrentProject(project);
         await refreshProjects();
+        // #2/#8: refresh the block catalog for the newly opened project so its
+        // custom/package blocks resolve to proper IO/process nodes with ports
+        // before the workflow renders (avoids the generic gray placeholder).
+        await refreshBlocks();
         await loadWorkflowForProject(project);
         setLastError(null);
         closeProjectDialog();
@@ -182,6 +195,7 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       closeProjectDialog,
       loadWorkflowForProject,
       refreshProjects,
+      refreshBlocks,
       resetExecution,
       setBusy,
       setCurrentProject,
@@ -199,9 +213,14 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
           description: projectDialog.description,
           path: projectDialog.path,
         });
+        // Bug 5: clear the previous project's open tabs + execution state before
+        // switching to the newly created project (mirror openProject()).
+        resetExecution();
+        useAppStore.setState({ tabs: [], activeTabId: null });
         setCurrentProject(project);
         openTab(emptyWorkflow("main"));
         await refreshProjects();
+        await refreshBlocks();
       } else {
         await openProject(projectDialog.path);
         return;
@@ -219,6 +238,8 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     openTab,
     projectDialog,
     refreshProjects,
+    refreshBlocks,
+    resetExecution,
     setBusy,
     setCurrentProject,
     setLastError,

@@ -139,6 +139,22 @@ export interface FormatCapabilityResponse {
   migration_scaffold: boolean;
 }
 
+/**
+ * ADR-051: the serialized interactive panel manifest surfaced on block metadata
+ * (the wire shape of the backend ``PanelManifest.to_dict()``; the server-only
+ * ``asset_root`` is intentionally absent). Mirrors {@link PanelManifestDescriptor}
+ * in the store, which carries the same shape for the live prompt flow.
+ */
+export interface PanelManifest {
+  panel_id: string;
+  module_url: string;
+  export_name: string;
+  css: string[];
+  version: string;
+  api_version: string;
+  response_schema?: Record<string, unknown> | null;
+}
+
 export interface BlockSummary {
   name: string;
   type_name: string;
@@ -159,6 +175,11 @@ export interface BlockSummary {
   variadic_outputs?: boolean;
   /** ADR-043: backend-owned IO format capabilities for aggregate IOBlocks. */
   format_capabilities?: FormatCapabilityResponse[];
+  /** ADR-051: execution mode hint ("auto" | "interactive" | "external") so the
+   *  palette/schema can identify interactive blocks. */
+  execution_mode?: string;
+  /** ADR-051: interactive panel manifest; null unless the block is interactive. */
+  panel_manifest?: PanelManifest | null;
 }
 
 export interface TypeHierarchyEntry {
@@ -253,6 +274,15 @@ export interface BlockSchemaResponse extends BlockSummary {
 
 export interface BlockListResponse {
   blocks: BlockSummary[];
+}
+
+/** Read-only source code backing a registered block type (#1758). */
+export interface BlockSourceResponse {
+  block_type: string;
+  path: string;
+  source: string;
+  language: string;
+  origin: string;
 }
 
 export interface ConnectionValidationResponse {
@@ -614,6 +644,51 @@ export interface LocalPackageInstallResponse {
   modules: string[];
   blocks_count: number;
   replaced: boolean;
+}
+
+// #1784 — Package Manager (install / update / delete / rollback) types.
+export interface InstalledPackage {
+  package_name: string;
+  version: string;
+  install_path: string;
+  modules: string[];
+  has_backup: boolean;
+  backup_version: string;
+  /** Present only via the live registry (bundled / entry point), not on disk.
+   *  Can be updated (installs a shadowing copy) but not deleted. */
+  bundled: boolean;
+}
+
+export interface InstalledPackagesResponse {
+  packages: InstalledPackage[];
+}
+
+export interface PackageUpdateStatus {
+  package_name: string;
+  current_version: string;
+  channel: string;
+  manifest_url: string;
+  /** "update" | "incompatible" | "none" | "invalid" | "error" */
+  status: string;
+  available_version: string;
+  min_core_base: string;
+  notes: string;
+  reason: string;
+  update_available: boolean;
+}
+
+export interface PackageUpdatesResponse {
+  core_base: string;
+  statuses: PackageUpdateStatus[];
+}
+
+export interface PackageActionResponse {
+  package_name: string;
+  version: string;
+  /** "update" | "rollback" | "delete" */
+  action: string;
+  previous_version: string;
+  needs_relaunch: boolean;
 }
 
 // ---------------------------------------------------------------------------
