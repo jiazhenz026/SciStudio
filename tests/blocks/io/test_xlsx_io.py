@@ -164,7 +164,7 @@ def test_same_basename_workbooks_stay_separate(tmp_path: Path) -> None:
     # Two separate files (the second basename collision is disambiguated), each
     # with exactly its own single sheet — not merged.
     assert names == ["exp-2.xlsx", "exp.xlsx"]
-    sheets = sorted(sum((pd.ExcelFile(out_dir / n).sheet_names for n in names), []))
+    sheets = sorted(s for n in names for s in pd.ExcelFile(out_dir / n).sheet_names)
     assert sheets == ["a", "b"]
 
 
