@@ -16,6 +16,17 @@ reset_dir() {
   mkdir -p "$1"
 }
 
+# Pre-flight: the frontend build below needs frontend/node_modules (tsc, vite).
+# Without them it fails with a cryptic "tsc: command not found", aborts this
+# script before the backend tree is staged, and the resulting installer ships a
+# broken app whose runtime cannot import scistudio (#1805). Fail early with the
+# fix instead.
+if [ ! -d "$REPO_ROOT/frontend/node_modules" ]; then
+  echo "error: frontend dependencies are not installed." >&2
+  echo "       Run 'npm --prefix frontend ci' (or 'npm --prefix frontend install') before staging." >&2
+  exit 1
+fi
+
 echo "Building frontend..."
 npm --prefix "$REPO_ROOT/frontend" run build
 
@@ -48,6 +59,18 @@ rm -rf "$SRC_TARGET/scistudio.egg-info"
 STAGED_SPA="$SRC_TARGET/scistudio/api/static"
 reset_dir "$STAGED_SPA"
 cp -R "$FRONTEND_DIST"/. "$STAGED_SPA"/
+
+# Fail loudly if the staged backend is incomplete instead of shipping a broken
+# installer (#1805): the bundled runtime imports scistudio from this tree on
+# PYTHONPATH and serves the SPA from scistudio/api/static.
+if [ ! -f "$SRC_TARGET/scistudio/__init__.py" ]; then
+  echo "error: staged backend is missing scistudio ($SRC_TARGET/scistudio/__init__.py)" >&2
+  exit 1
+fi
+if [ ! -f "$STAGED_SPA/index.html" ]; then
+  echo "error: staged SPA is missing ($STAGED_SPA/index.html)" >&2
+  exit 1
+fi
 
 mkdir -p "$RESOURCES_ROOT/packages" "$RESOURCES_ROOT/git" "$RESOURCES_ROOT/python"
 : > "$RESOURCES_ROOT/packages/.gitkeep"

@@ -26,6 +26,15 @@ function Reset-Directory {
     New-Item -ItemType Directory -Path $Path | Out-Null
 }
 
+# Pre-flight: the frontend build below needs frontend/node_modules (tsc, vite).
+# Without them it fails with a cryptic "tsc: command not found", aborts this
+# script before the backend tree is staged, and the resulting installer ships a
+# broken app whose runtime cannot import scistudio (#1805). Fail early with the
+# fix instead.
+if (-not (Test-Path (Join-Path $RepoRoot "frontend\node_modules"))) {
+    throw "Frontend dependencies are not installed. Run 'npm --prefix frontend ci' (or 'npm --prefix frontend install') before staging."
+}
+
 Write-Host "Building frontend..."
 npm --prefix (Join-Path $RepoRoot "frontend") run build
 if ($LASTEXITCODE -ne 0) {
@@ -65,6 +74,16 @@ if (Test-Path $EggInfo) {
 $StagedSpa = Join-Path $SrcTarget "scistudio\api\static"
 Reset-Directory $StagedSpa
 Copy-Item -Path (Join-Path $FrontendDist "*") -Destination $StagedSpa -Recurse -Force
+
+# Fail loudly if the staged backend is incomplete instead of shipping a broken
+# installer (#1805): the bundled runtime imports scistudio from this tree on
+# PYTHONPATH and serves the SPA from scistudio/api/static.
+if (-not (Test-Path (Join-Path $SrcTarget "scistudio\__init__.py"))) {
+    throw "Staged backend is missing scistudio ($SrcTarget\scistudio\__init__.py)."
+}
+if (-not (Test-Path (Join-Path $StagedSpa "index.html"))) {
+    throw "Staged SPA is missing ($StagedSpa\index.html)."
+}
 
 Ensure-Directory (Join-Path $ResourcesRoot "packages")
 Ensure-Directory (Join-Path $ResourcesRoot "git")

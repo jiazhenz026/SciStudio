@@ -13,6 +13,10 @@ Patch release; the first internally-distributed 0.3.x build (0.3.0 was never
 distributed — internal testers were still on 0.2.x). The committed version
 embeds build `0000`; the real build number is injected at installer build time.
 
+### Fixed
+
+- [#1805] Desktop staging (`stage-resources.sh` / `.ps1`) no longer silently produces a broken installer when frontend dependencies are missing. It now (1) fails fast with an actionable message if `frontend/node_modules` is absent (instead of the cryptic `tsc: command not found` that aborted staging before the backend tree was copied, shipping an app whose runtime can't `import scistudio`), and (2) asserts the staged backend contains `scistudio/__init__.py` and the embedded SPA `index.html` before finishing. (@claude, 2026-06-27, branch: guided/1805-friendly-ota-dialog)
+
 ### Changed
 
 - [#1805] OTA update dialog now shows a version string (e.g. `0.3.1.0008`) instead of the engineering-flavored `build 7`. A pure `displayBuildVersion(base, build)` helper (`desktop/ota.js`) formats `base + zero-padded build`; used in the patch-available and incompatible dialogs in `desktop/main.js`. Shell-only — reaches users via a new installer, not OTA. Tests: `desktop/test/ota.test.js`. (@claude, 2026-06-27, branch: guided/1805-friendly-ota-dialog)
