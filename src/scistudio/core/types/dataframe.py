@@ -1,10 +1,9 @@
-"""DataFrame — columnar tabular data DataObject.
+"""Columnar tables (:class:`DataFrame`).
 
-ADR-027 D2: this module is core-only. The legacy domain subclasses
-(``PeakTable``, ``MetabPeakTable``) have been removed as of T-007 and
-now belong in the ``scistudio-blocks-spectral`` plugin package. Code that
-previously imported them should either switch to ``DataFrame(columns=..., ...)``
-directly or depend on the spectral plugin.
+The data type for tabular results — rows and named columns, like a
+spreadsheet or a pandas DataFrame. It is backed by Arrow/Parquet, so large
+tables live on disk and load lazily. Domain-specific tables (such as peak
+tables) live in plugin packages and subclass this.
 """
 
 from __future__ import annotations
@@ -17,12 +16,18 @@ from scistudio.stability import provisional, stable
 
 @stable(since="0.3.1")
 class DataFrame(DataObject):
-    """Columnar tabular data, backed by Arrow/Parquet for large datasets.
+    """Columnar table of rows and named columns, backed by Arrow/Parquet.
 
-    Attributes:
-        columns: Column names, if known.
-        row_count: Number of rows, if known.
-        schema: Column-level type schema, if known.
+    Use this for any tabular result. The canonical in-memory form is a
+    ``pyarrow.Table``; :meth:`to_pandas` and :meth:`to_numpy` are convenience
+    readers for inspection and export. Large tables stay on disk and are read
+    lazily.
+
+    Example:
+        >>> from scistudio.core.types import DataFrame
+        >>> table = DataFrame(columns=["mz", "intensity"], row_count=1024)
+        >>> table.columns
+        ['mz', 'intensity']
     """
 
     @stable(since="0.3.1")
@@ -35,21 +40,25 @@ class DataFrame(DataObject):
         data: Any = None,
         **kwargs: Any,
     ) -> None:
-        """Construct a DataFrame with optional column/schema information.
-
-        Standard :class:`DataObject` slots (``framework``, ``meta``,
-        ``user``, ``storage_ref``) are passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`.
+        """Construct a table, optionally with column and schema information.
 
         Args:
-            data: Optional in-memory tabular data (e.g. Arrow table).
-                Stored in ``_transient_data``; never serialised.
-                ADR-031 Addendum 2.
+            columns: Column names, if known.
+            row_count: Number of rows, if known.
+            schema: Column-level type schema, if known.
+            data: Optional in-memory table (for example a ``pyarrow.Table``).
+                Held only until the framework writes it to storage; never
+                serialised directly.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``).
         """
         super().__init__(**kwargs)
         self.columns = columns
+        """Column names, or ``None`` when not known."""
         self.row_count = row_count
+        """Number of rows, or ``None`` when not known."""
         self.schema = schema
+        """Column-level type schema, or ``None`` when not known."""
         if data is not None:
             self._transient_data = data
 
@@ -57,20 +66,22 @@ class DataFrame(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new DataFrame with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        DataFrame-specific constructor arguments (``columns``,
-        ``row_count``, ``schema``). The base implementation only
-        propagates the four standard DataObject slots (``framework``,
-        ``meta``, ``user``, ``storage_ref``); without this override the
-        call would lose the DataFrame-specific attributes on the
-        returned instance.
+        Like :meth:`DataObject.with_meta`, but also carries the table-specific
+        fields (:attr:`columns`, :attr:`row_count`, :attr:`schema`) onto the
+        copy.
+
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new table of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only DataFrame subclasses that declare a
-                ``Meta`` ClassVar can use :meth:`with_meta`.
+            ValueError: if this table has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -101,15 +112,14 @@ class DataFrame(DataObject):
     def to_pandas(self) -> Any:
         """Return the table as a :class:`pandas.DataFrame`.
 
-        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
-        over the inherited :meth:`to_memory` reader (which returns the
-        canonical ``pyarrow.Table``). It never replaces ``to_memory``.
-        Packages inherit this accessor and must not redefine it
-        (ADR-052 §4.2), and it is kept out of the core data-flow path
-        (ADR-052 §8) — for inspection / export only.
+        A convenience reader for inspecting or exporting the table. It
+        materialises the canonical ``pyarrow.Table`` from storage and
+        converts it; it does not replace :meth:`to_memory`. Use it for a
+        quick look or to hand data to pandas-based tools — not inside a
+        block's main compute path.
 
         Returns:
-            A :class:`pandas.DataFrame` materialised from storage.
+            A :class:`pandas.DataFrame` loaded from storage.
         """
         return self.to_memory().to_pandas()
 
@@ -117,10 +127,8 @@ class DataFrame(DataObject):
     def to_numpy(self) -> Any:
         """Return the table values as a NumPy ``ndarray``.
 
-        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
-        over :meth:`to_pandas` (and hence the inherited :meth:`to_memory`
-        reader). It never replaces ``to_memory`` and is kept out of the
-        core data-flow path (ADR-052 §8) — for inspection / export only.
+        A convenience reader, built on :meth:`to_pandas`, for inspection or
+        export only; it does not replace :meth:`to_memory`.
 
         Returns:
             A :class:`numpy.ndarray` of the table values.
@@ -132,15 +140,18 @@ class DataFrame(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``DataFrame``-specific kwargs for worker reconstruction.
+        """Rebuild a table's constructor arguments from saved metadata.
 
-        Extracts ``columns`` / ``row_count`` / ``schema`` from the
-        wire-format metadata sidecar. ``columns`` defaults to an empty
-        list and ``schema`` to an empty dict when absent, which
-        :class:`DataFrame.__init__` accepts.
+        Reads ``columns`` / ``row_count`` / ``schema`` back out of the
+        metadata produced by :meth:`serialise_extra_metadata`. Missing
+        ``columns`` becomes an empty list and missing ``schema`` an empty
+        dict, both of which the constructor accepts.
 
-        See ADR-027 Addendum 1 §2 ("D11' companion") for the full
-        contract.
+        Args:
+            metadata: The saved metadata dict for one table.
+
+        Returns:
+            Keyword arguments to pass to ``cls(**kwargs)``.
         """
         return {
             "columns": list(metadata.get("columns", [])),
@@ -151,16 +162,19 @@ class DataFrame(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``DataFrame``-specific fields for the metadata sidecar.
+        """Return a table's own fields for the saved metadata.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
-        ``columns`` is copied to a new list and ``schema`` to a new
-        dict so the returned payload is independent of the source
-        instance.
+        The counterpart of :meth:`reconstruct_extra_kwargs`. ``columns`` and
+        ``schema`` are copied into a fresh list and dict so the result is
+        independent of the source table.
 
-        The parameter is typed as :class:`DataObject` to respect the
-        Liskov substitution principle with the base classmethod; at
-        runtime the caller only ever passes an instance of ``cls``.
+        Args:
+            obj: The table to serialise. Typed as :class:`DataObject` so it
+                matches the base method's signature; the caller always passes
+                a :class:`DataFrame`.
+
+        Returns:
+            A JSON-serialisable dict of the table's fields.
         """
         assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
         return {

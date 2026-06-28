@@ -1,20 +1,21 @@
-"""DataObject ABC, TypeSignature, and metadata containers.
+"""The shared base class for all data objects, plus its type descriptor.
 
-Implements the stratified three-slot metadata model from ADR-027 D5:
+Defines :class:`DataObject` (the base every concrete data type inherits
+from) and :class:`TypeSignature` (a small record of an object's type
+chain, used to check that two blocks' ports are compatible).
 
-- ``framework``: :class:`scistudio.core.meta.FrameworkMeta` — framework-managed,
-  immutable from block authors' perspective. Carries identity, lineage,
-  and provenance hints.
-- ``meta``: a typed Pydantic ``BaseModel`` (or ``None`` on the base class).
-  Plugin subclasses declare their own ``Meta`` model via the class-level
-  :attr:`DataObject.Meta` ClassVar; T-013 will use this hook for the
-  worker subprocess reconstruction path.
-- ``user``: a free-form ``dict[str, Any]`` escape hatch the framework
-  does not interpret. Must be JSON-serialisable per ADR-017.
+Every :class:`DataObject` carries three separate metadata slots, each with
+a clear owner:
 
-The three-slot model (``framework`` / ``meta`` / ``user``) is the only
-metadata API; the legacy single-dict ``metadata`` shim was removed per
-ADR-052 §16.
+- ``framework`` — managed by SciStudio (identity, lineage, provenance).
+  Block authors read it but do not edit it.
+- ``meta`` — typed, validated metadata for a specific data kind (a Pydantic
+  ``BaseModel``), or ``None`` on the plain base class.
+- ``user`` — a free-form ``dict`` for anything you want to attach. The
+  framework never interprets it, so it must be JSON-serialisable (it is
+  sent between processes).
+
+These three slots are the only metadata API.
 """
 
 from __future__ import annotations
@@ -59,33 +60,70 @@ def _get_backend(ref: StorageReference) -> Any:
 @stable(since="0.3.1")
 @dataclass
 class TypeSignature:
-    """Describes the semantic type of a DataObject via a chain of type names.
+    """The semantic type of a :class:`DataObject`, used for port matching.
 
-    Attributes:
-        type_chain: Ordered list of type names from most general to most specific,
-            e.g. ``["DataObject", "Array", "FluorImage"]``.
-        slot_schema: Optional mapping of slot names to type names (for composites).
-        required_axes: Optional frozenset of axis names that Array subclasses
-            require at the instance level. ``None`` for non-Array types or
-            for Array itself (which has an empty ``required_axes`` ClassVar).
-            Populated by :meth:`from_type` from the class's
-            ``required_axes`` ClassVar when it is non-empty. Added per
-            ADR-027 D1 so that port ``port_accepts_signature`` checks can
-            enforce "incoming instance must have at least required_axes of
-            target port type".
+    A signature records the chain of type names from most general to most
+    specific (for example ``["DataObject", "Array"]``). SciStudio compares
+    these signatures to decide whether the output of one block may be fed
+    into the input port of the next.
+
+    You rarely build one by hand: :meth:`from_type` derives it from a class,
+    and :attr:`DataObject.dtype_info` returns the signature of a live object.
+
+    Example:
+        >>> from scistudio.core.types import Array, TypeSignature
+        >>> sig = TypeSignature.from_type(Array)
+        >>> sig.type_chain
+        ['DataObject', 'Array']
+        >>> sig.matches(TypeSignature(type_chain=["DataObject"]))
+        True
     """
 
     type_chain: list[str]
+    """Type names from most general to most specific.
+
+    For example ``["DataObject", "Array"]``. A signature matches another
+    when this chain starts with the other's chain.
+    """
     slot_schema: dict[str, str] | None = field(default=None)
+    """Mapping of slot name to type name for composite types, else ``None``.
+
+    Used to compare the named slots of a :class:`CompositeData`.
+    """
     required_axes: frozenset[str] | None = field(default=None)
+    """Axis names an :class:`Array` subclass requires, or ``None``.
+
+    Populated by :meth:`from_type` from the class's ``required_axes`` when
+    that set is non-empty, so a port check can require that an incoming
+    array carries at least those axes. ``None`` for non-array types and for
+    plain :class:`Array` (which requires no specific axes).
+    """
 
     @stable(since="0.3.1")
     def matches(self, other: TypeSignature) -> bool:
-        """Return ``True`` if *other* is compatible with this signature.
+        """Return whether this type can stand in for *other*.
 
-        Compatibility means that *other*'s type chain is a prefix of or equal
-        to this signature's type chain (i.e. this type is a subtype of other).
-        For composite types, slot schemas must also be compatible.
+        This is the check a port uses to accept incoming data. It returns
+        ``True`` when this signature is *other* or a more specific subtype of
+        it — concretely, when *other*'s type chain is a prefix of this one.
+        For composite types, every slot *other* names must also be present
+        here with a matching type.
+
+        Args:
+            other: The signature the receiving port expects.
+
+        Returns:
+            ``True`` if an object of this type is acceptable where *other* is
+            expected, ``False`` otherwise.
+
+        Example:
+            >>> from scistudio.core.types import Array, DataObject, TypeSignature
+            >>> array_sig = TypeSignature.from_type(Array)
+            >>> object_sig = TypeSignature.from_type(DataObject)
+            >>> array_sig.matches(object_sig)
+            True
+            >>> object_sig.matches(array_sig)
+            False
         """
         if len(other.type_chain) > len(self.type_chain):
             return False
@@ -105,16 +143,26 @@ class TypeSignature:
     @classmethod
     @stable(since="0.3.1")
     def from_type(cls, data_type: type) -> TypeSignature:
-        """Build a :class:`TypeSignature` from a Python class's MRO.
+        """Build a :class:`TypeSignature` from a :class:`DataObject` subclass.
 
-        This walks the MRO up to (but not including) ``object`` and records
-        the class names, filtered to only include ``DataObject`` and its
-        subclasses.
+        Walks the class's inheritance chain (skipping ``object``) and keeps
+        only :class:`DataObject` and its subclasses, ordered from most
+        general to most specific. If *data_type* is an :class:`Array`
+        subclass that requires specific axes, those axis names are captured
+        on the result so port checks can enforce them.
 
-        If ``data_type`` is an ``Array`` subclass with a non-empty
-        ``required_axes`` ClassVar, the frozenset is captured on the
-        resulting signature (ADR-027 D1). ``Array`` itself has an empty
-        ``required_axes`` and therefore produces ``required_axes=None``.
+        Args:
+            data_type: The class to describe. Normally a :class:`DataObject`
+                subclass.
+
+        Returns:
+            A :class:`TypeSignature` for *data_type*. Plain :class:`Array`
+            (which requires no specific axes) yields ``required_axes=None``.
+
+        Example:
+            >>> from scistudio.core.types import Array, TypeSignature
+            >>> TypeSignature.from_type(Array).type_chain
+            ['DataObject', 'Array']
         """
         chain: list[str] = []
         for klass in reversed(data_type.__mro__):
@@ -143,34 +191,42 @@ class TypeSignature:
 
 @stable(since="0.3.1")
 class DataObject:
-    """Base class for all first-class data objects in SciStudio.
+    """Base class for every first-class data object in SciStudio.
 
-    Subclasses represent concrete scientific data kinds (arrays, series,
-    dataframes, text, artifacts, composites).
+    Concrete subclasses represent the kinds of data that blocks exchange:
+    :class:`Array`, :class:`Series`, :class:`DataFrame`, :class:`Text`,
+    :class:`Artifact`, and :class:`CompositeData`. You normally work with
+    those subclasses; this base class defines what they all share —
+    metadata, lazy access to stored data, and persistence.
 
-    ADR-027 D5 (stratified metadata): every DataObject has three metadata
-    slots populated at construction time:
+    Every instance carries three metadata slots:
 
-    - :attr:`framework` — :class:`FrameworkMeta`, framework-managed and
-      immutable from block authors' perspective.
-    - :attr:`meta` — a typed Pydantic ``BaseModel`` (or ``None`` on the
-      base class). Plugin subclasses declare their own ``Meta`` model
-      class via the :attr:`Meta` ClassVar.
-    - :attr:`user` — a free-form ``dict[str, Any]`` escape hatch. Must
-      be JSON-serialisable per ADR-017 (cross-process worker transport).
+    - :attr:`framework` — managed by SciStudio (identity, lineage). Read it,
+      but treat it as read-only.
+    - :attr:`meta` — typed, validated metadata for a specific data kind, or
+      ``None`` on a plain :class:`DataObject`. A subclass opts in by
+      declaring its own model in the :attr:`Meta` class attribute.
+    - :attr:`user` — a free-form ``dict`` for your own values. It must be
+      JSON-serialisable because it travels between processes.
 
-    The three slots above are the only metadata API; the legacy
-    ``DataObject(metadata=...)`` kwarg and ``DataObject.metadata``
-    property were removed per ADR-052 §16.
+    Example:
+        >>> from scistudio.core.types import Text
+        >>> doc = Text(content="hello", user={"sample_id": "S1"})
+        >>> doc.user["sample_id"]
+        'S1'
     """
 
-    # ADR-027 D5: subclasses override this with their own typed Pydantic
-    # model. The base class has no Meta (None), so bare ``DataObject()``
-    # instances have ``meta=None``. The worker reconstruction path reads
-    # this ClassVar in ``reconstruct_extra_kwargs`` to know which Pydantic
-    # model to instantiate when round-tripping a DataObject through the
-    # worker subprocess.
+    # The worker subprocess reconstruction path reads this class attribute to
+    # know which Pydantic model to rebuild when a data object crosses a
+    # process boundary.
     Meta: ClassVar[type[BaseModel] | None] = None
+    """The typed metadata model this class uses, or ``None`` for none.
+
+    A plain :class:`DataObject` has no typed metadata, so its :attr:`meta`
+    slot is ``None``. A subclass that wants validated, domain-specific
+    metadata sets this to its own Pydantic model class and passes an
+    instance of that model to the constructor.
+    """
 
     @stable(since="0.3.1")
     def __init__(
@@ -181,6 +237,22 @@ class DataObject:
         user: dict[str, Any] | None = None,
         storage_ref: StorageReference | None = None,
     ) -> None:
+        """Create a data object and populate its three metadata slots.
+
+        Args:
+            framework: Framework-managed metadata. When omitted, a fresh
+                :class:`~scistudio.core.meta.FrameworkMeta` is created with a
+                new identity and creation timestamp.
+            meta: Typed domain metadata, or ``None``. A subclass with a
+                :attr:`Meta` model passes an instance of that model here.
+            user: Free-form metadata. Copied on input so the caller's dict
+                cannot be mutated later. Must be JSON-serialisable.
+            storage_ref: Where the object's data is persisted, if it has
+                already been written to storage.
+
+        Raises:
+            TypeError: if *user* is not JSON-serialisable.
+        """
         # ADR-027 D5: framework slot is always populated. ``FrameworkMeta``
         # default factories produce a fresh ``object_id`` and
         # ``created_at`` per instance.
@@ -222,32 +294,39 @@ class DataObject:
     @property
     @stable(since="0.3.1")
     def framework(self) -> FrameworkMeta:
-        """Framework-managed metadata. Immutable from block authors' perspective.
+        """Framework-managed metadata (identity, lineage, provenance).
 
-        See ADR-027 D5 and :class:`scistudio.core.meta.FrameworkMeta`.
+        Treat this as read-only: SciStudio sets and updates it for you.
+
+        Returns:
+            The :class:`~scistudio.core.meta.FrameworkMeta` for this object.
         """
         return self._framework
 
     @property
     @stable(since="0.3.1")
     def meta(self) -> BaseModel | None:
-        """Typed domain metadata (Pydantic ``BaseModel``).
+        """Typed domain metadata (a Pydantic ``BaseModel``), or ``None``.
 
-        ``None`` for plain :class:`DataObject` instances and any subclass
-        that has not declared its own :attr:`DataObject.Meta` ClassVar.
-        Plugin subclasses (e.g. ``FluorImage`` in
-        ``scistudio-blocks-imaging``) override the ``Meta`` ClassVar and
-        pass an instance of that model via the constructor.
+        ``None`` for a plain :class:`DataObject` and for any subclass that
+        has not declared its own :attr:`Meta` model. A subclass that does
+        declare one returns an instance of that model here.
+
+        Returns:
+            The typed metadata model, or ``None``.
         """
         return self._meta
 
     @property
     @stable(since="0.3.1")
     def user(self) -> dict[str, Any]:
-        """Free-form user metadata dict.
+        """Free-form user metadata.
 
-        The framework does not interpret these values. Must be
-        JSON-serialisable per ADR-017.
+        SciStudio never interprets these values; attach whatever you like.
+        Must stay JSON-serialisable because it is sent between processes.
+
+        Returns:
+            The user metadata dict.
         """
         return self._user
 
@@ -255,31 +334,29 @@ class DataObject:
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new instance with the ``meta`` slot's fields updated.
+        """Return a copy with some of the typed ``meta`` fields changed.
 
-        Implements the immutable-update half of ADR-027 D5. The new
-        instance has:
+        Data objects are treated as immutable, so instead of editing
+        :attr:`meta` in place you make an updated copy. The copy gets a
+        freshly derived :attr:`framework` whose lineage points back to this
+        object, the requested ``meta`` field changes, and the same
+        :attr:`user` data and storage reference.
 
-        - a freshly-derived :class:`FrameworkMeta` whose ``derived_from``
-          is set to this instance's ``object_id`` (so lineage is
-          traceable across the immutable copy);
-        - a new ``meta`` produced by ``with_meta_changes(self.meta, **changes)``;
-        - the same ``user`` dict (shallow-copied) and ``storage_ref``.
+        Subclasses that take extra constructor arguments (for example
+        :class:`Array`, which needs ``axes``) override this method so those
+        extra fields carry over too; the base version only copies the shared
+        slots.
 
-        Other slots that subclasses may carry (e.g. ``axes`` / ``shape`` /
-        ``dtype`` on :class:`Array`, ``slots`` on
-        :class:`CompositeData`) are NOT propagated by this base
-        implementation because the base ``__init__`` does not know about
-        them. **Subclasses with extra ``__init__`` parameters must
-        override ``with_meta()`` to pass those through.** T-006 will
-        provide the ``Array`` override; T-007 will audit the other base
-        classes.
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new instance of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). The base ``DataObject`` class has no Meta;
-                only plugin subclasses that override the :attr:`Meta`
-                ClassVar can use ``with_meta``.
+            ValueError: if this object has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -319,13 +396,23 @@ class DataObject:
     @property
     @stable(since="0.3.1")
     def dtype_info(self) -> TypeSignature:
-        """Return the :class:`TypeSignature` describing this object's type."""
+        """The :class:`TypeSignature` describing this object's type.
+
+        Returns:
+            A :class:`TypeSignature` derived from this object's class, used
+            for port-compatibility checks.
+        """
         return TypeSignature.from_type(type(self))
 
     @property
     @stable(since="0.3.1")
     def storage_ref(self) -> StorageReference | None:
-        """Return the :class:`StorageReference` if the object is persisted."""
+        """Where this object's data is persisted, or ``None``.
+
+        Returns:
+            The :class:`StorageReference` if the object has been written to
+            storage, otherwise ``None``.
+        """
         return self._storage_ref
 
     @storage_ref.setter
@@ -376,13 +463,19 @@ class DataObject:
 
     @stable(since="0.3.1")
     def to_memory(self) -> Any:
-        """Materialise the full data from storage into memory.
+        """Load the full data from storage into memory and return it.
 
-        ADR-031 D1: routes through ``storage_ref`` -> backend. Emits a
-        :class:`ResourceWarning` when the estimated size exceeds 2 GB.
+        Reads through this object's :attr:`storage_ref` using the matching
+        storage backend. Emits a :class:`ResourceWarning` when the data is
+        estimated to exceed 2 GB, since loading it all at once may exhaust
+        memory — prefer :meth:`slice` or :meth:`iter_chunks` for large data.
+
+        Returns:
+            The data in its in-memory form (for example a NumPy array or a
+            ``pyarrow.Table``, depending on the type).
 
         Raises:
-            ValueError: if ``storage_ref`` is not set.
+            ValueError: if no storage reference is set.
         """
         if self._storage_ref is None:
             raise ValueError("Cannot load data: no storage reference set.")
@@ -406,13 +499,20 @@ class DataObject:
 
     @stable(since="0.3.1")
     def slice(self, *args: Any) -> Any:
-        """Return a sub-selection of the data without full materialisation.
+        """Read a sub-selection of the data without loading all of it.
 
-        ADR-031 D2: moved from ViewProxy. Delegates to the backend's
-        ``slice()`` method.
+        Passes the index arguments straight to the storage backend so only
+        the requested region is read from disk.
+
+        Args:
+            *args: Index arguments (integers and ``slice`` objects) the
+                backend applies, in axis order.
+
+        Returns:
+            The selected sub-region in its in-memory form.
 
         Raises:
-            ValueError: if ``storage_ref`` is not set.
+            ValueError: if no storage reference is set.
         """
         if self._storage_ref is None:
             raise ValueError("Cannot slice: no storage reference set.")
@@ -420,13 +520,19 @@ class DataObject:
 
     @stable(since="0.3.1")
     def iter_chunks(self, chunk_size: int) -> Iterator[Any]:
-        """Yield successive chunks of the data from storage.
+        """Yield the data in successive chunks, keeping memory bounded.
 
-        ADR-031 D2: moved from ViewProxy. Delegates to the backend's
-        ``iter_chunks()`` method.
+        Useful for streaming through data that is too large to hold in memory
+        all at once.
+
+        Args:
+            chunk_size: Number of elements (along the leading axis) per chunk.
+
+        Yields:
+            Each chunk in its in-memory form, in order.
 
         Raises:
-            ValueError: if ``storage_ref`` is not set.
+            ValueError: if no storage reference is set.
         """
         if self._storage_ref is None:
             raise ValueError("Cannot iterate chunks: no storage reference set.")
@@ -454,10 +560,18 @@ class DataObject:
 
     @provisional(since="0.3.1")
     def save(self, path: str | Path) -> StorageReference:
-        """Persist the data object to *path* using the appropriate backend.
+        """Persist this object's data to *path* and remember where it went.
 
-        Returns the :class:`StorageReference` pointing to the persisted data.
-        Also sets ``self._storage_ref`` so subsequent calls are no-ops.
+        Chooses the storage backend that matches this object's type, writes
+        the in-memory data, and records the resulting location on
+        :attr:`storage_ref`. If the object is already persisted, returns the
+        existing reference without rewriting.
+
+        Args:
+            path: Destination path for the persisted data.
+
+        Returns:
+            A :class:`StorageReference` pointing to the written data.
         """
         if self._storage_ref is not None:
             return self._storage_ref
@@ -477,66 +591,55 @@ class DataObject:
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return base-class-specific kwargs for worker reconstruction.
+        """Return the extra constructor arguments needed to rebuild an object.
 
-        Author extension point (ADR-052 §3.1, ADR-027 Addendum 1 §2).
-        Called by :func:`scistudio.core.types.serialization._reconstruct_one`
-        to extract the keyword arguments that ``cls.__init__`` needs
-        **beyond** the four standard :class:`DataObject` slots
-        (``storage_ref``, ``framework``, ``meta``, ``user``).
+        Extension point for subclass authors. When a data object is sent to a
+        worker subprocess it is taken apart into plain metadata and later
+        rebuilt; this hook supplies any constructor arguments **beyond** the
+        four shared slots (``storage_ref``, ``framework``, ``meta``,
+        ``user``).
 
-        Base-class default: no extra kwargs. Plain ``DataObject``
-        instances round-trip through the four standard slots alone.
-
-        Each concrete base class (``Array``, ``Series``, ``DataFrame``,
-        ``Text``, ``Artifact``) overrides this hook to extract its
-        constructor-required fields from the wire-format metadata
-        sidecar (``CompositeData`` is the exception — its slots recurse
-        through the serializer). This hook and
-        :meth:`serialise_extra_metadata` are a **symmetric pair**:
-        override both or neither, with the ``super()``-chain-then-extend
-        pattern (call ``super().reconstruct_extra_kwargs(metadata)`` and
-        extend the returned dict). ``reconstruct_*`` must invert exactly
-        the conversions ``serialise_*`` applied. See ADR-027 Addendum 1
-        §2 ("D11' companion") for the full contract.
+        The plain base class needs no extras and returns an empty dict.
+        Concrete subclasses (:class:`Array`, :class:`Series`,
+        :class:`DataFrame`, :class:`Text`, :class:`Artifact`) override this to
+        read their own fields back out of *metadata*.
+        (:class:`CompositeData` is the exception — its slots are nested data
+        objects rebuilt by the serializer itself.) This hook and
+        :meth:`serialise_extra_metadata` are a matched pair: override both or
+        neither, and have each exactly undo the other. When overriding, call
+        ``super().reconstruct_extra_kwargs(metadata)`` first and extend the
+        result.
 
         Args:
-            metadata: The ``metadata`` dict from the wire-format payload
-                item (produced by :meth:`serialise_extra_metadata`).
+            metadata: The metadata dict produced by
+                :meth:`serialise_extra_metadata`.
 
         Returns:
-            A dict of kwargs to splat into ``cls(**kwargs)``.
+            Keyword arguments to splat into ``cls(**kwargs)``.
         """
         return {}
 
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return base-class-specific fields for the metadata sidecar.
+        """Return the subclass-specific fields to store alongside an object.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs` and the
-        other half of the ADR-052 §3.1 author extension point. Called by
-        :func:`scistudio.core.types.serialization._serialise_one` to
-        compute the fields that need to live in the wire-format metadata
-        sidecar **beyond** the four standard slots that
-        :func:`_serialise_one` always writes (``type_chain``,
-        ``framework``, ``meta``, ``user``).
+        The matching counterpart of :meth:`reconstruct_extra_kwargs` and the
+        other half of the subclass extension point. When a data object is
+        prepared for transport to a worker subprocess, this hook returns the
+        fields that must be saved **beyond** the four shared slots
+        (``type_chain``, ``framework``, ``meta``, ``user``).
 
-        Base-class default: no extras. Plain ``DataObject`` instances
-        serialise through the four standard slots alone.
-
-        Each concrete base class overrides this hook to emit its
-        constructor-specific fields in a JSON-serialisable form
-        (tuples become lists, :class:`pathlib.Path` becomes :class:`str`,
-        dtype becomes a canonical string). Override both this hook and
-        :meth:`reconstruct_extra_kwargs` or neither. See ADR-027
-        Addendum 1 §2 for the full contract.
+        The plain base class has no extras and returns an empty dict.
+        Concrete subclasses override this to emit their own fields in a
+        JSON-friendly form (tuples become lists, a :class:`pathlib.Path`
+        becomes a string, a dtype becomes its canonical name). Override this
+        and :meth:`reconstruct_extra_kwargs` together or not at all.
 
         Args:
-            obj: The :class:`DataObject` instance to serialise.
+            obj: The data object being serialised.
 
         Returns:
-            A JSON-serialisable dict that will be merged into the
-            wire-format metadata sidecar by :func:`_serialise_one`.
+            A JSON-serialisable dict merged into the saved metadata.
         """
         return {}

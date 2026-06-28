@@ -1,8 +1,10 @@
-"""Collection — homogeneous ordered container of DataObjects for block-to-block transport.
+"""Ordered batches of one data type (:class:`Collection`).
 
-ADR-020: Collection is NOT a DataObject subclass — it is a transport wrapper only.
-Type identity determined by item_type (for port matching).
-Engine never unpacks, iterates, or inspects Collection contents.
+A :class:`Collection` is how a block hands a *set* of data objects to the
+next block — for example every field of view in a plate, each as an
+:class:`Array`. Every item must be the same kind of object, which is what
+lets ports check that the receiving block can handle the batch. SciStudio
+itself never unpacks or inspects a Collection's contents.
 """
 
 from __future__ import annotations
@@ -15,21 +17,46 @@ from scistudio.stability import stable
 
 @stable(since="0.3.1")
 class Collection:
-    """Homogeneous ordered collection of DataObjects for inter-block transport.
+    """An ordered batch of :class:`DataObject` items, all of one type.
 
-    Invariants:
-        - All items must be instances of the same base DataObject subclass.
-        - ``item_type`` is set at construction and cannot change.
-        - ``length=0`` is valid only when ``item_type`` is provided explicitly.
+    Blocks use a :class:`Collection` to pass many items at once — a stack of
+    images, a set of spectra — while keeping the batch type-checkable at the
+    boundary between blocks. SciStudio itself never looks inside a
+    Collection; it only checks the item type for port matching.
 
-    ADR-020 Addendum 6: Empty Collection without explicit ``item_type`` raises
-    ``TypeError`` to prevent bypassing port type checks.
+    Rules it enforces:
+
+    - every item must be an instance of the same :class:`DataObject`
+      subclass;
+    - the item type is fixed once the Collection is created;
+    - an empty Collection is allowed only if you state ``item_type``
+      explicitly, so an empty batch still has a checkable type.
+
+    Example:
+        >>> from scistudio.core.types import Array, Collection
+        >>> imgs = [Array(axes=["y", "x"]), Array(axes=["y", "x"])]
+        >>> batch = Collection(imgs)
+        >>> batch.item_type.__name__
+        'Array'
+        >>> len(batch)
+        2
     """
 
     __slots__ = ("_item_type", "_items")
 
     @stable(since="0.3.1")
     def __init__(self, items: list[DataObject] | None = None, item_type: type | None = None) -> None:
+        """Create a Collection from a list of same-typed items.
+
+        Args:
+            items: The items to hold, in order. Defaults to empty.
+            item_type: The element type. Inferred from the first item when
+                items are given; required when *items* is empty.
+
+        Raises:
+            TypeError: if the Collection is empty and *item_type* is not
+                given, or if the items are not all the same type.
+        """
         items = items if items is not None else []
 
         # ADR-020-Add6: empty Collection must specify item_type explicitly.
@@ -55,31 +82,43 @@ class Collection:
     @property
     @stable(since="0.3.1")
     def item_type(self) -> type:
-        """Return the element type of this Collection (immutable)."""
+        """The element type shared by every item (fixed at creation).
+
+        Returns:
+            The :class:`DataObject` subclass of the items.
+        """
         return self._item_type
 
     @property
     @stable(since="0.3.1")
     def length(self) -> int:
-        """Return the number of items in this Collection."""
+        """The number of items in the Collection.
+
+        Returns:
+            The item count.
+        """
         return len(self._items)
 
     @stable(since="0.3.1")
     def __iter__(self) -> Any:
-        """Iterate over the contained :class:`DataObject` items in order."""
+        """Return an iterator over the items, in order."""
         return iter(self._items)
 
     @stable(since="0.3.1")
     def __len__(self) -> int:
-        """Return the number of items in this Collection."""
+        """Return the number of items (same as :attr:`length`)."""
         return len(self._items)
 
     @stable(since="0.3.1")
     def __getitem__(self, index: int | slice) -> Any:
         """Index or slice the Collection.
 
-        An ``int`` returns the single :class:`DataObject` at that
-        position; a ``slice`` returns a ``list`` of items.
+        Args:
+            index: A position (``int``) or a range (``slice``).
+
+        Returns:
+            The single :class:`DataObject` at that position for an ``int``,
+            or a ``list`` of items for a ``slice``.
         """
         if isinstance(index, slice):
             return [self._items[i] for i in range(*index.indices(len(self._items)))]
@@ -87,7 +126,11 @@ class Collection:
 
     @stable(since="0.3.1")
     def __class_getitem__(cls, item_type: type) -> Any:
-        """Enable ``Collection[Image]`` syntax for type annotations."""
+        """Support ``Collection[Array]`` syntax in type annotations.
+
+        Returns the class unchanged; the bracketed type is only a hint for
+        readers and type checkers, not a distinct runtime type.
+        """
         return cls
 
     @stable(since="0.3.1")
@@ -98,5 +141,10 @@ class Collection:
     @property
     @stable(since="0.3.1")
     def storage_refs(self) -> list[Any]:
-        """Return the per-item :class:`StorageReference` list."""
+        """The storage reference of each item, in order.
+
+        Returns:
+            A list of each item's :class:`StorageReference` (an entry is
+            ``None`` for any item not yet persisted).
+        """
         return [item.storage_ref for item in self._items]

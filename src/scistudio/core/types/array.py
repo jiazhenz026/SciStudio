@@ -1,13 +1,15 @@
-"""Array — N-dimensional array DataObject with named axes.
+"""N-dimensional arrays with named axes (:class:`Array`).
 
-Implements ADR-027 D1 (instance-level axes with class-level schema) and
-ADR-027 D4 (``sel`` / ``iter_over`` with Level 1 laziness).
+This is the data type for image stacks, volumes, and any other gridded
+numeric data. Each axis carries a name (such as ``"y"``, ``"x"``, or ``"c"``
+for channel), so selections read clearly — ``img.sel(c=0)`` instead of
+guessing positions. Large arrays are stored on disk (Zarr) and read lazily,
+so working with one does not pull the whole thing into memory.
 
-ADR-027 D2: this module is core-only. The four legacy domain subclasses
-(``Image``, ``MSImage``, ``SRSImage``, ``FluorImage``) have been removed
-as of T-006 and now live in the ``scistudio-blocks-imaging`` plugin
-package. Code that previously imported them should either switch to
-``Array(axes=[...])`` directly or depend on the imaging plugin.
+Domain-specific image kinds (fluorescence, mass-spec imaging, and so on)
+live in the imaging plugin packages and subclass :class:`Array`. For data
+that needs no specialised container, use :class:`Array` directly, e.g.
+``Array(axes=["y", "x"])``.
 """
 
 from __future__ import annotations
@@ -22,50 +24,50 @@ from scistudio.stability import internal, provisional, stable
 
 @stable(since="0.3.1")
 class Array(DataObject):
-    """N-dimensional array, optionally chunked and backed by Zarr.
+    """N-dimensional array with named axes, optionally chunked on disk.
 
-    ADR-027 D1: ``axes`` is an instance-level attribute passed via the
-    constructor. Subclasses declare what axes they accept via three
-    class-level ClassVars that form a small schema:
+    Use this for any gridded numeric data — a 2D image, a 3D volume, a
+    time-lapse, a multi-channel stack. Naming the axes makes selections
+    self-documenting: ``stack.sel(z=10, c=0)`` reads one z-plane of one
+    channel without you tracking which position each axis is in.
 
-    - ``required_axes``: minimum set of axis names any instance must
-      carry. Subclasses tighten this to enforce "must have ``y, x``" or
-      "must have ``c``".
-    - ``allowed_axes``: superset of axis names the class accepts.
-      ``None`` means "no restriction"; a frozenset means "instance axes
-      must be a subset of this set".
-    - ``canonical_order``: preferred ordering of axes used by reorder
-      operations and pretty-printing.
+    A subclass can restrict which axes it accepts through three class
+    attributes that act as a schema: :attr:`required_axes`,
+    :attr:`allowed_axes`, and :attr:`canonical_order`. Plain :class:`Array`
+    leaves all three permissive, so it accepts any axes you give it.
 
-    The 6D axis alphabet for scientific imaging is::
+    The axis names used for scientific imaging are ``t`` (time), ``z``
+    (depth), ``c`` (discrete channel), ``lambda`` (continuous spectral), and
+    ``y`` / ``x`` (the two spatial axes). ``c`` and ``lambda`` are different
+    axes and may both appear on one array.
 
-        {"t", "z", "c", "lambda", "y", "x"}
-
-    where ``t`` is time, ``z`` is depth, ``c`` is discrete channel,
-    ``lambda`` is continuous spectral, ``y`` and ``x`` are the spatial
-    axes. ``c`` (discrete channel) and ``lambda`` (continuous spectral)
-    are distinct axes and may coexist in a single instance (ADR-027
-    discussion #3).
-
-    Plugin subclasses (e.g. ``FluorImage`` in ``scistudio-blocks-imaging``)
-    tighten the schema::
-
-        class FluorImage(Image):
-            required_axes = frozenset({"y", "x", "c"})
-
-    Attributes:
-        axes: Per-instance axis labels, e.g. ``["t", "z", "c", "y", "x"]``.
-        shape: Shape of the array (may be ``None`` for metadata-only).
-        dtype: Element data type.
-        chunk_shape: Chunk dimensions for lazy/chunked storage.
+    Example:
+        >>> from scistudio.core.types import Array
+        >>> stack = Array(axes=["z", "y", "x"], shape=(20, 512, 512))
+        >>> stack.ndim
+        3
+        >>> stack.axes
+        ['z', 'y', 'x']
     """
 
-    # Class-level schema (subclasses override). Defaults are maximally
-    # permissive: no required axes, no allowed restriction, no canonical
-    # order. Plugin subclasses (Image / FluorImage / ...) override.
     required_axes: ClassVar[frozenset[str]] = frozenset()
+    """Axis names every instance of this class must carry.
+
+    Empty on plain :class:`Array` (no requirement). A subclass tightens it to
+    demand, say, ``{"y", "x"}``; constructing an instance without those axes
+    then raises :class:`ValueError`.
+    """
     allowed_axes: ClassVar[frozenset[str] | None] = None
+    """The set of axis names this class permits, or ``None`` for no limit.
+
+    ``None`` means any axis name is allowed. A frozenset means an instance's
+    axes must all be drawn from it.
+    """
     canonical_order: ClassVar[tuple[str, ...]] = ()
+    """Preferred axis ordering, used when reordering or displaying axes.
+
+    Empty on plain :class:`Array` (no preferred order).
+    """
 
     @stable(since="0.3.1")
     def __init__(
@@ -78,27 +80,34 @@ class Array(DataObject):
         data: Any = None,
         **kwargs: Any,
     ) -> None:
-        """Construct an Array with explicit axes and shape.
-
-        ``axes`` is required per ADR-027 D1. The other :class:`DataObject`
-        slots (``framework``, ``meta``, ``user``, ``storage_ref``) are
-        passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`.
+        """Construct an array with explicit named axes.
 
         Args:
-            data: Optional in-memory array data (e.g. numpy ndarray).
-                Stored in ``_transient_data``; never serialised.
-                ADR-031 Addendum 2.
+            axes: Required list of axis names, one per dimension, e.g.
+                ``["z", "y", "x"]``.
+            shape: Size along each axis, or ``None`` for a metadata-only
+                placeholder.
+            dtype: Element data type (for example a NumPy dtype).
+            chunk_shape: Chunk sizes for chunked/lazy storage, or ``None``.
+            data: Optional in-memory array (for example a NumPy ndarray).
+                Held only until the framework writes it to storage; never
+                serialised directly.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``).
 
         Raises:
-            ValueError: if ``axes`` fails :meth:`_validate_axes` (missing
-                required / disallowed / duplicate).
+            ValueError: if *axes* contain duplicates, omit a required axis,
+                or include an axis the class does not allow.
         """
         super().__init__(**kwargs)
         self.axes: list[str] = list(axes)
+        """The per-instance axis names, one per dimension."""
         self.shape: tuple[int, ...] | None = tuple(shape) if shape is not None else None
+        """Size along each axis, or ``None`` when unknown (metadata-only)."""
         self.dtype: Any = dtype
+        """Element data type, or ``None`` when unknown."""
         self.chunk_shape: tuple[int, ...] | None = tuple(chunk_shape) if chunk_shape is not None else None
+        """Chunk sizes for chunked/lazy storage, or ``None``."""
         if data is not None:
             self._transient_data = data
         self._validate_axes()
@@ -124,14 +133,26 @@ class Array(DataObject):
     @property
     @stable(since="0.3.1")
     def ndim(self) -> int:
-        """Return the number of dimensions (length of ``axes``)."""
+        """Number of dimensions (the length of :attr:`axes`).
+
+        Returns:
+            The count of axes.
+        """
         return len(self.axes)
 
     @stable(since="0.3.1")
     def __array__(self, dtype: Any = None, copy: Any = None) -> Any:
-        """Support ``np.asarray(array_obj)`` via the NumPy array protocol.
+        """Support ``numpy.asarray(array_obj)`` via the NumPy array protocol.
 
-        Materialises the full data from storage via :meth:`to_memory`.
+        Lets an :class:`Array` be passed anywhere NumPy expects an
+        array-like; it materialises the full data with :meth:`to_memory`.
+
+        Args:
+            dtype: Optional dtype to cast the result to.
+            copy: If truthy, return a copy rather than a view.
+
+        Returns:
+            A :class:`numpy.ndarray` of the data.
         """
         import numpy as np
 
@@ -147,41 +168,42 @@ class Array(DataObject):
 
     @stable(since="0.3.1")
     def sel(self, **kwargs: int | slice) -> Array:
-        """Select a sub-array along named axes (ADR-027 D4).
+        """Select a sub-array by naming positions along one or more axes.
 
-        Examples::
+        Pass each axis you want to narrow as a keyword:
 
-            img.sel(z=15, c=0)        # single z, single channel
-            img.sel(z=slice(10, 20))  # z range
+        - an integer picks one position and **drops** that axis from the
+          result (``sel(z=15)`` turns a ``z, y, x`` array into ``y, x``);
+        - a ``slice`` keeps a range and **keeps** the axis
+          (``sel(z=slice(10, 20))`` keeps ``z, y, x``).
 
-        Integer indices REMOVE the corresponding axis from the result.
-        Slice objects KEEP the axis. Lists of indices and boolean masks
-        are NOT supported in Phase 10.
+        Lists of indices and boolean masks are not supported.
 
-        The result is always a plain :class:`Array` instance (not
-        ``type(self)``). This deliberate choice sidesteps the problem
-        that a reduced slice may no longer satisfy the source class's
-        ``required_axes`` invariant (e.g. a ``FluorImage`` requiring
-        ``{y, x, c}`` and a call to ``sel(c=0)`` produces axes
-        ``[y, x]``). The returned :class:`Array` has
-        ``required_axes = frozenset()``, so any axis subset is valid.
+        The result is always a plain :class:`Array` (not the original
+        subclass), because a reduced selection may no longer satisfy a
+        subclass's required axes — for example selecting one channel from an
+        array that requires a channel axis. The new array carries derived
+        lineage, shares the typed ``meta`` by reference, and copies the
+        ``user`` dict.
 
-        Metadata inheritance follows ADR-027 D5:
+        When the data is stored as Zarr, only the requested region is read
+        from disk; other backends read the full array and then index it.
 
-        - ``framework``: derived (lineage hint ``derived_from = self.object_id``).
-        - ``meta``: shared by reference (immutable Pydantic model).
-        - ``user``: shallow copy.
-        - ``axes``: reduced per the selection.
+        Args:
+            **kwargs: Axis name to selection, where each value is an ``int``
+                (drops the axis) or a ``slice`` (keeps it).
 
-        ADR-031 Phase 3 (Task 17): when the backing storage is zarr,
-        ``sel()`` delegates to ``ZarrBackend.slice()`` for partial reads
-        instead of materialising the full array. For non-zarr backends,
-        falls back to ``to_memory()`` + numpy indexing.
+        Returns:
+            A new :class:`Array` for the selected region.
 
         Raises:
-            ValueError: if any kwarg key is not in ``self.axes``, if any
-                kwarg value is not ``int`` or ``slice``, or if the
-                instance has no ``storage_ref``.
+            ValueError: if a keyword names an axis the array does not have, a
+                value is not an ``int`` or ``slice``, or the array has no
+                backing storage to read from.
+
+        Example:
+            >>> plane = stack.sel(z=10, c=0)    # one z-plane, one channel
+            >>> band = stack.sel(z=slice(0, 5))  # the first five z-planes
         """
         # Validate kwargs refer to existing axes before doing anything.
         unknown = set(kwargs.keys()) - set(self.axes)
@@ -333,20 +355,23 @@ class Array(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new Array with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        Array-specific constructor arguments (``axes``, ``shape``,
-        ``dtype``, ``chunk_shape``). The base implementation only
-        propagates the four standard DataObject slots (``framework``,
-        ``meta``, ``user``, ``storage_ref``); without this override the
-        call would raise ``TypeError`` because ``Array.__init__``
-        requires ``axes``.
+        Like :meth:`DataObject.with_meta`, but also carries the
+        array-specific fields (:attr:`axes`, :attr:`shape`, :attr:`dtype`,
+        :attr:`chunk_shape`) onto the copy, which the base version cannot do
+        because it does not know about them.
+
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new array of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only Array subclasses that declare a
-                ``Meta`` ClassVar can use :meth:`with_meta`.
+            ValueError: if this array has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -376,13 +401,18 @@ class Array(DataObject):
 
     @stable(since="0.3.1")
     def to_memory(self) -> Any:
-        """Materialise the full data into an in-memory representation.
+        """Load the full array into memory and return it.
 
-        ADR-031 D3 transition: if ``storage_ref`` is set, delegates to
-        the base class (storage backend read). If ``_data`` was set
-        transiently by a loader before ``_auto_flush`` persists it,
-        returns that data directly. This backward-compat path will be
-        removed once all loaders write to storage directly.
+        Reads from storage when the array is persisted. If a loader has set
+        in-memory data on this array but it has not been written to storage
+        yet, that data is returned directly.
+
+        Returns:
+            The array data in its in-memory form (typically a NumPy array).
+
+        Raises:
+            ValueError: if there is neither a storage reference nor in-memory
+                data to return.
         """
         if self._storage_ref is not None:
             return super().to_memory()
@@ -397,16 +427,14 @@ class Array(DataObject):
     def to_numpy(self) -> Any:
         """Return the array data as a NumPy ``ndarray``.
 
-        Ergonomic accessor (ADR-052 §10): a read-only, additive alias of
-        the inherited :meth:`to_memory` reader. It wraps the canonical
-        in-memory form in :func:`numpy.asarray` and never replaces
-        ``to_memory``. Packages inherit this accessor and must not
-        redefine it (ADR-052 §4.2). It is deliberately kept out of the
-        core data-flow path (ADR-052 §8) — use it only for inspection /
-        export, not inside a block's compute path.
+        A convenience reader for inspecting or exporting data. It wraps the
+        materialised contents of :meth:`to_memory` in :func:`numpy.asarray`
+        and does not replace ``to_memory``. Use it for a quick look or to
+        hand data to other tools — not inside a block's main compute path,
+        which should stay storage-aware.
 
         Returns:
-            A :class:`numpy.ndarray` materialised from storage.
+            A :class:`numpy.ndarray` loaded from storage.
         """
         import numpy as np
 
@@ -417,16 +445,19 @@ class Array(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``Array``-specific kwargs for worker reconstruction.
+        """Rebuild an array's constructor arguments from saved metadata.
 
-        Extracts ``axes`` / ``shape`` / ``dtype`` / ``chunk_shape`` from
-        the wire-format metadata sidecar. Shape-like fields are
-        converted back into tuples (they round-trip through JSON as
-        lists). ``shape`` and ``chunk_shape`` may be absent or ``None``
-        for metadata-only instances.
+        Reads ``axes`` / ``shape`` / ``dtype`` / ``chunk_shape`` back out of
+        the metadata produced by :meth:`serialise_extra_metadata`. Shape
+        fields, which travel through JSON as lists, are turned back into
+        tuples; ``shape`` and ``chunk_shape`` may be absent or ``None`` for a
+        metadata-only array.
 
-        See ADR-027 Addendum 1 §2 ("D11' companion") for the full
-        contract.
+        Args:
+            metadata: The saved metadata dict for one array.
+
+        Returns:
+            Keyword arguments to pass to ``cls(**kwargs)``.
         """
         shape_raw = metadata.get("shape")
         chunk_shape_raw = metadata.get("chunk_shape")
@@ -440,20 +471,19 @@ class Array(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``Array``-specific fields for the metadata sidecar.
+        """Return an array's own fields for the saved metadata.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
-        Tuples are converted to lists so the payload is JSON-clean;
-        ``dtype`` is stringified because numpy dtypes are not natively
-        JSON-serialisable.
+        The counterpart of :meth:`reconstruct_extra_kwargs`. Tuples become
+        lists and the dtype becomes its canonical short name (for example
+        ``"uint8"``) so the result is plain JSON.
 
-        The parameter is typed as :class:`DataObject` (not :class:`Array`)
-        to respect the Liskov substitution principle with the base
-        classmethod. The worker calls
-        ``type(obj).serialise_extra_metadata(obj)`` polymorphically, so
-        the override must accept any ``DataObject`` the worker hands in;
-        at runtime the caller will only ever pass an instance of
-        ``cls`` (or a subclass).
+        Args:
+            obj: The array to serialise. Typed as :class:`DataObject` so it
+                matches the base method's signature; the caller always passes
+                an :class:`Array`.
+
+        Returns:
+            A JSON-serialisable dict of the array's fields.
         """
         assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
         # ``obj.dtype`` may be a numpy dtype, a python type (``bool``,

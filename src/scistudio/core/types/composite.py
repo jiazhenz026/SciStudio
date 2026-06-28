@@ -1,11 +1,10 @@
-"""CompositeData — named collection of heterogeneous DataObject slots.
+"""Named bundles of several data objects (:class:`CompositeData`).
 
-ADR-027 D2: this module is core-only. The legacy domain subclasses
-(``AnnData``, ``SpatialData``) have been removed as of T-007 and now
-belong in dedicated plugin packages (``scistudio-blocks-singlecell``,
-``scistudio-blocks-spatial-omics``). Code that previously imported them
-should either define a local subclass with the appropriate
-``expected_slots`` or depend on the respective plugin.
+Use :class:`CompositeData` when one logical result is really several data
+objects that belong together — for example a table of measurements plus the
+image they came from, kept in named slots. Domain-specific bundles
+(single-cell and spatial-omics containers) live in their own plugin packages
+and subclass this with a fixed slot layout.
 """
 
 from __future__ import annotations
@@ -18,16 +17,30 @@ from scistudio.stability import internal, stable
 
 @stable(since="0.3.1")
 class CompositeData(DataObject):
-    """A named collection of heterogeneous :class:`DataObject` slots.
+    """A bundle of named :class:`DataObject` slots.
 
-    Subclasses declare :attr:`expected_slots` as a class variable mapping
-    slot names to their expected types.
+    Holds several data objects together under string keys — think "the image
+    goes in the ``image`` slot, the measurements in the ``table`` slot". A
+    subclass can fix which slots exist and what type each must be by setting
+    :attr:`expected_slots`; a plain :class:`CompositeData` accepts any slots.
 
-    Attributes:
-        expected_slots: Class-level mapping of slot name to expected type.
+    Example:
+        >>> from scistudio.core.types import CompositeData, Text
+        >>> bundle = CompositeData()
+        >>> bundle.set("notes", Text(content="ok"))
+        >>> bundle.slot_names
+        ['notes']
+        >>> bundle.get("notes").content
+        'ok'
     """
 
     expected_slots: ClassVar[dict[str, type]] = {}
+    """Required slot layout for a subclass: slot name to expected type.
+
+    Empty on plain :class:`CompositeData` (any slot is accepted). When a
+    subclass fills this in, :meth:`set` rejects a value whose type does not
+    match the entry for that slot.
+    """
 
     @stable(since="0.3.1")
     def __init__(
@@ -36,14 +49,19 @@ class CompositeData(DataObject):
         slots: dict[str, DataObject] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Construct a CompositeData with optional initial slot mapping.
+        """Construct a bundle, optionally pre-filled with slots.
 
-        Standard :class:`DataObject` slots (``framework``, ``meta``,
-        ``user``, ``storage_ref``) are passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`. Note that the :class:`CompositeData`
-        ``slots`` attribute is distinct from the DataObject metadata
-        slots — it holds child :class:`DataObject` instances keyed by
-        slot name.
+        Args:
+            slots: Optional initial mapping of slot name to
+                :class:`DataObject`. Each entry is validated the same way
+                :meth:`set` validates it.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``). These metadata slots
+                are separate from the named data slots this class holds.
+
+        Raises:
+            TypeError: if an initial slot value does not match the type
+                declared for it in :attr:`expected_slots`.
         """
         super().__init__(**kwargs)
         self._slots: dict[str, DataObject] = {}
@@ -53,14 +71,35 @@ class CompositeData(DataObject):
 
     @stable(since="0.3.1")
     def get(self, slot_name: str) -> DataObject:
-        """Retrieve the :class:`DataObject` stored in *slot_name*."""
+        """Return the data object stored under *slot_name*.
+
+        Args:
+            slot_name: The slot to read.
+
+        Returns:
+            The :class:`DataObject` in that slot.
+
+        Raises:
+            KeyError: if the slot has not been populated.
+        """
         if slot_name not in self._slots:
             raise KeyError(f"Slot '{slot_name}' is not populated.")
         return self._slots[slot_name]
 
     @stable(since="0.3.1")
     def set(self, slot_name: str, data: DataObject) -> None:
-        """Store *data* in *slot_name*, validating against expected_slots if defined."""
+        """Store *data* under *slot_name*.
+
+        If the class declares an expected type for that slot (via
+        :attr:`expected_slots`), *data* must be an instance of it.
+
+        Args:
+            slot_name: The slot to write.
+            data: The data object to store.
+
+        Raises:
+            TypeError: if *data* does not match the slot's expected type.
+        """
         expected = self.slot_types()
         if expected and slot_name in expected:
             expected_type = expected[slot_name]
@@ -70,13 +109,21 @@ class CompositeData(DataObject):
 
     @stable(since="0.3.1")
     def slot_types(self) -> dict[str, type]:
-        """Return the expected slot-type mapping declared on this class."""
+        """Return this class's expected slot-type mapping.
+
+        Returns:
+            A copy of :attr:`expected_slots` (slot name to expected type).
+        """
         return dict(self.expected_slots)
 
     @property
     @stable(since="0.3.1")
     def slot_names(self) -> list[str]:
-        """Return the names of all currently populated slots."""
+        """The names of the currently populated slots.
+
+        Returns:
+            A list of slot names that have a value set.
+        """
         return list(self._slots.keys())
 
     @internal()
@@ -103,25 +150,23 @@ class CompositeData(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new CompositeData with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        CompositeData-specific constructor argument (the ``slots``
-        mapping). Slots themselves are shared by reference on the new
-        instance — composite slot sharing is intentional because the
-        child :class:`DataObject` instances are independently immutable
-        via their own ``with_meta`` methods; T-013 will revisit deep
-        slot copying during worker-subprocess reconstruction.
+        Like :meth:`DataObject.with_meta`, but also carries the populated
+        slots onto the copy. The slot children are shared by reference, which
+        is safe because each child is independently immutable through its own
+        :meth:`with_meta`.
 
-        The base implementation only propagates the four standard
-        DataObject slots (``framework``, ``meta``, ``user``,
-        ``storage_ref``); without this override the call would drop
-        the populated slot children on the returned instance.
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new bundle of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only CompositeData subclasses that declare a
-                ``Meta`` ClassVar can use :meth:`with_meta`.
+            ValueError: if this bundle has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
