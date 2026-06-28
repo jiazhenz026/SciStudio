@@ -1,10 +1,9 @@
 """EnvironmentSnapshot — captures Python version, key packages, and full freeze.
 
-Per ADR-038 §5.2, the default capture now records a full ``uv pip freeze`` (or
-``pip freeze`` fallback) so historical runs preserve the exact dependency
-versions used at execution time. Block authors do not touch this — it is
-collected by the worker subprocess (``runners/worker.py``) and persisted by the
-engine-side ``LineageRecorder`` into ``runs.environment_snapshot``.
+By default the capture records a full ``uv pip freeze`` (or ``pip freeze``
+fallback) so a historical run preserves the exact dependency versions it used.
+Block authors do not touch this — the worker subprocess collects it and the
+engine persists it alongside the run record.
 """
 
 from __future__ import annotations
@@ -23,20 +22,26 @@ from typing import Any
 class EnvironmentSnapshot:
     """Frozen snapshot of the execution environment at the time a block ran.
 
-    Attributes:
-        python_version: Python interpreter version string.
-        platform: OS / platform identifier.
-        key_packages: Mapping of package name to version for critical dependencies.
-        full_freeze: Optional ``pip freeze`` / ``uv pip freeze`` output (the full
-            dependency set). ADR-038 §5.2 makes this the default.
-        conda_env: Optional conda environment export.
+    Captures enough to reproduce or audit a run's dependency set: the Python
+    version, the platform, the versions of a few key packages, and optionally a
+    full dependency freeze.
+
+    Example:
+        >>> snap = EnvironmentSnapshot.capture(full=False)
+        >>> "scistudio" in snap.key_packages or snap.python_version != ""
+        True
     """
 
     python_version: str
+    """Python interpreter version string."""
     platform: str
+    """Operating-system / platform identifier."""
     key_packages: dict[str, str] = field(default_factory=dict)
+    """Mapping of selected package names to their installed versions."""
     full_freeze: str | None = None
+    """Full ``pip freeze`` / ``uv pip freeze`` output, or ``None`` when not captured."""
     conda_env: str | None = None
+    """Optional conda environment export, or ``None``."""
 
     @classmethod
     def capture(
@@ -50,10 +55,13 @@ class EnvironmentSnapshot:
         Args:
             key_dependencies: Package names whose versions should be recorded
                 in :attr:`key_packages`. Defaults to core SciStudio dependencies.
-            full: When True (ADR-038 §5.2 default), also captures a full
+            full: When ``True`` (the default), also capture a full
                 ``uv pip freeze`` (or ``pip freeze`` fallback) into
                 :attr:`full_freeze`. Set to ``False`` to skip the freeze step
                 for performance-sensitive paths (e.g. tests).
+
+        Returns:
+            A new :class:`EnvironmentSnapshot` describing the active environment.
         """
         if key_dependencies is None:
             key_dependencies = ["scistudio", "numpy", "zarr", "pyarrow", "pydantic"]
@@ -75,7 +83,11 @@ class EnvironmentSnapshot:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to a JSON-compatible dict for subprocess transport."""
+        """Return a JSON-compatible dict of this snapshot for subprocess transport.
+
+        Returns:
+            A dict with the snapshot's fields, ready to serialise to JSON.
+        """
         return {
             "python_version": self.python_version,
             "platform": self.platform,
@@ -86,7 +98,14 @@ class EnvironmentSnapshot:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EnvironmentSnapshot:
-        """Reconstruct from a dict produced by :meth:`to_dict`."""
+        """Reconstruct a snapshot from a dict produced by :meth:`to_dict`.
+
+        Args:
+            data: A dict in the shape returned by :meth:`to_dict`.
+
+        Returns:
+            The reconstructed :class:`EnvironmentSnapshot`.
+        """
         return cls(
             python_version=data["python_version"],
             platform=data["platform"],

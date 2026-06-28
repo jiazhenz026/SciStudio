@@ -8,9 +8,17 @@ from scistudio.core.storage.ref import StorageReference
 
 
 class StorageReferenceInvalidError(RuntimeError):
-    """Raised when a storage reference cannot be resolved by its backend."""
+    """A storage reference could not be resolved by its backend.
+
+    Raised when the data a :class:`StorageReference` points at cannot be read —
+    for example the file is corrupt, unreadable, or in an unexpected format.
+    Use :meth:`to_payload` to turn it into a structured, JSON-compatible error
+    for the API/UI layer. :class:`StorageMissingError` is the more specific
+    subclass for the "data is simply not there" case.
+    """
 
     error_kind = "storage_reference_invalid"
+    """Short machine-readable tag identifying this error category in payloads."""
 
     def __init__(
         self,
@@ -20,10 +28,24 @@ class StorageReferenceInvalidError(RuntimeError):
         operation: str,
         detail: str | None = None,
     ) -> None:
+        """Build the error.
+
+        Args:
+            ref: The storage reference that failed to resolve.
+            reason: Short machine-readable reason (e.g. ``"corrupt_or_unreadable"``).
+            operation: The backend operation underway when it failed (e.g.
+                ``"read"``, ``"slice"``).
+            detail: Optional human-readable detail, often the underlying
+                exception text.
+        """
         self.ref = ref
+        """The storage reference that failed to resolve."""
         self.reason = reason
+        """Short machine-readable reason the reference is invalid."""
         self.operation = operation
+        """Name of the backend operation underway when the failure occurred."""
         self.detail = detail
+        """Optional human-readable detail (often the underlying error text), or ``None``."""
         message = f"Storage reference is invalid during {operation}: {ref.backend}:{ref.path} ({reason})"
         if detail:
             message = f"{message}: {detail}"
@@ -36,7 +58,18 @@ class StorageReferenceInvalidError(RuntimeError):
         port_name: str | None = None,
         upstream_block: str | None = None,
     ) -> dict[str, Any]:
-        """Return a JSON-compatible structured error payload."""
+        """Return a JSON-compatible structured description of this error.
+
+        Args:
+            block_id: Optional id of the block whose port referenced the data.
+            port_name: Optional name of the input/output port involved.
+            upstream_block: Optional id of the block that produced the data.
+
+        Returns:
+            A dict with ``error_kind``, a human-readable ``message``, the
+            ``reason`` / ``operation``, the ``ref`` fields, and whichever
+            optional context fields were supplied. Safe to serialise to JSON.
+        """
         payload: dict[str, Any] = {
             "error_kind": self.error_kind,
             "message": self._contextual_message(block_id=block_id, port_name=port_name),
@@ -71,9 +104,15 @@ class StorageReferenceInvalidError(RuntimeError):
 
 
 class StorageMissingError(StorageReferenceInvalidError):
-    """Raised when referenced backend data is missing."""
+    """The data a storage reference points at is missing.
+
+    A specialisation of :class:`StorageReferenceInvalidError` for the case where
+    the file or object simply does not exist (e.g. it was deleted or never
+    written). The ``reason`` is fixed to ``"missing"``.
+    """
 
     error_kind = "storage_missing"
+    """Short machine-readable tag identifying this error category in payloads."""
 
     def __init__(
         self,
@@ -82,6 +121,15 @@ class StorageMissingError(StorageReferenceInvalidError):
         operation: str,
         detail: str | None = None,
     ) -> None:
+        """Build the error.
+
+        Args:
+            ref: The storage reference whose data is missing.
+            operation: The backend operation underway when the data was found
+                missing (e.g. ``"read"``, ``"slice"``).
+            detail: Optional human-readable detail, often the underlying
+                exception text.
+        """
         super().__init__(
             ref,
             reason="missing",

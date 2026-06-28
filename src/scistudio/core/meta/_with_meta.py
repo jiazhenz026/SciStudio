@@ -1,9 +1,9 @@
-"""with_meta_changes — free-function immutable update helper for Meta models.
+"""Immutable-update helper for metadata models.
 
-Implements part of ADR-027 D5. The ``DataObject.with_meta()`` instance
-method will be added in T-005; this module provides the underlying
-logic so it can be used both from instance methods and from utility
-code without forcing a dependency on ``DataObject``.
+``with_meta_changes`` returns a copy of a Pydantic metadata model with some
+fields replaced, leaving the original untouched. It backs
+``DataObject.with_meta()`` but knows nothing about ``DataObject`` itself, so it
+can be reused by utility code without creating a dependency on the data type.
 """
 
 from __future__ import annotations
@@ -19,29 +19,23 @@ T = TypeVar("T", bound=BaseModel)
 
 @stable(since="0.3.1")
 def with_meta_changes(meta: T, **changes: Any) -> T:
-    """Return a new Pydantic ``Meta`` instance with the given fields updated.
+    """Return a copy of a metadata model with the given fields updated.
 
-    Pure helper used by ``DataObject.with_meta()`` (T-005). Does not
-    know about ``DataObject``; operates on any Pydantic ``BaseModel``
-    instance representing a ``DataObject``'s ``meta`` slot. Living in
-    ``scistudio.core.meta`` keeps the import direction clean: T-005's
-    ``DataObject.with_meta(**changes)`` instance method delegates here
-    rather than the other way around.
+    A pure helper backing ``DataObject.with_meta()``. It works on any Pydantic
+    ``BaseModel`` (typically a ``DataObject``'s ``meta`` slot) and never mutates
+    the input — the original instance is returned unchanged.
 
     Args:
-        meta: A Pydantic ``BaseModel`` instance (typically a subclass
-            ``Meta`` defined on a ``DataObject`` plugin type).
-        **changes: Field assignments to apply.
+        meta: A Pydantic ``BaseModel`` instance, usually a ``Meta`` subclass
+            defined on a ``DataObject`` plugin type.
+        **changes: Field assignments to apply to the copy.
 
     Returns:
-        A new ``BaseModel`` instance of the same class as ``meta``,
-        with the changes applied. The original is unchanged (Pydantic
-        ``model_copy`` always returns a new instance).
+        A new instance of the same class as ``meta`` with ``changes`` applied.
 
     Raises:
-        pydantic.ValidationError: If the changes violate the model's
-            field constraints. Pydantic raises this from ``model_copy``
-            when the resulting instance would be invalid.
+        pydantic.ValidationError: If the changes would violate the model's
+            field constraints.
 
     Example:
         >>> from pydantic import BaseModel

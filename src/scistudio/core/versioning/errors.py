@@ -1,29 +1,36 @@
-"""Error envelope for ``scistudio.core.versioning`` (ADR-039).
+"""Error envelope for ``scistudio.core.versioning``.
 
-Holds the :class:`GitError` exception type shared by
-:mod:`scistudio.core.versioning.git_binary` and
-:mod:`scistudio.core.versioning.git_engine`. Extracting it here breaks the
-former pair-cycle between those modules (#1337 / PR #1344) so neither has
-to use lazy imports to reference the other.
+Holds :class:`GitError`, the exception type shared by the git-binary wrapper and
+the git engine. It lives in its own leaf module so neither of those modules has
+to import the other just to reference the error type. ``GitError`` is also
+re-exported from ``git_engine`` for backward compatibility.
 
-This module MUST NOT import from any other ``scistudio.core.versioning``
-sibling — that constraint is what makes it a safe cycle-breaking shim.
-``GitError`` is still re-exported from ``git_engine`` for backward
-compatibility with the public ADR-039 governs surface.
+This module must not import from any other ``scistudio.core.versioning``
+sibling.
 """
 
 from __future__ import annotations
 
 
 class GitError(RuntimeError):
-    """A git invocation returned non-zero exit.
+    """A git invocation exited with a non-zero status.
 
-    Carries enough information to render a structured 500 / 409 / 422
-    response in the REST layer (see ADR-039 §3.1, §3.5).
+    Carries enough context (exit code, captured stderr, and the git arguments)
+    for the REST layer to render a structured error response.
     """
 
     def __init__(self, returncode: int, stderr: str, args: list[str]) -> None:
+        """Build the error from a failed git invocation.
+
+        Args:
+            returncode: The non-zero exit code git returned.
+            stderr: The captured standard-error text.
+            args: The git arguments that were run (without the leading ``git``).
+        """
         super().__init__(f"git {' '.join(args)} → exit {returncode}: {stderr.strip()}")
         self.returncode = returncode
+        """The non-zero exit code git returned."""
         self.stderr = stderr
+        """The captured standard-error text from the failed invocation."""
         self.git_args = args
+        """The git arguments that were run (without the leading ``git``)."""

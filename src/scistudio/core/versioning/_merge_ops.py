@@ -32,9 +32,19 @@ _DEFAULT_AUTHOR_EMAIL = "noreply@scistudio.local"
 
 
 def _merge(engine: GitEngine, source_branch: str) -> dict[str, Any]:
-    """Merge source into current. Returns ``{result, conflicted_files}``.
+    """Merge a branch into the current branch.
 
-    See ADR-039 §3.5 line 223 + §3.5a.
+    Args:
+        source_branch: The branch to merge into the current branch.
+
+    Returns:
+        A dict with ``result`` (one of ``"fast-forward"``, ``"clean"``, or
+        ``"conflict"``) and ``conflicted_files`` (the conflicting paths, empty
+        unless ``result`` is ``"conflict"``).
+
+    Raises:
+        GitError: When the merge fails for a reason other than conflicts (e.g.
+            the source branch cannot be resolved).
     """
     # Capture HEAD before to detect FF.
     before = engine._rev_parse_head(engine.project_path)
@@ -112,7 +122,18 @@ def _merge(engine: GitEngine, source_branch: str) -> dict[str, Any]:
 
 
 def _cherry_pick(engine: GitEngine, commit_sha: str) -> dict[str, Any]:
-    """Cherry-pick a commit. See ADR-039 §3.5 line 224."""
+    """Cherry-pick a commit onto the current branch.
+
+    Args:
+        commit_sha: The commit to cherry-pick.
+
+    Returns:
+        A dict with ``result`` (``"clean"`` or ``"conflict"``) and
+        ``conflicted_files`` (empty unless there is a conflict).
+
+    Raises:
+        GitError: When the cherry-pick fails for a reason other than conflicts.
+    """
     env_overrides = {
         "GIT_AUTHOR_NAME": _DEFAULT_AUTHOR_NAME,
         "GIT_AUTHOR_EMAIL": _DEFAULT_AUTHOR_EMAIL,
@@ -150,7 +171,14 @@ def _cherry_pick(engine: GitEngine, commit_sha: str) -> dict[str, Any]:
 
 
 def _merge_stage_file(engine: GitEngine, file: str) -> None:
-    """Stage a file after the user resolved its conflict markers."""
+    """Stage a file after its conflict markers have been resolved.
+
+    Args:
+        file: Path (relative to the project) of the resolved file to stage.
+
+    Raises:
+        GitError: When the file still contains conflict markers.
+    """
     full_path = engine.project_path / file
     if full_path.exists():
         try:
@@ -167,7 +195,14 @@ def _merge_stage_file(engine: GitEngine, file: str) -> None:
 
 
 def _merge_complete(engine: GitEngine) -> str:
-    """Finalize merge after all conflicts staged. Returns new commit SHA."""
+    """Finalise a merge once all conflicts are staged.
+
+    Returns:
+        The SHA of the merge commit.
+
+    Raises:
+        GitError: When conflicted entries still remain.
+    """
     status = engine.status()
     if status["conflicted"]:
         raise GitError(
@@ -189,7 +224,11 @@ def _merge_complete(engine: GitEngine) -> str:
 
 
 def _merge_abort(engine: GitEngine) -> None:
-    """Abort a merge or cherry-pick in progress."""
+    """Abort a merge or cherry-pick that is in progress.
+
+    Raises:
+        GitError: When no merge or cherry-pick is in progress.
+    """
     git_dir = engine.project_path / ".git"
     if (git_dir / "CHERRY_PICK_HEAD").exists():
         engine._run(["cherry-pick", "--abort"])

@@ -1,31 +1,30 @@
-"""LineageStore — unified 4-table SQLite store for run lineage (ADR-038 §3.1).
+"""LineageStore — the unified four-table SQLite store for run lineage.
 
 Tables:
 
 * ``runs``             — one row per workflow execution
 * ``block_executions`` — one row per block per run
-* ``data_objects``     — DataObject identity catalog
+* ``data_objects``     — the catalog of every ``DataObject`` ever seen
 * ``block_io``         — port-to-DataObject edges per execution
 
-All writes happen in the engine process. Worker subprocesses do NOT connect
-to this database. The store is best-effort: write failures are logged and
-swallowed by the recorder so a lineage outage never breaks the workflow.
+All writes happen in the engine process; worker subprocesses never connect to
+this database. The store is best-effort: write failures are logged and
+swallowed by the recorder so a lineage outage never breaks a workflow.
 
-Connection lifecycle (D38-3.2 / Codex P1-1)
--------------------------------------------
+Connection lifecycle
+--------------------
 
-For file-backed stores the connection is opened **per public method call**
-and closed on exit. This keeps the file handle un-pinned on Windows so that
-external `shutil.rmtree(project_path)` (e.g. the user deletes the project
-directory outside SciStudio) succeeds without `PermissionError [WinError 32]`.
-The cost is a fresh SQLite connection per operation — a few hundred
-microseconds locally — which is acceptable because lineage is best-effort
-and writes happen at terminal-event cadence (block-rate, not tight-loop).
+For a file-backed store the connection is opened **per public-method call** and
+closed on exit. This keeps the file handle unpinned on Windows so that deleting
+the project directory from outside SciStudio succeeds. The cost — a fresh
+SQLite connection per operation, a few hundred microseconds locally — is
+acceptable because lineage is best-effort and writes happen at block-event
+cadence, not in a tight loop.
 
-In-memory stores (``":memory:"``, used by tests) keep a single persistent
-connection because each new connection to ``":memory:"`` is a brand-new DB.
-The constructor still runs the schema bootstrap on this persistent
-connection so the four tables exist before the first write.
+An in-memory store (``":memory:"``, used by tests) keeps a single persistent
+connection, because each new connection to ``":memory:"`` would be a brand-new
+empty database. The constructor still bootstraps the schema on that connection
+so the four tables exist before the first write.
 """
 
 from __future__ import annotations
@@ -292,13 +291,16 @@ def _migrate_data_objects_content_hash(conn: sqlite3.Connection) -> None:
 
 
 class LineageStore:
-    """SQLite-backed unified lineage store (ADR-038 §3.1).
+    """SQLite-backed store holding the four lineage tables.
 
-    Parameters
-    ----------
-    db_path:
-        Filesystem path to the SQLite database file. Pass ``":memory:"`` for
-        an in-process ephemeral store (used by tests).
+    Construct one per project. Read methods return plain column-keyed dicts;
+    write methods take the row dataclasses from
+    :mod:`scistudio.core.lineage.record`.
+
+    Args:
+        db_path: Path to the SQLite database file. Pass ``":memory:"`` for an
+            ephemeral in-process store (used by tests). Defaults to
+            ``.scistudio/lineage.db``.
     """
 
     def __init__(self, db_path: str | Path | None = None) -> None:
@@ -383,7 +385,11 @@ class LineageStore:
     # ------------------------------------------------------------------
 
     def insert_run(self, run: RunRecord) -> None:
-        """Insert a row into ``runs``."""
+        """Insert a row into the ``runs`` table.
+
+        Args:
+            run: The run record to insert.
+        """
         with self._connect() as conn:
             conn.execute(
                 """
@@ -420,11 +426,15 @@ class LineageStore:
         status: str,
         provenance_degraded: bool = False,
     ) -> None:
-        """Update terminal columns on a ``runs`` row.
+        """Update the terminal columns on a ``runs`` row.
 
-        #1527 (BUG-6): ``provenance_degraded`` records whether any lineage
-        write for this run failed. It is OR-ed into the existing column so a
-        single failed write latches the flag even if later writes succeed.
+        Args:
+            run_id: Id of the run to finalise.
+            finished_at: ISO-8601 timestamp of completion.
+            status: Terminal status (e.g. ``"completed"``, ``"failed"``).
+            provenance_degraded: Whether any lineage write for this run failed.
+                It is OR-ed into the stored column, so a single failed write
+                latches the flag even if later writes succeed.
         """
         with self._connect() as conn:
             conn.execute(
@@ -440,23 +450,15 @@ class LineageStore:
             conn.commit()
 
     def set_pending_git_commit(self, workflow_id: str, sha: str | None) -> None:
-        """Stamp ``runs.workflow_git_commit`` on the most recent run for ``workflow_id``.
+        """Stamp ``workflow_git_commit`` on the most recent run for a workflow.
 
-        D38-3.2 / Phase 3.5 hazard H-A1: ``D39-2.5`` calls this from
-        ``ApiRuntime.start_workflow`` as a forward-compatible hook to
-        propagate the pre-run auto-commit SHA into the lineage DB. The
-        target row is the most recently inserted ``runs`` row matching
-        ``workflow_id`` — i.e. the run that was just created by
-        ``begin_run``. No-op when there is no matching row (e.g. lineage
-        write failed; we silently skip rather than raise).
+        Records the workflow's git commit SHA on the most recently started run
+        matching ``workflow_id`` (the run that was just created for it). A no-op
+        when no matching run exists.
 
-        Parameters
-        ----------
-        workflow_id:
-            The workflow identifier from ``RunRecord.workflow_id``.
-        sha:
-            The git commit SHA to record. ``None`` is allowed and clears
-            the column (used by ADR-039 §5.2 when commit creation fails).
+        Args:
+            workflow_id: The workflow whose latest run should be stamped.
+            sha: The git commit SHA to record. ``None`` clears the column.
         """
         with self._connect() as conn:
             cur = conn.execute(
@@ -474,7 +476,14 @@ class LineageStore:
             conn.commit()
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
-        """Return a ``runs`` row as a dict, or ``None`` if absent."""
+        """Return a ``runs`` row as a dict, or ``None`` when absent.
+
+        Args:
+            run_id: Id of the run to fetch.
+
+        Returns:
+            The run row as a column-keyed dict, or ``None`` if not found.
+        """
         with self._connect() as conn:
             cur = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,))
             row = cur.fetchone()
@@ -484,7 +493,15 @@ class LineageStore:
             return dict(zip(columns, row, strict=False))
 
     def list_runs(self, workflow_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-        """Return runs in reverse-chronological order."""
+        """List runs in reverse-chronological order.
+
+        Args:
+            workflow_id: When given, return only runs of that workflow.
+            limit: Maximum number of runs to return.
+
+        Returns:
+            A list of run rows (newest first), each a column-keyed dict.
+        """
         with self._connect() as conn:
             if workflow_id is None:
                 cur = conn.execute("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?", (limit,))
@@ -499,31 +516,18 @@ class LineageStore:
     def workflow_git_commits_in(self, sha_list: list[str]) -> set[str]:
         """Return the subset of *sha_list* that any ``runs`` row references.
 
-        ADR-039 Addendum 1 §11.4 row #1356: the branch-delete safety net
-        needs to know which orphan-candidate SHAs are referenced by
-        lineage rows so it can pin them under ``refs/scistudio/lineage/*``
-        before the delete. This is the read-side query that powers that
-        check.
+        Lets a caller find out which candidate commit SHAs are referenced by
+        lineage rows (for example to pin them safely before deleting a branch).
+        An empty input returns an empty set without touching the database.
 
-        Empty input returns an empty set without touching the database
-        (SQLite ``IN ()`` is a syntax error in some bindings; cheaper to
-        short-circuit).
+        Args:
+            sha_list: Candidate SHAs to check. Order is irrelevant and
+                duplicates are tolerated.
 
-        SHAs absent from ``runs.workflow_git_commit`` (including NULL
-        rows) are filtered out — the returned set is always a subset of
-        ``sha_list``.
-
-        Parameters
-        ----------
-        sha_list:
-            Candidate SHAs to check. Order is irrelevant; duplicates are
-            tolerated (the DB query collapses them).
-
-        Returns
-        -------
-        set[str]
-            The subset of input SHAs that appear in
-            ``runs.workflow_git_commit``.
+        Returns:
+            The subset of *sha_list* that appears in
+            ``runs.workflow_git_commit`` (always a subset of the input; absent
+            and NULL SHAs are filtered out).
         """
         if not sha_list:
             return set()
@@ -544,12 +548,13 @@ class LineageStore:
     # ------------------------------------------------------------------
 
     def insert_block_execution(self, be: BlockExecutionRecord) -> None:
-        """Insert (or skip) a row into ``block_executions``.
+        """Insert a row into ``block_executions``, skipping a duplicate.
 
-        D38-3.2 / D38-3.1b P3-3: use ``INSERT OR IGNORE`` so a re-emit on
-        the same ``(run_id, block_id)`` UNIQUE constraint does not raise
-        ``IntegrityError``. The recorder already guards against
-        double-write via its ``_exec_ids`` cache; this is belt-and-braces.
+        Uses ``INSERT OR IGNORE`` so a re-emit on the same ``(run_id,
+        block_id)`` does not raise; the first write for a block wins.
+
+        Args:
+            be: The block-execution record to insert.
         """
         with self._connect() as conn:
             conn.execute(
@@ -577,7 +582,14 @@ class LineageStore:
             conn.commit()
 
     def list_block_executions(self, run_id: str) -> list[dict[str, Any]]:
-        """List blocks for a run ordered by start time."""
+        """List a run's block executions in start-time order.
+
+        Args:
+            run_id: Id of the run.
+
+        Returns:
+            A list of block-execution rows, each a column-keyed dict.
+        """
         with self._connect() as conn:
             cur = conn.execute(
                 "SELECT * FROM block_executions WHERE run_id = ? ORDER BY started_at",
@@ -591,20 +603,20 @@ class LineageStore:
     # ------------------------------------------------------------------
 
     def upsert_data_object(self, row: DataObjectRow) -> None:
-        """Insert a ``data_objects`` row, or skip when already present.
+        """Insert a ``data_objects`` row, skipping one that already exists.
 
-        ``object_id`` is a UUIDv4 produced by FrameworkMeta. Duplicate writes
-        of the same object_id are no-ops; we deliberately do NOT update
-        ``storage_path`` because subsequent runs may overwrite the path and
-        the stored value should reflect the producing run's state.
+        Duplicate writes of the same ``object_id`` are no-ops; the producing
+        run's recorded ``storage_path`` is deliberately preserved rather than
+        overwritten by a later run.
 
-        #1529 (DSN-5): when the row has a ``storage_path`` but no
-        ``content_hash`` we compute the xxhash digest of the on-disk bytes
-        here (first-writer-wins, matching the ``INSERT OR IGNORE`` upsert) so
-        :meth:`detect_dangling_objects` can later tell whether the path still
-        points at the bytes the producing run wrote. ``size_bytes`` /
-        ``mtime_at_write`` are snapshotted from the same ``stat`` when not
-        already supplied.
+        When the row has a ``storage_path`` but no ``content_hash``, the digest
+        of the on-disk bytes is computed here (along with the size and
+        modification time when not supplied), so :meth:`check_object_integrity`
+        and :meth:`detect_dangling_objects` can later tell whether the path
+        still points at the bytes the producing run wrote.
+
+        Args:
+            row: The data-object row to insert.
         """
         content_hash = row.content_hash
         size_bytes = row.size_bytes
@@ -654,6 +666,14 @@ class LineageStore:
             conn.commit()
 
     def get_data_object(self, object_id: str) -> dict[str, Any] | None:
+        """Return a ``data_objects`` row as a dict, or ``None`` when absent.
+
+        Args:
+            object_id: Id of the data object to fetch.
+
+        Returns:
+            The data-object row as a column-keyed dict, or ``None`` if not found.
+        """
         with self._connect() as conn:
             cur = conn.execute("SELECT * FROM data_objects WHERE object_id = ?", (object_id,))
             row = cur.fetchone()
@@ -663,18 +683,23 @@ class LineageStore:
             return dict(zip(columns, row, strict=False))
 
     def check_object_integrity(self, object_id: str) -> str:
-        """Return the integrity status of one ``data_objects`` row (#1529).
+        """Return the integrity status of one ``data_objects`` row.
 
-        Compares the recorded ``content_hash`` against a freshly computed
-        digest of the bytes currently at ``storage_path``. Possible results:
+        Compares the recorded ``content_hash`` against a freshly computed digest
+        of the bytes currently at ``storage_path``.
 
-        * ``"ok"``           — recorded hash matches the current file bytes.
-        * ``"dangling"``     — a hash was recorded but the file is missing or
-          its current bytes differ (overwritten by a later run, deleted,
-          etc.). This is the silent-dangling case #1529 targets.
-        * ``"unknown"``      — no row, no ``storage_path``, no recorded hash,
-          or a path that is not a regular file (e.g. directory-backed
-          backend). Not checkable, so neither confirmed ok nor dangling.
+        Args:
+            object_id: Id of the data object to check.
+
+        Returns:
+            One of:
+
+            * ``"ok"`` — the recorded hash matches the current file bytes.
+            * ``"dangling"`` — a hash was recorded but the file is missing or
+              its bytes differ (overwritten by a later run, deleted, ...).
+            * ``"unknown"`` — not checkable: no such row, no ``storage_path``,
+              no recorded hash, or a path that is not a regular file (e.g. a
+              directory-backed backend).
         """
         row = self.get_data_object(object_id)
         if row is None:
@@ -690,21 +715,20 @@ class LineageStore:
         return "ok" if current == recorded else "dangling"
 
     def detect_dangling_objects(self, run_id: str | None = None) -> list[dict[str, Any]]:
-        """Return ``data_objects`` whose on-disk bytes no longer match (#1529).
+        """Return ``data_objects`` whose on-disk bytes no longer match.
 
-        Iterates rows that carry both a ``content_hash`` and a
-        ``storage_path`` and recomputes the digest. Rows whose current bytes
-        differ from (or are missing relative to) the recorded digest are
-        returned, each augmented with an ``integrity`` key (always
-        ``"dangling"`` for returned rows). Rows without a recorded hash /
-        path are skipped (not checkable).
+        Recomputes the digest for every row that carries both a ``content_hash``
+        and a ``storage_path``; rows whose current bytes differ from (or are
+        missing relative to) the recorded digest are returned. Rows without a
+        recorded hash or path are skipped (not checkable).
 
-        Parameters
-        ----------
-        run_id:
-            When provided, restrict the scan to objects produced by a block
-            execution in that run (via the ``produced_by_execution`` →
-            ``block_executions.run_id`` join). When ``None``, scan all rows.
+        Args:
+            run_id: When given, restrict the scan to objects produced by a block
+                execution in that run. When ``None``, scan all rows.
+
+        Returns:
+            The dangling rows, each a column-keyed dict with an added
+            ``integrity`` key set to ``"dangling"``.
         """
         with self._connect() as conn:
             if run_id is None:
@@ -739,7 +763,11 @@ class LineageStore:
     # ------------------------------------------------------------------
 
     def insert_block_io(self, edge: BlockIORow) -> None:
-        """Insert a ``block_io`` edge. Duplicate edges are silently skipped."""
+        """Insert a ``block_io`` edge, skipping a duplicate.
+
+        Args:
+            edge: The port-to-DataObject edge to insert.
+        """
         with self._connect() as conn:
             conn.execute(
                 """
@@ -758,7 +786,15 @@ class LineageStore:
             conn.commit()
 
     def list_block_io(self, block_execution_id: str) -> list[dict[str, Any]]:
-        """Return all I/O edges for a block_execution, ordered for display."""
+        """Return all I/O edges for one block execution, ordered for display.
+
+        Args:
+            block_execution_id: Id of the block execution.
+
+        Returns:
+            A list of edge rows ordered by direction, then port name, then
+            position.
+        """
         with self._connect() as conn:
             cur = conn.execute(
                 """
@@ -772,21 +808,21 @@ class LineageStore:
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
     def list_block_io_with_objects(self, run_id: str) -> list[dict[str, Any]]:
-        """Return all I/O edges joined with their ``data_objects`` row for a run.
+        """Return a run's I/O edges joined with their ``data_objects`` rows.
 
-        Hotfix #996: ADR-038 §3.7 Q4b "Per-block I/O DataObjects?" SQL
-        rendered as a single batched query so ``GET /api/runs/{run_id}``
-        can inline inputs/outputs into each ``block_executions`` row
-        without N round-trips. Pre-#996 the route deferred the JOIN and
-        the frontend rendered "0 inputs / 0 outputs" on every block card
-        (Phase 4a finding).
+        A single batched query so an API handler can inline each block's inputs
+        and outputs without one round-trip per block.
 
-        Returned columns: ``block_execution_id``, ``direction``,
-        ``port_name``, ``position``, ``object_id``, ``type_name``,
-        ``backend``, ``storage_path``, ``wire_payload``,
-        ``produced_by_execution``. Rows are ordered by
-        ``(block_execution_id, direction, port_name, position)`` so
-        callers can stream-bucket them.
+        Args:
+            run_id: Id of the run.
+
+        Returns:
+            One dict per edge with ``block_execution_id``, ``direction``,
+            ``port_name``, ``position``, ``object_id``, ``type_name``,
+            ``backend``, ``storage_path``, ``wire_payload``, and
+            ``produced_by_execution``. Rows are ordered by
+            ``(block_execution_id, direction, port_name, position)`` so callers
+            can stream-bucket them.
         """
         with self._connect() as conn:
             cur = conn.execute(
@@ -817,7 +853,18 @@ class LineageStore:
     # ------------------------------------------------------------------
 
     def count(self, table: str) -> int:
-        """Return ``SELECT COUNT(*)`` of a known table (used by tests)."""
+        """Return the row count of one of the lineage tables.
+
+        Args:
+            table: One of ``"runs"``, ``"block_executions"``, ``"data_objects"``,
+                or ``"block_io"``.
+
+        Returns:
+            The number of rows in the table.
+
+        Raises:
+            ValueError: When *table* is not a known lineage table.
+        """
         if table not in {"runs", "block_executions", "data_objects", "block_io"}:
             raise ValueError(f"unknown lineage table: {table}")
         with self._connect() as conn:
@@ -825,28 +872,33 @@ class LineageStore:
             return int(cur.fetchone()[0])
 
     def execute_query(self, sql: str, params: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
-        """Execute a **read-only** SQL query and return all rows.
+        """Run a read-only SQL query and return all rows.
 
-        Public helper added in D38-3.2 so the ``MetadataStore`` shim (and
-        any future read-only consumer) doesn't have to reach into the
-        private ``_conn`` attribute. The shim runs recursive-CTE
-        ancestor / descendant queries that don't fit the high-level
-        per-table accessors. Best-effort: SQLite errors propagate to the
-        caller, which is expected to log + degrade.
+        Provided so a read-only consumer can run queries (e.g. recursive-CTE
+        ancestor/descendant lookups) that do not fit the per-table accessors.
+        Best-effort: SQLite errors propagate to the caller.
 
-        #1546 (BUG-11): the "read-only" contract is now enforced rather than
-        merely documented. Two layers of defence:
+        The read-only contract is enforced with two layers of defence:
 
         1. **Statement check** — only a single ``SELECT`` / ``WITH`` /
-           ``EXPLAIN`` / read-form ``PRAGMA`` statement is accepted; anything
-           else (INSERT/UPDATE/DELETE/DROP/ATTACH/multiple statements/…)
-           raises :class:`ValueError` before touching the DB.
-        2. **Read-only connection** — for file-backed stores the query runs
-           on a ``file:...?mode=ro`` connection so even a statement that
-           slipped past the check cannot mutate the file. In-memory stores
-           cannot reopen read-only (a new ``:memory:`` connection is an empty
-           DB), so they rely on the statement check; SQLite query-only
-           PRAGMA is also engaged as a backstop.
+           ``EXPLAIN`` / read-form ``PRAGMA`` / ``VALUES`` statement is
+           accepted; anything that could mutate (or that batches multiple
+           statements) raises :class:`ValueError` before the database is
+           touched.
+        2. **Read-only connection** — for a file-backed store the query runs on
+           a ``mode=ro`` connection, so even a statement that slipped past the
+           check cannot modify the file. An in-memory store cannot reopen
+           read-only, so it additionally engages SQLite's query-only mode.
+
+        Args:
+            sql: A single read-only SQL statement.
+            params: Positional parameters bound into the statement.
+
+        Returns:
+            All result rows as a list of tuples.
+
+        Raises:
+            ValueError: When *sql* is not a single read-only statement.
         """
         _reject_non_readonly_sql(sql)
         if self._is_memory:

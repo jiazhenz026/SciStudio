@@ -29,13 +29,39 @@ def _wrap_filesystem_read_error(
 
 
 class FilesystemBackend:
-    """Filesystem-based storage backend for text files and opaque artifacts."""
+    """Storage backend for plain files: text and opaque binary artifacts.
+
+    Reads and writes single files on disk. The router selects this backend for
+    text and artifact types, so you rarely construct it directly. Writes are
+    atomic (write to a temp file, then rename) so a crash or cancellation cannot
+    leave a half-written file.
+
+    Example:
+        >>> import os, tempfile
+        >>> backend = FilesystemBackend()
+        >>> path = os.path.join(tempfile.mkdtemp(), "note.txt")
+        >>> ref = backend.write("hello", StorageReference(backend="filesystem", path=path, format="text"))
+        >>> backend.read(ref)
+        'hello'
+    """
 
     def read(self, ref: StorageReference) -> Any:
-        """Read a file from the filesystem at *ref*.
+        """Read the file at *ref* as text or bytes.
 
-        For text formats (format starts with "text" or is "plain"/"markdown"/"json"),
-        reads as UTF-8 string. Otherwise reads as bytes.
+        Text formats (``ref.format`` is one of ``plain``/``markdown``/``json``/
+        ``text``/``csv`` or starts with ``text``) are decoded as UTF-8;
+        anything else is returned as raw bytes.
+
+        Args:
+            ref: Pointer to the stored file.
+
+        Returns:
+            The file contents as a ``str`` (text formats) or ``bytes``.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+            StorageReferenceInvalidError: When the bytes cannot be decoded as
+                the declared text format.
         """
         path = Path(ref.path)
         text_formats = {"plain", "markdown", "json", "text", "csv"}
@@ -48,11 +74,22 @@ class FilesystemBackend:
             raise _wrap_filesystem_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
-        """Write *data* (str or bytes) to the filesystem at *ref* atomically.
+        """Write *data* to the file at *ref* atomically.
 
-        Uses write-to-temp-then-rename to prevent partial writes on crash or
-        cancellation.  ``os.replace()`` is atomic on both POSIX and Windows
-        (Python 3.3+).
+        Writes to a temporary file in the same directory and renames it into
+        place (``os.replace`` is atomic on POSIX and Windows), so a partial
+        write is never observed.
+
+        Args:
+            data: A ``str`` (encoded as UTF-8) or ``bytes`` to write.
+            ref: Pointer describing where to write the file.
+
+        Returns:
+            An updated :class:`StorageReference` whose metadata records the
+            written file size.
+
+        Raises:
+            TypeError: When *data* is neither ``str`` nor ``bytes``.
         """
         path = Path(ref.path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,14 +124,31 @@ class FilesystemBackend:
         )
 
     def write_from_memory(self, data: Any, path: str) -> StorageReference:
-        """Write raw in-memory str/bytes data to the filesystem at *path*."""
+        """Write in-memory text/bytes data to a new file at *path*.
+
+        Args:
+            data: A ``str`` or ``bytes`` to write.
+            path: Target filesystem path.
+
+        Returns:
+            A :class:`StorageReference` pointing at the new file.
+        """
         ref = StorageReference(backend="filesystem", path=path)
         return self.write(data, ref)
 
     def slice(self, ref: StorageReference, *args: Any) -> Any:
-        """Return a byte-range slice from *ref*.
+        """Read a byte range from the file at *ref*.
 
-        Expects two positional args: (offset, length).
+        Args:
+            ref: Pointer to the stored file.
+            *args: Exactly two values, ``(offset, length)`` in bytes.
+
+        Returns:
+            The requested ``bytes`` slice.
+
+        Raises:
+            ValueError: When *args* is not exactly ``(offset, length)``.
+            StorageMissingError: When the file does not exist.
         """
         if len(args) != 2:
             raise ValueError("FilesystemBackend.slice expects (offset, length).")
@@ -108,7 +162,18 @@ class FilesystemBackend:
             raise StorageMissingError(ref, operation="slice", detail=str(exc)) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
-        """Yield fixed-size byte chunks from *ref*."""
+        """Yield the file at *ref* as fixed-size byte chunks.
+
+        Args:
+            ref: Pointer to the stored file.
+            chunk_size: Number of bytes per yielded chunk.
+
+        Yields:
+            A ``bytes`` chunk for each read, until end of file.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+        """
         path = Path(ref.path)
         try:
             with path.open("rb") as f:
@@ -121,7 +186,18 @@ class FilesystemBackend:
             raise StorageMissingError(ref, operation="iter_chunks", detail=str(exc)) from exc
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
-        """Return filesystem metadata (size, mtime, etc.) for *ref*."""
+        """Return filesystem metadata for *ref*.
+
+        Args:
+            ref: Pointer to the stored file.
+
+        Returns:
+            A dict with ``size`` (bytes), ``mtime`` (modification time),
+            ``name``, and ``suffix``.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+        """
         path = Path(ref.path)
         try:
             stat = path.stat()
