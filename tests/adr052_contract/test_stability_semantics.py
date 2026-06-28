@@ -102,11 +102,7 @@ def test_representative_symbol_decorated(root: str) -> None:
     # Pick a representative that CAN carry a runtime marker: the nine
     # non-markable public symbols (ADR-052 §15) read get_stability() == None by
     # design, so they are not a meaningful "is it decorated?" probe.
-    markable = [
-        (n, w)
-        for n, w in expected_symbols(root).items()
-        if (root, n) not in NON_MARKABLE_PUBLIC_SYMBOLS
-    ]
+    markable = [(n, w) for n, w in expected_symbols(root).items() if (root, n) not in NON_MARKABLE_PUBLIC_SYMBOLS]
     assert markable, f"{root} has no markable representative symbol"
     name, want = markable[0]
     obj = getattr(module, name, None)

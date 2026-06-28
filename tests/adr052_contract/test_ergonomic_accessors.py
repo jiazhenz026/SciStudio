@@ -86,6 +86,5 @@ def test_already_ergonomic_types_have_no_accessor(cls_name: str, accessor: str) 
     """Text/Artifact/CompositeData must NOT define ergonomic accessors (§10)."""
     cls = _cls(cls_name)
     assert not hasattr(cls, accessor), (
-        f"{cls_name} must not expose .{accessor}() -- its to_memory() is already "
-        f"ergonomic (ADR-052 §3.1 / spec §10)"
+        f"{cls_name} must not expose .{accessor}() -- its to_memory() is already ergonomic (ADR-052 §3.1 / spec §10)"
     )

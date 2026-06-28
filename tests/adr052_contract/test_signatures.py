@@ -51,8 +51,7 @@ def test_ergonomic_accessor_present(root: str, cls_name: str, method: str, kind:
     params = [
         p
         for p in inspect.signature(fn).parameters.values()
-        if p.name != "self" and p.kind in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY)
-        and p.default is p.empty
+        if p.name != "self" and p.kind in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY) and p.default is p.empty
     ]
     assert not params, (
         f"{cls_name}.{method}() must read with no required args (wraps to_memory); "
@@ -63,9 +62,7 @@ def test_ergonomic_accessor_present(root: str, cls_name: str, method: str, kind:
 # --------------------------------------------------------------------------- #
 # §11 large-data surface present with the documented parameter shape.
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize(
-    ("root", "cls_name", "method", "required", "var_kind"), LARGE_DATA_METHODS
-)
+@pytest.mark.parametrize(("root", "cls_name", "method", "required", "var_kind"), LARGE_DATA_METHODS)
 def test_large_data_method_signature(
     root: str, cls_name: str, method: str, required: tuple[str, ...], var_kind: str | None
 ) -> None:
@@ -93,12 +90,8 @@ def test_large_data_method_signature(
 @pytest.mark.parametrize(("public_name", "private_name"), DEUNDERSCORED_HOOKS)
 def test_reconstruction_hook_deunderscored(public_name: str, private_name: str) -> None:
     cls = _get_class("scistudio.core.types", "DataObject")
-    assert hasattr(cls, public_name), (
-        f"DataObject.{public_name} (de-underscored hook) missing (spec §3.1 opt-A)"
-    )
-    assert not hasattr(cls, private_name), (
-        f"DataObject.{private_name} must be removed once {public_name} is published"
-    )
+    assert hasattr(cls, public_name), f"DataObject.{public_name} (de-underscored hook) missing (spec §3.1 opt-A)"
+    assert not hasattr(cls, private_name), f"DataObject.{private_name} must be removed once {public_name} is published"
 
 
 # --------------------------------------------------------------------------- #
@@ -108,17 +101,13 @@ def test_reconstruction_hook_deunderscored(public_name: str, private_name: str) 
 def test_metadata_property_removed(cls_name: str, prop: str) -> None:
     cls = _get_class("scistudio.core.types", cls_name)
     attr = inspect.getattr_static(cls, prop, None)
-    assert not isinstance(attr, property), (
-        f"{cls_name}.{prop} property must be deleted (spec §16 Phase-11 cleanup)"
-    )
+    assert not isinstance(attr, property), f"{cls_name}.{prop} property must be deleted (spec §16 Phase-11 cleanup)"
 
 
 # --------------------------------------------------------------------------- #
 # §3.x keyword-only constructor payloads + removed metadata= kwarg.
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize(
-    ("cls_name", "kw_only", "forbidden", "positional"), CONSTRUCTOR_SPECS
-)
+@pytest.mark.parametrize(("cls_name", "kw_only", "forbidden", "positional"), CONSTRUCTOR_SPECS)
 def test_constructor_param_kinds(
     cls_name: str,
     kw_only: tuple[str, ...],
@@ -130,14 +119,11 @@ def test_constructor_param_kinds(
     params = sig.parameters
 
     for name in forbidden:
-        assert name not in params, (
-            f"{cls_name}.__init__ must not accept {name!r} (spec §3 / §16); sig={sig}"
-        )
+        assert name not in params, f"{cls_name}.__init__ must not accept {name!r} (spec §3 / §16); sig={sig}"
     for name in kw_only:
         assert name in params, f"{cls_name}.__init__ must accept {name!r}; sig={sig}"
         assert params[name].kind is params[name].KEYWORD_ONLY, (
-            f"{cls_name}.__init__ param {name!r} must be keyword-only (spec §3); "
-            f"got {params[name].kind}"
+            f"{cls_name}.__init__ param {name!r} must be keyword-only (spec §3); got {params[name].kind}"
         )
     for name in positional:
         assert name in params, f"{cls_name}.__init__ must accept {name!r}; sig={sig}"

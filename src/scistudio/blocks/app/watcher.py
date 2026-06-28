@@ -130,9 +130,7 @@ class FileWatcher:
                 if candidates:
                     return sorted(candidates.keys())
                 pid = getattr(self._process_handle, "pid", "unknown")
-                raise ProcessExitedWithoutOutputError(
-                    f"External process (pid={pid}) exited without producing output"
-                )
+                raise ProcessExitedWithoutOutputError(f"External process (pid={pid}) exited without producing output")
 
             if deadline is not None and time.monotonic() >= deadline:
                 # Return any candidates even if not fully stable on timeout.

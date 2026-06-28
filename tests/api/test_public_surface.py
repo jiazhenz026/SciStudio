@@ -178,8 +178,7 @@ def test_public_surface_frozen(root: str) -> None:
         problems.append(f"  !undecorated (no @stable/@provisional marker): {undecorated}")
 
     assert not problems, (
-        f"public surface of {root} drifted from the frozen snapshot "
-        f"({_SNAPSHOT_PATH.name}):\n" + "\n".join(problems)
+        f"public surface of {root} drifted from the frozen snapshot ({_SNAPSHOT_PATH.name}):\n" + "\n".join(problems)
     )
 
 
@@ -268,9 +267,7 @@ def test_block_persist_signatures() -> None:
     assert _has_callable(Block, "persist_table"), "Block.persist_table must exist (§11)"
     arr_params = inspect.signature(Block.persist_array).parameters
     for expected in ("shape", "dtype", "output_dir", "chunks"):
-        assert expected in arr_params, (
-            f"Block.persist_array must take {expected!r} (§11); got {list(arr_params)}"
-        )
+        assert expected in arr_params, f"Block.persist_array must take {expected!r} (§11); got {list(arr_params)}"
     tbl_params = inspect.signature(Block.persist_table).parameters
     assert "output_dir" in tbl_params, f"persist_table must take output_dir (§11); got {list(tbl_params)}"
 

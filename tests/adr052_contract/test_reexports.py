@@ -40,8 +40,7 @@ def test_reexport_in_root_all(root: str, name: str) -> None:
     module = import_root(root)
     assert module is not None, f"{root} failed to import"
     assert name in module_all(module), (
-        f"{name} must be a member of {root}.__all__ -- __all__ membership is what "
-        f"makes it public (ADR-052 §2)"
+        f"{name} must be a member of {root}.__all__ -- __all__ membership is what makes it public (ADR-052 §2)"
     )
 
 

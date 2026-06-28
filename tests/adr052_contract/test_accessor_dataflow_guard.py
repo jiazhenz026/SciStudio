@@ -39,22 +39,22 @@ _XLSX_MARKERS = ("openpyxl", "read_excel", "to_excel", ".xlsx", "xlsx")
 #: Curated core data-flow targets (files + dirs), per ADR-052 §3.1's enumeration.
 #: Type-definition modules are intentionally excluded (they DEFINE the accessors).
 _DATAFLOW_TARGETS = (
-    "core/types/serialization.py",        # worker serialize / reconstruct
-    "workflow/serializer.py",             # workflow serializer
-    "engine/checkpoint.py",               # checkpoint
-    "engine/runners/worker.py",           # worker
+    "core/types/serialization.py",  # worker serialize / reconstruct
+    "workflow/serializer.py",  # workflow serializer
+    "engine/checkpoint.py",  # checkpoint
+    "engine/runners/worker.py",  # worker
     "engine/runners/local.py",
     "engine/runners/base.py",
-    "engine/resources.py",                # engine
+    "engine/resources.py",  # engine
     "engine/materialisation.py",
-    "engine/scheduler",                   # scheduler (dir)
-    "core/storage/flush_context.py",      # auto-flush machinery
-    "blocks/base/block.py",               # _auto_flush / persist_*
-    "blocks/process/process_block.py",    # per-item auto-flush path
-    "blocks/io/io_block.py",              # IO dispatch auto-flush safety net
-    "blocks/io/loaders",                  # loaders (xlsx reader sanctioned within)
-    "blocks/io/savers",                   # savers (xlsx writer sanctioned within)
-    "previewers/data_access.py",          # previewer bounded reads
+    "engine/scheduler",  # scheduler (dir)
+    "core/storage/flush_context.py",  # auto-flush machinery
+    "blocks/base/block.py",  # _auto_flush / persist_*
+    "blocks/process/process_block.py",  # per-item auto-flush path
+    "blocks/io/io_block.py",  # IO dispatch auto-flush safety net
+    "blocks/io/loaders",  # loaders (xlsx reader sanctioned within)
+    "blocks/io/savers",  # savers (xlsx writer sanctioned within)
+    "previewers/data_access.py",  # previewer bounded reads
     "previewers/session.py",
 )
 
@@ -102,6 +102,5 @@ def test_no_ergonomic_accessor_in_dataflow(path: Path) -> None:
     rel = path.relative_to(_SRC)
     assert not hits, (
         f"ergonomic accessor (.to_pandas()/.to_numpy()) used in core data-flow "
-        f"module {rel} (ADR-052 §3.1 forbids it; use to_memory()):\n  "
-        + "\n  ".join(f"L{n}: {src}" for n, src in hits)
+        f"module {rel} (ADR-052 §3.1 forbids it; use to_memory()):\n  " + "\n  ".join(f"L{n}: {src}" for n, src in hits)
     )

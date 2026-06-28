@@ -56,9 +56,7 @@ def test_surface_membership(root: str) -> None:
     mode = root_mode(root)
 
     missing = expected - live
-    assert not missing, (
-        f"{root}: spec-public symbols absent from live __all__: {sorted(missing)}"
-    )
+    assert not missing, f"{root}: spec-public symbols absent from live __all__: {sorted(missing)}"
 
     if mode == "exact":
         extra = live - expected

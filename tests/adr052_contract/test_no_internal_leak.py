@@ -53,10 +53,7 @@ def test_no_internal_or_undecorated_in_all(root: str) -> None:
         elif info.tier not in _PUBLIC_TIERS:
             offenders.append(f"{name}: tier {info.tier!r} is not public")
 
-    assert not offenders, (
-        f"{root}: __all__ contains internal/undecorated members:\n  "
-        + "\n  ".join(offenders)
-    )
+    assert not offenders, f"{root}: __all__ contains internal/undecorated members:\n  " + "\n  ".join(offenders)
 
 
 @pytest.mark.parametrize("root", sorted(DEMOTIONS))
@@ -67,7 +64,4 @@ def test_demoted_symbols_absent_from_all(root: str) -> None:
 
     live = module_all(module)
     leaked = [name for name in DEMOTIONS[root] if name in live]
-    assert not leaked, (
-        f"{root}: demoted-to-internal symbols still in __all__ "
-        f"(must be dropped in #1817): {leaked}"
-    )
+    assert not leaked, f"{root}: demoted-to-internal symbols still in __all__ (must be dropped in #1817): {leaked}"

@@ -64,11 +64,9 @@ def test_member_marked_deprecated(root: str, cls_name: str, attr: str) -> None:
     # the ClassVar and points to format_capabilities (spec §6.1).
     source = inspect.getsource(cls)
     assert ".. deprecated::" in source, (
-        f"{cls_name} source must carry a `.. deprecated::` directive for {attr} "
-        f"(spec §6.1); none found"
+        f"{cls_name} source must carry a `.. deprecated::` directive for {attr} (spec §6.1); none found"
     )
     assert attr in source, f"{cls_name} source must reference the deprecated member {attr!r}"
     assert "format_capabilities" in source, (
-        f"the `.. deprecated::` note for {attr} must point to the format_capabilities "
-        f"replacement (spec §6.1)"
+        f"the `.. deprecated::` note for {attr} must point to the format_capabilities replacement (spec §6.1)"
     )

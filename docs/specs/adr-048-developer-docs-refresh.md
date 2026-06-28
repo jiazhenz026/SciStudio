@@ -33,7 +33,6 @@ governs:
   files:
     - docs/adr/ADR-048.md
     - docs/specs/adr-048-developer-docs-refresh.md
-    - docs/block-development/**
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md

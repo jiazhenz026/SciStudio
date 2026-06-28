@@ -67,7 +67,6 @@ governs:
     - .github/workflows/ai-review.yml
     - .claude/**
     - docs/architecture/**
-    - docs/block-development/**
     - src/scistudio/qa/schemas/**
     - src/scistudio/qa/audit/loaders.py
     - src/scistudio/qa/audit/doc_drift.py

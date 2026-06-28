@@ -39,6 +39,7 @@ def module_all(module) -> set[str]:
     """The declared public surface of a module: ``set(module.__all__)``."""
     return set(getattr(module, "__all__", ()) or ())
 
+
 with open(os.path.join(_HERE, "expected_surface.json"), encoding="utf-8") as _fh:
     EXPECTED_SURFACE: dict = json.load(_fh)
 
@@ -234,6 +235,4 @@ REMOVED_PROPERTIES = (("DataObject", "metadata"),)
 # the deprecation test probes several plausible conventions -- see the test's
 # docstring. (root, owner_class, attr_name).
 # --------------------------------------------------------------------------- #
-DEPRECATED_MEMBERS = (
-    ("scistudio.blocks.io", "IOBlock", "supported_extensions"),
-)
+DEPRECATED_MEMBERS = (("scistudio.blocks.io", "IOBlock", "supported_extensions"),)
