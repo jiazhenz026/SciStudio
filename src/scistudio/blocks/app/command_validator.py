@@ -16,26 +16,30 @@ _SHELL_META = re.compile(r"[;|&$`><{}\n\r]")
 
 @provisional(since="0.3.1")
 def validate_app_command(command: str | list[str]) -> list[str]:
-    """Validate and normalise an app command into a safe argument list.
+    """Check an app command is safe to launch and split it into arguments.
 
-    Accepts either a single command string (executable name or absolute path)
-    or a pre-split argument list.  Rejects commands containing shell
-    metacharacters and verifies the executable can be resolved.
+    Use this before handing a user-supplied command to ``subprocess`` so a
+    malicious or malformed entry cannot inject shell behaviour. It rejects any
+    command containing shell metacharacters, confirms the executable can be
+    found (on ``PATH`` or as an absolute path, including a macOS ``.app``
+    bundle), and returns the command as a clean argument list.
 
-    Parameters
-    ----------
-    command:
-        The raw command from workflow YAML config.
+    Args:
+        command: The command to validate, either a single string (an executable
+            name or path, optionally with arguments) or a pre-split argument
+            list.
 
-    Returns
-    -------
-    list[str]
-        A validated, split argument list safe for ``subprocess.Popen``.
+    Returns:
+        The validated command split into a list of arguments safe to pass to
+        ``subprocess.Popen``.
 
-    Raises
-    ------
-    ValueError
-        If the command contains shell metacharacters or cannot be resolved.
+    Raises:
+        ValueError: If the command is empty, contains shell metacharacters, or
+            names an executable that cannot be resolved.
+
+    Example:
+        >>> validate_app_command("python --version")
+        ['python', '--version']
     """
     if isinstance(command, list):
         parts = list(command)

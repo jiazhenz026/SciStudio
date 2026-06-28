@@ -1,4 +1,4 @@
-"""SubWorkflowBlock — authoring-only workflow reference container (ADR-044)."""
+"""Authoring-time block that references another workflow file as one node."""
 
 from __future__ import annotations
 
