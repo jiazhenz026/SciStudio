@@ -89,16 +89,21 @@ closed (the window shows "Activation is not configured").
 5. The app stores the token at `<userData>/alpha-activation.json` and launches.
    Every subsequent launch re-verifies it silently. There is no expiry.
 
-## Developer / CI escape hatch
+## Developer escape hatch (dev builds only)
 
-The gate runs for **packaged builds** and is skipped in dev (running from a
-source checkout) so a checkout is never locked out. Override either way with:
+A **packaged build always requires activation** — there is no env switch to turn
+the gate off in a real dmg/installer, and the public key is read only from the
+shipped `alpha-public-key.pem`. Otherwise a redistributed copy could be bypassed
+with an env var (set `SCISTUDIO_ALPHA_GATE=0`, or point `SCISTUDIO_ALPHA_PUBKEY`
+at an attacker's key and self-mint a token).
+
+The env vars therefore apply **only in dev** (running from a source checkout),
+where the gate is off by default so a checkout is never locked out:
 
 ```bash
-SCISTUDIO_ALPHA_GATE=0   # force the gate off (e.g. a packaged build under test)
-SCISTUDIO_ALPHA_GATE=1   # force the gate on (e.g. exercise it in dev)
+SCISTUDIO_ALPHA_GATE=1   # dev only: exercise the gate from a source checkout
 SCISTUDIO_ALPHA_PUBKEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
-                         # supply the public key inline without a rebuild
+                         # dev only: use a public key inline without a rebuild
 ```
 
 ## Beta removal checklist

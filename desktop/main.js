@@ -35,6 +35,10 @@ const OTA_MAX_REDIRECTS = 5;
 let mainWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
+// #1848: true from app-ready until the main window exists. The activation gate is
+// the only window during this span; closing it must NOT trigger the
+// window-all-closed quit before the main window is created.
+let startingUp = false;
 let cachedMacLoginShellEnv = null;
 
 function installPipeGuard(stream) {
@@ -1145,7 +1149,7 @@ async function ensureAlphaActivation() {
     return true;
   }
   const fingerprint = activation.machineFingerprint();
-  const publicKeyPem = activation.loadPublicKeyPem(resourcesDir());
+  const publicKeyPem = activation.loadPublicKeyPem(resourcesDir(), app.isPackaged);
   const userDataDir = app.getPath("userData");
   const status = activation.checkActivation({ userDataDir, fingerprint, publicKeyPem });
   if (status.activated) {
@@ -1160,7 +1164,10 @@ app.whenReady().then(async () => {
   try {
     safeLog("[scistudio] electron ready");
     // #1848: alpha gate — do not start the runtime or main window until the
-    // machine is activated. Quitting the gate quits the app.
+    // machine is activated. Quitting the gate quits the app. Guard the
+    // window-all-closed quit until the main window exists, so closing the gate
+    // window after a successful activation does not race startup into a quit.
+    startingUp = true;
     const activated = await ensureAlphaActivation();
     if (!activated) {
       safeLog("[scistudio] alpha activation not completed; quitting");
@@ -1177,6 +1184,7 @@ app.whenReady().then(async () => {
     const url = launchUrl(ready.url);
     safeLog(`[scistudio] creating window for ${url}`);
     createWindow(url);
+    startingUp = false;
     // #1775: check for an OTA update after the window is up so startup is never
     // blocked on the network. Fire-and-forget; failures are logged, not fatal.
     maybeCheckForUpdate().catch((error) => {
@@ -1200,6 +1208,12 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
+  // #1848: while the activation gate is up (before the main window exists),
+  // closing it must not quit the app — startup is still bringing the runtime and
+  // main window online.
+  if (startingUp) {
+    return;
+  }
   app.quit();
 });
 

@@ -123,13 +123,17 @@ function verifyToken(token, fingerprint, publicKeyPem) {
 // Public key + stored activation.
 // --------------------------------------------------------------------------- //
 
-// Resolve the shipped Ed25519 public key. An env override (SCISTUDIO_ALPHA_PUBKEY,
-// with literal "\n" allowed for one-line values) wins so a packaged build can be
-// tested without a rebuild. Returns the PEM string or null when not configured.
-function loadPublicKeyPem(resourcesDir) {
-  const inline = (process.env.SCISTUDIO_ALPHA_PUBKEY || "").trim();
-  if (inline) {
-    return inline.replace(/\\n/g, "\n");
+// Resolve the shipped Ed25519 public key. The SCISTUDIO_ALPHA_PUBKEY env override
+// (literal "\n" allowed for one-line values) is honored ONLY in dev/test builds:
+// in a packaged build a recipient could otherwise supply their own public key and
+// mint tokens for their own machine, defeating the per-machine model (#1848).
+// Returns the PEM string or null when not configured.
+function loadPublicKeyPem(resourcesDir, isPackaged) {
+  if (!isPackaged) {
+    const inline = (process.env.SCISTUDIO_ALPHA_PUBKEY || "").trim();
+    if (inline) {
+      return inline.replace(/\\n/g, "\n");
+    }
   }
   try {
     return fs.readFileSync(path.join(resourcesDir, "alpha-public-key.pem"), "utf8");
@@ -185,18 +189,17 @@ function checkActivation({ userDataDir, fingerprint, publicKeyPem }) {
 // Gate flag.
 // --------------------------------------------------------------------------- //
 
-// Whether the activation gate is active. SCISTUDIO_ALPHA_GATE forces it on/off;
-// otherwise it gates packaged builds (real dmg/installer) and is skipped in dev
-// so a source checkout is never locked out.
+// Whether the activation gate is active. Packaged builds (real dmg/installer)
+// ALWAYS require activation — there is deliberately no env bypass, or a
+// redistributed copy could be launched with SCISTUDIO_ALPHA_GATE=0 to skip the
+// gate entirely (#1848). In dev (non-packaged) the gate is off so a source
+// checkout is never locked out, but it can be opted in to exercise it locally.
 function gateEnabled(isPackaged) {
-  const raw = (process.env.SCISTUDIO_ALPHA_GATE || "").trim().toLowerCase();
-  if (raw === "1" || raw === "true" || raw === "on") {
+  if (isPackaged) {
     return true;
   }
-  if (raw === "0" || raw === "false" || raw === "off") {
-    return false;
-  }
-  return Boolean(isPackaged);
+  const raw = (process.env.SCISTUDIO_ALPHA_GATE || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "on";
 }
 
 module.exports = {

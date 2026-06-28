@@ -81,22 +81,50 @@ test("verifyToken: empty / malformed / unconfigured", () => {
   assert.equal(activation.verifyToken("a.b", "x", null).reason, "not-configured");
 });
 
-test("gateEnabled: env override beats packaged default", () => {
+test("gateEnabled: packaged always on (no env bypass); dev opt-in only", () => {
   const prev = process.env.SCISTUDIO_ALPHA_GATE;
   try {
     delete process.env.SCISTUDIO_ALPHA_GATE;
-    assert.equal(activation.gateEnabled(true), true);
-    assert.equal(activation.gateEnabled(false), false);
+    assert.equal(activation.gateEnabled(true), true); // packaged: on by default
+    assert.equal(activation.gateEnabled(false), false); // dev: off by default
+    // A packaged build must NOT be bypassable via the env var (#1848 P1).
     process.env.SCISTUDIO_ALPHA_GATE = "0";
-    assert.equal(activation.gateEnabled(true), false);
+    assert.equal(activation.gateEnabled(true), true);
+    process.env.SCISTUDIO_ALPHA_GATE = "off";
+    assert.equal(activation.gateEnabled(true), true);
+    // Dev opts in explicitly.
     process.env.SCISTUDIO_ALPHA_GATE = "1";
     assert.equal(activation.gateEnabled(false), true);
+    process.env.SCISTUDIO_ALPHA_GATE = "0";
+    assert.equal(activation.gateEnabled(false), false);
   } finally {
     if (prev === undefined) {
       delete process.env.SCISTUDIO_ALPHA_GATE;
     } else {
       process.env.SCISTUDIO_ALPHA_GATE = prev;
     }
+  }
+});
+
+test("loadPublicKeyPem: env override honored only in dev, never packaged", () => {
+  const prev = process.env.SCISTUDIO_ALPHA_PUBKEY;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "scistudio-pub-"));
+  try {
+    process.env.SCISTUDIO_ALPHA_PUBKEY = "DEV-KEY";
+    // Dev: env override wins.
+    assert.equal(activation.loadPublicKeyPem(dir, false), "DEV-KEY");
+    // Packaged: env override ignored; no shipped file yet -> null (#1848 P1).
+    assert.equal(activation.loadPublicKeyPem(dir, true), null);
+    // Packaged: only the shipped file is trusted.
+    fs.writeFileSync(path.join(dir, "alpha-public-key.pem"), "FILE-KEY");
+    assert.equal(activation.loadPublicKeyPem(dir, true), "FILE-KEY");
+  } finally {
+    if (prev === undefined) {
+      delete process.env.SCISTUDIO_ALPHA_PUBKEY;
+    } else {
+      process.env.SCISTUDIO_ALPHA_PUBKEY = prev;
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
