@@ -29,17 +29,60 @@ class Port:
 @stable(since="0.3.1")
 @dataclass(kw_only=True)
 class InputPort(Port):
-    """An input connection endpoint on a block."""
+    """A typed input connection point on a block.
+
+    Declare one per named input your block reads. The workflow editor uses the
+    accepted types to decide which upstream outputs may connect here, and the
+    runtime uses them (plus the optional constraint) to validate incoming data
+    before the block runs.
+
+    Set these fields when constructing a port:
+
+    - ``name`` — the port's identifier and the key your block looks up in the
+      ``inputs`` mapping passed to :meth:`Block.run`.
+    - ``accepted_types`` — the data types this port accepts; an empty list means
+      "accept any data object".
+    - ``description`` — a short human-readable explanation shown in the editor.
+    - ``required`` — whether a connection is mandatory (defaults to ``True``).
+    - ``is_collection`` — whether the port expects a multi-item collection.
+
+    Example:
+        >>> from scistudio.blocks.base import InputPort
+        >>> port = InputPort(name="image", accepted_types=[], required=True)
+    """
 
     default: Any | None = None
+    """Value used when nothing is connected; lets a required port stay optional."""
+
     constraint: Callable[[Any], bool] | None = None
+    """Optional check run on the incoming value; return ``False`` to reject it."""
+
     constraint_description: str = ""
+    """Message shown to the user when :attr:`constraint` rejects a value."""
 
 
 @stable(since="0.3.1")
 @dataclass(kw_only=True)
 class OutputPort(Port):
-    """An output connection endpoint on a block."""
+    """A typed output connection point on a block.
+
+    Declare one per named output your block produces. The key you use for each
+    value in the mapping returned by :meth:`Block.run` must match an output
+    port's ``name``. The workflow editor uses the accepted types to decide which
+    downstream inputs this output may connect to.
+
+    Set these fields when constructing a port:
+
+    - ``name`` — the port's identifier and the key your block writes in the
+      mapping returned by :meth:`Block.run`.
+    - ``accepted_types`` — the data types this port emits; an empty list means
+      "may emit any data object".
+    - ``description`` — a short human-readable explanation shown in the editor.
+
+    Example:
+        >>> from scistudio.blocks.base import OutputPort
+        >>> port = OutputPort(name="result", accepted_types=[])
+    """
 
 
 def port_accepts_type(port: Port, data_type: type | Any) -> bool:
