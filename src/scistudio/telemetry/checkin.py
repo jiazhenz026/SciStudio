@@ -94,9 +94,7 @@ def _post(url: str, text: str) -> None:
     try:
         data = json.dumps({"text": text}).encode("utf-8")
         # ``url`` is an operator-configured https webhook, not user input.
-        req = urllib.request.Request(
-            url, data=data, headers={"Content-Type": "application/json"}
-        )
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=_TIMEOUT_S).read()
     except Exception:
         # Offline / firewalled / bad URL: a check-in is best-effort, never fatal.

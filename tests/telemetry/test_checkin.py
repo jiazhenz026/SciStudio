@@ -33,9 +33,7 @@ def test_fingerprint_matches_gate_formula() -> None:
     fp = checkin.machine_fingerprint()
     assert len(fp) == 64
     assert all(c in "0123456789abcdef" for c in fp)
-    expected = hashlib.sha256(
-        (checkin._FP_PREFIX + checkin._raw_machine_id()).encode("utf-8")
-    ).hexdigest()
+    expected = hashlib.sha256((checkin._FP_PREFIX + checkin._raw_machine_id()).encode("utf-8")).hexdigest()
     assert fp == expected
 
 
@@ -95,9 +93,7 @@ def test_uses_forwarded_fingerprint_without_recompute(monkeypatch: pytest.Monkey
     """When Electron forwards SCISTUDIO_ALPHA_FP, the check-in uses it verbatim."""
     sent: list[str] = []
     monkeypatch.setattr(checkin, "_post", lambda url, text: sent.append(text))
-    monkeypatch.setattr(
-        checkin, "machine_fingerprint", lambda: pytest.fail("should not recompute")
-    )
+    monkeypatch.setattr(checkin, "machine_fingerprint", lambda: pytest.fail("should not recompute"))
     monkeypatch.setenv("SCISTUDIO_ALPHA_CHECKIN_URL", "http://example.invalid/")
     monkeypatch.setenv("SCISTUDIO_ALPHA_FP", "forwarded-fp")
     # Give the daemon thread a moment; _post is monkeypatched so it's instant.
