@@ -130,27 +130,26 @@ language_source: en
 
 ### 7.4 Audit
 
-- [ ] Au1/Au2/Au3 no-context audits dispatched on the integrated diff.
-- [ ] Audit reports committed under `docs/audit/`.
-- [ ] Findings recorded; P1 fixed before final PR; P2/P3 fixed or tracked.
+- [x] Au1/Au2/Au3 no-context audits dispatched on the integrated diff (ADR-052 + spec + code diff only; no PR/issue/checklist/ledger).
+- [x] Audit reports committed under `docs/audit/` (`2026-06-28-adr-052-public-api-no-context-{1,2,3}.md`, cherry-picked into the integration branch).
+- [x] Findings recorded: **Au1 PASS** (0 P1/P2); **Au2 PASS** (0 P1/P2, 3 non-blocking P3); **Au3 PASS-WITH-FIXES** (0 P1, 1 P2, 1 P3). P2 (spec-Internal non-underscore methods `get_in_memory_data`×5 / `Array.iter_over` / `FrameworkMeta.derive`+`with_lineage_id` leaking into the generated reference) **fixed** (`141c50e3`: `@internal` decoration → excluded from docs, ADR-052 §7). P3s non-blocking and tracked (blocks.code "backend classes only" per §7A table; spec §8.1 prose count typo 29 vs table 21 — implementation matches the table).
 
 ### 7.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Freeze test reconciled (live impl vs spec-derived snapshot).
-- [ ] Doc build verified to succeed.
-- [ ] Tracks merged into integration branch.
+- [x] Agent output reviewed by manager (scope-checked each branch before merge).
+- [x] Scope compliance verified (each impl agent strictly within its subtree; test agents within tests/).
+- [x] Freeze test reconciled (live impl vs spec-derived snapshot; 138 symbols; blocks.code 60 regenerated from live; 9 non-markable exempted).
+- [x] Doc build verified to succeed (`mkdocs build --strict` exit 0, public surface only + tier/Since badges).
+- [x] Tracks merged into integration branch + rebased onto post-#1824 main.
 
 ## 8. Verification Evidence
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | pending |
-| Full test suite | `pytest` (gate-selected) | `[ ]` | pending |
-| Doc build | `mkdocs build --strict` (or generation script) | `[ ]` | pending |
-| Gate ledger check (pre-PR) | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | pending |
-| Gate finalize (pre-PR) | `gate_record finalize --commit <sha> --pr-body-file … --closes "#1833"` | `[ ]` | pending |
+| Gate ledger check (Tier 1) | `gate_record check --base origin/main --head HEAD` (clean HOME = CI parity) | `[x]` | **reconciliation passed** — ruff/format/mypy/import-contracts/full-audit/architecture/deferral/semantic-dup/wheel-smoke + python tests all green |
+| Full test suite | `pytest` (gate-selected, clean HOME) | `[x]` | green; 5 local image/previewer fails are desktop-plugin entry-point leakage that pass in a clean HOME/CI |
+| Doc build | `mkdocs build --strict` | `[x]` | exit 0; public surface only + tier/Since badges |
+| Gate finalize (pre-PR) | `gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#1833"` | `[~]` | pending (this step) |
 
 ## 9. Drift Log
 
@@ -162,9 +161,9 @@ Append only.
 
 ## 10. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence, commit, PR.
-- [ ] PR closes #1833.
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] All dispatched agents have final outputs (A1–A6 impl/test + 3 no-context audits).
+- [x] Manager reviewed every changed file (scope-checked per agent; reconciled all gate findings).
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux (recorded as guard event), commit; PR provenance recorded post-PR.
+- [~] PR closes #1833 (final PR via `scripts/scistudio_pr_create.py`).
+- [~] CI passed — **requires the owner to add the `admin-approved:core-change` label** (protected core; CI validates label actor provenance; owner-authorized scope but the label can only be applied by the owner/admin).
+- [~] Checklist final state matches PR and gate record.
