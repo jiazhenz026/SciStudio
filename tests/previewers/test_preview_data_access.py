@@ -122,6 +122,59 @@ def test_composite_slots_inventory_only() -> None:
     assert slots.slots == {"raster": "Array", "obs": "DataFrame"}
 
 
+def _write_composite(tmp_path: Path) -> StorageReference:
+    """Persist a real two-slot composite via the core CompositeStore."""
+    from scistudio.core.storage.composite_store import CompositeStore
+
+    table = pa.table({"a": [1, 2, 3], "b": [4, 5, 6]})
+    return CompositeStore().write(
+        {"index": ("arrow", table)},
+        StorageReference(backend="composite", path=str(tmp_path / "comp")),
+    )
+
+
+def test_composite_slot_ref_resolves_slot_from_manifest(tmp_path: Path) -> None:
+    # #1830 / ADR-052 §8.5: resolve a composite slot's typed ref from the core
+    # manifest — no StorageReference construction in author code.
+    access = PreviewDataAccess()
+    ref = _write_composite(tmp_path)
+
+    slot_ref = access.composite_slot_ref(ref, "index")
+    assert slot_ref is not None
+    assert slot_ref.backend == "arrow"
+    assert slot_ref.format == "parquet"
+    assert slot_ref.path.endswith("index/data.parquet")
+
+    # The resolved ref feeds the existing bounded readers end-to-end.
+    page = access.dataframe_page(slot_ref, page=1, page_size=10)
+    assert page.total_rows == 3
+    assert "a" in page.columns
+
+
+def test_composite_slot_ref_missing_slot_returns_none(tmp_path: Path) -> None:
+    access = PreviewDataAccess()
+    ref = _write_composite(tmp_path)
+    assert access.composite_slot_ref(ref, "nope") is None
+
+
+def test_composite_slot_ref_missing_manifest_returns_none(tmp_path: Path) -> None:
+    access = PreviewDataAccess()
+    ref = StorageReference(backend="composite", path=str(tmp_path / "absent"))
+    assert access.composite_slot_ref(ref, "index") is None
+
+
+def test_composite_slot_ref_corrupt_manifest_raises(tmp_path: Path) -> None:
+    from scistudio.core.storage.errors import StorageReferenceInvalidError
+
+    base = tmp_path / "broken"
+    base.mkdir()
+    (base / "manifest.json").write_text("{not json", encoding="utf-8")
+    access = PreviewDataAccess()
+    ref = StorageReference(backend="composite", path=str(base))
+    with pytest.raises(StorageReferenceInvalidError):
+        access.composite_slot_ref(ref, "index")
+
+
 def test_array_plane_does_not_materialize_full_zarr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """SC-004: a large array preview reads ONE bounded plane, never the whole array.
 

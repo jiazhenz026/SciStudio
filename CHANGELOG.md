@@ -27,6 +27,10 @@ Patch release; the first internally-distributed 0.3.x build (0.3.0 was never
 distributed — internal testers were still on 0.2.x). The committed version
 embeds build `0000`; the real build number is injected at installer build time.
 
+### Added
+
+- [#1830] New public previewer API: `PreviewDataAccess.composite_slot_ref(ref, slot_name)` resolves a composite slot's typed `StorageReference` from the core `CompositeStore` manifest, so a package previewer can read a composite sub-slot through the bounded readers (`dataframe_page` / `series_points` / `array_plane` / …) **without constructing a `StorageReference` or knowing the on-disk layout** (ADR-052 §8.2/§8.5; Public/provisional/Since 0.3.1). Backed by a new read-only `CompositeStore.slot_ref` helper — touches protected `src/scistudio/core/storage/`, owner-authorized (`admin-approved:core-change`). Tests: `tests/previewers/test_preview_data_access.py`. (@claude, 2026-06-27, branch: guided/1830-composite-slot-ref)
+
 ### Fixed
 
 - [#1805] Desktop staging (`stage-resources.sh` / `.ps1`) no longer silently produces a broken installer when frontend dependencies are missing. It now (1) fails fast with an actionable message if `frontend/node_modules` is absent (instead of the cryptic `tsc: command not found` that aborted staging before the backend tree was copied, shipping an app whose runtime can't `import scistudio`), and (2) asserts the staged backend contains `scistudio/__init__.py` and the embedded SPA `index.html` before finishing. (@claude, 2026-06-27, branch: guided/1805-friendly-ota-dialog)

@@ -67,6 +67,44 @@ class CompositeStore:
             result[slot_name] = backend.read(slot_ref)
         return result
 
+    def slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:
+        """Resolve the typed :class:`StorageReference` for a single composite slot.
+
+        Read-only manifest lookup: returns the slot's recorded
+        ``backend``/``path``/``format`` (the same per-slot ref that :meth:`read`
+        and :meth:`slice` reconstruct), or ``None`` when the composite has no
+        manifest or no such slot. This is the authoritative slot resolution,
+        exposed so bounded readers (e.g. the preview ``PreviewDataAccess``) can
+        read a single slot without reconstructing the on-disk layout themselves.
+
+        A missing manifest returns ``None`` (the caller degrades gracefully); a
+        corrupt manifest raises :class:`StorageReferenceInvalidError`.
+        """
+        base = Path(ref.path)
+        manifest_path = base / self._MANIFEST_NAME
+        try:
+            manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except json.JSONDecodeError as exc:
+            raise StorageReferenceInvalidError(
+                ref,
+                reason="corrupt_or_unreadable",
+                operation="slot_ref",
+                detail=str(exc),
+            ) from exc
+        slots = manifest.get("slots")
+        if not isinstance(slots, dict):
+            return None
+        slot_info = slots.get(slot_name)
+        if not isinstance(slot_info, dict) or not isinstance(slot_info.get("path"), str):
+            return None
+        return StorageReference(
+            backend=str(slot_info.get("backend", "filesystem")),
+            path=slot_info["path"],
+            format=slot_info.get("format"),
+        )
+
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write composite slots to a directory at *ref*.
 
