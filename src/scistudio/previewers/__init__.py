@@ -1,27 +1,28 @@
-"""ADR-048 extensible preview subsystem (SPEC 1 backend core).
+"""The extensible preview subsystem (backend core).
 
-core owns routing, session lifecycle, safety limits, bounded data access, API
-compatibility, and generic fallback viewers; installed packages register
-previewers through the ``scistudio.previewers`` entry point; projects may
-register project-local previewers and defaults.
+A *preview* turns a stored data object, collection, or artifact into a bounded,
+JSON-safe view the frontend can display. The core owns routing, session
+lifecycle, safety limits, bounded data access, API compatibility, and the
+generic fallback viewers. Installed packages add their own previewers through
+the ``scistudio.previewers`` entry point, and a project may register
+project-local previewers and defaults.
 
-**Author surface (ADR-052 §8):** the canonical author roots are
-:mod:`scistudio.previewers.models`, :mod:`scistudio.previewers.data_access`, and
-:mod:`scistudio.previewers.helpers` (``sanitize_svg``) — import the public types
-from there, not from this package top level. The whole preview subsystem is
-``provisional``.
+If you are writing a previewer, import the public types from the canonical
+author roots — :mod:`scistudio.previewers.models`,
+:mod:`scistudio.previewers.data_access`, and
+:mod:`scistudio.previewers.helpers` (``sanitize_svg``) — rather than from this
+package top level. Your package wires a ``scistudio.previewers`` entry point to
+a callable returning ``list[PreviewerSpec]`` (see :class:`PreviewerEntryPoint`)
+and otherwise only constructs the public model and data-access types. The whole
+preview subsystem is **provisional**.
 
-**Operational layer (Internal):** :class:`PreviewerRegistry`,
-:class:`PreviewRouter`, :class:`PreviewSessionManager`, :class:`PreviewService`,
+The operational layer — :class:`PreviewerRegistry`, :class:`PreviewRouter`,
+:class:`PreviewSessionManager`, :class:`PreviewService`,
 :func:`build_preview_service`, :func:`get_preview_service`, and
-:func:`load_project_previewers` are decorated ``@internal``: core owns this
-machinery and it stays importable for the API runtime, but it carries no author
-stability promise and is excluded from the generated reference. They are kept
-importable from this module for the runtime; ``__all__`` no longer advertises
-them as author surface. A package declares a ``scistudio.previewers`` entry
-point whose callable returns ``list[PreviewerSpec]`` (see
-:class:`PreviewerEntryPoint`) and otherwise only constructs the public model and
-data-access types.
+:func:`load_project_previewers` — is core-internal machinery. It stays
+importable for the API runtime but carries no author stability promise and is
+excluded from the generated reference, so it is not advertised here as author
+surface.
 """
 
 from __future__ import annotations
