@@ -1,0 +1,95 @@
+{
+  "branch": "manager/1845-docstring-public-api",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/types/**",
+      "src/scistudio/core/storage/**",
+      "src/scistudio/core/lineage/**",
+      "src/scistudio/core/versioning/**",
+      "src/scistudio/core/meta/**",
+      "src/scistudio/blocks/base/**",
+      "src/scistudio/blocks/process/**",
+      "src/scistudio/blocks/io/**",
+      "src/scistudio/blocks/app/**",
+      "src/scistudio/blocks/subworkflow/**",
+      "src/scistudio/blocks/code/**",
+      "src/scistudio/blocks/ai/**",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/plot/**",
+      "src/scistudio/previewers/**",
+      "docs/contributing/docstring-style.md",
+      "docs/planning/1845-docstring-public-api-checklist.md",
+      "docs/audit/2026-06-28-docstring-public-api-no-context-*.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-28T19:45:12.441470Z",
+      "owner_directive": "Convention doc + dispatch checklist landed; 11 implementer agents (one per public module) + 3 no-context audits; manager owns the single ledger, integration, and final PR.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-28T19:45:12.441629Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/contributing/docstring-style.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T19:45:12.441832Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/1845-docstring-public-api-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1845,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager-coordinated de-jargon + standard-shape docstring cleanup of the ADR-052 public API surface; dispatch one agent per public module + no-context audits; one combined PR closing #1845 (umbrella #1843 stays open).",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1845-docstring-public-api",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "573abc86-c46d-4aee-a4f6-b3ad9b0574a1",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-06-28T19:45:12.441845Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Docstring/comment content only; no runtime behavior change. Existing public-surface freeze tests (tests/api/, tests/stability/) guard behavior and are run by the final gate check.",
+      "verified_in_diff": null
+    }
+  ]
+}
