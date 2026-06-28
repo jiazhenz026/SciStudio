@@ -28,10 +28,18 @@ function basename(p: string): string {
 }
 
 export function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
+  // 0. Backend-resolved canonical display name (#1812). The backend is now the
+  // single precedence authority (`resolve_display_name`) and stamps the result
+  // onto each item descriptor, so trust it when present. The metadata chain
+  // below is a compatibility fallback for any descriptor that predates the
+  // stamp or is built outside `register_output_payload`; new origins are added
+  // in the backend resolver only, never here.
+  const stamped = dataItem.display_name;
+  if (typeof stamped === "string" && stamped) return stamped;
   const md = dataItem.metadata;
   if (md && typeof md === "object") {
     const mdRec = md as Record<string, unknown>;
-    // 0. Generic user-set display name (#1810 interim, #1812 convention). The
+    // 0b. Generic user-set display name (#1810 interim, #1812 convention). The
     // producer composes a user-facing label — e.g. "<file> — <sheet>" for an
     // .xlsx sheet — so same-file/different-sheet items don't collide. Preferred
     // over file-based heuristics because it is an explicit presentation choice.
@@ -85,6 +93,10 @@ function normalizeCollectionItem(item: unknown): Record<string, unknown> | null 
   const out: Record<string, unknown> = { data_ref: ref };
   if (typeof record.type_name === "string") out.type_name = record.type_name;
   if (record.metadata && typeof record.metadata === "object") out.metadata = record.metadata;
+  // Carry the backend-stamped canonical name (#1812) so the collection grid
+  // reads the same resolved label as the pills instead of re-deriving.
+  if (typeof record.display_name === "string" && record.display_name)
+    out.display_name = record.display_name;
   return out;
 }
 
