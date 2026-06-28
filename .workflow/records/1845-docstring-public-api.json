@@ -91,7 +91,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-28T19:50:43.796657Z",
+      "pattern": "docs/planning/1845-dispatch-prompts.md",
+      "reason": "Add committed dispatch-prompt evidence file to scope."
+    }
+  ],
   "session_id": "573abc86-c46d-4aee-a4f6-b3ad9b0574a1",
   "strictness_tier": null,
   "task_kind": "manager",

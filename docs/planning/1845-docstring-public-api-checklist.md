@@ -25,8 +25,9 @@ language_source: en
 - Branch/worktree plan: `manager branch manager/1845-docstring-public-api at /Users/jiazhenz/scistudio-wt-1845-mgr; agents on docs/1845-<module> and audit/1845-<n> in /Users/jiazhenz/scistudio-wt-1845-<slug>`
 - Protected branch: `main`
 - Umbrella branch: `manager/1845-docstring-public-api`
-- Umbrella PR: `#<pending>`
+- Umbrella PR: `#1846`
 - Umbrella PR title: `[DO NOT MERGE] Docstring cleanup: ADR-052 public API surface (#1845)`
+- Filled dispatch prompts: `docs/planning/1845-dispatch-prompts.md`
 - Final PR target: `main` (from manager/1845 branch via scripts/scistudio_pr_create.py)
 - Dispatch prompt templates:
   - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
@@ -71,14 +72,14 @@ language_source: en
 - [x] Gate record started.
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened (#1846).
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch (main) and umbrella PR number (#1846) recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found.
 - [x] Dispatch checklist copied from the template and committed.
 - [x] Convention doc `docs/contributing/docstring-style.md` committed (shared standard).
-- [ ] Dispatch prompts created from the correct template and linked below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Dispatch prompts created from the correct template and linked (`docs/planning/1845-dispatch-prompts.md`).
+- [x] Sentrux baseline: N/A — docstring/comment content only, no runtime behavior change; Sentrux MCP not invoked. Final gate check records guard evidence.
 
 ## 5. Local Gate Hook Bypass Evidence
 
