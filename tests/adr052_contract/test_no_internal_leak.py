@@ -23,9 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
-
-from _spec_data import DEMOTIONS, ROOTS
-from conftest import import_root, module_all
+from _spec_data import DEMOTIONS, NON_MARKABLE_PUBLIC_SYMBOLS, ROOTS, import_root, module_all
 
 from scistudio.stability import get_stability
 
@@ -43,6 +41,11 @@ def test_no_internal_or_undecorated_in_all(root: str) -> None:
         obj = getattr(module, name, None)
         if obj is None:
             offenders.append(f"{name}: in __all__ but not resolvable on the module")
+            continue
+        if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
+            # Non-markable public symbol (ADR-052 §15): a constant / type-alias
+            # that cannot carry a runtime marker — NOT an undecorated/internal
+            # leak. Its public tier is pinned by the expected fixture.
             continue
         info = get_stability(obj)
         if info is None:

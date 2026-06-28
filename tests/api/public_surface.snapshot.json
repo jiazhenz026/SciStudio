@@ -1,119 +1,578 @@
 {
   "_meta": {
-    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 9 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main).",
+    "description": "ADR-052 \u00a715 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 9 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 \u00a715); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main).",
     "spec": "docs/specs/adr-052-public-api-surface.md",
     "adr": "docs/adr/ADR-052.md",
     "issue": "1833 (umbrella #1817)"
   },
   "scistudio.core.types": {
-    "Array": {"tier": "stable", "since": "0.3.1"},
-    "Artifact": {"tier": "stable", "since": "0.3.1"},
-    "Collection": {"tier": "stable", "since": "0.3.1"},
-    "CompositeData": {"tier": "stable", "since": "0.3.1"},
-    "DataFrame": {"tier": "stable", "since": "0.3.1"},
-    "DataObject": {"tier": "stable", "since": "0.3.1"},
-    "Series": {"tier": "stable", "since": "0.3.1"},
-    "StorageReference": {"tier": "stable", "since": "0.3.1"},
-    "Text": {"tier": "stable", "since": "0.3.1"},
-    "TypeSignature": {"tier": "stable", "since": "0.3.1"}
+    "Array": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "Artifact": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "Collection": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "CompositeData": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "DataFrame": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "DataObject": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "Series": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "StorageReference": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "Text": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "TypeSignature": {
+      "tier": "stable",
+      "since": "0.3.1"
+    }
   },
   "scistudio.core.meta": {
-    "ChannelInfo": {"tier": "stable", "since": "0.3.1"},
-    "FrameworkMeta": {"tier": "stable", "since": "0.3.1"},
-    "with_meta_changes": {"tier": "stable", "since": "0.3.1"}
+    "ChannelInfo": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "FrameworkMeta": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "with_meta_changes": {
+      "tier": "stable",
+      "since": "0.3.1"
+    }
   },
   "scistudio.blocks.base": {
-    "Block": {"tier": "stable", "since": "0.3.1"},
-    "BlockConfig": {"tier": "stable", "since": "0.3.1"},
-    "ExecutionMode": {"tier": "stable", "since": "0.3.1"},
-    "INTERACTIVE_RESPONSE_KEY": {"tier": "provisional", "since": "0.3.1"},
-    "InputPort": {"tier": "stable", "since": "0.3.1"},
-    "InteractiveMixin": {"tier": "provisional", "since": "0.3.1"},
-    "InteractivePrompt": {"tier": "provisional", "since": "0.3.1"},
-    "OutputPort": {"tier": "stable", "since": "0.3.1"},
-    "PANEL_API_VERSION": {"tier": "provisional", "since": "0.3.1"},
-    "PackageInfo": {"tier": "stable", "since": "0.3.1"},
-    "PackageOtaSource": {"tier": "provisional", "since": "0.3.1"},
-    "PanelManifest": {"tier": "provisional", "since": "0.3.1"},
-    "load_intermediate": {"tier": "provisional", "since": "0.3.1"}
+    "Block": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "BlockConfig": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "ExecutionMode": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "INTERACTIVE_RESPONSE_KEY": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "InputPort": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "InteractiveMixin": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "InteractivePrompt": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "OutputPort": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "PANEL_API_VERSION": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PackageInfo": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "PackageOtaSource": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PanelManifest": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "load_intermediate": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    }
   },
   "scistudio.blocks.process": {
-    "ProcessBlock": {"tier": "stable", "since": "0.3.1"}
+    "ProcessBlock": {
+      "tier": "stable",
+      "since": "0.3.1"
+    }
   },
   "scistudio.blocks.io": {
-    "CapabilityDirection": {"tier": "stable", "since": "0.3.1"},
-    "CapabilityValidationError": {"tier": "stable", "since": "0.3.1"},
-    "FormatCapability": {"tier": "stable", "since": "0.3.1"},
-    "IOBlock": {"tier": "stable", "since": "0.3.1"},
-    "InvalidExtensionError": {"tier": "stable", "since": "0.3.1"},
-    "InvalidFormatCapabilityError": {"tier": "stable", "since": "0.3.1"},
-    "InvalidMetadataFidelityError": {"tier": "stable", "since": "0.3.1"},
-    "MetadataFidelity": {"tier": "stable", "since": "0.3.1"},
-    "MetadataFidelityLevel": {"tier": "stable", "since": "0.3.1"},
-    "SimpleIODeclarationError": {"tier": "stable", "since": "0.3.1"},
-    "SimpleLoader": {"tier": "stable", "since": "0.3.1"},
-    "SimpleSaver": {"tier": "stable", "since": "0.3.1"}
+    "CapabilityDirection": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "CapabilityValidationError": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "FormatCapability": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "IOBlock": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "InvalidExtensionError": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "InvalidFormatCapabilityError": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "InvalidMetadataFidelityError": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "MetadataFidelity": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "MetadataFidelityLevel": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "SimpleIODeclarationError": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "SimpleLoader": {
+      "tier": "stable",
+      "since": "0.3.1"
+    },
+    "SimpleSaver": {
+      "tier": "stable",
+      "since": "0.3.1"
+    }
   },
   "scistudio.blocks.app": {
-    "AppBlock": {"tier": "provisional", "since": "0.3.1"},
-    "BlockCancelledByAppError": {"tier": "provisional", "since": "0.3.1"},
-    "ExternalAppBridge": {"tier": "provisional", "since": "0.3.1"},
-    "FileExchangeBridge": {"tier": "provisional", "since": "0.3.1"},
-    "FileWatcher": {"tier": "provisional", "since": "0.3.1"},
-    "ProcessExitedWithoutOutputError": {"tier": "provisional", "since": "0.3.1"},
-    "validate_app_command": {"tier": "provisional", "since": "0.3.1"}
+    "AppBlock": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "BlockCancelledByAppError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ExternalAppBridge": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "FileExchangeBridge": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "FileWatcher": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ProcessExitedWithoutOutputError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "validate_app_command": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    }
   },
   "scistudio.blocks.code": {
-    "CodeBlock": {"tier": "provisional", "since": "0.3.1"},
-    "CodeBlockBackend": {"tier": "provisional", "since": "0.3.1"},
-    "CodeBlockConfig": {"tier": "provisional", "since": "0.3.1"},
-    "CodeBlockConfigError": {"tier": "provisional", "since": "0.3.1"},
-    "CodeBlockRuntimeContext": {"tier": "provisional", "since": "0.3.1"},
-    "CodeBlockTimeoutError": {"tier": "provisional", "since": "0.3.1"},
-    "LazyList": {"tier": "provisional", "since": "0.3.1"},
-    "PortFileConfig": {"tier": "provisional", "since": "0.3.1"},
-    "codeblock_exchange_env": {"tier": "provisional", "since": "0.3.1"},
-    "ensure_codeblock_backends_loaded": {"tier": "provisional", "since": "0.3.1"},
-    "list_codeblock_backends": {"tier": "provisional", "since": "0.3.1"},
-    "register_codeblock_backend": {"tier": "provisional", "since": "0.3.1"},
-    "resolve_codeblock_backend": {"tier": "provisional", "since": "0.3.1"},
-    "run_codeblock_process": {"tier": "provisional", "since": "0.3.1"},
-    "unregister_codeblock_backend": {"tier": "provisional", "since": "0.3.1"}
+    "CodeBlock": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockConfig": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockConfigError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockExchangeError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockExchangeLayout": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockExchangeManifest": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockExchangePort": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockExecutionError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockMigrationError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockProvenancePayload": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockRuntimeContext": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockTimeoutError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CodeBlockValidationDiagnostic": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "EnvironmentSnapshot": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ExchangeDiagnostic": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ExchangeFileRecord": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "InterpreterFamily": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "InterpreterResolutionError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "LazyList": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "MaterialiseAdapter": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "MatlabCodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "MatlabRuntimeResolutionError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "NotebookCodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "OutputDiscoveryResult": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PortFileConfig": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PortManifestRecord": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PythonCodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "RQuartoCodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ReconstructAdapter": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ResolvedInterpreter": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ScriptProvenance": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ShellCodeBlockBackend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "UnsupportedScriptExtensionError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "allocate_port_folder": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "build_codeblock_provenance_payload": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "capture_environment_snapshot": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "capture_script_provenance": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "codeblock_config_payload": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "codeblock_exchange_env": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "collect_codeblock_outputs": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "create_codeblock_exchange_layout": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "discover_declared_outputs": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ensure_codeblock_backends_loaded": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "initialise_exchange_manifest": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "introspect_script": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "list_codeblock_backends": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "normalise_extension": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "plan_input_filenames": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "prepare_codeblock_exchange": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "register_codeblock_backend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "resolve_codeblock_backend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "resolve_codeblock_data_type": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "resolve_script_interpreter": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "run_codeblock_process": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "safe_exchange_name": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "selected_codeblock_capabilities": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "unregister_codeblock_backend": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "utc_now_iso": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "validate_codeblock_config": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    }
   },
   "scistudio.previewers.models": {
-    "EnvelopeKind": {"tier": "provisional", "since": "0.3.1"},
-    "FrontendManifest": {"tier": "provisional", "since": "0.3.1"},
-    "OwnerKind": {"tier": "provisional", "since": "0.3.1"},
-    "PREVIEWER_API_VERSION": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewEnvelope": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewError": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewErrorCode": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewErrorInfo": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewLimits": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewMetadata": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewProvider": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewRequest": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewResource": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewResourceProvider": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewSource": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewTarget": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewerEntryPoint": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewerSpec": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewerSpecList": {"tier": "provisional", "since": "0.3.1"},
-    "ProviderError": {"tier": "provisional", "since": "0.3.1"},
-    "TargetKind": {"tier": "provisional", "since": "0.3.1"}
+    "EnvelopeKind": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "FrontendManifest": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "OwnerKind": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PREVIEWER_API_VERSION": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewEnvelope": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewErrorCode": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewErrorInfo": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewLimits": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewMetadata": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewProvider": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewRequest": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewResource": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewResourceProvider": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewSource": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewTarget": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewerEntryPoint": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewerSpec": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewerSpecList": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ProviderError": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "TargetKind": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    }
   },
   "scistudio.previewers.data_access": {
-    "ArrayPlane": {"tier": "provisional", "since": "0.3.1"},
-    "ArrayTile": {"tier": "provisional", "since": "0.3.1"},
-    "ArtifactInfo": {"tier": "provisional", "since": "0.3.1"},
-    "CollectionSample": {"tier": "provisional", "since": "0.3.1"},
-    "CompositeSlots": {"tier": "provisional", "since": "0.3.1"},
-    "DataFramePage": {"tier": "provisional", "since": "0.3.1"},
-    "PreviewDataAccess": {"tier": "provisional", "since": "0.3.1"},
-    "SeriesPoints": {"tier": "provisional", "since": "0.3.1"},
-    "SliceAxis": {"tier": "provisional", "since": "0.3.1"},
-    "TableXYPoints": {"tier": "provisional", "since": "0.3.1"},
-    "TextChunk": {"tier": "provisional", "since": "0.3.1"}
+    "ArrayPlane": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ArrayTile": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "ArtifactInfo": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CollectionSample": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "CompositeSlots": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "DataFramePage": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "PreviewDataAccess": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "SeriesPoints": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "SliceAxis": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "TableXYPoints": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    },
+    "TextChunk": {
+      "tier": "provisional",
+      "since": "0.3.1"
+    }
   }
 }

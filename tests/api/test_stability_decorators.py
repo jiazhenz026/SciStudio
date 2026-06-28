@@ -41,6 +41,25 @@ CANONICAL_ROOTS: tuple[str, ...] = (
 _BASELINE_SINCE = "0.3.1"
 _PUBLIC_TIERS = {"stable", "provisional"}
 
+# Non-markable public symbols (ADR-052 §15): nine str constants / type-aliases
+# that cannot carry a runtime @stable/@provisional marker — get_stability()
+# returns None for them by design. They are public; their tier is carried by the
+# snapshot/expected fixture, not a runtime marker. The per-root tier-assertion
+# below skips the get_stability check for these (the snapshot still pins them).
+NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("scistudio.blocks.base", "INTERACTIVE_RESPONSE_KEY"),
+        ("scistudio.blocks.base", "PANEL_API_VERSION"),
+        ("scistudio.blocks.io", "CapabilityDirection"),
+        ("scistudio.blocks.io", "MetadataFidelityLevel"),
+        ("scistudio.blocks.code", "InterpreterFamily"),
+        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
+        ("scistudio.previewers.models", "PreviewProvider"),
+        ("scistudio.previewers.models", "PreviewResourceProvider"),
+        ("scistudio.previewers.models", "PreviewerSpecList"),
+    }
+)
+
 
 def _public_symbols(root: str) -> list[tuple[str, object]]:
     module = importlib.import_module(root)
@@ -52,6 +71,11 @@ def test_every_public_symbol_carries_a_public_tier_and_baseline_since(root: str)
     """Each ``__all__`` symbol reads back a public tier + the 0.3.1 baseline Since."""
     bad: list[str] = []
     for name, obj in _public_symbols(root):
+        if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
+            # Non-markable public symbol (ADR-052 §15): cannot carry a runtime
+            # marker; its tier is pinned by the snapshot/fixture, so skip the
+            # get_stability read here.
+            continue
         info = get_stability(obj)
         if info is None:
             bad.append(f"{name}: no @stable/@provisional marker")

@@ -134,8 +134,10 @@ def test_template_teaches_collection_helpers(client: TestClient) -> None:
 def test_template_has_array_and_dataframe_examples(client: TestClient) -> None:
     """Section 6 — owner directive: two batch examples, one Array and one DataFrame."""
     content = _template(client)
-    assert "from scistudio.core.types.array import Array" in content
-    assert "from scistudio.core.types.dataframe import DataFrame" in content
+    # ADR-052 §2: the template imports core types from the canonical root
+    # (``scistudio.core.types``), not the deep per-module paths.
+    assert "from scistudio.core.types import Array" in content
+    assert "from scistudio.core.types import DataFrame" in content
     # Both examples drive the point that batch processing is the default.
     assert content.count("self.map_items(") >= 2
 

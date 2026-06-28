@@ -4,11 +4,11 @@
 
 Canonical import root: `from scistudio.blocks.code import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (10 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
+Public surface — every symbol below is declared in this module's `__all__` (60 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
 
 ## `CodeBlock` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.CodeBlock
     options:
@@ -21,7 +21,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
 
 ## `CodeBlockBackend` — _protocol_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.CodeBlockBackend
     options:
@@ -32,9 +32,126 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       members_order: source
       filters: ["!^_"]
 
+## `CodeBlockConfig` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockConfig
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockConfigError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockConfigError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockExchangeError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockExchangeError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockExchangeLayout` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockExchangeLayout
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockExchangeManifest` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockExchangeManifest
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockExchangePort` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockExchangePort
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockExecutionError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockExecutionError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockMigrationError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockMigrationError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockProvenancePayload` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockProvenancePayload
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
 ## `CodeBlockRuntimeContext` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.CodeBlockRuntimeContext
     options:
@@ -45,9 +162,101 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       members_order: source
       filters: ["!^_"]
 
-## `LazyList` — _class_
+## `CodeBlockTimeoutError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockTimeoutError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `CodeBlockValidationDiagnostic` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.CodeBlockValidationDiagnostic
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `EnvironmentSnapshot` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.EnvironmentSnapshot
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ExchangeDiagnostic` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ExchangeDiagnostic
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ExchangeFileRecord` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ExchangeFileRecord
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `InterpreterFamily` — _type-alias_
 
 > _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+
+::: scistudio.blocks.code.InterpreterFamily
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `InterpreterResolutionError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.InterpreterResolutionError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `LazyList` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.LazyList
     options:
@@ -58,9 +267,317 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       members_order: source
       filters: ["!^_"]
 
+## `MaterialiseAdapter` — _protocol_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.MaterialiseAdapter
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `MatlabCodeBlockBackend` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.MatlabCodeBlockBackend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `MatlabRuntimeResolutionError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.MatlabRuntimeResolutionError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `NotebookCodeBlockBackend` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.NotebookCodeBlockBackend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `OutputDiscoveryResult` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.OutputDiscoveryResult
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `PortFileConfig` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.PortFileConfig
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `PortManifestRecord` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.PortManifestRecord
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `PythonCodeBlockBackend` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.PythonCodeBlockBackend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `RQuartoCodeBlockBackend` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.RQuartoCodeBlockBackend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ReconstructAdapter` — _protocol_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ReconstructAdapter
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ResolvedInterpreter` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ResolvedInterpreter
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ScriptProvenance` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ScriptProvenance
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ShellCodeBlockBackend` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.ShellCodeBlockBackend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `UnsupportedScriptExtensionError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.UnsupportedScriptExtensionError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `allocate_port_folder` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.allocate_port_folder
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `build_codeblock_provenance_payload` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.build_codeblock_provenance_payload
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `capture_environment_snapshot` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.capture_environment_snapshot
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `capture_script_provenance` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.capture_script_provenance
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `codeblock_config_payload` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.codeblock_config_payload
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `codeblock_exchange_env` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.codeblock_exchange_env
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `collect_codeblock_outputs` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.collect_codeblock_outputs
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `create_codeblock_exchange_layout` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.create_codeblock_exchange_layout
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `discover_declared_outputs` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.discover_declared_outputs
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `ensure_codeblock_backends_loaded` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.ensure_codeblock_backends_loaded
     options:
@@ -72,9 +589,37 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       filters: ["!^_"]
       show_labels: false
 
+## `initialise_exchange_manifest` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.initialise_exchange_manifest
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `introspect_script` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.introspect_script
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `list_codeblock_backends` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.list_codeblock_backends
     options:
@@ -86,9 +631,51 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       filters: ["!^_"]
       show_labels: false
 
+## `normalise_extension` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.normalise_extension
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `plan_input_filenames` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.plan_input_filenames
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `prepare_codeblock_exchange` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.prepare_codeblock_exchange
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `register_codeblock_backend` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.register_codeblock_backend
     options:
@@ -102,7 +689,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
 
 ## `resolve_codeblock_backend` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.resolve_codeblock_backend
     options:
@@ -114,9 +701,37 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       filters: ["!^_"]
       show_labels: false
 
+## `resolve_codeblock_data_type` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.resolve_codeblock_data_type
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `resolve_script_interpreter` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.resolve_script_interpreter
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `run_codeblock_process` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.run_codeblock_process
     options:
@@ -128,11 +743,67 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       filters: ["!^_"]
       show_labels: false
 
+## `safe_exchange_name` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.safe_exchange_name
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `selected_codeblock_capabilities` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.selected_codeblock_capabilities
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `unregister_codeblock_backend` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.code.unregister_codeblock_backend
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `utc_now_iso` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.utc_now_iso
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `validate_codeblock_config` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.code.validate_codeblock_config
     options:
       show_root_heading: false
       show_root_toc_entry: false

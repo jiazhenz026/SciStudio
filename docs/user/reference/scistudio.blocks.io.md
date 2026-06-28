@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.blocks.io import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (16 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
+Public surface — every symbol below is declared in this module's `__all__` (12 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
 
 ## `CapabilityDirection` — _type-alias_
 
@@ -22,7 +22,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `CapabilityValidationError` — _exception_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.CapabilityValidationError
     options:
@@ -35,7 +35,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `FormatCapability` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.FormatCapability
     options:
@@ -48,7 +48,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `IOBlock` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.IOBlock
     options:
@@ -61,7 +61,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `InvalidExtensionError` — _exception_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.InvalidExtensionError
     options:
@@ -74,7 +74,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `InvalidFormatCapabilityError` — _exception_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.InvalidFormatCapabilityError
     options:
@@ -87,7 +87,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `InvalidMetadataFidelityError` — _exception_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.InvalidMetadataFidelityError
     options:
@@ -98,22 +98,9 @@ Public surface — every symbol below is declared in this module's `__all__` (16
       members_order: source
       filters: ["!^_"]
 
-## `LoadData` — _class_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.io.LoadData
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
 ## `MetadataFidelity` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.MetadataFidelity
     options:
@@ -138,22 +125,9 @@ Public surface — every symbol below is declared in this module's `__all__` (16
       filters: ["!^_"]
       show_labels: false
 
-## `SaveData` — _class_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.io.SaveData
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
 ## `SimpleIODeclarationError` — _exception_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.SimpleIODeclarationError
     options:
@@ -166,7 +140,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `SimpleLoader` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.SimpleLoader
     options:
@@ -179,7 +153,7 @@ Public surface — every symbol below is declared in this module's `__all__` (16
 
 ## `SimpleSaver` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.io.SimpleSaver
     options:
@@ -189,32 +163,4 @@ Public surface — every symbol below is declared in this module's `__all__` (16
       heading_level: 4
       members_order: source
       filters: ["!^_"]
-
-## `normalize_extension` — _function_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.io.normalize_extension
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-      show_labels: false
-
-## `normalize_extensions` — _function_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.io.normalize_extensions
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-      show_labels: false
 

@@ -128,8 +128,11 @@ class TestFileExchangeBridge:
         assert "output1" in results
         assert "output2" in results
         assert isinstance(results["output1"], Artifact)
-        assert results["output1"].mime_type == "text/csv"
-        assert results["output2"].mime_type == "image/png"
+        # Mime-type auto-guessing was removed with `_guess_mime` in the ADR-052
+        # landing; the bridge no longer populates Artifact.mime_type (the
+        # authoritative source is the Artifact, left None unless set explicitly).
+        assert results["output1"].mime_type is None
+        assert results["output2"].mime_type is None
 
 
 class TestAppBlockExchangeDir:

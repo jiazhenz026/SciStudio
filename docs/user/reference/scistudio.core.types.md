@@ -4,11 +4,11 @@
 
 Canonical import root: `from scistudio.core.types import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (12 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
+Public surface — every symbol below is declared in this module's `__all__` (10 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
 
 ## `Array` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.Array
     options:
@@ -21,7 +21,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `Artifact` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.Artifact
     options:
@@ -34,7 +34,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `Collection` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.Collection
     options:
@@ -47,7 +47,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `CompositeData` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.CompositeData
     options:
@@ -60,7 +60,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `DataFrame` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.DataFrame
     options:
@@ -73,7 +73,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `DataObject` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.DataObject
     options:
@@ -86,7 +86,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `Series` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.Series
     options:
@@ -99,7 +99,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `StorageReference` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.StorageReference
     options:
@@ -112,7 +112,7 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 
 ## `Text` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.Text
     options:
@@ -123,37 +123,11 @@ Public surface — every symbol below is declared in this module's `__all__` (12
       members_order: source
       filters: ["!^_"]
 
-## `TypeRegistry` — _class_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.core.types.TypeRegistry
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
 ## `TypeSignature` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.types.TypeSignature
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
-## `TypeSpec` — _class_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.core.types.TypeSpec
     options:
       show_root_heading: false
       show_root_toc_entry: false

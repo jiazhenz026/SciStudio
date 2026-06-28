@@ -11,17 +11,63 @@ and ``docs/adr/ADR-052.md`` -- no implementation source was read.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SINCE_BASELINE = "0.3.1"
 
+
+def import_root(name: str):
+    """Import and return a public root module, or ``None`` if it cannot import.
+
+    Returning ``None`` (rather than raising) lets a test assert a clear failure
+    message instead of erroring during collection. Defined here (a uniquely
+    named, non-``conftest`` module) so the contract test modules import it
+    without depending on ``sys.modules["conftest"]`` — which, in a full-tree
+    pytest run, resolves to a *different* suite's ``conftest`` and breaks the
+    bare ``from conftest import import_root`` (collection-order fragility).
+    """
+    try:
+        return importlib.import_module(name)
+    except Exception:
+        return None
+
+
+def module_all(module) -> set[str]:
+    """The declared public surface of a module: ``set(module.__all__)``."""
+    return set(getattr(module, "__all__", ()) or ())
+
 with open(os.path.join(_HERE, "expected_surface.json"), encoding="utf-8") as _fh:
     EXPECTED_SURFACE: dict = json.load(_fh)
 
 #: The nine canonical public roots (manager-defined freeze contract).
 ROOTS: tuple[str, ...] = tuple(k for k in EXPECTED_SURFACE if not k.startswith("_"))
+
+# --------------------------------------------------------------------------- #
+# Non-markable public symbols (ADR-052 §15). These nine are ``str`` constants or
+# ``Literal`` / ``Callable`` type-aliases that cannot carry a runtime
+# ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
+# for them BY DESIGN (the stability module's docstring calls this "the honest
+# result"). They ARE public per spec; their tier is carried by this expected
+# fixture (and the snapshot), not a runtime marker. The inventory / no-leak /
+# semantics tests therefore skip the get_stability read for these — the fixture
+# still pins their presence and tier.
+# --------------------------------------------------------------------------- #
+NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("scistudio.blocks.base", "INTERACTIVE_RESPONSE_KEY"),
+        ("scistudio.blocks.base", "PANEL_API_VERSION"),
+        ("scistudio.blocks.io", "CapabilityDirection"),
+        ("scistudio.blocks.io", "MetadataFidelityLevel"),
+        ("scistudio.blocks.code", "InterpreterFamily"),
+        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
+        ("scistudio.previewers.models", "PreviewProvider"),
+        ("scistudio.previewers.models", "PreviewResourceProvider"),
+        ("scistudio.previewers.models", "PreviewerSpecList"),
+    }
+)
 
 
 def root_entry(root: str) -> dict:
@@ -106,7 +152,7 @@ INTERACTIVE_REEXPORTS: tuple[str, ...] = (
 
 REEXPORTS: dict[str, tuple[str, ...]] = {
     # spec §4.8: interactive author surface re-exported from the blocks.base root.
-    "scistudio.blocks.base": INTERACTIVE_REEXPORTS + ("PackageOtaSource",),
+    "scistudio.blocks.base": (*INTERACTIVE_REEXPORTS, "PackageOtaSource"),
     # spec §4.7 / §7: AppBlock-cancellation error re-exported into blocks.app.
     "scistudio.blocks.app": ("BlockCancelledByAppError",),
     # spec §3.1 / §8.5: StorageReference public via the core.types re-export.

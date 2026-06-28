@@ -21,15 +21,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
-
 from _spec_data import (
     CONSTRUCTOR_SPECS,
     DEUNDERSCORED_HOOKS,
     ERGONOMIC_ACCESSORS,
     LARGE_DATA_METHODS,
     REMOVED_PROPERTIES,
+    import_root,
 )
-from conftest import import_root
 
 
 def _get_class(root: str, cls_name: str):

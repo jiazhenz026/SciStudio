@@ -4,11 +4,11 @@
 
 Canonical import root: `from scistudio.blocks.app import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (1 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
+Public surface — every symbol below is declared in this module's `__all__` (7 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
 
 ## `AppBlock` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.app.AppBlock
     options:
@@ -18,4 +18,83 @@ Public surface — every symbol below is declared in this module's `__all__` (1 
       heading_level: 4
       members_order: source
       filters: ["!^_"]
+
+## `BlockCancelledByAppError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.BlockCancelledByAppError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ExternalAppBridge` — _protocol_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.ExternalAppBridge
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `FileExchangeBridge` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.FileExchangeBridge
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `FileWatcher` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.FileWatcher
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `ProcessExitedWithoutOutputError` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.ProcessExitedWithoutOutputError
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `validate_app_command` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.app.validate_app_command
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
 

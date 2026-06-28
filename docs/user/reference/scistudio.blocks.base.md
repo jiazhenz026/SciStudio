@@ -8,7 +8,7 @@ Public surface — every symbol below is declared in this module's `__all__` (13
 
 ## `Block` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.Block
     options:
@@ -21,7 +21,7 @@ Public surface — every symbol below is declared in this module's `__all__` (13
 
 ## `BlockConfig` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.BlockConfig
     options:
@@ -32,35 +32,9 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
-## `BlockResult` — _class_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.base.BlockResult
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
-## `BlockState` — _enum_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.base.BlockState
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
 ## `ExecutionMode` — _enum_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.ExecutionMode
     options:
@@ -71,9 +45,23 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
-## `InputPort` — _class_
+## `INTERACTIVE_RESPONSE_KEY` — _constant_
 
 > _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+
+::: scistudio.blocks.base.INTERACTIVE_RESPONSE_KEY
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `InputPort` — _class_
+
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.InputPort
     options:
@@ -84,9 +72,35 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
+## `InteractiveMixin` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.base.InteractiveMixin
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `InteractivePrompt` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.1`
+
+::: scistudio.blocks.base.InteractivePrompt
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
 ## `OutputPort` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.OutputPort
     options:
@@ -97,9 +111,23 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
-## `PackageInfo` — _class_
+## `PANEL_API_VERSION` — _constant_
 
 > _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+
+::: scistudio.blocks.base.PANEL_API_VERSION
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `PackageInfo` — _class_
+
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.base.PackageInfo
     options:
@@ -110,11 +138,11 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
-## `Port` — _class_
+## `PackageOtaSource` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
-::: scistudio.blocks.base.Port
+::: scistudio.blocks.base.PackageOtaSource
     options:
       show_root_heading: false
       show_root_toc_entry: false
@@ -123,11 +151,11 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       members_order: source
       filters: ["!^_"]
 
-## `port_accepts_signature` — _function_
+## `PanelManifest` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
-::: scistudio.blocks.base.port_accepts_signature
+::: scistudio.blocks.base.PanelManifest
     options:
       show_root_heading: false
       show_root_toc_entry: false
@@ -135,41 +163,12 @@ Public surface — every symbol below is declared in this module's `__all__` (13
       heading_level: 4
       members_order: source
       filters: ["!^_"]
-      show_labels: false
 
-## `port_accepts_type` — _function_
+## `load_intermediate` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `provisional` · **Since:** `0.3.1`
 
-::: scistudio.blocks.base.port_accepts_type
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-      show_labels: false
-
-## `validate_connection` — _function_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.base.validate_connection
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-      show_labels: false
-
-## `validate_port_constraint` — _function_
-
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
-
-::: scistudio.blocks.base.validate_port_constraint
+::: scistudio.blocks.base.load_intermediate
     options:
       show_root_heading: false
       show_root_toc_entry: false

@@ -21,9 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
-
-from _spec_data import REEXPORTS
-from conftest import import_root, module_all
+from _spec_data import REEXPORTS, import_root, module_all
 
 _CASES = [(root, name) for root, names in REEXPORTS.items() for name in names]
 

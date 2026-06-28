@@ -6,9 +6,11 @@ and never replace it. ``Array.to_numpy()`` -> ndarray; ``DataFrame.to_pandas()``
 pandas.Series and ``.to_numpy()`` -> ndarray. ``Text``/``Artifact``/
 ``CompositeData`` expose NO such accessor (already ergonomic).
 
-The "exposes no accessor" check PASSES today (those types have no to_pandas/
-to_numpy). The round-trips are EXPECTED TO FAIL until #1817 adds the accessors.
-Written correct-by-spec, not weakened to pass.
+``Array.to_memory()`` reads its in-memory transient slot, so an ``Array``
+round-trips without persistence. ``DataFrame``/``Series`` ``to_memory()`` route
+through ``storage_ref`` -> backend by design (ADR-031), so those round-trips
+persist the object first (``save()`` to a temp Arrow/Parquet backend) and then
+read — the documented usage, not a weakened assertion.
 """
 
 from __future__ import annotations
@@ -22,9 +24,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
-
-from _spec_data import NO_ACCESSOR_TYPES
-from conftest import import_root
+from _spec_data import NO_ACCESSOR_TYPES, import_root
 
 _TYPES = "scistudio.core.types"
 
@@ -38,7 +38,7 @@ def _cls(name: str):
 
 
 def test_array_to_numpy_roundtrip() -> None:
-    Array = _cls("Array")
+    Array = _cls("Array")  # noqa: N806 — holds a class ref, PascalCase is correct
     payload = np.arange(12, dtype="float64").reshape(3, 4)
     arr = Array(axes=("y", "x"), data=payload)
 
@@ -48,10 +48,13 @@ def test_array_to_numpy_roundtrip() -> None:
     np.testing.assert_array_equal(out, np.asarray(arr.to_memory()))
 
 
-def test_dataframe_accessors_roundtrip() -> None:
-    DataFrame = _cls("DataFrame")
+def test_dataframe_accessors_roundtrip(tmp_path) -> None:
+    DataFrame = _cls("DataFrame")  # noqa: N806 — holds a class ref, PascalCase is correct
     table = pa.table({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
     df = DataFrame(data=table)
+    # ADR-031: DataFrame.to_memory() reads via storage_ref -> backend; persist
+    # to a temp Arrow/Parquet backend so the accessor has a real source to wrap.
+    df.save(str(tmp_path / "df.parquet"))
 
     pdf = df.to_pandas()
     assert isinstance(pdf, pd.DataFrame), "DataFrame.to_pandas() must return pandas.DataFrame (§10)"
@@ -63,10 +66,11 @@ def test_dataframe_accessors_roundtrip() -> None:
     assert nd.shape[0] == 3
 
 
-def test_series_accessors_roundtrip() -> None:
-    Series = _cls("Series")
+def test_series_accessors_roundtrip(tmp_path) -> None:
+    Series = _cls("Series")  # noqa: N806 — holds a class ref, PascalCase is correct
     table = pa.table({"value": [10.0, 20.0, 30.0]})
     series = Series(data=table)
+    series.save(str(tmp_path / "s.parquet"))  # ADR-031: persist so to_memory() has a source
 
     ps = series.to_pandas()
     assert isinstance(ps, pd.Series), "Series.to_pandas() must return pandas.Series (§10)"

@@ -13,9 +13,13 @@ conveniences that *wrap* ``to_memory()`` and never replace the canonical form
 * that already-ergonomic types (``Text`` / ``Artifact`` / ``CompositeData``) add
   no such accessor.
 
-These accessors are added in #1817; until then the calls raise ``AttributeError``
-and these tests fail. That is expected (the contract is derived from the spec,
-not the current tree).
+``Array.to_memory()`` reads its ``_transient_data`` slot, so an in-memory
+``Array`` round-trips without persistence. ``DataFrame``/``Series``
+``to_memory()`` route through ``storage_ref`` -> backend by design (ADR-031); an
+unpersisted instance raises "no storage reference set". The ``DataFrame``/
+``Series`` accessor checks therefore persist the object first (``save()`` to a
+temp Arrow/Parquet backend) and then read — exercising a realistically-persisted
+object, which is the documented usage, not a weakened assertion.
 """
 
 from __future__ import annotations
@@ -66,9 +70,12 @@ def _sample_table() -> pa.Table:
     return pa.table({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
 
 
-def test_dataframe_to_pandas_returns_dataframe_wrapping_to_memory() -> None:
+def test_dataframe_to_pandas_returns_dataframe_wrapping_to_memory(tmp_path) -> None:
     table = _sample_table()
     df = DataFrame(data=table)
+    # ADR-031: DataFrame.to_memory() reads via storage_ref -> backend; persist
+    # to a temp Arrow/Parquet backend so the accessor has a real source to wrap.
+    df.save(str(tmp_path / "df.parquet"))
 
     out = df.to_pandas()
     assert isinstance(out, pd.DataFrame), "DataFrame.to_pandas() must return a pandas.DataFrame (§10)"
@@ -77,16 +84,18 @@ def test_dataframe_to_pandas_returns_dataframe_wrapping_to_memory() -> None:
     pd.testing.assert_frame_equal(out, df.to_memory().to_pandas())
 
 
-def test_dataframe_to_numpy_returns_ndarray() -> None:
+def test_dataframe_to_numpy_returns_ndarray(tmp_path) -> None:
     df = DataFrame(data=_sample_table())
+    df.save(str(tmp_path / "df.parquet"))
     out = df.to_numpy()
     assert isinstance(out, np.ndarray), "DataFrame.to_numpy() must return a numpy ndarray (§10)"
     assert out.shape[0] == 3
     np.testing.assert_array_equal(out, df.to_pandas().to_numpy())
 
 
-def test_dataframe_accessor_is_additive_not_a_replacement() -> None:
+def test_dataframe_accessor_is_additive_not_a_replacement(tmp_path) -> None:
     df = DataFrame(data=_sample_table())
+    df.save(str(tmp_path / "df.parquet"))
     _ = df.to_pandas()
     # to_memory() still returns the canonical Arrow form (ADR-031 unchanged).
     assert isinstance(df.to_memory(), pa.Table)
@@ -97,18 +106,20 @@ def test_dataframe_accessor_is_additive_not_a_replacement() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_series_to_pandas_returns_series() -> None:
+def test_series_to_pandas_returns_series(tmp_path) -> None:
     values = np.array([1.0, 2.0, 3.0])
     s = Series(value_name="signal", length=3, data=values)
+    s.save(str(tmp_path / "s.parquet"))  # ADR-031: persist so to_memory() has a source
 
     out = s.to_pandas()
     assert isinstance(out, pd.Series), "Series.to_pandas() must return a pandas.Series (§10)"
     np.testing.assert_array_equal(out.to_numpy(), values)
 
 
-def test_series_to_numpy_returns_ndarray_wrapping_to_memory() -> None:
+def test_series_to_numpy_returns_ndarray_wrapping_to_memory(tmp_path) -> None:
     values = np.array([10.0, 20.0, 30.0])
     s = Series(value_name="signal", length=3, data=values)
+    s.save(str(tmp_path / "s.parquet"))
 
     out = s.to_numpy()
     assert isinstance(out, np.ndarray), "Series.to_numpy() must return a numpy ndarray (§10)"

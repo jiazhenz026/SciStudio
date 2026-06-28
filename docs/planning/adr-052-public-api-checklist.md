@@ -121,11 +121,12 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [x] A1 core/** public surface -> commit `28da411f` (all changes confined to `src/scistudio/core/**`; accessors round-trip smoke PASS; reported 41 pre-existing tests to update + 0 out-of-core shim callers)
-- [ ] A2 blocks/** public surface + template -> `<commit>` (running)
-- [ ] A3 previewers/** + doc build + docs deletion -> `<commit>` (running)
-- [ ] A4 tests/** (reconcile existing + new api tests) -> `<commit>` (running)
-- [ ] A5 NEW dedicated suite `tests/adr052_contract/**` -> `<commit>` (running; owner-added 2026-06-27)
+- [x] A1 core/** public surface (rebased onto post-#1824 main) — core.types 10 + core.meta 3; accessors, de-underscored hooks, metadata-shim removed, TypeRegistry/TypeSpec demoted.
+- [x] A2 blocks/** public surface + template — base 13, process 1, io 12, app 7, code **60** (full §7A non-underscore surface, manager-confirmed); FileWatcher plain-Popen; _guess_mime removed; runner layer deleted; template canonical-root imports.
+- [x] A3 previewers/** + doc build + docs deletion — models 21, data_access 11; mkdocstrings/griffe generated reference (mkdocs build --strict green); `docs/block-development/**` deleted.
+- [x] A4 tests/** (reconcile existing + new tests/api) — committed.
+- [x] A5 NEW dedicated suite `tests/adr052_contract/**` (owner-added 2026-06-27) — committed.
+- [x] A6 integration test reconciliation — snapshot regenerated from live (138; blocks.code 60; 9 non-markable exempted), accessor persistence, deprecation alignment, §9 plot behavior-pinning test (Python green; R deferred TODO(#1824)), existing-test fixes, block-development ripple. Full affected suite: **4208 passed, 0 errors** (5 local env-leak fails pass in clean CI venv; 3 runner entry-point tests now skip after the dead `scistudio.runners` group removal).
 
 ### 7.4 Audit
 

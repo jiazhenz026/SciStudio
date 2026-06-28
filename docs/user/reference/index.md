@@ -16,13 +16,13 @@ A handful of public constants and type-aliases (a bare `str`, a `list[...]` or `
 
 ## Canonical public roots
 
-- [`scistudio.core.types`](scistudio.core.types.md) — 12 public symbols (0 stability-marked)
-- [`scistudio.core.meta`](scistudio.core.meta.md) — 3 public symbols (0 stability-marked)
-- [`scistudio.blocks.base`](scistudio.blocks.base.md) — 13 public symbols (0 stability-marked)
-- [`scistudio.blocks.process`](scistudio.blocks.process.md) — 1 public symbols (0 stability-marked)
-- [`scistudio.blocks.io`](scistudio.blocks.io.md) — 16 public symbols (0 stability-marked)
-- [`scistudio.blocks.app`](scistudio.blocks.app.md) — 1 public symbols (0 stability-marked)
-- [`scistudio.blocks.code`](scistudio.blocks.code.md) — 10 public symbols (0 stability-marked)
+- [`scistudio.core.types`](scistudio.core.types.md) — 10 public symbols (10 stability-marked)
+- [`scistudio.core.meta`](scistudio.core.meta.md) — 3 public symbols (3 stability-marked)
+- [`scistudio.blocks.base`](scistudio.blocks.base.md) — 13 public symbols (11 stability-marked)
+- [`scistudio.blocks.process`](scistudio.blocks.process.md) — 1 public symbols (1 stability-marked)
+- [`scistudio.blocks.io`](scistudio.blocks.io.md) — 12 public symbols (10 stability-marked)
+- [`scistudio.blocks.app`](scistudio.blocks.app.md) — 7 public symbols (7 stability-marked)
+- [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 public symbols (59 stability-marked)
 - [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 public symbols (17 stability-marked)
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 public symbols (11 stability-marked)
 

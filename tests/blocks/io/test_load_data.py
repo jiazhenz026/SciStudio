@@ -335,7 +335,12 @@ def test_load_text_unsupported_extension_raises(tmp_path: Path) -> None:
 
 
 def test_load_artifact_from_bin(tmp_path: Path) -> None:
-    """Generic .bin files become Artifacts with mime + filename + path."""
+    """Generic .bin files become Artifacts with filename + path.
+
+    Mime-type auto-guessing was removed with ``_guess_mime`` in the ADR-052
+    landing; ``Artifact.mime_type`` is the authoritative source and is left
+    unset (``None``) unless a loader explicitly populates it.
+    """
     bin_path = tmp_path / "blob.bin"
     bin_path.write_bytes(b"\x01\x02\x03\x04")
 
@@ -344,7 +349,7 @@ def test_load_artifact_from_bin(tmp_path: Path) -> None:
 
     assert isinstance(art, Artifact)
     assert art.file_path == bin_path
-    assert art.mime_type == "application/octet-stream"
+    assert art.mime_type is None
     assert art.description == "blob.bin"
 
 

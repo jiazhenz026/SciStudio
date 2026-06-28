@@ -64,6 +64,31 @@ CANONICAL_ROOTS: tuple[str, ...] = (
 
 _SNAPSHOT_PATH = Path(__file__).parent / "public_surface.snapshot.json"
 
+# ---------------------------------------------------------------------------
+# Non-markable public symbols (ADR-052 §15). These nine are ``str`` constants or
+# ``Literal`` / ``Callable`` type-aliases that cannot carry a runtime
+# ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
+# for them BY DESIGN — the stability module's own docstring calls this "the
+# honest result". They ARE public per spec; their stability tier is carried by
+# the snapshot / expected fixture, not a runtime marker (ADR-052 §15: the
+# snapshot is the source of truth). The freeze diff still locks them via the
+# live-``__all__`` vs snapshot membership check; only the runtime-marker read is
+# exempted, and the no-internal-leak test does not flag them as undecorated.
+# ---------------------------------------------------------------------------
+NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("scistudio.blocks.base", "INTERACTIVE_RESPONSE_KEY"),
+        ("scistudio.blocks.base", "PANEL_API_VERSION"),
+        ("scistudio.blocks.io", "CapabilityDirection"),
+        ("scistudio.blocks.io", "MetadataFidelityLevel"),
+        ("scistudio.blocks.code", "InterpreterFamily"),
+        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
+        ("scistudio.previewers.models", "PreviewProvider"),
+        ("scistudio.previewers.models", "PreviewResourceProvider"),
+        ("scistudio.previewers.models", "PreviewerSpecList"),
+    }
+)
+
 
 def _load_snapshot() -> dict[str, dict[str, dict[str, str]]]:
     raw = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
@@ -127,6 +152,12 @@ def test_public_surface_frozen(root: str) -> None:
     for name in sorted(expected_names & live_names):
         live_info = live[name]
         if live_info is None:
+            if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
+                # Non-markable public symbol (ADR-052 §15): no runtime marker,
+                # so its tier is read from the snapshot, not get_stability. The
+                # membership diff above still locks it (add/remove fails CI);
+                # only the runtime tier/since read is skipped here.
+                continue
             undecorated.append(name)
             continue
         if live_info["tier"] != expected[name]["tier"]:
@@ -162,6 +193,11 @@ def test_no_internal_or_undecorated_in_all(root: str) -> None:
     module = _import_root(root)
     bad: list[str] = []
     for name in sorted(getattr(module, "__all__", [])):
+        if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
+            # Non-markable public symbol (ADR-052 §15): a constant / type-alias
+            # that cannot carry a runtime marker — not an internal leak. Its
+            # public tier is pinned by the snapshot, not get_stability().
+            continue
         info = get_stability(getattr(module, name))
         if info is None:
             bad.append(f"{name} (undecorated)")

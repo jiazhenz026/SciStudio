@@ -19,9 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
-
-from _spec_data import ROOTS, expected_symbols
-from conftest import import_root
+from _spec_data import NON_MARKABLE_PUBLIC_SYMBOLS, ROOTS, expected_symbols, import_root
 
 from scistudio.stability import (
     StabilityInfo,
@@ -101,7 +99,16 @@ def test_representative_symbol_decorated(root: str) -> None:
     module = import_root(root)
     assert module is not None, f"{root} failed to import"
 
-    name, want = next(iter(expected_symbols(root).items()))
+    # Pick a representative that CAN carry a runtime marker: the nine
+    # non-markable public symbols (ADR-052 §15) read get_stability() == None by
+    # design, so they are not a meaningful "is it decorated?" probe.
+    markable = [
+        (n, w)
+        for n, w in expected_symbols(root).items()
+        if (root, n) not in NON_MARKABLE_PUBLIC_SYMBOLS
+    ]
+    assert markable, f"{root} has no markable representative symbol"
+    name, want = markable[0]
     obj = getattr(module, name, None)
     assert obj is not None, f"representative symbol {name} not importable from {root}"
     info = get_stability(obj)

@@ -8,7 +8,7 @@ Public surface — every symbol below is declared in this module's `__all__` (1 
 
 ## `ProcessBlock` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.blocks.process.ProcessBlock
     options:

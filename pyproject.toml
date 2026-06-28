@@ -114,10 +114,10 @@ scistudio = "scistudio.cli.main:app"
 # repository contributes no built-in domain types via this group.
 [project.entry-points."scistudio.types"]
 
-[project.entry-points."scistudio.runners"]
-python = "scistudio.blocks.code.runners.python_runner:PythonRunner"
-r = "scistudio.blocks.code.runners.r_runner:RRunner"
-julia = "scistudio.blocks.code.runners.julia_runner:JuliaRunner"
+# The ``scistudio.runners`` entry-point group was removed with the dead legacy
+# CodeBlock runner layer (ADR-052 §7A): CodeBlock resolves interpreters through
+# ``scistudio.blocks.code.backends`` / ``_backends_registry``, not the deleted
+# ``runners/*`` modules. The group had no runtime consumer.
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]

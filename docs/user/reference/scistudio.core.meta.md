@@ -8,7 +8,7 @@ Public surface — every symbol below is declared in this module's `__all__` (3 
 
 ## `ChannelInfo` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.meta.ChannelInfo
     options:
@@ -21,7 +21,7 @@ Public surface — every symbol below is declared in this module's `__all__` (3 
 
 ## `FrameworkMeta` — _class_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.meta.FrameworkMeta
     options:
@@ -34,7 +34,7 @@ Public surface — every symbol below is declared in this module's `__all__` (3 
 
 ## `with_meta_changes` — _function_
 
-> _Stability: unmarked — see the module docstring / ADR-052 for this constant or type-alias._
+> **Stability:** `stable` · **Since:** `0.3.1`
 
 ::: scistudio.core.meta.with_meta_changes
     options:

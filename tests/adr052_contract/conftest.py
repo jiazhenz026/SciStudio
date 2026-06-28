@@ -10,7 +10,6 @@ symbols then surface as test *failures*, not collection errors, which keeps
 
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 from pathlib import Path
@@ -21,22 +20,14 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
+# The import helpers live in the uniquely named ``_spec_data`` module so the
+# contract test modules can import them without going through the bare
+# ``conftest`` module name (which, in a full-tree pytest run, collides with
+# other suites' conftests in ``sys.modules`` — see _spec_data.import_root).
+# Re-exported here so ``conftest.import_root`` keeps resolving too.
+from _spec_data import import_root, module_all  # noqa: E402  (needs _HERE on sys.path first)
 
-def import_root(name: str):
-    """Import and return a public root module, or ``None`` if it cannot import.
-
-    Returning ``None`` (rather than raising) lets a test assert a clear failure
-    message instead of erroring during collection.
-    """
-    try:
-        return importlib.import_module(name)
-    except Exception:  # noqa: BLE001 - a broken root is a contract failure, reported by the test
-        return None
-
-
-def module_all(module) -> set[str]:
-    """The declared public surface of a module: ``set(module.__all__)``."""
-    return set(getattr(module, "__all__", ()) or ())
+__all__ = ["import_root", "module_all"]
 
 
 @pytest.fixture(scope="session")

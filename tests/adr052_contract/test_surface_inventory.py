@@ -25,9 +25,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
-
-from _spec_data import ROOTS, expected_symbols, root_mode
-from conftest import import_root, module_all
+from _spec_data import (
+    NON_MARKABLE_PUBLIC_SYMBOLS,
+    ROOTS,
+    expected_symbols,
+    import_root,
+    module_all,
+    root_mode,
+)
 
 from scistudio.stability import get_stability
 
@@ -78,6 +83,11 @@ def test_symbol_tiers_and_since(root: str) -> None:
         obj = getattr(module, name, None)
         if obj is None:
             failures.append(f"{name}: not importable from {root}")
+            continue
+        if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
+            # Non-markable public symbol (ADR-052 §15): cannot carry a runtime
+            # marker; its tier is pinned by this expected fixture, not
+            # get_stability. Presence is already checked by test_surface_membership.
             continue
         info = get_stability(obj)
         if info is None:

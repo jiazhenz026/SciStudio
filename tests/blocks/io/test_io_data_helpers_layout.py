@@ -154,7 +154,8 @@ def test_savedata_legacy_private_symbols_reexported(symbol: str) -> None:
         "_resolve_path",
         "_check_pickle_allowed",
         "_TEXT_FORMAT_MAP",
-        "_MIME_GUESS",
+        # _MIME_GUESS removed with mime-type auto-guessing in the ADR-052 landing
+        # (dropped from the loaders _helpers.__all__); no longer re-exported.
         "_PICKLE_NOTE",
         "_LOGGER",
     ],
