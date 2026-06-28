@@ -14,7 +14,7 @@ change could slip through (the exact gap this work targets):
   value must register as a ``data_ref`` (frontend single-item viewer), not
   a ``kind="collection"`` payload that the frontend reroutes to a grid
   previewer.
-- ``tools_plot.targets._looks_like_collection`` (plot target hint): a
+- ``scistudio.plot.targets._looks_like_collection`` (plot target hint): a
   single value must report ``is_collection=False``.
 
 The third consumer, ``tools_inspection.get_block_output``, is covered next
@@ -102,6 +102,6 @@ class TestPlotTargetSingleValue:
         value the length-one ``_collection`` must still report ``False`` under
         Option 2 (a length-one Collection is semantically a single value).
         """
-        from scistudio.ai.agent.mcp.tools_plot.targets import _looks_like_collection
+        from scistudio.plot.targets import _looks_like_collection
 
         assert _looks_like_collection(_single_value_wire(tmp_path)) is False

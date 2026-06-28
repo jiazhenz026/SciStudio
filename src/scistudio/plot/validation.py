@@ -17,10 +17,10 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from scistudio.ai.agent.mcp._context import _resolve_project_path, _resolve_project_root, get_context
-from scistudio.ai.agent.mcp.tools_plot.models import PlotManifest
-from scistudio.ai.agent.mcp.tools_plot.scaffold import _SCRIPT_FILENAME, validate_plot_id
-from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
+from scistudio.plot._context import PlotRuntimeContext, resolve_project_path, resolve_project_root
+from scistudio.plot.models import PlotManifest
+from scistudio.plot.scaffold import _SCRIPT_FILENAME, validate_plot_id
+from scistudio.plot.targets import discover_targets
 
 
 @dataclass
@@ -49,17 +49,17 @@ class PlotNotFoundError(FileNotFoundError):
     """Raised when a plot id / path does not resolve to a manifest."""
 
 
-def resolve_manifest_path(plot_id: str | None, path: str | None) -> Path:
+def resolve_manifest_path(ctx: PlotRuntimeContext, plot_id: str | None, path: str | None) -> Path:
     """Resolve a manifest path from EITHER ``plot_id`` OR ``path`` (FR-020).
 
     Exactly one must be supplied. The result is always confined under the
-    project root (FR-004).
+    injected project root (FR-004).
     """
     if (plot_id is None) == (path is None):
         raise ValueError("provide exactly one of plot_id or path.")
     if plot_id is not None:
         validate_plot_id(plot_id)
-        root = _resolve_project_root(get_context())
+        root = resolve_project_root(ctx)
         manifest_path = (root / "plots" / plot_id / "plot.yaml").resolve()
         # Confinement: must live under <root>/plots.
         try:
@@ -67,12 +67,12 @@ def resolve_manifest_path(plot_id: str | None, path: str | None) -> Path:
         except ValueError as exc:  # pragma: no cover - validate_plot_id blocks this
             raise PlotNotFoundError(f"plot_id {plot_id!r} escapes the plots/ directory.") from exc
         return manifest_path
-    return _resolve_project_path(path)  # type: ignore[arg-type]
+    return resolve_project_path(ctx, path)  # type: ignore[arg-type]
 
 
-def load_plot(plot_id: str | None = None, path: str | None = None) -> LoadedPlot:
+def load_plot(ctx: PlotRuntimeContext, plot_id: str | None = None, path: str | None = None) -> LoadedPlot:
     """Load + parse a plot manifest (FR-020). Raises on missing/invalid manifest."""
-    manifest_path = resolve_manifest_path(plot_id, path)
+    manifest_path = resolve_manifest_path(ctx, plot_id, path)
     if not manifest_path.exists():
         raise PlotNotFoundError(f"plot manifest not found: {manifest_path}")
     raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
@@ -80,7 +80,7 @@ def load_plot(plot_id: str | None = None, path: str | None = None) -> LoadedPlot
         raise ValueError(f"plot manifest is not a mapping: {manifest_path}")
     manifest = PlotManifest.model_validate(raw)
     plot_dir = manifest_path.parent
-    script_path = resolve_script_path(plot_dir, manifest.script.path)
+    script_path = resolve_script_path(plot_dir, manifest.script.path, root=resolve_project_root(ctx))
     return LoadedPlot(
         plot_id=manifest.id,
         plot_dir=plot_dir,
@@ -90,9 +90,12 @@ def load_plot(plot_id: str | None = None, path: str | None = None) -> LoadedPlot
     )
 
 
-def resolve_script_path(plot_dir: Path, script_path: str, *, root: Path | None = None) -> Path:
-    """Resolve manifest ``script.path`` and reject escapes before reading/running."""
-    root = root or _resolve_project_root(get_context())
+def resolve_script_path(plot_dir: Path, script_path: str, *, root: Path) -> Path:
+    """Resolve manifest ``script.path`` and reject escapes before reading/running.
+
+    *root* (the project root) is injected by the caller, which resolves it from
+    the :class:`PlotRuntimeContext` (#1824).
+    """
     raw_path = Path(script_path)
     resolved = raw_path.resolve() if raw_path.is_absolute() else (plot_dir / raw_path).resolve()
     try:
@@ -113,7 +116,7 @@ def _rscript_available() -> bool:
     return shutil.which("Rscript") is not None
 
 
-def validate_plot(plot_id: str | None = None, path: str | None = None) -> ValidationOutcome:
+def validate_plot(ctx: PlotRuntimeContext, plot_id: str | None = None, path: str | None = None) -> ValidationOutcome:
     """Validate a plot manifest + script end to end (FR-021).
 
     Manifest schema is always validated. R *runner* availability is reported as
@@ -122,7 +125,7 @@ def validate_plot(plot_id: str | None = None, path: str | None = None) -> Valida
     errors: list[str] = []
     warnings: list[str] = []
 
-    manifest_path = resolve_manifest_path(plot_id, path)
+    manifest_path = resolve_manifest_path(ctx, plot_id, path)
     if not manifest_path.exists():
         return ValidationOutcome(valid=False, errors=[f"plot manifest not found: {manifest_path}"])
 
@@ -162,7 +165,7 @@ def validate_plot(plot_id: str | None = None, path: str | None = None) -> Valida
         )
 
     plot_dir = manifest_path.parent
-    root = _resolve_project_root(get_context())
+    root = resolve_project_root(ctx)
 
     # Path confinement of the script (FR-004): the script must live inside the
     # plot directory and not escape the project root.
@@ -190,7 +193,7 @@ def validate_plot(plot_id: str | None = None, path: str | None = None) -> Valida
 
     # Target existence (FR-021): the bound workflow path + node + output port
     # must still resolve to a discoverable target.
-    target_diags = _validate_target(manifest)
+    target_diags = _validate_target(ctx, manifest)
     if target_diags.broken:
         errors.extend(target_diags.errors)
     warnings.extend(target_diags.warnings)
@@ -227,11 +230,11 @@ class _TargetDiagnostics:
     warnings: list[str] = field(default_factory=list)
 
 
-def _validate_target(manifest: PlotManifest) -> _TargetDiagnostics:
+def _validate_target(ctx: PlotRuntimeContext, manifest: PlotManifest) -> _TargetDiagnostics:
     target = manifest.target
     diags = _TargetDiagnostics(broken=False)
     try:
-        targets = discover_targets(workflow_path=target.workflow_path, include_unavailable=True)
+        targets = discover_targets(ctx, workflow_path=target.workflow_path, include_unavailable=True)
     except Exception as exc:
         diags.warnings.append(f"could not discover targets for {target.workflow_path!r}: {exc}")
         return diags

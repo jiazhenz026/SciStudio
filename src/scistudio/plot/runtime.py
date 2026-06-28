@@ -24,9 +24,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
-from scistudio.ai.agent.mcp.tools_plot._harness import PYTHON_HARNESS, R_HARNESS
-from scistudio.ai.agent.mcp.tools_plot.models import (
+from scistudio.plot._context import PlotRuntimeContext, resolve_project_root
+from scistudio.plot._harness import PYTHON_HARNESS, R_HARNESS
+from scistudio.plot.models import (
     ABSOLUTE_MAX_FILES,
     ABSOLUTE_MAX_INPUT_BYTES,
     ABSOLUTE_MAX_OUTPUT_BYTES,
@@ -38,7 +38,7 @@ from scistudio.ai.agent.mcp.tools_plot.models import (
     PlotRunResult,
     PlotStatus,
 )
-from scistudio.ai.agent.mcp.tools_plot.validation import LoadedPlot, load_plot
+from scistudio.plot.validation import LoadedPlot, load_plot
 
 logger = logging.getLogger(__name__)
 
@@ -551,16 +551,24 @@ def _clear_current_artifacts(cache_dir: Path) -> None:
             old.unlink()
 
 
-def run_plot_job(plot_id: str, run_id: str | None = None, timeout_seconds: float | None = None) -> PlotRunResult:
-    """Execute a plot job preview-side and write display-only artifacts (FR-023..FR-031)."""
+def run_plot_job(
+    ctx: PlotRuntimeContext,
+    plot_id: str,
+    run_id: str | None = None,
+    timeout_seconds: float | None = None,
+) -> PlotRunResult:
+    """Execute a plot job preview-side and write display-only artifacts (FR-023..FR-031).
+
+    The caller injects *ctx* (REST: ``ApiRuntime``; MCP: the agent context);
+    the engine never reaches a global context (#1824).
+    """
     from scistudio.blocks.code._backends_registry import (
         CodeBlockTimeoutError,
         run_codeblock_process,
     )
 
-    ctx = get_context()
-    root = _resolve_project_root(ctx)
-    loaded = load_plot(plot_id=plot_id)
+    root = resolve_project_root(ctx)
+    loaded = load_plot(ctx, plot_id=plot_id)
     manifest = loaded.manifest
     timeout, max_bytes, max_files, max_input_bytes = _clamp_limits(manifest)
     if timeout_seconds is not None:

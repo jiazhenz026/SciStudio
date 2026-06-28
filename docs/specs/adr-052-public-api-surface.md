@@ -1102,20 +1102,22 @@ runs the script in a **confined CodeBlock subprocess** (§7A), injects a
 script **imports nothing from `scistudio`**.
 
 The implementing classes (`_PlotCollection`, `_PlotItem`, `_PlotItems`) are private
-and live in `scistudio.ai.agent.mcp.tools_plot._harness`; the input envelope
+and live in `scistudio.plot._harness`; the input envelope
 (`{schema_version, collection: {types, items}}`) is built by
-`scistudio.ai.agent.mcp.tools_plot.runtime._input_envelope`. None of these are
+`scistudio.plot.runtime._input_envelope`. None of these are
 author-importable. The public contract is therefore the **shape** of the injected
-object plus the **return contract**, recorded below. (These module paths are the
-relocation target of #1824; the contract shape does not depend on where they live.)
+object plus the **return contract**, recorded below. (These modules were relocated
+to the first-class `scistudio.plot` package in #1824; the contract shape does not
+depend on where they live.)
 
 **Tier = `provisional` (owner 2026-06-27); no behavior change.** The plot feature
-is currently stable; this section records the contract exactly as it ships at
-`0.3.1` and proposes **no behavior change**. Its current home under the AI-agent
-MCP tooling is architecturally wrong, though — the user-facing REST route
-`api/routes/plots.py` already imports up into `tools_plot` — so a
-**behavior-preserving relocation** to a first-class home is tracked in **#1824**
-(the `render(collection)` shape and return contract are unchanged by that move).
+is stable; this section records the contract exactly as it ships at
+`0.3.1` and proposes **no behavior change**. The engine was relocated from the
+AI-agent MCP tooling to the first-class `scistudio.plot` package in **#1824**
+(behavior-preserving): the user-facing REST route `api/routes/plots.py` and the
+MCP plot tools both depend on `scistudio.plot`, which imports neither `api` nor
+`ai` (callers inject a `PlotRuntimeContext`); the `render(collection)` shape and
+return contract are unchanged by that move.
 Enforcement (§15)
 is a **behavior-pinning contract test** (a Python + R reference `render(collection)`
 that asserts the shape and the return handling) added in the #1817 enforcement
@@ -1457,8 +1459,8 @@ once their callers migrate.
   `render(collection)` shape (`.types`, `.items.open()/open_one()`,
   `item.type/metadata/open()`) is a distinct object from `core.types.Collection`
   (ADR-020: `item_type`, `__iter__`, `storage_refs`) — same name, different objects.
-  Located in the harness (`scistudio.ai.agent.mcp.tools_plot._harness`; relocation
-  tracked #1824) and inventoried in §9 as an import-free, provisional contract.
+  Located in the harness (`scistudio.plot._harness`; relocated from the MCP-tools
+  namespace in #1824) and inventoried in §9 as an import-free, provisional contract.
 - **✅ CodeBlock added to the governed surface (resolved §7A, owner 2026-06-27).**
   `scistudio.blocks.code` / `CodeBlock` was not in ADR-052 `governs.modules`, but the
   survey confirms CodeBlock **is** a genuine authoring base — `registry/_spec`
@@ -1552,3 +1554,4 @@ even after the tables are complete.
 | 2026-06-27 | Filed + implemented **#1830** (`PreviewDataAccess.composite_slot_ref`). Evaluating the spectroscopy rewrite surfaced that closing the §8.5 leak on `request.storage` alone is insufficient: a package reading a non-raster composite slot still had to **construct a `StorageReference`** because `PreviewDataAccess` exposed only slot *inventory* (`composite_slots`) and a legacy raster reader — not the manifest-based slot resolution that `CompositeStore` already owns. Added public `PreviewDataAccess.composite_slot_ref(ref, slot_name)` (Public/provisional/0.3.1, §8.2) delegating to a new read-only `CompositeStore.slot_ref` helper (`admin-approved:core-change`). Author calls it and passes the returned ref to a bounded reader — pass-through, never constructs. This fully closes the §8.5 author-side ref construction for composite slots and unblocks the spectroscopy `_slot_ref` deletion. | Owner 2026-06-27 ("就A，给你授权"). |
 | 2026-06-27 | **#1812 canonical display-name convention landed.** Chose **(B)** `user["display_name"]` as the optional producer override (not a typed `framework`/`meta` field), so **no §3.10 `FrameworkMeta` row and no §13.1 contract-table row change** — it is a value convention inside the already-public `user` slot. One core authority `core.meta._display_name.resolve_display_name` (Internal, not in `core.meta.__all__`) resolves both the interactive label path and the previewer/API path; `register_output_payload` stamps a resolved `display_name` onto item descriptors (additive, §8.2 note) and the frontend reads it instead of re-deriving. §13 + §8.2 notes added. | Owner 2026-06-27 (B + resolver in `core.meta` + `admin-approved:core-change` for `core.meta`/`blocks.base.interactive`). |
 | 2026-06-27 | **#1823 implemented (storage closure):** within the owner-approved typed-field approach, the owner picked the **consolidate-the-rebuild** variant over fully deleting the dict carrier. The `PreviewSessionManager` resolves the typed `StorageReference` once and sets `request.storage` / `record_metadata`; providers read those (core `fallbacks.py` keeps a defensive `_storage` rebuild only for requests built outside the manager). The `_storage` / `_record_metadata` query keys are **retained as a runtime-internal carrier** — the session cache-key folds in `_storage.metadata.data_version` and the bounded resource reads (tile/export) rebuild the ref from it. Fully removing the carrier was declined: no author-facing gain, and it would disturb the cache-key + resource-read paths before the API freeze. `sanitize_svg` relocated to the public `scistudio.previewers.helpers` home (`fallbacks` keeps a back-compat re-export, out of `__all__`, dropped by #1817). `models.__all__` reconciliation stays with #1817 per §8/§8.1. §8/§8.3/§8.5 updated to the shipped state. | Owner 2026-06-27 ("方案 A — consolidate, keep the internal carrier"). |
+| 2026-06-27 | **#1824 implemented (plot engine relocation):** the 8-module `render(collection)` engine (`_harness`/`runtime`/`validation`/`models`/`targets`/`scaffold`/`relink`/`examples`) moved from `scistudio.ai.agent.mcp.tools_plot` to the first-class **`scistudio.plot`** package, behavior-preserving. The `mcp._context` coupling is severed via **dependency injection** (approach b): a minimal `PlotRuntimeContext` Protocol + pure path helpers (`safe_under`/`resolve_project_root`) live in `scistudio.plot._context`; engine entry points take an injected `ctx`. The REST route passes its `ApiRuntime` (gained a `project_dir` property so it satisfies the Protocol); the MCP `tools.py` stays in the agent namespace as a thin wrapper and injects `get_context()` (cast at that boundary). **No module under `scistudio.plot` imports `scistudio.api` or `scistudio.ai`** — enforced by a new `plot` rule in `tests/architecture/test_layer_deps.py`. The MCP 33-tool count is unchanged (`tools.py` retained). §9 prose repointed to `scistudio.plot`. | Owner 2026-06-27 ("先 #1823 还是 #1824 — 开干"; "1824 居然没有做吗"). |

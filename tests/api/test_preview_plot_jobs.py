@@ -23,8 +23,8 @@ import pytest
 
 from scistudio.ai.agent.mcp import _context
 from scistudio.ai.agent.mcp.tools_plot import run_plot_job, scaffold_plot
-from scistudio.ai.agent.mcp.tools_plot.runtime import _flatten_to_refs, preview_cache_dir
-from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
+from scistudio.plot.runtime import _flatten_to_refs, preview_cache_dir
+from scistudio.plot.targets import discover_targets
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
@@ -125,7 +125,7 @@ def setup(tmp_path: Path) -> tuple[Path, _StubRuntime, Path]:
     }
     runtime = _StubRuntime(_project_dir=project, block_registry=registry, workflow_runs=runs)
     _context.set_context(runtime)
-    tid = discover_targets()[0].target_id
+    tid = discover_targets(runtime)[0].target_id
     _run(scaffold_plot(plot_id="p1", target_id=tid, language="python"))
     (project / "plots" / "p1" / "render.py").write_text(
         (

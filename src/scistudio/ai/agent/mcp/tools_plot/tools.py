@@ -14,18 +14,19 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 from pydantic import Field
 
-import scistudio.ai.agent.mcp.tools_plot.examples as _examples
-import scistudio.ai.agent.mcp.tools_plot.runtime as _runtime
-import scistudio.ai.agent.mcp.tools_plot.scaffold as _scaffold
-import scistudio.ai.agent.mcp.tools_plot.targets as _targets
-import scistudio.ai.agent.mcp.tools_plot.validation as _validation
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
+import scistudio.plot.examples as _examples
+import scistudio.plot.runtime as _runtime
+import scistudio.plot.scaffold as _scaffold
+import scistudio.plot.targets as _targets
+import scistudio.plot.validation as _validation
+from scistudio.ai.agent.mcp._context import get_context
 from scistudio.ai.agent.mcp.server import mcp
-from scistudio.ai.agent.mcp.tools_plot.models import (
+from scistudio.plot import PlotRuntimeContext, resolve_project_root
+from scistudio.plot.models import (
     ListPlotExamplesResult,
     ListPlotTargetsResult,
     PlotLanguage,
@@ -36,6 +37,17 @@ from scistudio.ai.agent.mcp.tools_plot.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _plot_ctx() -> PlotRuntimeContext:
+    """Adapt the live MCP context to the plot engine's ``PlotRuntimeContext`` (#1824).
+
+    The runtime context (the FastAPI ``ApiRuntime`` adapter, or the agent
+    context) structurally provides ``workflow_runs`` / ``register_plot_artifact``
+    that the narrower ``MCPContext`` protocol does not declare; this boundary cast
+    vouches for the richer shape the relocated plot engine reads.
+    """
+    return cast(PlotRuntimeContext, get_context())
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +80,9 @@ async def list_plot_targets(
     block type, output port, output type, and latest-output availability. Pass
     the returned ``target_id`` to ``scaffold_plot`` — never bind by node label.
     """
-    targets = _targets.discover_targets(workflow_path=workflow_path, include_unavailable=include_unavailable)
+    targets = _targets.discover_targets(
+        _plot_ctx(), workflow_path=workflow_path, include_unavailable=include_unavailable
+    )
     return ListPlotTargetsResult(targets=targets, count=len(targets))
 
 
@@ -100,9 +114,9 @@ async def scaffold_plot(
     unless ``overwrite=true``. Returns manifest/script paths, bytes written,
     warnings, and ``next_step``.
     """
-    ctx = get_context()
-    root = _resolve_project_root(ctx)
-    target = _targets.resolve_target_by_id(target_id)
+    ctx = _plot_ctx()
+    root = resolve_project_root(ctx)
+    target = _targets.resolve_target_by_id(ctx, target_id)
     if target is None:
         raise ValueError(
             f"unknown target_id {target_id!r}. Call list_plot_targets and pass a returned "
@@ -177,9 +191,9 @@ async def read_plot_source(
     """
     if (plot_id is None) == (path is None):
         raise ValueError("provide exactly one of plot_id or path.")
-    loaded = _validation.load_plot(plot_id=plot_id, path=path)
-    ctx = get_context()
-    root = _resolve_project_root(ctx)
+    ctx = _plot_ctx()
+    loaded = _validation.load_plot(ctx, plot_id=plot_id, path=path)
+    root = resolve_project_root(ctx)
 
     def _rel(p: Path) -> str:
         try:
@@ -227,7 +241,7 @@ async def validate_plot(
     R runner unavailability is reported as a warning, never an error: manifests
     validate everywhere. Requires EXACTLY one of ``plot_id`` or ``path``.
     """
-    outcome = _validation.validate_plot(plot_id=plot_id, path=path)
+    outcome = _validation.validate_plot(_plot_ctx(), plot_id=plot_id, path=path)
     return ValidatePlotResult(
         valid=outcome.valid,
         errors=outcome.errors,
@@ -269,7 +283,7 @@ async def run_plot_job(
     Enforces timeout, output-size, and file-count caps with sanitized errors.
     The artifact is consumable by the core PlotPreviewer.
     """
-    return _runtime.run_plot_job(plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)
+    return _runtime.run_plot_job(_plot_ctx(), plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)
 
 
 __all__ = [

@@ -390,6 +390,16 @@ class ApiRuntime:
         self._data_catalog = registry
 
     @property
+    def project_dir(self) -> Path | None:
+        """Active project workspace root, or ``None`` when no project is open.
+
+        Lets ``ApiRuntime`` satisfy ``scistudio.plot.PlotRuntimeContext`` so the
+        plot REST route can inject it directly into the relocated plot engine
+        (#1824) instead of the engine reaching the global MCP context.
+        """
+        return Path(self.active_project.path) if self.active_project else None
+
+    @property
     def workflow_runs(self) -> MutableMapping[str, WorkflowRun]:
         return self._workflow_runs
 
