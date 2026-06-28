@@ -1,16 +1,26 @@
-"""IO block authoring surface (ADR-052 §6).
+"""Public tools for writing blocks that read files in and write files out.
 
-Canonical root: ``from scistudio.blocks.io import …``. The public surface is
-this module's ``__all__`` — the :class:`IOBlock` ABC, the ergonomic
-:class:`SimpleLoader` / :class:`SimpleSaver` bases, the ADR-043 capability
-declaration types, and the catchable capability-error hierarchy.
+Import everything from this root: ``from scistudio.blocks.io import …``. This is
+where you start when you want a custom block that loads a file from disk into a
+SciStudio data object, or writes a data object back out to a file.
 
-The concrete core dynamic-port blocks ``LoadData`` / ``SaveData`` and the
-``normalize_extension`` / ``normalize_extensions`` helpers are **internal**
-(ADR-052 §6.3, §6.5): they remain importable via their deep paths
-(``scistudio.blocks.io.loaders.load_data`` / ``…savers.save_data`` /
-``scistudio.blocks.io.capabilities``) for framework callers, but carry no
-stability promise and are not re-exported here.
+What this module exports:
+
+- :class:`IOBlock` — the abstract base every load/save block inherits from.
+- :class:`SimpleLoader` / :class:`SimpleSaver` — short-cut bases for the common
+  "one file in, one object out" (or the reverse) case, so you do not have to
+  wire up the full capability machinery by hand.
+- :class:`FormatCapability` and :class:`MetadataFidelity` — the records a block
+  uses to declare which file formats it can read or write, and how much of the
+  file's metadata it preserves.
+- The capability-error classes (:class:`CapabilityValidationError` and its
+  subclasses) — catch these if you want to handle a rejected format declaration
+  yourself.
+
+The concrete ``LoadData`` / ``SaveData`` blocks and the ``normalize_extension``
+helpers are internal: they stay importable from their deep module paths for the
+framework, but they are not part of this stable surface and may change without
+notice.
 """
 
 from __future__ import annotations
