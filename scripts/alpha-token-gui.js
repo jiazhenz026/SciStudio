@@ -53,8 +53,8 @@ const PAGE = `<!doctype html>
     </div>
 
     <div class="field">
-      <label for="fp">Tester machine fingerprint</label>
-      <textarea id="fp" placeholder="Paste the fingerprint the tester copied from the activation window"></textarea>
+      <label for="fp">Tester registration code</label>
+      <textarea id="fp" placeholder="Paste the registration code the tester copied from the activation window"></textarea>
     </div>
 
     <div class="field">
