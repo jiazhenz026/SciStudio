@@ -2,6 +2,10 @@ frontend/
 app/
 backend/
 
+# #1855: alpha check-in webhook URL — never commit (it would let anyone spam the
+# Slack channel). Stamped into the build locally; ALPHA-ONLY, removed in beta.
+alpha-checkin.json
+
 packages/*
 !packages/.gitkeep
 !packages/README.md

@@ -1,0 +1,52 @@
+{
+  "branch": "guided/1855-alpha-checkin",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/telemetry/**",
+      "src/scistudio/api/app.py",
+      "desktop/main.js",
+      "desktop/resources/alpha-gate.html",
+      "docs/alpha-activation-gate.md",
+      ".gitignore",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1855,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add A-tier lightweight Slack webhook launch check-in in the Python backend to count active internal alpha testers (covers gate-bypass users too). Webhook URL gitignored to avoid spam. Privacy notice added on the activation gate screen. Code marked alpha-only/temporary with beta-removal checklist.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1855-guided-1855-alpha-checkin",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9a1782ad-5af8-4fea-97a7-c42d5308aa56",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

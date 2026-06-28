@@ -173,6 +173,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logging.getLogger(__name__).error("MCP context failed to initialize", exc_info=True)
         app.state.mcp_server = None
 
+    # ---- #1855: alpha-only launch check-in (removed in beta with the #1848
+    # gate). Best-effort, fire-and-forget, opt-in via SCISTUDIO_ALPHA_CHECKIN_URL.
+    # Lives here so direct-backend launches (the common gate bypass) report too.
+    # Must never affect startup. See docs/alpha-activation-gate.md.
+    try:
+        from scistudio.telemetry.checkin import fire_and_forget
+
+        fire_and_forget()
+    except Exception:
+        pass
+
     try:
         yield
     finally:
