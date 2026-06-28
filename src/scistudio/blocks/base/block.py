@@ -18,8 +18,10 @@ from scistudio.blocks.base.ports import (
     validate_port_constraint,
 )
 from scistudio.blocks.base.state import ExecutionMode
+from scistudio.stability import provisional, stable
 
 
+@stable(since="0.3.1")
 class Block(ABC):
     """Abstract base class for all processing blocks.
 
@@ -89,6 +91,10 @@ class Block(ABC):
     # :meth:`get_effective_output_ports` to compute their per-instance ports
     # from ``self.config``. The ClassVar itself is the static descriptor that
     # the API and frontend consume to render the dynamic-port UI.
+    #
+    # Stability: provisional (ADR-052 §4.1) — the declarative dynamic-port
+    # descriptor (ADR-028 Addendum 1) is still settling; the rest of the
+    # authoring ClassVars are stable.
     dynamic_ports: ClassVar[dict[str, Any] | None] = None
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.AUTO
@@ -101,11 +107,13 @@ class Block(ABC):
 
     # -- instance lifecycle ----------------------------------------------------
 
+    @stable(since="0.3.1")
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config: BlockConfig = BlockConfig(**(config or {}))
 
     # -- ADR-051: interactive-block panel metadata -----------------------------
 
+    @provisional(since="0.3.1")
     def get_panel_manifest(self) -> Any | None:
         """Return this block's interactive panel manifest, if any (ADR-051 §4).
 
@@ -120,6 +128,7 @@ class Block(ABC):
 
     # -- ADR-028 Addendum 1 D2: effective-ports hooks --------------------------
 
+    @stable(since="0.3.1")
     def get_effective_input_ports(self) -> list[InputPort]:
         """Return effective input ports for this instance.
 
@@ -143,6 +152,7 @@ class Block(ABC):
                 return ports_from_config_dicts(config_ports, "input")  # type: ignore[return-value]
         return list(type(self).input_ports)
 
+    @stable(since="0.3.1")
     def get_effective_output_ports(self) -> list[OutputPort]:
         """Return effective output ports for this instance.
 
@@ -162,6 +172,7 @@ class Block(ABC):
 
     # -- hooks -----------------------------------------------------------------
 
+    @stable(since="0.3.1")
     def validate(self, inputs: dict[str, Any]) -> bool:
         """Validate *inputs* against the block's port contract.
 
@@ -236,10 +247,12 @@ class Block(ABC):
         return True
 
     @abstractmethod
+    @stable(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Execute the block's main logic and return output mapping."""
         ...
 
+    @stable(since="0.3.1")
     def postprocess(self, outputs: dict[str, Collection]) -> dict[str, Collection]:
         """Optional post-processing of *outputs* before downstream delivery.
 
@@ -251,6 +264,7 @@ class Block(ABC):
 
     # -- ADR-020: Collection utilities (Tier 1/2/3 block authoring) ----------
 
+    @stable(since="0.3.1")
     def process_item(self, item: Any, config: BlockConfig) -> Any:
         """Tier 1 entry point: override for per-item processing.
 
@@ -261,6 +275,7 @@ class Block(ABC):
         raise NotImplementedError("Subclass must implement process_item()")
 
     @staticmethod
+    @stable(since="0.3.1")
     def pack(items: list[Any], item_type: type | None = None) -> Any:
         """Pack a list of DataObjects into a Collection, auto-flushing each.
 
@@ -273,6 +288,7 @@ class Block(ABC):
         return Collection(flushed, item_type=item_type)
 
     @staticmethod
+    @stable(since="0.3.1")
     def unpack(collection: Any) -> list[Any]:
         """Unpack a Collection into a list of DataObject instances.
 
@@ -282,6 +298,7 @@ class Block(ABC):
         return list(collection)
 
     @staticmethod
+    @stable(since="0.3.1")
     def unpack_single(collection: Any) -> Any:
         """Unpack a length-1 Collection into a single DataObject.
 
@@ -292,6 +309,7 @@ class Block(ABC):
         return collection[0]
 
     @staticmethod
+    @stable(since="0.3.1")
     def map_items(func: Any, collection: Any) -> Any:
         """Apply *func* to each item sequentially, auto-flushing each result.
 
@@ -307,6 +325,7 @@ class Block(ABC):
         return Collection(results, item_type=collection.item_type)
 
     @staticmethod
+    @stable(since="0.3.1")
     def parallel_map(func: Any, collection: Any, max_workers: int = 4) -> Any:
         """Apply *func* to each item in parallel, auto-flushing each result.
 
@@ -326,6 +345,7 @@ class Block(ABC):
         flushed = [Block._auto_flush(r) for r in results]
         return Collection(flushed, item_type=collection.item_type)
 
+    @stable(since="0.3.1")
     def persist_array(
         self,
         data_or_iterator: Any,
@@ -398,6 +418,7 @@ class Block(ABC):
             metadata=metadata,
         )
 
+    @stable(since="0.3.1")
     def persist_table(self, table: Any, output_dir: str | None = None) -> StorageReference:
         """Write an Arrow table to parquet storage and return a :class:`StorageReference`.
 

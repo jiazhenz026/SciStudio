@@ -206,6 +206,9 @@ def materialise_to_file(
 ) -> Path:
     """Materialise *obj* to a file under *dest_dir* and return the path.
 
+    Internal (ADR-052 §6.4): AppBlock prepare/restore helper; reachable only via
+    its deep path, not re-exported from the ``scistudio.blocks.io`` root.
+
     Resolution policy (in order):
 
     1. If *extension* is ``None``, pick the first extension declared by

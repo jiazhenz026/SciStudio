@@ -8,10 +8,13 @@ import shutil
 import sys
 from pathlib import Path
 
+from scistudio.stability import provisional
+
 # Shell metacharacters that indicate injection attempts.
 _SHELL_META = re.compile(r"[;|&$`><{}\n\r]")
 
 
+@provisional(since="0.3.1")
 def validate_app_command(command: str | list[str]) -> list[str]:
     """Validate and normalise an app command into a safe argument list.
 

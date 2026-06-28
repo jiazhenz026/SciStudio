@@ -9,7 +9,10 @@ do not track their own state.
 
 from __future__ import annotations
 
+from scistudio.stability import provisional
 
+
+@provisional(since="0.3.1")
 class BlockCancelledByAppError(Exception):
     """Block ran an external app that exited without producing output.
 

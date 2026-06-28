@@ -124,7 +124,7 @@ Signature::
 
 Array -- scale every image in the batch by a ``gain`` parameter::
 
-    from scistudio.core.types.array import Array
+    from scistudio.core.types import Array
 
     def run(self, inputs, config):
         gain = config.get("gain", 1.0)
@@ -138,7 +138,7 @@ Array -- scale every image in the batch by a ``gain`` parameter::
 DataFrame -- keep only the numeric columns of every table in the batch::
 
     import pyarrow as pa
-    from scistudio.core.types.dataframe import DataFrame
+    from scistudio.core.types import DataFrame
 
     def run(self, inputs, config):
         def numeric_only(item):
@@ -177,12 +177,14 @@ from scistudio.blocks.base import (
 # ports and in run() without adding an import line. The trailing "unused
 # import" notes just silence the linter for the types you have not used yet --
 # delete the note once you start using one.
-from scistudio.core.types.array import Array
-from scistudio.core.types.artifact import Artifact  # noqa: F401
-from scistudio.core.types.collection import Collection
-from scistudio.core.types.dataframe import DataFrame  # noqa: F401
-from scistudio.core.types.series import Series  # noqa: F401
-from scistudio.core.types.text import Text  # noqa: F401
+from scistudio.core.types import (
+    Array,
+    Artifact,  # noqa: F401
+    Collection,
+    DataFrame,  # noqa: F401
+    Series,  # noqa: F401
+    Text,  # noqa: F401
+)
 
 
 class MyBlock(Block):

@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from scistudio.stability import provisional, stable
 
+
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PackageOtaSource:
     """Where a package publishes its OTA hot-update manifest.
@@ -23,6 +26,7 @@ class PackageOtaSource:
     channel: str = "stable"
 
 
+@stable(since="0.3.1")
 @dataclass(frozen=True)
 class PackageInfo:
     """Metadata about a block package.

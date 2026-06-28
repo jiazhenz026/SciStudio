@@ -16,10 +16,12 @@ from scistudio.blocks.code.code_block import (
 )
 from scistudio.blocks.code.config import CodeBlockConfig, InterpreterMode
 from scistudio.blocks.code.interpreters import InterpreterResolutionError, ResolvedInterpreter
+from scistudio.stability import provisional
 
 _SHELL_CANDIDATES = ("sh", "bash", "dash", "zsh")
 
 
+@provisional(since="0.3.1")
 class ShellCodeBlockBackend:
     """Shell `.sh` backend for the ADR-041 shared runtime."""
 

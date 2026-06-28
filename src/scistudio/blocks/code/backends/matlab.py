@@ -16,14 +16,17 @@ from scistudio.blocks.code.code_block import (
 )
 from scistudio.blocks.code.config import CodeBlockConfig
 from scistudio.blocks.code.interpreters import InterpreterResolutionError, ResolvedInterpreter
+from scistudio.stability import provisional
 
 MatlabFamily = Literal["matlab", "octave"]
 
 
+@provisional(since="0.3.1")
 class MatlabRuntimeResolutionError(InterpreterResolutionError):
     """Raised when MATLAB-family interpreter selection fails."""
 
 
+@provisional(since="0.3.1")
 class MatlabCodeBlockBackend:
     """MATLAB `.m` and `.mlx` backend for the ADR-041 shared runtime."""
 

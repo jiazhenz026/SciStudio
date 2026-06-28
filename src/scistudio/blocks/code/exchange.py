@@ -18,6 +18,7 @@ from typing import Literal, Protocol
 
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
+from scistudio.stability import provisional
 
 PortDirection = Literal["input", "output"]
 ManifestStatus = Literal["planned", "folder_created", "materialised", "collected", "missing", "ignored"]
@@ -26,6 +27,7 @@ DiagnosticSeverity = Literal["info", "warning", "error"]
 _SAFE_NAME_PATTERN = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
+@provisional(since="0.3.1")
 class MaterialiseAdapter(Protocol):
     """Callable seam for writing one :class:`DataObject` into an input folder."""
 
@@ -40,6 +42,7 @@ class MaterialiseAdapter(Protocol):
     ) -> Path: ...
 
 
+@provisional(since="0.3.1")
 class ReconstructAdapter(Protocol):
     """Callable seam for reconstructing one output file into a DataObject."""
 
@@ -53,6 +56,7 @@ class ReconstructAdapter(Protocol):
     ) -> DataObject: ...
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class CodeBlockExchangePort:
     """Declared file-exchange contract for one CodeBlock port."""
@@ -66,6 +70,7 @@ class CodeBlockExchangePort:
     folder_name: str | None = None
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class CodeBlockExchangeLayout:
     """Concrete per-run exchange directory layout."""
@@ -78,6 +83,7 @@ class CodeBlockExchangeLayout:
     temp_dir: Path
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class ExchangeFileRecord:
     """Manifest record for one materialised or collected file."""
@@ -104,6 +110,7 @@ class ExchangeFileRecord:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class ExchangeDiagnostic:
     """Structured exchange warning/error surfaced to later runtime integration."""
@@ -124,6 +131,7 @@ class ExchangeDiagnostic:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(kw_only=True)
 class PortManifestRecord:
     """Manifest record for one declared input or output port."""
@@ -154,6 +162,7 @@ class PortManifestRecord:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(kw_only=True)
 class CodeBlockExchangeManifest:
     """Concrete exchange manifest for one CodeBlock run.
@@ -196,6 +205,7 @@ class CodeBlockExchangeManifest:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class OutputDiscoveryResult:
     """Declared-output scan result before reconstruction."""
@@ -208,6 +218,7 @@ class OutputDiscoveryResult:
         return any(diagnostic.severity == "error" for diagnostic in self.diagnostics)
 
 
+@provisional(since="0.3.1")
 class CodeBlockExchangeError(RuntimeError):
     """Raised when exchange diagnostics contain blocking errors."""
 
@@ -216,6 +227,7 @@ class CodeBlockExchangeError(RuntimeError):
         self.diagnostics = list(diagnostics)
 
 
+@provisional(since="0.3.1")
 def normalise_extension(extension: str) -> str:
     """Return a deterministic lowercase extension with a leading dot."""
 
@@ -229,6 +241,7 @@ def normalise_extension(extension: str) -> str:
     return stripped
 
 
+@provisional(since="0.3.1")
 def safe_exchange_name(value: str, *, fallback: str = "port") -> str:
     """Normalise a user-facing name into one safe path component."""
 
@@ -238,6 +251,7 @@ def safe_exchange_name(value: str, *, fallback: str = "port") -> str:
     return candidate
 
 
+@provisional(since="0.3.1")
 def create_codeblock_exchange_layout(
     exchange_root: Path,
     *,
@@ -265,6 +279,7 @@ def create_codeblock_exchange_layout(
     return layout
 
 
+@provisional(since="0.3.1")
 def allocate_port_folder(parent: Path, port_name: str, used_names: set[str], *, create: bool = True) -> Path:
     """Allocate a deterministic per-port folder with collision-safe suffixing."""
 
@@ -286,6 +301,7 @@ def allocate_port_folder(parent: Path, port_name: str, used_names: set[str], *, 
     raise RuntimeError(f"Could not allocate exchange folder for port {port_name!r}.")
 
 
+@provisional(since="0.3.1")
 def plan_input_filenames(objects: Sequence[DataObject], *, extension: str) -> list[str]:
     """Plan deterministic input filenames for a single port's objects."""
 
@@ -298,6 +314,7 @@ def plan_input_filenames(objects: Sequence[DataObject], *, extension: str) -> li
     return planned
 
 
+@provisional(since="0.3.1")
 def initialise_exchange_manifest(
     port_configs: Sequence[CodeBlockExchangePort],
     *,
@@ -332,6 +349,7 @@ def initialise_exchange_manifest(
     return CodeBlockExchangeManifest(layout=layout, ports=records)
 
 
+@provisional(since="0.3.1")
 def prepare_codeblock_exchange(
     inputs: Mapping[str, DataObject | Collection],
     port_configs: Sequence[CodeBlockExchangePort],
@@ -393,6 +411,7 @@ def prepare_codeblock_exchange(
     return manifest
 
 
+@provisional(since="0.3.1")
 def discover_declared_outputs(
     port_configs: Sequence[CodeBlockExchangePort],
     *,
@@ -498,6 +517,7 @@ def discover_declared_outputs(
     return OutputDiscoveryResult(files_by_port=files_by_port, diagnostics=diagnostics)
 
 
+@provisional(since="0.3.1")
 def collect_codeblock_outputs(
     port_configs: Sequence[CodeBlockExchangePort],
     *,

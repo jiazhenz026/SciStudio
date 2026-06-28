@@ -7,11 +7,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from scistudio.core.types.base import TypeSignature
+from scistudio.stability import stable
 
 
 @dataclass(kw_only=True)
 class Port:
-    """Base class for block connection endpoints."""
+    """Shared base for block connection endpoints.
+
+    Internal (ADR-052 §4.3): authors declare ports with :class:`InputPort` /
+    :class:`OutputPort`; ``Port`` is the shared field carrier and is not part of
+    the public ``scistudio.blocks.base`` surface.
+    """
 
     name: str
     accepted_types: list[type]
@@ -20,6 +26,7 @@ class Port:
     required: bool = True
 
 
+@stable(since="0.3.1")
 @dataclass(kw_only=True)
 class InputPort(Port):
     """An input connection endpoint on a block."""
@@ -29,6 +36,7 @@ class InputPort(Port):
     constraint_description: str = ""
 
 
+@stable(since="0.3.1")
 @dataclass(kw_only=True)
 class OutputPort(Port):
     """An output connection endpoint on a block."""
@@ -63,6 +71,12 @@ def port_accepts_signature(port: Port, signature: TypeSignature) -> bool:
 
     Builds the signature for each accepted type and checks if the incoming
     signature matches (i.e. is a subtype of) at least one of them.
+
+    Internal (ADR-052 §4.3): framework helper, not part of the public surface.
+
+    TODO(#1817): dead code (0 call sites) — keep-or-delete tracked under #1817.
+      Out of scope per ADR-052 §4.3 (demote-only this PR).
+      Followup: https://github.com/jiazhenz026/SciStudio/issues/1817.
     """
     if not port.accepted_types:
         return True

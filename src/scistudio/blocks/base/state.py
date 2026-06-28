@@ -1,12 +1,19 @@
-"""BlockState, ExecutionMode enums."""
+"""BlockState (internal), ExecutionMode (public) enums."""
 
 from __future__ import annotations
 
 from enum import Enum
 
+from scistudio.stability import stable
+
 
 class BlockState(Enum):
-    """Lifecycle state of a block instance."""
+    """Lifecycle state of a block instance.
+
+    Internal (ADR-052 §4.4): the engine-owned scheduler is the authoritative
+    state machine (ADR-018); block authors never set this. Not part of the
+    public ``scistudio.blocks.base`` surface.
+    """
 
     IDLE = "idle"
     READY = "ready"
@@ -18,8 +25,13 @@ class BlockState(Enum):
     SKIPPED = "skipped"  # ADR-018: block cannot execute — required upstream inputs missing
 
 
+@stable(since="0.3.1")
 class ExecutionMode(Enum):
-    """How the block is executed by the runtime."""
+    """How the block is executed by the runtime.
+
+    Authors set ``execution_mode`` on a block class to one of these values
+    (ADR-052 §4.4).
+    """
 
     AUTO = "auto"
     INTERACTIVE = "interactive"
