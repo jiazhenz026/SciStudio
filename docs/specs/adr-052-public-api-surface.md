@@ -1009,6 +1009,17 @@ result dataclasses are **read-only outputs** authors receive, not types they bui
 | ✅ | `DEFAULT_MAX_TILE` | constant | Internal | — | — | as above |
 | ✅ | `DEFAULT_MAX_DIM` | constant | Internal | — | — | as above |
 
+**Item display name (#1812).** Each item descriptor handed to the frontend (built
+by `register_output_payload`, surfaced through `collection_sample`) carries an
+optional `display_name` string alongside `{data_ref, type_name, metadata}`. It is
+the single user-facing name resolved by the internal core authority
+`scistudio.core.meta._display_name.resolve_display_name` from the item's
+`user["display_name"]` → `meta.source_file` → `file_path` → `framework.source`
+chain. The field is **additive** to the descriptor dict (not a typed public
+symbol, no `CollectionSample` field change) and is **omitted** when nothing
+resolves, so the frontend keeps its own truncated-ref fallback. The resolver is
+internal plumbing — deliberately not in `core.meta.__all__` (§3.10).
+
 ### 8.3 `fallbacks.py`
 
 Not an author root. Holds core's own fallback viewers; one helper escaped here and
@@ -1234,6 +1245,19 @@ Prohibitions (lint / freeze-test enforced, not skeletons): **no** `to_pandas` /
 `to_numpy` shadowing; **no** underscore-named author-facing helper
 (`_support`-style modules are internal only); block / previewer classes are not
 part of the reuse surface.
+
+**Canonical item display name (#1812).** A package MAY set `user["display_name"]`
+on an item to declare its human-facing label — e.g. a loader emitting multiple
+items from one workbook composes `"<file> — <sheet>"` so same-file/different-sheet
+items do not collide. This is an **optional value convention inside the
+already-public `user` slot**, not a new member of the contract table above and not
+a typed field, so it adds no obligation and no surface to freeze. The single core
+authority `scistudio.core.meta._display_name.resolve_display_name` reads it with
+highest precedence and otherwise applies a deterministic default
+(`meta.source_file` / `framework.source` basename); every consumer (interactive
+panels, previewer item descriptors, the frontend) then reads the resolved name
+uniformly. A package never special-cases display names per consumer — it either
+sets the override once at production or relies on the core default.
 
 ### 13.2 Per-package reuse-surface inventories
 
@@ -1511,3 +1535,4 @@ even after the tables are complete.
 | 2026-06-27 | §13 refined: (a) §13.1 expressed as a **per-member contract table** (St/Member/Kind/Rule/Template/Tier/Notes) like the core sections — not prose — enumerating the standardized type + constructor + accessor surface with each item's MUST/SHOULD rule and its template treatment (skeleton `NotImplementedError` / empty file / inherited / declared). (b) §13.2 **genericized — no package names** (owner: many domain packages are being rewritten or retired, so the roster is volatile); each package carries its own §13.1 table in its own repo. §13.1's constructor example de-named too. | Owner 2026-06-27 ("define an actual contract as a table, not prose"; "§13.2 must not name packages — many are abandoned"). |
 | 2026-06-27 | Filed **#1826** (build `scistudio-package-template` to self-enforce the §13.1 developer-facing contract: MUST→`NotImplementedError` skeletons + SHOULD→empty files, developer-facing contract validation, and generated-reference + freeze-test parity with core). §13.3 repointed from "issue TBD" → #1826. | Owner 2026-06-27 ("open the issue"). |
 | 2026-06-27 | Filed + implemented **#1830** (`PreviewDataAccess.composite_slot_ref`). Evaluating the spectroscopy rewrite surfaced that closing the §8.5 leak on `request.storage` alone is insufficient: a package reading a non-raster composite slot still had to **construct a `StorageReference`** because `PreviewDataAccess` exposed only slot *inventory* (`composite_slots`) and a legacy raster reader — not the manifest-based slot resolution that `CompositeStore` already owns. Added public `PreviewDataAccess.composite_slot_ref(ref, slot_name)` (Public/provisional/0.3.1, §8.2) delegating to a new read-only `CompositeStore.slot_ref` helper (`admin-approved:core-change`). Author calls it and passes the returned ref to a bounded reader — pass-through, never constructs. This fully closes the §8.5 author-side ref construction for composite slots and unblocks the spectroscopy `_slot_ref` deletion. | Owner 2026-06-27 ("就A，给你授权"). |
+| 2026-06-27 | **#1812 canonical display-name convention landed.** Chose **(B)** `user["display_name"]` as the optional producer override (not a typed `framework`/`meta` field), so **no §3.10 `FrameworkMeta` row and no §13.1 contract-table row change** — it is a value convention inside the already-public `user` slot. One core authority `core.meta._display_name.resolve_display_name` (Internal, not in `core.meta.__all__`) resolves both the interactive label path and the previewer/API path; `register_output_payload` stamps a resolved `display_name` onto item descriptors (additive, §8.2 note) and the frontend reads it instead of re-deriving. §13 + §8.2 notes added. | Owner 2026-06-27 (B + resolver in `core.meta` + `admin-approved:core-change` for `core.meta`/`blocks.base.interactive`). |

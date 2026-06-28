@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#1812] Canonical display-name convention: user-facing item names are now resolved by a single backend authority (`scistudio.core.meta._display_name.resolve_display_name`) instead of two divergent fallback chains (the interactive-panel `interactive_item_label` and the frontend `deriveDisplayName`). The resolver reads one precedence — `user["display_name"]` (the optional producer override, e.g. the xlsx loader's `"<file> — <sheet>"`) → `name` → `meta.source_file` → `file_path` → `framework.source` (path-only) — over both a live `DataObject` and the serialized wire metadata. `register_output_payload` now stamps a resolved `display_name` onto each item descriptor (additive; omitted when nothing resolves) and the frontend reads that field, keeping its metadata chain only as a compatibility fallback. New origins are added in the backend resolver alone; packages may optionally set `user["display_name"]` for their own types (documented in `docs/specs/adr-052-public-api-surface.md` §8.2/§13). Touches protected `src/scistudio/blocks/base/interactive.py` + `src/scistudio/core/meta/**` — owner-authorized (`admin-approved:core-change`). Tests: `tests/core/test_display_name.py`, `tests/api/test_data.py`, `frontend/src/components/DataPreview.parts/refEntries.test.ts`. (@claude, 2026-06-27, branch: guided/1812-display-name-convention)
+
 ## [0.3.1] - 2026-06-27
 
 Patch release; the first internally-distributed 0.3.x build (0.3.0 was never

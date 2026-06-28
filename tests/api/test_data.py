@@ -304,3 +304,61 @@ def test_register_output_payload_preserves_plugin_type_name(
     record = runtime.get_data_record(data_ref)
     assert record.type_name == "Image"
     assert record.type_chain == ["DataObject", "Array", "Image"]
+
+
+def test_register_output_payload_stamps_display_name_from_user_hook(
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """#1812: the descriptor carries a backend-resolved ``display_name``.
+
+    ``user['display_name']`` (the producer override, e.g. the xlsx loader's
+    ``"<file> — <sheet>"``) is resolved by the single backend authority and
+    stamped onto the item descriptor so the frontend reads one field.
+    """
+    wire_payload = {
+        "backend": "arrow",
+        "path": str(opened_project / "data" / "arrow" / "sheet2.arrow"),
+        "format": "arrow",
+        "metadata": {
+            "type_chain": ["DataObject", "DataFrame"],
+            "user": {"sheet_name": "beta", "display_name": "exp.xlsx — beta"},
+        },
+    }
+    result = runtime.register_output_payload(wire_payload)
+    assert result["display_name"] == "exp.xlsx — beta"
+
+
+def test_register_output_payload_stamps_display_name_from_source_file(
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """#1812: with no explicit override, the resolver falls back to the
+    typed ``meta.source_file`` basename."""
+    wire_payload = {
+        "backend": "zarr",
+        "path": str(opened_project / "data" / "zarr" / "beads.zarr"),
+        "format": "zarr",
+        "metadata": {
+            "type_chain": ["DataObject", "Array", "Image"],
+            "meta": {"source_file": "/uploads/beads.tif"},
+        },
+    }
+    result = runtime.register_output_payload(wire_payload)
+    assert result["display_name"] == "beads.tif"
+
+
+def test_register_output_payload_omits_display_name_when_unresolved(
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """#1812: the field is omitted (not empty) when nothing resolves, so the
+    frontend keeps its own truncated-ref fallback."""
+    wire_payload = {
+        "backend": "zarr",
+        "path": str(opened_project / "data" / "zarr" / "anon.zarr"),
+        "format": "zarr",
+        "metadata": {"type_chain": ["DataObject", "Array", "Image"]},
+    }
+    result = runtime.register_output_payload(wire_payload)
+    assert "display_name" not in result

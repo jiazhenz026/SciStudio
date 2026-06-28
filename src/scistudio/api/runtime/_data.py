@@ -25,6 +25,7 @@ from uuid import uuid4
 
 import pyarrow.parquet as pq
 
+from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers import (
     PreviewService,
@@ -152,11 +153,19 @@ def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
         if tc and isinstance(tc, list) and tc:
             explicit_type_name = str(tc[-1])
         record = self.register_data_ref(ref, type_name=explicit_type_name, metadata=self.describe_ref(ref))
-        return {
+        descriptor: dict[str, Any] = {
             "data_ref": record.id,
             "type_name": record.type_name,
             "metadata": record.metadata,
         }
+        # Stamp the canonical user-facing name resolved by the single backend
+        # authority (#1812) so the frontend reads one field instead of
+        # re-deriving. Omitted when nothing resolves; the frontend then keeps
+        # its own truncated-ref fallback.
+        display_name = resolve_display_name(record.metadata, fallback="")
+        if display_name:
+            descriptor["display_name"] = display_name
+        return descriptor
     if isinstance(payload, dict) and payload.get("_collection") is True:
         raw_items = payload.get("items", [])
         # #1811 Option 2: a length-one Collection is the canonical
