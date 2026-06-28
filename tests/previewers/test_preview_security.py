@@ -14,7 +14,21 @@ import numpy as np
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.data_access import PreviewDataAccess
-from scistudio.previewers.fallbacks import sanitize_svg
+from scistudio.previewers.helpers import sanitize_svg
+
+
+def test_sanitize_svg_back_compat_reexport_from_fallbacks() -> None:
+    """#1823: sanitize_svg relocated to the public helpers home (ADR-052 §8).
+
+    The legacy ``scistudio.previewers.fallbacks`` import path is kept as a
+    back-compat re-export (out of ``__all__``) so out-of-tree packages do not
+    hard-break before migrating; it must resolve to the same function.
+    """
+    from scistudio.previewers import fallbacks, helpers
+
+    assert fallbacks.sanitize_svg is helpers.sanitize_svg
+    assert "sanitize_svg" not in fallbacks.__all__
+    assert "sanitize_svg" in helpers.__all__
 
 
 def test_sanitize_svg_strips_well_formed_script() -> None:

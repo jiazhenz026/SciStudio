@@ -1,0 +1,594 @@
+{
+  "branch": "guided/1823-previewer-storage-leak",
+  "check_events": [
+    {
+      "at": "2026-06-28T00:50:35.729243Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8bda43a20daf7c07fed666665f069d0fda08337894027ac233bb8b1e680cba80",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T00:50:39.499073Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:19baa1a69475470daddb4c29015cd5c155a2c3b68957bf4d20b223cb820d7529",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:50:39.993804Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:74545584a00c9605a5854a6dad90af8383d9cf87118dda62fda5184c7cdda2cb",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:50:40.029526Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:24934a7359dd42210f49e957fb6651c7b5127e58587cbcf198fe75dfc6160fb3",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T00:52:19.950300Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:166e7a9bd89d4728bcdfce5dc48b41093e4864b7ba95e9bacaf41fdb2ad1e92b",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:54:11.696758Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7af75f901cda34d0d943747b1ee945a85f6d9fd8e899ff47a8a50740ea79d90e",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:54:18.051773Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5c3e16ba3b7573d1cefcd33e6afb901b7f435febc2bb194a310cdb73d6a058c3",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-28T00:56:15.941534Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cc6552a06643d156cd54fe4aaab941681bafe744f010e1c9284a886b3e76682f",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T00:56:19.669160Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:43f289e2d9b65e763a0c4b22242d7d99448e00c048d55c44b337397254d84bfb",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:56:19.773309Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cfa9dff16a4319b060668802e8862c004820bd37875cde4c28022c1f02560e6c",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:56:19.795292Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:29c0b7a5333b33c978169e503d3e1371aa6377d130ed7fd13cf7118ea048fc7c",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T00:57:31.119733Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:89ae8d4d063424d06633e5dafc25dd6c337e21925688eaa5cd19433cdcb55530",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:59:22.214183Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:06702441dc77a8ac54c216a606a1be835f4bfd49e149f2df0ec2d13ca8975750",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T00:59:22.633500Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2b4491ebd354cc365ac6b73523fae2a9c72d37c83659a08c36e13a49d4a2489a",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/**",
+      "docs/specs/adr-052-public-api-surface.md",
+      "tests/previewers/**",
+      "tests/api/test_previewers.py",
+      "tests/api/test_plot_preview_wiring.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-28T00:37:38.606596Z",
+      "owner_directive": "Owner: \u5f00\u5e72 (proceed with Option A). Build the typed request.storage fix + sanitize_svg relocation now.",
+      "reason": "Refine scope after re-reading ADR-052 spec: the models.__all__ / operational-class reconciliation is explicitly assigned to #1817 (spec \u00a78, \u00a78.1), and #1823's Done-when does not require it. Narrow this PR to the previewer-specific design fix: typed PreviewRequest.storage/record_metadata (Option A), sanitize_svg relocation to a public helpers home, and ADR-052 \u00a78/\u00a78.5 doc updates. Imaging rewrite stays cross-repo/out-of-scope."
+    },
+    {
+      "at": "2026-06-28T00:39:12.896117Z",
+      "owner_directive": "After the core storage-ref fix lands and the main-repo PR is pushed, normalize the scistudio-blocks-spectroscopy package's previewer behavior to the ADR-052 \u00a78 public API so the package becomes an exemplary reference for future development. Do this in the spectroscopy repo after the main PR is pushed.",
+      "reason": "Owner added a sequenced follow-up directive during the live session; recorded for audit trail. The work itself is cross-repo (scistudio-blocks-spectroscopy) and governed by package PR governance, not this gate ledger; it is gated to start only after this core PR is pushed."
+    },
+    {
+      "at": "2026-06-28T00:54:55.685592Z",
+      "owner_directive": "Implemented Option A: typed request.storage + sanitize_svg relocation + spec docs.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-06-28T00:55:42.366435Z",
+      "owner_directive": "\u539fissue\u5199\u9519\u4e86:imaging\u5e94\u4e3aSpectroscopy(\u6309\u65b0API\u89c4\u8303+\u65b0\u63a5\u7ebf\u91cd\u5199,\u5373\u6700\u540e\u90a3\u4e2a\u4efb\u52a1)\u3002\u76f4\u63a5\u5173\u4e86#1823\u5c31\u884c\u3002",
+      "reason": "Owner clarified an error in the issue text and chose closure plan A. #1823 Done-when item 3 ('fix imaging') was a typo for 'rewrite scistudio-blocks-spectroscopy to the new API + wiring' \u2014 that is the cross-repo follow-up already recorded as a directive and gated to start after this PR is pushed. imaging is being refactored separately and is unrelated to #1823. Owner: close #1823 directly with this PR."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-28T00:54:55.685731Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-28T00:54:18.089619Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.099080Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/previewers/fallbacks.py",
+              "src/scistudio/previewers/helpers.py",
+              "src/scistudio/previewers/models.py",
+              "src/scistudio/previewers/session.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-28T00:54:18.107605Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.115972Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.124587Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.134411Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.144341Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.154163Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.163003Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:54:18.173257Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.672910Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.682231Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.691452Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.701628Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.711033Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.719980Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.729212Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.739494Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.748387Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:59:22.759390Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1823,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "1965e870",
+    "changed_files": [
+      ".workflow/records/1823-guided-1823-previewer-storage-leak.json",
+      "docs/specs/adr-052-public-api-surface.md",
+      "src/scistudio/previewers/fallbacks.py",
+      "src/scistudio/previewers/helpers.py",
+      "src/scistudio/previewers/models.py",
+      "src/scistudio/previewers/session.py",
+      "tests/previewers/test_fallback_array.py",
+      "tests/previewers/test_preview_security.py"
+    ],
+    "diff_fingerprint": "sha256:2db90573c2f9791bb646a18bc71cc57ebe8a2c9389092a774e64c52d760eeba8",
+    "head": "HEAD",
+    "head_sha": "e3af9908",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 7,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Refactor previewer authoring surface (#1823): close the storage leak via typed PreviewRequest.storage/record_metadata (Option A \u2014 consolidate the dict->typed rebuild into the session manager, keep _storage as runtime-internal carrier for cache-key + resource reads), relocate sanitize_svg out of fallbacks.py to a public helper home, and reconcile previewers __all__ (drop the 7 internal symbols; mark operational classes Internal). Imaging package rewrite is cross-repo and out of scope for this PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-28T00:54:18.173302Z",
+      "diff_fingerprint": "sha256:c19f11db573320725a9e16cb0a0859a0c8e77df5e91ee154fea303982d51c33f",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-28T00:59:22.759429Z",
+      "diff_fingerprint": "sha256:2db90573c2f9791bb646a18bc71cc57ebe8a2c9389092a774e64c52d760eeba8",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1823-guided-1823-previewer-storage-leak",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-28T00:37:38.606750Z",
+      "pattern": "src/scistudio/previewers/helpers.py",
+      "reason": "Refine scope after re-reading ADR-052 spec: the models.__all__ / operational-class reconciliation is explicitly assigned to #1817 (spec \u00a78, \u00a78.1), and #1823's Done-when does not require it. Narrow this PR to the previewer-specific design fix: typed PreviewRequest.storage/record_metadata (Option A), sanitize_svg relocation to a public helpers home, and ADR-052 \u00a78/\u00a78.5 doc updates. Imaging rewrite stays cross-repo/out-of-scope."
+    }
+  ],
+  "session_id": "a0ea890c-6a5a-4ba9-80e1-4798bbf509e1",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-28T00:54:55.685740Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_fallback_array.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T00:54:55.685746Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_security.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

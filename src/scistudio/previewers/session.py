@@ -224,6 +224,8 @@ class PreviewSessionManager:
                 data_access=access,
                 limits=session.limits,
                 session_id=session.session_id,
+                storage=_storage_ref_from_query(merged, session.target.ref),
+                record_metadata=_record_metadata_from_query(merged),
             )
             try:
                 return resource_provider(request, resource_id, _public_resource_params(params or {}))
@@ -310,6 +312,8 @@ class PreviewSessionManager:
             data_access=self._data_access_factory(limits),
             limits=limits,
             session_id=session_id,
+            storage=_storage_ref_from_query(query, target.ref),
+            record_metadata=_record_metadata_from_query(query),
         )
         try:
             envelope = provider(request)
@@ -453,7 +457,7 @@ class PreviewSessionManager:
         return None
 
     def _export_plot_resource(self, session: PreviewSession, params: dict[str, Any]) -> dict[str, Any]:
-        from scistudio.previewers.fallbacks import sanitize_svg
+        from scistudio.previewers.helpers import sanitize_svg
         from scistudio.previewers.models import TargetKind
 
         if session.target.kind is not TargetKind.PLOT_ARTIFACT and session.previewer_id != "core.plot.basic":
@@ -559,6 +563,12 @@ def _storage_ref_from_query(query: dict[str, Any], fallback_ref: str) -> Any:
         format=storage.get("format"),
         metadata=storage.get("metadata"),
     )
+
+
+def _record_metadata_from_query(query: dict[str, Any]) -> dict[str, Any]:
+    """Extract the recorded data-record metadata carried on the query (ADR-052 §8.5)."""
+    md = query.get("_record_metadata")
+    return dict(md) if isinstance(md, dict) else {}
 
 
 def _public_resource_params(params: dict[str, Any]) -> dict[str, Any]:
