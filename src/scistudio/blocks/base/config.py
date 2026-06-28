@@ -6,7 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from scistudio.stability import stable
 
+
+@stable(since="0.3.1")
 class BlockConfig(BaseModel):
     """Configuration container for a block instance.
 
@@ -18,6 +21,7 @@ class BlockConfig(BaseModel):
 
     params: dict[str, Any] = {}
 
+    @stable(since="0.3.1")
     def get(self, key: str, default: Any = None) -> Any:
         """Return a parameter value by *key*, falling back to *default*.
 

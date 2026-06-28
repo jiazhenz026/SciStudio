@@ -69,22 +69,11 @@ _TEXT_FORMAT_MAP: dict[str, str] = {
 }
 
 
-# MIME-type lookup used by :func:`_load_artifact` for canonical
-# extensions. Anything not in this table falls through to
-# ``application/octet-stream``.
-_MIME_GUESS: dict[str, str] = {
-    ".csv": "text/csv",
-    ".json": "application/json",
-    ".txt": "text/plain",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".tif": "image/tiff",
-    ".tiff": "image/tiff",
-    ".pdf": "application/pdf",
-    ".bin": "application/octet-stream",
-    ".dat": "application/octet-stream",
-}
+# ADR-052 §7.2: the extension->MIME guess table was removed. ``Artifact.mime_type``
+# is non-load-bearing (it only feeds a provenance sidecar; nothing branches on
+# it and dispatch keys off extension->format-id), and core must not infer types
+# from extensions. ``_load_artifact`` now constructs Artifacts with
+# ``mime_type=None``.
 
 
 def _resolve_path(config: BlockConfig) -> Path:
@@ -148,7 +137,6 @@ def _read_xlsx_sheets(path: Path) -> list[tuple[str, Any]]:
 __all__ = [
     "_CORE_TYPE_MAP",
     "_LOGGER",
-    "_MIME_GUESS",
     "_TEXT_FORMAT_MAP",
     "_check_pickle_allowed",
     "_read_xlsx_sheets",

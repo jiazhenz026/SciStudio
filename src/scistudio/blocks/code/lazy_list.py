@@ -25,6 +25,7 @@ from collections.abc import Iterator
 from typing import Any, overload
 
 from scistudio.core.types.collection import Collection
+from scistudio.stability import provisional
 
 # Warn when to_list() would load more items than this threshold.
 _ITEM_COUNT_WARNING_THRESHOLD = 100
@@ -35,6 +36,7 @@ def _load_item(collection: Collection, index: int) -> Any:
     return collection[index].to_memory()
 
 
+@provisional(since="0.3.1")
 class LazyList:
     """Memory-safe list-like wrapper for Collection items.
 

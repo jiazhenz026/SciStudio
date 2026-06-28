@@ -15,6 +15,9 @@ def to_arrow(obj: Any) -> pa.Table:
     ADR-031 D2/D3: ViewProxy and ``_arrow_table`` backdoor removed.
     All data access routes through ``get_in_memory_data()`` ->
     ``to_memory()`` -> storage backend.
+
+    Internal (ADR-052 §5): process-builtins helper; the canonical author path to
+    the Arrow form is ``DataFrame.to_memory()``. Not part of the public surface.
     """
     if isinstance(obj, pa.Table):
         return obj

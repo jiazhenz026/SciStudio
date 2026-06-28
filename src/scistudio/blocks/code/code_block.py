@@ -89,8 +89,10 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+from scistudio.stability import provisional
 
 
+@provisional(since="0.3.1")
 class CodeBlockMigrationError(ValueError):
     """Raised when a legacy CodeBlock config needs explicit migration."""
 
@@ -100,6 +102,7 @@ class CodeBlockMigrationError(ValueError):
         super().__init__(f"CodeBlock v2 migration required: {messages}")
 
 
+@provisional(since="0.3.1")
 class CodeBlockExecutionError(RuntimeError):
     """Raised when the interpreter process exits unsuccessfully."""
 
@@ -115,6 +118,7 @@ _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
 }
 
 
+@provisional(since="0.3.1")
 class CodeBlock(Block):
     """Run project-local scripts through ADR-041 file exchange."""
 
@@ -206,12 +210,14 @@ class CodeBlock(Block):
         "required": ["script_path"],
     }
 
+    @provisional(since="0.3.1")
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config=config)
         self.last_provenance_payload: dict[str, Any] | None = None
         self.last_exchange_manifest: CodeBlockExchangeManifest | None = None
         self.last_process: subprocess.CompletedProcess[str] | None = None
 
+    @provisional(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Execute a CodeBlock v2 script and return declared outputs."""
 

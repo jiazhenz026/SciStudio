@@ -19,6 +19,7 @@ from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
+from scistudio.stability import provisional
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,11 @@ def _normalize_extension(raw: Any) -> str:
 class _PopenProcessAdapter:
     """Adapter wrapping subprocess.Popen with process_handle interface for FileWatcher.
 
+    Internal (ADR-052 §7.1, option b): :class:`FileWatcher` now accepts a plain
+    ``subprocess.Popen`` directly (alive while ``poll()`` is None), so the public
+    path no longer needs this wrapper. Kept internal for back-compat with
+    out-of-tree callers mid-migration; not part of the public surface.
+
     ADR-019: FileWatcher expects a process_handle with ``is_alive()`` and ``pid``
     attributes. ``subprocess.Popen`` has ``poll()`` and ``pid`` but no ``is_alive()``.
     This adapter bridges the two interfaces.
@@ -56,6 +62,7 @@ class _PopenProcessAdapter:
         return self._proc.poll() is None
 
 
+@provisional(since="0.3.1")
 class AppBlock(Block):
     """Block that delegates work to an external GUI application.
 
@@ -351,6 +358,7 @@ class AppBlock(Block):
             result[port.name] = Collection(items, item_type=item_type)
         return result
 
+    @provisional(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Prepare inputs, launch the external app, and collect outputs.
 
@@ -421,10 +429,10 @@ class AppBlock(Block):
             # (ADR-018 §8.1) is the authoritative state machine.
             proc = bridge.launch(command, exchange_dir)
 
-            # ADR-019: Wrap Popen in adapter for FileWatcher process monitoring.
-            process_adapter = _PopenProcessAdapter(proc)
-
             # Step 3: Watch for outputs with process monitoring.
+            # ADR-052 §7.1 (option b): FileWatcher accepts a plain
+            # ``subprocess.Popen`` as its ``process_handle`` (alive while
+            # ``poll()`` is None), so no adapter wrapper is needed.
             # ADR-030 D3: use user-selected output_dir if configured.
             from scistudio.blocks.app.watcher import FileWatcher, ProcessExitedWithoutOutputError
 
@@ -437,7 +445,7 @@ class AppBlock(Block):
                 directory=output_dir,
                 patterns=patterns,
                 timeout=None,
-                process_handle=process_adapter,
+                process_handle=proc,
                 stability_period=stability_period,
                 done_marker=done_marker,
             )

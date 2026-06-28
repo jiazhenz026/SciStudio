@@ -17,20 +17,31 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scistudio.stability import provisional
 
+
+@provisional(since="0.3.1")
 class ProcessExitedWithoutOutputError(RuntimeError):
     """Raised when the external process exits before producing expected output files."""
 
     pass
 
 
+@provisional(since="0.3.1")
 class FileWatcher:
     """Watches a directory for new or modified files matching glob patterns.
 
     Used by :class:`AppBlock` to detect when an external application has
     produced output files.
+
+    ``process_handle`` is any object whose liveness the watcher can probe:
+    either a plain :class:`subprocess.Popen` (alive while ``poll()`` returns
+    ``None``) or a wrapper exposing ``is_alive()`` (ADR-052 §7.1/§7.3). When the
+    handle reports the process exited before any output appeared, the watcher
+    raises :class:`ProcessExitedWithoutOutputError`.
     """
 
+    @provisional(since="0.3.1")
     def __init__(
         self,
         directory: Path,
@@ -51,6 +62,7 @@ class FileWatcher:
         self._baseline: dict[Path, float] = {}
         self._running: bool = False
 
+    @provisional(since="0.3.1")
     def start(self) -> None:
         """Begin watching the directory for changes.
 
@@ -61,6 +73,7 @@ class FileWatcher:
         self._baseline = self._snapshot()
         self._running = True
 
+    @provisional(since="0.3.1")
     def wait_for_output(self) -> list[Path]:
         """Block until new output files are detected and return their paths.
 
@@ -112,12 +125,13 @@ class FileWatcher:
                 return fully_stable
 
             # Check process liveness.
-            if self._process_handle is not None and not self._process_handle.is_alive() and not new_files:
+            if self._process_handle is not None and not self._handle_is_alive() and not new_files:
                 # Give one last chance — return any candidates even if not fully stable.
                 if candidates:
                     return sorted(candidates.keys())
+                pid = getattr(self._process_handle, "pid", "unknown")
                 raise ProcessExitedWithoutOutputError(
-                    f"External process (pid={self._process_handle.pid}) exited without producing output"
+                    f"External process (pid={pid}) exited without producing output"
                 )
 
             if deadline is not None and time.monotonic() >= deadline:
@@ -132,9 +146,29 @@ class FileWatcher:
 
         return []
 
+    @provisional(since="0.3.1")
     def stop(self) -> None:
         """Stop watching and release resources."""
         self._running = False
+
+    def _handle_is_alive(self) -> bool:
+        """Return whether the watched process is still running.
+
+        Accepts either a plain :class:`subprocess.Popen` (alive while
+        ``poll()`` returns ``None``) or a wrapper exposing ``is_alive()``
+        (ADR-052 §7.1). With no handle, liveness is unknown and treated as
+        alive so the watcher relies on its timeout instead.
+        """
+        handle = self._process_handle
+        if handle is None:
+            return True
+        is_alive = getattr(handle, "is_alive", None)
+        if callable(is_alive):
+            return bool(is_alive())
+        poll = getattr(handle, "poll", None)
+        if callable(poll):
+            return poll() is None
+        return True
 
     def _snapshot(self) -> dict[Path, float]:
         """Return a mapping of matched file paths to their mtime."""

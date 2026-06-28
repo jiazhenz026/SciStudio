@@ -15,11 +15,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.stability import stable
 
 if TYPE_CHECKING:
     from scistudio.core.types.collection import Collection
 
 
+@stable(since="0.3.1")
 class ProcessBlock(Block):
     """Block for deterministic, algorithm-driven data transformations.
 
@@ -42,12 +44,14 @@ class ProcessBlock(Block):
     ``parallel_map()``, or ``pack()`` for Collection handling.
     """
 
+    # Stability: stable (ADR-052 §5) — human-readable transform identifier.
     algorithm: ClassVar[str] = ""
 
     # ------------------------------------------------------------------
     # ADR-027 D7: lifecycle hooks
     # ------------------------------------------------------------------
 
+    @stable(since="0.3.1")
     def setup(self, config: BlockConfig) -> Any:
         """Called once per :meth:`run` before iterating the input Collection.
 
@@ -71,6 +75,7 @@ class ProcessBlock(Block):
         """
         return None
 
+    @stable(since="0.3.1")
     def teardown(self, state: Any) -> None:
         """Called once per :meth:`run` in a ``finally`` block, even on error.
 
@@ -90,6 +95,7 @@ class ProcessBlock(Block):
     # ADR-027 D7: three-argument process_item
     # ------------------------------------------------------------------
 
+    @stable(since="0.3.1")
     def process_item(self, item: Any, config: BlockConfig, state: Any = None) -> Any:
         """Tier 1 entry point: override for per-item processing.
 
@@ -120,6 +126,7 @@ class ProcessBlock(Block):
     # ADR-027 D7: default run() with setup/teardown lifecycle
     # ------------------------------------------------------------------
 
+    @stable(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Default Tier 1 execution with setup/teardown lifecycle.
 

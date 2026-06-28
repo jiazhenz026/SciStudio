@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
+from scistudio.stability import provisional
 
 if TYPE_CHECKING:
     from scistudio.blocks.base.config import BlockConfig
@@ -65,6 +66,7 @@ INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 INTERACTIVE_MEMORY_KEY = "interactive_memory"
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PanelManifest:
     """Same-origin descriptor for a block's interactive window component.
@@ -103,6 +105,7 @@ class PanelManifest:
     response_schema: dict[str, Any] | None = None
     asset_root: str | None = None
 
+    @provisional(since="0.3.1")
     def to_dict(self) -> dict[str, Any]:
         """Wire shape sent to the frontend. ``asset_root`` is intentionally omitted."""
         data: dict[str, Any] = {
@@ -118,6 +121,7 @@ class PanelManifest:
         return data
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class InteractivePrompt:
     """The return of :meth:`InteractiveMixin.prepare_prompt` (ADR-051 §2).
@@ -138,6 +142,7 @@ class InteractivePrompt:
     intermediate: tuple[StorageReference, ...] = ()
 
 
+@provisional(since="0.3.1")
 class InteractiveMixin:
     """The capability mixed into a block to make it interactive (ADR-051 §2).
 
@@ -152,6 +157,7 @@ class InteractiveMixin:
     #: The window this block opens (ADR-051 §4). Subclasses MUST set this.
     interactive_panel: ClassVar[PanelManifest]
 
+    @provisional(since="0.3.1")
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt | dict[str, Any]:
         """Turn the real input data into what the window should show.
 
@@ -167,6 +173,7 @@ class InteractiveMixin:
             f"InteractiveMixin but does not implement prepare_prompt() (ADR-051)."
         )
 
+    @provisional(since="0.3.1")
     def remap_saved_decision(
         self,
         saved_decision: dict[str, Any],
@@ -205,6 +212,8 @@ class SupportsInteraction(Protocol):
     and a ``prepare_prompt`` method. The registry uses
     :class:`InteractiveMixin` inheritance for the hard biconditional check and
     this protocol for duck-typed validation of the required members (FR-002).
+
+    Internal (ADR-052 §4.8): registry-validation protocol, not author surface.
     """
 
     interactive_panel: PanelManifest
@@ -218,6 +227,8 @@ def coerce_prompt(result: InteractivePrompt | dict[str, Any]) -> InteractiveProm
     A block may return a bare ``dict`` (the panel payload, no intermediate) or a
     full :class:`InteractivePrompt`. Used by the worker prompt phase so block
     authors are not forced to import the dataclass for the simple case.
+
+    Internal (ADR-052 §4.8): worker prompt-phase normalizer, not author surface.
     """
     if isinstance(result, InteractivePrompt):
         return result
@@ -302,6 +313,7 @@ def deserialise_storage_ref(data: dict[str, Any]) -> StorageReference:
     )
 
 
+@provisional(since="0.3.1")
 def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageReference, ...]:
     """Return the engine-threaded intermediate storage references, if any.
 
@@ -325,16 +337,16 @@ def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageRefe
     return tuple(refs)
 
 
+# Public author surface (ADR-052 §4.8). All provisional. The kept symbols are
+# re-exported from the ``scistudio.blocks.base`` root (the canonical path).
+# Demoted to internal (deep-path importable, out of ``__all__``):
+# ``SupportsInteraction``, ``coerce_prompt``, ``serialise_storage_ref``,
+# ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``.
 __all__ = [
-    "INTERACTIVE_INTERMEDIATE_KEY",
     "INTERACTIVE_RESPONSE_KEY",
     "PANEL_API_VERSION",
     "InteractiveMixin",
     "InteractivePrompt",
     "PanelManifest",
-    "SupportsInteraction",
-    "coerce_prompt",
-    "deserialise_storage_ref",
     "load_intermediate",
-    "serialise_storage_ref",
 ]
