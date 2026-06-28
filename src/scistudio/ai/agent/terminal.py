@@ -668,14 +668,21 @@ def spawn_user_terminal(
 ) -> PtyProcess:
     """Spawn a desktop user shell with SciStudio's user dependency env."""
     del dangerous
-    from scistudio.desktop.paths import user_python_terminal_env
+    from scistudio.desktop.paths import user_python_terminal_env, user_terminal_post_rc_invocation
 
     env = user_python_terminal_env(sys.executable)
     if extra_env:
         env.update(extra_env)
 
+    # #1838: run the shell against a post-rc shim so the bundled Python bin is
+    # re-prepended AFTER the user's dotfiles (conda init) run; otherwise a
+    # `(base)` conda env shadows our wrappers and `pip install` lands in conda
+    # base with no effect on the app.
+    argv = list(_spawn_argv or _user_shell_argv())
+    argv, env = user_terminal_post_rc_invocation(argv, env)
+
     return PtyProcess(
-        list(_spawn_argv or _user_shell_argv()),
+        argv,
         cwd=project_dir,
         cols=cols,
         rows=rows,

@@ -553,6 +553,70 @@ def test_collection_resource_uses_descriptor_params(
     assert child["target"]["recorded_type"] == "DataFrame"
 
 
+def test_collection_wide_item_child_resource_opens(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """#1837: a wide/rich collection item must still open its child preview.
+
+    The collection fallback previously round-tripped the entire item
+    descriptor through ``PreviewResource.params``; for a wide table (many
+    columns / rich metadata) that exceeded the API resource-param node-count
+    guard (256 entries) and the child GET failed with HTTP 422
+    ("resource params contain too many entries"). The params now embed only
+    ``ref`` + ``type_name``, so they stay small and constant-size regardless
+    of table width.
+    """
+    wide_item = {
+        "data_ref": "wide-child",
+        "type_name": "DataFrame",
+        # Descriptor content that scales with table width — well over the
+        # 256-entry guard that used to fail the child round-trip.
+        "columns": [f"col_{i}" for i in range(300)],
+        "dtypes": {f"col_{i}": "float64" for i in range(300)},
+    }
+    resp = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "collection_ref",
+                "ref": "coll-wide",
+                "recorded_type": "DataFrame",
+                "type_chain": ["DataObject", "DataFrame"],
+                "collection_item_type": "DataFrame",
+            },
+            "query": {
+                "_collection_items": [wide_item],
+                "_collection_count": 1,
+                "_collection_item_type": "DataFrame",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    sid = body["session_id"]
+    resource = body["resources"][0]
+
+    # Params must be the minimal flat form, not the full wide descriptor.
+    assert resource["params"] == {
+        "index": 0,
+        "ref": "wide-child",
+        "type_name": "DataFrame",
+    }
+    assert "item" not in resource["params"]
+
+    res = client.get(
+        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
+        params={"params": json.dumps(resource["params"])},
+    )
+
+    # Pre-fix this returned 422 "resource params contain too many entries".
+    assert res.status_code == 200
+    child = res.json()["data"]
+    assert child["target"]["ref"] == "wide-child"
+    assert child["target"]["recorded_type"] == "DataFrame"
+
+
 def test_collection_image_child_resource_uses_catalog_storage(
     client: TestClient,
     runtime: ApiRuntime,

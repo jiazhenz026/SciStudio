@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 from scistudio.core.storage.ref import StorageReference
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 from scistudio.workflow.serializer import absolutify_paths, load_yaml, relativify_paths, save_yaml
@@ -22,9 +24,85 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class WorkflowIdConflictError(ValueError):
+    """A different project workflow file already declares this workflow id.
+
+    #1836: a project must hold at most one file per workflow id — the
+    canonical ``workflows/{id}.yaml``. A second file with a different
+    filename but the same internal ``id`` breaks the per-project unique-id
+    invariant: target/workflow discovery walks every ``workflows/*.yaml`` and
+    surfaces phantom plot targets (whose nodes are not on the open canvas),
+    and "which workflow is open" is tracked by id, not path. We reject the
+    save/import that would create or perpetuate the collision instead of
+    silently merging.
+    """
+
+    def __init__(self, workflow_id: str, existing_path: Path) -> None:
+        self.workflow_id = workflow_id
+        self.existing_path = existing_path
+        super().__init__(
+            f"Workflow id {workflow_id!r} is already declared by "
+            f"{existing_path.name!r} in this project. Workflow ids must be "
+            "unique per project; rename or remove the conflicting file."
+        )
+
+
+def _read_declared_workflow_id(path: Path) -> str | None:
+    """Best-effort read of a workflow file's declared ``id`` (#1836).
+
+    Lenient on purpose: a malformed or unreadable sibling must not block
+    saving a well-formed workflow, so parse failures degrade to ``None``.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    # Workflow YAML wraps its body under a top-level ``workflow:`` envelope
+    # (see ``serializer.dump_yaml_str``); tolerate a flat shape too.
+    body = data.get("workflow")
+    if not isinstance(body, dict):
+        body = data
+    wid = body.get("id")
+    return str(wid) if wid is not None else None
+
+
 def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
     project = self.require_active_project()
     return Path(project.path) / "workflows" / f"{workflow_id}.yaml"
+
+
+def find_workflow_id_conflict(self: ApiRuntime, workflow_id: str) -> Path | None:
+    """Return an existing project workflow file that declares *workflow_id*
+    at a non-canonical path, else ``None`` (#1836).
+
+    The canonical home for a workflow is ``workflows/{id}.yaml``; that file
+    (if present) is never a conflict with itself. Any *other* ``workflows/
+    *.yaml`` whose internal ``id`` equals *workflow_id* is a duplicate-id
+    collision and is returned so the caller can reject the save/import.
+    """
+    project = self.active_project
+    if project is None:
+        return None
+    workflows_dir = Path(project.path) / "workflows"
+    if not workflows_dir.is_dir():
+        return None
+    try:
+        canonical = self.workflow_path(workflow_id).resolve()
+    except Exception:
+        canonical = workflows_dir / f"{workflow_id}.yaml"
+    for path in sorted(workflows_dir.glob("*.yaml")):
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        if resolved == canonical:
+            continue
+        if _read_declared_workflow_id(path) == workflow_id:
+            return path
+    return None
 
 
 def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefinition:
@@ -69,6 +147,11 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
         logger.warning("Workflow validation warnings: %s", "; ".join(str(w) for w in warnings))
     if hard_errors:
         raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))
+
+    # #1836: enforce per-project unique workflow id at save time.
+    conflict = find_workflow_id_conflict(self, definition.id)
+    if conflict is not None:
+        raise WorkflowIdConflictError(definition.id, conflict)
 
     path = self.workflow_path(definition.id)
     save_yaml(definition, path)

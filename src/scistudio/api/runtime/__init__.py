@@ -714,6 +714,7 @@ class ApiRuntime:
 
     # Workflow I/O + upload (_workflows)
     workflow_path = _workflows.workflow_path
+    find_workflow_id_conflict = _workflows.find_workflow_id_conflict
     save_workflow = _workflows.save_workflow
     mark_workflow_self_write = _workflows.mark_workflow_self_write
     load_workflow = _workflows.load_workflow
