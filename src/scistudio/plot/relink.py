@@ -1,18 +1,15 @@
-"""Relink a plot to a new workflow output target (bug#7).
+"""Re-point an existing plot at a new workflow output.
 
-A plot binds 1:1 to one ``node_id`` + ``output_port`` (``PlotManifestTarget``).
-When the original block is deleted and re-created it gets a fresh ``node_id``,
-so the plot's target goes stale ("broken target") and its data no longer
-resolves. ``relink_plot`` lets the owner point an existing plot at a freshly
-discovered target without recreating the plot or its render script.
+A plot binds one-to-one to a single ``node_id`` + ``output_port``. When the
+original block is deleted and re-created it gets a fresh ``node_id``, so the
+plot's target goes stale ("broken target") and its data no longer resolves.
+``relink_plot`` lets the owner aim an existing plot at a freshly discovered target
+without recreating the plot or rewriting its render script.
 
-This stays strictly 1:1: it rewrites only the manifest ``target`` block from a
-single ``target_id`` (resolved exactly like ``scaffold_plot``). It never edits
-the render script, the script binding shape, or any other manifest field.
-Multi-source binding (many blocks -> one plot) is explicitly out of scope here.
-
-This module sits beside :mod:`scaffold` (pure helpers, no MCP decorators) so the
-HTTP route and any future MCP tool can both reuse it.
+The relink stays strictly one-to-one: it replaces only the manifest's ``target``
+block from a single ``target_id`` (resolved exactly like ``scaffold_plot``). It
+never touches the render script or any other manifest field, and it never binds a
+plot to more than one source.
 """
 
 from __future__ import annotations
@@ -31,37 +28,55 @@ from scistudio.plot.validation import (
 
 
 class PlotRelinkError(ValueError):
-    """Raised when a relink request cannot be satisfied (unknown target_id)."""
+    """Raised when a relink request cannot be satisfied.
+
+    Signals that the requested ``target_id`` does not resolve to any discoverable
+    target. A subclass of :class:`ValueError`.
+    """
 
 
 @dataclass
 class RelinkOutcome:
-    """Outcome of relinking a plot's data source.
+    """The result of relinking a plot to a new target.
 
-    ``manifest`` is the updated, re-written manifest. ``valid`` plus
-    ``errors``/``warnings`` reflect a fresh validation of the relinked plot so
-    callers can confirm a previously broken target is now valid.
+    Reports the re-written manifest and a fresh validation of the relinked plot,
+    so a caller can confirm that a previously broken target now resolves.
     """
 
     plot_id: str
+    """Id of the relinked plot."""
     manifest_path: Path
+    """Absolute path of the manifest that was re-written."""
     manifest: PlotManifest
+    """The updated manifest after the target was replaced."""
     valid: bool
+    """``True`` when the relinked plot validates with no errors."""
     errors: list[str] = field(default_factory=list)
+    """Validation errors for the relinked plot, if any."""
     warnings: list[str] = field(default_factory=list)
+    """Validation warnings for the relinked plot, if any."""
 
 
 def relink_plot(ctx: PlotRuntimeContext, plot_id: str, target_id: str) -> RelinkOutcome:
-    """Re-point an existing plot at a new ``target_id`` (bug#7, strict 1:1).
+    """Re-point an existing plot at a new target and re-validate it.
 
     Loads ``plots/<plot_id>/plot.yaml``, resolves ``target_id`` the same way
-    ``scaffold_plot`` does, replaces only the manifest ``target`` block, writes
-    the manifest back, then re-validates so the caller can see the (now)
-    resolved target.
+    ``scaffold_plot`` does, replaces only the manifest's ``target`` block, writes
+    the manifest back, then re-validates so the caller can confirm the target now
+    resolves. Every other manifest field and the render script are left untouched.
 
-    Raises :class:`~scistudio.plot.validation.PlotNotFoundError`
-    when the plot does not exist and :class:`PlotRelinkError` when ``target_id``
-    does not resolve to a discoverable target.
+    Args:
+        ctx: The injected runtime context.
+        plot_id: Id of the existing plot to relink.
+        target_id: Id of the new target to bind (from ``list_plot_targets``).
+
+    Returns:
+        A :class:`RelinkOutcome` with the updated manifest and a fresh validation.
+
+    Raises:
+        PlotNotFoundError: When the plot does not exist.
+        PlotRelinkError: When ``target_id`` does not resolve to a discoverable
+            target.
     """
     # Load existing manifest (raises PlotNotFoundError when missing).
     loaded = load_plot(ctx, plot_id=plot_id)

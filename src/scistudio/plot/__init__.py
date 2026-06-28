@@ -1,15 +1,16 @@
-"""First-class plot engine — the ``render(collection)`` authoring contract + runtime.
+"""First-class plot engine — the ``render(collection)`` authoring contract and runtime.
 
-Relocated out of ``scistudio.ai.agent.mcp.tools_plot`` in #1824 (ADR-052 §9):
-plots are a first-class user feature, not an AI-agent concern. The user-facing
-REST route (``scistudio.api.routes.plots``) and the MCP plot tools
-(``scistudio.ai.agent.mcp.tools_plot.tools``) both depend on this package; this
-package depends on neither (no import of ``scistudio.api`` or ``scistudio.ai``).
+Plots are a first-class user feature: you point a plot at one workflow output,
+write a ``render(collection)`` script in Python or R, and the engine runs it
+preview-side and shows the figure. This package owns the whole flow — discovering
+plottable targets, scaffolding a plot's files, validating them, running the
+render script under safe limits, and relinking a plot when its source node
+changes.
 
-Callers inject a :class:`PlotRuntimeContext` (REST: ``ApiRuntime``; MCP: the
-agent context) into the engine entry points, replacing the previous global
-``mcp._context`` coupling. The ``render(collection)`` shape + return contract are
-unchanged (behavior-preserving relocation).
+The engine depends on neither the REST API nor the AI layer; instead each caller
+injects a small :class:`PlotRuntimeContext` (the REST API runtime or the agent
+context) into the entry points, so the same engine backs both the user-facing
+plot route and the AI plot tools.
 """
 
 from __future__ import annotations

@@ -1,16 +1,14 @@
-"""Preview-side plot execution (ADR-048 SPEC 2 FR-023..FR-031).
+"""Run a plot preview-side and write its display artifacts.
 
-``run_plot_job`` resolves the bound target's latest output to input data refs,
-runs the user's render script inside a confined working directory using the
-CodeBlock subprocess primitive (``run_codeblock_process`` — IMPORT ONLY, never
-mutating ``scistudio.blocks``), enforces timeout / output-size / file-count caps,
-sanitizes errors, and writes display-only artifacts plus ``current.json`` to the
-preview cache (FR-026, FR-028).
+``run_plot_job`` resolves the bound target's latest recorded output into input
+data, runs the user's render script in a confined working directory (reusing the
+code-block subprocess runner without ever mutating it), enforces the timeout,
+output-size, and file-count caps, sanitizes error text, and writes display-only
+artifacts plus a ``current.json`` run record into the preview cache.
 
-Hard invariant (FR-025, verified by tests): a plot run NEVER registers a workflow
-node, edits workflow YAML, creates a downstream collection, or claims lineage.
-This module only reads the in-memory scheduler outputs and writes under
-``.scistudio/previews/``.
+A plot run is preview-only by construction: it NEVER registers a workflow node,
+edits workflow YAML, creates a downstream collection, or claims lineage. It only
+reads the in-memory run outputs and writes under ``.scistudio/previews/``.
 """
 
 from __future__ import annotations
@@ -56,14 +54,48 @@ _CORE_OPEN_TYPE_SET = frozenset(_CORE_OPEN_TYPES)
 
 
 def preview_cache_dir(root: Path, workflow_id: str, node_id: str, output_port: str, plot_id: str) -> Path:
-    """Return ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/`` (FR-026)."""
+    """Return the preview-cache directory a plot's artifacts are written to.
+
+    Builds the per-plot cache path
+    ``<root>/.scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/``.
+    Each path segment is sanitized so a manifest value cannot traverse out of the
+    cache.
+
+    Args:
+        root: The project root directory.
+        workflow_id: Id (or filename stem) of the bound workflow.
+        node_id: Id of the bound node.
+        output_port: Name of the bound output port.
+        plot_id: Id of the plot.
+
+    Returns:
+        The resolved preview-cache directory for this plot.
+    """
     return (
         root / _PREVIEW_ROOT / _safe_seg(workflow_id) / _safe_seg(node_id) / _safe_seg(output_port) / _safe_seg(plot_id)
     ).resolve()
 
 
 def cache_key_for(workflow_id: str, node_id: str, output_port: str, plot_id: str) -> str:
-    """Stable cache key the UI can poll for refresh (FR-030)."""
+    """Build the stable cache key the UI polls to refresh a plot's preview.
+
+    The key is a short hash of the workflow id, node id, output port, and plot id,
+    so it is identical across runs of the same plot and distinct between plots.
+
+    Args:
+        workflow_id: Id (or filename stem) of the bound workflow.
+        node_id: Id of the bound node.
+        output_port: Name of the bound output port.
+        plot_id: Id of the plot.
+
+    Returns:
+        A ``"plot_"``-prefixed cache key.
+
+    Example:
+        >>> key = cache_key_for("main", "node-7", "table", "qc_scatter")
+        >>> key.startswith("plot_")
+        True
+    """
     raw = f"{workflow_id}|{node_id}|{output_port}|{plot_id}".encode()
     return "plot_" + hashlib.sha256(raw).hexdigest()[:16]
 
@@ -557,10 +589,36 @@ def run_plot_job(
     run_id: str | None = None,
     timeout_seconds: float | None = None,
 ) -> PlotRunResult:
-    """Execute a plot job preview-side and write display-only artifacts (FR-023..FR-031).
+    """Run a plot's render script and write its preview artifacts.
 
-    The caller injects *ctx* (REST: ``ApiRuntime``; MCP: the agent context);
-    the engine never reaches a global context (#1824).
+    Loads the plot, resolves the latest recorded output of its bound target into
+    input data, runs the render script in a confined working directory under the
+    enforced caps, and writes the resulting figure(s) plus a run record into the
+    preview cache. Failures (timeouts, render errors, oversized output) are
+    captured in the returned result rather than raised, so a caller can show them
+    to the user. The plot is preview-only and never alters the workflow.
+
+    Args:
+        ctx: The injected runtime context (the REST API runtime or the agent
+            context); the engine never reaches a global context.
+        plot_id: Id of the plot to run.
+        run_id: Use the recorded output from this specific run; when ``None``, use
+            the most recent run that produced the bound output.
+        timeout_seconds: Override the manifest's timeout for this run; still
+            clamped to the absolute ceiling. When ``None``, use the manifest value.
+
+    Returns:
+        A :class:`~scistudio.plot.models.PlotRunResult` describing the outcome,
+        any artifacts written, and truncated logs.
+
+    Raises:
+        PlotNotFoundError: When the plot does not exist.
+        RuntimeError: When no project is currently open.
+
+    Example:
+        >>> result = run_plot_job(ctx, "qc_scatter")  # doctest: +SKIP
+        >>> result.status  # doctest: +SKIP
+        'succeeded'
     """
     from scistudio.blocks.code._backends_registry import (
         CodeBlockTimeoutError,

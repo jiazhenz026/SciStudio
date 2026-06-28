@@ -1,9 +1,10 @@
-"""Plot scaffolding — templates + safe file creation (ADR-048 SPEC 2 FR-007..FR-013).
+"""Create a new plot's files from safe templates.
 
-``scaffold_plot`` creates exactly ``plots/<plot_id>/plot.yaml`` plus one
-language-specific render script (FR-007). It refuses to overwrite unless
-``overwrite=true`` (FR-008) and rejects plot IDs that would escape the project
-root or collide with reserved names (FR-004, edge cases).
+Scaffolding writes exactly ``plots/<plot_id>/plot.yaml`` plus one
+language-specific render script. It refuses to overwrite an existing plot unless
+asked to, and it rejects plot IDs that would escape the project root or collide
+with reserved names. The render-script templates double as inline documentation:
+they explain what the bound ``collection`` is and show paste-over examples.
 """
 
 from __future__ import annotations
@@ -184,11 +185,35 @@ _SCRIPT_FILENAME: dict[PlotLanguage, str] = {"python": "render.py", "r": "render
 
 
 class PlotScaffoldError(ValueError):
-    """Raised for invalid plot ids or overwrite collisions."""
+    """Raised when a plot cannot be scaffolded.
+
+    Signals a rejected plot id (bad characters, a reserved name, or one that would
+    escape the ``plots/`` directory) or an unsupported render language. A subclass
+    of :class:`ValueError`.
+    """
 
 
 def validate_plot_id(plot_id: str) -> str:
-    """Validate a plot id is a single safe path segment (FR-004)."""
+    """Check that a plot id is a single safe directory name.
+
+    A plot id becomes a directory under ``plots/``, so it must be one safe path
+    segment: letters, digits, dash, or underscore (no dots, no slashes), at most
+    64 characters, and not a reserved name. Use this before building any path from
+    a caller-supplied id.
+
+    Args:
+        plot_id: The proposed plot id.
+
+    Returns:
+        The same ``plot_id`` unchanged, for convenient chaining.
+
+    Raises:
+        PlotScaffoldError: When the id has illegal characters or is reserved.
+
+    Example:
+        >>> validate_plot_id("qc_scatter")
+        'qc_scatter'
+    """
     if not plot_id or not _PLOT_ID_RE.match(plot_id):
         raise PlotScaffoldError(
             f"invalid plot_id {plot_id!r}: must match {_PLOT_ID_RE.pattern} "
@@ -200,7 +225,21 @@ def validate_plot_id(plot_id: str) -> str:
 
 
 def plot_dir_for(root: Path, plot_id: str) -> Path:
-    """Return the confined ``<root>/plots/<plot_id>`` directory (FR-004)."""
+    """Return the confined ``<root>/plots/<plot_id>`` directory for a plot.
+
+    Validates the id, then resolves and confirms the directory stays inside
+    ``<root>/plots`` so a crafted id cannot point outside it.
+
+    Args:
+        root: The project root directory.
+        plot_id: The plot id (validated here).
+
+    Returns:
+        The resolved ``<root>/plots/<plot_id>`` path.
+
+    Raises:
+        PlotScaffoldError: When the id is invalid or escapes ``plots/``.
+    """
     validate_plot_id(plot_id)
     plots_root = (root / "plots").resolve()
     candidate = (plots_root / plot_id).resolve()
@@ -217,7 +256,21 @@ def _default_format(language: PlotLanguage) -> str:
 
 
 def build_manifest(plot_id: str, target: PlotTarget, language: PlotLanguage, title: str | None) -> PlotManifest:
-    """Build the :class:`PlotManifest` for a new plot (FR-010, FR-011)."""
+    """Assemble the manifest for a new plot from a chosen target.
+
+    Fills a :class:`~scistudio.plot.models.PlotManifest` from the plot id, the
+    target to bind, and the script language. When ``title`` is omitted, a
+    title-cased version of the plot id is used.
+
+    Args:
+        plot_id: Id of the plot being created.
+        target: The discovered target the plot binds to.
+        language: Render-script language (``"python"`` or ``"r"``).
+        title: Human title, or ``None`` to derive one from ``plot_id``.
+
+    Returns:
+        The populated :class:`~scistudio.plot.models.PlotManifest`.
+    """
     return PlotManifest(
         schema_version=1,
         id=plot_id,
@@ -234,13 +287,36 @@ def build_manifest(plot_id: str, target: PlotTarget, language: PlotLanguage, tit
 
 
 def render_manifest_yaml(manifest: PlotManifest) -> str:
-    """Serialise a manifest to deterministic YAML (FR-010)."""
+    """Serialise a manifest to deterministic ``plot.yaml`` text.
+
+    Dumps the manifest to YAML with fields in declaration order (not sorted), so
+    re-writing an unchanged manifest produces identical text.
+
+    Args:
+        manifest: The manifest to serialise.
+
+    Returns:
+        The ``plot.yaml`` document as a string.
+    """
     data = manifest.model_dump(mode="json")
     return yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
 
 
 def render_script_template(language: PlotLanguage) -> str:
-    """Return the language-specific render-script template body (FR-012/FR-013)."""
+    """Return the starter render-script text for a language.
+
+    Gives the template body written into a new plot: a ``render(collection)``
+    skeleton with inline guidance and paste-over examples.
+
+    Args:
+        language: Render-script language (``"python"`` or ``"r"``).
+
+    Returns:
+        The template source for that language.
+
+    Raises:
+        PlotScaffoldError: When ``language`` is not supported.
+    """
     if language == "python":
         return _PYTHON_TEMPLATE
     if language == "r":
@@ -256,11 +332,33 @@ def scaffold_plot_files(
     title: str | None,
     overwrite: bool,
 ) -> tuple[Path, Path, int]:
-    """Create ``plots/<plot_id>/plot.yaml`` + render script (FR-007, FR-008).
+    """Write a new plot's ``plot.yaml`` and render script to disk.
 
-    Returns ``(manifest_path, script_path, bytes_written)``. Raises
-    :class:`PlotScaffoldError` (mapped to ``FileExistsError`` by the tool) when
-    the directory exists and ``overwrite`` is false.
+    Creates ``plots/<plot_id>/`` (when needed), writes the manifest built from
+    ``target`` and the language template, and returns where they went plus the
+    total bytes written. This is the core of ``scaffold_plot``.
+
+    Args:
+        root: The project root directory.
+        plot_id: Id of the plot to create (validated; becomes the directory name).
+        target: The discovered target the plot binds to.
+        language: Render-script language (``"python"`` or ``"r"``).
+        title: Human title, or ``None`` to derive one from ``plot_id``.
+        overwrite: When ``False``, refuse to write if the plot directory already
+            exists; when ``True``, replace the files in place.
+
+    Returns:
+        A ``(manifest_path, script_path, bytes_written)`` tuple.
+
+    Raises:
+        PlotScaffoldError: When the plot id is invalid or escapes ``plots/``.
+        FileExistsError: When the plot directory already exists and ``overwrite``
+            is ``False``.
+
+    Example:
+        >>> manifest_path, script_path, n = scaffold_plot_files(  # doctest: +SKIP
+        ...     root, "qc_scatter", target, "python", None, overwrite=False
+        ... )
     """
     plot_dir = plot_dir_for(root, plot_id)
     manifest = build_manifest(plot_id, target, language, title)

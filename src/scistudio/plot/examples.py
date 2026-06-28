@@ -1,8 +1,9 @@
-"""Curated plot examples for matplotlib / seaborn / ggplot2 (ADR-048 SPEC 2 FR-019).
+"""Curated plot examples for matplotlib, seaborn, and ggplot2.
 
-Each example is a complete ``render`` function an agent can adapt. Examples use
-the context-free collection wrapper, open data into ordinary scientific objects,
-and return familiar matplotlib / ggplot2 plot objects.
+Each example is a complete ``render`` function you can copy and adapt. They open
+the bound collection into ordinary scientific objects (a DataFrame, an array) and
+return a familiar matplotlib or ggplot2 plot object. ``list_examples`` returns
+them, optionally filtered by language or library.
 """
 
 from __future__ import annotations
@@ -111,7 +112,26 @@ _EXAMPLES: tuple[PlotExample, ...] = (
 
 
 def list_examples(language: str | None = None, library: str | None = None) -> list[PlotExample]:
-    """Return curated examples filtered by ``language`` and/or ``library`` (FR-019)."""
+    """Return the curated render-script examples, optionally filtered.
+
+    Use this to fetch starting points you can paste into a plot's render script.
+    With no arguments it returns every example; pass ``language`` and/or
+    ``library`` to narrow the list. Matching is case-insensitive.
+
+    Args:
+        language: Keep only examples in this language (``"python"`` or ``"r"``).
+        library: Keep only examples using this plotting library
+            (``"matplotlib"``, ``"seaborn"``, or ``"ggplot2"``).
+
+    Returns:
+        The matching :class:`~scistudio.plot.models.PlotExample` entries, in
+        curated order.
+
+    Example:
+        >>> from scistudio.plot import list_examples
+        >>> [e.id for e in list_examples(library="ggplot2")]
+        ['ggplot2_scatter', 'ggplot2_bar']
+    """
     out = list(_EXAMPLES)
     if language:
         lang = language.lower()
