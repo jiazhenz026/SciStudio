@@ -336,7 +336,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "3c4437a939a723aff33bb4980fb57fcc7940a02b",
+    "shas": [
+      "3c4437a939a723aff33bb4980fb57fcc7940a02b"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -617,6 +623,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.499506Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.509105Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.519904Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.530226Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.539963Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.549776Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.558852Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.568251Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.577418Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T03:14:03.590312Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -655,9 +743,9 @@
       "tests/architecture/test_placement.py",
       "tests/engine/test_single_value_collection_consumers.py"
     ],
-    "diff_fingerprint": "sha256:e696e4ea2487b682738fc2e05371dd31ddc0219fc30ac5eba129618dd86ca942",
+    "diff_fingerprint": "sha256:812706ed031b573606c4d0165f654912cbb25ed611592b6d560c0df13882d768",
     "head": "HEAD",
-    "head_sha": "91bfd58d",
+    "head_sha": "3c4437a9",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -673,7 +761,14 @@
   },
   "owner_directive": "Relocate the plot render(collection) engine out of the MCP tools namespace (scistudio.ai.agent.mcp.tools_plot) to a first-class scistudio.plot package, behavior-preserving (#1824). Sever the mcp._context coupling via dependency injection: define a minimal PlotRuntimeContext Protocol in scistudio.plot; engine functions take the context/project-root as injected params; the REST route (api/routes/plots.py) and the MCP tools.py each pass what they have. tools.py stays in MCP as a thin wrapper. Add scistudio.plot to the layer-deps contract (must not import api/ai); keep the MCP 33-tool count. Update ADR-052 \u00a79 module paths. Closes #1824.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1824
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-28T03:04:50.562231Z",
@@ -699,6 +794,14 @@
     {
       "at": "2026-06-28T03:13:44.775719Z",
       "diff_fingerprint": "sha256:e696e4ea2487b682738fc2e05371dd31ddc0219fc30ac5eba129618dd86ca942",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T03:14:03.590357Z",
+      "diff_fingerprint": "sha256:812706ed031b573606c4d0165f654912cbb25ed611592b6d560c0df13882d768",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
