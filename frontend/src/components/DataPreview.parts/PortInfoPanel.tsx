@@ -17,7 +17,7 @@
 // names and the effective per-instance port list so it can pick the
 // right row format without a new wire field.
 
-import { primaryTypeName, resolveTypeColor } from "../../config/typeColorMap";
+import { primaryTypeName, resolveCoreBaseType, resolveTypeColor } from "../../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse } from "../../types/api";
 
 interface PortInfoPanelProps {
@@ -48,6 +48,10 @@ function describePort(port: BlockPortResponse, declaredNames: Set<string>): stri
 function PortRow({ port, typeHierarchy, declaredNames }: RowProps) {
   const color = resolveTypeColor(port.accepted_types, typeHierarchy);
   const typeName = primaryTypeName(port.accepted_types) || "Any";
+  // #1840: annotate a specialized type with its fundamental core base
+  // (e.g. `SRSImage (Array)`) so users can tell what a specialized type is at
+  // bottom. Omitted for core-base / DataObject / unresolved types.
+  const coreBase = resolveCoreBaseType(typeName, typeHierarchy);
   const text = describePort(port, declaredNames);
   return (
     <li className="flex items-baseline gap-2 py-1 text-xs text-stone-700">
@@ -56,7 +60,10 @@ function PortRow({ port, typeHierarchy, declaredNames }: RowProps) {
         className="mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full"
         style={{ backgroundColor: color }}
       />
-      <span className="font-medium text-stone-800">{typeName}</span>
+      <span className="font-medium text-stone-800">
+        {typeName}
+        {coreBase != null && <span className="font-normal text-stone-400"> ({coreBase})</span>}
+      </span>
       {text != null && (
         <>
           <span className="text-stone-400">—</span>

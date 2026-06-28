@@ -386,6 +386,29 @@ def composite_previewer(request: PreviewRequest) -> PreviewEnvelope:
 # ---------------------------------------------------------------------------
 
 
+def _collection_item_params(index: int, item: object) -> dict[str, object]:
+    """Minimal child-resolve params for a collection item (#1837).
+
+    Embed only the fields the resolver actually consumes — the item's
+    ``ref`` and ``type_name`` — instead of round-tripping the whole item
+    descriptor. The full descriptor scales with table width / metadata
+    richness; sending it back as ``PreviewResource.params`` trips the API
+    resource-param node-count guard (``_RESOURCE_PARAMS_MAX_ITEMS`` in
+    ``api/routes/data.py``) and fails wide/rich collection items with HTTP
+    422. The rich descriptor still rides the COLLECTION envelope ``payload``,
+    so nothing is lost. Resolver: ``PreviewSession._child_target_from_resource``.
+    """
+    params: dict[str, object] = {"index": index}
+    if isinstance(item, dict):
+        ref = str(item.get("data_ref") or item.get("ref") or "")
+        type_name = str(item.get("type_name") or "")
+        if ref:
+            params["ref"] = ref
+        if type_name:
+            params["type_name"] = type_name
+    return params
+
+
 def collection_previewer(request: PreviewRequest) -> PreviewEnvelope:
     """Collection fallback: count + item types + bounded sampled refs (FR-009)."""
     q = request.query
@@ -403,7 +426,7 @@ def collection_previewer(request: PreviewRequest) -> PreviewEnvelope:
             resource_id=f"item:{idx}",
             kind="child",
             description="child preview for a collection item",
-            params={"index": idx, "item": item},
+            params=_collection_item_params(idx, item),
         )
         for idx, item in enumerate(sample.items)
     )

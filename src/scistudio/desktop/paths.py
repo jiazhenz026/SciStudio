@@ -367,7 +367,103 @@ def user_python_terminal_env(python_executable: str | Path | None = None) -> dic
         "PIP_REQUIRE_VIRTUALENV": "false",
         "SCISTUDIO_USER_PYTHON_SITE": str(paths["site"]),
         "SCISTUDIO_PYTHON": str(paths["python"]),
+        # Wrapper bin dir, exposed so the post-rc terminal shim can re-prepend
+        # it after the user's dotfiles run (#1838).
+        "SCISTUDIO_USER_PYTHON_BIN": str(paths["bin"]),
     }
+
+
+def user_terminal_post_rc_invocation(shell_argv: list[str], env: dict[str, str]) -> tuple[list[str], dict[str, str]]:
+    """Wrap an interactive user shell so the bundled Python bin wins *after*
+    the user's dotfiles run (#1838).
+
+    The env-only ``PATH`` prepend in :func:`user_python_terminal_env` is
+    defeated by rc files: a conda ``init`` block in ``~/.zshrc`` /
+    ``~/.bash_profile`` re-prepends the conda base env to the FRONT of
+    ``PATH``, shadowing our wrappers, so ``pip install X`` in the terminal
+    lands in conda base and never reaches the app's interpreter.
+
+    This launches the shell against a post-rc shim that first sources the
+    user's own configuration (preserving their aliases/env) and then
+    re-prepends the bundled bin, so it is the last writer of ``PATH``:
+
+    - ``zsh``: a generated ``ZDOTDIR`` whose dotfiles source the user's and
+      re-prepend in ``.zshrc``.
+    - ``bash``: a generated ``--rcfile`` that sources ``~/.bashrc`` and
+      re-prepends.
+
+    Returns the (possibly rewritten) ``argv`` and ``env``. Shells we do not
+    shim (``sh`` and others), Windows, or a missing bundled bin all fall
+    back to the inputs unchanged.
+    """
+    if sys.platform == "win32" or not shell_argv:
+        return shell_argv, env
+    bin_dir = env.get("SCISTUDIO_USER_PYTHON_BIN")
+    python = env.get("SCISTUDIO_PYTHON")
+    if not bin_dir or not python:
+        return shell_argv, env
+
+    prepend_dirs = [bin_dir, str(Path(python).parent)]
+    prepend_expr = ":".join(shlex.quote(d) for d in prepend_dirs)
+    shim_root = Path(bin_dir).parent / "shellrc"
+    shell_name = Path(shell_argv[0]).name
+
+    if shell_name == "zsh":
+        zdotdir = _write_zsh_post_rc_shim(shim_root, prepend_expr)
+        new_env = dict(env)
+        # Where the user's real zsh dotfiles live, so the shim can source them.
+        new_env["SCISTUDIO_USER_ZDOTDIR"] = env.get("ZDOTDIR") or os.environ.get("ZDOTDIR") or os.path.expanduser("~")
+        new_env["ZDOTDIR"] = str(zdotdir)
+        return shell_argv, new_env
+
+    if shell_name == "bash":
+        rcfile = _write_bash_post_rc_shim(shim_root, prepend_expr)
+        argv = [shell_argv[0], "--rcfile", str(rcfile), "-i", *shell_argv[1:]]
+        return argv, env
+
+    return shell_argv, env
+
+
+def _write_zsh_post_rc_shim(shim_root: Path, prepend_expr: str) -> Path:
+    """Write a generated ZDOTDIR whose dotfiles source the user's then
+    re-prepend the bundled bin in ``.zshrc`` (#1838). Returns the dir."""
+    zdotdir = shim_root / "zsh"
+    zdotdir.mkdir(parents=True, exist_ok=True)
+    # Each zsh startup file sources the user's counterpart so aliases/env/
+    # completions are preserved. Only ``.zshrc`` re-prepends PATH, and it is
+    # the last interactive startup file before the prompt, so it wins over a
+    # conda init that ran inside the user's own ``.zshrc``/``.zprofile``.
+    for name in (".zshenv", ".zprofile", ".zlogin"):
+        (zdotdir / name).write_text(
+            f'[ -f "${{SCISTUDIO_USER_ZDOTDIR}}/{name}" ] && source "${{SCISTUDIO_USER_ZDOTDIR}}/{name}"\n',
+            encoding="utf-8",
+        )
+    (zdotdir / ".zshrc").write_text(
+        '[ -f "${SCISTUDIO_USER_ZDOTDIR}/.zshrc" ] && '
+        'source "${SCISTUDIO_USER_ZDOTDIR}/.zshrc"\n'
+        "# SciStudio #1838: re-prepend the bundled Python bin AFTER the user's\n"
+        "# dotfiles (conda init re-prepends base) so python/pip resolve to the\n"
+        "# app's bundled interpreter.\n"
+        f'export PATH={prepend_expr}:"$PATH"\n',
+        encoding="utf-8",
+    )
+    return zdotdir
+
+
+def _write_bash_post_rc_shim(shim_root: Path, prepend_expr: str) -> Path:
+    """Write a generated bash ``--rcfile`` that sources ``~/.bashrc`` then
+    re-prepends the bundled bin (#1838). Returns the file path."""
+    shim_root.mkdir(parents=True, exist_ok=True)
+    rcfile = shim_root / "bash_rcfile"
+    rcfile.write_text(
+        "# SciStudio #1838: source the user's interactive bash config, then\n"
+        "# re-prepend the bundled Python bin so python/pip resolve to the app's\n"
+        "# bundled interpreter even when conda init re-prepends base.\n"
+        '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"\n'
+        f'export PATH={prepend_expr}:"$PATH"\n',
+        encoding="utf-8",
+    )
+    return rcfile
 
 
 def _write_command_wrapper(

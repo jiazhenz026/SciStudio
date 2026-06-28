@@ -4,11 +4,13 @@ import {
   hashTypeName,
   isAnyType,
   primaryTypeName,
+  resolveCoreBaseType,
   resolveRingColor,
   resolveTypeColor,
   subtypeRingColorMap,
   typeColorMap,
 } from "../typeColorMap";
+import type { TypeHierarchyEntry } from "../../types/api";
 
 // Regression test for #1487: DataObject was rendered with #e5e7eb
 // (gray-200) which is unreadable on the white canvas. The fallback used
@@ -98,5 +100,52 @@ describe("hashTypeName", () => {
 
   it("is non-negative", () => {
     expect(hashTypeName("Foo")).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// #1840: annotate a specialized type with its fundamental core base — the
+// highest ancestor above the universal DataObject root.
+describe("resolveCoreBaseType", () => {
+  const HIERARCHY: TypeHierarchyEntry[] = [
+    { name: "DataObject", base_type: "", description: "" },
+    { name: "Array", base_type: "DataObject", description: "" },
+    { name: "Image", base_type: "Array", description: "" },
+    { name: "SRSImage", base_type: "Image", description: "" },
+    { name: "DataFrame", base_type: "DataObject", description: "" },
+    { name: "SpectralDataset", base_type: "DataFrame", description: "" },
+  ];
+
+  it("walks a multi-level chain to the core base (SRSImage → Array)", () => {
+    expect(resolveCoreBaseType("SRSImage", HIERARCHY)).toBe("Array");
+  });
+
+  it("resolves a one-level chain (SpectralDataset → DataFrame)", () => {
+    expect(resolveCoreBaseType("SpectralDataset", HIERARCHY)).toBe("DataFrame");
+  });
+
+  it("resolves an intermediate type to its core base (Image → Array)", () => {
+    expect(resolveCoreBaseType("Image", HIERARCHY)).toBe("Array");
+  });
+
+  it("returns null when the type already IS a core base (no Array (Array))", () => {
+    expect(resolveCoreBaseType("Array", HIERARCHY)).toBeNull();
+    expect(resolveCoreBaseType("DataFrame", HIERARCHY)).toBeNull();
+  });
+
+  it("returns null for DataObject itself", () => {
+    expect(resolveCoreBaseType("DataObject", HIERARCHY)).toBeNull();
+  });
+
+  it("returns null for an unknown type or missing hierarchy", () => {
+    expect(resolveCoreBaseType("Mystery", HIERARCHY)).toBeNull();
+    expect(resolveCoreBaseType("SRSImage", undefined)).toBeNull();
+  });
+
+  it("returns null and does not hang on a cycle", () => {
+    const cyclic: TypeHierarchyEntry[] = [
+      { name: "A", base_type: "B", description: "" },
+      { name: "B", base_type: "A", description: "" },
+    ];
+    expect(resolveCoreBaseType("A", cyclic)).toBeNull();
   });
 });

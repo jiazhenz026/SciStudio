@@ -103,6 +103,36 @@ Field semantics:
 - **Em-dash separator** — render ` — ` only when `descriptive_text`
   is non-empty.
 
+### 3.1 Core Base-Type Annotation (#1840)
+
+For a specialized type whose previewer hides its underlying structure
+(e.g. `SRSImage`, `SpectralDataset`), the row appends the **fundamental
+core base type** after the type name so users can tell what the type
+fundamentally is:
+
+```
+[icon] SRSImage (Array) [— descriptive_text]
+[icon] SpectralDataset (DataFrame)
+```
+
+The core base is the highest ancestor in the inheritance chain whose
+immediate base is the universal `DataObject` root — for
+`SRSImage → Image → Array → DataObject` it is `Array` (not the immediate
+parent `Image`, not the generic root `DataObject`). It is resolved
+**frontend-side** by walking `BlockSchemaResponse.type_hierarchy` (a
+`name → base_type` map), so no backend or schema change is required.
+
+The annotation is **omitted** when:
+
+- the type already IS a core base (no redundant `Array (Array)`),
+- the type is `DataObject` itself,
+- the chain cannot be resolved (unknown type) — degrade to no annotation,
+- a cycle is detected (defensive).
+
+Helper: `resolveCoreBaseType(typeName, typeHierarchy)` in
+`frontend/src/config/typeColorMap.ts`. The annotation is applied to the
+primary type name (consistent with the existing color logic).
+
 ## 4. Ordering And Trigger
 
 - **Ordering**: declared order. The order in which `input_ports` /

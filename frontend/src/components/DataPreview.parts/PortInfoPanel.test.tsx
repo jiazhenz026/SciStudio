@@ -125,4 +125,44 @@ describe("PortInfoPanel", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  // #1840: a specialized type is annotated with its fundamental core base.
+  it("annotates a specialized port type with its core base type", () => {
+    const SPECIALIZED_HIERARCHY = [
+      { name: "DataObject", base_type: "", description: "" },
+      { name: "Array", base_type: "DataObject", description: "" },
+      { name: "Image", base_type: "Array", description: "" },
+      { name: "SRSImage", base_type: "Image", description: "" },
+    ];
+    const srs = port("img", "", ["SRSImage"]);
+    render(
+      <PortInfoPanel
+        inputPorts={[srs]}
+        outputPorts={[]}
+        schema={schema({ input_ports: [srs], type_hierarchy: SPECIALIZED_HIERARCHY })}
+      />,
+    );
+
+    expect(screen.getByText("SRSImage")).toBeInTheDocument();
+    expect(screen.getByText("(Array)")).toBeInTheDocument();
+  });
+
+  it("omits the core-base annotation for a port that already accepts a core base", () => {
+    const SPECIALIZED_HIERARCHY = [
+      { name: "DataObject", base_type: "", description: "" },
+      { name: "Array", base_type: "DataObject", description: "" },
+    ];
+    const arr = port("data", "", ["Array"]);
+    render(
+      <PortInfoPanel
+        inputPorts={[arr]}
+        outputPorts={[]}
+        schema={schema({ input_ports: [arr], type_hierarchy: SPECIALIZED_HIERARCHY })}
+      />,
+    );
+
+    expect(screen.getByText("Array")).toBeInTheDocument();
+    // No redundant "(Array)" annotation.
+    expect(screen.queryByText("(Array)")).toBeNull();
+  });
 });

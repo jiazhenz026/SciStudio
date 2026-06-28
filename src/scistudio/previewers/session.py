@@ -432,13 +432,20 @@ class PreviewSessionManager:
         from scistudio.previewers.models import TargetKind
 
         if resource_id.startswith("item:"):
-            item = params.get("item")
-            if not isinstance(item, dict):
-                return None
-            ref = str(item.get("data_ref") or item.get("ref") or "")
-            type_name = str(item.get("type_name") or parent.collection_item_type or "")
+            # #1837: prefer the minimal flat params emitted by
+            # ``_collection_item_params`` (``ref`` + ``type_name``). Fall back
+            # to the legacy full ``item`` descriptor for any resource params
+            # captured before that change.
+            ref = str(params.get("ref") or "")
+            type_name = str(params.get("type_name") or "")
+            if not ref:
+                item = params.get("item")
+                if isinstance(item, dict):
+                    ref = str(item.get("data_ref") or item.get("ref") or "")
+                    type_name = type_name or str(item.get("type_name") or "")
             if not ref:
                 return None
+            type_name = type_name or str(parent.collection_item_type or "")
             return PreviewTarget(
                 kind=TargetKind.DATA_REF,
                 ref=ref,

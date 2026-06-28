@@ -17,6 +17,7 @@ from scistudio.api.deps import get_runtime
 from scistudio.api.routes import workflow_watcher
 from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime, WorkflowRun
 from scistudio.api.runtime._runs import WorkflowAlreadyRunningError
+from scistudio.api.runtime._workflows import WorkflowIdConflictError
 from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
@@ -252,6 +253,14 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> VersionedWor
         finally:
             tmp_path.unlink(missing_ok=True)
 
+        # #1836: reject an import that would create a duplicate-id collision.
+        conflict = runtime.find_workflow_id_conflict(definition.id)
+        if conflict is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=str(WorkflowIdConflictError(definition.id, conflict)),
+            )
+
         out_path = runtime.workflow_path(definition.id)
         existed = out_path.exists()
         save_yaml(definition, out_path)
@@ -304,10 +313,19 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
         from scistudio.workflow.serializer import load_yaml, save_yaml
 
         definition = load_yaml(path)
+        # #1836: reject an import that would create a duplicate-id collision.
+        conflict = runtime.find_workflow_id_conflict(definition.id)
+        if conflict is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=str(WorkflowIdConflictError(definition.id, conflict)),
+            )
         out_path = runtime.workflow_path(definition.id)
         existed = out_path.exists()
         save_yaml(definition, out_path)
         _mark_self_write(out_path)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -338,6 +356,9 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
     try:
         existed = runtime.workflow_path(body.id).exists()
         definition = runtime.save_workflow(body.model_dump())
+    except WorkflowIdConflictError as exc:
+        # #1836: duplicate workflow id within the project → 409 Conflict
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc

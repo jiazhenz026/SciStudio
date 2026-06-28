@@ -158,3 +158,44 @@ export function primaryTypeName(typeNames: string[]): string {
   if (typeNames.length === 0) return "Any";
   return typeNames[0];
 }
+
+/**
+ * Resolve a type's *fundamental core base* — the highest ancestor in its
+ * inheritance chain whose immediate base is the universal `DataObject` root
+ * (#1840). For `SRSImage → Image → Array → DataObject` this is `Array`, not
+ * the immediate parent `Image` and not the generic root `DataObject`.
+ *
+ * Returns `null` (omit the annotation) when:
+ *   - the type already IS a core base (its immediate base is `DataObject`),
+ *     so there is no redundant `Array (Array)`;
+ *   - the type is `DataObject` itself;
+ *   - the chain can't be resolved (unknown type, or a root that does not
+ *     descend from `DataObject`);
+ *   - a cycle is detected (defensive).
+ *
+ * Walks frontend-side from the existing `type_hierarchy` (a `name → base_type`
+ * map), so no backend change is needed.
+ */
+export function resolveCoreBaseType(
+  typeName: string,
+  typeHierarchy?: TypeHierarchyEntry[],
+): string | null {
+  if (!typeName || typeName === "DataObject" || !typeHierarchy) return null;
+  const baseOf = new Map<string, string>();
+  for (const entry of typeHierarchy) baseOf.set(entry.name, entry.base_type ?? "");
+
+  let current = typeName;
+  const seen = new Set<string>([current]);
+  while (baseOf.has(current)) {
+    const parent = baseOf.get(current) as string;
+    if (parent === "DataObject") {
+      // `current` is the highest ancestor above DataObject — the core base.
+      // Omit when it equals the displayed type (no redundant `Array (Array)`).
+      return current === typeName ? null : current;
+    }
+    if (parent === "" || seen.has(parent)) return null; // root-not-via-DataObject / cycle
+    seen.add(parent);
+    current = parent;
+  }
+  return null; // chain left the known hierarchy → unresolved
+}
