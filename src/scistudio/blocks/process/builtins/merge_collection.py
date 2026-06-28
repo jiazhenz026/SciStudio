@@ -1,9 +1,9 @@
-"""MergeCollection — concatenate N same-typed Collections into one.
+"""MergeCollection -- concatenate several same-typed Collections into one.
 
-ADR-021: Built-in utility block for Collection operations. The input side is a
-variadic port set (ADR-029) so a user can merge multiple Collections in a single
-block instead of chaining pairwise merges. Lives in the ``routing`` subcategory
-alongside DataRouter and PairEditor.
+A built-in utility block for Collection operations. Its input side has a
+configurable (variadic) set of ports, so a user can merge several Collections
+in one block instead of chaining pairwise merges. Filed under the ``routing``
+subcategory alongside DataRouter and PairEditor.
 """
 
 from __future__ import annotations
@@ -17,35 +17,69 @@ from scistudio.core.types.base import DataObject
 
 
 class MergeCollection(ProcessBlock):
-    """Concatenate N same-typed Collections into one.
+    """Concatenate several same-typed Collections into one.
 
-    ADR-021 / ADR-029: variadic input ports (2-8) let the user merge several
-    Collections at once; the output is a single Collection. All inputs must
-    share the same ``item_type``. Items are concatenated in input-port order.
+    Wire two to eight Collections into the input ports and get a single
+    Collection back, with the items joined in input-port order. Every input
+    must hold the same item type. Use it to gather results from parallel
+    branches into one stream.
+
+    Ports: a variadic input side (2-8 ports), each accepting a Collection, and
+    one ``output`` port carrying the concatenated Collection. Config: none of
+    its own; the active input ports come from the block's port configuration.
+
+    Example:
+        >>> block = MergeCollection()
     """
 
     name: ClassVar[str] = "Merge Collection"
-    algorithm: ClassVar[str] = "merge_collection"
-    description: ClassVar[str] = "Concatenate multiple same-typed Collections into one"
-    subcategory: ClassVar[str] = "routing"
+    """Display name shown in the block palette and on the canvas node."""
 
-    # Variadic input side (ADR-029): the concrete ports live in
-    # ``config["input_ports"]``; the class-level list is the default 2-port seed.
+    algorithm: ClassVar[str] = "merge_collection"
+    """Stable identifier for this block's transform; recorded in metadata."""
+
+    description: ClassVar[str] = "Concatenate multiple same-typed Collections into one"
+    """One-line summary shown in the palette and node tooltip."""
+
+    subcategory: ClassVar[str] = "routing"
+    """Palette subgroup this block is filed under (here, ``"routing"``)."""
+
+    # Variadic input side: the concrete ports live in ``config["input_ports"]``;
+    # the class-level list below is the default 2-port seed.
     variadic_inputs: ClassVar[bool] = True
+    """When ``True``, the user adds and removes input ports instead of using a fixed list."""
+
     allowed_input_types: ClassVar[list[type]] = []
+    """Data types selectable for the variadic input ports; empty means any type."""
+
     min_input_ports: ClassVar[int | None] = 2
+    """Fewest input ports the user may configure."""
+
     max_input_ports: ClassVar[int | None] = 8
+    """Most input ports the user may configure."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="input_1", accepted_types=[DataObject], description="Collection to merge"),
         InputPort(name="input_2", accepted_types=[DataObject], description="Collection to merge"),
     ]
+    """Default seed of two input ports; the user adds more up to ``max_input_ports``."""
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="output", accepted_types=[DataObject], description="Merged Collection"),
     ]
+    """The single output port ``output``, carrying the concatenated Collection."""
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Concatenate all connected input Collections in input-port order.
+        """Concatenate every connected input Collection in input-port order.
+
+        Args:
+            inputs: Mapping of input port name to its Collection. All connected
+                Collections must share the same ``item_type``.
+            config: The block configuration for this run.
+
+        Returns:
+            Mapping of ``output`` to a single Collection holding the items of
+            all inputs, joined in input-port order.
 
         Raises:
             TypeError: If any input is not a Collection, or the inputs do not
