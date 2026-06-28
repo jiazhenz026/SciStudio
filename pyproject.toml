@@ -75,6 +75,17 @@ dev = [
     # extra in sync so auto-provisioned local parity environments can run it.
     "fastembed>=0.7",
 ]
+docs = [
+    # ADR-052 §7: the author-facing API reference is generated from docstrings +
+    # the scistudio.stability decorators via mkdocstrings (griffe collector), so
+    # the reference cannot drift from the code and tier/Since badges render
+    # automatically. ``scripts/docs/build_reference.py`` emits the public surface
+    # (the 9 canonical roots' ``__all__``) under ``docs/user/reference/`` and runs
+    # ``mkdocs build --strict``. ``griffe`` is already pinned in the ``dev`` extra.
+    "mkdocs>=1.6",
+    "mkdocstrings[python]>=0.26",
+    "griffe>=1.7",
+]
 
 [project.scripts]
 scistudio = "scistudio.cli.main:app"

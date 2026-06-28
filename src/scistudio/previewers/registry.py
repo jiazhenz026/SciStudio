@@ -36,6 +36,7 @@ from scistudio.previewers.models import (
     OwnerKind,
     PreviewerSpec,
 )
+from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
     return tuple(candidate_package_dirs())
 
 
+@internal()
 class PreviewerRegistry:
     """In-memory registry of :class:`PreviewerSpec` objects keyed by id.
 

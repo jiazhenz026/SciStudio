@@ -25,15 +25,21 @@ from __future__ import annotations
 
 import base64
 import math
+import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from scistudio.core.storage.ref import StorageReference
+from scistudio.stability import internal, provisional
 
-# Default budgets. ``max_rows`` mirrors the legacy ``MAX_TABLE_PAGE_SIZE``
-# (200); ``max_bytes`` mirrors the MCP 8 MiB cap (FR-027); ``max_dim`` /
-# ``max_tile`` mirror the legacy 256-pixel thumbnail bound.
+# Default budgets (Internal, ADR-052 §8.2): runtime budget defaults, not an
+# author contract — providers read the applied budgets through
+# :class:`~scistudio.previewers.models.PreviewLimits` on ``request.limits``.
+# These are excluded from ``__all__`` and the generated reference. ``max_rows``
+# mirrors the legacy ``MAX_TABLE_PAGE_SIZE`` (200); ``max_bytes`` mirrors the MCP
+# 8 MiB cap (FR-027); ``max_dim`` / ``max_tile`` mirror the legacy 256-pixel
+# thumbnail bound.
 DEFAULT_MAX_ROWS = 200
 DEFAULT_MAX_BYTES = 8 * 1024 * 1024
 DEFAULT_MAX_ITEMS = 100
@@ -43,9 +49,10 @@ DEFAULT_TEXT_CHARS = 5000
 DEFAULT_SERIES_POINTS = 256
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class DataFramePage:
-    """Bounded page of a tabular payload."""
+    """Bounded page of a tabular payload returned by :meth:`PreviewDataAccess.dataframe_page`."""
 
     columns: list[str]
     rows: list[dict[str, Any]]
@@ -58,6 +65,7 @@ class DataFramePage:
     truncated: bool
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class SliceAxis:
     """One non-displayed (sliced) axis of an N-D array.
@@ -73,6 +81,7 @@ class SliceAxis:
     index: int
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArrayPlane:
     """A bounded 2-D plane sliced out of an N-D array, plus axis metadata.
@@ -107,6 +116,7 @@ class ArrayPlane:
     ndim: int
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArrayTile:
     """A bounded rectangular tile read out of a 2-D plane."""
@@ -118,6 +128,7 @@ class ArrayTile:
     matrix: list[list[float]]
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class SeriesPoints:
     """The complete finite set of (x, y) chart points for a Series preview."""
@@ -128,6 +139,7 @@ class SeriesPoints:
     nonnumeric: int = 0
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class TableXYPoints:
     """The complete finite set of (x, y) points from two table columns."""
@@ -141,6 +153,7 @@ class TableXYPoints:
     nonnumeric: int
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class TextChunk:
     """A bounded chunk of text plus a truncation marker."""
@@ -151,6 +164,7 @@ class TextChunk:
     language: str
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArtifactInfo:
     """Bounded metadata about an opaque artifact (no full read)."""
@@ -161,6 +175,7 @@ class ArtifactInfo:
     data_uri: str | None = None
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CompositeSlots:
     """Slot inventory of a CompositeData target (no eager child render)."""
@@ -168,6 +183,7 @@ class CompositeSlots:
     slots: dict[str, str]
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CollectionSample:
     """Bounded sample of a collection's items."""
@@ -178,13 +194,17 @@ class CollectionSample:
     sampled: bool
 
 
+@provisional(since="0.3.1")
 class PreviewDataAccess:
-    """Narrow read surface for preview providers.
+    """Narrow read surface for preview providers (ADR-052 §8.2 — Public/provisional).
 
+    This is the **only** sanctioned way a previewer provider reads payload bytes
+    (FR-009/FR-010). It is constructed by the runtime and injected on
+    ``request.data_access``; authors call its methods and never instantiate it.
     The class never exposes raw storage paths to frontend code. Providers
-    receive typed results and place only JSON-safe payloads into their
-    envelopes. Methods with page/chunk/tile names are intentionally bounded;
-    methods returning chart points are complete.
+    receive typed result dataclasses and place only JSON-safe payloads into
+    their envelopes. Methods with page/chunk/tile names are intentionally
+    bounded; methods returning chart points are complete.
     """
 
     def __init__(
@@ -210,6 +230,7 @@ class PreviewDataAccess:
 
     # -- DataFrame ----------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def dataframe_page(
         self,
         ref: StorageReference,
@@ -263,6 +284,7 @@ class PreviewDataAccess:
             truncated=total_rows > effective_page_size,
         )
 
+    @provisional(since="0.3.1")
     def table_xy_points(
         self,
         ref: StorageReference,
@@ -322,6 +344,7 @@ class PreviewDataAccess:
 
     # -- Array --------------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def array_plane(
         self,
         ref: StorageReference,
@@ -414,6 +437,7 @@ class PreviewDataAccess:
             ndim=ndim,
         )
 
+    @provisional(since="0.3.1")
     def array_tile(
         self,
         ref: StorageReference,
@@ -470,6 +494,7 @@ class PreviewDataAccess:
 
     # -- Series -------------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def series_points(self, ref: StorageReference, metadata: dict[str, Any]) -> SeriesPoints:
         """Return complete chart points for a Series (FR-015).
 
@@ -548,6 +573,7 @@ class PreviewDataAccess:
             return None
         return out if math.isfinite(out) else None
 
+    @provisional(since="0.3.1")
     def text_chunk(self, ref: StorageReference) -> TextChunk:
         """Return a bounded text chunk + truncation marker (FR-016).
 
@@ -569,6 +595,7 @@ class PreviewDataAccess:
 
     # -- Artifact -----------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def artifact_metadata(self, ref: StorageReference, *, mime_type: str | None = None) -> ArtifactInfo:
         """Return bounded artifact metadata; inline a small image as a data URI.
 
@@ -578,7 +605,10 @@ class PreviewDataAccess:
         """
         path = Path(ref.path)
         size = path.stat().st_size if path.exists() and path.is_file() else 0
-        resolved_mime = mime_type or self._guess_mime(path)
+        # Extension -> MIME is non-load-bearing display metadata (ADR-052 §8.2),
+        # so it comes from the stdlib ``mimetypes`` registry rather than a
+        # hand-maintained map; an unknown suffix degrades to octet-stream.
+        resolved_mime = mime_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         data_uri: str | None = None
         if (
             path.is_file()
@@ -590,12 +620,14 @@ class PreviewDataAccess:
 
     # -- Composite ----------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def composite_slots(self, metadata: dict[str, Any]) -> CompositeSlots:
         """Return the slot inventory without rendering any child (FR-017)."""
         slots_raw = metadata.get("slots", {}) if isinstance(metadata, dict) else {}
         slots = {str(k): str(v) for k, v in slots_raw.items()} if isinstance(slots_raw, dict) else {}
         return CompositeSlots(slots=slots)
 
+    @provisional(since="0.3.1")
     def composite_slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:
         """Resolve the typed :class:`StorageReference` for one composite slot (FR-009, ADR-052 §8.5).
 
@@ -612,6 +644,7 @@ class PreviewDataAccess:
 
         return CompositeStore().slot_ref(ref, slot_name)
 
+    @provisional(since="0.3.1")
     def composite_raster_slot(self, ref: StorageReference, slot_name: str = "raster") -> ArrayPlane | None:
         """Bounded read of a composite raster slot subdirectory, if present.
 
@@ -629,6 +662,7 @@ class PreviewDataAccess:
 
     # -- Collection ---------------------------------------------------------
 
+    @provisional(since="0.3.1")
     def collection_sample(
         self,
         *,
@@ -650,10 +684,16 @@ class PreviewDataAccess:
             sampled=count > len(bounded),
         )
 
-    # -- PNG helper (re-export so providers do not import private modules) --
+    # -- PNG helper (Internal, legacy-compat) -------------------------------
 
+    @internal()
     def png_data_uri(self, matrix: list[list[float | None]]) -> str:
         """Encode a 2-D matrix as a grayscale PNG data URI (legacy-compat only).
+
+        Internal (ADR-052 §8.2): the legacy grayscale-PNG path used by the REST
+        compatibility adapter. It is excluded from the author surface and the
+        generated reference; new previewers return the numeric ``matrix`` from
+        :meth:`array_plane` and let the frontend render the heatmap.
 
         Non-finite cells (encoded as ``None``) are coerced to ``0`` since the
         legacy grayscale encoder only consumes finite floats; this path feeds
@@ -785,28 +825,13 @@ class PreviewDataAccess:
             return [str(a) for a in axes_raw]
         return []
 
-    @staticmethod
-    def _guess_mime(path: Path) -> str:
-        suffix = path.suffix.lower()
-        mapping = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".svg": "image/svg+xml",
-            ".pdf": "application/pdf",
-            ".tif": "image/tiff",
-            ".tiff": "image/tiff",
-            ".zarr": "application/zarr",
-        }
-        return mapping.get(suffix, suffix.lstrip(".") or "application/octet-stream")
 
-
+# Public author surface for ``scistudio.previewers.data_access`` (ADR-052 §8.2):
+# the injected reader plus its bounded-read result dataclasses, all provisional.
+# The ``DEFAULT_MAX_*`` budget constants are Internal (read budgets via
+# ``request.limits`` / :class:`~scistudio.previewers.models.PreviewLimits`) and
+# the ``png_data_uri`` method is Internal — both excluded here.
 __all__ = [
-    "DEFAULT_MAX_BYTES",
-    "DEFAULT_MAX_DIM",
-    "DEFAULT_MAX_ITEMS",
-    "DEFAULT_MAX_ROWS",
-    "DEFAULT_MAX_TILE",
     "ArrayPlane",
     "ArrayTile",
     "ArtifactInfo",
@@ -816,5 +841,6 @@ __all__ = [
     "PreviewDataAccess",
     "SeriesPoints",
     "SliceAxis",
+    "TableXYPoints",
     "TextChunk",
 ]

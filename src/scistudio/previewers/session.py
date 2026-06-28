@@ -53,6 +53,7 @@ from scistudio.previewers.models import (
 )
 from scistudio.previewers.registry import PreviewerRegistry
 from scistudio.previewers.router import PreviewRouter
+from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTa
 ProviderT = TypeVar("ProviderT", bound=Callable[..., Any])
 
 
+@internal()
 class PreviewSessionManager:
     """In-memory, thread-safe preview session store + provider dispatcher."""
 

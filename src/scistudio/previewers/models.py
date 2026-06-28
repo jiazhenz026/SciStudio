@@ -1,8 +1,12 @@
 """Typed models for the ADR-048 extensible preview subsystem.
 
-This module defines the public contract every other half of SPEC 1 depends
-on (the API runtime, the frontend PreviewHost, and package-owned previewers
-such as ``scistudio-blocks-imaging``):
+This is one of the two canonical author roots for writing a package-owned
+previewer (the other is :mod:`scistudio.previewers.data_access`); import the
+types below from ``scistudio.previewers.models``. The whole preview subsystem is
+**provisional** (ADR-052 §8): usable, but the surface may still settle within a
+minor release. Each public symbol carries a ``scistudio.stability`` marker.
+
+Author-facing types (Public / provisional):
 
 * :class:`PreviewTarget` — what is being previewed (data ref / collection /
   artifact / plot artifact) plus its recorded type chain.
@@ -10,16 +14,27 @@ such as ``scistudio-blocks-imaging``):
   type, priority, capabilities, backend provider, frontend manifest).
 * :class:`FrontendManifest` — the same-origin descriptor a previewer ships
   for its dynamically-loaded ESM module + CSS assets.
+* :class:`PreviewRequest` — the input a provider receives (target, spec, query,
+  the injected :class:`~scistudio.previewers.data_access.PreviewDataAccess`,
+  limits, and the runtime-resolved ``storage`` reference).
 * :class:`PreviewEnvelope` — the canonical backend response (kind, payload,
   resources, metadata, diagnostics, error).
 * :class:`PreviewMetadata` — the sampled/truncated/cached/derived/complete/
   failed display flags every envelope must carry (FR-011).
-* :class:`PreviewSession` — the backend-owned session record.
-* The :data:`PreviewProvider` callable protocol and the
-  :data:`PreviewerEntryPoint` package entry-point protocol.
-* The typed error hierarchy (:class:`RoutingAmbiguityError`,
-  :class:`UnknownPreviewerError`, :class:`MissingBundleError`,
-  :class:`ProviderError`, :class:`UnknownTargetError`).
+* The :data:`PreviewProvider` callable type and the
+  :class:`PreviewerEntryPoint` package entry-point protocol.
+* The author-facing error types :class:`PreviewError` (base; catch) and
+  :class:`ProviderError` (raise for hard failures).
+
+Backend/runtime-only types are **Internal** (decorated ``@internal``, excluded
+from ``__all__`` and the generated reference): :class:`PreviewSession` (the
+backend-owned session record) and the six runtime-raised error classes
+(:class:`RoutingAmbiguityError`, :class:`UnknownPreviewerError`,
+:class:`UnknownTargetError`, :class:`MissingBundleError`,
+:class:`InvalidSpecError`, :class:`DuplicatePreviewerIdError`). They stay
+importable for the runtime/API layer but carry no author promise; a provider
+signals routine failures with a :class:`PreviewErrorCode` on a returned
+envelope instead of raising these.
 
 The models are plain frozen dataclasses (not Pydantic) so the core
 previewer layer stays import-light and free of the API layer; the
@@ -37,6 +52,8 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from scistudio.stability import internal, provisional
+
 if TYPE_CHECKING:
     from scistudio.core.storage.ref import StorageReference
     from scistudio.previewers.data_access import PreviewDataAccess
@@ -47,6 +64,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 class OwnerKind(StrEnum):
     """Provenance tier of a previewer; drives routing precedence (FR-003).
 
@@ -60,6 +78,7 @@ class OwnerKind(StrEnum):
     PROJECT = "project"
 
 
+@provisional(since="0.3.1")
 class TargetKind(StrEnum):
     """What a :class:`PreviewTarget` points at."""
 
@@ -69,6 +88,7 @@ class TargetKind(StrEnum):
     PLOT_ARTIFACT = "plot_artifact"
 
 
+@provisional(since="0.3.1")
 class EnvelopeKind(StrEnum):
     """Canonical fallback kinds for a :class:`PreviewEnvelope` (spec Key Entities).
 
@@ -90,6 +110,7 @@ class EnvelopeKind(StrEnum):
     ERROR = "error"
 
 
+@provisional(since="0.3.1")
 class PreviewErrorCode(StrEnum):
     """Deterministic diagnostic codes for preview failures (FR-029)."""
 
@@ -106,6 +127,11 @@ class PreviewErrorCode(StrEnum):
 # The current previewer API compatibility version. Specs declaring a
 # different ``api_version`` are still loaded but flagged via diagnostics so
 # the frontend can refuse to mount an incompatible manifest (FR-006).
+#
+# Public / provisional / since 0.3.1 (ADR-052 §8.1). A bare ``str`` cannot carry
+# a ``scistudio.stability`` marker (an immutable builtin), so the tier is
+# recorded here and in the spec; ``get_stability`` honestly returns ``None`` and
+# the generated reference lists it without a tier badge.
 PREVIEWER_API_VERSION = "1"
 
 
@@ -114,6 +140,7 @@ PREVIEWER_API_VERSION = "1"
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewSource:
     """Optional workflow/node/output identity for UI display (spec Key Entities).
@@ -131,6 +158,7 @@ class PreviewSource:
         return asdict(self)
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewTarget:
     """Identifies what is being previewed (spec Key Entities / ADR-048 §3).
@@ -176,6 +204,7 @@ class PreviewTarget:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class FrontendManifest:
     """Same-origin descriptor for a previewer's dynamically loaded UI (FR-022/FR-024).
@@ -232,6 +261,7 @@ def _provider_repr(provider: object) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewerSpec:
     """Declares a preview provider (spec Key Entities / FR-006).
@@ -292,6 +322,7 @@ class PreviewerSpec:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewMetadata:
     """Display + state metadata carried by every envelope (FR-011).
@@ -323,6 +354,7 @@ class PreviewMetadata:
         return data
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewResource:
     """Descriptor for a bounded follow-up resource read (session resources route).
@@ -352,6 +384,7 @@ class PreviewResource:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewErrorInfo:
     """Typed error payload embedded in a failed envelope (FR-029)."""
@@ -368,6 +401,7 @@ class PreviewErrorInfo:
         }
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewEnvelope:
     """Canonical backend preview response (spec Key Entities / FR-011).
@@ -436,6 +470,7 @@ class PreviewEnvelope:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewLimits:
     """Applied bounded-read budgets recorded on a session (spec Key Entities).
@@ -454,6 +489,7 @@ class PreviewLimits:
         return asdict(self)
 
 
+@internal()
 @dataclass
 class PreviewSession:
     """Backend-owned preview session (spec Key Entities / FR-007).
@@ -493,6 +529,7 @@ class PreviewSession:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewRequest:
     """Input handed to a :data:`PreviewProvider` when it renders an envelope.
@@ -538,10 +575,17 @@ class PreviewRequest:
 # slot, decode error); they should embed a typed error envelope instead so
 # the session API never crashes (FR-028). The session manager still wraps
 # provider calls defensively for unexpected exceptions.
-PreviewProvider = Callable[[PreviewRequest], PreviewEnvelope]
-PreviewResourceProvider = Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]]
+# Public / provisional / since 0.3.1 (ADR-052 §8.1). A ``collections.abc.Callable``
+# subscription is a generic-alias with no writable ``__dict__``, so (like the
+# ``list[...]`` alias and the ``str`` constant below) it cannot carry a
+# ``scistudio.stability`` marker; the no-op call documents intent but
+# ``get_stability`` returns ``None`` and the generated reference lists these
+# without a tier badge. The tier is recorded here and in the spec.
+PreviewProvider = provisional(since="0.3.1")(Callable[[PreviewRequest], PreviewEnvelope])
+PreviewResourceProvider = provisional(since="0.3.1")(Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]])
 
 
+@provisional(since="0.3.1")
 @runtime_checkable
 class PreviewerEntryPoint(Protocol):
     """``scistudio.previewers`` entry-point callable protocol (FR-002).
@@ -567,6 +611,11 @@ class PreviewerEntryPoint(Protocol):
 
 # Accepted return shapes from the entry-point callable: a list/tuple of
 # specs (canonical) — anything else is rejected with a diagnostic.
+#
+# Public / provisional / since 0.3.1 (ADR-052 §8.1). A PEP 585 ``list[...]`` alias
+# is a ``types.GenericAlias`` with no writable ``__dict__``, so it cannot carry a
+# ``scistudio.stability`` marker; the tier is recorded here and in the spec, and
+# the generated reference lists it without a tier badge.
 PreviewerSpecList = list[PreviewerSpec]
 
 
@@ -575,6 +624,7 @@ PreviewerSpecList = list[PreviewerSpec]
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.1")
 class PreviewError(Exception):
     """Base class for typed preview errors.
 
@@ -594,55 +644,75 @@ class PreviewError(Exception):
         return PreviewErrorInfo(code=self.code, message=self.message, detail=self.detail)
 
 
+@internal()
 class RoutingAmbiguityError(PreviewError):
-    """Two previewers tie on tier, specificity, and priority (FR-004)."""
+    """Two previewers tie on tier, specificity, and priority (FR-004).
+
+    Runtime-raised by the router; an author signals routing problems through a
+    :class:`PreviewErrorCode` on a returned envelope rather than importing this
+    type (ADR-052 §8.1 — Internal).
+    """
 
     code = PreviewErrorCode.ROUTING_AMBIGUITY
 
 
+@internal()
 class UnknownPreviewerError(PreviewError):
-    """The requested previewer id is not registered."""
+    """The requested previewer id is not registered (runtime-raised; ADR-052 §8.1 Internal)."""
 
     code = PreviewErrorCode.UNKNOWN_PREVIEWER
 
 
+@internal()
 class UnknownTargetError(PreviewError):
-    """No previewer (not even a core fallback) matched the target."""
+    """No previewer (not even a core fallback) matched the target (runtime-raised; ADR-052 §8.1 Internal)."""
 
     code = PreviewErrorCode.UNKNOWN_TARGET
 
 
+@internal()
 class MissingBundleError(PreviewError):
-    """A previewer declares a frontend manifest but no servable bundle."""
+    """A previewer declares a frontend manifest but no servable bundle (runtime-raised; ADR-052 §8.1 Internal)."""
 
     code = PreviewErrorCode.MISSING_BUNDLE
 
 
+@provisional(since="0.3.1")
 class ProviderError(PreviewError):
-    """A backend provider raised while rendering an envelope."""
+    """A backend provider raised while rendering an envelope.
+
+    Authors raise this for hard failures a provider cannot turn into a typed
+    error envelope (ADR-052 §8.1 — Public/provisional).
+    """
 
     code = PreviewErrorCode.PROVIDER_EXCEPTION
 
 
+@internal()
 class InvalidSpecError(PreviewError):
-    """A previewer spec failed validation at registration time."""
+    """A previewer spec failed validation at registration time (runtime-raised; ADR-052 §8.1 Internal)."""
 
     code = PreviewErrorCode.INVALID_SPEC
 
 
+@internal()
 class DuplicatePreviewerIdError(PreviewError):
-    """Two specs declare the same ``previewer_id`` (FR-006)."""
+    """Two specs declare the same ``previewer_id`` (FR-006; runtime-raised; ADR-052 §8.1 Internal)."""
 
     code = PreviewErrorCode.DUPLICATE_PREVIEWER_ID
 
 
+# Public author surface for ``scistudio.previewers.models`` (ADR-052 §8.1).
+# The whole preview subsystem is provisional. The seven runtime-only / backend
+# types — ``PreviewSession`` and the six runtime-raised error classes
+# (``RoutingAmbiguityError``, ``UnknownPreviewerError``, ``UnknownTargetError``,
+# ``MissingBundleError``, ``InvalidSpecError``, ``DuplicatePreviewerIdError``) —
+# are Internal (decorated ``@internal``) and intentionally excluded; they stay
+# importable for the runtime/API layer but carry no author stability promise.
 __all__ = [
     "PREVIEWER_API_VERSION",
-    "DuplicatePreviewerIdError",
     "EnvelopeKind",
     "FrontendManifest",
-    "InvalidSpecError",
-    "MissingBundleError",
     "OwnerKind",
     "PreviewEnvelope",
     "PreviewError",
@@ -654,15 +724,11 @@ __all__ = [
     "PreviewRequest",
     "PreviewResource",
     "PreviewResourceProvider",
-    "PreviewSession",
     "PreviewSource",
     "PreviewTarget",
     "PreviewerEntryPoint",
     "PreviewerSpec",
     "PreviewerSpecList",
     "ProviderError",
-    "RoutingAmbiguityError",
     "TargetKind",
-    "UnknownPreviewerError",
-    "UnknownTargetError",
 ]

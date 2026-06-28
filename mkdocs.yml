@@ -1,0 +1,69 @@
+# SciStudio generated API reference (ADR-052 §7).
+#
+# The reference is generated from docstrings + the scistudio.stability
+# decorators by scripts/docs/build_reference.py, which writes the pages under
+# docs/user/reference/ and then runs `mkdocs build --strict`. The build is
+# scoped to docs/user/reference (docs_dir) so it renders ONLY the public API
+# reference and does not pull in the rest of docs/.
+#
+# Single-version for alpha; multi-version hosting via `mike` is deferred:
+#   TODO(#1817): multi-version published reference docs (mike) once >1 core line
+#     is supported. Out of scope per ADR-052 §7 (single-version generated docs
+#     for alpha). Followup: https://github.com/jiazhenz026/SciStudio/issues/1817
+
+site_name: SciStudio API Reference
+site_description: Generated public API contract (ADR-052) — public surface only, with stability badges.
+docs_dir: docs/user/reference
+site_dir: build/mkdocs-site  # gitignored (build/); the script overrides via --site-dir
+use_directory_urls: false
+
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - scistudio.core.types: scistudio.core.types.md
+  - scistudio.core.meta: scistudio.core.meta.md
+  - scistudio.blocks.base: scistudio.blocks.base.md
+  - scistudio.blocks.process: scistudio.blocks.process.md
+  - scistudio.blocks.io: scistudio.blocks.io.md
+  - scistudio.blocks.app: scistudio.blocks.app.md
+  - scistudio.blocks.code: scistudio.blocks.code.md
+  - scistudio.previewers.models: scistudio.previewers.models.md
+  - scistudio.previewers.data_access: scistudio.previewers.data_access.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: false
+            show_root_toc_entry: false
+            show_bases: true
+            members_order: source
+            docstring_section_style: list
+            separate_signature: false
+            show_signature_annotations: false
+            signature_crossrefs: false
+            filters: ["!^_"]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - toc:
+      permalink: false
+
+# Keep link/nav diagnostics from failing the build for reasons unrelated to the
+# generated reference; mkdocstrings/griffe resolution issues still surface.
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    absolute_links: ignore
+    unrecognized_links: ignore
