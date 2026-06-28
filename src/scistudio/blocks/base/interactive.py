@@ -1,36 +1,34 @@
-"""ADR-051: the interaction capability for data-processing blocks.
+"""The interaction capability for data-processing blocks.
 
 An interactive block pauses mid-workflow, opens a block-owned window onto its
-real input data, takes a data-dependent decision from the user, and computes
-its outputs from it. Interaction is a *capability* any block category can carry
-(ADR-051 §2), expressed by mixing in :class:`InteractiveMixin` and declaring
-``execution_mode = ExecutionMode.INTERACTIVE``. There is deliberately no
-``InteractiveBlock`` base class — interactivity is layered onto an existing
-category (e.g. :class:`~scistudio.blocks.process.process_block.ProcessBlock`)
-rather than placed on the category axis.
+real input data, takes a data-dependent decision from the user, and computes its
+outputs from that decision. Interaction is a *capability* any block category can
+carry, not a category of its own: a block becomes interactive by mixing in
+:class:`InteractiveMixin` and declaring ``execution_mode =
+ExecutionMode.INTERACTIVE``. There is deliberately no ``InteractiveBlock`` base
+class — interactivity is layered onto an existing category (for example
+:class:`~scistudio.blocks.process.process_block.ProcessBlock`).
 
-The capability gives a block three things (ADR-051 §2):
+The capability gives a block three things:
 
 * :attr:`InteractiveMixin.interactive_panel` — a :class:`PanelManifest` naming
-  the frontend window component, served and resolved through the same
-  same-origin mechanism ADR-048 uses for previewer components (ADR-051 §4).
+  the frontend window component the block opens.
 * :meth:`InteractiveMixin.prepare_prompt` — turns the real input data into the
   JSON-safe, window-sized view the panel renders, plus optional heavy
   intermediate work carried forward as storage references (never in memory).
-* ``run`` — the block's own, inherited from its category; on the compute phase
-  it reads the user's decision from ``config["interactive_response"]`` and
-  produces the block's outputs (ADR-051 §3).
+* ``run`` — inherited from the block's category; on the compute phase it reads
+  the user's decision from ``config["interactive_response"]`` and produces the
+  block's outputs.
 
-The registry binds the capability and the execution mode together at scan time
-(see :func:`scistudio.blocks.registry._capability._validate_interactive_capability`):
-a block that declares one without the other, omits ``prepare_prompt``, or omits
-a valid :class:`PanelManifest` is rejected at load time (FR-002).
+The registry binds the capability and the execution mode together when it scans
+blocks: a block that declares one without the other, omits ``prepare_prompt``,
+or omits a valid :class:`PanelManifest` is rejected at load time.
 
-Runtime isolation (ADR-051 §3): the two halves run in two worker subprocesses
-on either side of an engine-held pause — the prompt phase builds the view and
-exits, the engine holds the pause with nothing resident, then a fresh compute
-phase runs ``run`` with the decision injected. This module only defines the
-contract; the two-phase orchestration lives in the engine scheduler and runners.
+The two halves run in two worker subprocesses on either side of an engine-held
+pause: the prompt phase builds the view and exits, the engine holds the pause
+with nothing resident, then a fresh compute phase runs ``run`` with the decision
+injected. This module only defines the contract; the two-phase orchestration
+lives in the engine scheduler and runners.
 """
 
 from __future__ import annotations
@@ -45,16 +43,25 @@ from scistudio.stability import provisional
 if TYPE_CHECKING:
     from scistudio.blocks.base.config import BlockConfig
 
-# Panel API compatibility version. Mirrors ADR-048's ``PREVIEWER_API_VERSION``
-# (:data:`scistudio.previewers.models.PREVIEWER_API_VERSION`); the frontend
-# panel host refuses to mount a manifest whose major version differs.
+# The frontend panel host refuses to mount a manifest whose major version
+# differs from this.
 PANEL_API_VERSION = "1"
+"""Panel API compatibility version.
 
-# Config keys the engine threads into the compute phase (ADR-051 §3).
-# ``INTERACTIVE_RESPONSE_KEY`` carries the user's decision and IS recorded in
-# lineage (FR-011); ``INTERACTIVE_INTERMEDIATE_KEY`` carries engine-held storage
-# references for reuse and is EXCLUDED from lineage (scratch, not provenance).
+A :class:`PanelManifest` whose major version differs from this is refused by the
+frontend panel host. Bump it when the panel contract changes incompatibly.
+"""
+
+# Config keys the engine threads into the compute phase. The response key
+# carries the user's decision and is recorded in lineage; the intermediate key
+# carries engine-held storage references for reuse and is excluded from lineage.
 INTERACTIVE_RESPONSE_KEY = "interactive_response"
+"""Config key under which an interactive block's run reads the user's decision.
+
+On the compute phase the engine places the value the user chose in the panel at
+``config[INTERACTIVE_RESPONSE_KEY]``. This decision is recorded in the run's
+lineage.
+"""
 INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 
 # ADR-051 interaction memory: a block config may carry a remembered decision so
@@ -69,45 +76,67 @@ INTERACTIVE_MEMORY_KEY = "interactive_memory"
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PanelManifest:
-    """Same-origin descriptor for a block's interactive window component.
+    """Describes the frontend window component a block opens for interaction.
 
-    Mirrors ADR-048's :class:`~scistudio.previewers.models.FrontendManifest`
-    shape, extended only as the panel requires (an optional declared
-    ``response_schema``). The frontend resolves a core panel from
-    :attr:`panel_id` against its built-in panel registry, and a package panel by
-    dynamically importing :attr:`module_url` (same-origin, ADR-048 §4); core
-    panels leave ``module_url`` empty because they are bundled, not wheel-served.
+    An interactive block declares one of these as its ``interactive_panel`` to
+    name the window the user sees. A built-in (core) panel is resolved by
+    :attr:`panel_id` against the frontend's built-in registry; a package-provided
+    panel is loaded by importing :attr:`module_url` from the backend (same-origin
+    only — remote URLs are rejected). Core panels leave ``module_url`` empty
+    because they ship with the app.
 
-    Attributes:
-        panel_id: Stable id of the window component, e.g.
-            ``"core.interactive.data_router"``. The frontend resolution key.
-        module_url: Backend-relative URL the frontend imports a package panel
-            module from (``/api/...``); remote URLs are rejected. Empty for
-            core panels resolved from the built-in registry.
-        export_name: Named export inside the module to mount.
-        css: Optional backend-relative CSS asset URLs.
-        version: Panel bundle version (fingerprint or semver).
-        api_version: Panel API compatibility version; must match
-            :data:`PANEL_API_VERSION` (major) to mount without a diagnostic.
-        response_schema: Optional JSON-schema-like declaration of the response
-            shape the panel returns; advisory metadata for the panel host.
-        asset_root: Filesystem directory a package confines its panel assets
-            under. Never serialized to the frontend; used only by a backend
-            asset validator for path confinement (mirrors ADR-048 FR-024).
+    Example:
+        >>> manifest = PanelManifest(panel_id="core.interactive.data_router")
     """
 
     panel_id: str
+    """Stable id of the window component (e.g. ``"core.interactive.data_router"``).
+
+    For a core panel this is the frontend's resolution key.
+    """
+
     module_url: str = ""
+    """Backend-relative URL (``/api/...``) to import a package panel module from.
+
+    Remote URLs are rejected. Left empty for built-in core panels.
+    """
+
     export_name: str = "default"
+    """Named export inside the module to mount as the panel component."""
+
     css: tuple[str, ...] = ()
+    """Optional backend-relative URLs of CSS assets the panel needs."""
+
     version: str = "0"
+    """Panel bundle version (a fingerprint or semver string)."""
+
     api_version: str = PANEL_API_VERSION
+    """Panel API compatibility version; its major must match :data:`PANEL_API_VERSION`."""
+
     response_schema: dict[str, Any] | None = None
+    """Optional declaration of the response shape the panel returns.
+
+    A JSON-schema-like description; advisory metadata for the panel host, not
+    enforced by the runtime.
+    """
+
     asset_root: str | None = None
+    """Filesystem directory a package confines its panel assets under.
+
+    Never sent to the frontend; used only by a backend validator to keep asset
+    paths confined to the package.
+    """
 
     @provisional(since="0.3.1")
     def to_dict(self) -> dict[str, Any]:
-        """Wire shape sent to the frontend. ``asset_root`` is intentionally omitted."""
+        """Return the JSON-safe wire form of this manifest sent to the frontend.
+
+        :attr:`asset_root` is intentionally omitted (it is a backend-only path),
+        and :attr:`response_schema` is included only when it is set.
+
+        Returns:
+            A dict with the manifest's frontend-facing fields.
+        """
         data: dict[str, Any] = {
             "panel_id": self.panel_id,
             "module_url": self.module_url,
@@ -124,53 +153,84 @@ class PanelManifest:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class InteractivePrompt:
-    """The return of :meth:`InteractiveMixin.prepare_prompt` (ADR-051 §2).
+    """What :meth:`InteractiveMixin.prepare_prompt` returns to drive the panel.
 
-    Attributes:
-        panel_payload: A JSON-safe, window-sized view of the data the panel
-            renders (a downsampled trace, a summary table, selectable items).
-            Reducing the data to something a person can look at is the block's
-            job; the runtime rejects a payload that is not plain JSON (FR-004).
-        intermediate: Optional storage references to heavy intermediate work the
-            block wants to reuse in the compute phase. Carried engine-side across
-            the pause, never sent to the browser, and excluded from lineage
-            (ADR-051 §3 / FR-010). Empty when the compute phase rebuilds entirely
-            from inputs, config, and the decision.
+    Bundles the window-sized view the panel renders together with any heavy
+    intermediate results the block wants to reuse later, without putting those
+    heavy results in memory or on the wire.
+
+    Example:
+        >>> prompt = InteractivePrompt(panel_payload={"items": ["a", "b"]})
     """
 
     panel_payload: dict[str, Any]
+    """JSON-safe, window-sized view of the data the panel renders.
+
+    Reducing the data to something a person can look at (a downsampled trace, a
+    summary table, a list of selectable items) is the block's job; the runtime
+    rejects a payload that is not plain JSON.
+    """
+
     intermediate: tuple[StorageReference, ...] = ()
+    """Storage references to heavy intermediate work to reuse in the compute phase.
+
+    Carried by the engine across the pause, never sent to the browser, and
+    excluded from lineage. Leave empty when the compute phase rebuilds entirely
+    from the inputs, config, and the user's decision.
+    """
 
 
 @provisional(since="0.3.1")
 class InteractiveMixin:
-    """The capability mixed into a block to make it interactive (ADR-051 §2).
+    """Mix-in that makes a block interactive.
 
-    A block becomes interactive by inheriting this mixin and declaring
-    ``execution_mode = ExecutionMode.INTERACTIVE``. The registry rejects either
-    half without the other at scan time (FR-002). Subclasses MUST set the
-    :attr:`interactive_panel` ClassVar and MAY override :meth:`prepare_prompt`
-    (the default raises). ``run`` is inherited from the block's category and is
-    where the user's decision is consumed on the compute phase.
+    Inherit this alongside a block category and declare ``execution_mode =
+    ExecutionMode.INTERACTIVE`` to turn an ordinary block into one that pauses to
+    ask the user a question. The registry rejects a block that declares one of
+    these without the other. A subclass MUST set the :attr:`interactive_panel`
+    class attribute and SHOULD override :meth:`prepare_prompt` (the default
+    raises). The block's own ``run`` — inherited from its category — consumes the
+    user's decision on the compute phase.
+
+    Example:
+        >>> from scistudio.blocks.base import (
+        ...     ExecutionMode,
+        ...     InteractiveMixin,
+        ...     PanelManifest,
+        ... )
+        >>> class PickOne(InteractiveMixin):  # doctest: +SKIP
+        ...     execution_mode = ExecutionMode.INTERACTIVE
+        ...     interactive_panel = PanelManifest(panel_id="core.interactive.data_router")
+        ...     def prepare_prompt(self, inputs, config):
+        ...         return {"items": [str(i) for i in inputs]}
     """
 
-    #: The window this block opens (ADR-051 §4). Subclasses MUST set this.
     interactive_panel: ClassVar[PanelManifest]
+    """The window this block opens. A subclass MUST set it to a :class:`PanelManifest`."""
 
     @provisional(since="0.3.1")
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt | dict[str, Any]:
         """Turn the real input data into what the window should show.
 
-        Runs in an isolated worker subprocess (ADR-051 §3). Receives the block's
-        full input collections (one interaction spans the whole input, FR-005)
-        and the resolved config. Returns an :class:`InteractivePrompt` carrying
-        the JSON-safe ``panel_payload`` and optional intermediate storage
-        references. A bare ``dict`` return is treated as the ``panel_payload``
-        with no intermediate, for blocks that need no heavy reuse.
+        Runs in an isolated worker subprocess. Receives the block's full input
+        collections (one interaction spans the whole input) and the resolved
+        config, and returns what the panel needs.
+
+        Args:
+            inputs: The block's input collections, keyed by input-port name.
+            config: The block's resolved configuration.
+
+        Returns:
+            An :class:`InteractivePrompt` carrying the JSON-safe
+            ``panel_payload`` and any intermediate storage references. A bare
+            ``dict`` is accepted as shorthand for a payload with no intermediate.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this method.
         """
         raise NotImplementedError(
             f"{type(self).__name__} declares execution_mode=INTERACTIVE and "
-            f"InteractiveMixin but does not implement prepare_prompt() (ADR-051)."
+            f"InteractiveMixin but does not implement prepare_prompt()."
         )
 
     @provisional(since="0.3.1")
@@ -180,24 +240,30 @@ class InteractiveMixin:
         saved_signature: dict[str, list[str]],
         current_signature: dict[str, list[str]],
     ) -> dict[str, Any] | None:
-        """Re-resolve a remembered decision against the current inputs (ADR-051).
+        """Re-resolve a remembered decision against the current inputs.
 
         Interaction memory lets a block skip its dialog on a re-run by replaying
         the user's earlier decision. The engine calls this on dispatch with the
-        decision the user saved, the input signature captured when they saved it,
-        and the signature of the current inputs (see
-        :func:`interactive_input_signature`).
+        decision the user saved, the input fingerprint captured when they saved
+        it, and the fingerprint of the current inputs.
 
-        Returns the ``interactive_response`` to apply automatically — skipping
-        the pause and the UI — or ``None`` to fall back to opening the panel.
+        The default policy reuses the saved decision only when the input
+        fingerprint is unchanged (same items, same order per port) — safe for a
+        plain re-run, and it never replays a stale decision. Override it to remap
+        a decision by item identity so it survives reordering or partial input
+        changes.
 
-        Default policy (inherited by every interactive block, including
-        package-provided ones): reuse the saved decision verbatim only when the
-        input signature is unchanged (same items, same order per port). This is
-        safe for the common "re-run with the front of the workflow unchanged"
-        case and never replays a stale decision. A block MAY override this to
-        remap a decision by item identity so it survives reordering or partial
-        input changes.
+        Args:
+            saved_decision: The decision (an ``interactive_response``) the user
+                saved earlier.
+            saved_signature: Input fingerprint captured when the decision was
+                saved, mapping each port name to its ordered item labels.
+            current_signature: Fingerprint of the current inputs, in the same
+                shape.
+
+        Returns:
+            The ``interactive_response`` to apply automatically (skipping the
+            pause and the panel), or ``None`` to fall back to opening the panel.
         """
         if saved_signature == current_signature:
             return saved_decision
@@ -315,11 +381,18 @@ def deserialise_storage_ref(data: dict[str, Any]) -> StorageReference:
 
 @provisional(since="0.3.1")
 def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageReference, ...]:
-    """Return the engine-threaded intermediate storage references, if any.
+    """Return the intermediate storage references the engine carried across the pause.
 
-    Helper for an interactive block's ``run`` (compute phase) to read back the
-    references its ``prepare_prompt`` persisted, without re-deriving the wire
-    shape. Returns an empty tuple when the block produced no intermediate.
+    Convenience for an interactive block's ``run`` (the compute phase) to read
+    back the references its :meth:`InteractiveMixin.prepare_prompt` stored,
+    without re-deriving the wire shape by hand.
+
+    Args:
+        config: The block's config — a :class:`BlockConfig` or a plain dict.
+
+    Returns:
+        The stored storage references as a tuple, empty when the block produced
+        no intermediate.
     """
     raw: Any
     if isinstance(config, dict):

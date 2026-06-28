@@ -1,10 +1,8 @@
-"""Typed exceptions raised by blocks to signal terminal states to the engine.
+"""Typed exceptions a block raises to tell the engine it reached a terminal state.
 
-The worker subprocess catches these and forwards the signal to the engine via
-the ``final_state`` field on its stdout JSON envelope (see
-``scistudio.engine.runners.terminal_state``). The engine-owned scheduler is the
-authoritative state machine (ADR-018 §8.1 ``DAGScheduler.set_state``); blocks
-do not track their own state.
+The worker subprocess catches these and reports the outcome to the engine on its
+result envelope. The engine, not the block, owns the authoritative run-state
+machine, so a block signals an outcome by raising rather than by setting state.
 """
 
 from __future__ import annotations
@@ -14,11 +12,10 @@ from scistudio.stability import provisional
 
 @provisional(since="0.3.1")
 class BlockCancelledByAppError(Exception):
-    """Block ran an external app that exited without producing output.
+    """Raised when a block's external application exits without producing output.
 
-    Raised from :meth:`AppBlock.run` when the FileWatcher detects the external
-    process terminated before any output was written. The worker translates
-    this into ``final_state="cancelled"`` on the stdout envelope so the
-    scheduler records the block in ``BlockState.CANCELLED`` via the existing
-    ``BlockTerminalStateReportedError`` path (#681).
+    A block that launches a separate desktop application raises this from its
+    ``run`` method when the application closes before writing any result. The
+    worker reports it to the engine as a cancellation, so the run is recorded as
+    cancelled rather than failed.
     """
