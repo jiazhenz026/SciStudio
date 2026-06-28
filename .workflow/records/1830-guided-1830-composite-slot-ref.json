@@ -144,7 +144,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "c7a044eff208eb8a2aa3526002005351ae88b2bb",
+    "shas": [
+      "c7a044eff208eb8a2aa3526002005351ae88b2bb"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -294,6 +300,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.842695Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/storage/composite_store.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/storage/composite_store.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.851889Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.860938Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.869679Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.878576Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.887315Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.896187Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.905640Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.914990Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:37:20.925162Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -307,7 +417,7 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "1965e870",
+    "base_sha": "ec4f752b",
     "changed_files": [
       ".workflow/records/1830-guided-1830-composite-slot-ref.json",
       "CHANGELOG.md",
@@ -317,9 +427,9 @@
       "src/scistudio/previewers/data_access.py",
       "tests/previewers/test_preview_data_access.py"
     ],
-    "diff_fingerprint": "sha256:90624cbe6b9faa30af112a675f31d2dd5dabb4030e53c428040e96a3b84122fc",
+    "diff_fingerprint": "sha256:4770094a754ea32399c76e7077a011b9c52b943b5e13b17d81cacf87a5f89bb2",
     "head": "HEAD",
-    "head_sha": "617e14fe",
+    "head_sha": "c7a044ef",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -335,11 +445,26 @@
   },
   "owner_directive": "Add public PreviewDataAccess.composite_slot_ref (option A, owner-approved): a manifest-based composite slot StorageReference resolver, reusing a new read-only CompositeStore.slot_ref helper (touches protected core/storage \u2014 admin-approved:core-change granted by owner). Declare the new symbol as a public/provisional/Since-0.3.1 contract in ADR-052 + the companion spec (\u00a78.2), and add a CHANGELOG entry. Closes #1830.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1830
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-28T01:36:53.903043Z",
       "diff_fingerprint": "sha256:90624cbe6b9faa30af112a675f31d2dd5dabb4030e53c428040e96a3b84122fc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T01:37:20.925197Z",
+      "diff_fingerprint": "sha256:4770094a754ea32399c76e7077a011b9c52b943b5e13b17d81cacf87a5f89bb2",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
