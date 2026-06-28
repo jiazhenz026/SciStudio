@@ -52,13 +52,25 @@ closed (the window shows "Activation is not configured").
 1. The tester installs and launches the app. The gate window shows their
    **machine fingerprint** with a **Copy** button.
 2. The tester sends you that fingerprint.
-3. You mint a token bound to it:
+3. You mint a token bound to it, either with the GUI or the CLI.
+
+   **GUI (recommended):**
+
+   ```bash
+   node scripts/alpha-token-gui.js
+   ```
+
+   This opens a small local page in your browser. It auto-uses the signing key
+   in `~/.scistudio/alpha-signing.key` (no key handling needed) — paste the
+   fingerprint, optionally a name, click **Sign token**, and copy the result. It
+   also shows a running count of how many tokens you have issued.
+
+   **CLI:**
 
    ```bash
    node scripts/alpha-token.js sign --fingerprint <fingerprint> --name "Tester Name"
+   # check it:  node scripts/alpha-token.js verify --token <t> --fingerprint <fp>
    ```
-
-   (Optionally check it: `node scripts/alpha-token.js verify --token <t> --fingerprint <fp>`.)
 4. You send the token back. The tester pastes it and clicks **Activate**.
 5. The app stores the token at `<userData>/alpha-activation.json` and launches.
    Every subsequent launch re-verifies it silently. There is no expiry.
@@ -82,7 +94,10 @@ The gate is intentionally isolated so it can be deleted in one pass:
 - [ ] Delete `desktop/activation.js`, `desktop/preload-gate.js`,
       `desktop/resources/alpha-gate.html`, `desktop/resources/alpha-public-key.pem`.
 - [ ] Delete `desktop/test/activation.test.js`.
-- [ ] Delete `scripts/alpha-token.js`.
+- [ ] Delete `scripts/alpha-token.js` and `scripts/alpha-token-gui.js`.
+- [ ] (Local only) the issuance ledger `~/.scistudio/alpha-issued-tokens.csv` and
+      the signing key `~/.scistudio/alpha-signing.key` are never committed; remove
+      them from your machine when you retire the alpha.
 - [ ] In `desktop/main.js`: remove the `./activation` require, the
       `runActivationGate` / `ensureAlphaActivation` functions, the
       `ensureAlphaActivation()` call in `app.whenReady`, and the `clipboard`

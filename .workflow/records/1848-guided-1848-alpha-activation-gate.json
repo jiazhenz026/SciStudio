@@ -1,6 +1,56 @@
 {
   "branch": "guided/1848-alpha-activation-gate",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-28T20:38:23.139602Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8cc1c48bc0218a7f6207cc84e1dc81f3818c9fc43441cc2bd34f0e62787bb4b9",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T20:38:26.890664Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f5279c7c319a84c4c8bc7d62f4204b261b8936cd6f5ca8352d18ebb693cb594c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T20:38:26.929263Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:49cef9f68c7f7c130aa16c0ce348ad16942517176fc26adb0c67941f4de5bba0",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -15,6 +65,16 @@
       "at": "2026-06-28T20:37:17.288355Z",
       "owner_directive": "\u5b9e\u73b0\u79bb\u7ebf\u7b7e\u540d\u6fc0\u6d3b\u95f8\u95e8:desktop activation \u6a21\u5757 + \u6fc0\u6d3b\u7a97\u53e3 GUI + \u5f00\u53d1\u8005\u7b7e\u53d1 CLI + \u6d4b\u8bd5 + \u6587\u6863\u3002Mac/Windows \u673a\u5668\u6307\u7eb9\u3002",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-28T20:45:06.961034Z",
+      "owner_directive": "\u7ed9\u79c1\u94a5\u7b7e\u53d1\u5de5\u5177\u505a\u4e00\u4e2a\u6781\u7b80 GUI \u65b9\u4fbf\u4f7f\u7528",
+      "reason": "owner \u8981\u6c42\u7ed9\u5f00\u53d1\u8005\u7b7e\u53d1\u5de5\u5177\u505a\u4e00\u4e2a\u6781\u7b80 GUI,\u65b9\u4fbf\u65e5\u5e38\u7b7e\u53d1 token"
+    },
+    {
+      "at": "2026-06-28T20:53:42.030244Z",
+      "owner_directive": "\u7ed9 GUI \u52a0\u4e00\u4e2a\u628a\u6240\u6709\u7b7e\u53d1\u7684 token \u548c\u673a\u5668\u6307\u7eb9\u8bb0\u5230 CSV \u7684\u529f\u80fd,\u65b9\u4fbf\u77e5\u9053\u53d1\u4e86\u591a\u5c11\u4e2a token",
+      "reason": "owner \u8981\u6c42\u53d1\u653e\u53f0\u8d26:GUI/CLI \u6bcf\u6b21\u7b7e\u53d1 token \u90fd\u8bb0\u5f55\u5230\u672c\u5730 CSV(\u65f6\u95f4/\u540d\u5b57/\u673a\u5668\u6307\u7eb9/token),\u4fbf\u4e8e\u7edf\u8ba1\u53d1\u4e86\u591a\u5c11"
     }
   ],
   "docs_events": [
@@ -28,7 +88,68 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-28T20:38:26.955400Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:26.966371Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:26.976556Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:26.986104Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:26.995452Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:27.004677Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:27.013464Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:27.022939Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:27.032345Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:38:27.043590Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -38,18 +159,71 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "faa9fa38",
+    "changed_files": [
+      ".workflow/records/1848-guided-1848-alpha-activation-gate.json",
+      "desktop/activation.js",
+      "desktop/main.js",
+      "desktop/package.json",
+      "desktop/preload-gate.js",
+      "desktop/resources/alpha-gate.html",
+      "desktop/test/activation.test.js",
+      "docs/alpha-activation-gate.md",
+      "scripts/alpha-token.js"
+    ],
+    "diff_fingerprint": "sha256:96d05dd1f226133ebfb1466e71edfd7490fdc88fbd9caf578ab1b7be284e9418",
+    "head": "HEAD",
+    "head_sha": "afac326f",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "\u9632\u6b62 alpha tester \u672a\u7ecf\u5141\u8bb8\u4f20\u64ad\u6784\u5efa:\u79bb\u7ebf\u96f6\u670d\u52a1\u5668\u3001\u6bcf\u673a\u4e00\u7801\u7684\u6fc0\u6d3b\u95f8\u95e8\u2014\u2014\u6ca1\u6709\u5408\u6cd5 token \u5c31\u6253\u4e0d\u5f00 app\u3002GUI:\u63d0\u793a\u6587\u5b57+\u673a\u5668\u6307\u7eb9(\u5e26\u590d\u5236)+token\u8f93\u5165\u6846+\u6fc0\u6d3b\u6309\u94ae\u3002Mac+Windows \u90fd\u652f\u6301\u3002alpha \u4e34\u65f6\u6a21\u5757,beta \u6574\u4f53\u5220\u9664\u3002",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-28T20:38:27.043625Z",
+      "diff_fingerprint": "sha256:96d05dd1f226133ebfb1466e71edfd7490fdc88fbd9caf578ab1b7be284e9418",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1848-guided-1848-alpha-activation-gate",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
@@ -72,10 +246,22 @@
       "at": "2026-06-28T20:37:17.288537Z",
       "pattern": "docs/alpha-activation-gate.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T20:45:06.961148Z",
+      "pattern": "scripts/**",
+      "reason": "owner \u8981\u6c42\u7ed9\u5f00\u53d1\u8005\u7b7e\u53d1\u5de5\u5177\u505a\u4e00\u4e2a\u6781\u7b80 GUI,\u65b9\u4fbf\u65e5\u5e38\u7b7e\u53d1 token"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T20:53:42.030482Z",
+      "pattern": "scripts/**",
+      "reason": "owner \u8981\u6c42\u53d1\u653e\u53f0\u8d26:GUI/CLI \u6bcf\u6b21\u7b7e\u53d1 token \u90fd\u8bb0\u5f55\u5230\u672c\u5730 CSV(\u65f6\u95f4/\u540d\u5b57/\u673a\u5668\u6307\u7eb9/token),\u4fbf\u4e8e\u7edf\u8ba1\u53d1\u4e86\u591a\u5c11"
     }
   ],
   "session_id": "945f4a8a-9e47-4c21-b82c-e4c9b522eb61",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
   "test_events": [
     {
