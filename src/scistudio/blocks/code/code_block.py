@@ -1,13 +1,17 @@
-"""CodeBlock v2 runtime integration and Python backend.
+"""The Code Block: run a project-local script as a workflow step.
 
-ADR-041 narrows CodeBlock to an AppBlock-shaped script boundary: the
-runtime owns exchange folders, materialises declared inputs, launches a
-project-local script through a resolved interpreter backend, and reconstructs
-declared outputs.  This module wires the shared v2 runtime layer and the
-Python backend; notebook, R/Quarto, shell, and MATLAB-family backends remain
-separate ADR-041 implementation tracks.  Inline code and SciStudio
-entry-function script modes are intentionally rejected with migration
-diagnostics instead of being interpreted as v2 configs.
+The Code Block lets you drop a script you already have (Python, R/Quarto,
+shell, MATLAB/Octave, or a Jupyter notebook) into a workflow without rewriting
+it as a SciStudio block. The runtime owns a per-run exchange folder: it writes
+the block's declared inputs to files, launches your script through the matching
+interpreter backend, and reads the files your script writes back into typed
+outputs.
+
+Scripts exchange data through files, not function calls. Pasted inline code and
+old SciStudio entry-function scripts are rejected with a clear migration message
+rather than being run, so a script must read its inputs from, and write its
+outputs to, the exchange folders described by the ``SCISTUDIO_*`` environment
+variables.
 """
 
 from __future__ import annotations
@@ -94,23 +98,38 @@ from scistudio.stability import provisional
 
 @provisional(since="0.3.1")
 class CodeBlockMigrationError(ValueError):
-    """Raised when a legacy CodeBlock config needs explicit migration."""
+    """Raised when an old-style Code Block config cannot be run as-is.
+
+    Earlier Code Blocks could hold pasted inline code or call a named entry
+    function. Those forms are no longer run; this error explains what needs to
+    change (save the code as a project-local script that exchanges data through
+    files) and carries one diagnostic per problem found.
+    """
 
     def __init__(self, diagnostics: list[MigrationDiagnostic]) -> None:
         self.diagnostics = diagnostics
+        """The list of migration problems found, each with a suggested fix."""
         messages = "; ".join(diagnostic.message for diagnostic in diagnostics)
         super().__init__(f"CodeBlock v2 migration required: {messages}")
 
 
 @provisional(since="0.3.1")
 class CodeBlockExecutionError(RuntimeError):
-    """Raised when the interpreter process exits unsuccessfully."""
+    """Raised when the script's interpreter process exits with an error.
+
+    The Code Block treats any non-zero exit code from the launched script as a
+    failure and raises this, attaching the script's captured output so you can
+    diagnose what went wrong.
+    """
 
     def __init__(self, message: str, *, returncode: int, stdout: str, stderr: str) -> None:
         super().__init__(message)
         self.returncode = returncode
+        """The non-zero exit code the script's process returned."""
         self.stdout = stdout
+        """Standard output captured from the failed script run."""
         self.stderr = stderr
+        """Standard error captured from the failed script run."""
 
 
 _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
@@ -120,10 +139,42 @@ _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
 
 @provisional(since="0.3.1")
 class CodeBlock(Block):
-    """Run project-local scripts through ADR-041 file exchange."""
+    """Run a project-local script as a workflow step, exchanging data via files.
+
+    Use the Code Block when you have a working script (Python, R/Quarto, shell,
+    MATLAB/Octave, or a Jupyter notebook) and want to run it inside a workflow
+    without porting it to a SciStudio block. You point the block at a script in
+    your project and declare which inputs it reads and which outputs it writes.
+    The interpreter is chosen automatically from the script's file extension.
+
+    How data flows:
+
+    - **Inputs**: the runtime writes each declared input to a file in the run's
+      ``inputs/`` folder before the script starts. The default ``data`` input
+      port accepts any data object; you can add more named input ports.
+    - **Outputs**: the script writes files into the run's ``outputs/`` folder,
+      which the runtime reads back into typed data objects. The default
+      ``result`` output port returns any data object; you can add more named
+      output ports.
+    - Your script finds these folders through the ``SCISTUDIO_*`` environment
+      variables the runtime sets for it.
+
+    Configuration highlights (see :class:`CodeBlockConfig` for the full set):
+    ``script_path`` (required) points at the project-local script; ``inputs``
+    and ``outputs`` declare the file-exchange ports; ``interpreter_mode`` and
+    ``interpreter_path`` choose between an auto-detected interpreter and an
+    explicit one.
+
+    Example:
+        >>> block = CodeBlock({"script_path": "scripts/analyse.py"})
+        >>> block.name
+        'Code Block'
+    """
 
     name: ClassVar[str] = "Code Block"
+    """Display name shown for this block in the workflow editor."""
     description: ClassVar[str] = "Run project-local scripts through typed file exchange"
+    """One-line description shown in the block palette."""
 
     # Issue #1325: CodeBlock matches AppBlock / AIBlock — user-configurable
     # variadic ports so the canvas "+" button can append script-specific
@@ -132,14 +183,18 @@ class CodeBlock(Block):
     # ``config.{input,output}_ports`` and merged at canvas render time by
     # ``flowNodeBuilder.resolveVariadicPorts``.
     variadic_inputs: ClassVar[bool] = True
+    """Whether users may add extra input ports to a block instance on the canvas."""
     variadic_outputs: ClassVar[bool] = True
+    """Whether users may add extra output ports to a block instance on the canvas."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False, description="Declared v2 inputs"),
     ]
+    """Default input ports: a single optional ``data`` port accepting any data object."""
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="result", accepted_types=[DataObject], description="Declared v2 outputs"),
     ]
+    """Default output ports: a single ``result`` port returning any data object."""
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -209,17 +264,58 @@ class CodeBlock(Block):
         },
         "required": ["script_path"],
     }
+    """JSON Schema describing the block's editable configuration fields.
+
+    Drives the configuration form in the workflow editor; ``script_path`` is the
+    only required field.
+    """
 
     @provisional(since="0.3.1")
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Create a Code Block, optionally seeding its configuration.
+
+        Args:
+            config: Optional configuration mapping (for example
+                ``{"script_path": "scripts/run.py"}``). Validated when the block
+                runs, not here.
+        """
         super().__init__(config=config)
         self.last_provenance_payload: dict[str, Any] | None = None
+        """Provenance record from the most recent :meth:`run`, or ``None`` before the first run."""
         self.last_exchange_manifest: CodeBlockExchangeManifest | None = None
+        """Exchange manifest from the most recent :meth:`run`, or ``None`` before the first run."""
         self.last_process: subprocess.CompletedProcess[str] | None = None
+        """The finished script process from the most recent :meth:`run`, or ``None`` before it ran."""
 
     @provisional(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Execute a CodeBlock v2 script and return declared outputs."""
+        """Run the configured script and return its declared outputs.
+
+        Writes the declared inputs to files, picks the interpreter backend from
+        the script's extension, launches the script, then reads the files it
+        produced back into typed output collections. After the call, the run's
+        provenance, exchange manifest, and finished process are available on
+        :attr:`last_provenance_payload`, :attr:`last_exchange_manifest`, and
+        :attr:`last_process`.
+
+        Args:
+            inputs: Declared inputs keyed by input-port name; each value is a
+                collection of data objects to write to that port's input folder.
+            config: The block's configuration for this run (see
+                :class:`CodeBlockConfig` for the accepted fields).
+
+        Returns:
+            A mapping from each declared output-port name to the collection of
+            data objects reconstructed from the files the script wrote.
+
+        Raises:
+            CodeBlockMigrationError: If the configuration is an old inline or
+                entry-function form that must be migrated first.
+            CodeBlockExecutionError: If the script's process exits with an error.
+            CodeBlockExchangeError: If preparing inputs or collecting required
+                outputs fails.
+            ValueError: If the configuration fails validation.
+        """
 
         raw_config = _config_mapping(config)
         diagnostics = _migration_diagnostics(raw_config)

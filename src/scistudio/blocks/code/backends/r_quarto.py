@@ -1,4 +1,4 @@
-"""R and Quarto backends for CodeBlock v2."""
+"""Backend that runs R and Quarto Code Block scripts."""
 
 from __future__ import annotations
 
@@ -29,15 +29,33 @@ _R_PACKAGE_TIMEOUT_SECONDS = 10
 
 @provisional(since="0.3.1")
 class RQuartoCodeBlockBackend:
-    """Rscript, R Markdown, and Quarto backend for ADR-041 CodeBlock runs."""
+    """Run a Code Block script written in R or Quarto (``.R``, ``.Rmd``, ``.qmd``).
+
+    This backend runs three related kinds of script: a plain R script (``.R``)
+    with ``Rscript``, an R Markdown document (``.Rmd``) rendered with the R
+    ``rmarkdown`` package, and a Quarto document (``.qmd``) rendered with the
+    ``quarto`` command. It auto-detects ``Rscript`` or ``quarto`` on the system
+    path, or uses a path you pin through ``interpreter_mode`` /
+    ``interpreter_path``. The process runs in the per-run exchange folder and
+    reads and writes the declared input and output folders.
+
+    Example:
+        >>> backend = RQuartoCodeBlockBackend()
+        >>> backend.supports(Path("figures.qmd"), config)
+        True
+    """
 
     name = "r-quarto"
+    """Backend identifier used in the registry and provenance records."""
     extensions = frozenset({".R", ".Rmd", ".qmd"})
+    """File extensions this backend handles (R scripts, R Markdown, Quarto)."""
 
     def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
+        """Return whether *script_path* is an R or Quarto script this backend runs."""
         return script_path.suffix.lower() in _ALL_EXTENSIONS
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+        """Resolve ``Rscript`` or ``quarto`` and build the launch command."""
         extension = context.script_path.suffix.lower()
         if extension == ".qmd":
             return _resolve_quarto(context)
@@ -52,6 +70,7 @@ class RQuartoCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        """Launch the R or Quarto command and return the finished process."""
         return run_codeblock_process(
             argv=interpreter.argv,
             cwd=context.exchange_dir,

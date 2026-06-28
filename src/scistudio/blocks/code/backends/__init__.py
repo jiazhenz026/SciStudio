@@ -1,8 +1,9 @@
-"""CodeBlock v2 backend module discovery.
+"""Discovery of the built-in Code Block interpreter backend modules.
 
-Backend tracks add one module in this package and expose a ``register()``
-function. The shared runtime imports modules here and invokes that hook, so
-notebook/R/shell/MATLAB tracks do not need to edit ``code_block.py``.
+Each backend lives in its own module in this package and exposes a
+``register()`` function. The runtime imports these modules and calls that hook,
+so a new language backend can be added by dropping in a module without changing
+the Code Block itself.
 """
 
 from __future__ import annotations

@@ -1,21 +1,17 @@
-"""LazyList -- memory-safe wrapper for Collection items in CodeBlock.
+"""A memory-safe, list-like view over the items of a Collection.
 
-ADR-020-Add4: When CodeBlock auto-unpacks a Collection with length > 1,
-it wraps the Collection in a LazyList instead of materializing all items.
-
-Usage in CodeBlock auto-unpack::
-
-    # Collection length=1 -> single native object (numpy array, pandas DataFrame)
-    # Collection length>1 -> LazyList (this class)
+When a Code Block hands a multi-item Collection to a script, it wraps it in a
+:class:`LazyList` so the script can treat it like a list without loading every
+item into memory at once.
 
 Memory guarantee::
 
-    for x in lazy_list:  # loads 1 item at a time, O(1) memory
+    for x in lazy_list:  # loads one item at a time, O(1) peak memory
         process(x)
 
     lazy_list[5]  # loads only item 5
 
-    all_items = lazy_list.to_list()  # explicit full materialization
+    all_items = lazy_list.to_list()  # explicit full load into memory
 """
 
 from __future__ import annotations
@@ -38,12 +34,24 @@ def _load_item(collection: Collection, index: int) -> Any:
 
 @provisional(since="0.3.1")
 class LazyList:
-    """Memory-safe list-like wrapper for Collection items.
+    """A list-like view over a Collection that loads items only when needed.
 
-    Wraps a :class:`Collection` and presents a list-like interface to user
-    scripts.  Data is loaded on demand: iteration yields one item at a time
-    (O(1) peak memory), indexing loads only the requested item, and
-    ``len()`` returns the count without touching storage.
+    Wraps a :class:`Collection` and behaves like a list for a user script, but
+    keeps data on disk until you touch it. Iterating yields one item at a time
+    (roughly constant peak memory), indexing loads only the requested item, and
+    ``len()`` returns the count without reading any data. Reach for
+    :meth:`to_list` only when you really need every item in memory at once.
+
+    Args:
+        collection: The Collection whose items this list-like view exposes.
+
+    Example:
+        >>> items = LazyList(collection)
+        >>> len(items)        # no data loaded
+        3
+        >>> first = items[0]  # loads only item 0
+        >>> for item in items:  # loads one item at a time
+        ...     process(item)
     """
 
     __slots__ = ("_collection",)
