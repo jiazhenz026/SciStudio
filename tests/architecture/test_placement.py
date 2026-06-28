@@ -151,6 +151,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "agent_provisioning",  # ADR-040 §3.5-3.8: prod-env agent provisioning module
         "previewers",  # ADR-048: extensible type previewer subsystem (scistudio.previewers)
         "desktop",  # ADR-037: desktop distribution path/resource helpers
+        "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)
     }
     stray: list[str] = []
     for filepath in SRC_ROOT.rglob("*.py"):

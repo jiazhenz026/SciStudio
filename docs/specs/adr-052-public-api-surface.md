@@ -42,7 +42,7 @@ planned_governs:
   excludes: []
 tests:
   - tests/api/test_public_surface.py
-  - tests/api/test_stability_decorators.py
+  - tests/stability/test_stability.py
   - tests/api/test_ergonomic_accessors.py
 acceptance_source: adr
 language_source: en
