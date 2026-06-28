@@ -7,8 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-28
+
+Standardized the public API surface (ADR-052) and added the alpha testing token
+activator. This is the first release carrying the activation gate: a packaged
+build will not open without a developer-issued, per-machine token, so the
+installer can be distributed for download without being runnable by
+unauthorized recipients. Going forward each release publishes the OTA patch and
+the full (gated) dmg together on the alpha release.
+
 ### Added
 
+- [#1848] Alpha activation gate — the desktop app now requires a per-machine
+  activation token to launch. Offline and zero-server: Ed25519-signed tokens
+  bound to a stable machine fingerprint, verified against a public key shipped
+  in the build (the developer holds the private key); a forwarded copy fails on
+  a different machine. Packaged builds always enforce the gate (no env bypass)
+  and trust only the shipped key. Ships developer token-issuer tooling
+  (`scripts/alpha-token.js` CLI, a local GUI, a double-click launcher, and a
+  no-Electron `.app` builder) plus a CSV issuance ledger. Alpha-only; removed in
+  beta (`docs/alpha-activation-gate.md`). (@claude, 2026-06-28, branch: guided/1848-alpha-activation-gate)
 - [#1828] `scistudio.stability` — the ADR-052 §5 public-API stability decorators (`stable` / `provisional` / `internal`, each carrying `Since`) plus `StabilityInfo` and `get_stability()` introspection. The decorators are runtime no-ops that stamp tier/version metadata on a public symbol; `get_stability()` is the single read path shared by the contract validator, the API-surface freeze test, and the generated reference (ADR-052 §7, §15). Foundational mechanism only: decorating core's own public surface, the generated reference, and the freeze test are tracked under #1817; the package template consumes it under #1826. (@claude, 2026-06-27, branch: guided/1828-scistudio-stability)
 - [#1815] Native Excel (`.xlsx`) read/write for core **DataFrame** and **Series** (#1810): an `xlsx` format capability on LoadData/SaveData via the pandas + openpyxl bridge. `.xlsx` is collection-valued — a workbook loads as one DataObject per sheet. Adds `openpyxl>=3.1` and raises the numpy floor `>=1.25` → `>=2.1` (#1809). (@claude, 2026-06-27, branch: feature/1810-dataframe-xlsx-io)
 
