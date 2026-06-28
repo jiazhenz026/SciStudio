@@ -90,7 +90,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | `docs/planning/dispatch-prompts/1833/A1-core.md` | core/** public surface | `feat/1833-adr-052-core` | `…wt-1833-core` | `src/scistudio/core/**` | everything else | #1833 | `[ ]` |
+| A1 | implementer | N/A | `docs/planning/dispatch-prompts/1833/A1-core.md` | core/** public surface | `feat/1833-adr-052-core` | `…wt-1833-core` | `src/scistudio/core/**` | everything else | #1833 | `[x]` 28da411f |
+| A5 | test_engineer | N/A | `docs/planning/dispatch-prompts/1833/A5-dedicated-tests.md` | NEW dedicated contract suite (owner 2026-06-27) | `test/1833-adr-052-dedicated-suite` | `…wt-1833-tests2` | `tests/adr052_contract/**` | all other tests + src + docs | #1833 | `[~]` |
 | A2 | implementer | N/A | `docs/planning/dispatch-prompts/1833/A2-blocks.md` | blocks/** public surface + template | `feat/1833-adr-052-blocks` | `…wt-1833-blocks` | `src/scistudio/blocks/**` | everything else | #1833 | `[ ]` |
 | A3 | implementer | N/A | `docs/planning/dispatch-prompts/1833/A3-prevdocs.md` | previewers/** + doc build + docs deletion | `feat/1833-adr-052-prevdocs` | `…wt-1833-prevdocs` | `src/scistudio/previewers/**`, `mkdocs.yml`, `pyproject.toml`, `docs/user/reference/**`, `docs/block-development/**`, `scripts/docs/**` | everything else | #1833 | `[ ]` |
 | A4 | test_engineer | N/A | `docs/planning/dispatch-prompts/1833/A4-tests.md` | ALL tests (owner: 1 test agent) | `test/1833-adr-052-tests` | `…wt-1833-tests` | `tests/**` | all `src/**`, `docs/**` | #1833 | `[ ]` |
@@ -120,10 +121,11 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] A1 core/** public surface -> `<commit>`
-- [ ] A2 blocks/** public surface + template -> `<commit>`
-- [ ] A3 previewers/** + doc build + docs deletion -> `<commit>`
-- [ ] A4 tests/** -> `<commit>`
+- [x] A1 core/** public surface -> commit `28da411f` (all changes confined to `src/scistudio/core/**`; accessors round-trip smoke PASS; reported 41 pre-existing tests to update + 0 out-of-core shim callers)
+- [ ] A2 blocks/** public surface + template -> `<commit>` (running)
+- [ ] A3 previewers/** + doc build + docs deletion -> `<commit>` (running)
+- [ ] A4 tests/** (reconcile existing + new api tests) -> `<commit>` (running)
+- [ ] A5 NEW dedicated suite `tests/adr052_contract/**` -> `<commit>` (running; owner-added 2026-06-27)
 
 ### 7.4 Audit
 

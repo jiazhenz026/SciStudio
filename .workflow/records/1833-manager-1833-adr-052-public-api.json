@@ -24,6 +24,11 @@
       "at": "2026-06-28T02:34:55.715284Z",
       "owner_directive": "Plan: A1 core/** + A2 blocks/** + A3 previewers/**+docbuild+docs-deletion + A4 tests/** (1 test agent), dispatched in parallel. Then 3 no-context audits. \u00a79 plot behavior-pinning test deferred to #1824 (owner implementing); added after #1824 merges via same test agent.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-28T03:09:37.075076Z",
+      "owner_directive": "Write a brand-new dedicated test suite (not edits to existing tests). A4's work kept; A5 added in tests/adr052_contract/**.",
+      "reason": "Owner directive 2026-06-27: keep A4 test work; ALSO dispatch a 2nd dedicated test engineer (A5) to write a brand-new, from-scratch ADR-052 contract test suite under tests/adr052_contract/** (disjoint from A4). Independent spec-derived suite."
     }
   ],
   "docs_events": [
