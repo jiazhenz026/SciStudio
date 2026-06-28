@@ -327,7 +327,7 @@ def test_dtype_persisted_as_canonical_string(tmp_path: Path, dtype_input: Any, e
 
     Regression: ``str(bool)`` returns ``"<class 'bool'>"`` which round-trips
     into ``np.dtype("<class 'bool'>")`` and crashes Mask reconstruction with
-    ``data type ... not understood``.  ``_serialise_extra_metadata`` must
+    ``data type ... not understood``.  ``serialise_extra_metadata`` must
     normalise via ``np.dtype()`` first so the persisted dtype is always a
     string ``np.dtype()`` will accept on the reverse trip.
     """

@@ -8,65 +8,12 @@ import pytest
 
 from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 from scistudio.blocks.code.introspect import introspect_script
-from scistudio.blocks.code.runners.python_runner import PythonRunner
 
-
-class TestPythonRunnerInline:
-    """PythonRunner inline mode — exec() in namespace."""
-
-    def test_simple_script(self) -> None:
-        runner = PythonRunner()
-        result = runner.execute_inline("x = 2\ny = x * 3", {})
-        assert result["x"] == 2
-        assert result["y"] == 6
-
-    def test_script_with_inputs(self) -> None:
-        runner = PythonRunner()
-        result = runner.execute_inline("out = data + 10", {"data": 5})
-        assert result["out"] == 15
-
-    def test_private_keys_stripped(self) -> None:
-        runner = PythonRunner()
-        result = runner.execute_inline("_private = 1\npublic = 2", {})
-        assert "public" in result
-        assert "_private" not in result
-
-    def test_inputs_not_in_output(self) -> None:
-        runner = PythonRunner()
-        result = runner.execute_inline("x = data + 1", {"data": 5})
-        assert "x" in result
-        assert result["x"] == 6
-        assert "data" not in result  # input should be filtered
-
-    def test_imports_not_in_output(self) -> None:
-        runner = PythonRunner()
-        result = runner.execute_inline("import math\nresult = math.sqrt(4)", {})
-        assert "result" in result
-        assert result["result"] == 2.0
-        assert "math" not in result  # imports should be filtered
-
-
-class TestPythonRunnerScript:
-    """PythonRunner script mode — importlib-based execution."""
-
-    def test_script_file(self, tmp_path: Path) -> None:
-        script = tmp_path / "my_block.py"
-        script.write_text("def run(inputs, config):\n    return {'result': inputs['value'] * 2}\n")
-        runner = PythonRunner()
-        result = runner.execute_script(script, "run", {"value": 21}, {})
-        assert result["result"] == 42
-
-    def test_missing_script(self) -> None:
-        runner = PythonRunner()
-        with pytest.raises(FileNotFoundError):
-            runner.execute_script("/nonexistent.py", "run", {}, {})
-
-    def test_missing_function(self, tmp_path: Path) -> None:
-        script = tmp_path / "empty.py"
-        script.write_text("# no run function\n")
-        runner = PythonRunner()
-        with pytest.raises(AttributeError, match="run"):
-            runner.execute_script(script, "run", {}, {})
+# ADR-052 §7A: the legacy runner layer (runner_registry.py + runners/*) is dead
+# code (0 production importers; code_block.py uses backends/) and is deleted in
+# #1817. The old TestPythonRunnerInline / TestPythonRunnerScript classes that
+# exercised scistudio.blocks.code.runners.python_runner were removed with the
+# runner import. CodeBlock + introspect coverage stays below.
 
 
 class TestCodeBlockInline:

@@ -17,7 +17,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scistudio.blocks.io import SaveData
+from scistudio.blocks.io.savers.save_data import SaveData
 from scistudio.core.types.array import Array
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.text import Text

@@ -3,9 +3,10 @@
 Covers:
     - Construction defaults for the framework / meta / user slots.
     - JSON-serialisability validation on the user dict.
-    - Backward-compat shims for the legacy ``metadata=`` kwarg and the
-      ``DataObject.metadata`` property (both emit DeprecationWarning,
-      both removed in Phase 11).
+    - Removal of the legacy ``metadata=`` kwarg and the
+      ``DataObject.metadata`` property — the Phase-11 deprecation shim is
+      deleted in #1817 (ADR-052 §3.1 / §16); the three-slot ``user`` API is
+      the replacement.
     - The :meth:`DataObject.with_meta` immutable update path: requires a
       typed Meta on the instance, returns a new instance, derives a
       fresh FrameworkMeta with ``derived_from`` set, preserves user and
@@ -18,7 +19,7 @@ Covers:
 
 from __future__ import annotations
 
-import warnings
+import inspect
 from pathlib import Path
 
 import numpy as np
@@ -126,51 +127,31 @@ class TestUserDictValidation:
 
 
 # ---------------------------------------------------------------------------
-# Backward-compat: metadata property and metadata= kwarg
+# Removal of the legacy metadata property and metadata= kwarg (ADR-052 §3.1/§16)
 # ---------------------------------------------------------------------------
 
+_ABSENT = object()
 
-class TestBackwardCompatShim:
-    """The legacy single-dict ``metadata`` API is preserved with warnings."""
 
-    def test_metadata_property_emits_deprecation_warning(self) -> None:
-        obj = DataObject(user={"k": "v"})
-        with pytest.warns(DeprecationWarning, match="DataObject.metadata is deprecated"):
-            value = obj.metadata
-        assert value == {"k": "v"}
+class TestMetadataShimRemoved:
+    """The Phase-11 ``metadata`` deprecation shim is deleted (ADR-052 §3.1 / §16).
 
-    def test_metadata_property_returns_user(self) -> None:
-        obj = DataObject(user={"a": 1})
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            assert obj.metadata is obj.user
+    The legacy single-dict ``metadata`` property and ``metadata=`` constructor
+    kwarg are removed in #1817. Authors use the three-slot ``user`` API instead.
+    """
 
-    def test_metadata_kwarg_emits_deprecation_warning(self) -> None:
-        with pytest.warns(DeprecationWarning, match=r"DataObject\(metadata=\.\.\.\) is deprecated"):
-            obj = DataObject(metadata={"k": "v"})
-        assert obj.user == {"k": "v"}
+    def test_metadata_property_is_gone(self) -> None:
+        # No ``metadata`` property survives on the class (not even deprecated).
+        assert inspect.getattr_static(DataObject, "metadata", _ABSENT) is _ABSENT
 
-    def test_metadata_kwarg_populates_user(self) -> None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            obj = DataObject(metadata={"key": "value"})
+    def test_metadata_kwarg_removed_from_signature(self) -> None:
+        params = inspect.signature(DataObject.__init__).parameters
+        assert "metadata" not in params, f"DataObject.__init__ must not accept metadata=; got {list(params)}"
+
+    def test_user_slot_is_the_replacement(self) -> None:
+        # The three-slot API is the supported path the shim used to route into.
+        obj = DataObject(user={"key": "value"})
         assert obj.user == {"key": "value"}
-        # And the property still maps to it.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            assert obj.metadata == {"key": "value"}
-
-    def test_metadata_kwarg_and_user_kwarg_conflict_raises(self) -> None:
-        with pytest.raises(ValueError, match=r"Cannot pass both `metadata` .* and `user`"):
-            DataObject(metadata={"a": 1}, user={"b": 2})
-
-    def test_metadata_kwarg_none_does_not_emit_warning(self) -> None:
-        # Passing metadata=None (default) must not trigger the deprecation
-        # path because that would spam every call site that uses positional-
-        # free defaults.
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            DataObject()  # should not raise
 
 
 # ---------------------------------------------------------------------------

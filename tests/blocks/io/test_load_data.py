@@ -32,8 +32,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from scistudio.blocks.io import LoadData
-from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP
+from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP, LoadData
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.collection import Collection
@@ -87,12 +86,17 @@ def test_dynamic_ports_classvar_shape() -> None:
         assert mapping[type_name] == [type_name]
 
 
-def test_load_data_in_io_blocks_namespace() -> None:
-    """LoadData must be importable from ``scistudio.blocks.io``."""
-    from scistudio.blocks.io import IOBlock
-    from scistudio.blocks.io import LoadData as Reexported
+def test_load_data_is_internal_not_in_io_public_surface() -> None:
+    """ADR-052 §6.5: ``LoadData`` is internal — not in ``blocks.io.__all__``.
 
-    assert Reexported is LoadData
+    The deep module path (``scistudio.blocks.io.loaders.load_data``) keeps
+    working for internal callers (this test imports it that way), but the public
+    ``scistudio.blocks.io`` root no longer advertises it as author surface.
+    """
+    import scistudio.blocks.io as io_root
+    from scistudio.blocks.io import IOBlock
+
+    assert "LoadData" not in io_root.__all__, "LoadData must be dropped from blocks.io.__all__ (§6.5)"
     assert issubclass(LoadData, IOBlock)
 
 

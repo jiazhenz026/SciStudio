@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from scistudio.blocks.app import bridge as bridge_mod
-from scistudio.blocks.app.bridge import FileExchangeBridge, _guess_mime
+from scistudio.blocks.app.bridge import FileExchangeBridge
 from scistudio.blocks.app.watcher import FileWatcher
 from scistudio.desktop import paths as desktop_paths
 
@@ -38,27 +38,10 @@ class TestExternalAppLaunchEnv:
         assert bridge_mod._external_app_launch_env() is None
 
 
-class TestBridgeGuessMime:
-    """_guess_mime in bridge.py — MIME type inference."""
-
-    @pytest.mark.parametrize(
-        ("suffix", "expected"),
-        [
-            (".csv", "text/csv"),
-            (".tsv", "text/tab-separated-values"),
-            (".json", "application/json"),
-            (".txt", "text/plain"),
-            (".png", "image/png"),
-            (".tif", "image/tiff"),
-            (".tiff", "image/tiff"),
-            (".pdf", "application/pdf"),
-        ],
-    )
-    def test_known_extensions(self, suffix: str, expected: str) -> None:
-        assert _guess_mime(Path(f"file{suffix}")) == expected
-
-    def test_unknown_extension(self) -> None:
-        assert _guess_mime(Path("file.xyz")) == "application/octet-stream"
+# ADR-052 §7.2 / §12 (reach-through (c)): bridge._guess_mime is removed/replaced
+# in #1817 (extension->MIME is non-load-bearing and was copy-pasted 4x in core;
+# "core must not infer from extensions"). The TestBridgeGuessMime class that
+# exercised it was deleted with the symbol.
 
 
 class TestBridgeLaunchArgvOverride:
