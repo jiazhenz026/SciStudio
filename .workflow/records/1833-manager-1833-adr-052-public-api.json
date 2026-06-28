@@ -1,0 +1,135 @@
+{
+  "branch": "manager/1833-adr-052-public-api",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/**",
+      "src/scistudio/blocks/**",
+      "src/scistudio/previewers/**",
+      "tests/**",
+      "mkdocs.yml",
+      "pyproject.toml",
+      "docs/user/reference/**",
+      "docs/block-development/**",
+      "scripts/docs/**",
+      "docs/audit/**",
+      "docs/planning/adr-052-public-api-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-28T02:34:55.715284Z",
+      "owner_directive": "Plan: A1 core/** + A2 blocks/** + A3 previewers/**+docbuild+docs-deletion + A4 tests/** (1 test agent), dispatched in parallel. Then 3 no-context audits. \u00a79 plot behavior-pinning test deferred to #1824 (owner implementing); added after #1824 merges via same test agent.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-28T02:34:55.715459Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/user/reference",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715476Z",
+      "class": null,
+      "kind": "path",
+      "path": "mkdocs.yml",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715477Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/block-development",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715486Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner scoped this PR to docstring-build+tests+anti-regression+delete-docs+template-API only; CHANGELOG narrative + architecture doc + agent skills are other \u00a714 items the owner explicitly excluded (will land separately)",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1833,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager: land ADR-052 public API contract per docs/specs/adr-052-public-api-surface.md (owner-signed). Steps 1-3 (declare+decorate+docstring, generate mkdocstrings/griffe reference, freeze snapshot+tests) + scoped \u00a714 (delete docs/block-development, fix custom-block template API). stability module already merged (#1828). Dispatch 3 impl + 1 test agent in parallel, then 3 no-context audits. admin-approved:core-change required (owner-authorized scope; owner asleep).",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1833-manager-1833-adr-052-public-api",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "4d35b48c-2a6b-4b6b-a073-576973620742",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-28T02:34:55.715489Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715492Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_stability_decorators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715493Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ergonomic_accessors.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T02:34:55.715494Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/public_surface.snapshot.json",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
