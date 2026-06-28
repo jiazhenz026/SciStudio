@@ -113,6 +113,19 @@ class LoadData(IOBlock):
     # records carry ``notes="requires allow_pickle=True"``; the runtime gate is
     # ``_check_pickle_allowed``. Extension dispatch is derived from these records
     # at module load time via ``_LOAD_EXTENSION_MAP``.
+    # #1847: a folder-up glyph (data coming *in* from disk). Keeps the io
+    # category default colour; pairs visually with SaveData's folder-down.
+    ui_icon: ClassVar[str] = "folder-up"
+
+    # ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003:
+    # explicit per-(type, format) capability records. Replaces the
+    # legacy ``supported_extensions`` ClassVar which has been removed.
+    # The capability id convention follows spec FR-015:
+    # ``core.{lower(type)}.{format_id}.load``. Pickle records carry
+    # ``notes="requires allow_pickle=True"``; the runtime gate is
+    # enforced by :func:`_check_pickle_allowed`. Extension dispatch is
+    # derived from these records at module load time via
+    # :data:`_LOAD_EXTENSION_MAP`.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = _LOAD_CAPABILITIES
     """The (type, format) pairs this loader can read, as :class:`FormatCapability`
     records. Extension-based format dispatch is derived from these."""

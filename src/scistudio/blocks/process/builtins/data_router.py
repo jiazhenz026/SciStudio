@@ -58,6 +58,13 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "routing"
     """Palette subgroup this block is filed under (here, ``"routing"``)."""
 
+    # #1839 / #1847: macaron periwinkle + a split glyph for the N->M routing
+    # block. The ":90" suffix rotates the glyph 90deg to read left->right, in
+    # line with the canvas data-flow direction (rotation parsed by the frontend
+    # ui_icon resolver in categoryVisuals.ts).
+    ui_color: ClassVar[str] = "#aec5eb"
+    ui_icon: ClassVar[str] = "split:90"
+
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     """Marks the block as interactive: it pauses for user input mid-run."""
 

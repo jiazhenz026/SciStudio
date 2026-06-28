@@ -2,7 +2,7 @@
 // with safe fallback to the base-category default.
 
 import { describe, expect, it } from "vitest";
-import { FunctionSquare, Microscope } from "lucide-react";
+import { FolderDown, FunctionSquare, Microscope, Split } from "lucide-react";
 
 import { categoryVisuals, getCategoryVisual, resolveIconByName } from "./categoryVisuals";
 
@@ -23,6 +23,39 @@ describe("resolveIconByName (#1839)", () => {
     expect(resolveIconByName("")).toBeUndefined();
     expect(resolveIconByName(null)).toBeUndefined();
     expect(resolveIconByName(undefined)).toBeUndefined();
+  });
+});
+
+describe("resolveIconByName — full lucide set + kebab + rotation suffix (#1847)", () => {
+  it("resolves ANY lucide name, not just the old curated subset", () => {
+    // FolderDown was never in the curated set; it must resolve now.
+    expect(resolveIconByName("FolderDown")).toBe(FolderDown);
+  });
+
+  it("resolves kebab-case names", () => {
+    expect(resolveIconByName("folder-down")).toBe(FolderDown);
+    expect(resolveIconByName("arrow-left-right")).toBeDefined();
+  });
+
+  it("strips a trailing :<deg> rotation suffix before lookup", () => {
+    expect(resolveIconByName("split:90")).toBe(Split);
+    expect(resolveIconByName("folder-down:270")).toBe(FolderDown);
+  });
+});
+
+describe("getCategoryVisual — icon rotation (#1847)", () => {
+  it("returns the raw icon (reference-equal) when no rotation is requested", () => {
+    expect(getCategoryVisual("process", null, "Split").Icon).toBe(Split);
+  });
+
+  it("wraps the icon (not reference-equal) when a rotation is requested", () => {
+    const v = getCategoryVisual("process", null, "split:90");
+    expect(v.Icon).not.toBe(Split);
+    expect(v.Icon).toBeDefined();
+  });
+
+  it("falls back to the category icon for an unknown name even with a suffix", () => {
+    expect(getCategoryVisual("process", null, "totally-unknown:90").Icon).toBe(FunctionSquare);
   });
 });
 

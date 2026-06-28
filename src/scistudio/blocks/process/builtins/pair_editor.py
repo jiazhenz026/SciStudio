@@ -61,6 +61,12 @@ class PairEditor(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "routing"
     """Palette subgroup this block is filed under (here, ``"routing"``)."""
 
+    # #1839 / #1847: macaron apricot + a left-right swap glyph for the
+    # pairing/reorder block. (Recoloured off the earlier rose, which read too
+    # close to the subworkflow category pink.)
+    ui_color: ClassVar[str] = "#f6cba0"
+    ui_icon: ClassVar[str] = "arrow-left-right"
+
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     """Marks the block as interactive: it pauses for user input mid-run."""
 

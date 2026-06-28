@@ -20,7 +20,8 @@ export interface BlockDetailPopoverProps {
 }
 
 export function BlockDetailPopover({ block, anchor }: BlockDetailPopoverProps) {
-  const visual = getCategoryVisual(block.base_category);
+  // #1839/#1847: honour the block's own ui_color/ui_icon (match its canvas node).
+  const visual = getCategoryVisual(block.base_category, block.ui_color, block.ui_icon);
   const Icon = visual.Icon;
   const inputs = portSignature(block.input_ports);
   const outputs = portSignature(block.output_ports);

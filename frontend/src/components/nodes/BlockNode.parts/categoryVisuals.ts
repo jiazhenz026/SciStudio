@@ -18,8 +18,15 @@
 // below) silently falls back to the category icon — never an error, never a
 // missing glyph. Custom SVG/asset glyphs are deferred (issue #1839 option b).
 
+import { createElement, forwardRef, type ComponentProps, type CSSProperties } from "react";
+// #1847: a block's `ui_icon` may now name ANY lucide glyph (PascalCase or
+// kebab-case), not just a curated subset. For this desktop app the full
+// namespace import is acceptable (offline bundle, no per-load download) and it
+// sidesteps the vendored lucide build's empty `exports` map, which blocks the
+// lazy `lucide-react/dynamic` subpath. Names resolve via `resolveIconByName`.
+import * as LucideIcons from "lucide-react";
 import {
-  // Base-category icons.
+  // Base-category default icons (the 6 core block kinds), resolved statically.
   AppWindow,
   Code2,
   FolderInput,
@@ -27,35 +34,11 @@ import {
   Package,
   Puzzle,
   Sparkles,
-  // Curated extras a block author may name via `ui_icon` (#1839). Kept to a
-  // bounded, already-bundled set rather than importing all of lucide-react.
-  Activity,
-  Atom,
-  Binary,
-  Box,
-  Brain,
-  Calculator,
-  Cpu,
-  Database,
-  Dna,
-  Filter,
-  FlaskConical,
-  Gauge,
-  Image,
-  LineChart,
-  Microscope,
-  ScatterChart,
-  Sigma,
-  Table,
-  TestTube,
-  Waves,
-  Workflow,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
 export interface CategoryVisual {
-  /** lucide line icon rendered in the node body. */
+  /** Icon rendered in the node body (a lucide glyph, optionally rotated). */
   Icon: LucideIcon;
   /** Soft macaron body background fill. */
   bg: string;
@@ -101,54 +84,58 @@ export const categoryVisuals: Record<string, CategoryVisual> = {
   custom: CUSTOM,
 };
 
-// Curated, name-addressable Lucide set a block may select via `ui_icon` (#1839).
-// Includes the base-category icons plus common science/data glyphs. Names are
-// the PascalCase Lucide export names a block author writes (e.g. "Microscope").
-const CURATED_ICONS: Record<string, LucideIcon> = {
-  AppWindow,
-  Code2,
-  FolderInput,
-  FunctionSquare,
-  Package,
-  Puzzle,
-  Sparkles,
-  Activity,
-  Atom,
-  Binary,
-  Box,
-  Brain,
-  Calculator,
-  Cpu,
-  Database,
-  Dna,
-  Filter,
-  FlaskConical,
-  Gauge,
-  Image,
-  LineChart,
-  Microscope,
-  ScatterChart,
-  Sigma,
-  Table,
-  TestTube,
-  Waves,
-  Workflow,
-  Zap,
-};
-
-// Lowercased index for tolerant lookup (so "microscope" resolves "Microscope").
-const CURATED_ICONS_LOWER: Record<string, LucideIcon> = Object.fromEntries(
-  Object.entries(CURATED_ICONS).map(([name, Icon]) => [name.toLowerCase(), Icon]),
-);
+/** PascalCase a kebab/snake/space name: "folder-down" -> "FolderDown". */
+function toPascalCase(name: string): string {
+  return name
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+}
 
 /**
- * Resolve a Lucide icon NAME (#1839) to a component from the curated set.
- * Returns `undefined` for an empty or unknown name so callers fall back to the
- * category icon (never an error, never a missing glyph).
+ * Resolve a Lucide icon NAME to a component from the FULL lucide set (#1847,
+ * widening #1839's curated set). Accepts PascalCase ("FolderDown") or
+ * kebab-case ("folder-down"), and tolerates a trailing ":<deg>" rotation suffix
+ * (stripped here; applied by {@link getCategoryVisual}). Returns `undefined`
+ * for an empty or unknown name so callers fall back to the category icon —
+ * never an error, never a missing glyph.
  */
 export function resolveIconByName(name: string | null | undefined): LucideIcon | undefined {
   if (!name) return undefined;
-  return CURATED_ICONS[name] ?? CURATED_ICONS_LOWER[name.toLowerCase()];
+  const bare = name.split(":")[0]?.trim();
+  if (!bare) return undefined;
+  const pascal = /[-_\s]/.test(bare)
+    ? toPascalCase(bare)
+    : bare.charAt(0).toUpperCase() + bare.slice(1);
+  const icon = (LucideIcons as Record<string, unknown>)[pascal];
+  // Lucide icon exports are forwardRef objects; guard against non-icon exports
+  // (e.g. `createLucideIcon`, `icons`) and unknown names.
+  return typeof icon === "object" && icon !== null ? (icon as LucideIcon) : undefined;
+}
+
+/** Parse the optional ":<deg>" rotation suffix on a ui_icon spec (#1847). */
+function parseIconRotation(spec: string | null | undefined): number {
+  if (!spec) return 0;
+  const parts = spec.split(":");
+  if (parts.length < 2) return 0;
+  const deg = Number.parseInt(parts[1], 10);
+  return Number.isFinite(deg) ? ((deg % 360) + 360) % 360 : 0;
+}
+
+/** Wrap an icon so it renders with a baked-in CSS rotation transform (#1847). */
+function withRotation(Base: LucideIcon, deg: number): LucideIcon {
+  if (!deg) return Base;
+  const Rotated = forwardRef<SVGSVGElement, Omit<ComponentProps<LucideIcon>, "ref">>(
+    function RotatedIcon({ style, ...rest }, ref) {
+      return createElement(Base, {
+        ...rest,
+        ref,
+        style: { transform: `rotate(${deg}deg)`, ...(style as CSSProperties) },
+      });
+    },
+  );
+  return Rotated as LucideIcon;
 }
 
 const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -182,8 +169,9 @@ function darken(rgb: [number, number, number], factor: number): string {
  *   - `uiColor` (valid CSS hex) becomes the body fill, with `fg` (accent) and
  *     `border` derived as deeper shades — mirroring the category palette
  *     relationship. An invalid hex is ignored (category colors kept).
- *   - `uiIcon` (a curated Lucide name) becomes the node icon; an unknown name
- *     keeps the category icon.
+ *   - `uiIcon` (any Lucide name, PascalCase or kebab-case, with an optional
+ *     ":<deg>" rotation suffix — e.g. "folder-down" or "split:90") becomes the
+ *     node icon; an unknown name keeps the category icon (#1847).
  * With neither override the category default is returned unchanged.
  */
 export function getCategoryVisual(
@@ -194,7 +182,8 @@ export function getCategoryVisual(
   const base = (category && categoryVisuals[category]) || CUSTOM;
   if (!uiColor && !uiIcon) return base;
 
-  const overrideIcon = resolveIconByName(uiIcon);
+  const resolved = resolveIconByName(uiIcon);
+  const overrideIcon = resolved ? withRotation(resolved, parseIconRotation(uiIcon)) : undefined;
   const rgb = uiColor ? parseHex(uiColor) : null;
 
   return {

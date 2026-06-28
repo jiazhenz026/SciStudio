@@ -10,6 +10,8 @@
 
 import { useState, useCallback, useRef } from "react";
 
+import { Button } from "./ui/button";
+
 interface ItemDescriptor {
   index: number;
   name: string;
@@ -126,13 +128,13 @@ export function PairEditorModal({
       onClick={onCancel}
     >
       <div
-        className="flex max-h-[85vh] w-[900px] flex-col rounded-xl border border-stone-200 bg-white shadow-xl"
+        className="flex max-h-[85vh] w-[900px] flex-col rounded-xl border border-ink/10 bg-white shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-stone-100 px-5 py-3">
+        <div className="border-b border-ink/5 px-5 py-3">
           <div className="text-sm font-semibold text-ink">Pair Editor</div>
-          <div className="mt-0.5 text-xs text-stone-500">
+          <div className="mt-0.5 text-xs text-ink/60">
             Reorder items within each panel so that same-row items are correctly paired. Items in
             the same row (same color) are paired by index.
           </div>
@@ -143,9 +145,9 @@ export function PairEditorModal({
           {/* Row number header */}
           <div className={`grid gap-3 ${gridCols}`}>
             {ports.map((portName) => (
-              <div key={portName} className="text-xs font-medium text-stone-600">
+              <div key={portName} className="text-xs font-medium text-ink/70">
                 {portName}
-                <span className="ml-1 text-stone-400">({collectionLength})</span>
+                <span className="ml-1 text-ink/45">({collectionLength})</span>
               </div>
             ))}
           </div>
@@ -174,7 +176,7 @@ export function PairEditorModal({
                       <span className="min-w-0 flex-1 truncate font-medium text-ink">
                         {item.name}
                       </span>
-                      <span className="shrink-0 text-[10px] text-stone-400">{item.type}</span>
+                      <span className="shrink-0 text-[10px] text-ink/45">{item.type}</span>
                     </div>
                   );
                 })}
@@ -184,21 +186,13 @@ export function PairEditorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-stone-100 px-5 py-3">
-          <button
-            type="button"
-            className="rounded border border-stone-200 px-4 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-            onClick={onCancel}
-          >
+        <div className="flex items-center justify-end gap-2 border-t border-ink/5 px-5 py-3">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded bg-blue-500 px-4 py-1.5 text-xs text-white hover:bg-blue-600"
-            onClick={handleConfirm}
-          >
+          </Button>
+          <Button type="button" size="sm" onClick={handleConfirm}>
             Confirm
-          </button>
+          </Button>
         </div>
       </div>
     </div>

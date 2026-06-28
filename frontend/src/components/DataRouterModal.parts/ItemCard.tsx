@@ -15,7 +15,7 @@ export function ItemCard({ item, draggable, onDragStart, colorIndex }: ItemCardP
   const colorClass =
     colorIndex !== undefined
       ? ROW_COLORS[colorIndex % ROW_COLORS.length]
-      : "bg-white border-stone-200";
+      : "bg-white border-ink/10";
   return (
     <div
       className={`flex items-center gap-2 rounded border px-2 py-1.5 text-xs ${colorClass} ${draggable ? "cursor-grab" : "cursor-default opacity-50"}`}
@@ -23,7 +23,7 @@ export function ItemCard({ item, draggable, onDragStart, colorIndex }: ItemCardP
       onDragStart={(e) => onDragStart?.(e, item.ref)}
     >
       <span className="truncate font-medium text-ink">{item.name}</span>
-      <span className="shrink-0 text-[10px] text-stone-400">{item.type}</span>
+      <span className="shrink-0 text-[10px] text-ink/45">{item.type}</span>
     </div>
   );
 }
