@@ -202,8 +202,11 @@ class Array(DataObject):
                 backing storage to read from.
 
         Example:
-            >>> plane = stack.sel(z=10, c=0)    # one z-plane, one channel
-            >>> band = stack.sel(z=slice(0, 5))  # the first five z-planes
+            Select sub-regions by axis name (here ``stack`` is an Array with
+            axes including ``z`` and ``c``)::
+
+                plane = stack.sel(z=10, c=0)     # one z-plane, one channel
+                band = stack.sel(z=slice(0, 5))  # the first five z-planes
         """
         # Validate kwargs refer to existing axes before doing anything.
         unknown = set(kwargs.keys()) - set(self.axes)

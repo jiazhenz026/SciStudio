@@ -237,7 +237,7 @@ class AIBlock(Block):
                 "title": "Permission mode",
                 "description": (
                     "Ask = agent prompts for sensitive tool use (default); "
-                    "Bypass = full filesystem access — same as a hand-launched ADR-034 tab."
+                    "Bypass = full filesystem access (no prompts)."
                 ),
                 "ui_priority": 3,
             },

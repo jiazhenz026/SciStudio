@@ -42,7 +42,7 @@ class SubWorkflowBlock(Block):
 
     name: ClassVar[str] = "Sub-Workflow"
     """Display name shown for this block in the palette and on its node."""
-    description: ClassVar[str] = "Reference a workflow file as a single authoring-time node (ADR-044)"
+    description: ClassVar[str] = "Reference a workflow file as a single authoring-time node"
     """One-line description shown in the block palette."""
 
     # ADR-044 §5: a SubWorkflowBlock stores only a *reference* to an external
@@ -173,7 +173,7 @@ class SubWorkflowBroken(SubWorkflowBlock):
     """Stable identifier used to recognise this marker block type."""
     name: ClassVar[str] = "Sub-Workflow (broken reference)"
     """Display name shown for the broken-reference marker."""
-    description: ClassVar[str] = "Unresolved subworkflow reference marker (ADR-044 §10)"
+    description: ClassVar[str] = "Unresolved subworkflow reference marker"
     """One-line description shown in the block palette."""
 
     def get_effective_input_ports(self) -> list[InputPort]:

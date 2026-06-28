@@ -88,10 +88,12 @@ class FileExchangeBridge:
     :class:`~scistudio.core.types.artifact.Artifact`.
 
     Example:
-        >>> from pathlib import Path
-        >>> bridge = FileExchangeBridge()
-        >>> bridge.prepare({"image": some_array}, Path("/tmp/exchange"))
-        >>> proc = bridge.launch("/Applications/Fiji.app", Path("/tmp/exchange"))
+        A block rarely builds this directly — :class:`AppBlock` constructs and
+        drives the bridge. Manual use looks like::
+
+            bridge = FileExchangeBridge()
+            bridge.prepare({"image": my_array}, exchange_dir)
+            proc = bridge.launch("/Applications/Fiji.app", exchange_dir)
     """
 
     # Engine-level subprocess management and process-handle integration live in

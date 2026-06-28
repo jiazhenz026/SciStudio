@@ -23,7 +23,7 @@ from pathlib import Path
 DEFAULT_GITIGNORE = """# SciStudio auto-generated .gitignore.
 # Edit freely — SciStudio will not overwrite this file.
 
-# Data files (not versioned — see ADR-038 for run lineage)
+# Data files (not versioned — lineage tracks data by reference instead)
 data/
 
 # SciStudio runtime state (per-project, per-machine; not portable)
@@ -38,7 +38,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Plugin venvs (per ADR-037)
+# Plugin venvs (per-project plugin virtual environments)
 *-venv/
 *.venv/
 
