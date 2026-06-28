@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#1828] `scistudio.stability` — the ADR-052 §5 public-API stability decorators (`stable` / `provisional` / `internal`, each carrying `Since`) plus `StabilityInfo` and `get_stability()` introspection. The decorators are runtime no-ops that stamp tier/version metadata on a public symbol; `get_stability()` is the single read path shared by the contract validator, the API-surface freeze test, and the generated reference (ADR-052 §7, §15). Foundational mechanism only: decorating core's own public surface, the generated reference, and the freeze test are tracked under #1817; the package template consumes it under #1826. (@claude, 2026-06-27, branch: guided/1828-scistudio-stability)
+- [#1815] Native Excel (`.xlsx`) read/write for core **DataFrame** and **Series** (#1810): an `xlsx` format capability on LoadData/SaveData via the pandas + openpyxl bridge. `.xlsx` is collection-valued — a workbook loads as one DataObject per sheet. Adds `openpyxl>=3.1` and raises the numpy floor `>=1.25` → `>=2.1` (#1809). (@claude, 2026-06-27, branch: feature/1810-dataframe-xlsx-io)
+
 ### Changed
 
+- [#1818] Richer GUI **"New custom block"** starter template for non-programmer authors (#1816): the teaching content now lives in the template itself — block family, data types, Collections, and where domain-package types come from — replacing the previous minimal example whose `accepted_types=[]` ports contradicted the block contract. (`src/scistudio/blocks/_templates/block_base_template.py`) (@claude, 2026-06-27, branch: guided/1816-custom-block-template)
 - [#1812] Canonical display-name convention: user-facing item names are now resolved by a single backend authority (`scistudio.core.meta._display_name.resolve_display_name`) instead of two divergent fallback chains (the interactive-panel `interactive_item_label` and the frontend `deriveDisplayName`). The resolver reads one precedence — `user["display_name"]` (the optional producer override, e.g. the xlsx loader's `"<file> — <sheet>"`) → `name` → `meta.source_file` → `file_path` → `framework.source` (path-only) — over both a live `DataObject` and the serialized wire metadata. `register_output_payload` now stamps a resolved `display_name` onto each item descriptor (additive; omitted when nothing resolves) and the frontend reads that field, keeping its metadata chain only as a compatibility fallback. New origins are added in the backend resolver alone; packages may optionally set `user["display_name"]` for their own types (documented in `docs/specs/adr-052-public-api-surface.md` §8.2/§13). Touches protected `src/scistudio/blocks/base/interactive.py` + `src/scistudio/core/meta/**` — owner-authorized (`admin-approved:core-change`). Tests: `tests/core/test_display_name.py`, `tests/api/test_data.py`, `frontend/src/components/DataPreview.parts/refEntries.test.ts`. (@claude, 2026-06-27, branch: guided/1812-display-name-convention)
+
+### Fixed
+
+- [#1822] Transport every single-value port as a length-one Collection (#1811): the engine's `_normalize_outputs` now wraps `is_collection=False` outputs in a length-one Collection (`engine/runners/worker.py`), closing the ADR-020 §3 engine/spec drift where single-value ports still transported a bare `DataObject`. (@claude, 2026-06-27, branch: guided/1811-single-value-collection-fix)
 
 ## [0.3.1] - 2026-06-27
 
