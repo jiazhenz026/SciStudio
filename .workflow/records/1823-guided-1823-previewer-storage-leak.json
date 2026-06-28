@@ -225,7 +225,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "e603803b046753afcde1e1e7b621c14c5404a99f",
+    "shas": [
+      "e603803b046753afcde1e1e7b621c14c5404a99f"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -462,6 +468,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.381060Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.389433Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.398197Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.406979Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.415784Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.424751Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.433293Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.441848Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.449918Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T01:00:05.460399Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -486,9 +574,9 @@
       "tests/previewers/test_fallback_array.py",
       "tests/previewers/test_preview_security.py"
     ],
-    "diff_fingerprint": "sha256:2db90573c2f9791bb646a18bc71cc57ebe8a2c9389092a774e64c52d760eeba8",
+    "diff_fingerprint": "sha256:479110c778522bfb5d07033de27e9a2d4e449ca3397fa9a3ed2d9c3aeeaf875a",
     "head": "HEAD",
-    "head_sha": "e3af9908",
+    "head_sha": "e603803b",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -504,7 +592,14 @@
   },
   "owner_directive": "Refactor previewer authoring surface (#1823): close the storage leak via typed PreviewRequest.storage/record_metadata (Option A \u2014 consolidate the dict->typed rebuild into the session manager, keep _storage as runtime-internal carrier for cache-key + resource reads), relocate sanitize_svg out of fallbacks.py to a public helper home, and reconcile previewers __all__ (drop the 7 internal symbols; mark operational classes Internal). Imaging package rewrite is cross-repo and out of scope for this PR.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1823
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-28T00:54:18.173302Z",
@@ -522,6 +617,14 @@
     {
       "at": "2026-06-28T00:59:22.759429Z",
       "diff_fingerprint": "sha256:2db90573c2f9791bb646a18bc71cc57ebe8a2c9389092a774e64c52d760eeba8",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T01:00:05.460426Z",
+      "diff_fingerprint": "sha256:479110c778522bfb5d07033de27e9a2d4e449ca3397fa9a3ed2d9c3aeeaf875a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
