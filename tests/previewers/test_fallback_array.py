@@ -38,7 +38,7 @@ class _StubAccess(PreviewDataAccess):
         slice_index: int = 0,
         axis_indices: dict[int, int] | None = None,
     ) -> ArrayPlane:
-        self.calls.append({"slice_index": slice_index, "axis_indices": dict(axis_indices or {})})
+        self.calls.append({"ref": ref, "slice_index": slice_index, "axis_indices": dict(axis_indices or {})})
         return ArrayPlane(
             shape=[4, 6, 3, 3],
             axes=["t", "z", "y", "x"],
@@ -58,7 +58,7 @@ class _StubAccess(PreviewDataAccess):
         )
 
 
-def _request(query: dict[str, Any]) -> PreviewRequest:
+def _request(query: dict[str, Any], *, storage: Any | None = None) -> PreviewRequest:
     target = PreviewTarget(
         kind=TargetKind.DATA_REF,
         ref="r",
@@ -78,6 +78,7 @@ def _request(query: dict[str, Any]) -> PreviewRequest:
         query=query,
         data_access=_StubAccess(),
         limits=PreviewLimits(),
+        storage=storage,
     )
 
 
@@ -101,6 +102,23 @@ def test_array_previewer_emits_numeric_heatmap_payload() -> None:
     assert payload["thumbnail"] == payload["matrix"]
     # Raster src remains available for package-viewer fallback paths.
     assert isinstance(payload["src"], str)
+
+
+def test_array_previewer_forwards_typed_request_storage() -> None:
+    # #1823 / ADR-052 §8.5: the provider reads the runtime-resolved
+    # StorageReference off ``request.storage`` and forwards it to data_access —
+    # no ``_storage`` query rebuild, no StorageReference import in author code.
+    from scistudio.core.storage.ref import StorageReference
+
+    ref = StorageReference(backend="zarr", path="typed/x", format="zarr")
+    request = _request({}, storage=ref)
+    env = array_previewer(request)
+
+    access = request.data_access
+    assert isinstance(access, _StubAccess)
+    # The exact typed object on request.storage reached data_access.array_plane.
+    assert access.calls[0]["ref"] is ref
+    assert env.kind is EnvelopeKind.ARRAY
 
 
 def test_array_previewer_reads_axis_indices_from_query() -> None:

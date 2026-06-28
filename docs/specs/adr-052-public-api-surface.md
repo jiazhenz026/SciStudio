@@ -894,11 +894,13 @@ importers — owner chose removal over deprecation); leading-underscore names st
   error-info / provider-protocol types.
 - `scistudio.previewers.data_access` — the injected `PreviewDataAccess` reader and
   its bounded-read result dataclasses.
-- One helper, `sanitize_svg`, currently lives in `scistudio.previewers.fallbacks`
-  (otherwise a core-internal module). It is author-facing (a package SVG/plot
-  previewer reuses it) and is **mis-homed**: relocate it to a public helper home
-  in #1823 so the author surface is `models` + `data_access` + that helper, with
-  no author import from `fallbacks`.
+- `scistudio.previewers.helpers` — the public helper home. It exposes the one
+  author-facing helper, `sanitize_svg` (a package SVG/plot previewer reuses it).
+  It was relocated here from the core-internal `scistudio.previewers.fallbacks`
+  module in #1823 (shipped), so the author surface is `models` + `data_access` +
+  `helpers`, with no author import from `fallbacks`. `fallbacks` keeps a
+  back-compat re-export (out of `__all__`) for out-of-tree packages mid-migration;
+  #1817 drops it once spectroscopy imports from `helpers`.
 
 The operational classes (`PreviewerRegistry`, `PreviewRouter`,
 `PreviewSessionManager`, `PreviewService`, `build_preview_service`,
@@ -924,9 +926,12 @@ module; its own array loader bypassing `PreviewDataAccess`; uses the legacy
 
 File checklist:
 
-- [x] `models.py` (650) — author type surface (§8.1)
+- [x] `models.py` (650) — author type surface (§8.1); `PreviewRequest.storage` /
+  `record_metadata` typed fields shipped (#1823, §8.5)
 - [x] `data_access.py` (804) — `PreviewDataAccess` + result types (§8.2)
-- [x] `fallbacks.py` (629) — `sanitize_svg` public; 8 core providers + `core_previewer_specs` internal (§8.3)
+- [x] `helpers.py` — public author helper home; `sanitize_svg` (relocated #1823, §8.3)
+- [x] `fallbacks.py` — 8 core providers + `core_previewer_specs` internal; `sanitize_svg`
+  back-compat re-export only (out of `__all__`) (§8.3)
 - [x] `__init__.py` (164), `registry.py` (282), `router.py` (234), `session.py` (617), `project.py` (120), `assets.py` (161) — operational layer, Internal (§8.4)
 - [x] `_raster.py` (101), `_table_cache.py` (127) — underscore-private internals
 
@@ -944,7 +949,7 @@ symbols. Both public packages import from here; usage is cited per row.
 | ✅ | `PreviewErrorCode` | class (StrEnum) | Public | provisional | 0.3.1 | author embeds the code in `PreviewErrorInfo`; the canonical error vocabulary |
 | ✅ | `PreviewerSpec` | class | Public | provisional | 0.3.1 | author returns these from `get_previewers` |
 | ✅ | `FrontendManifest` | class | Public | provisional | 0.3.1 | same-origin UI descriptor the author ships |
-| ✅ | `PreviewRequest` | class | Public | provisional | 0.3.1 | provider input (carries `target`/`spec`/`query`/`data_access`/`limits`); #1823 adds typed `storage`/`record_metadata` fields — see §8.5 |
+| ✅ | `PreviewRequest` | class | Public | provisional | 0.3.1 | provider input (carries `target`/`spec`/`query`/`data_access`/`limits`); typed `storage`/`record_metadata` fields shipped #1823 — see §8.5 |
 | ✅ | `PreviewTarget` | class | Public | provisional | 0.3.1 | read off the request; shape: `kind`/`ref`/`recorded_type`/`type_chain`/`collection_item_type`/`is_collection` |
 | ✅ | `PreviewSource` | class | Public | provisional | 0.3.1 | optional display identity on `target.source` (no runtime truth) |
 | ✅ | `PreviewLimits` | class | Public | provisional | 0.3.1 | session budgets surfaced on `request.limits` |
@@ -1019,14 +1024,16 @@ symbol, no `CollectionSample` field change) and is **omitted** when nothing
 resolves, so the frontend keeps its own truncated-ref fallback. The resolver is
 internal plumbing — deliberately not in `core.meta.__all__` (§3.10).
 
-### 8.3 `fallbacks.py`
+### 8.3 `fallbacks.py` + `helpers.py`
 
-Not an author root. Holds core's own fallback viewers; one helper escaped here and
-is author-facing.
+`fallbacks.py` is not an author root — it holds core's own fallback viewers. The
+one author-facing helper that had escaped here, `sanitize_svg`, was relocated to
+the public `scistudio.previewers.helpers` home in #1823.
 
 | St | Symbol | Kind | Disposition | Tier | Since | Notes |
 |----|--------|------|-------------|------|-------|-------|
-| ✅ | `sanitize_svg` | function | Reach-through (relocate) | provisional | 0.3.1 | spectroscopy imports it for SVG/plot previewers; relocate out of `fallbacks` to a public helper home in #1823 |
+| ✅ | `sanitize_svg` (`helpers.py`) | function | Public | provisional | 0.3.1 | the public helper home (#1823); spectroscopy imports it for SVG/plot previewers |
+| ➖ | `sanitize_svg` (`fallbacks.py`, re-export) | function | Internal | — | — | back-compat re-export of `helpers.sanitize_svg`, out of `__all__`; #1817 drops it once spectroscopy migrates |
 | ➖ | `dataframe_previewer` / `array_previewer` / `series_previewer` / `text_previewer` / `artifact_previewer` / `composite_previewer` / `collection_previewer` / `plot_previewer` / `base_fallback_previewer` | function | Internal | — | — | core's own fallback viewers; authors may read as reference impls, do not import |
 | ➖ | `core_previewer_specs` | function | Internal | — | — | builds the core spec list at registry load |
 
@@ -1049,8 +1056,8 @@ Neither public package imports any of these; core owns the machinery (ADR-048).
 Providers must read payloads **without catalog access** (FR-009), so the runtime
 resolves the storage reference and hands it to the provider. That need is
 legitimate and not package-specific — core's own fallback viewers (`fallbacks.py`),
-spectroscopy, and imaging all rely on it. The *mechanism*, however, leaks a core
-type into author code and is to be closed in #1823.
+spectroscopy, and imaging all rely on it. The *mechanism*, however, leaked a core
+type into author code; it is closed in #1823 (below).
 
 **Today (verified data flow):** `ApiRuntime.enrich_preview_query`
 (`api/runtime/_data.py`) already holds a typed `StorageReference` (`record.ref`)
@@ -1060,19 +1067,27 @@ but **downgrades it to a JSON dict** under `request.query["_storage"]` (plus
 `scistudio.core.storage.ref.StorageReference` and rebuilds it from that dict
 before calling `PreviewDataAccess`.
 
-**Target (#1823):** add typed fields `storage: StorageReference | None` and
-`record_metadata: dict` to `PreviewRequest` — an in-process object that already
-carries the live `PreviewDataAccess` and is never serialized — populated by the
-`PreviewSessionManager`. Providers then read `request.storage` and forward it to
-`data_access.*`; they **no longer import `StorageReference` or touch `_storage`**.
-The `_storage` / `_record_metadata` query keys demote to a **runtime-internal
-serialization detail** (session persistence / resume), not an author contract.
+**Shipped (#1823, Option A):** `PreviewRequest` gained typed fields
+`storage: StorageReference | None` and `record_metadata: dict` — an in-process
+object that already carries the live `PreviewDataAccess` and is never serialized.
+The `PreviewSessionManager` populates both on every request it builds (it
+resolves the typed ref once, replacing the per-provider rebuild). Providers read
+`request.storage` and forward it to `data_access.*`; they **no longer import
+`StorageReference` or touch `_storage`** (core's own `fallbacks.py` reads
+`request.storage` and keeps the `_storage` rebuild only as a defensive fallback
+for requests built outside the session manager). The `_storage` /
+`_record_metadata` query keys are **retained as a runtime-internal carrier** — the
+session cache-key folds in `_storage.metadata.data_version` for cache
+invalidation, and the bounded resource reads (tile/export) rebuild the ref from
+it — not an author contract. Closing the dict carrier entirely (Option B) was
+considered and declined: it buys no author-facing gain and would touch the
+cache-key and resource-read paths before the API freeze.
 
 | St | Surface element | Disposition | Tier | Since | Notes |
 |----|-----------------|-------------|------|-------|-------|
-| ✅ | `PreviewRequest.storage` (typed field, adds in #1823) | Public | provisional | — | the sanctioned way a provider obtains its `StorageReference`; replaces the `_storage` rebuild |
-| ✅ | `PreviewRequest.record_metadata` (typed field, adds in #1823) | Public | provisional | — | replaces the `_record_metadata` query read |
-| ✅ | `request.query["_storage"]` / `["_record_metadata"]` | Internal | — | — | runtime serialization form for session persistence; not an author contract (was an implicit one) |
+| ✅ | `PreviewRequest.storage` (typed field, shipped #1823) | Public | provisional | 0.3.1 | the sanctioned way a provider obtains its `StorageReference`; replaces the `_storage` rebuild |
+| ✅ | `PreviewRequest.record_metadata` (typed field, shipped #1823) | Public | provisional | 0.3.1 | replaces the `_record_metadata` query read |
+| ✅ | `request.query["_storage"]` / `["_record_metadata"]` | Internal | — | — | runtime-internal carrier (cache-key `data_version` + bounded resource reads); not an author contract (was an implicit one) |
 | ➖ | `StorageReference` (`scistudio.core.storage.ref`) | Public (via `core.types` re-export, §3) | — | — | appears in `PreviewDataAccess` signatures + the new `request.storage` field; previewer authors only pass it through, never import or construct it. Canonical inventory tracked under the core.storage governed-modules gap (§17), unchanged by this section |
 
 ## 9. Plot `render(collection)` Contract
@@ -1534,3 +1549,4 @@ even after the tables are complete.
 | 2026-06-27 | §13 refined: (a) §13.1 expressed as a **per-member contract table** (St/Member/Kind/Rule/Template/Tier/Notes) like the core sections — not prose — enumerating the standardized type + constructor + accessor surface with each item's MUST/SHOULD rule and its template treatment (skeleton `NotImplementedError` / empty file / inherited / declared). (b) §13.2 **genericized — no package names** (owner: many domain packages are being rewritten or retired, so the roster is volatile); each package carries its own §13.1 table in its own repo. §13.1's constructor example de-named too. | Owner 2026-06-27 ("define an actual contract as a table, not prose"; "§13.2 must not name packages — many are abandoned"). |
 | 2026-06-27 | Filed **#1826** (build `scistudio-package-template` to self-enforce the §13.1 developer-facing contract: MUST→`NotImplementedError` skeletons + SHOULD→empty files, developer-facing contract validation, and generated-reference + freeze-test parity with core). §13.3 repointed from "issue TBD" → #1826. | Owner 2026-06-27 ("open the issue"). |
 | 2026-06-27 | **#1812 canonical display-name convention landed.** Chose **(B)** `user["display_name"]` as the optional producer override (not a typed `framework`/`meta` field), so **no §3.10 `FrameworkMeta` row and no §13.1 contract-table row change** — it is a value convention inside the already-public `user` slot. One core authority `core.meta._display_name.resolve_display_name` (Internal, not in `core.meta.__all__`) resolves both the interactive label path and the previewer/API path; `register_output_payload` stamps a resolved `display_name` onto item descriptors (additive, §8.2 note) and the frontend reads it instead of re-deriving. §13 + §8.2 notes added. | Owner 2026-06-27 (B + resolver in `core.meta` + `admin-approved:core-change` for `core.meta`/`blocks.base.interactive`). |
+| 2026-06-27 | **#1823 implemented (storage closure):** within the owner-approved typed-field approach, the owner picked the **consolidate-the-rebuild** variant over fully deleting the dict carrier. The `PreviewSessionManager` resolves the typed `StorageReference` once and sets `request.storage` / `record_metadata`; providers read those (core `fallbacks.py` keeps a defensive `_storage` rebuild only for requests built outside the manager). The `_storage` / `_record_metadata` query keys are **retained as a runtime-internal carrier** — the session cache-key folds in `_storage.metadata.data_version` and the bounded resource reads (tile/export) rebuild the ref from it. Fully removing the carrier was declined: no author-facing gain, and it would disturb the cache-key + resource-read paths before the API freeze. `sanitize_svg` relocated to the public `scistudio.previewers.helpers` home (`fallbacks` keeps a back-compat re-export, out of `__all__`, dropped by #1817). `models.__all__` reconciliation stays with #1817 per §8/§8.1. §8/§8.3/§8.5 updated to the shipped state. | Owner 2026-06-27 ("方案 A — consolidate, keep the internal carrier"). |

@@ -38,6 +38,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from scistudio.core.storage.ref import StorageReference
     from scistudio.previewers.data_access import PreviewDataAccess
 
 
@@ -505,6 +506,21 @@ class PreviewRequest:
             provider must use for all reads (FR-009/FR-010).
         limits: The session budgets.
         session_id: Owning session id, or ``None`` for one-shot previews.
+        storage: The runtime-resolved :class:`StorageReference` for the
+            target's payload (FR-009), populated by the
+            :class:`PreviewSessionManager`. This is the **sanctioned** way a
+            provider obtains its storage ref: read ``request.storage`` and
+            forward it to ``request.data_access`` methods — providers never
+            import :class:`StorageReference` or rebuild it from the query.
+            ``None`` only when a request is constructed outside the session
+            manager without supplying it.
+        record_metadata: The recorded data-record metadata (ADR-052 §8.5),
+            populated by the session manager. Replaces the legacy
+            ``query["_record_metadata"]`` read for provider code.
+
+    The ``query["_storage"]`` / ``query["_record_metadata"]`` keys remain as a
+    runtime-internal serialization detail (session cache-key versioning and
+    resource reads); they are **not** an author contract (ADR-052 §8.5).
     """
 
     target: PreviewTarget
@@ -513,6 +529,8 @@ class PreviewRequest:
     data_access: PreviewDataAccess
     limits: PreviewLimits
     session_id: str | None = None
+    storage: StorageReference | None = None
+    record_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # A backend preview provider is any callable mapping a request to an

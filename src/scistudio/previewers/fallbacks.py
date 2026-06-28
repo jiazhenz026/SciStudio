@@ -26,9 +26,9 @@ core catch-all tiers.
 from __future__ import annotations
 
 import logging
-import re
 
 from scistudio.core.storage.ref import StorageReference
+from scistudio.previewers.helpers import sanitize_svg
 from scistudio.previewers.models import (
     EnvelopeKind,
     OwnerKind,
@@ -39,25 +39,17 @@ from scistudio.previewers.models import (
     PreviewResource,
 )
 
+# Back-compat re-export: ``sanitize_svg`` moved to the public
+# ``scistudio.previewers.helpers`` home in #1823 (ADR-052 §8). It is re-exported
+# here (and intentionally kept out of ``__all__``) so an out-of-tree package that
+# still imports ``from scistudio.previewers.fallbacks import sanitize_svg`` does
+# not hard-break before it migrates.
+# TODO(#1817): drop this re-export once scistudio-blocks-spectroscopy imports
+#   sanitize_svg from scistudio.previewers.helpers.
+#   Followup: https://github.com/jiazhenz026/SciStudio/issues/1817
+
 logger = logging.getLogger(__name__)
 
-# SVG sanitization: strip <script> blocks and event handler / external-resource
-# attributes (FR-019, defense-in-depth). NOTE: the authoritative security
-# boundary is the frontend's `<iframe sandbox="" srcDoc=...>` (no allow-scripts /
-# allow-same-origin) — this best-effort regex pass is a second layer, not the
-# sole guarantee, since regex HTML filtering cannot be fully robust. The closing
-# tag is matched as `</script[^>]*>` (handles malformed closers like
-# `</script\t\nbar>`) and an unterminated `<script>` is stripped to end-of-text.
-_SVG_SCRIPT_RE = re.compile(r"<script\b[^>]*>[\s\S]*?(?:</script[^>]*>|\Z)", re.IGNORECASE)
-_SVG_EVENT_ATTR_RE = re.compile(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", re.IGNORECASE)
-# Strip remote (http/https/protocol-relative) and active-scheme
-# (javascript:/vbscript:) href / xlink:href values; data: URIs (embedded
-# images) are left intact and are inert under the iframe sandbox.
-_SVG_EXTERNAL_HREF_RE = re.compile(
-    r"\s(?:xlink:href|href)\s*=\s*"
-    r"(\"\s*(?:https?:|//|javascript:|vbscript:)[^\"]*\"|'\s*(?:https?:|//|javascript:|vbscript:)[^']*')",
-    re.IGNORECASE,
-)
 _PLOT_MIME = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -68,13 +60,16 @@ _PLOT_MIME = {
 
 
 def _ref_for(request: PreviewRequest) -> StorageReference:
-    """Build a StorageReference for the target from the runtime-provided ref dict.
+    """Return the runtime-resolved StorageReference for the target (FR-009, ADR-052 §8.5).
 
-    The session manager places the resolved ``StorageReference`` and recorded
-    metadata on ``request.query`` under ``_storage`` so providers do not need
-    catalog access. ``_storage`` is a dict with ``backend``/``path``/``format``/
-    ``metadata`` keys.
+    The sanctioned path is :attr:`PreviewRequest.storage`, which the
+    :class:`~scistudio.previewers.session.PreviewSessionManager` populates so
+    providers need no catalog access — this is what a package previewer reads.
+    The legacy ``query["_storage"]`` rebuild is kept only as a defensive
+    fallback for a request constructed outside the session manager.
     """
+    if request.storage is not None:
+        return request.storage
     storage = request.query.get("_storage") or {}
     return StorageReference(
         backend=str(storage.get("backend", "filesystem")),
@@ -85,6 +80,14 @@ def _ref_for(request: PreviewRequest) -> StorageReference:
 
 
 def _record_metadata(request: PreviewRequest) -> dict[str, object]:
+    """Return the recorded data-record metadata (ADR-052 §8.5).
+
+    Prefers the typed :attr:`PreviewRequest.record_metadata`; falls back to the
+    legacy ``query["_record_metadata"]`` for requests built outside the session
+    manager.
+    """
+    if request.record_metadata:
+        return request.record_metadata
     md = request.query.get("_record_metadata")
     return md if isinstance(md, dict) else {}
 
@@ -483,18 +486,6 @@ def plot_previewer(request: PreviewRequest) -> PreviewEnvelope:
     )
 
 
-def sanitize_svg(svg_text: str) -> tuple[str, bool]:
-    """Strip <script>, on* handlers, and remote href/xlink:href from SVG (FR-019).
-
-    Returns ``(sanitized_text, removed_anything)``.
-    """
-    sanitized = _SVG_SCRIPT_RE.sub("", svg_text)
-    sanitized, n_events = _SVG_EVENT_ATTR_RE.subn("", sanitized)
-    sanitized, n_hrefs = _SVG_EXTERNAL_HREF_RE.subn("", sanitized)
-    removed = sanitized != svg_text or n_events > 0 or n_hrefs > 0
-    return sanitized, removed
-
-
 # ---------------------------------------------------------------------------
 # Universal base fallback (tier-8 catch-all)
 # ---------------------------------------------------------------------------
@@ -623,7 +614,6 @@ __all__ = [
     "core_previewer_specs",
     "dataframe_previewer",
     "plot_previewer",
-    "sanitize_svg",
     "series_previewer",
     "text_previewer",
 ]
