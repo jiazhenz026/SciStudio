@@ -750,6 +750,11 @@
       "at": "2026-06-28T03:09:37.075076Z",
       "owner_directive": "Write a brand-new dedicated test suite (not edits to existing tests). A4's work kept; A5 added in tests/adr052_contract/**.",
       "reason": "Owner directive 2026-06-27: keep A4 test work; ALSO dispatch a 2nd dedicated test engineer (A5) to write a brand-new, from-scratch ADR-052 contract test suite under tests/adr052_contract/** (disjoint from A4). Independent spec-derived suite."
+    },
+    {
+      "at": "2026-06-28T18:22:48.953173Z",
+      "owner_directive": "Owner follow-up on open PR #1842: (1) fix two reference-render defects \u2014 render full typed signatures (mkdocs.yml signature options) and convert in-source Sphinx roles to clean inline code via scripts/docs/griffe_sphinx_roles.py griffe extension; (2) add GitHub Pages publish workflow (.github/workflows/docs.yml) so the generated ADR-052 reference is hosted for users. Owner-approved CI workflow addition.",
+      "reason": "Owner-directed docs-render polish + GitHub Pages publish on PR #1842; add .github/workflows/docs.yml to scope (CI surface, owner-approved)."
     }
   ],
   "docs_events": [
@@ -19040,6 +19045,12 @@
       "at": "2026-06-28T05:27:23.423729Z",
       "pattern": "docs/planning/**",
       "reason": "Manager dispatch artifacts (checklist + filled dispatch prompts) committed in the scaffold per agent-dispatch rules; bring docs/planning/** into declared scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T18:22:48.953308Z",
+      "pattern": ".github/workflows/docs.yml",
+      "reason": "Owner-directed docs-render polish + GitHub Pages publish on PR #1842; add .github/workflows/docs.yml to scope (CI surface, owner-approved)."
     }
   ],
   "session_id": "4d35b48c-2a6b-4b6b-a073-576973620742",

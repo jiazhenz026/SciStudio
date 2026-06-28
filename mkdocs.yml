@@ -40,15 +40,28 @@ plugins:
         python:
           paths: [src]
           options:
+            # Convert in-source Sphinx cross-reference roles (:class:`X`, etc.)
+            # to clean inline code at load time (ADR-052 §7). Path is relative
+            # to the mkdocs.yml directory (the repo root).
+            extensions:
+              - scripts/docs/griffe_sphinx_roles.py:SphinxRolesToInlineCode
             show_source: false
             show_root_heading: false
             show_root_toc_entry: false
             show_bases: true
             members_order: source
             docstring_section_style: list
-            separate_signature: false
-            show_signature_annotations: false
+            # Render full, typed signatures so the reference reads as an author
+            # guide (signature + types + docstring), not a bare symbol list.
+            show_signature: true
+            separate_signature: true
+            show_signature_annotations: true
+            # Keep signature_crossrefs off: external annotations (numpy, pandas)
+            # have no page anchor and would fail `mkdocs build --strict`.
             signature_crossrefs: false
+            line_length: 72
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
             filters: ["!^_"]
 
 markdown_extensions:
