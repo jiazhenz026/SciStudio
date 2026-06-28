@@ -58,7 +58,7 @@ def test_dispatch_posts_slack_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     received: list[dict] = []
 
     class Collector(http.server.BaseHTTPRequestHandler):
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             n = int(self.headers.get("Content-Length", 0))
             received.append(json.loads(self.rfile.read(n) or b"{}"))
             self.send_response(200)
