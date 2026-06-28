@@ -1,30 +1,25 @@
-"""Default ``.gitignore`` template for SciStudio projects (ADR-039 §3.3).
+"""Default ``.gitignore`` template for SciStudio projects.
 
-Written on auto-init (see :func:`scistudio.core.versioning.git_engine.GitEngine.init_repository`).
-The exact content is fixed by ADR-039 §3.3 lines 103-130. Users may edit
-the file freely after init; SciStudio never overwrites an existing
-``.gitignore`` — :func:`write_default_gitignore` is a no-op when the
-file already exists.
+Written when a project repository is first initialised (see
+:meth:`scistudio.core.versioning.git_engine.GitEngine.init_repository`). Users
+may edit the file freely afterwards; SciStudio never overwrites an existing
+``.gitignore`` — :func:`write_default_gitignore` is a no-op when the file is
+already present.
 
-Rationale for what is ignored
------------------------------
+What is ignored, and why:
 
-- ``data/`` — large data files are not versioned; the lineage layer
-  (ADR-038) tracks data-object references via SHA + manifest, not file
-  content. Git LFS is explicitly out of scope per ADR-039 §3.10.
-- ``.scistudio/`` — per-project, per-machine runtime state (lineage.db,
-  pause checkpoints, mcp socket port, git author cache). Conceptually
-  local — see §3.3 lines 132-138 for the trade-off discussion.
-- Python caches, OS noise, plugin venvs (per ADR-037), editor caches —
-  standard exclusions.
+- ``data/`` — large data files are not versioned; the lineage layer tracks data
+  by reference (digest + manifest) instead of by file content.
+- ``.scistudio/`` — per-project, per-machine runtime state (lineage database,
+  pause checkpoints, sockets, caches); conceptually local, not portable.
+- Python caches, OS noise, plugin virtualenvs, and editor caches — standard
+  exclusions.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-# Per ADR-039 §3.3 — exact content must match the ADR. If you edit this,
-# update the ADR's code block first.
 DEFAULT_GITIGNORE = """# SciStudio auto-generated .gitignore.
 # Edit freely — SciStudio will not overwrite this file.
 
@@ -52,15 +47,23 @@ Thumbs.db
 .vscode/
 *.swp
 """
+"""The exact ``.gitignore`` contents written into a newly initialised project."""
 
 
 def write_default_gitignore(project_path: Path) -> bool:
-    """Write the default ``.gitignore`` if one does not already exist.
+    """Write the default ``.gitignore`` when the project has none.
 
-    See module docstring + ADR-039 §3.3 lines 99-138.
+    Never overwrites an existing ``.gitignore``, so user customisations are
+    preserved.
 
-    Returns ``True`` if a file was written, ``False`` if a
-    ``.gitignore`` was already present (preserves user customizations).
+    Args:
+        project_path: The project directory to write into.
+
+    Returns:
+        ``True`` if a file was written, ``False`` if one already existed.
+
+    Raises:
+        FileNotFoundError: When *project_path* does not exist.
     """
     if not project_path.exists():
         raise FileNotFoundError(f"Project path does not exist: {project_path}")

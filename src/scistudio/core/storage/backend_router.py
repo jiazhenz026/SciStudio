@@ -8,20 +8,48 @@ from scistudio.core.storage.base import StorageBackend
 
 
 class BackendRouter:
-    """Route DataObject types to their appropriate StorageBackend via MRO resolution."""
+    """Pick the right storage backend for a given data type.
+
+    A registry that maps a ``DataObject`` subtype to the backend (and backend
+    name) that should persist it. Lookups walk the type's method resolution
+    order, so registering a base type also covers its subtypes. The shared
+    default instance is available via :func:`get_router`.
+
+    Example:
+        >>> from scistudio.core.storage import FilesystemBackend
+        >>> router = BackendRouter()
+        >>> router.register(str, "filesystem", FilesystemBackend())
+        >>> router.backend_name_for(str)
+        'filesystem'
+    """
 
     def __init__(self) -> None:
         self._routes: dict[type, tuple[str, StorageBackend]] = {}
 
     def register(self, data_type: type, backend_name: str, backend: StorageBackend) -> None:
-        """Register a mapping from *data_type* to (*backend_name*, *backend*)."""
+        """Register the backend that should persist *data_type*.
+
+        Args:
+            data_type: The ``DataObject`` subtype to route.
+            backend_name: Short backend identifier (e.g. ``"zarr"``, ``"arrow"``).
+            backend: The backend instance that handles this type.
+        """
         self._routes[data_type] = (backend_name, backend)
 
     def resolve(self, data_type: type) -> tuple[str, StorageBackend]:
-        """Walk MRO to find the first registered ancestor type.
+        """Resolve *data_type* to its backend by walking the type's MRO.
 
-        Returns a tuple of (backend_name, backend_instance).
-        Raises ``KeyError`` if no registered type is found in the MRO.
+        Returns the first registered ancestor, so a subtype inherits its base
+        type's registration.
+
+        Args:
+            data_type: The type to resolve.
+
+        Returns:
+            A ``(backend_name, backend)`` tuple.
+
+        Raises:
+            KeyError: When no type in *data_type*'s MRO is registered.
         """
         for cls in data_type.__mro__:
             if cls in self._routes:
@@ -29,15 +57,46 @@ class BackendRouter:
         raise KeyError(f"No storage backend registered for {data_type.__name__}")
 
     def backend_for(self, data_type: type) -> StorageBackend:
-        """Return the StorageBackend for *data_type*."""
+        """Return the backend instance that persists *data_type*.
+
+        Args:
+            data_type: The type to resolve.
+
+        Returns:
+            The registered :class:`StorageBackend` for the type.
+
+        Raises:
+            KeyError: When no type in *data_type*'s MRO is registered.
+        """
         return self.resolve(data_type)[1]
 
     def backend_name_for(self, data_type: type) -> str:
-        """Return the backend name string for *data_type*."""
+        """Return the backend name string for *data_type*.
+
+        Args:
+            data_type: The type to resolve.
+
+        Returns:
+            The short backend identifier (e.g. ``"zarr"``).
+
+        Raises:
+            KeyError: When no type in *data_type*'s MRO is registered.
+        """
         return self.resolve(data_type)[0]
 
     def extension_for(self, data_type: type) -> str:
-        """Return the file extension for *data_type*'s backend."""
+        """Return the on-disk file extension used by *data_type*'s backend.
+
+        Args:
+            data_type: The type to resolve.
+
+        Returns:
+            The extension string (e.g. ``".zarr"``, ``".parquet"``), or ``""``
+            for composite directories.
+
+        Raises:
+            KeyError: When no type in *data_type*'s MRO is registered.
+        """
         name = self.backend_name_for(data_type)
         return _BACKEND_EXTENSIONS[name]
 
@@ -68,7 +127,18 @@ def set_default_builder(builder: Callable[[], BackendRouter]) -> None:
 
 
 def get_router() -> BackendRouter:
-    """Return the default singleton ``BackendRouter``, building it on first access."""
+    """Return the process-wide default :class:`BackendRouter`, building it once.
+
+    The default router is built lazily on first access from the registered
+    type-to-backend wiring.
+
+    Returns:
+        The shared :class:`BackendRouter` instance.
+
+    Raises:
+        RuntimeError: When the default wiring has not been registered yet —
+            import ``scistudio.core.types`` first, which registers it.
+    """
     global _default_router
     if _default_router is None:
         if _default_builder is None:

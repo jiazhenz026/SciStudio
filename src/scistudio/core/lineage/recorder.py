@@ -1,23 +1,19 @@
-"""LineageRecorder — engine-owned writer of unified lineage records (ADR-038 §3.2).
+"""LineageRecorder — the engine-side writer that fills the lineage store.
 
-The recorder subscribes to the four terminal block events
-(BLOCK_DONE / BLOCK_ERROR / BLOCK_CANCELLED / BLOCK_SKIPPED) and writes one
-``block_executions`` row per event, plus zero or more ``data_objects`` /
-``block_io`` rows derived from the wire-format outputs that the scheduler
-attaches to the event data.
+The recorder listens for the four terminal block events (done, error,
+cancelled, skipped) and, for each one, writes a ``block_executions`` row plus
+the ``data_objects`` and ``block_io`` rows derived from the block's wire-format
+inputs and outputs.
 
-Per ADR-038 §3.2:
+Key properties:
 
-* All writes happen in the engine process; the worker subprocess does not
-  connect to the lineage DB.
-* Block authors see no contract change — the lineage system observes
-  externally.
-* On any DB error the recorder logs a warning and swallows the exception so
-  a lineage outage cannot break a workflow.
-
-Phase D38-2.2 wires construction of this class inside
-``ApiRuntime.start_workflow``; the engine-side stub at
-``src/scistudio/engine/lineage_recorder.py`` is removed.
+* All writes happen in the engine process; worker subprocesses never connect to
+  the lineage database.
+* Block authors see no contract change — the lineage system observes from the
+  outside.
+* On any database error the recorder logs a warning and continues, so a lineage
+  outage cannot break a workflow. The failure is remembered and surfaced on the
+  run (see :attr:`LineageRecorder.provenance_degraded`).
 """
 
 from __future__ import annotations
@@ -61,19 +57,20 @@ _TERMINATION_BY_EVENT = {
 
 
 class LineageRecorder:
-    """Subscribes to terminal block events and writes 4-table lineage rows.
+    """Listen for terminal block events and write the four-table lineage rows.
 
-    Parameters
-    ----------
-    event_bus:
-        The workflow ``EventBus`` to subscribe on.
-    lineage_store:
-        The unified :class:`~scistudio.core.lineage.store.LineageStore` to
-        persist rows into. If ``None``, recording is disabled (used in tests
-        that bypass the lineage layer).
-    run_id:
-        The ``runs.run_id`` this recorder is attached to. Block executions
-        within this scheduler will all carry the same ``run_id``.
+    One recorder is attached per run; every block execution it records carries
+    that run's ``run_id``.
+
+    Args:
+        event_bus: The workflow event bus to subscribe to.
+        lineage_store: The
+            :class:`~scistudio.core.lineage.store.LineageStore` to write into.
+            When ``None``, recording is disabled (used by tests that bypass the
+            lineage layer).
+        run_id: The run id this recorder is attached to.
+        workflow_id: Optional workflow id used to ignore events from other
+            concurrent runs that share the same event bus.
     """
 
     def __init__(
@@ -114,11 +111,18 @@ class LineageRecorder:
 
     @property
     def run_id(self) -> str:
+        """The run id this recorder is attached to."""
         return self._run_id
 
     @property
     def provenance_degraded(self) -> bool:
-        """Whether any provenance write for this run failed (#1527 / BUG-6)."""
+        """Whether any lineage write for this run has failed.
+
+        Latched ``True`` the first time a provenance write fails (the failure is
+        otherwise swallowed so it cannot crash the workflow), and persisted on
+        the run so an incomplete-lineage run is not reported as cleanly
+        completed.
+        """
         return self._provenance_degraded
 
     # ------------------------------------------------------------------
@@ -126,11 +130,20 @@ class LineageRecorder:
     # ------------------------------------------------------------------
 
     def record_start(self, block_id: str) -> None:
-        """Capture the start time for ``block_id`` so we can compute duration."""
+        """Record the start time of ``block_id`` so its duration can be computed.
+
+        Args:
+            block_id: Identifier of the block that is starting.
+        """
         self._start_times[block_id] = datetime.now()
 
     def begin_run(self, run: RunRecord) -> None:
-        """Insert the ``runs`` row at workflow start."""
+        """Insert the ``runs`` row at workflow start.
+
+        Args:
+            run: The run record to insert. A failed insert is swallowed and
+                latches :attr:`provenance_degraded`.
+        """
         if self._store is None:
             return
         try:
@@ -140,14 +153,16 @@ class LineageRecorder:
             logger.warning("LineageRecorder: insert_run failed (provenance degraded)", exc_info=True)
 
     def finalize_run(self, *, status: str) -> None:
-        """Update the run's ``finished_at`` and ``status`` on completion.
+        """Update the run's ``finished_at`` and ``status`` when it completes.
 
-        #1527 (BUG-6): the run's accumulated ``provenance_degraded`` latch is
-        persisted alongside the terminal columns so a run whose lineage
-        writes failed cannot be read back as clean. A failure of the
-        finalisation write itself also latches the flag (so a later read /
-        retry sees a degraded run rather than a stale "running" row reported
-        as completed by the caller).
+        The accumulated :attr:`provenance_degraded` flag is persisted alongside
+        the terminal columns, so a run whose lineage writes failed cannot be
+        read back as clean. A failure of this write itself also latches the
+        flag.
+
+        Args:
+            status: The terminal run status (e.g. ``"completed"``, ``"failed"``,
+                ``"cancelled"``).
         """
         if self._store is None:
             return
@@ -163,21 +178,12 @@ class LineageRecorder:
             logger.warning("LineageRecorder: finalize_run failed (provenance degraded)", exc_info=True)
 
     def dispose(self) -> None:
-        """Detach this recorder from its ``EventBus`` (D38-3.2).
+        """Detach this recorder from its event bus.
 
-        Closes Codex P1 on PR #926: ``ApiRuntime._build_lineage_recorder``
-        constructs a new recorder for every ``start_workflow`` call but
-        the recorders were never unsubscribed. Each successive workflow
-        run added a fresh subscriber, so a single emit fanned out to
-        every prior run's recorder, writing duplicate (or wrong-run)
-        rows into ``block_executions`` / ``data_objects`` / ``block_io``.
-
-        Call this from :meth:`ApiRuntime._finalize_lineage_run` once the
-        run task is done (whether the run completed, errored, or was
-        cancelled) so the EventBus no longer holds a strong reference
-        to the recorder and its store handle.
-
-        Idempotent — repeated calls are no-ops.
+        Call this once the run is finished (completed, errored, or cancelled) so
+        the event bus stops holding a reference to the recorder and its store
+        handle, and so a later run's events are not fanned out to this stale
+        recorder. Idempotent — repeated calls are no-ops.
         """
         if not self._subscribed:
             return

@@ -1,21 +1,23 @@
-"""Unified 4-table lineage package (ADR-038).
+"""Unified run-lineage package — the four-table provenance store.
+
+Records what every workflow run did: which blocks executed, which data objects
+they consumed and produced, and the environment they ran in. Everything is
+written by the engine into a single SQLite database, so block authors never
+have to touch the lineage layer directly.
 
 Exports:
 
-* :class:`LineageStore` — SQLite-backed unified store
-* :class:`LineageRecorder` — event-driven writer wired into the scheduler
+* :class:`LineageStore` — the SQLite-backed store holding the four tables.
+* :class:`LineageRecorder` — the engine-side writer that listens for block
+  events and fills the store as a run proceeds.
 * :class:`RunRecord`, :class:`BlockExecutionRecord`, :class:`DataObjectRow`,
-  :class:`BlockIORow` — dataclasses mirroring the four tables
-* :class:`EnvironmentSnapshot` — uv-pip-freeze capture used for ``runs.environment_snapshot``
-* :class:`RunContext` — thread/task-local active-run accessor
+  :class:`BlockIORow` — dataclasses mirroring the four tables.
+* :class:`EnvironmentSnapshot` — a capture of the Python and package versions a
+  run used.
+* :class:`RunContext` (with :func:`get_run_context`, :func:`set_run_context`,
+  :func:`reset_run_context`) — a thread/task-local handle to the active run.
 
-The pre-ADR-038 ``ProvenanceGraph`` helper is removed (ADR-038 §3.4: no
-content hashing → no hash-keyed graph). Use SQL queries against the unified
-store instead — see ADR-038 §3.7 for the four canonical query patterns.
-
-The legacy pre-ADR-038 ``LineageRecord`` shell was removed in D38-3.2
-(closes audit D38-3.1a P1-4). Callers importing it will now ``ImportError``
-loudly — migrate to :class:`BlockExecutionRecord` + :class:`DataObjectRow`.
+There is no in-memory provenance graph; query the store with SQL instead.
 """
 
 from __future__ import annotations

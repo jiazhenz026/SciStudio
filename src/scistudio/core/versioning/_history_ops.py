@@ -34,7 +34,18 @@ def _log(
     branch: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return commit history. See ADR-039 §3.5 line 218."""
+    """Return commit history as a list of dicts.
+
+    Args:
+        branch: Limit history to this branch; ``None`` includes all refs.
+        limit: Maximum number of commits to return; ``None`` for no limit.
+
+    Returns:
+        One dict per commit with ``sha``, ``short_sha``, ``parents``,
+        ``author_name``, ``author_email``, ``author_date`` (ISO-8601),
+        ``subject``, ``body``, and ``branches`` (refs pointing at the commit).
+        Empty when the repository has no commits.
+    """
     US = "\x1f"  # noqa: N806 — unit separator
     RS = "\x1e"  # noqa: N806 — record separator
     template = f"%H{US}%h{US}%P{US}%an{US}%ae{US}%aI{US}%s{US}%b{RS}"
@@ -132,7 +143,18 @@ def _diff(
     *,
     files: list[str] | None = None,
 ) -> str:
-    """Return a unified diff string. See ADR-039 §3.5 line 219."""
+    """Return a unified diff as text.
+
+    Args:
+        from_sha: The base revision to diff from.
+        to_sha: The target revision. ``None`` or ``"WORKING"`` diffs against the
+            working tree; ``"HEAD"`` diffs against HEAD; otherwise a second
+            revision.
+        files: Limit the diff to these paths; ``None`` for all paths.
+
+    Returns:
+        The unified diff text (empty string when there is no difference).
+    """
     args = ["diff", "--unified=3"]
     if to_sha is None or to_sha == "WORKING":
         args.append(from_sha)
@@ -148,38 +170,16 @@ def _diff(
 
 
 def _restore(engine: GitEngine, commit_sha: str, *, files: list[str] | None = None) -> None:
-    """Soft restore (no HEAD move). See ADR-039 §3.6.
+    """Restore files from a commit into the working tree (a soft restore).
 
-    ADR-039 Addendum 1 (#1354): this engine method is now a pure
-    soft restore — the caller is responsible for auto-committing a
-    dirty working tree first (see ``routes/git.py::restore`` for
-    the route-layer auto-commit). Pre-addendum the engine itself
-    auto-stashed dirty state; that behavior was moved up so the
-    route layer can return ``auto_commit_sha`` in the response
-    and the frontend can surface a "committed as <sha>" hint
-    instead of stash drawer language.
+    Updates the working tree to match *commit_sha* without moving HEAD or
+    staging the restored content. The caller is responsible for committing any
+    dirty working-tree state first. When specific *files* are given and they
+    already match *commit_sha* on disk, the restore is skipped as a no-op.
 
-    Hotfix #997: when every target file's content at ``commit_sha``
-    is byte-identical to its current working-tree content, restore
-    is a no-op — skip the actual ``git restore``. Pre-fix, clicking
-    "Restore this run's workflow" on a run whose recorded commit
-    happened to match the current working tree still triggered an
-    auto-handler against a tree that was dirty in *any* file (even
-    unrelated ones). The no-op short-circuit eliminates that
-    false-dirty cascade for the specific-files variant (the most
-    common Lineage tab path: ``files=['workflows/<id>.yaml']``).
-
-    ADR-039 Addendum 1 P3-4 (#1394): **interaction with the route-layer
-    auto-commit**.  The route layer (``api.routes.git::restore``) calls
-    ``_auto_commit_if_dirty`` **before** calling this method.  That means
-    the auto-commit runs even when the restore itself would be a no-op
-    (i.e., when every target file already matches ``commit_sha`` on disk).
-    The no-op short-circuit inside this engine method only prevents the
-    ``git restore`` checkout step; it does **not** prevent the route layer
-    from creating the pre-restore auto-commit.  This is the intended order:
-    the auto-commit captures the full dirty tree for lineage tracing, and
-    the short-circuit merely avoids an unnecessary checkout when the target
-    state is already present.
+    Args:
+        commit_sha: The commit to restore file contents from.
+        files: Specific paths to restore; ``None`` restores the whole tree.
     """
     # Skip-if-unchanged short-circuit (files variant only).
     if files:

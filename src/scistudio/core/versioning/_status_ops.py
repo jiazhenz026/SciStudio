@@ -26,9 +26,12 @@ if TYPE_CHECKING:
 
 
 def _status(engine: GitEngine) -> dict[str, Any]:
-    """Return working-tree status via ``--porcelain=v2``.
+    """Return the working-tree status as a dict.
 
-    See ADR-039 §3.5 line 222.
+    Returns:
+        A dict with ``dirty`` (bool) and the path lists ``modified``,
+        ``staged``, ``untracked``, and ``conflicted``. Clean defaults are
+        returned when *path* is not a git repository.
     """
     proc = engine._run(["status", "--porcelain=v2", "--branch"], check=False)
     if proc.returncode != 0:
@@ -107,7 +110,12 @@ def _status(engine: GitEngine) -> dict[str, Any]:
 
 
 def _head_state(engine: GitEngine) -> HeadState:
-    """Return (HEAD SHA, dirty). Used by ADR-038 lineage join."""
+    """Return the current HEAD commit SHA and whether the tree is dirty.
+
+    Returns:
+        A :class:`~scistudio.core.versioning.state.HeadState` with the HEAD SHA
+        (empty string when there are no commits) and the dirty flag.
+    """
     proc = engine._run(["rev-parse", "HEAD"], check=False)
     if proc.returncode != 0:
         return HeadState("", False)

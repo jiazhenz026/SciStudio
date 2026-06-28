@@ -1,41 +1,19 @@
-"""SciStudio source-version-control subsystem (ADR-039).
+"""SciStudio source-version-control subsystem.
 
-This package wraps a **bundled portable git CLI binary** (MinGit on Windows,
-static-built git on macOS/Linux) so every SciStudio project is a real git
-repository with standard git semantics: history, diff, restore, branch,
-merge, cherry-pick. (ADR-039 Addendum 1 / #1353 removed the stash GUI/REST
-surface; the bundled binary still supports `git stash` from a CLI.)
+Wraps a bundled portable git CLI binary (MinGit on Windows, static-built git on
+macOS/Linux) so every SciStudio project is a real git repository with standard
+git semantics: history, diff, restore, branch, merge, and cherry-pick. Bundling
+git means users do not need git installed.
 
-Public surface
---------------
+Public surface:
 
-The package exposes the engine, binary locator, default ``.gitignore``
-template helper, working-tree status helpers, and the external-change
-watcher. The REST layer at ``scistudio.api.routes.git`` calls into this
-module; nothing else in the runtime should shell out to git directly.
-
-ADR references
---------------
-
-- §3.1 — bundled git CLI engine decision
-- §3.2 — auto-init on project open
-- §3.3 — default ``.gitignore`` template
-- §3.4 — pre-run auto-commit (auto: prefix)
-- §3.4a — agent commit prefix (agent:)
-- §3.5 — v1 feature set (~15 endpoints)
-- §3.5a — Monaco-based conflict resolution
-- §3.6 — restore semantics (soft restore default)
-- §3.7 — branch UI scope (full v1 ops)
-- §3.8 — external git changes respected via watcher
-
-Skeleton phase (D39-2.2a)
--------------------------
-
-All public callables in this package currently raise
-``NotImplementedError`` with detailed comment blocks describing what the
-impl agent (D39-2.2b) must write. Do not import from this package in
-production code paths until D39-2.2b lands; importing the module to
-inspect signatures is safe.
+The package exposes the engine (:class:`GitEngine`), the binary locator
+(:class:`GitBinary`), its "git is unavailable" error
+(:class:`BundledGitMissing`), the git-error envelope (:class:`GitError`), the
+default ``.gitignore`` template (:data:`DEFAULT_GITIGNORE`) and its writer
+(:func:`write_default_gitignore`), and the working-tree status helpers
+(:func:`is_dirty`, :func:`modified_files`). The REST layer calls into this
+package; nothing else in the runtime should shell out to git directly.
 """
 
 from __future__ import annotations

@@ -34,18 +34,11 @@ _HEADS_PREFIX = "refs/heads/"
 
 
 def _branches(engine: GitEngine) -> list[dict[str, Any]]:
-    """List all local branches. See ADR-039 §3.5 line 221.
+    """List the local branches.
 
-    Uses ``%(refname)`` (fully-qualified) instead of ``%(refname:short)``
-    to avoid the git disambiguation prefix (``heads/``) that git appends
-    when a tag shares the same short name as a branch.  The short name is
-    recovered by stripping the known ``refs/heads/`` prefix, which is
-    always present and unambiguous for refs under ``refs/heads/``.
-
-    Fixes #1390: before this change, a tag named ``feature`` caused
-    ``for-each-ref --format=%(refname:short) refs/heads/`` to return
-    ``heads/feature`` instead of ``feature``, which broke the
-    ``known_branches`` validator in ``/api/git/branch/switch``.
+    Returns:
+        One dict per branch with ``name``, ``head_sha``, and ``is_current``,
+        sorted with the current branch first, then alphabetically.
     """
     current = engine.current_branch()
     proc = engine._run(
@@ -75,19 +68,10 @@ def _branches(engine: GitEngine) -> list[dict[str, Any]]:
 
 
 def _current_branch(engine: GitEngine) -> str | None:
-    """Return the short name of the currently checked-out branch, or None.
+    """Return the short name of the checked-out branch, or ``None``.
 
-    Uses ``git symbolic-ref HEAD`` (full ref name) and strips the
-    ``refs/heads/`` prefix client-side, which avoids the
-    ``heads/<name>`` disambiguation prefix that both
-    ``rev-parse --abbrev-ref`` and ``symbolic-ref --short`` produce
-    when a tag shares the current branch's short name (related to
-    #1390).  Stripping the known ``refs/heads/`` prefix is always
-    unambiguous because ``symbolic-ref HEAD`` only ever resolves to
-    a ref under ``refs/heads/`` for a normal checkout.
-
-    Returns ``None`` when HEAD is detached (non-zero exit code from
-    ``symbolic-ref``) or when the ref is not under ``refs/heads/``.
+    Returns:
+        The current branch name, or ``None`` when HEAD is detached.
     """
     proc = engine._run(["symbolic-ref", "HEAD"], check=False)
     if proc.returncode != 0:
@@ -102,7 +86,12 @@ def _current_branch(engine: GitEngine) -> str | None:
 
 
 def _branch_create(engine: GitEngine, name: str, base: str | None = None) -> None:
-    """Create a new branch (at HEAD by default)."""
+    """Create a new branch.
+
+    Args:
+        name: Name of the branch to create.
+        base: Commit or branch to start from; ``None`` uses the current HEAD.
+    """
     args = ["branch", name]
     if base:
         args.append(base)
@@ -110,12 +99,26 @@ def _branch_create(engine: GitEngine, name: str, base: str | None = None) -> Non
 
 
 def _branch_switch(engine: GitEngine, name: str) -> None:
-    """Switch to an existing branch. Caller must resolve dirty tree first."""
+    """Switch to an existing branch.
+
+    The caller must resolve a dirty working tree before calling this.
+
+    Args:
+        name: Name of the branch to check out.
+    """
     engine._run(["checkout", name])
 
 
 def _branch_delete(engine: GitEngine, name: str, *, force: bool = False) -> None:
-    """Delete a local branch (refuses to delete current)."""
+    """Delete a local branch.
+
+    Args:
+        name: Name of the branch to delete.
+        force: When ``True``, delete even if the branch is not fully merged.
+
+    Raises:
+        GitError: When *name* is the currently checked-out branch.
+    """
     if engine.current_branch() == name:
         raise GitError(
             1,
@@ -127,39 +130,19 @@ def _branch_delete(engine: GitEngine, name: str, *, force: bool = False) -> None
 
 
 def _commits_reachable_only_from(engine: GitEngine, branch: str) -> list[str]:
-    """Return commits reachable from ``branch`` but no other ref.
+    """Return the commits reachable from ``branch`` but from no other ref.
 
-    ADR-039 Addendum 1 §11.4 row #1356: feeds the branch-delete
-    safety net. ``git rev-list refs/heads/<branch> --not <all-other-refs>``
-    is git's canonical "what would become unreachable" query — the
-    same logic ``git branch -d`` uses internally to refuse a delete
-    when the branch is not merged.
+    This is git's "what would become unreachable if this branch were deleted"
+    query — the same check ``git branch -d`` uses to refuse deleting an unmerged
+    branch.
 
-    We use the fully-qualified ``refs/heads/<branch>`` form on the
-    target side of the rev-list so name resolution is unambiguous
-    when a tag and a branch share the same short name (Codex P1 on
-    PR #1381). Without this, ``git rev-list foo`` could resolve
-    ``foo`` as ``refs/tags/foo`` and compute orphan candidates
-    from the tag instead of the branch, causing the safety net to
-    skip pinning real branch-only commits.
+    Args:
+        branch: The branch to check.
 
-    We enumerate "all other refs" via ``git for-each-ref`` rather
-    than relying on ``--branches --tags --remotes`` shortcuts so the
-    result is robust to user-created refs (including the
-    ``refs/scistudio/lineage/*`` namespace this safety net writes
-    to — these MUST count as "other refs" so calling this method a
-    second time after a tag is created returns an empty list).
-
-    Returns
-    -------
-    list[str]
-        Full 40-char SHAs that are reachable only from ``branch``.
-        Empty list if every commit on the branch is also reachable
-        via at least one other ref. Returns ``[]`` on a non-existent
-        branch rather than raising — the caller (route layer) is
-        about to delete the branch anyway and will surface a
-        structured error from ``branch_delete`` if it really doesn't
-        exist.
+    Returns:
+        Full 40-character SHAs reachable only from ``branch``. Empty when every
+        commit on the branch is also reachable from another ref, or when the
+        branch does not exist.
     """
     # Use the fully-qualified ref form on BOTH the include (target)
     # side and the exclude side so name resolution cannot collide
@@ -193,42 +176,17 @@ def _commits_reachable_only_from(engine: GitEngine, branch: str) -> list[str]:
 
 
 def _tag(engine: GitEngine, name: str, target_sha: str, *, force: bool = True) -> None:
-    """Create a ref ``name`` pointing to ``target_sha``.
+    """Point a ref at a commit.
 
-    ADR-039 Addendum 1 §11.4 row #1356: used by the branch-delete
-    safety net to pin lineage-referenced commits under
-    ``refs/scistudio/lineage/<sha>`` before deletion. Despite the
-    method name, this uses ``git update-ref`` rather than
-    ``git tag`` so the ref lands in the caller-specified namespace
-    (``refs/scistudio/lineage/*``) and stays out of the
-    ``refs/tags/*`` namespace where the History view's chip
-    renderer would otherwise pick it up.
+    Despite the name, this writes an arbitrary ref via ``git update-ref`` (not
+    ``git tag``), so the ref can live in whatever namespace the caller chooses.
 
-    Parameters
-    ----------
-    name:
-        Fully-qualified ref name (e.g. ``refs/scistudio/lineage/<sha>``).
-        Must start with ``refs/`` — git update-ref enforces this.
-    target_sha:
-        The commit SHA the ref should point to.
-    force:
-        When ``True`` (the default), ``update-ref`` runs without an
-        old-value constraint and silently overwrites any pre-existing ref
-        at ``name``.  This matches ``update-ref``'s native behaviour and
-        preserves the idempotent safety-net contract: re-running on an
-        already-pinned SHA is a no-op.
-
-        When ``False``, ``update-ref`` is called with an empty old-SHA
-        expectation (``git update-ref <name> <new-sha> ""``), which
-        instructs git to *refuse* the update when the ref already exists.
-        This is the "create iff absent" form — callers that want strict
-        non-clobber semantics should pass ``force=False``.
-
-        Fixes #1394 P3-3: previously ``force=False`` was accepted for
-        API symmetry but silently ignored; it now genuinely prevents
-        silent clobbers.  The default changed from ``False`` to ``True``
-        to preserve the existing overwrite-idempotent semantics for all
-        current callers (the safety net in ``/api/git/branch/delete``).
+    Args:
+        name: Fully-qualified ref name (must start with ``refs/``).
+        target_sha: The commit SHA the ref should point to.
+        force: When ``True`` (the default), overwrite any existing ref at
+            ``name`` (idempotent). When ``False``, refuse to overwrite an
+            existing ref ("create only if absent").
     """
     if force:
         engine._run(["update-ref", name, target_sha])

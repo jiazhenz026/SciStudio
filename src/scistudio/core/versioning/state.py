@@ -1,16 +1,12 @@
-"""Public value types for ``scistudio.core.versioning`` (ADR-039).
+"""Public value types for ``scistudio.core.versioning``.
 
-Holds :class:`HeadState`, the ``GitEngine.head_state()`` result consumed by
-the ADR-038 lineage join. It lived in :mod:`scistudio.core.versioning.git_engine`,
-but ``_status_ops._head_state`` constructs it at runtime, so that sibling had
-to lazy-import ``git_engine`` — a child -> parent edge that closed an import
-cycle (round-4 no-cycles, mirroring the #1337 / PR #1344 ``errors`` extraction).
+Holds :class:`HeadState`, the result of :meth:`GitEngine.head_state`. It lives
+in its own leaf module so the status helpers can import it without importing the
+engine. ``HeadState`` is also re-exported from ``git_engine`` for backward
+compatibility.
 
-This module MUST NOT import from any other ``scistudio.core.versioning``
-sibling — that constraint is what makes it a safe cycle-breaking leaf.
-``HeadState`` is re-exported from ``git_engine`` for backward compatibility
-with importers; the canonical ADR-039 governed contract is
-``scistudio.core.versioning.state.HeadState``.
+This module must not import from any other ``scistudio.core.versioning``
+sibling.
 """
 
 from __future__ import annotations
@@ -20,7 +16,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class HeadState:
-    """Result of :meth:`GitEngine.head_state` — used by ADR-038 join."""
+    """The repository HEAD: its commit SHA and whether the tree is dirty."""
 
     commit_sha: str
+    """SHA of the current HEAD commit; empty string when there are no commits."""
     dirty: bool
+    """``True`` when the working tree has uncommitted changes."""

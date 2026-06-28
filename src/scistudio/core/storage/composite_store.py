@@ -13,10 +13,21 @@ from scistudio.utils.atomic_io import atomic_replace_dir
 
 
 class CompositeStore:
-    """Storage backend for :class:`CompositeData`, persisting each slot independently.
+    """Storage backend for :class:`CompositeData`, persisting each slot on its own.
 
-    Each slot is stored in a sub-directory, and a manifest.json records the
-    mapping of slot names to their backend types and paths.
+    A composite object groups several named "slots" (each a separate piece of
+    data, possibly of different kinds). This backend stores each slot in its own
+    sub-directory using the slot's own backend, and writes a ``manifest.json``
+    recording the slot name to backend/path mapping. The router selects this
+    backend for composite types, so you rarely construct it directly.
+
+    Example:
+        >>> import os, tempfile
+        >>> store = CompositeStore()
+        >>> path = os.path.join(tempfile.mkdtemp(), "obj")
+        >>> ref = store.write({"notes": ("filesystem", "hello")}, StorageReference(backend="composite", path=path))
+        >>> store.read(ref)["notes"]
+        'hello'
     """
 
     _MANIFEST_NAME = "manifest.json"
@@ -37,10 +48,18 @@ class CompositeStore:
         return backends[backend_name]
 
     def read(self, ref: StorageReference) -> Any:
-        """Read a composite directory structure from *ref*.
+        """Read every slot of the composite directory at *ref*.
 
-        Returns a dict of ``{slot_name: data}`` by reading each slot
-        according to the manifest.
+        Args:
+            ref: Pointer to the composite directory.
+
+        Returns:
+            A dict mapping each ``slot_name`` to that slot's data, read with the
+            slot's own backend.
+
+        Raises:
+            StorageMissingError: When the manifest is absent.
+            StorageReferenceInvalidError: When the manifest is corrupt.
         """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
@@ -68,17 +87,24 @@ class CompositeStore:
         return result
 
     def slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:
-        """Resolve the typed :class:`StorageReference` for a single composite slot.
+        """Resolve the :class:`StorageReference` for a single composite slot.
 
-        Read-only manifest lookup: returns the slot's recorded
-        ``backend``/``path``/``format`` (the same per-slot ref that :meth:`read`
-        and :meth:`slice` reconstruct), or ``None`` when the composite has no
-        manifest or no such slot. This is the authoritative slot resolution,
-        exposed so bounded readers (e.g. the preview ``PreviewDataAccess``) can
-        read a single slot without reconstructing the on-disk layout themselves.
+        A read-only manifest lookup that returns one slot's recorded
+        ``backend`` / ``path`` / ``format`` — the same per-slot reference that
+        :meth:`read` and :meth:`slice` reconstruct. This is the authoritative
+        slot resolver, exposed so a bounded reader (e.g. a previewer) can read a
+        single slot without reconstructing the on-disk layout itself.
 
-        A missing manifest returns ``None`` (the caller degrades gracefully); a
-        corrupt manifest raises :class:`StorageReferenceInvalidError`.
+        Args:
+            ref: Pointer to the composite directory.
+            slot_name: Name of the slot to resolve.
+
+        Returns:
+            The slot's :class:`StorageReference`, or ``None`` when the composite
+            has no manifest or no such slot (the caller degrades gracefully).
+
+        Raises:
+            StorageReferenceInvalidError: When the manifest exists but is corrupt.
         """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
@@ -106,18 +132,25 @@ class CompositeStore:
         )
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
-        """Write composite slots to a directory at *ref*.
+        """Write composite slots to a directory at *ref* atomically.
 
-        *data* must be a dict of ``{slot_name: (backend_name, slot_data)}``.
-        Each slot is stored in a subdirectory using the appropriate backend.
+        All slots and the manifest are built in a staging sibling directory that
+        is swapped into place at the end, so a crash or cancellation mid-write
+        leaves the previous composite (or nothing) on disk rather than a
+        half-written directory.
 
-        #1640: the write is **atomic**. All slots and the manifest are built in
-        a staging sibling directory which is then swapped into place by
-        :func:`atomic_replace_dir`. A crash or cancellation mid-write leaves the
-        previous composite (or nothing) on disk rather than a half-written
-        directory. Each slot is written under the staging directory, but the
-        manifest records the slot's **final** path (under *ref*) so it resolves
-        correctly after the swap.
+        Args:
+            data: A dict mapping ``slot_name`` to ``(backend_name, slot_data)``.
+                Each slot is written under its own sub-directory using the named
+                backend.
+            ref: Pointer describing where to write the composite directory.
+
+        Returns:
+            An updated :class:`StorageReference` whose metadata lists the slot
+            names that were written.
+
+        Raises:
+            TypeError: When *data* is not a dict.
         """
         if not isinstance(data, dict):
             raise TypeError("CompositeStore.write expects a dict of {slot_name: (backend, data)}.")
@@ -165,14 +198,32 @@ class CompositeStore:
         )
 
     def write_from_memory(self, data: Any, path: str) -> StorageReference:
-        """Write raw in-memory composite data to a directory at *path*."""
+        """Write in-memory composite slot data to a new directory at *path*.
+
+        Args:
+            data: A dict mapping ``slot_name`` to ``(backend_name, slot_data)``.
+            path: Target filesystem path for the composite directory.
+
+        Returns:
+            A :class:`StorageReference` pointing at the new directory.
+        """
         ref = StorageReference(backend="composite", path=path)
         return self.write(data, ref)
 
     def slice(self, ref: StorageReference, *args: Any) -> Any:
-        """Return a subset of slots from the composite at *ref*.
+        """Read a subset of slots from the composite at *ref*.
 
-        *args* should be slot names to select.
+        Args:
+            ref: Pointer to the composite directory.
+            *args: Slot names to select. Empty selects all slots.
+
+        Returns:
+            A dict mapping each selected ``slot_name`` to its data. Unknown slot
+            names are skipped.
+
+        Raises:
+            StorageMissingError: When the manifest is absent.
+            StorageReferenceInvalidError: When the manifest is corrupt.
         """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
@@ -204,7 +255,20 @@ class CompositeStore:
         return result
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
-        """Yield slots one at a time from the composite at *ref*."""
+        """Yield the composite's slots one at a time.
+
+        Args:
+            ref: Pointer to the composite directory.
+            chunk_size: Accepted for protocol compatibility; ignored, since one
+                slot is yielded at a time.
+
+        Yields:
+            A ``(slot_name, data)`` pair for each slot in the manifest.
+
+        Raises:
+            StorageMissingError: When the manifest is absent.
+            StorageReferenceInvalidError: When the manifest is corrupt.
+        """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
         try:
@@ -229,7 +293,19 @@ class CompositeStore:
             yield slot_name, backend.read(slot_ref)
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
-        """Return metadata for the composite directory at *ref*."""
+        """Return metadata for the composite directory at *ref*.
+
+        Args:
+            ref: Pointer to the composite directory.
+
+        Returns:
+            A dict with ``slot_names`` (the list of slots) and ``slot_backends``
+            (mapping each slot name to its backend name).
+
+        Raises:
+            StorageMissingError: When the manifest is absent.
+            StorageReferenceInvalidError: When the manifest is corrupt.
+        """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
         try:
