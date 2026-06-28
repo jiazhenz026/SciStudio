@@ -1,8 +1,10 @@
-"""CodeBlock v2 configuration models.
+"""Configuration models for the Code Block.
 
-ADR-041 narrows CodeBlock v2 to project-local scripts that exchange data
-through files.  This module defines the small persisted config surface used by
-later runtime integration tracks; it intentionally does not execute scripts.
+The Code Block runs a project-local script that exchanges data through files.
+This module defines the settings that are saved with a Code Block: which script
+to run, how to choose an interpreter, where the exchange folder lives, and the
+input and output ports the script reads and writes. These are plain data models;
+they validate configuration but do not run any script.
 """
 
 from __future__ import annotations
@@ -22,22 +24,50 @@ ExchangeDirectoryPolicy = Literal["project", "custom"]
 
 @provisional(since="0.3.1")
 class CodeBlockConfigError(ValueError):
-    """Raised when a CodeBlock v2 config violates ADR-041 constraints."""
+    """Raised when a Code Block configuration is invalid.
+
+    Examples: pasted inline code where a script path is required, an entry
+    function that the Code Block does not call, a script or folder path that
+    escapes the project directory, or ``interpreter_mode="existing"`` without an
+    ``interpreter_path``.
+    """
 
 
 @provisional(since="0.3.1")
 class PortFileConfig(BaseModel):
-    """File-exchange contract for one CodeBlock v2 port."""
+    """How one Code Block port maps a named input or output to files on disk.
+
+    A Code Block script does not pass data by argument; it reads and writes
+    files. Each declared port says what kind of data it carries, what file
+    extension to use, and which folder under the exchange directory to read from
+    or write to. One ``PortFileConfig`` describes a single input or output port.
+
+    Example:
+        >>> PortFileConfig(
+        ...     name="spectra",
+        ...     direction="input",
+        ...     data_type="DataFrame",
+        ...     extension="csv",
+        ... ).exchange_folder
+        'inputs/spectra/'
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    """Port name, matching the input/output port the script reads or writes."""
     direction: PortDirection
+    """Whether this port is an ``"input"`` the script reads or an ``"output"`` it writes."""
     data_type: str
+    """Name of the data type carried, for example ``"DataFrame"`` or ``"Array"``."""
     extension: str
+    """File extension for this port's files; a leading dot is added if omitted."""
     capability_id: str | None = None
+    """Optional identifier pinning which save/load handler converts the files."""
     required: bool = True
+    """Whether the run fails if this port has no value (inputs) or file (outputs)."""
     exchange_folder: str | None = None
+    """Folder under the exchange directory for this port; defaults from name and direction."""
 
     @field_validator("name", "data_type")
     @classmethod
@@ -92,29 +122,61 @@ class MigrationDiagnostic(BaseModel):
 
 @provisional(since="0.3.1")
 class CodeBlockConfig(BaseModel):
-    """Persisted CodeBlock v2 script configuration.
+    """The saved settings for one Code Block: script, interpreter, and ports.
 
-    ``code`` and ``inline_code`` are accepted only so legacy/mixed configs can
-    fail with an explicit migration error instead of an opaque extra-field
-    failure.
+    This is the full set of fields a Code Block stores. The only required field
+    is ``script_path``; the rest have sensible defaults. The ``inputs`` and
+    ``outputs`` lists declare the file-exchange ports the script reads and
+    writes (see :class:`PortFileConfig`).
+
+    The ``code`` and ``inline_code`` fields are accepted only so an old
+    inline-code configuration fails with a clear migration message instead of an
+    opaque "unexpected field" error.
+
+    Example:
+        >>> config = CodeBlockConfig(
+        ...     script_path="scripts/analyse.py",
+        ...     outputs=[
+        ...         PortFileConfig(
+        ...             name="result", direction="output",
+        ...             data_type="DataFrame", extension="csv",
+        ...         )
+        ...     ],
+        ... )
+        >>> config.interpreter_mode
+        'auto'
     """
 
     model_config = ConfigDict(extra="forbid")
 
     script_path: str
+    """Project-local path to the script to run, relative to the project root."""
     code: str | None = None
+    """Old inline-code field; accepted only to raise a clear migration error."""
     inline_code: str | None = None
+    """Old inline-code field; accepted only to raise a clear migration error."""
     entry_function: str | None = None
+    """Old entry-function name; accepted only to raise a clear migration error."""
     working_directory: str = "."
+    """Directory the script launches from, relative to the project root (default: root)."""
     interpreter_mode: InterpreterMode = "auto"
+    """``"auto"`` to detect an interpreter, or ``"existing"`` to require ``interpreter_path``."""
     interpreter_path: str | None = None
+    """Explicit path to the interpreter executable; required when mode is ``"existing"``."""
     environment: Mapping[str, Any] = Field(default_factory=dict)
+    """Extra interpreter hints (for example a language-specific executable path)."""
     environment_variables: dict[str, str] = Field(default_factory=dict)
+    """Environment variables to set for the script process; keys and values are coerced to strings."""
     timeout_seconds: float | None = Field(default=None, gt=0)
+    """Wall-clock time limit in seconds, or ``None`` for no limit (must be positive)."""
     exchange_directory_policy: ExchangeDirectoryPolicy = "project"
+    """Whether exchange folders live under the project (``"project"``) or a custom root."""
     exchange_root: str = "exchange"
+    """Folder under the project root that holds per-run exchange directories."""
     inputs: list[PortFileConfig] = Field(default_factory=list)
+    """Declared input ports the script reads from files."""
     outputs: list[PortFileConfig] = Field(default_factory=list)
+    """Declared output ports the script writes as files."""
 
     @field_validator("script_path", "working_directory", "exchange_root")
     @classmethod
@@ -145,12 +207,37 @@ class CodeBlockConfig(BaseModel):
         return self
 
     def resolve_script_path(self, project_dir: Path) -> Path:
-        """Return the validated project-local script path."""
+        """Resolve ``script_path`` to an absolute path inside the project.
+
+        Args:
+            project_dir: Absolute path to the project root.
+
+        Returns:
+            The absolute path to the script file.
+
+        Raises:
+            CodeBlockConfigError: If the path resolves outside the project, or
+                is not a file.
+            FileNotFoundError: If the script does not exist.
+        """
 
         return resolve_project_path(self.script_path, project_dir=project_dir, field_name="script_path")
 
     def resolve_working_directory(self, project_dir: Path) -> Path:
-        """Return the project-local working directory for interpreter launch."""
+        """Resolve ``working_directory`` to an absolute path inside the project.
+
+        The directory need not exist yet (the script launcher checks that).
+
+        Args:
+            project_dir: Absolute path to the project root.
+
+        Returns:
+            The absolute working directory the script will launch from.
+
+        Raises:
+            CodeBlockConfigError: If the path resolves outside the project, or
+                points at an existing file rather than a directory.
+        """
 
         return resolve_project_path(
             self.working_directory,
@@ -161,7 +248,20 @@ class CodeBlockConfig(BaseModel):
         )
 
     def resolve_exchange_root(self, project_dir: Path) -> Path:
-        """Return the project-local exchange root."""
+        """Resolve ``exchange_root`` to an absolute path inside the project.
+
+        The directory need not exist yet; it is created per run.
+
+        Args:
+            project_dir: Absolute path to the project root.
+
+        Returns:
+            The absolute exchange root that holds per-run exchange folders.
+
+        Raises:
+            CodeBlockConfigError: If the path resolves outside the project, or
+                points at an existing file rather than a directory.
+        """
 
         return resolve_project_path(
             self.exchange_root,

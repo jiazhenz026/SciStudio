@@ -1,11 +1,11 @@
-"""CodeBlock v2 file-exchange layout and manifest helpers.
+"""File-exchange layout and manifest helpers for the Code Block.
 
-ADR-041 makes CodeBlock an AppBlock-shaped script boundary: the runtime
-materialises typed inputs into per-port input folders, scripts write outputs
-into per-port output folders, and later integration reconstructs typed outputs.
-This module owns only that exchange bookkeeping. Format dispatch remains an
-injectable adapter seam so ADR-043 capability lookup can be wired in later
-without CodeBlock importing engine-level materialisation helpers.
+A Code Block passes data to and from a script through files. This module owns
+that bookkeeping: it lays out a per-run exchange folder, writes each declared
+input into its own input folder, discovers the files the script wrote into each
+output folder, and records what happened in a manifest. The actual file-format
+conversion is handed to pluggable adapter callables, so this module never needs
+to know how a given data type is written to or read from disk.
 """
 
 from __future__ import annotations
@@ -29,7 +29,13 @@ _SAFE_NAME_PATTERN = re.compile(r"[^A-Za-z0-9_.-]+")
 
 @provisional(since="0.3.1")
 class MaterialiseAdapter(Protocol):
-    """Callable seam for writing one :class:`DataObject` into an input folder."""
+    """A function that writes one data object into an input folder as a file.
+
+    The Code Block calls a materialise adapter for each input it needs to hand
+    to a script, turning an in-memory data object into a file the script can
+    read. Supplying your own adapter lets you control how data types are written
+    to disk.
+    """
 
     def __call__(
         self,
@@ -39,12 +45,31 @@ class MaterialiseAdapter(Protocol):
         *,
         filename_stem: str,
         capability_id: str | None = None,
-    ) -> Path: ...
+    ) -> Path:
+        """Write *obj* into *dest_dir* and return the path of the written file.
+
+        Args:
+            obj: The data object to write.
+            dest_dir: The port's input folder to write into.
+            extension: File extension to use (with a leading dot).
+            filename_stem: Base filename without extension.
+            capability_id: Optional identifier pinning which save handler to use.
+
+        Returns:
+            The path of the file that was written.
+        """
+        ...
 
 
 @provisional(since="0.3.1")
 class ReconstructAdapter(Protocol):
-    """Callable seam for reconstructing one output file into a DataObject."""
+    """A function that reads one output file back into a data object.
+
+    The Code Block calls a reconstruct adapter for each file a script writes to
+    a declared output port, turning it back into a typed in-memory object.
+    Supplying your own adapter lets you control how files are read for each data
+    type.
+    """
 
     def __call__(
         self,
@@ -53,51 +78,101 @@ class ReconstructAdapter(Protocol):
         extension: str,
         *,
         capability_id: str | None = None,
-    ) -> DataObject: ...
+    ) -> DataObject:
+        """Read the file at *path* and return it as a data object.
+
+        Args:
+            path: The output file the script wrote.
+            target_type: The data type to reconstruct, as a class or its name.
+            extension: The file's extension (with a leading dot).
+            capability_id: Optional identifier pinning which load handler to use.
+
+        Returns:
+            The reconstructed data object.
+        """
+        ...
 
 
 @provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class CodeBlockExchangePort:
-    """Declared file-exchange contract for one CodeBlock port."""
+    """A single Code Block port, resolved for use by the exchange runtime.
+
+    This is the runtime view of one declared input or output port: the data
+    type is a resolved class (not just a name), and the target folder is
+    settled. The Code Block builds these from the saved :class:`PortFileConfig`
+    entries before preparing the exchange folders.
+    """
 
     name: str
+    """Port name, matching the input/output port the script reads or writes."""
     direction: PortDirection
+    """Whether this is an ``"input"`` the script reads or an ``"output"`` it writes."""
     data_type: type[DataObject] | str = DataObject
+    """The data type carried, as a resolved class or its name."""
     extension: str
+    """File extension for this port's files (with a leading dot)."""
     capability_id: str | None = None
+    """Optional identifier pinning which save/load handler converts the files."""
     required: bool = True
+    """Whether the run fails if this port has no value (inputs) or file (outputs)."""
     folder_name: str | None = None
+    """Folder name under ``inputs/`` or ``outputs/`` for this port; ``None`` uses the name."""
 
 
 @provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class CodeBlockExchangeLayout:
-    """Concrete per-run exchange directory layout."""
+    """The set of folders and files that make up one run's exchange directory.
+
+    Every Code Block run gets its own exchange folder with fixed subfolders for
+    inputs, outputs, logs, and temporary files, plus a manifest file recording
+    what happened. This describes where each of those lives on disk.
+    """
 
     exchange_dir: Path
+    """Root folder for this run's exchange directory."""
     inputs_dir: Path
+    """Folder under which each input port's files are written."""
     outputs_dir: Path
+    """Folder under which each output port's files are expected."""
     manifest_path: Path
+    """Path to the JSON manifest describing this run's ports and files."""
     logs_dir: Path
+    """Folder for run logs."""
     temp_dir: Path
+    """Folder for temporary files created during the run."""
 
 
 @provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class ExchangeFileRecord:
-    """Manifest record for one materialised or collected file."""
+    """One file in the manifest: a written input or a discovered output.
+
+    The manifest keeps one of these per file so a run can be traced after the
+    fact: which port the file belongs to, where it is, what it holds, and
+    whether it was written, collected, or ignored.
+    """
 
     port_name: str
+    """The port this file belongs to."""
     direction: PortDirection
+    """Whether the file is an ``"input"`` written or an ``"output"`` discovered."""
     path: Path
+    """Path to the file on disk."""
     object_type: str
+    """Name of the data type the file holds."""
     format_hint: str
+    """File extension describing the on-disk format (with a leading dot)."""
     status: ManifestStatus
+    """Lifecycle state of the file (for example written, collected, or ignored)."""
     capability_id: str | None = None
+    """Optional identifier of the save/load handler used for this file."""
     warning: str | None = None
+    """Human-readable note when the file was ignored or needs attention."""
 
     def to_dict(self) -> dict[str, str | None]:
+        """Return this record as a JSON-serialisable dictionary."""
         return {
             "port_name": self.port_name,
             "direction": self.direction,
@@ -113,15 +188,26 @@ class ExchangeFileRecord:
 @provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class ExchangeDiagnostic:
-    """Structured exchange warning/error surfaced to later runtime integration."""
+    """One warning or error raised while preparing or collecting exchange files.
+
+    Examples: a required input had no value, a required output produced no file,
+    or the script left an unexpected file in the outputs folder. The Code Block
+    fails the run when any diagnostic has ``"error"`` severity.
+    """
 
     severity: DiagnosticSeverity
+    """How serious the issue is: ``"info"``, ``"warning"``, or ``"error"``."""
     code: str
+    """Short machine-readable code identifying the kind of issue."""
     message: str
+    """Human-readable explanation of the issue."""
     port_name: str | None = None
+    """The port the issue relates to, if any."""
     path: Path | None = None
+    """The file or folder the issue relates to, if any."""
 
     def to_dict(self) -> dict[str, str | None]:
+        """Return this diagnostic as a JSON-serialisable dictionary."""
         return {
             "severity": self.severity,
             "code": self.code,
@@ -134,20 +220,36 @@ class ExchangeDiagnostic:
 @provisional(since="0.3.1")
 @dataclass(kw_only=True)
 class PortManifestRecord:
-    """Manifest record for one declared input or output port."""
+    """The manifest entry for one declared port and the files it gathered.
+
+    Each declared input or output port has one of these in the manifest. It
+    records the port's folder and expected data type, its current state, and the
+    files written to or discovered in that folder.
+    """
 
     name: str
+    """Port name."""
     direction: PortDirection
+    """Whether this is an ``"input"`` or ``"output"`` port."""
     object_type: str
+    """Name of the data type the port carries."""
     folder: Path
+    """Folder on disk holding this port's files."""
     format_hint: str
+    """File extension describing the port's on-disk format (with a leading dot)."""
     capability_id: str | None
+    """Optional identifier of the save/load handler used for this port."""
     required: bool
+    """Whether the run fails if this port has no value (inputs) or file (outputs)."""
     status: ManifestStatus = "planned"
+    """Current lifecycle state of the port (for example planned or collected)."""
     files: list[ExchangeFileRecord] = field(default_factory=list)
+    """The files written to or discovered in this port's folder."""
     warnings: list[str] = field(default_factory=list)
+    """Human-readable warnings accumulated for this port."""
 
     def to_dict(self) -> dict[str, object]:
+        """Return this port record as a JSON-serialisable dictionary."""
         return {
             "name": self.name,
             "direction": self.direction,
@@ -165,29 +267,43 @@ class PortManifestRecord:
 @provisional(since="0.3.1")
 @dataclass(kw_only=True)
 class CodeBlockExchangeManifest:
-    """Concrete exchange manifest for one CodeBlock run.
+    """The full record of one Code Block run's exchange: folders, ports, issues.
 
-    Manifest records are keyed by ``(direction, name)`` so a CodeBlock
-    declaring an input port and an output port with the same name (e.g.
-    ``data -> data``) keeps both records (#1281). The
-    :attr:`input_folders` / :attr:`output_folders` views remain keyed by
-    bare port ``name`` because port names are unique within a single
-    direction.
+    The manifest ties together the run's folder layout, one record per declared
+    port, and any warnings or errors. Ports are keyed by ``(direction, name)``
+    so a block declaring an input and an output with the same name (such as
+    ``data`` in and ``data`` out) keeps both. The :attr:`input_folders` and
+    :attr:`output_folders` views are keyed by plain port name, which is unique
+    within a single direction.
     """
 
     layout: CodeBlockExchangeLayout
+    """The folder and file layout for this run."""
     ports: dict[tuple[PortDirection, str], PortManifestRecord]
+    """Per-port records keyed by the ``(direction, name)`` pair."""
     diagnostics: list[ExchangeDiagnostic] = field(default_factory=list)
+    """Warnings and errors accumulated across the run."""
 
     @property
     def input_folders(self) -> dict[str, Path]:
+        """Map each input port name to its on-disk folder.
+
+        Returns:
+            A dictionary of input port name to folder path.
+        """
         return {record.name: record.folder for record in self.ports.values() if record.direction == "input"}
 
     @property
     def output_folders(self) -> dict[str, Path]:
+        """Map each output port name to its on-disk folder.
+
+        Returns:
+            A dictionary of output port name to folder path.
+        """
         return {record.name: record.folder for record in self.ports.values() if record.direction == "output"}
 
     def to_dict(self) -> dict[str, object]:
+        """Return the whole manifest as a JSON-serialisable dictionary."""
         # Serialise the ``(direction, name)`` tuple keys as
         # ``"<direction>:<name>"`` so the manifest JSON has stable
         # string keys without losing the direction discriminator.
@@ -208,28 +324,62 @@ class CodeBlockExchangeManifest:
 @provisional(since="0.3.1")
 @dataclass(frozen=True, kw_only=True)
 class OutputDiscoveryResult:
-    """Declared-output scan result before reconstruction."""
+    """What an output-folder scan found, before files are read back into objects.
+
+    Returned by :func:`discover_declared_outputs`: the files matched for each
+    output port and any issues (missing required outputs, extension mismatches,
+    stray files) found while scanning.
+    """
 
     files_by_port: dict[str, list[Path]]
+    """The matched output files for each output port, keyed by port name."""
     diagnostics: list[ExchangeDiagnostic]
+    """Warnings and errors found during the scan."""
 
     @property
     def has_errors(self) -> bool:
+        """Whether any diagnostic is an error.
+
+        Returns:
+            ``True`` if at least one diagnostic has ``"error"`` severity.
+        """
         return any(diagnostic.severity == "error" for diagnostic in self.diagnostics)
 
 
 @provisional(since="0.3.1")
 class CodeBlockExchangeError(RuntimeError):
-    """Raised when exchange diagnostics contain blocking errors."""
+    """Raised when preparing inputs or collecting outputs hits a blocking error.
+
+    Carries the diagnostics that caused the failure (for example a required
+    input with no value, or a required output the script never wrote).
+    """
 
     def __init__(self, message: str, diagnostics: Sequence[ExchangeDiagnostic]) -> None:
         super().__init__(message)
         self.diagnostics = list(diagnostics)
+        """The diagnostics that triggered this error."""
 
 
 @provisional(since="0.3.1")
 def normalise_extension(extension: str) -> str:
-    """Return a deterministic lowercase extension with a leading dot."""
+    """Clean up a file extension into a consistent ``.lowercase`` form.
+
+    Trims whitespace, lowercases, and adds a leading dot if missing, so that
+    ``"CSV"``, ``" .csv "``, and ``"csv"`` all become ``".csv"``.
+
+    Args:
+        extension: The raw extension, with or without a leading dot.
+
+    Returns:
+        The normalised extension, for example ``".csv"``.
+
+    Raises:
+        ValueError: If the extension is empty or contains a path separator.
+
+    Example:
+        >>> normalise_extension("CSV")
+        '.csv'
+    """
 
     stripped = extension.strip().lower()
     if not stripped:
@@ -243,7 +393,23 @@ def normalise_extension(extension: str) -> str:
 
 @provisional(since="0.3.1")
 def safe_exchange_name(value: str, *, fallback: str = "port") -> str:
-    """Normalise a user-facing name into one safe path component."""
+    """Turn a free-form name into a single safe folder/file name component.
+
+    Replaces characters that are not letters, digits, ``_``, ``.``, or ``-``
+    with underscores and trims stray punctuation, so an arbitrary port name can
+    be used as a folder name.
+
+    Args:
+        value: The name to sanitise.
+        fallback: Name to use when *value* sanitises to nothing.
+
+    Returns:
+        A path-safe name, or *fallback* if nothing usable remains.
+
+    Example:
+        >>> safe_exchange_name("my port!")
+        'my_port'
+    """
 
     candidate = _SAFE_NAME_PATTERN.sub("_", value.strip()).strip("._-")
     if not candidate:
@@ -260,7 +426,23 @@ def create_codeblock_exchange_layout(
     block_slug: str = "codeblock",
     create: bool = True,
 ) -> CodeBlockExchangeLayout:
-    """Create or describe the per-run CodeBlock exchange directory layout."""
+    """Work out (and optionally create) the folders for one Code Block run.
+
+    Builds a per-run folder under *exchange_root* named from the block and run
+    identifiers, with ``inputs/``, ``outputs/``, ``logs/``, and ``tmp/``
+    subfolders and a manifest path.
+
+    Args:
+        exchange_root: Root folder that holds all runs' exchange directories.
+        block_id: Identifier of the block instance, used in the folder name.
+        run_id: Identifier of this run, used as the per-run subfolder name.
+        block_slug: Short label prefixed to the block folder name.
+        create: When ``True`` (the default), create the folders on disk; when
+            ``False``, only compute the paths.
+
+    Returns:
+        The resolved :class:`CodeBlockExchangeLayout` for the run.
+    """
 
     block_dir_name = f"{safe_exchange_name(block_slug)}-{safe_exchange_name(block_id, fallback='block')}"
     run_dir_name = safe_exchange_name(run_id, fallback="run")
@@ -281,7 +463,24 @@ def create_codeblock_exchange_layout(
 
 @provisional(since="0.3.1")
 def allocate_port_folder(parent: Path, port_name: str, used_names: set[str], *, create: bool = True) -> Path:
-    """Allocate a deterministic per-port folder with collision-safe suffixing."""
+    """Choose a unique folder for one port under *parent*, avoiding collisions.
+
+    Derives a safe folder name from the port name; if that name is already used
+    or already exists on disk, it appends a suffix until it finds a free name,
+    so two ports never share a folder.
+
+    Args:
+        parent: The ``inputs/`` or ``outputs/`` folder to create the port folder in.
+        port_name: The port's name, used as the basis for the folder name.
+        used_names: Folder names already taken; updated in place with the choice.
+        create: When ``True`` (the default), create the folder on disk.
+
+    Returns:
+        The path of the allocated port folder.
+
+    Raises:
+        RuntimeError: If no free folder name can be found.
+    """
 
     base = safe_exchange_name(port_name, fallback="port")
     candidates = [base, f"{base}__scistudio"]
@@ -303,7 +502,19 @@ def allocate_port_folder(parent: Path, port_name: str, used_names: set[str], *, 
 
 @provisional(since="0.3.1")
 def plan_input_filenames(objects: Sequence[DataObject], *, extension: str) -> list[str]:
-    """Plan deterministic input filenames for a single port's objects."""
+    """Pick a unique filename for each input object on one port.
+
+    Names each file after its source (when known) or a numbered ``item_NNNN``
+    stem otherwise, all sharing the given extension, and de-duplicates so no two
+    objects collide.
+
+    Args:
+        objects: The data objects to be written to one input port, in order.
+        extension: File extension for the files (with or without a leading dot).
+
+    Returns:
+        One filename per object, in the same order.
+    """
 
     ext = normalise_extension(extension)
     used: set[str] = set()
@@ -320,7 +531,19 @@ def initialise_exchange_manifest(
     *,
     layout: CodeBlockExchangeLayout,
 ) -> CodeBlockExchangeManifest:
-    """Create all declared port folders and return an initial manifest."""
+    """Create a folder for every declared port and return a starting manifest.
+
+    Allocates one folder per port under the inputs or outputs directory and
+    records each as a planned port in a fresh manifest, ready for inputs to be
+    written and outputs to be collected.
+
+    Args:
+        port_configs: The declared input and output ports for the run.
+        layout: The run's folder layout.
+
+    Returns:
+        A manifest with one ``"folder_created"`` record per port and no files yet.
+    """
 
     input_names: set[str] = set()
     output_names: set[str] = set()
@@ -360,7 +583,24 @@ def prepare_codeblock_exchange(
     materialise_adapter: MaterialiseAdapter,
     block_slug: str = "codeblock",
 ) -> CodeBlockExchangeManifest:
-    """Prepare exchange folders and materialise declared inputs."""
+    """Lay out the run's folders and write the declared inputs to files.
+
+    Creates the exchange folders, then, for each declared input port, writes its
+    value(s) to files using *materialise_adapter*. A required input with no value
+    records an error diagnostic; an optional one records a warning.
+
+    Args:
+        inputs: Input values keyed by input-port name.
+        port_configs: The declared input and output ports for the run.
+        exchange_root: Root folder that holds all runs' exchange directories.
+        block_id: Identifier of the block instance.
+        run_id: Identifier of this run.
+        materialise_adapter: Function that writes one data object to a file.
+        block_slug: Short label prefixed to the block folder name.
+
+    Returns:
+        The manifest after inputs are written, including any input diagnostics.
+    """
 
     layout = create_codeblock_exchange_layout(
         exchange_root,
@@ -417,7 +657,21 @@ def discover_declared_outputs(
     *,
     manifest: CodeBlockExchangeManifest,
 ) -> OutputDiscoveryResult:
-    """Discover declared output files and report missing or extra outputs."""
+    """Scan the output folders for the files the script wrote.
+
+    For each output port, lists the files whose extension matches the declared
+    one. Files with the wrong extension are ignored with a warning; a required
+    port that produced no matching file records an error; stray files or folders
+    directly under ``outputs/`` are noted as warnings. The manifest is updated
+    in place with the files and diagnostics found.
+
+    Args:
+        port_configs: The declared input and output ports for the run.
+        manifest: The run manifest, updated in place with discovered files.
+
+    Returns:
+        The matched files per output port together with the scan diagnostics.
+    """
 
     output_ports = [port for port in port_configs if port.direction == "output"]
     known_folders = {manifest.ports[(port.direction, port.name)].folder.resolve(): port for port in output_ports}
@@ -524,7 +778,24 @@ def collect_codeblock_outputs(
     manifest: CodeBlockExchangeManifest,
     reconstruct_adapter: ReconstructAdapter,
 ) -> dict[str, Collection]:
-    """Discover and reconstruct declared output files into Collections."""
+    """Read the script's output files back into typed collections.
+
+    Scans the output folders, then reads each matched file into a data object
+    with *reconstruct_adapter* and groups them into one collection per output
+    port. Fails if the scan found any blocking error (such as a missing required
+    output).
+
+    Args:
+        port_configs: The declared input and output ports for the run.
+        manifest: The run manifest, updated in place during discovery.
+        reconstruct_adapter: Function that reads one file into a data object.
+
+    Returns:
+        A mapping from each output-port name to its collection of data objects.
+
+    Raises:
+        CodeBlockExchangeError: If output discovery reports a blocking error.
+    """
 
     discovery = discover_declared_outputs(port_configs, manifest=manifest)
     if discovery.has_errors:

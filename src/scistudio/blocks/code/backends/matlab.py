@@ -1,4 +1,4 @@
-"""MATLAB and Octave backend for CodeBlock v2."""
+"""Backend that runs MATLAB and Octave Code Block scripts."""
 
 from __future__ import annotations
 
@@ -23,20 +23,44 @@ MatlabFamily = Literal["matlab", "octave"]
 
 @provisional(since="0.3.1")
 class MatlabRuntimeResolutionError(InterpreterResolutionError):
-    """Raised when MATLAB-family interpreter selection fails."""
+    """Raised when no usable MATLAB or Octave interpreter can be selected.
+
+    Common causes: neither MATLAB nor Octave is installed on the system path,
+    a configured interpreter path does not exist, or a MATLAB live script
+    (``.mlx``) is paired with Octave, which cannot run live scripts.
+    """
 
 
 @provisional(since="0.3.1")
 class MatlabCodeBlockBackend:
-    """MATLAB `.m` and `.mlx` backend for the ADR-041 shared runtime."""
+    """Run a Code Block script written for MATLAB or Octave (``.m``, ``.mlx``).
+
+    This backend runs MATLAB-family scripts. For a ``.m`` script it prefers
+    MATLAB and falls back to Octave when MATLAB is not installed; a ``.mlx``
+    live script requires MATLAB. You can pin a specific interpreter with the
+    Code Block's ``interpreter_mode`` / ``interpreter_path`` settings. The
+    process runs in the per-run exchange folder, where it reads its declared
+    inputs and writes its declared outputs.
+
+    Example:
+        >>> backend = MatlabCodeBlockBackend()
+        >>> sorted(backend.extensions)
+        ['.m', '.mlx']
+        >>> backend.supports(Path("model.mlx"), config)
+        True
+    """
 
     name = "matlab"
+    """Backend identifier used in the registry and provenance records."""
     extensions = frozenset({".m", ".mlx"})
+    """File extensions this backend handles (MATLAB scripts and live scripts)."""
 
     def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
+        """Return whether *script_path* is a MATLAB-family script this backend runs."""
         return script_path.suffix.lower() in self.extensions
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+        """Resolve a MATLAB or Octave interpreter and build its launch command."""
         suffix = context.script_path.suffix.lower()
         executable, family = resolve_matlab_executable(
             suffix=suffix,
@@ -62,6 +86,7 @@ class MatlabCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        """Launch MATLAB or Octave on the script and return the finished process."""
         return run_codeblock_process(
             argv=interpreter.argv,
             cwd=context.exchange_dir,
