@@ -596,6 +596,22 @@ class PreviewDataAccess:
         slots = {str(k): str(v) for k, v in slots_raw.items()} if isinstance(slots_raw, dict) else {}
         return CompositeSlots(slots=slots)
 
+    def composite_slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:
+        """Resolve the typed :class:`StorageReference` for one composite slot (FR-009, ADR-052 §8.5).
+
+        The runtime owns the composite on-disk layout (the ``CompositeStore``
+        manifest). This returns the slot's recorded ref so a provider can read a
+        single slot through the bounded readers (:meth:`dataframe_page`,
+        :meth:`series_points`, :meth:`array_plane`, :meth:`text_chunk`, ...)
+        **without constructing a StorageReference or knowing the storage layout**.
+
+        Returns ``None`` when the slot is not resolvable (no manifest / no such
+        slot), so the provider degrades gracefully.
+        """
+        from scistudio.core.storage.composite_store import CompositeStore
+
+        return CompositeStore().slot_ref(ref, slot_name)
+
     def composite_raster_slot(self, ref: StorageReference, slot_name: str = "raster") -> ArrayPlane | None:
         """Bounded read of a composite raster slot subdirectory, if present.
 
