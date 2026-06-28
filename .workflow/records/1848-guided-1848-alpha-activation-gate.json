@@ -1,0 +1,90 @@
+{
+  "branch": "guided/1848-alpha-activation-gate",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/**",
+      "scripts/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-28T20:37:17.288355Z",
+      "owner_directive": "\u5b9e\u73b0\u79bb\u7ebf\u7b7e\u540d\u6fc0\u6d3b\u95f8\u95e8:desktop activation \u6a21\u5757 + \u6fc0\u6d3b\u7a97\u53e3 GUI + \u5f00\u53d1\u8005\u7b7e\u53d1 CLI + \u6d4b\u8bd5 + \u6587\u6863\u3002Mac/Windows \u673a\u5668\u6307\u7eb9\u3002",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-28T20:37:17.288551Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/alpha-activation-gate.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1848,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u9632\u6b62 alpha tester \u672a\u7ecf\u5141\u8bb8\u4f20\u64ad\u6784\u5efa:\u79bb\u7ebf\u96f6\u670d\u52a1\u5668\u3001\u6bcf\u673a\u4e00\u7801\u7684\u6fc0\u6d3b\u95f8\u95e8\u2014\u2014\u6ca1\u6709\u5408\u6cd5 token \u5c31\u6253\u4e0d\u5f00 app\u3002GUI:\u63d0\u793a\u6587\u5b57+\u673a\u5668\u6307\u7eb9(\u5e26\u590d\u5236)+token\u8f93\u5165\u6846+\u6fc0\u6d3b\u6309\u94ae\u3002Mac+Windows \u90fd\u652f\u6301\u3002alpha \u4e34\u65f6\u6a21\u5757,beta \u6574\u4f53\u5220\u9664\u3002",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1848-guided-1848-alpha-activation-gate",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-28T20:37:17.288531Z",
+      "pattern": "desktop/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T20:37:17.288535Z",
+      "pattern": "scripts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T20:37:17.288537Z",
+      "pattern": "docs/alpha-activation-gate.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "945f4a8a-9e47-4c21-b82c-e4c9b522eb61",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-28T20:37:17.288557Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/activation.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
