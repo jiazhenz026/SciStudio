@@ -1,6 +1,6 @@
 """Tests for the six base-class reconstruction hooks (T-013 + T-014).
 
-Exercises the ``_reconstruct_extra_kwargs`` / ``_serialise_extra_metadata``
+Exercises the ``reconstruct_extra_kwargs`` / ``serialise_extra_metadata``
 classmethod pair that T-013 adds to :class:`DataObject`,
 :class:`Array`, :class:`Series`, :class:`DataFrame`, :class:`Text`,
 :class:`Artifact`, and :class:`CompositeData` per ADR-027 Addendum 1
@@ -46,11 +46,11 @@ def test_dataobject_default_hooks_return_empty_dict() -> None:
     (``storage_ref``, ``framework``, ``meta``, ``user``) and therefore
     has no extras to round-trip. Concrete base classes override.
     """
-    assert DataObject._reconstruct_extra_kwargs({}) == {}
-    assert DataObject._reconstruct_extra_kwargs({"junk": 1}) == {}
+    assert DataObject.reconstruct_extra_kwargs({}) == {}
+    assert DataObject.reconstruct_extra_kwargs({"junk": 1}) == {}
 
     obj = DataObject()
-    assert DataObject._serialise_extra_metadata(obj) == {}
+    assert DataObject.serialise_extra_metadata(obj) == {}
 
 
 def test_dataobject_hooks_are_classmethods() -> None:
@@ -58,13 +58,13 @@ def test_dataobject_hooks_are_classmethods() -> None:
     import inspect
 
     # classmethod objects expose __self__ == the class after binding.
-    cls_kwargs_fn = DataObject.__dict__["_reconstruct_extra_kwargs"]
-    cls_md_fn = DataObject.__dict__["_serialise_extra_metadata"]
+    cls_kwargs_fn = DataObject.__dict__["reconstruct_extra_kwargs"]
+    cls_md_fn = DataObject.__dict__["serialise_extra_metadata"]
     assert isinstance(cls_kwargs_fn, classmethod)
     assert isinstance(cls_md_fn, classmethod)
     # And calling them on the class works without an instance.
-    assert inspect.signature(DataObject._reconstruct_extra_kwargs).parameters
-    assert inspect.signature(DataObject._serialise_extra_metadata).parameters
+    assert inspect.signature(DataObject.reconstruct_extra_kwargs).parameters
+    assert inspect.signature(DataObject.serialise_extra_metadata).parameters
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ def test_dataobject_hooks_are_classmethods() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_array_reconstruct_extra_kwargs_returns_correct_fields() -> None:
+def test_arrayreconstruct_extra_kwargs_returns_correct_fields() -> None:
     """Array extracts axes/shape/dtype/chunk_shape and tuplifies shape fields."""
     metadata = {
         "axes": ["t", "z", "y", "x"],
@@ -80,7 +80,7 @@ def test_array_reconstruct_extra_kwargs_returns_correct_fields() -> None:
         "dtype": "uint16",
         "chunk_shape": [1, 1, 64, 64],
     }
-    kwargs = Array._reconstruct_extra_kwargs(metadata)
+    kwargs = Array.reconstruct_extra_kwargs(metadata)
 
     assert kwargs == {
         "axes": ["t", "z", "y", "x"],
@@ -93,17 +93,17 @@ def test_array_reconstruct_extra_kwargs_returns_correct_fields() -> None:
     assert isinstance(kwargs["chunk_shape"], tuple)
 
 
-def test_array_reconstruct_extra_kwargs_handles_metadata_only() -> None:
+def test_arrayreconstruct_extra_kwargs_handles_metadata_only() -> None:
     """Array with no shape / chunk_shape round-trips as None, not empty tuple."""
     metadata = {"axes": ["y", "x"], "dtype": None}
-    kwargs = Array._reconstruct_extra_kwargs(metadata)
+    kwargs = Array.reconstruct_extra_kwargs(metadata)
     assert kwargs["axes"] == ["y", "x"]
     assert kwargs["shape"] is None
     assert kwargs["dtype"] is None
     assert kwargs["chunk_shape"] is None
 
 
-def test_array_serialise_extra_metadata_returns_correct_fields() -> None:
+def test_arrayserialise_extra_metadata_returns_correct_fields() -> None:
     """Array emits JSON-clean lists for shape fields and a stringified dtype."""
     arr = Array(
         axes=["y", "x"],
@@ -111,7 +111,7 @@ def test_array_serialise_extra_metadata_returns_correct_fields() -> None:
         dtype="float32",
         chunk_shape=(32, 48),
     )
-    md = Array._serialise_extra_metadata(arr)
+    md = Array.serialise_extra_metadata(arr)
     assert md == {
         "axes": ["y", "x"],
         "shape": [32, 48],
@@ -131,8 +131,8 @@ def test_array_round_trip_via_hooks() -> None:
         dtype="uint8",
         chunk_shape=(1, 1, 1, 256, 256),
     )
-    md = Array._serialise_extra_metadata(original)
-    kwargs = Array._reconstruct_extra_kwargs(md)
+    md = Array.serialise_extra_metadata(original)
+    kwargs = Array.reconstruct_extra_kwargs(md)
     reconstructed = Array(**kwargs)
 
     assert reconstructed.axes == original.axes
@@ -144,8 +144,8 @@ def test_array_round_trip_via_hooks() -> None:
 def test_array_round_trip_metadata_only_none_fields() -> None:
     """Metadata-only Array (shape=None, chunk_shape=None) round-trips cleanly."""
     original = Array(axes=["y", "x"])
-    md = Array._serialise_extra_metadata(original)
-    kwargs = Array._reconstruct_extra_kwargs(md)
+    md = Array.serialise_extra_metadata(original)
+    kwargs = Array.reconstruct_extra_kwargs(md)
     reconstructed = Array(**kwargs)
 
     assert reconstructed.axes == ["y", "x"]
@@ -159,18 +159,18 @@ def test_array_round_trip_metadata_only_none_fields() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_series_reconstruct_extra_kwargs_returns_correct_fields() -> None:
+def test_seriesreconstruct_extra_kwargs_returns_correct_fields() -> None:
     metadata = {
         "index_name": "wavenumber",
         "value_name": "intensity",
         "length": 2048,
     }
-    assert Series._reconstruct_extra_kwargs(metadata) == metadata
+    assert Series.reconstruct_extra_kwargs(metadata) == metadata
 
 
-def test_series_serialise_extra_metadata_returns_correct_fields() -> None:
+def test_seriesserialise_extra_metadata_returns_correct_fields() -> None:
     series = Series(index_name="time", value_name="voltage", length=1000)
-    md = Series._serialise_extra_metadata(series)
+    md = Series.serialise_extra_metadata(series)
     assert md == {
         "index_name": "time",
         "value_name": "voltage",
@@ -180,8 +180,8 @@ def test_series_serialise_extra_metadata_returns_correct_fields() -> None:
 
 def test_series_round_trip_via_hooks() -> None:
     original = Series(index_name="mz", value_name="intensity", length=4096)
-    md = Series._serialise_extra_metadata(original)
-    kwargs = Series._reconstruct_extra_kwargs(md)
+    md = Series.serialise_extra_metadata(original)
+    kwargs = Series.reconstruct_extra_kwargs(md)
     reconstructed = Series(**kwargs)
 
     assert reconstructed.index_name == original.index_name
@@ -192,7 +192,7 @@ def test_series_round_trip_via_hooks() -> None:
 def test_series_round_trip_with_missing_fields() -> None:
     """Missing optional fields round-trip as ``None``."""
     md: dict = {}
-    kwargs = Series._reconstruct_extra_kwargs(md)
+    kwargs = Series.reconstruct_extra_kwargs(md)
     reconstructed = Series(**kwargs)
     assert reconstructed.index_name is None
     assert reconstructed.value_name is None
@@ -204,13 +204,13 @@ def test_series_round_trip_with_missing_fields() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dataframe_reconstruct_extra_kwargs_returns_correct_fields() -> None:
+def test_dataframereconstruct_extra_kwargs_returns_correct_fields() -> None:
     metadata = {
         "columns": ["a", "b", "c"],
         "row_count": 42,
         "schema": {"a": "int64", "b": "float64", "c": "string"},
     }
-    kwargs = DataFrame._reconstruct_extra_kwargs(metadata)
+    kwargs = DataFrame.reconstruct_extra_kwargs(metadata)
     assert kwargs == {
         "columns": ["a", "b", "c"],
         "row_count": 42,
@@ -218,9 +218,9 @@ def test_dataframe_reconstruct_extra_kwargs_returns_correct_fields() -> None:
     }
 
 
-def test_dataframe_serialise_extra_metadata_returns_correct_fields() -> None:
+def test_dataframeserialise_extra_metadata_returns_correct_fields() -> None:
     df = DataFrame(columns=["x", "y"], row_count=100, schema={"x": "int", "y": "float"})
-    md = DataFrame._serialise_extra_metadata(df)
+    md = DataFrame.serialise_extra_metadata(df)
     assert md == {
         "columns": ["x", "y"],
         "row_count": 100,
@@ -234,8 +234,8 @@ def test_dataframe_round_trip_via_hooks() -> None:
         row_count=5000,
         schema={"peak_mz": "float64", "peak_intensity": "float64", "retention_time": "float64"},
     )
-    md = DataFrame._serialise_extra_metadata(original)
-    kwargs = DataFrame._reconstruct_extra_kwargs(md)
+    md = DataFrame.serialise_extra_metadata(original)
+    kwargs = DataFrame.reconstruct_extra_kwargs(md)
     reconstructed = DataFrame(**kwargs)
 
     assert reconstructed.columns == original.columns
@@ -245,7 +245,7 @@ def test_dataframe_round_trip_via_hooks() -> None:
 
 def test_dataframe_round_trip_empty_defaults() -> None:
     """A DataFrame reconstructed from an empty metadata dict has empty column/schema."""
-    kwargs = DataFrame._reconstruct_extra_kwargs({})
+    kwargs = DataFrame.reconstruct_extra_kwargs({})
     reconstructed = DataFrame(**kwargs)
     assert reconstructed.columns == []
     assert reconstructed.row_count is None
@@ -257,9 +257,9 @@ def test_dataframe_round_trip_empty_defaults() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_text_reconstruct_extra_kwargs_returns_correct_fields() -> None:
+def test_textreconstruct_extra_kwargs_returns_correct_fields() -> None:
     metadata = {"content": "hello", "format": "markdown", "encoding": "utf-16"}
-    kwargs = Text._reconstruct_extra_kwargs(metadata)
+    kwargs = Text.reconstruct_extra_kwargs(metadata)
     assert kwargs == {
         "content": "hello",
         "format": "markdown",
@@ -267,22 +267,22 @@ def test_text_reconstruct_extra_kwargs_returns_correct_fields() -> None:
     }
 
 
-def test_text_reconstruct_extra_kwargs_applies_defaults() -> None:
+def test_textreconstruct_extra_kwargs_applies_defaults() -> None:
     """Missing format/encoding fall back to the constructor defaults."""
-    kwargs = Text._reconstruct_extra_kwargs({})
+    kwargs = Text.reconstruct_extra_kwargs({})
     assert kwargs == {"content": None, "format": "plain", "encoding": "utf-8"}
 
 
-def test_text_serialise_extra_metadata_returns_correct_fields() -> None:
+def test_textserialise_extra_metadata_returns_correct_fields() -> None:
     text = Text(content="ABC", format="plain", encoding="utf-8")
-    md = Text._serialise_extra_metadata(text)
+    md = Text.serialise_extra_metadata(text)
     assert md == {"content": "ABC", "format": "plain", "encoding": "utf-8"}
 
 
 def test_text_round_trip_via_hooks() -> None:
     original = Text(content="# Heading\n\nbody", format="markdown", encoding="utf-8")
-    md = Text._serialise_extra_metadata(original)
-    kwargs = Text._reconstruct_extra_kwargs(md)
+    md = Text.serialise_extra_metadata(original)
+    kwargs = Text.reconstruct_extra_kwargs(md)
     reconstructed = Text(**kwargs)
 
     assert reconstructed.content == original.content
@@ -295,34 +295,34 @@ def test_text_round_trip_via_hooks() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_artifact_reconstruct_extra_kwargs_returns_correct_fields() -> None:
+def test_artifactreconstruct_extra_kwargs_returns_correct_fields() -> None:
     metadata = {
         "file_path": "/tmp/report.pdf",
         "mime_type": "application/pdf",
         "description": "Quarterly report",
     }
-    kwargs = Artifact._reconstruct_extra_kwargs(metadata)
+    kwargs = Artifact.reconstruct_extra_kwargs(metadata)
     assert kwargs["file_path"] == Path("/tmp/report.pdf")
     assert isinstance(kwargs["file_path"], Path)
     assert kwargs["mime_type"] == "application/pdf"
     assert kwargs["description"] == "Quarterly report"
 
 
-def test_artifact_reconstruct_extra_kwargs_handles_none_path() -> None:
+def test_artifactreconstruct_extra_kwargs_handles_none_path() -> None:
     """A missing file_path round-trips as ``None``, not ``Path('.')``."""
-    kwargs = Artifact._reconstruct_extra_kwargs({})
+    kwargs = Artifact.reconstruct_extra_kwargs({})
     assert kwargs["file_path"] is None
     assert kwargs["mime_type"] is None
     assert kwargs["description"] == ""
 
 
-def test_artifact_serialise_extra_metadata_returns_correct_fields() -> None:
+def test_artifactserialise_extra_metadata_returns_correct_fields() -> None:
     artifact = Artifact(
         file_path=Path("/tmp/output.bin"),
         mime_type="application/octet-stream",
         description="binary dump",
     )
-    md = Artifact._serialise_extra_metadata(artifact)
+    md = Artifact.serialise_extra_metadata(artifact)
     # file_path must be stringified (JSON-clean).
     assert md["file_path"] == str(Path("/tmp/output.bin"))
     assert isinstance(md["file_path"], str)
@@ -336,13 +336,13 @@ def test_artifact_round_trip_via_hooks() -> None:
         mime_type="image/png",
         description="test figure",
     )
-    md = Artifact._serialise_extra_metadata(original)
+    md = Artifact.serialise_extra_metadata(original)
     # Verify the wire format is JSON-clean (no Path objects).
     import json
 
     json.dumps(md)  # must not raise
 
-    kwargs = Artifact._reconstruct_extra_kwargs(md)
+    kwargs = Artifact.reconstruct_extra_kwargs(md)
     reconstructed = Artifact(**kwargs)
 
     assert reconstructed.file_path == original.file_path
@@ -353,9 +353,9 @@ def test_artifact_round_trip_via_hooks() -> None:
 def test_artifact_round_trip_none_path() -> None:
     """Artifact with file_path=None round-trips cleanly."""
     original = Artifact(file_path=None, mime_type="text/plain", description="")
-    md = Artifact._serialise_extra_metadata(original)
+    md = Artifact.serialise_extra_metadata(original)
     assert md["file_path"] is None
-    kwargs = Artifact._reconstruct_extra_kwargs(md)
+    kwargs = Artifact.reconstruct_extra_kwargs(md)
     reconstructed = Artifact(**kwargs)
     assert reconstructed.file_path is None
 
@@ -363,8 +363,8 @@ def test_artifact_round_trip_none_path() -> None:
 # ---------------------------------------------------------------------------
 # CompositeData slots — round-4 no-cycles (#1342)
 #
-# CompositeData no longer overrides ``_serialise_extra_metadata`` /
-# ``_reconstruct_extra_kwargs``. Its slots are nested ``DataObject``s, and the
+# CompositeData no longer overrides ``serialise_extra_metadata`` /
+# ``reconstruct_extra_kwargs``. Its slots are nested ``DataObject``s, and the
 # recursion that (de)serialises them is owned by the serialiser itself
 # (``_serialise_one`` / ``_reconstruct_one`` handle the CompositeData case) so
 # the type does not import the serialiser back — that edge closed a
@@ -594,20 +594,20 @@ def test_all_six_base_classes_have_both_hooks(base_class: type) -> None:
     """Every core base class must declare both hook classmethods.
 
     This is the contract T-014's worker relies on: it calls
-    ``cls._reconstruct_extra_kwargs(md)`` and
-    ``type(obj)._serialise_extra_metadata(obj)`` unconditionally,
+    ``cls.reconstruct_extra_kwargs(md)`` and
+    ``type(obj).serialise_extra_metadata(obj)`` unconditionally,
     trusting that every registered type provides them (inherited from
     the :class:`DataObject` default if not overridden).
     """
-    assert hasattr(base_class, "_reconstruct_extra_kwargs")
-    assert hasattr(base_class, "_serialise_extra_metadata")
+    assert hasattr(base_class, "reconstruct_extra_kwargs")
+    assert hasattr(base_class, "serialise_extra_metadata")
     # Must be classmethods (callable off the class directly).
-    assert callable(base_class._reconstruct_extra_kwargs)
-    assert callable(base_class._serialise_extra_metadata)
+    assert callable(base_class.reconstruct_extra_kwargs)
+    assert callable(base_class.serialise_extra_metadata)
     # Default behaviour on an empty metadata dict must not raise
     # (except for CompositeData, whose empty-slots short-circuit is
     # already verified above — but even there, {} should be safe).
-    result = base_class._reconstruct_extra_kwargs({})
+    result = base_class.reconstruct_extra_kwargs({})
     assert isinstance(result, dict)
 
 
@@ -620,14 +620,14 @@ class _PluginArray(Array):
     """Hypothetical plugin subclass that adds an extra geometry field."""
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
-        kwargs = super()._reconstruct_extra_kwargs(metadata)
+    def reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
+        kwargs = super().reconstruct_extra_kwargs(metadata)
         kwargs["_plugin_extra"] = metadata.get("plugin_extra", "default")
         return kwargs
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: _PluginArray) -> dict:
-        md = super()._serialise_extra_metadata(obj)
+    def serialise_extra_metadata(cls, obj: _PluginArray) -> dict:
+        md = super().serialise_extra_metadata(obj)
         md["plugin_extra"] = getattr(obj, "_plugin_extra", "default")
         return md
 
@@ -637,8 +637,8 @@ def test_plugin_subclass_can_override_and_super() -> None:
 
     ADR-027 Addendum 1 §2 documents this as the override pattern:
     plugin subclasses that add geometry-like fields outside the ``Meta``
-    Pydantic model override ``_reconstruct_extra_kwargs`` and call
-    ``super()._reconstruct_extra_kwargs(metadata)`` to inherit the
+    Pydantic model override ``reconstruct_extra_kwargs`` and call
+    ``super().reconstruct_extra_kwargs(metadata)`` to inherit the
     parent class's extras, then extend the returned dict.
     """
     metadata = {
@@ -648,7 +648,7 @@ def test_plugin_subclass_can_override_and_super() -> None:
         "chunk_shape": None,
         "plugin_extra": "hyperspectral",
     }
-    kwargs = _PluginArray._reconstruct_extra_kwargs(metadata)
+    kwargs = _PluginArray.reconstruct_extra_kwargs(metadata)
     # Parent-class extras are present.
     assert kwargs["axes"] == ["y", "x"]
     assert kwargs["shape"] == (8, 8)

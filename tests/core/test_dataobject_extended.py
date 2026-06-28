@@ -10,7 +10,7 @@ backward-compat path; the comprehensive shim tests live in
 
 from __future__ import annotations
 
-import warnings
+import inspect
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -91,37 +91,29 @@ class TestUserSlotValidation:
             DataObject(user={"data": b"\x00\x01"})
 
 
-class TestMetadataDeprecationShim:
-    """Regression guard for the Phase 10 backward-compat shim.
+class TestMetadataShimRemoved:
+    """The Phase-11 ``metadata`` deprecation shim is deleted (ADR-052 §3.1 / §16).
 
     The legacy ``DataObject(metadata=...)`` constructor kwarg and the
-    ``DataObject.metadata`` property both still work and emit
-    DeprecationWarning. They are removed in Phase 11.
-
-    Comprehensive shim coverage lives in
-    ``tests/core/test_stratified_metadata.py``; this class exists so a
-    breaking change to the shim trips a test in this file as well.
+    ``DataObject.metadata`` property are removed in #1817. Comprehensive
+    removal coverage lives in ``tests/core/test_stratified_metadata.py``; this
+    class exists so a regression that re-introduces the shim trips a test in
+    this file as well.
     """
 
-    def test_legacy_metadata_kwarg_still_works(self) -> None:
-        with pytest.warns(DeprecationWarning):
-            obj = DataObject(metadata={"legacy": True})
-        assert obj.user == {"legacy": True}
+    def test_metadata_property_is_gone(self) -> None:
+        _absent = object()
+        assert inspect.getattr_static(DataObject, "metadata", _absent) is _absent
 
-    def test_legacy_metadata_property_still_works(self) -> None:
-        obj = DataObject(user={"key": "val"})
-        with pytest.warns(DeprecationWarning):
-            value = obj.metadata
-        assert value == {"key": "val"}
+    def test_metadata_kwarg_removed_from_signature(self) -> None:
+        params = inspect.signature(DataObject.__init__).parameters
+        assert "metadata" not in params, f"DataObject.__init__ must not accept metadata=; got {list(params)}"
 
-    def test_legacy_metadata_validation_still_runs(self) -> None:
-        # The shim routes ``metadata=`` into ``user``, so the same JSON
-        # validation applies. (Two warnings are expected here: the
-        # deprecation warning, then the TypeError from validation.)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            with pytest.raises(TypeError, match="JSON-serialisable"):
-                DataObject(metadata={"bad": {1, 2, 3}})
+    def test_user_slot_still_validates_json(self) -> None:
+        # The supported three-slot ``user`` API keeps the JSON validation the
+        # shim used to route into.
+        with pytest.raises(TypeError, match="JSON-serialisable"):
+            DataObject(user={"bad": {1, 2, 3}})
 
 
 class TestDataObjectStorageRef:

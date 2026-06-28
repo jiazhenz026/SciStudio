@@ -26,9 +26,15 @@ the other contract files in tests/contracts/:
    points. The block count is not part of the contract (it grows as
    new blocks are added), but the API shape is.
 
-5. **TypeRegistry public-API contract**: Similarly for the type
-   registry: ``all_types()`` and ``scan_builtins()`` must be stable,
-   and built-in types must include the documented base data objects.
+5. **TypeRegistry internal runtime-registry shape**: ADR-052 §3.9
+   demotes ``TypeRegistry`` to **internal** (dropped from
+   ``scistudio.core.types.__all__``; 0 author-facing importers). It is
+   no longer a public-API contract. These remain useful invariants on the
+   *internal* registry reached via the deep
+   ``scistudio.core.types.registry`` path: ``all_types()`` and
+   ``scan_builtins()`` keep their shape and built-in types include the
+   documented base data objects — an internal-stability check, not an
+   author-facing promise.
 
 TODO(#1452): EventBus block_type contract (4 xfail rows), MCP/API
   schema parity contract (2 xfail rows), and IO roundtrip group
@@ -311,7 +317,11 @@ def test_block_spec_has_required_contract_fields() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5. TypeRegistry public-API contract.
+# 5. TypeRegistry internal runtime-registry shape.
+#    ADR-052 §3.9 demotes TypeRegistry to internal (dropped from
+#    scistudio.core.types.__all__). The checks below assert the INTERNAL
+#    registry shape reached via the deep scistudio.core.types.registry path —
+#    not an author-facing public-API promise.
 # ---------------------------------------------------------------------------
 
 # Documented base data objects from ADR-033 / scistudio core type tree.
@@ -330,8 +340,12 @@ _REQUIRED_BUILTIN_TYPES = {
 }
 
 
-def test_type_registry_public_api_shape() -> None:
-    """TypeRegistry must expose ``scan_builtins()`` and ``all_types()``."""
+def test_type_registry_internal_shape() -> None:
+    """Internal ``TypeRegistry`` must expose ``scan_builtins()`` and ``all_types()``.
+
+    ADR-052 §3.9: ``TypeRegistry`` is internal (reached via the deep
+    ``scistudio.core.types.registry`` path), not public API.
+    """
     from scistudio.core.types.registry import TypeRegistry
 
     tr = TypeRegistry()
