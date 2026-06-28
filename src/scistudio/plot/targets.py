@@ -1,14 +1,14 @@
-"""Plot target discovery + deterministic target IDs (ADR-048 SPEC 2 FR-005, FR-006).
+"""Discover plot targets and mint their deterministic target IDs.
 
 A *plot target* is one output port of one workflow node. Discovery walks the
 project's ``workflows/*.yaml`` files for the static graph (node id, block type,
-output port) and overlays the latest live run output (``ctx.workflow_runs``) for
-availability + run id.
+output port) and overlays the latest live run output (from the context's recorded
+runs) so each target also reports whether data is available and which run
+produced it.
 
-The ``target_id`` is a short stable hash of ``workflow_path | node_id |
-output_port`` so two repeated blocks with identical labels still get distinct
-selectors (SC-002). Binding is ALWAYS by node id + output port, never by human
-label (anti-pattern called out in FR-011 and the skill).
+Each ``target_id`` is a short stable hash of the workflow path, node id, and
+output port, so two repeated blocks with identical labels still get distinct
+selectors. Binding is ALWAYS by node id + output port, never by the human label.
 """
 
 from __future__ import annotations
@@ -28,10 +28,27 @@ _TARGET_ID_LEN = 16
 
 
 def make_target_id(workflow_path: str, node_id: str, output_port: str) -> str:
-    """Deterministic opaque target id from stable identity (FR-006).
+    """Build the stable, opaque id for one workflow output.
 
-    Uses forward-slash-normalised workflow path so the id is stable across
-    platforms.
+    The id is a short hash of the workflow path, node id, and output port, so the
+    same output always maps to the same id and two outputs never collide. The
+    workflow path is forward-slash-normalised first so the id is identical across
+    Windows and POSIX.
+
+    Args:
+        workflow_path: Project-relative path of the workflow file.
+        node_id: Stable id of the node that produces the output.
+        output_port: Name of the node's output port.
+
+    Returns:
+        An opaque ``"tgt_"``-prefixed identifier.
+
+    Example:
+        >>> tid = make_target_id("workflows/main.yaml", "node-7", "table")
+        >>> tid.startswith("tgt_")
+        True
+        >>> tid == make_target_id("workflows/main.yaml", "node-7", "table")
+        True
     """
     norm_path = workflow_path.replace("\\", "/")
     raw = f"{norm_path}|{node_id}|{output_port}".encode()
@@ -140,10 +157,32 @@ def _looks_like_collection(value: Any) -> bool:
 def discover_targets(
     ctx: PlotRuntimeContext, workflow_path: str | None = None, include_unavailable: bool = True
 ) -> list[PlotTarget]:
-    """Enumerate plot targets across the project's workflows (FR-005).
+    """List every plottable output across the project's workflows.
 
-    The caller injects *ctx* (REST: ``ApiRuntime``; MCP: the agent context);
-    the engine never reaches a global context (#1824).
+    Walks the project's workflows, resolves each node's output ports, and overlays
+    the latest recorded run so each target reports whether data is ready to plot.
+    This is what backs ``list_plot_targets``: call it, then bind a plot to one of
+    the returned ``target_id`` values.
+
+    Args:
+        ctx: The injected runtime context (the REST API runtime or the agent
+            context); the engine never reaches a global context.
+        workflow_path: Restrict discovery to this one workflow file when given;
+            otherwise scan every workflow in ``workflows/``.
+        include_unavailable: When ``True``, also return targets that have no
+            recorded output yet (and nodes whose block type is not installed),
+            each annotated with a diagnostic. When ``False``, return only targets
+            that can be plotted right now.
+
+    Returns:
+        The discovered :class:`~scistudio.plot.models.PlotTarget` objects.
+
+    Raises:
+        RuntimeError: When no project is currently open.
+
+    Example:
+        >>> targets = discover_targets(ctx)  # doctest: +SKIP
+        >>> ready = [t.target_id for t in targets if t.latest_output_available]  # doctest: +SKIP
     """
     root = resolve_project_root(ctx)
 
@@ -217,7 +256,22 @@ def discover_targets(
 def resolve_target_by_id(
     ctx: PlotRuntimeContext, target_id: str, workflow_path: str | None = None
 ) -> PlotTarget | None:
-    """Return the :class:`PlotTarget` for ``target_id`` or ``None`` (FR-006)."""
+    """Look up the discovered target with a given ``target_id``.
+
+    Runs discovery and returns the single matching target, or ``None`` when no
+    target has that id (for example after the bound node was deleted).
+
+    Args:
+        ctx: The injected runtime context.
+        target_id: The opaque id to look up.
+        workflow_path: Restrict the search to this one workflow file when given.
+
+    Returns:
+        The matching :class:`~scistudio.plot.models.PlotTarget`, or ``None``.
+
+    Raises:
+        RuntimeError: When no project is currently open.
+    """
     for target in discover_targets(ctx, workflow_path=workflow_path, include_unavailable=True):
         if target.target_id == target_id:
             return target
