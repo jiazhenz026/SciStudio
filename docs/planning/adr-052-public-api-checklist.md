@@ -165,5 +165,6 @@ Append only.
 - [x] Manager reviewed every changed file (scope-checked per agent; reconciled all gate findings).
 - [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux (recorded as guard event), commit; PR provenance recorded post-PR.
 - [x] PR closes #1833 — final PR **#1842** via `scripts/scistudio_pr_create.py`.
-- [~] CI passed — `admin-approved:core-change` label applied (owner-authorized scope; protected core); the `Workflow Gate Check` re-runs on the `labeled` event and validates the labeling-actor provenance. The Codex `ai-review.yml` workflow was re-enabled (it was `disabled_manually`) and is re-triggered by this push so the Codex auto-review runs.
-- [~] Checklist final state matches PR and gate record.
+- [x] CI passed — **17/17 green** (incl. `Verify Workflow Compliance`/`core_change_guard` after the `admin-approved:core-change` label, `Codex PR Review`, both Python test matrices, Type Check, Full Audit). Label applied as the owner (admin actor → provenance validated).
+- [x] Codex auto-review — `ai-review.yml` re-enabled (was `disabled_manually`) + re-triggered; it **ran** and posted to the PR. The Codex agent errored on `401 Unauthorized: Failed to refresh token` (the repo `CODEX_AUTH_JSON` secret is expired) → no code-review findings to address; the review CHECK still passes (`continue-on-error`). Owner action: refresh `CODEX_AUTH_JSON` for future substantive Codex reviews.
+- [x] Checklist final state matches PR and gate record.
