@@ -104,6 +104,11 @@ class BlockSpec:
     file_mtime: float | None = None
     base_category: str = ""
     subcategory: str = ""
+    # #1839: optional canvas-node display hints copied from the class-level
+    # ``Block.ui_color`` / ``Block.ui_icon`` ClassVars at scan time. ``None``
+    # means "use the base_category default" on the frontend.
+    ui_color: str | None = None
+    ui_icon: str | None = None
     input_ports: list[Any] = field(default_factory=list)
     output_ports: list[Any] = field(default_factory=list)
     config_schema: dict[str, Any] = field(default_factory=dict)

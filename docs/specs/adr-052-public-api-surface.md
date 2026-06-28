@@ -461,6 +461,7 @@ Block-authoring declaration (ClassVars an author sets on their block class):
 |----|--------|------|-------------|------|-------|-------|
 | ✅ | `name` / `description` / `version` | ClassVar | Public | stable | 0.3.1 | identity / display |
 | ✅ | `subcategory` | ClassVar | Public | stable | 0.3.1 | palette grouping (#588) |
+| ✅ | `ui_color` / `ui_icon` | ClassVar | Public | **provisional** | 0.3.1 | owner 2026-06-28: opt-in canvas-node color (CSS hex) + icon (Lucide name) (#1839); `block-declared ?? category default`. Frontend resolution (curated icon set, color derivation) still settling; additive/non-breaking |
 | ✅ | `input_ports` / `output_ports` | ClassVar | Public | stable | 0.3.1 | static port declaration |
 | ✅ | `variadic_inputs` / `variadic_outputs` | ClassVar | Public | stable | 0.3.1 | ADR-029 variadic ports |
 | ✅ | `allowed_input_types` / `allowed_output_types` | ClassVar | Public | stable | 0.3.1 | ADR-029 type constraints |

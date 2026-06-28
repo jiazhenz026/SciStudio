@@ -42,6 +42,25 @@ class Block(ABC):
     # overridden by a ClassVar. See issue #588.
     subcategory: ClassVar[str] = ""
 
+    # #1839: optional canvas-node display hints. A block may declare its own
+    # node color and/or icon; the frontend resolves them as
+    # ``block-declared ?? category default ?? CUSTOM`` (mirrors the established
+    # ``TypeHierarchyEntry.ui_ring_color`` port-color precedent). Blocks that
+    # leave these ``None`` render exactly as today, by base_category default.
+    #
+    # ``ui_color`` is a CSS hex string (e.g. ``"#ff5733"``); the frontend
+    # derives foreground/border shades from it. ``ui_icon`` is a Lucide icon
+    # *name* string (e.g. ``"Microscope"``) resolved against the bundled Lucide
+    # set; an unknown name silently falls back to the category icon (never an
+    # error, never a missing glyph).
+    #
+    # Stability: provisional (ADR-052 §4.1) — opt-in display hints whose
+    # frontend resolution (curated icon set, color derivation) is still
+    # settling; additive and non-breaking, eligible for promotion to stable
+    # once the resolution semantics stabilise.
+    ui_color: ClassVar[str | None] = None
+    ui_icon: ClassVar[str | None] = None
+
     input_ports: ClassVar[list[InputPort]] = []
     output_ports: ClassVar[list[OutputPort]] = []
 

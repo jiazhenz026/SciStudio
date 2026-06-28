@@ -908,6 +908,48 @@ class TestVariadicPortsSpec:
         assert spec.allowed_output_types == []
 
 
+class TestNodeVisualSpec:
+    """#1839: _spec_from_class() copies the optional ui_color/ui_icon ClassVars."""
+
+    def test_block_without_visuals_yields_none(self) -> None:
+        """A block declaring neither hint yields ui_color=None, ui_icon=None."""
+        from typing import Any, ClassVar
+
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
+
+        class _PlainBlock(Block):
+            name: ClassVar[str] = "PlainVisualBlock"
+
+            def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+                return {}
+
+        spec = _spec_from_class(_PlainBlock)
+        assert spec.ui_color is None
+        assert spec.ui_icon is None
+
+    def test_block_with_visuals_carries_them(self) -> None:
+        """A block declaring ui_color/ui_icon has them copied onto the spec."""
+        from typing import Any, ClassVar
+
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
+
+        class _VisualBlock(Block):
+            name: ClassVar[str] = "VisualBlock"
+            ui_color: ClassVar[str | None] = "#ff5733"
+            ui_icon: ClassVar[str | None] = "Microscope"
+
+            def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+                return {}
+
+        spec = _spec_from_class(_VisualBlock)
+        assert spec.ui_color == "#ff5733"
+        assert spec.ui_icon == "Microscope"
+
+
 class TestPortCountLimitsSpec:
     """ADR-029 Addendum 1: _spec_from_class() populates min/max port count limits."""
 

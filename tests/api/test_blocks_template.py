@@ -194,3 +194,18 @@ def test_template_preimports_every_advertised_type(client: TestClient) -> None:
             f"{type_name} is advertised in the template but not imported in the "
             "executable body — switching a port to it would NameError on import"
         )
+
+
+def test_template_basic_documents_node_visual_hints(client: TestClient) -> None:
+    """#1839: the basic template teaches the optional ui_color / ui_icon hints.
+
+    These are a teaching surface (memory: author guidance lives IN the starter
+    template, not in separate docs). The hints must be present as commented
+    guidance so a non-programmer author discovers them, and the template must
+    stay syntactically valid Python (they are comments, not active code).
+    """
+    content = _template(client)
+    assert "ui_color" in content
+    assert "ui_icon" in content
+    # #1839 lands them commented-out (opt-in); the served module must still parse.
+    ast.parse(content)

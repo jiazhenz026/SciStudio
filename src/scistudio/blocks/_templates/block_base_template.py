@@ -194,6 +194,13 @@ class MyBlock(Block):
     name: ClassVar[str] = "My Block"
     description: ClassVar[str] = "Describe what this block does."
 
+    # Optional canvas-node look (#1839). Leave unset to use your block's
+    # category default (recommended). To give your block its own node color and
+    # icon, uncomment and set:
+    #   ui_color: ClassVar[str | None] = "#ff5733"   # CSS hex; fg/border derived
+    #   ui_icon: ClassVar[str | None] = "Microscope" # a Lucide icon name;
+    #       an unknown name simply falls back to the category icon (never errors).
+
     # Typed ports. Change ``accepted_types`` to the concrete type you handle
     # (Array, DataFrame, Series, Text, Artifact, or a package type like Image).
     # Prefer a concrete type over ``[]`` so connections are type-checked.

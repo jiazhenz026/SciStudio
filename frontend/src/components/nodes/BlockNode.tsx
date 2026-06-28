@@ -32,9 +32,10 @@ import { NODE_BORDER_RADIUS, NODE_SIZE } from "./BlockNode.parts/nodeGeometry";
 
 export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
   // ADR-050 §2.1 — block-kind mark + macaron body colour from the base
-  // category (lucide line icon; per-block custom icons need a backend field,
-  // tracked as follow-up — see categoryVisuals.ts).
-  const visual = getCategoryVisual(data.category);
+  // category (lucide line icon), with optional per-block overrides (#1839):
+  // a block may declare its own `ui_color` / `ui_icon` on its summary, which
+  // take precedence over the category default (unknown icon name falls back).
+  const visual = getCategoryVisual(data.category, data.summary?.ui_color, data.summary?.ui_icon);
   const CategoryIcon = visual.Icon;
 
   // ADR-028 Addendum 1 §D4 — compute effective ports from the dynamic-port

@@ -168,3 +168,55 @@ Append only.
 - [x] CI passed — **17/17 green** (incl. `Verify Workflow Compliance`/`core_change_guard` after the `admin-approved:core-change` label, `Codex PR Review`, both Python test matrices, Type Check, Full Audit). Label applied as the owner (admin actor → provenance validated).
 - [x] Codex auto-review — `ai-review.yml` re-enabled (was `disabled_manually`) + re-triggered; it **ran** and posted to the PR. The Codex agent errored on `401 Unauthorized: Failed to refresh token` (the repo `CODEX_AUTH_JSON` secret is expired) → no code-review findings to address; the review CHECK still passes (`continue-on-error`). Owner action: refresh `CODEX_AUTH_JSON` for future substantive Codex reviews.
 - [x] Checklist final state matches PR and gate record.
+
+## 11. Post-PR Follow-ups (owner-directed, on open PR #1842)
+
+Owner directives after the PR opened but before merge. Folded into the same PR
+(focused on the public-API contract) via gate-ledger amendments.
+
+### 11.1 Reference-render polish (owner: "build docs as an author guide, not a list")
+
+- [x] **Typed signatures.** `mkdocs.yml` now renders full, separated, type-
+  annotated signatures + symbol-kind labels (`separate_signature`,
+  `show_signature_annotations`, `show_symbol_type_heading`). Methods read as
+  `sel(**kwargs: int | slice) -> Array`, not a bare name.
+- [x] **Clean cross-references.** New griffe extension
+  `scripts/docs/griffe_sphinx_roles.py` rewrites in-source Sphinx roles
+  (`:class:`/`:meth:`/`:mod:`/`:data:` …) to Markdown inline code at load time,
+  so the published page is link-noise-free while the source keeps RST roles.
+  Inline code (not autorefs) keeps `mkdocs build --strict` green (0 leftover
+  roles site-wide).
+- [x] **GitHub Pages publish.** `.github/workflows/docs.yml` builds the
+  reference and deploys to GitHub Pages on push to main. One-time owner step:
+  Settings → Pages → Source = "GitHub Actions" → reference served at
+  `https://jiazhenz026.github.io/SciStudio/`.
+
+### 11.2 #1839 bundled — block self-declared node color + icon
+
+Owner: implement #1839 and lock it with the public API so the block contract is
+modified once. All public-API surfaces updated:
+
+- [x] **Public authoring contract.** `Block.ui_color` / `Block.ui_icon`
+  ClassVars (`src/scistudio/blocks/base/block.py`), documented; tier
+  **provisional** / since 0.3.1.
+- [x] **Serialization.** `BlockSpec` (+ `_spec_from_class`), `BlockSummary`
+  (+ `_summary`) carry the hints; `None` ⇒ category default.
+- [x] **Frontend.** `getCategoryVisual(category, uiColor?, uiIcon?)` merges
+  block overrides over the category default; `resolveIconByName()` resolves a
+  curated Lucide set with safe fallback; invalid hex ignored.
+- [x] **Starter template.** `block_base_template.py` teaches the two opt-in
+  hints (commented).
+- [x] **Spec.** ADR-052 spec §4.1 authoring-ClassVar table adds the
+  `ui_color` / `ui_icon` row (provisional). ADR-052.md unchanged (policy-level,
+  does not enumerate per-symbol). Freeze snapshot unchanged (top-level symbols
+  only; Block stays one `stable` entry).
+- [x] **Tests.** Backend `_spec_from_class` + `_summary` carry/None-default
+  (`tests/blocks/test_registry.py::TestNodeVisualSpec`, `tests/api/test_blocks.py`);
+  template hint presence (`tests/api/test_blocks_template.py`); frontend
+  `categoryVisuals.test.ts` (12 cases: resolve, fallback, color derivation,
+  invalid-hex, combined).
+- [x] **Local checks green.** ruff/format, `mypy src/scistudio` (exit 0),
+  `mkdocs build --strict`, adr052_contract suite, frontend `tsc --noEmit` +
+  eslint + vitest. (Same 4 local image/previewer failures are the known
+  desktop-plugin entry-point leak; pass in clean HOME / CI.)
+- [ ] PR body updated to `Closes #1833, #1839`; re-finalized; pushed → CI.
