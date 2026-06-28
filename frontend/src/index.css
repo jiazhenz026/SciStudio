@@ -26,14 +26,30 @@
     --input: 20 6% 83%;
     --ring: 20 8% 10%;
     --radius: 0.5rem;
+
+    /*
+     * #1847 / #1841: brand color tokens as space-separated RGB channels, so
+     * Tailwind can apply opacity modifiers (e.g. `border-ember/55`) via
+     * `rgb(var(--ss-x) / <alpha-value>)` while preserving the exact hex value
+     * at full opacity. Single source of truth for the brand palette; the
+     * Tailwind `canvas/ink/ember/pine/sea/sand` utilities resolve to these.
+     * These also seed the cross-boundary `--ss-*` theming contract (#1849).
+     */
+    --ss-canvas: 245 241 232; /* #f5f1e8 */
+    --ss-ink: 28 33 27; /* #1c211b */
+    --ss-ember: 240 106 68; /* #f06a44 */
+    --ss-pine: 46 93 80; /* #2e5d50 */
+    --ss-sea: 45 120 145; /* #2d7891 */
+    --ss-sand: 221 196 157; /* #ddc49d */
   }
 }
 
 :root {
-  color: #1c211b;
+  color: rgb(var(--ss-ink));
   background:
-    radial-gradient(circle at top right, rgba(45, 120, 145, 0.12), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(240, 106, 68, 0.18), transparent 28%), #f5f1e8;
+    radial-gradient(circle at top right, rgb(var(--ss-sea) / 0.12), transparent 30%),
+    radial-gradient(circle at bottom left, rgb(var(--ss-ember) / 0.18), transparent 28%),
+    rgb(var(--ss-canvas));
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
@@ -91,7 +107,7 @@ select {
 
 .toolbar-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(240, 106, 68, 0.55);
+  border-color: rgb(var(--ss-ember) / 0.55);
 }
 
 .toolbar-button:disabled {
@@ -100,7 +116,7 @@ select {
 }
 
 .toolbar-button-dark {
-  background: #1c211b;
+  background: rgb(var(--ss-ink));
   color: #fffdf8;
 }
 

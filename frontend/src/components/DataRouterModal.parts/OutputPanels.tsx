@@ -23,18 +23,18 @@ export function OutputPanels({
 }: OutputPanelsProps) {
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-stone-400">Outputs</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-ink/45">Outputs</div>
       {outputPorts.map((portName, portIndex) => {
         const portRefs = assignments[portName] ?? [];
         return (
           <div
             key={portName}
-            className="min-h-[60px] rounded-lg border-2 border-dashed border-stone-200 bg-stone-50 p-3 transition-colors hover:border-blue-300"
+            className="min-h-[60px] rounded-lg border-2 border-dashed border-ink/10 bg-ink/5 p-3 transition-colors hover:border-ember/50"
             onDrop={(e) => onDropOnOutput(e, portName)}
             onDragOver={onDragOver}
           >
-            <div className="mb-2 text-xs font-medium text-stone-600">
-              {portName} <span className="text-stone-400">({portRefs.length})</span>
+            <div className="mb-2 text-xs font-medium text-ink/70">
+              {portName} <span className="text-ink/45">({portRefs.length})</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {portRefs.map((ref) => {
@@ -51,7 +51,7 @@ export function OutputPanels({
                 );
               })}
               {portRefs.length === 0 && (
-                <span className="text-[10px] italic text-stone-400">Drop items here</span>
+                <span className="text-[10px] italic text-ink/45">Drop items here</span>
               )}
             </div>
           </div>

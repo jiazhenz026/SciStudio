@@ -29,6 +29,12 @@ class MergeCollection(ProcessBlock):
     description: ClassVar[str] = "Concatenate multiple same-typed Collections into one"
     subcategory: ClassVar[str] = "routing"
 
+    # #1839 / #1847: macaron mint + a merge glyph for the N->1 concatenation
+    # block. ":90" rotates the glyph 90deg to read left->right with the canvas
+    # data-flow direction (rotation parsed by the frontend ui_icon resolver).
+    ui_color: ClassVar[str] = "#a8e0d3"
+    ui_icon: ClassVar[str] = "merge:90"
+
     # Variadic input side (ADR-029): the concrete ports live in
     # ``config["input_ports"]``; the class-level list is the default 2-port seed.
     variadic_inputs: ClassVar[bool] = True

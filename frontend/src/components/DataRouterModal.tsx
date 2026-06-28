@@ -9,6 +9,7 @@
 
 import { useCallback, useState } from "react";
 
+import { Button } from "./ui/button";
 import { InputPanels } from "./DataRouterModal.parts/InputPanels";
 import { OutputPanels } from "./DataRouterModal.parts/OutputPanels";
 import type { ItemDescriptor } from "./DataRouterModal.parts/types";
@@ -105,13 +106,13 @@ export function DataRouterModal({
       data-testid="data-router-modal"
     >
       <div
-        className="flex max-h-[85vh] w-[900px] flex-col rounded-xl border border-stone-200 bg-white shadow-xl"
+        className="flex max-h-[85vh] w-[900px] flex-col rounded-xl border border-ink/10 bg-white shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-stone-100 px-5 py-3">
+        <div className="border-b border-ink/5 px-5 py-3">
           <div className="text-sm font-semibold text-ink">Data Router</div>
-          <div className="mt-0.5 text-xs text-stone-500">
+          <div className="mt-0.5 text-xs text-ink/60">
             Drag items from input panels to output panels. All items must be assigned.
           </div>
         </div>
@@ -128,7 +129,7 @@ export function DataRouterModal({
           />
 
           {/* Arrow divider */}
-          <div className="flex items-center text-stone-300">
+          <div className="flex items-center text-ink/30">
             <svg
               width="24"
               height="24"
@@ -152,10 +153,10 @@ export function DataRouterModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-stone-100 px-5 py-3">
-          <div className="text-xs text-stone-500">
+        <div className="flex items-center justify-between border-t border-ink/5 px-5 py-3">
+          <div className="text-xs text-ink/60">
             {allAssigned ? (
-              <span className="text-green-600">All items assigned</span>
+              <span className="text-pine">All items assigned</span>
             ) : (
               <span className="text-amber-600">
                 {unassignedItems.length} item(s) not yet assigned
@@ -163,21 +164,12 @@ export function DataRouterModal({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded border border-stone-200 px-4 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-              onClick={onCancel}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={onCancel}>
               Cancel
-            </button>
-            <button
-              type="button"
-              className="rounded bg-blue-500 px-4 py-1.5 text-xs text-white hover:bg-blue-600 disabled:opacity-40"
-              disabled={!allAssigned}
-              onClick={handleConfirm}
-            >
+            </Button>
+            <Button type="button" size="sm" disabled={!allAssigned} onClick={handleConfirm}>
               Confirm
-            </button>
+            </Button>
           </div>
         </div>
       </div>

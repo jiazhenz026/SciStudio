@@ -16,7 +16,9 @@ export interface BlockTileProps {
 }
 
 export function BlockTile({ block, onDragStart, onAddBlock, onEnter, onLeave }: BlockTileProps) {
-  const visual = getCategoryVisual(block.base_category);
+  // #1839/#1847: honour the block's own ui_color/ui_icon so the palette tile
+  // matches its canvas node (the palette is where authors pick by glyph).
+  const visual = getCategoryVisual(block.base_category, block.ui_color, block.ui_icon);
   const Icon = visual.Icon;
 
   return (

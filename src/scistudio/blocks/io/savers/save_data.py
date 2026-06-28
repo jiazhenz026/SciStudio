@@ -363,6 +363,12 @@ class SaveData(IOBlock):
     )
     subcategory: ClassVar[str] = "io"
 
+    # #1847: distinct color + a folder-down glyph (data going *to* disk) so the
+    # output block reads differently from LoadData (io-blue folder-up). The two
+    # form an up/down pair on the io category.
+    ui_color: ClassVar[str] = "#b9e3a0"
+    ui_icon: ClassVar[str] = "folder-down"
+
     # ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003:
     # explicit per-(type, format) capability records. Replaces the
     # legacy ``supported_extensions`` ClassVar which has been removed.

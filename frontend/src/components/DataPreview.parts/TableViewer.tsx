@@ -66,10 +66,10 @@ function paginationButtonStyle(disabled: boolean): React.CSSProperties {
     width: 22,
     height: 20,
     padding: 0,
-    border: "1px solid #d6d3d1",
+    border: "1px solid rgb(var(--ss-ink) / 0.15)",
     borderRadius: 4,
-    background: disabled ? "#f5f5f4" : "#fff",
-    color: disabled ? "#a8a29e" : "#475569",
+    background: disabled ? "rgb(var(--ss-ink) / 0.04)" : "#fff",
+    color: disabled ? "rgb(var(--ss-ink) / 0.4)" : "rgb(var(--ss-ink) / 0.6)",
     cursor: disabled ? "not-allowed" : "pointer",
     fontSize: 10,
     lineHeight: 1,
@@ -149,10 +149,10 @@ function TableHeader({
               style={{
                 whiteSpace: "nowrap",
                 padding: "6px 10px",
-                borderBottom: "1px solid #cbd5e1",
+                borderBottom: "1px solid rgb(var(--ss-ink) / 0.15)",
                 fontWeight: 600,
                 fontSize: 11,
-                color: isSorted ? "#1c1917" : "#475569",
+                color: isSorted ? "rgb(var(--ss-ink))" : "rgb(var(--ss-ink) / 0.6)",
                 background: "#fff",
                 position: "sticky",
                 top: 0,
@@ -163,7 +163,7 @@ function TableHeader({
               title={isSorted ? `Sorted ${sortDir}; click to change` : "Click to sort"}
             >
               {column}
-              <span style={{ fontSize: 9, color: "#a8a29e" }}>{indicator}</span>
+              <span style={{ fontSize: 9, color: "rgb(var(--ss-ink) / 0.4)" }}>{indicator}</span>
             </th>
           );
         })}
@@ -176,7 +176,7 @@ function TableBody({ columns, rows }: { columns: string[]; rows: Array<Record<st
   return (
     <tbody>
       {rows.map((row, index) => (
-        <tr key={index} style={{ borderBottom: "1px solid #f1f5f9" }}>
+        <tr key={index} style={{ borderBottom: "1px solid rgb(var(--ss-ink) / 0.06)" }}>
           {columns.map((column) => (
             <td
               key={column}
@@ -184,8 +184,8 @@ function TableBody({ columns, rows }: { columns: string[]; rows: Array<Record<st
                 whiteSpace: "nowrap",
                 padding: "3px 10px",
                 fontSize: 10,
-                color: "#334155",
-                borderBottom: "1px solid #f1f5f9",
+                color: "rgb(var(--ss-ink) / 0.8)",
+                borderBottom: "1px solid rgb(var(--ss-ink) / 0.06)",
               }}
             >
               {formatCell(row[column])}
@@ -251,7 +251,7 @@ function PaginationControls({
             width: 44,
             padding: "1px 4px",
             fontSize: 10,
-            border: "1px solid #d6d3d1",
+            border: "1px solid rgb(var(--ss-ink) / 0.15)",
             borderRadius: 4,
             textAlign: "center",
           }}
@@ -335,7 +335,7 @@ export function TableViewer({ initial, onPatchQuery }: TableViewerProps) {
         style={{
           overflow: "auto",
           borderRadius: "0.8rem",
-          border: "1px solid #e7e5e4",
+          border: "1px solid rgb(var(--ss-ink) / 0.1)",
           background: "#fff",
           maxHeight: "360px",
           opacity: loading ? 0.6 : 1,
@@ -367,7 +367,7 @@ export function TableViewer({ initial, onPatchQuery }: TableViewerProps) {
           gap: 6,
           padding: "6px 4px 0",
           fontSize: 10,
-          color: "#78716c",
+          color: "rgb(var(--ss-ink) / 0.55)",
         }}
       >
         <span>

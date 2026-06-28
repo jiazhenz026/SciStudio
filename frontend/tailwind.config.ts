@@ -11,12 +11,17 @@ export default {
         body: ["IBM Plex Sans", "Segoe UI", "sans-serif"],
       },
       colors: {
-        canvas: "#f5f1e8",
-        ink: "#1c211b",
-        ember: "#f06a44",
-        pine: "#2e5d50",
-        sea: "#2d7891",
-        sand: "#ddc49d",
+        // #1847 / #1841: brand tokens resolve to the `--ss-*` CSS custom
+        // properties (RGB channels in index.css) so opacity modifiers work and
+        // the palette has a single source of truth. Full-opacity values are the
+        // exact original hexes (canvas #f5f1e8, ink #1c211b, ember #f06a44,
+        // pine #2e5d50, sea #2d7891, sand #ddc49d).
+        canvas: "rgb(var(--ss-canvas) / <alpha-value>)",
+        ink: "rgb(var(--ss-ink) / <alpha-value>)",
+        ember: "rgb(var(--ss-ember) / <alpha-value>)",
+        pine: "rgb(var(--ss-pine) / <alpha-value>)",
+        sea: "rgb(var(--ss-sea) / <alpha-value>)",
+        sand: "rgb(var(--ss-sand) / <alpha-value>)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

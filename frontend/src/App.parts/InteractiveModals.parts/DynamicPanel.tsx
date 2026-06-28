@@ -19,6 +19,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "../../components/ui/button";
 import type { PanelManifestDescriptor } from "../../store/types";
 import {
   PANEL_HOST_API_VERSION,
@@ -124,7 +125,7 @@ export function DynamicPanel({
       data-testid="dynamic-panel"
       data-block-id={blockId}
     >
-      <div className="flex max-h-[85vh] w-[900px] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
+      <div className="flex max-h-[85vh] w-[900px] flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-panel">
         {/* Mount point for the package panel module. Always present in the DOM so
             the mount effect has a stable container; hidden when we show the
             error surface instead. */}
@@ -136,19 +137,20 @@ export function DynamicPanel({
 
         {failure ? (
           <div className="p-5" role="alert" data-testid="dynamic-panel-error">
-            <div className="text-sm font-semibold text-red-700">
+            <div className="text-sm font-semibold text-destructive">
               Couldn’t load this interactive panel
             </div>
-            <div className="mt-1 break-words text-xs text-stone-600">{failure.message}</div>
+            <div className="mt-1 break-words text-xs text-ink/70">{failure.message}</div>
             <div className="mt-4 flex justify-end">
-              <button
+              <Button
                 type="button"
-                className="rounded border border-stone-200 px-4 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
+                variant="outline"
+                size="sm"
                 onClick={onCancel}
                 data-testid="dynamic-panel-cancel"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
