@@ -1,8 +1,9 @@
-"""Artifact — opaque file DataObject (PDF, binary, image, report).
+"""Opaque file artifacts (:class:`Artifact`).
 
-ADR-027 D2: this module is core-only. No domain subclasses of
-:class:`Artifact` exist in core; any future file-format specialisations
-(e.g. ``PdfArtifact``, ``HtmlReport``) should live in a plugin package.
+The data type for a finished file that SciStudio passes along without
+looking inside it — a PDF, a rendered report, an image file, or any binary
+blob. Use it when the meaningful unit is "a file", not a table or an array.
+File-format specialisations belong in plugin packages.
 """
 
 from __future__ import annotations
@@ -16,12 +17,23 @@ from scistudio.stability import internal, provisional, stable
 
 @stable(since="0.3.1")
 class Artifact(DataObject):
-    """Opaque file artifact (PDF, binary blob, rendered report, etc.).
+    """An opaque file: a PDF, a rendered report, an image, a binary blob.
 
-    Attributes:
-        file_path: Local filesystem path to the artifact, if available.
-        mime_type: MIME type of the artifact (e.g. ``"application/pdf"``).
-        description: Human-readable description.
+    Use an :class:`Artifact` when the result of a step is a whole file that
+    later steps should carry along or save rather than inspect. SciStudio
+    does not parse its contents; it just tracks the file, its MIME type, and
+    a human-readable description.
+
+    Example:
+        >>> from pathlib import Path
+        >>> from scistudio.core.types import Artifact
+        >>> report = Artifact(
+        ...     file_path=Path("/tmp/report.pdf"),
+        ...     mime_type="application/pdf",
+        ...     description="QC report",
+        ... )
+        >>> report.mime_type
+        'application/pdf'
     """
 
     @stable(since="0.3.1")
@@ -33,16 +45,22 @@ class Artifact(DataObject):
         description: str = "",
         **kwargs: Any,
     ) -> None:
-        """Construct an Artifact with optional file/MIME/description.
+        """Construct an artifact pointing at a file.
 
-        Standard :class:`DataObject` slots (``framework``, ``meta``,
-        ``user``, ``storage_ref``) are passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`.
+        Args:
+            file_path: Path to the file on the local filesystem, if any.
+            mime_type: The file's MIME type, e.g. ``"application/pdf"``.
+            description: Short human-readable description.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``).
         """
         super().__init__(**kwargs)
         self.file_path = file_path
+        """Path to the file on the local filesystem, or ``None``."""
         self.mime_type = mime_type
+        """The file's MIME type (e.g. ``"application/pdf"``), or ``None``."""
         self.description = description
+        """Short human-readable description (empty string by default)."""
 
     @internal()
     def get_in_memory_data(self) -> Any:
@@ -55,20 +73,22 @@ class Artifact(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new Artifact with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        Artifact-specific constructor arguments (``file_path``,
-        ``mime_type``, ``description``). The base implementation only
-        propagates the four standard DataObject slots (``framework``,
-        ``meta``, ``user``, ``storage_ref``); without this override the
-        call would lose the Artifact-specific attributes on the
-        returned instance.
+        Like :meth:`DataObject.with_meta`, but also carries the
+        artifact-specific fields (:attr:`file_path`, :attr:`mime_type`,
+        :attr:`description`) onto the copy.
+
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new artifact of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only Artifact subclasses that declare a
-                ``Meta`` ClassVar can use :meth:`with_meta`.
+            ValueError: if this artifact has no typed ``meta`` (only
+                subclasses that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -98,17 +118,19 @@ class Artifact(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``Artifact``-specific kwargs for worker reconstruction.
+        """Rebuild an artifact's constructor arguments from saved metadata.
 
-        Extracts ``file_path`` / ``mime_type`` / ``description`` from
-        the wire-format metadata sidecar. ``file_path`` is stored as a
-        string on the wire (``pathlib.Path`` is not JSON-native) and
-        rebuilt into a :class:`pathlib.Path` here; ``None`` round-trips
-        unchanged. ``description`` defaults to the empty string to
-        mirror :meth:`Artifact.__init__`.
+        Reads ``file_path`` / ``mime_type`` / ``description`` back out of the
+        metadata produced by :meth:`serialise_extra_metadata`. The path
+        travels as a string (JSON has no path type) and is rebuilt into a
+        :class:`pathlib.Path`; ``None`` is left unchanged. ``description``
+        defaults to the empty string, matching the constructor.
 
-        See ADR-027 Addendum 1 §2 ("D11' companion") for the full
-        contract.
+        Args:
+            metadata: The saved metadata dict for one artifact.
+
+        Returns:
+            Keyword arguments to pass to ``cls(**kwargs)``.
         """
         file_path_raw = metadata.get("file_path")
         return {
@@ -120,15 +142,19 @@ class Artifact(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``Artifact``-specific fields for the metadata sidecar.
+        """Return an artifact's own fields for the saved metadata.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
-        :attr:`Artifact.file_path` is converted to a string (or
-        ``None``) so the payload is JSON-clean.
+        The counterpart of :meth:`reconstruct_extra_kwargs`.
+        :attr:`file_path` becomes a string (or ``None``) so the result is
+        plain JSON.
 
-        The parameter is typed as :class:`DataObject` to respect the
-        Liskov substitution principle with the base classmethod; at
-        runtime the caller only ever passes an instance of ``cls``.
+        Args:
+            obj: The artifact to serialise. Typed as :class:`DataObject` so
+                it matches the base method's signature; the caller always
+                passes an :class:`Artifact`.
+
+        Returns:
+            A JSON-serialisable dict of the artifact's fields.
         """
         assert isinstance(obj, Artifact), f"Expected Artifact, got {type(obj).__name__}"
         return {
