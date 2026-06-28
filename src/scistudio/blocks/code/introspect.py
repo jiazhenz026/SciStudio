@@ -27,14 +27,14 @@ def introspect_script(script_path: str | Path) -> dict[str, Any]:
 
         - ``has_run`` (bool): whether the script defines a ``run()`` function.
         - ``run_params`` (list): one dict per ``run()`` parameter, with its
-          name, annotation, and default.
+            name, annotation, and default.
         - ``has_configure`` (bool): whether the script defines ``configure()``.
         - ``configure_schema`` (dict or ``None``): the literal dictionary
-          ``configure()`` returns, when it can be read statically.
+            ``configure()`` returns, when it can be read statically.
         - ``docstring`` (str or ``None``): the script's top-level docstring.
         - ``input_ports`` (list): ``{"name": str, "types": list[str]}`` dicts
-          derived from ``run()`` parameters; an unannotated parameter defaults
-          to ``["DataObject"]``.
+            derived from ``run()`` parameters; an unannotated parameter defaults
+            to ``["DataObject"]``.
 
     Raises:
         FileNotFoundError: If *script_path* does not exist.
