@@ -36,10 +36,12 @@ from scistudio.previewers.models import (
     UnknownTargetError,
 )
 from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
 
 
+@internal()
 class PreviewRouter:
     """Deterministic previewer resolver over a :class:`PreviewerRegistry`."""
 

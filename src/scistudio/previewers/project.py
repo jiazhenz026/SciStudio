@@ -34,6 +34,7 @@ from scistudio.previewers.models import (
     PreviewerSpec,
 )
 from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ PROJECT_PREVIEWERS_DIR = "previewers"
 PROJECT_PREVIEWERS_MANIFEST = ".scistudio/previewers.json"
 
 
+@internal()
 def load_project_previewers(registry: PreviewerRegistry, project_dir: Path | None) -> None:
     """Load project-local previewers + default declarations into *registry* (FR-002/FR-005).
 

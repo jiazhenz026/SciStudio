@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import re
 
+from scistudio.stability import provisional
+
 __all__ = ["sanitize_svg"]
 
 # SVG sanitization: strip <script> blocks and event handler / external-resource
@@ -39,10 +41,14 @@ _SVG_EXTERNAL_HREF_RE = re.compile(
 )
 
 
+@provisional(since="0.3.1")
 def sanitize_svg(svg_text: str) -> tuple[str, bool]:
     """Strip <script>, on* handlers, and remote href/xlink:href from SVG (FR-019).
 
-    Returns ``(sanitized_text, removed_anything)``.
+    Public author helper (ADR-052 §8.3 — provisional). A package SVG/plot
+    previewer calls this before returning SVG text. Returns
+    ``(sanitized_text, removed_anything)``. The authoritative security boundary
+    is the frontend sandboxed iframe; this is a best-effort second layer.
     """
     sanitized = _SVG_SCRIPT_RE.sub("", svg_text)
     sanitized, n_events = _SVG_EVENT_ATTR_RE.subn("", sanitized)
