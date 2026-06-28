@@ -68,6 +68,17 @@ closed (the window shows "Activation is not configured").
    To avoid the terminal, double-click `scripts/alpha-token-issuer.command` in
    Finder: it launches the same GUI (Ctrl+C in its Terminal window stops it).
 
+   For a desktop app you can double-click (no Electron, no terminal window),
+   build a self-contained `.app`:
+
+   ```bash
+   bash scripts/build-issuer-app.sh        # writes "Alpha Token Issuer.app" to ~/Desktop
+   ```
+
+   The app bundles the issuer scripts and reads the signing key from
+   `~/.scistudio/alpha-signing.key`; use the GUI's **Quit issuer** button to stop
+   it. It requires Node.js on the machine and is a build artifact (not committed).
+
    **CLI:**
 
    ```bash
@@ -97,8 +108,9 @@ The gate is intentionally isolated so it can be deleted in one pass:
 - [ ] Delete `desktop/activation.js`, `desktop/preload-gate.js`,
       `desktop/resources/alpha-gate.html`, `desktop/resources/alpha-public-key.pem`.
 - [ ] Delete `desktop/test/activation.test.js`.
-- [ ] Delete `scripts/alpha-token.js`, `scripts/alpha-token-gui.js`, and
-      `scripts/alpha-token-issuer.command`.
+- [ ] Delete `scripts/alpha-token.js`, `scripts/alpha-token-gui.js`,
+      `scripts/alpha-token-issuer.command`, and `scripts/build-issuer-app.sh`
+      (plus any "Alpha Token Issuer.app" you built).
 - [ ] (Local only) the issuance ledger `~/.scistudio/alpha-issued-tokens.csv` and
       the signing key `~/.scistudio/alpha-signing.key` are never committed; remove
       them from your machine when you retire the alpha.

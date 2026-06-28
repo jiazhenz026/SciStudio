@@ -77,6 +77,8 @@ const PAGE = `<!doctype html>
       <div id="issued" class="hint">…</div>
     </div>
 
+    <button id="quitBtn" class="secondary" type="button" style="margin-top:18px">Quit issuer</button>
+
     <script>
       const statusEl = document.getElementById("status");
       const keygenEl = document.getElementById("keygen");
@@ -88,9 +90,12 @@ const PAGE = `<!doctype html>
 
       async function refresh() {
         const s = await (await fetch("/api/status")).json();
+        // The issuer only needs the private key to sign. Never offer to
+        // regenerate when one already exists — that would overwrite the key and
+        // invalidate every token already issued.
         if (s.hasPrivate) {
-          setStatus("Signing key ready: " + s.keyPath + (s.hasPublic ? "" : "  (public key missing — generate or rebuild)"), s.hasPublic ? "ok" : "warn");
-          keygenEl.style.display = s.hasPublic ? "none" : "block";
+          setStatus("Signing key ready.", "ok");
+          keygenEl.style.display = "none";
           signBtn.disabled = false;
         } else {
           setStatus("No signing key found.", "warn");
@@ -143,6 +148,12 @@ const PAGE = `<!doctype html>
         try { await navigator.clipboard.writeText(tokenEl.value); } catch { tokenEl.select(); document.execCommand("copy"); }
         const btn = document.getElementById("copyBtn");
         const original = btn.textContent; btn.textContent = "Copied"; setTimeout(() => { btn.textContent = original; }, 1200);
+      });
+
+      document.getElementById("quitBtn").addEventListener("click", async () => {
+        await fetch("/api/quit", { method: "POST" }).catch(function () {});
+        document.body.innerHTML =
+          "<p style='font-family:-apple-system,sans-serif;padding:28px;color:#6b7280'>Issuer stopped. You can close this tab.</p>";
       });
 
       refresh();
@@ -205,6 +216,12 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, { token });
       return;
     }
+    if (req.method === "POST" && req.url === "/api/quit") {
+      sendJson(res, 200, { ok: true });
+      // Let the response flush, then stop the server (used by the .app Quit button).
+      setTimeout(() => process.exit(0), 100);
+      return;
+    }
     if (req.method === "GET" && req.url === "/api/issued") {
       const rows = tokens.readIssuance();
       const unique = new Set(rows.map((row) => row.fingerprint));
@@ -229,9 +246,21 @@ function openBrowser(url) {
   execFile(opener, [url], () => {});
 }
 
+// If an instance is already running on this port (e.g. the .app launched twice),
+// just open the browser to it instead of crashing.
+server.on("error", (error) => {
+  if (error && error.code === "EADDRINUSE") {
+    const url = `http://${HOST}:${PORT}/`;
+    process.stdout.write(`Issuer already running at ${url}; opening it.\n`);
+    openBrowser(url);
+    process.exit(0);
+  }
+  throw error;
+});
+
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}/`;
   process.stdout.write(`Alpha token issuer running at ${url}\n`);
-  process.stdout.write("Press Ctrl+C to stop.\n");
+  process.stdout.write("Press Ctrl+C (or the Quit button) to stop.\n");
   openBrowser(url);
 });
