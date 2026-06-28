@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+from scistudio.stability import stable
 
+
+@stable(since="0.3.1")
 class ChannelInfo(BaseModel):
     """Description of one acquisition channel.
 

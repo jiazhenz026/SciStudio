@@ -28,9 +28,13 @@ from scistudio.core.types.base import DataObject, TypeSignature
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
-from scistudio.core.types.registry import TypeRegistry, TypeSpec
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+
+# ADR-052 §3.9: ``TypeRegistry`` / ``TypeSpec`` are Internal (owner
+# 2026-06-27, "A confirmed"; 0 author-facing importers). They are NOT
+# re-exported from this canonical root and are excluded from ``__all__``;
+# internal callers import them from ``scistudio.core.types.registry``.
 
 __all__ = [
     "Array",
@@ -42,7 +46,5 @@ __all__ = [
     "Series",
     "StorageReference",
     "Text",
-    "TypeRegistry",
     "TypeSignature",
-    "TypeSpec",
 ]

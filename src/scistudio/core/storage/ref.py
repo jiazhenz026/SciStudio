@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from scistudio.stability import stable
 
+
+@stable(since="0.3.1")
 @dataclass
 class StorageReference:
     """Immutable pointer to a persisted data object in a storage backend.

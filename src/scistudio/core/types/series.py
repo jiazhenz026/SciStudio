@@ -13,8 +13,10 @@ from __future__ import annotations
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import provisional, stable
 
 
+@stable(since="0.3.1")
 class Series(DataObject):
     """One-dimensional indexed data (time series, chromatogram, spectrum).
 
@@ -29,6 +31,7 @@ class Series(DataObject):
         length: Number of data points, if known.
     """
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -63,6 +66,7 @@ class Series(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new Series with the ``meta`` slot updated.
 
@@ -102,10 +106,43 @@ class Series(DataObject):
             storage_ref=self._storage_ref,
         )
 
+    # -- ergonomic accessors (ADR-052 §10) ---------------------------------
+
+    @stable(since="0.3.1")
+    def to_pandas(self) -> Any:
+        """Return the series as a :class:`pandas.Series`.
+
+        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
+        over the inherited :meth:`to_memory` reader (which returns the
+        canonical single-column ``pyarrow.Table``). It never replaces
+        ``to_memory``. Packages inherit this accessor and must not
+        redefine it (ADR-052 §4.2), and it is kept out of the core
+        data-flow path (ADR-052 §8) — for inspection / export only.
+
+        Returns:
+            A :class:`pandas.Series` materialised from storage.
+        """
+        return self.to_memory().column(0).to_pandas()
+
+    @stable(since="0.3.1")
+    def to_numpy(self) -> Any:
+        """Return the series values as a NumPy ``ndarray``.
+
+        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
+        over :meth:`to_pandas` (and hence the inherited :meth:`to_memory`
+        reader). It never replaces ``to_memory`` and is kept out of the
+        core data-flow path (ADR-052 §8) — for inspection / export only.
+
+        Returns:
+            A :class:`numpy.ndarray` of the series values.
+        """
+        return self.to_pandas().to_numpy()
+
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return ``Series``-specific kwargs for worker reconstruction.
 
         Extracts ``index_name`` / ``value_name`` / ``length`` from the
@@ -122,10 +159,11 @@ class Series(DataObject):
         }
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return ``Series``-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
         All three fields are already JSON-primitive (``str | None`` /
         ``int | None``) and need no conversion.
 
