@@ -153,6 +153,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "plot",  # #1824 / ADR-052 §9: first-class plot render(collection) engine (scistudio.plot)
         "desktop",  # ADR-037: desktop distribution path/resource helpers
         "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)
+        "telemetry",  # #1855: alpha-only tester check-in (removed in beta with the gate)
     }
     stray: list[str] = []
     for filepath in SRC_ROOT.rglob("*.py"):

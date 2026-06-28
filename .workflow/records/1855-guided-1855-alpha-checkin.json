@@ -1,6 +1,118 @@
 {
   "branch": "guided/1855-alpha-checkin",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-28T22:38:17.187895Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:215a1c84c5ae22741df475f208010abe05561e34d577410ca3d17f707626e7d2",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T22:38:20.277380Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7ae85b6c24334279e25b157c05d600d52620a2471dec65ece116fff35631b310",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T22:38:20.377334Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1a7ce5b66b66777384d7a1f7fa3bf82df42e7effe3a66ce96f81196d3c9e5026",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T22:38:20.397899Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:2a23fca22ef066da6cd866c644bea74cfae72844943434d83f598a53114dbb48",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T22:39:35.091025Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e20c4d1cdfdc689206b72495a2367fad461234e1ea9ee952489c90747c786eff",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T22:41:23.087023Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7e3d292486728e55fd42ea4a98ff3f8fd2fa899713fd390003cdf94daa027203",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T22:41:29.547369Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:41bd051e4c0b2a10346a83846d8bbbc1bea835762a5d55b67a5d0755f6109697",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -16,9 +128,151 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-06-28T22:43:18.646139Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/alpha-activation-gate.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-06-28T22:37:41.760689Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-875/popen-gw4/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-28T22:37:42.533514Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-875/popen-gw4/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-28T22:41:29.587429Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.598168Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/api/app.py",
+              "src/scistudio/telemetry/__init__.py",
+              "src/scistudio/telemetry/checkin.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-28T22:41:29.607395Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.616444Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.625180Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.634167Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.642984Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.651792Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.660398Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T22:41:29.670358Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -28,25 +282,103 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "9731cd4a",
+    "changed_files": [
+      ".workflow/records/1855-guided-1855-alpha-checkin.json",
+      "desktop/main.js",
+      "desktop/resources/.gitignore",
+      "desktop/resources/alpha-gate.html",
+      "docs/alpha-activation-gate.md",
+      "src/scistudio/api/app.py",
+      "src/scistudio/telemetry/__init__.py",
+      "src/scistudio/telemetry/checkin.py",
+      "tests/telemetry/test_checkin.py"
+    ],
+    "diff_fingerprint": "sha256:bc1553f3ddee007ebaa0f9d370b400f7f691f43d93f12abc83f450c15464b0dc",
+    "head": "HEAD",
+    "head_sha": "6bd8e37a",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 3,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 4,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Add A-tier lightweight Slack webhook launch check-in in the Python backend to count active internal alpha testers (covers gate-bypass users too). Webhook URL gitignored to avoid spam. Privacy notice added on the activation gate screen. Code marked alpha-only/temporary with beta-removal checklist.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-28T22:41:29.670415Z",
+      "diff_fingerprint": "sha256:bc1553f3ddee007ebaa0f9d370b400f7f691f43d93f12abc83f450c15464b0dc",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.lint_format",
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1855-guided-1855-alpha-checkin",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "9a1782ad-5af8-4fea-97a7-c42d5308aa56",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-28T22:43:18.646277Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/telemetry/test_checkin.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
