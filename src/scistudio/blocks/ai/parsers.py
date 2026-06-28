@@ -17,29 +17,24 @@ import re
 
 
 def extract_code(response: str, language: str = "python") -> str:
-    """Extract code from a fenced code block in an LLM response.
+    """Extract source code from a fenced block in an LLM response.
 
-    The function tries the following strategies in order:
+    Pulls the code out of a model's reply so you can run or save it. Tries, in
+    order: a fenced block tagged with the requested *language*, then any
+    untagged fenced block, then the whole response treated as bare code. When
+    several fenced blocks match, only the first is returned.
 
-    1. A fenced block tagged with the requested *language*:
-       ````language ... ````
-    2. An untagged fenced block: ```` ... ````
-    3. The entire *response* stripped of leading/trailing whitespace
-       (assumed to be bare code).
+    Args:
+        response: Raw text returned by the model.
+        language: Language tag to look for, e.g. ``"python"`` or ``"json"``.
 
-    When multiple fenced blocks match, only the **first** is returned.
+    Returns:
+        The extracted code, or ``""`` when *response* is empty.
 
-    Parameters
-    ----------
-    response:
-        Raw LLM text response.
-    language:
-        Language tag to look for (e.g. ``"python"``, ``"json"``).
-
-    Returns
-    -------
-    str
-        Extracted code, or ``""`` if *response* is empty.
+    Example:
+        >>> reply = "Here you go:\\n```python\\nprint(1)\\n```"
+        >>> extract_code(reply)
+        'print(1)'
     """
     if not response or not response.strip():
         return ""
@@ -67,29 +62,27 @@ def extract_code(response: str, language: str = "python") -> str:
 
 
 def extract_json(response: str) -> dict:
-    """Extract and parse JSON from an LLM response.
+    """Extract and parse a JSON object from an LLM response.
 
-    The function tries the following strategies in order:
+    Pulls a JSON object out of a model's reply, even when it is wrapped in
+    prose or a code fence. Tries, in order: a fenced block tagged ``json``,
+    any untagged fenced block, the first ``{...}`` span that parses, then the
+    whole response.
 
-    1. A fenced block tagged ``json``: ````json ... ````
-    2. An untagged fenced block containing valid JSON.
-    3. The first ``{...}`` substring that parses as valid JSON.
-    4. The entire *response* as raw JSON.
+    Args:
+        response: Raw text returned by the model.
 
-    Parameters
-    ----------
-    response:
-        Raw LLM text response.
+    Returns:
+        The parsed JSON object as a dict.
 
-    Returns
-    -------
-    dict
-        Parsed JSON object.
+    Raises:
+        ValueError: *response* is empty, or no valid JSON object can be
+            extracted from it.
 
-    Raises
-    ------
-    ValueError
-        If no valid JSON can be extracted from *response*.
+    Example:
+        >>> reply = 'Sure:\\n```json\\n{"ok": true}\\n```'
+        >>> extract_json(reply)
+        {'ok': True}
     """
     if not response or not response.strip():
         raise ValueError("Cannot extract JSON from empty response.")

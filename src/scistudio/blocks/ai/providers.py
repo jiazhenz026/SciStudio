@@ -1,15 +1,14 @@
-"""LLM provider abstraction (Anthropic, OpenAI, local).
+"""LLM provider abstraction (Anthropic, OpenAI).
 
-This module defines the ``LLMProvider`` protocol and two concrete
-implementations:
+Defines the :class:`LLMProvider` protocol and two concrete backends:
 
-* **AnthropicProvider** -- calls the Anthropic Messages API via the
-  ``anthropic`` SDK (optional dependency).
-* **OpenAIProvider** -- calls the OpenAI Chat Completions API via the
-  ``openai`` SDK (optional dependency).
+* :class:`AnthropicProvider` -- calls the Anthropic Messages API through the
+  optional ``anthropic`` SDK.
+* :class:`OpenAIProvider` -- calls the OpenAI Chat Completions API through the
+  optional ``openai`` SDK.
 
-Both SDKs are optional.  If neither is installed the framework still
-works -- only AI-powered features become unavailable (ADR-013).
+Both SDKs are optional. If neither is installed the rest of the framework
+still works; only these AI-backed features become unavailable.
 """
 
 from __future__ import annotations
@@ -42,11 +41,15 @@ except ImportError:  # pragma: no cover
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    """Protocol for LLM providers.
+    """Common interface every LLM backend implements.
 
-    All AI features call through this interface so that the concrete
-    backend (Anthropic, OpenAI, local, ...) can be swapped via
-    configuration.
+    AI features call through this protocol so the concrete backend (Anthropic,
+    OpenAI, ...) can be swapped by configuration without changing the calling
+    code.
+
+    Example:
+        >>> def summarise(provider: LLMProvider, text: str) -> str:
+        ...     return provider.generate(f"Summarise this:\\n{text}")
     """
 
     def generate(
@@ -56,23 +59,16 @@ class LLMProvider(Protocol):
         system: str = "",
         config: Any = None,
     ) -> str:
-        """Send *prompt* to the LLM and return the text response.
+        """Send *prompt* to the model and return its text reply.
 
-        Parameters
-        ----------
-        prompt:
-            The user message / main prompt.
-        system:
-            Optional system-level instruction.
-        config:
-            Optional per-call configuration override (typically an
-            ``AIConfig`` instance).  When *None* the provider uses
-            its own defaults.
+        Args:
+            prompt: The user message / main prompt.
+            system: Optional system-level instruction.
+            config: Optional per-call settings (such as an ``AIConfig``)
+                overriding the provider defaults; ``None`` uses the defaults.
 
-        Returns
-        -------
-        str
-            The model's text response.
+        Returns:
+            The model's text reply.
         """
         ...
 
@@ -85,15 +81,23 @@ class LLMProvider(Protocol):
 class AnthropicProvider:
     """LLM provider backed by the Anthropic Messages API.
 
-    Parameters
-    ----------
-    api_key:
-        Anthropic API key.  Falls back to the ``ANTHROPIC_API_KEY``
-        environment variable when empty or *None*.
-    model:
-        Model identifier, e.g. ``"claude-sonnet-4-20250514"``.
-    max_tokens:
-        Default maximum tokens for responses.
+    Wraps the ``anthropic`` SDK so AI features can call a Claude model through
+    the shared :class:`LLMProvider` interface.
+
+    Args:
+        api_key: Anthropic API key. Falls back to the ``ANTHROPIC_API_KEY``
+            environment variable when empty or ``None``.
+        model: Model identifier, e.g. ``"claude-sonnet-4-20250514"``.
+        max_tokens: Default maximum number of tokens in a response.
+
+    Raises:
+        ImportError: the optional ``anthropic`` package is not installed.
+        ValueError: no API key was given and ``ANTHROPIC_API_KEY`` is unset.
+
+    Example:
+        >>> provider = AnthropicProvider()  # doctest: +SKIP
+        >>> provider.generate("Say hello in one word.")  # doctest: +SKIP
+        'Hello'
     """
 
     def __init__(
@@ -122,7 +126,17 @@ class AnthropicProvider:
         system: str = "",
         config: Any = None,
     ) -> str:
-        """Call the Anthropic Messages API and return the text response."""
+        """Call the Anthropic Messages API and return the text reply.
+
+        Args:
+            prompt: The user message / main prompt.
+            system: Optional system-level instruction.
+            config: Optional per-call settings overriding the provider defaults
+                (model, ``max_tokens``, temperature).
+
+        Returns:
+            The model's text reply, or ``""`` when the response carries no text.
+        """
         model = self._model
         max_tokens = self._max_tokens
         temperature: float = 0.2
@@ -163,15 +177,23 @@ class AnthropicProvider:
 class OpenAIProvider:
     """LLM provider backed by the OpenAI Chat Completions API.
 
-    Parameters
-    ----------
-    api_key:
-        OpenAI API key.  Falls back to the ``OPENAI_API_KEY`` environment
-        variable when empty or *None*.
-    model:
-        Model identifier, e.g. ``"gpt-4o"``.
-    max_tokens:
-        Default maximum tokens for responses.
+    Wraps the ``openai`` SDK so AI features can call an OpenAI model through
+    the shared :class:`LLMProvider` interface.
+
+    Args:
+        api_key: OpenAI API key. Falls back to the ``OPENAI_API_KEY``
+            environment variable when empty or ``None``.
+        model: Model identifier, e.g. ``"gpt-4o"``.
+        max_tokens: Default maximum number of tokens in a response.
+
+    Raises:
+        ImportError: the optional ``openai`` package is not installed.
+        ValueError: no API key was given and ``OPENAI_API_KEY`` is unset.
+
+    Example:
+        >>> provider = OpenAIProvider()  # doctest: +SKIP
+        >>> provider.generate("Say hello in one word.")  # doctest: +SKIP
+        'Hello'
     """
 
     def __init__(
@@ -198,7 +220,17 @@ class OpenAIProvider:
         system: str = "",
         config: Any = None,
     ) -> str:
-        """Call the OpenAI Chat Completions API and return the text response."""
+        """Call the OpenAI Chat Completions API and return the text reply.
+
+        Args:
+            prompt: The user message / main prompt.
+            system: Optional system-level instruction.
+            config: Optional per-call settings overriding the provider defaults
+                (model, ``max_tokens``, temperature).
+
+        Returns:
+            The model's text reply, or ``""`` when the response carries no text.
+        """
         model = self._model
         max_tokens = self._max_tokens
         temperature: float = 0.2

@@ -1,4 +1,9 @@
-"""Provenance helpers for CodeBlock v2 support modules."""
+"""Capturing what ran: provenance records for a Code Block run.
+
+These helpers record enough to reproduce and trust a run: the exact script
+(its content hash and git state), the interpreter and environment used, and
+timing. The Code Block stores the resulting payload alongside the run's outputs.
+"""
 
 from __future__ import annotations
 
@@ -20,57 +25,101 @@ GitStatus = Literal["tracked-clean", "tracked-modified", "untracked"]
 
 @provisional(since="0.3.1")
 class ScriptProvenance(BaseModel):
-    """Source identity for a selected CodeBlock v2 script."""
+    """Identity of the exact script that ran, for reproducibility.
+
+    Records where the script is, a content hash so you can tell if it changed,
+    its git state, and basic file metadata.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     relative_path: str
+    """Script path relative to the project root."""
     resolved_path: str
+    """Absolute path to the script."""
     content_sha256: str
+    """SHA-256 hash of the script's contents, to detect changes."""
     git_commit: str | None = None
+    """Commit hash of the project, or ``None`` if it is not a git repository."""
     git_status: GitStatus
+    """Whether the script is tracked and clean, tracked and modified, or untracked."""
     size_bytes: int
+    """Script size in bytes."""
     mtime_ns: int
+    """Script last-modified time, in nanoseconds since the epoch."""
 
 
 @provisional(since="0.3.1")
 class EnvironmentSnapshot(BaseModel):
-    """Best-effort interpreter/environment reproducibility evidence."""
+    """Best-effort record of the interpreter and environment a script ran in.
+
+    Captures which interpreter was used and how it was chosen, so a run can be
+    understood and re-created afterwards.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     mode: InterpreterMode
+    """How the interpreter was chosen: ``"auto"`` or ``"existing"``."""
     interpreter_path: str
+    """Path to the interpreter executable that ran the script."""
     version: str | None = None
+    """The interpreter's reported version, or ``None`` if it could not be read."""
     environment_delta: dict[str, str] = Field(default_factory=dict)
+    """Environment variable overrides applied for the run, sorted by name."""
     warnings: list[str] = Field(default_factory=list)
+    """Non-fatal notes gathered while resolving the interpreter."""
 
 
 @provisional(since="0.3.1")
 class CodeBlockProvenancePayload(BaseModel):
-    """Stable lineage-owned payload for a CodeBlock v2 run."""
+    """The complete provenance record stored for one Code Block run.
+
+    Bundles the script identity, interpreter and environment snapshot, timing,
+    the file-format handlers used per port, and the exchange manifest into one
+    record kept with the run's lineage.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     script: ScriptProvenance
+    """Identity of the script that ran."""
     interpreter: ResolvedInterpreter
+    """The resolved interpreter command used for the run."""
     environment: EnvironmentSnapshot
+    """Snapshot of the interpreter and environment."""
     started_at: str
+    """Run start time as a UTC timestamp string."""
     completed_at: str | None = None
+    """Run completion time as a UTC timestamp string, or ``None`` if unfinished."""
     selected_capabilities: dict[str, str] = Field(default_factory=dict)
+    """The save/load handler chosen per port, keyed by ``direction:port``."""
     exchange_manifest: dict[str, Any] = Field(default_factory=dict)
+    """The run's exchange manifest as a plain dictionary."""
 
 
 @provisional(since="0.3.1")
 def utc_now_iso() -> str:
-    """Return a timezone-aware UTC timestamp with second precision."""
+    """Return the current UTC time as an ISO-8601 string with second precision.
+
+    Returns:
+        A timestamp such as ``"2026-06-28T12:00:00Z"``.
+    """
 
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @provisional(since="0.3.1")
 def capture_script_provenance(script_path: Path, *, project_dir: Path) -> ScriptProvenance:
-    """Capture project-local script hash and git evidence."""
+    """Record a script's identity: its content hash, git state, and metadata.
+
+    Args:
+        script_path: Path to the script that ran.
+        project_dir: Absolute path to the project root.
+
+    Returns:
+        A :class:`ScriptProvenance` describing the script.
+    """
 
     resolved_script = resolve_project_path(script_path, project_dir=project_dir, field_name="script_path")
     project_root = project_dir.resolve()
@@ -95,7 +144,17 @@ def capture_environment_snapshot(
     mode: InterpreterMode,
     environment_delta: Mapping[str, str] | None = None,
 ) -> EnvironmentSnapshot:
-    """Build a stable environment snapshot from interpreter resolution."""
+    """Build an environment snapshot from a resolved interpreter.
+
+    Args:
+        resolved_interpreter: The interpreter command chosen for the run.
+        mode: How the interpreter was chosen (``"auto"`` or ``"existing"``).
+        environment_delta: Environment overrides to record; falls back to the
+            interpreter's own environment when omitted.
+
+    Returns:
+        An :class:`EnvironmentSnapshot` for the run.
+    """
 
     delta = dict(environment_delta or resolved_interpreter.environment)
     return EnvironmentSnapshot(
@@ -118,7 +177,20 @@ def build_codeblock_provenance_payload(
     selected_capabilities: Mapping[str, str] | None = None,
     exchange_manifest: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return a JSON-stable provenance payload for lineage storage."""
+    """Assemble the full provenance record for a run as a JSON-ready dictionary.
+
+    Args:
+        script: Identity of the script that ran.
+        interpreter: The resolved interpreter command used.
+        environment: Snapshot of the interpreter and environment.
+        started_at: Run start time as a UTC timestamp string.
+        completed_at: Run completion time, or ``None`` if it did not finish.
+        selected_capabilities: The save/load handler chosen per port.
+        exchange_manifest: The run's exchange manifest as a dictionary.
+
+    Returns:
+        The provenance payload as a JSON-serialisable dictionary.
+    """
 
     payload = CodeBlockProvenancePayload(
         script=script,

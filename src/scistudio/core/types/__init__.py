@@ -1,15 +1,33 @@
-"""DataObject type hierarchy — re-exports all base types.
+"""Core data types shared by every SciStudio block.
 
-Per ADR-027 D2, ``scistudio.core.types`` contains ONLY the base types.
-Domain subtypes (``Image``, ``FluorImage``, ``MSImage``, ``SRSImage``,
-``Spectrum``, ``RamanSpectrum``, ``MassSpectrum``, ``PeakTable``,
-``MetabPeakTable``, ``AnnData``, ``SpatialData``) live in plugin
-packages (``scistudio-blocks-imaging``, ``scistudio-blocks-spectral``,
-``scistudio-blocks-msi``, ``scistudio-blocks-singlecell``,
-``scistudio-blocks-spatial-omics``).
+This package holds the small set of general-purpose data containers that
+blocks pass to one another:
 
-T-006 deleted the Array-family subclasses; T-007 deletes the remaining
-Series/DataFrame/Composite domain subclasses.
+- :class:`Array` — N-dimensional arrays (images, volumes, stacks),
+- :class:`Series` — 1D indexed data (time series, chromatograms, spectra),
+- :class:`DataFrame` — columnar tables,
+- :class:`Text` — plain text, Markdown, or JSON,
+- :class:`Artifact` — opaque files (PDFs, reports, binary blobs),
+- :class:`CompositeData` — named bundles of the above,
+- :class:`Collection` — an ordered batch of items, all of one type.
+
+:class:`DataObject` is the base class they all inherit from, and
+:class:`TypeSignature` describes an object's type so blocks can check that
+two ports are compatible.
+
+Only these general-purpose types live here. Domain-specific kinds
+(microscopy images, spectra, peak tables, single-cell and spatial-omics
+containers, and so on) live in their own plugin packages and build on
+these base types. Reach for a base type directly when your data needs no
+specialised container — for example ``Array(axes=["y", "x"])`` for a plain
+2D image.
+
+Example:
+    >>> from scistudio.core.types import Array, Collection
+    >>> img = Array(axes=["y", "x"], shape=(512, 512))
+    >>> batch = Collection([img], item_type=Array)
+    >>> batch.length
+    1
 """
 
 from __future__ import annotations

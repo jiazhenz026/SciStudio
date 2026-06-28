@@ -1,24 +1,19 @@
-"""scistudio.core.meta — stratified metadata public surface.
+"""Stratified metadata public surface for ``DataObject``.
 
-Implements ADR-027 D5: framework / meta / user three-slot model on
-``DataObject``.
+A ``DataObject`` keeps its metadata in three separate slots so that
+framework-managed facts, plugin-declared descriptors, and free-form user notes
+never overwrite each other. This module holds the core pieces of that model:
 
-Public API:
+- :class:`FrameworkMeta` — the frozen ``framework`` slot the framework fills in
+  at object creation time (timestamps, identity, provenance hints).
+- :class:`ChannelInfo` — a small frozen descriptor for one acquisition channel,
+  used by plugin ``Meta`` classes (e.g. ``FluorImage.Meta.channels``). It lives
+  in core so several plugin packages can share it without importing one another.
+- :func:`with_meta_changes` — a pure helper that returns a metadata model with
+  some fields changed, backing ``DataObject.with_meta()``.
 
-- :class:`FrameworkMeta` — frozen Pydantic ``BaseModel`` for the
-  ``framework`` slot, populated by the framework at object creation
-  time.
-- :class:`ChannelInfo` — frozen Pydantic ``BaseModel`` used by plugin
-  ``Meta`` classes that describe acquisition channels (e.g.
-  ``FluorImage.Meta.channels``). Lives in core so that multiple plugin
-  packages can compose it without forcing a plugin → plugin import
-  (ADR-027 D5 §"Question 3").
-- :func:`with_meta_changes` — free-function helper backing
-  ``DataObject.with_meta()`` (T-005). Pure operation on a Pydantic
-  ``BaseModel``; does not depend on ``DataObject``.
-
-This module deliberately does NOT export ``DataObject``; that lives in
-``scistudio.core.types.base`` and is updated by T-005.
+``DataObject`` itself is intentionally not exported here; it lives in
+``scistudio.core.types``.
 """
 
 from __future__ import annotations

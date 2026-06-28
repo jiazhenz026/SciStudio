@@ -1,39 +1,21 @@
-"""Subprocess wrapper around the bundled git CLI (ADR-039 §3.1, §3.5).
+"""Subprocess wrapper around the bundled git CLI.
 
-The :class:`GitEngine` is the **only** module in SciStudio allowed to shell
-out to git. All API routes (`scistudio.api.routes.git`) and runtime hooks
-(``ApiRuntime.create_project``, ``ApiRuntime.start_workflow``) call into
-this class.
+:class:`GitEngine` is the only place in SciStudio allowed to shell out to git;
+the REST layer and runtime hooks call into it. It uses git's stable,
+machine-readable "plumbing" output (never the human-facing porcelain format):
 
-Stable wire format
-------------------
+- ``git status --porcelain=v2``
+- ``git log`` with a custom delimited format
+- ``git diff`` (raw or unified diff text)
+- ``git rev-parse HEAD`` for an unambiguous single SHA
 
-Per ADR-039 §3.1 lines 71-72: we use **plumbing commands with stable
-machine-readable output** — never porcelain v1.
+The method bodies live in private ``_*_ops.py`` sibling modules; this file
+defines the class, its shared helpers, the repository-lifecycle methods, and
+the bindings that wire the sibling functions onto the public method surface.
 
-- ``git status --porcelain=v2``  (NOT plain ``--porcelain``)
-- ``git log --format=...``       (custom delimited template)
-- ``git diff --raw`` or unified diff text (stable)
-- ``git rev-parse HEAD``         (single SHA, no ambiguity)
-
-Decomposition (ADR-046 Addendum 1, #1472)
------------------------------------------
-
-This file is the thin class-binding shell for ``GitEngine``. The bound
-method bodies live in private ``_*_ops.py`` sibling modules per
-ADR-046 Addendum 1 (Path D class-binding pattern). The class definition
-here only contains ``__init__``, the in-class helpers used by every
-sibling (``_run``, ``_author_env``, ``_rev_parse_head``, the ``_git``
-property), the repository-lifecycle methods (``init_repository``,
-``is_repository``), and the ~14 binding lines that wire the sibling
-functions into the public method surface.
-
-:data:`MergeResult` (a ``Literal`` alias) remains defined in this module.
-:class:`HeadState` moved to the leaf module
-:mod:`scistudio.core.versioning.state` (round-4 no-cycles) so that
-``_status_ops`` imports it from a sibling leaf instead of lazy-importing
-``git_engine``; it is re-exported here, and ADR-039 governs the canonical
-``scistudio.core.versioning.state.HeadState`` definition.
+:data:`MergeResult` (a ``Literal`` alias) is defined here. :class:`HeadState`
+lives in :mod:`scistudio.core.versioning.state` and is re-exported here so
+existing importers keep working.
 """
 
 from __future__ import annotations
@@ -69,6 +51,7 @@ from scistudio.core.versioning.state import HeadState
 # import cycle.
 
 MergeResult = Literal["fast-forward", "clean", "conflict"]
+"""Outcome of a merge or cherry-pick: a fast-forward, a clean merge, or a conflict."""
 
 
 # ---------------------------------------------------------------------------
@@ -102,18 +85,12 @@ _DEFAULT_AUTHOR = f"{_DEFAULT_AUTHOR_NAME} <{_DEFAULT_AUTHOR_EMAIL}>"
 
 
 class GitEngine:
-    """Subprocess wrapper exposing the operations enumerated in ADR-039 §3.5.
+    """Run git operations on one project repository.
 
-    One instance per repository. Lazily resolves the bundled git binary
-    on first use via :class:`GitBinary`.
-
-    Method-body decomposition: per ADR-046 Addendum 1, the bound-method
-    bodies live in private ``_*_ops.py`` siblings (``_commit_ops``,
-    ``_history_ops``, ``_branch_ops``, ``_status_ops``, ``_merge_ops``).
-    The bindings at the bottom of this class wire those functions into
-    the public method surface; signature, behavior, and the ``self.``
-    attribute reads they perform are identical to the pre-decomposition
-    inline form.
+    Create one instance per repository; the bundled git binary is resolved
+    lazily on first use. This is the only class that shells out to git, so other
+    code calls its methods (commit, log, diff, branch, merge, ...) rather than
+    invoking git directly.
     """
 
     def __init__(self, project_path: Path) -> None:
@@ -157,9 +134,23 @@ class GitEngine:
     # ------------------------------------------------------------------
 
     def init_repository(self, project_path: Path) -> str:
-        """Initialize new git repo + write .gitignore + initial commit.
+        """Initialise a new git repository and make the first commit.
 
-        Returns the SHA of the initial commit. See ADR-039 §3.2, §3.9.
+        Creates the repository (default branch ``main``), writes the default
+        ``.gitignore``, stages everything, and commits it with a built-in author
+        identity so it succeeds even on a machine with no git identity
+        configured.
+
+        Args:
+            project_path: Directory to turn into a git repository.
+
+        Returns:
+            The SHA of the initial commit.
+
+        Raises:
+            FileNotFoundError: When *project_path* does not exist.
+            NotADirectoryError: When *project_path* is not a directory.
+            FileExistsError: When the directory already contains a ``.git``.
         """
         from scistudio.core.versioning.gitignore_template import write_default_gitignore
 
@@ -205,25 +196,17 @@ class GitEngine:
         return str(proc.stdout).strip()
 
     def is_repository(self, path: Path) -> bool:
-        """Check whether ``path`` is the root of a git repository.
+        """Return whether *path* is the root of a git repository.
 
-        See ADR-039 §3.2 line 94.
+        Reports ``True`` when a ``.git`` entry exists at *path*, whether it is a
+        directory (a normal checkout) or a plain file (a linked git worktree
+        gitlink).
 
-        Returns ``True`` when ``.git`` exists at *path* **regardless of whether
-        it is a directory (normal clone) or a plain file (git worktree gitlink)**
-        — ``Path.exists()`` covers both.  In a ``git worktree add`` worktree the
-        ``.git`` entry is a plain text file whose content is
-        ``gitdir: <path-to-real-.git>``; ``(path / ".git").exists()`` returns
-        ``True`` for that case, so this method correctly reports ``True`` for
-        both normal checkouts and linked worktrees.
+        Args:
+            path: Directory to check.
 
-        .. note::
-            ADR-039 P3-A (#969): a future tri-state return
-            ``Literal['repo', 'worktree', 'not-a-repo']`` would let callers
-            distinguish a main checkout from a linked worktree.  That is out
-            of scope for the current implementation; all callers today only
-            need the boolean "is this under git control?" answer.
-            Followup: see issue #969.
+        Returns:
+            ``True`` if *path* is under git control, else ``False``.
         """
         try:
             if (Path(path) / ".git").exists():

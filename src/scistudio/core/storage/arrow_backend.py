@@ -26,19 +26,52 @@ def _wrap_arrow_read_error(ref: StorageReference, operation: str, exc: Exception
 
 
 class ArrowBackend:
-    """Arrow/Parquet-based storage backend for columnar tabular data."""
+    """Storage backend for tabular data, backed by Apache Arrow / Parquet.
+
+    Persists DataFrame- and Series-like data as Parquet files and reads them
+    back as PyArrow tables. The router selects this backend for columnar
+    tabular types, so you rarely construct it directly.
+
+    Example:
+        >>> import os, tempfile
+        >>> backend = ArrowBackend()
+        >>> path = os.path.join(tempfile.mkdtemp(), "t.parquet")
+        >>> ref = backend.write({"x": [1, 2, 3]}, StorageReference(backend="arrow", path=path))
+        >>> backend.read(ref).num_rows
+        3
+    """
 
     def read(self, ref: StorageReference) -> Any:
-        """Read a Parquet file from *ref* and return a PyArrow Table."""
+        """Read the Parquet file at *ref* and return it as a PyArrow table.
+
+        Args:
+            ref: Pointer to the stored Parquet file.
+
+        Returns:
+            The table as a :class:`pyarrow.Table`.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+            StorageReferenceInvalidError: When the file is corrupt or unreadable.
+        """
         try:
             return pq.read_table(ref.path)
         except (FileNotFoundError, pa.ArrowInvalid) as exc:
             raise _wrap_arrow_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
-        """Write *data* (PyArrow Table or dict) as Parquet to *ref*.
+        """Write *data* as Parquet to *ref*.
 
-        Returns an updated :class:`StorageReference` with column metadata.
+        Args:
+            data: A :class:`pyarrow.Table`, or a dict of column name to values.
+            ref: Pointer describing where to write the file.
+
+        Returns:
+            An updated :class:`StorageReference` whose metadata records the
+            column names and row count.
+
+        Raises:
+            TypeError: When *data* is neither a dict nor a :class:`pyarrow.Table`.
         """
         if isinstance(data, dict):
             table = pa.table(data)
@@ -62,15 +95,32 @@ class ArrowBackend:
         )
 
     def write_from_memory(self, data: Any, path: str) -> StorageReference:
-        """Write raw in-memory Arrow/dict data to Parquet at *path*."""
+        """Write in-memory table/dict data to a new Parquet file at *path*.
+
+        Args:
+            data: A :class:`pyarrow.Table` or a dict of column name to values.
+            path: Target filesystem path for the Parquet file.
+
+        Returns:
+            A :class:`StorageReference` pointing at the new file.
+        """
         ref = StorageReference(backend="arrow", path=path)
         return self.write(data, ref)
 
     def slice(self, ref: StorageReference, *args: Any) -> Any:
-        """Return a column-selected subset from the table at *ref*.
+        """Read only selected columns from the table at *ref*.
 
-        *args* should be a list of column names to select, or a single
-        list argument.
+        Args:
+            ref: Pointer to the stored Parquet file.
+            *args: Column names to select, given either as separate arguments or
+                as a single list. Empty selects all columns.
+
+        Returns:
+            A :class:`pyarrow.Table` containing only the requested columns.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+            StorageReferenceInvalidError: When the file is corrupt or unreadable.
         """
         columns: list[str] | None = None
         if args:
@@ -82,7 +132,19 @@ class ArrowBackend:
             raise _wrap_arrow_read_error(ref, "slice", exc) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
-        """Yield row-batched chunks from the Parquet file at *ref*."""
+        """Yield the Parquet file at *ref* as successive row batches.
+
+        Args:
+            ref: Pointer to the stored Parquet file.
+            chunk_size: Maximum number of rows per yielded batch.
+
+        Yields:
+            A :class:`pyarrow.Table` for each row batch.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+            StorageReferenceInvalidError: When the file is corrupt or unreadable.
+        """
         try:
             pf = pq.ParquetFile(ref.path)
         except (FileNotFoundError, pa.ArrowInvalid) as exc:
@@ -94,7 +156,19 @@ class ArrowBackend:
                 raise _wrap_arrow_read_error(ref, "iter_chunks", exc) from exc
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
-        """Return Parquet-level metadata for *ref*."""
+        """Return Parquet-level metadata for *ref*.
+
+        Args:
+            ref: Pointer to the stored Parquet file.
+
+        Returns:
+            A dict with ``columns``, ``num_rows``, ``num_row_groups``, and a
+            ``schema`` mapping each column name to its type.
+
+        Raises:
+            StorageMissingError: When the file does not exist.
+            StorageReferenceInvalidError: When the file is corrupt or unreadable.
+        """
         try:
             pf = pq.ParquetFile(ref.path)
         except (FileNotFoundError, pa.ArrowInvalid) as exc:

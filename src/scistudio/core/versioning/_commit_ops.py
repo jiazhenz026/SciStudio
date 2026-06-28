@@ -39,7 +39,23 @@ def _commit(
     author: str | None = None,
     prefix: str | None = None,
 ) -> str:
-    """Create a new commit; return the new HEAD SHA. See ADR-039 §3.4."""
+    """Create a new commit and return the new HEAD commit SHA.
+
+    Args:
+        message: The commit message; must be non-empty.
+        files: Specific files to stage and commit; ``None`` stages all changes.
+        author: Optional ``Name <email>`` author override.
+        prefix: Optional message prefix, either ``"auto"`` or ``"agent"``,
+            prepended as ``"<prefix>: <message>"``.
+
+    Returns:
+        The SHA of the newly created commit.
+
+    Raises:
+        ValueError: When *message* is empty, or *prefix* is not ``"auto"`` or
+            ``"agent"``.
+        GitError: When there is nothing staged to commit.
+    """
     if not message or not message.strip():
         raise ValueError("Commit message must not be empty.")
 

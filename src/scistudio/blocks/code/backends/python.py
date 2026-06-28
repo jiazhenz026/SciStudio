@@ -1,4 +1,4 @@
-"""Python backend for CodeBlock v2."""
+"""Backend that runs Python (``.py``) Code Block scripts."""
 
 from __future__ import annotations
 
@@ -18,15 +18,35 @@ from scistudio.stability import provisional
 
 @provisional(since="0.3.1")
 class PythonCodeBlockBackend:
-    """Python `.py` backend for the ADR-041 shared runtime."""
+    """Run a Code Block script written in Python (``.py``).
+
+    This is the default Code Block backend. It picks a Python interpreter
+    (either the one bundled with the app or an explicit path you configure via
+    ``interpreter_mode`` / ``interpreter_path``), launches the script from the
+    project root, and exposes the ``SCISTUDIO_*`` environment variables so the
+    script can find its declared input and output folders. The script reads its
+    inputs from files and writes its outputs to files; the Code Block converts
+    those files back into typed data objects.
+
+    Example:
+        >>> backend = PythonCodeBlockBackend()
+        >>> backend.name
+        'python'
+        >>> backend.supports(Path("analysis.py"), config)
+        True
+    """
 
     name = "python"
+    """Backend identifier used in the registry and provenance records."""
     extensions = frozenset({".py"})
+    """File extensions this backend handles."""
 
     def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
+        """Return whether *script_path* is a Python script this backend runs."""
         return script_path.suffix.lower() in self.extensions
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+        """Resolve the Python interpreter and exchange environment for a run."""
         interpreter = resolve_script_interpreter(
             context.script_path,
             environment_config=context.environment_config,
@@ -47,6 +67,7 @@ class PythonCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        """Launch the Python interpreter on the script and return the process."""
         # ADR-041 §4: launch the interpreter from the configured working
         # directory (default ``"."`` = project root). Previously the
         # subprocess inherited ``cwd=context.exchange_dir``, which broke

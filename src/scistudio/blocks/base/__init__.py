@@ -1,10 +1,11 @@
-"""Block authoring surface (ADR-052 §4).
+"""Block authoring surface.
 
-Canonical root for block-authoring symbols: ``from scistudio.blocks.base import …``.
-The public surface is exactly this module's ``__all__``; everything else
-(``Port`` and the port helpers, ``BlockState``, ``BlockResult``, and the
-internal interactive plumbing) stays importable via its deep path but carries no
-stability promise (ADR-052 §2).
+The canonical place to import block-authoring symbols from:
+``from scistudio.blocks.base import …``. The supported public surface is exactly
+this module's ``__all__``. Everything else here (``Port`` and the port helpers,
+``BlockState``, ``BlockResult``, and the internal interactive plumbing) stays
+importable via its deep path but carries no stability promise, so prefer the
+names below.
 """
 
 from __future__ import annotations

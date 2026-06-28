@@ -1,8 +1,8 @@
-"""Text — plain text, markdown, or JSON content DataObject.
+"""Text content (:class:`Text`).
 
-ADR-027 D2: this module is core-only. No domain subclasses of
-:class:`Text` exist in core; any future text-format specialisations
-(e.g. LaTeX, RTF) should live in a plugin package.
+The data type for textual results — plain text, Markdown, or JSON. Use it
+for notes, generated reports, log output, or any string payload a block
+produces. Format-specific text kinds belong in plugin packages.
 """
 
 from __future__ import annotations
@@ -15,13 +15,17 @@ from scistudio.stability import internal, provisional, stable
 
 @stable(since="0.3.1")
 class Text(DataObject):
-    """Textual data object (plain text, markdown, JSON, etc.).
+    """Textual data: plain text, Markdown, or JSON.
 
-    Attributes:
-        content: The text content, if loaded.
-        format: Content format identifier (e.g. ``"plain"``, ``"markdown"``,
-            ``"json"``).
-        encoding: Character encoding (default UTF-8).
+    Use this for any string result — a note, a generated report, JSON output.
+    The :attr:`format` label records which flavour the text is, and
+    :attr:`encoding` records its character encoding.
+
+    Example:
+        >>> from scistudio.core.types import Text
+        >>> note = Text(content="All samples passed QC.", format="markdown")
+        >>> note.format
+        'markdown'
     """
 
     @stable(since="0.3.1")
@@ -33,16 +37,23 @@ class Text(DataObject):
         encoding: str = "utf-8",
         **kwargs: Any,
     ) -> None:
-        """Construct a Text with optional content and format metadata.
+        """Construct a text object.
 
-        Standard :class:`DataObject` slots (``framework``, ``meta``,
-        ``user``, ``storage_ref``) are passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`.
+        Args:
+            content: The text content, or ``None`` for a metadata-only text object (no content).
+            format: Content flavour: ``"plain"`` (default), ``"markdown"``,
+                or ``"json"``.
+            encoding: Character encoding; defaults to UTF-8.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``).
         """
         super().__init__(**kwargs)
         self.content = content
+        """The text itself, or ``None`` when not yet loaded."""
         self.format = format
+        """Content flavour: ``"plain"`` (default), ``"markdown"``, or ``"json"``."""
         self.encoding = encoding
+        """Character encoding; defaults to UTF-8."""
 
     @internal()
     def get_in_memory_data(self) -> Any:
@@ -55,19 +66,22 @@ class Text(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new Text with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        Text-specific constructor arguments (``content``, ``format``,
-        ``encoding``). The base implementation only propagates the four
-        standard DataObject slots (``framework``, ``meta``, ``user``,
-        ``storage_ref``); without this override the call would lose the
-        Text-specific attributes on the returned instance.
+        Like :meth:`DataObject.with_meta`, but also carries the text-specific
+        fields (:attr:`content`, :attr:`format`, :attr:`encoding`) onto the
+        copy.
+
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new text object of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only Text subclasses that declare a ``Meta``
-                ClassVar can use :meth:`with_meta`.
+            ValueError: if this object has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -97,17 +111,19 @@ class Text(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``Text``-specific kwargs for worker reconstruction.
+        """Rebuild a text object's constructor arguments from saved metadata.
 
-        Extracts ``content`` / ``format`` / ``encoding`` from the
-        wire-format metadata sidecar. ``format`` defaults to ``"plain"``
-        and ``encoding`` to ``"utf-8"`` to mirror the constructor's
-        defaults. ``content`` is optional; metadata-only ``Text``
-        instances (content lives in the storage backend) round-trip
-        with ``content=None``.
+        Reads ``content`` / ``format`` / ``encoding`` back out of the
+        metadata produced by :meth:`serialise_extra_metadata`. ``format``
+        defaults to ``"plain"`` and ``encoding`` to ``"utf-8"`` to match the
+        constructor. ``content`` is optional; a metadata-only text object
+        (its content lives in storage) round-trips with ``content=None``.
 
-        See ADR-027 Addendum 1 §2 ("D11' companion") for the full
-        contract.
+        Args:
+            metadata: The saved metadata dict for one text object.
+
+        Returns:
+            Keyword arguments to pass to ``cls(**kwargs)``.
         """
         return {
             "content": metadata.get("content"),
@@ -118,15 +134,18 @@ class Text(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``Text``-specific fields for the metadata sidecar.
+        """Return a text object's own fields for the saved metadata.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`. All
-        three fields are already JSON-primitive (``str | None``) and
-        need no conversion.
+        The counterpart of :meth:`reconstruct_extra_kwargs`. All three fields
+        are already JSON primitives and need no conversion.
 
-        The parameter is typed as :class:`DataObject` to respect the
-        Liskov substitution principle with the base classmethod; at
-        runtime the caller only ever passes an instance of ``cls``.
+        Args:
+            obj: The text object to serialise. Typed as :class:`DataObject`
+                so it matches the base method's signature; the caller always
+                passes a :class:`Text`.
+
+        Returns:
+            A JSON-serialisable dict of the text object's fields.
         """
         assert isinstance(obj, Text), f"Expected Text, got {type(obj).__name__}"
         return {

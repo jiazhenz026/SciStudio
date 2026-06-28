@@ -27,15 +27,28 @@ class BlockState(Enum):
 
 @stable(since="0.3.1")
 class ExecutionMode(Enum):
-    """How the block is executed by the runtime.
+    """How the runtime executes a block.
 
-    Authors set ``execution_mode`` on a block class to one of these values
-    (ADR-052 §4.4).
+    Set the ``execution_mode`` class attribute on a block to one of these values
+    so the engine knows how to run it. Most blocks leave it at the default
+    :attr:`AUTO`. Choose :attr:`INTERACTIVE` only when the block pauses to ask
+    the user a question mid-run, and :attr:`EXTERNAL` only when it hands the work
+    off to a separate desktop application.
+
+    Example:
+        >>> from scistudio.blocks.base import ExecutionMode
+        >>> ExecutionMode.AUTO.value
+        'auto'
     """
 
     AUTO = "auto"
+    """Run automatically as part of the workflow, without pausing for the user."""
+
     INTERACTIVE = "interactive"
+    """Pause mid-run to open a block window and take a decision from the user."""
+
     EXTERNAL = "external"
+    """Hand the work off to a separate desktop application (e.g. an imaging tool)."""
 
 
 # ADR-020: BatchMode enum REMOVED — engine no longer iterates collections.

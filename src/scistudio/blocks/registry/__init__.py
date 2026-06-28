@@ -1,26 +1,34 @@
-"""BlockRegistry — discovers blocks from drop-in files and entry_points.
+"""Discover the available block types and look them up at runtime.
 
-Per ADR-009, the registry stores :class:`BlockSpec` descriptors (module path,
-class name, metadata, file mtime) — never the class object itself.  This
-ensures hot-reload safety: a reload updates specs without affecting running
-workflow instances.
+A :class:`BlockRegistry` is the catalogue the system consults to find out
+which blocks exist and how to build one. The usual flow is: create a
+registry, call :meth:`BlockRegistry.scan` once to populate it from every
+configured source, then ask it for a block by name with
+:meth:`BlockRegistry.get_spec` or :meth:`BlockRegistry.instantiate`.
 
-Per ADR-047, the registry is a sub-package (``Path D`` pattern) split into:
+For each block the registry keeps a small :class:`BlockSpec` descriptor —
+where the class lives plus its display metadata, ports, config schema, and
+file-format support — instead of the block class itself. Because it stores
+only the location, the registry can re-scan edited drop-in files without
+disturbing blocks already running in a workflow.
 
-- ``__init__.py`` — :class:`BlockRegistry`, :class:`BlockSpec`, and the
-  five capability error classes.
-- ``_scan.py`` — Tier 1 / Tier 2 / monorepo scan loops + ``_register_spec``.
-- ``_capability.py`` — ADR-043 capability lookup helpers
-  (``find_loader_capability`` / ``find_saver_capability`` /
-  ``list_format_capabilities`` + matching primitives).
-- ``_spec.py`` — :func:`_spec_from_class` + ADR-030 ``_merge_config_schema`` +
-  ADR-038 distribution-version resolution.
-
-The pre-ADR-043 "legacy IO finder" methods
-(``find_loader`` / ``find_saver`` / ``find_io_blocks_for_type``) were
-removed in this refactor — all production callers reach the capability
-methods first; the legacy fallback paths are dead code.
+This module also defines the errors raised when registration or a
+file-format lookup fails: :class:`BlockRegistrationError`,
+:class:`CapabilityRegistrationError`, :class:`CapabilityLookupError`,
+:class:`MissingCapabilityError`, and :class:`AmbiguousCapabilityError`.
 """
+
+# Maintainer notes (provenance):
+# - Specs store the class *location*, not the class object, for hot-reload
+#   safety (ADR-009).
+# - The package is split per ADR-047 ("Path D"): ``__init__.py`` holds the
+#   public classes; ``_scan.py`` the scan loops + ``_register_spec``;
+#   ``_capability.py`` the ADR-043 capability lookups; ``_spec.py``
+#   ``_spec_from_class`` + the ADR-030 config-schema merge + ADR-038
+#   distribution-version resolution.
+# - The pre-ADR-043 legacy IO finders (``find_loader`` / ``find_saver`` /
+#   ``find_io_blocks_for_type``) were removed in that refactor; all production
+#   callers reach the capability methods first.
 
 from __future__ import annotations
 
@@ -38,26 +46,57 @@ if TYPE_CHECKING:
     from scistudio.blocks.base.package_info import PackageInfo
 
 
+# Provenance: the registry fails loudly on an unresolvable version per
+# ADR-038 §3.3 (every lineage row needs a real block version); the scan loops
+# catch this per block so one bad plugin does not drop the whole palette.
 class BlockRegistrationError(Exception):
-    """Raised when a Block class cannot be registered.
+    """Raised when a block class cannot be added to the registry.
 
-    ADR-038 §3.3 (D38-3.2): the registry must "fail loudly" when the
-    distribution version for a Block class cannot be resolved — the
-    reproducibility guarantee requires a real version on every row.
+    The usual cause is that the registry cannot tell which installed
+    distribution a block came from, so it cannot stamp a real version on the
+    block. A version is required so that every result the block produces can
+    be traced back to an exact build.
 
-    The Tier 1 / Tier 2 / monorepo scan loops catch this exception and
-    log the failure per-block, so a single mis-packaged plugin does not
-    kill the whole palette (less-destructive degradation while still
-    removing the historical ``"unknown"`` default).
+    The scan step catches this error for each block on its own and logs it, so
+    a single mis-packaged plugin is skipped rather than taking down the whole
+    block palette.
     """
 
 
 class CapabilityRegistrationError(BlockRegistrationError):
-    """Raised when an IO format capability cannot be indexed."""
+    """Raised when a block's declared file-format support cannot be registered.
+
+    A block that loads or saves files declares one or more *format
+    capabilities*: which data type, which file extensions, and which handler
+    method does the work. This error is raised while scanning when such a
+    declaration is malformed or inconsistent — for example a capability whose
+    direction or handler does not match the block. The offending block is
+    skipped.
+    """
 
 
 class CapabilityLookupError(LookupError):
-    """Base class for IO format capability lookup failures."""
+    """Base error for a failed file-format capability lookup.
+
+    Raised through its subclasses :class:`MissingCapabilityError` and
+    :class:`AmbiguousCapabilityError` when asking the registry which block can
+    load or save a given data type and file format does not yield a single
+    clear answer. The attributes record exactly what was asked and which
+    capabilities were considered, so a caller can build a helpful message or
+    fall back.
+
+    Args:
+        message: Human-readable description of the failure.
+        direction: Whether the failed lookup was for loading (``"load"``) or
+            saving (``"save"``).
+        data_type: The data type the lookup was for.
+        extension: The file extension that was queried (e.g. ``".csv"``), or
+            ``None``.
+        format_id: The named format that was queried, or ``None``.
+        capability_id: The exact capability identifier that was queried, or
+            ``None``.
+        candidates: The capabilities that were considered for the query.
+    """
 
     def __init__(
         self,
@@ -72,101 +111,220 @@ class CapabilityLookupError(LookupError):
     ) -> None:
         super().__init__(message)
         self.direction = direction
+        """Whether the lookup was for loading (``"load"``) or saving (``"save"``)."""
         self.data_type = data_type
+        """The data type the lookup was for."""
         self.extension = extension
+        """The file extension that was queried (e.g. ``".csv"``), or ``None``."""
         self.format_id = format_id
+        """The named format that was queried, or ``None``."""
         self.capability_id = capability_id
+        """The exact capability identifier that was queried, or ``None``."""
         self.candidates = candidates
+        """The capabilities that were considered for this query."""
 
 
 class MissingCapabilityError(CapabilityLookupError):
-    """Raised when no IO format capability matches a query."""
+    """Raised when no block can load or save the requested data and format.
+
+    Ask the registry, for example, to find a loader for a data type from a
+    ``.xyz`` file when nothing has registered support for that combination and
+    you get this error. Check that the plugin providing the format is
+    installed and that the data type and extension are spelled as expected.
+    """
 
 
 class AmbiguousCapabilityError(CapabilityLookupError):
-    """Raised when a capability query has no deterministic winner."""
+    """Raised when more than one block could handle the request equally well.
+
+    Several blocks can load or save the same data type and extension and none
+    stands out as the obvious choice, so the registry refuses to guess. Narrow
+    the request to resolve it — pass an explicit ``format_id`` or
+    ``capability_id`` to :meth:`BlockRegistry.find_loader_capability` or
+    :meth:`BlockRegistry.find_saver_capability`.
+    """
 
 
 @dataclass
 class BlockSpec:
-    """Metadata descriptor for a registered block type.
+    """A lightweight description of one registered block type.
 
-    Stores the *location* of the block class (module path + class name)
-    rather than holding a reference to the class object.  See ADR-009.
+    The registry keeps a :class:`BlockSpec` for every block it knows about
+    instead of importing and holding the block class. It records *where* the
+    class lives (module path and class name) plus the display metadata, ports,
+    config schema, and file-format support the system and the UI need to show
+    the block in the palette and build it on demand. Storing only the location
+    lets the registry re-scan edited files without disturbing blocks already
+    running in a workflow.
+
+    You normally obtain a :class:`BlockSpec` from
+    :meth:`BlockRegistry.get_spec` rather than constructing one yourself.
+
+    Example:
+        >>> registry = BlockRegistry()
+        >>> registry.scan()
+        >>> spec = registry.get_spec("LoadData")  # -> BlockSpec or None
+        >>> if spec is not None:
+        ...     print(spec.base_category)
+        io
     """
 
     name: str
+    """Human-readable display name shown in the block palette."""
     description: str = ""
+    """One-line summary of what the block does, shown in the UI."""
     version: str = "0.1.0"
+    """Version of the installed distribution the block came from.
+
+    Stamped onto every result the block produces so a run can be traced back
+    to an exact build.
+    """
     module_path: str = ""
+    """Importable module path of the block class (e.g. ``"my_pkg.blocks"``)."""
     class_name: str = ""
+    """Name of the block class within :attr:`module_path`."""
     file_path: str | None = None
+    """Source file of a drop-in block, or ``None`` for installed blocks.
+
+    Set only for blocks discovered as loose ``.py`` files; it lets the
+    registry re-import the file when it changes.
+    """
     file_mtime: float | None = None
+    """Last-modified time of :attr:`file_path`, used to detect edited drop-in files."""
     base_category: str = ""
+    """Broad block family.
+
+    One of ``"io"``, ``"process"``, ``"code"``, ``"app"``, ``"ai"``, or
+    ``"subworkflow"``.
+    """
     subcategory: str = ""
-    # #1839: optional canvas-node display hints copied from the class-level
-    # ``Block.ui_color`` / ``Block.ui_icon`` ClassVars at scan time. ``None``
-    # means "use the base_category default" on the frontend.
+    """Optional finer grouping within :attr:`base_category`, for palette organisation."""
+    # Canvas-node display hints copied from the block class at scan time (#1839).
     ui_color: str | None = None
+    """Accent colour for this block's node on the canvas.
+
+    ``None`` falls back to the colour for its :attr:`base_category`.
+    """
     ui_icon: str | None = None
+    """Icon name for this block's node on the canvas.
+
+    ``None`` falls back to the icon for its :attr:`base_category`.
+    """
     input_ports: list[Any] = field(default_factory=list)
+    """The block's declared input ports (the connections it accepts)."""
     output_ports: list[Any] = field(default_factory=list)
+    """The block's declared output ports (the connections it produces)."""
     config_schema: dict[str, Any] = field(default_factory=dict)
+    """JSON-schema-style description of the block's configuration fields.
+
+    Drives the settings form shown for the block. Fields inherited from base
+    classes are merged in, so this is the full effective schema.
+    """
     source: str = ""
+    """Where the block was discovered (e.g. ``"builtin"`` or a drop-in source tag)."""
     type_name: str = ""
+    """Stable identifier for the block type, used in saved workflow files."""
     package_name: str = ""
-    # ADR-028 Addendum 1 D3: IO direction for IO blocks ("input" | "output").
-    # Empty string means "not an IO block / no direction".
+    """Plugin package that provided the block, or ``""`` for built-ins and drop-ins."""
+    # IO direction copied from the block class at scan time (ADR-028 Addendum 1).
     direction: str = ""
-    # ADR-028 Addendum 1 D3: enum-driven dynamic-port descriptor copied from
-    # the class-level ``Block.dynamic_ports`` ClassVar. Validated at scan
-    # time by :meth:`BlockRegistry._validate_dynamic_ports`.
+    """For file-IO blocks, ``"input"`` (loads files) or ``"output"`` (saves files).
+
+    Empty for blocks that do not read or write files.
+    """
+    # Enum-driven dynamic-port descriptor; shape-checked at scan time
+    # (ADR-028 Addendum 1).
     dynamic_ports: dict[str, Any] | None = None
-    # ADR-029 D8: variadic port flags — copied from Block ClassVars at scan time.
+    """Describes ports whose set changes with a config choice, or ``None``.
+
+    Used by blocks whose available inputs or outputs depend on a configuration
+    value (for example a chosen file format). ``None`` means the ports are
+    fixed.
+    """
+    # Variadic-port flags copied from the block class (ADR-029).
     variadic_inputs: bool = False
+    """Whether the user may add an arbitrary number of input ports."""
     variadic_outputs: bool = False
-    # ADR-029 D11: allowed type names for variadic port editor dropdown.
-    # Empty list means "any DataObject subclass".
+    """Whether the user may add an arbitrary number of output ports."""
+    # Allowed type names for the variadic-port editor dropdown (ADR-029 D11).
     allowed_input_types: list[str] = field(default_factory=list)
+    """Data-type names a variadic input port may be set to; empty means any type."""
     allowed_output_types: list[str] = field(default_factory=list)
-    # ADR-029 Addendum 1: optional min/max constraints on variadic port count.
+    """Data-type names a variadic output port may be set to; empty means any type."""
+    # Optional min/max constraints on variadic port count (ADR-029 Addendum 1).
     min_input_ports: int | None = None
+    """Minimum number of input ports allowed, or ``None`` for no minimum."""
     max_input_ports: int | None = None
+    """Maximum number of input ports allowed, or ``None`` for no maximum."""
     min_output_ports: int | None = None
+    """Minimum number of output ports allowed, or ``None`` for no minimum."""
     max_output_ports: int | None = None
-    # ADR-028 §D8 / #1077: cached copy of the class-level ``supported_extensions``
-    # ClassVar so the registry can dispatch by extension without re-importing
-    # the block class.
+    """Maximum number of output ports allowed, or ``None`` for no maximum."""
+    # Cached copy of the class ``supported_extensions`` ClassVar so the registry
+    # can dispatch by extension without re-importing the block (ADR-028 §D8 / #1077).
     supported_extensions: dict[str, str] = field(default_factory=dict)
-    # ADR-043: normalized IO format capability records captured at scan time.
+    """File extensions this block handles, mapping each extension to a format label.
+
+    Lets the registry pick a block by file extension without importing it.
+    Empty for blocks that do not read or write files.
+    """
+    # Normalized IO format capability records captured at scan time (ADR-043).
     format_capabilities: list[FormatCapability] = field(default_factory=list)
-    # Desktop package blocks may need import roots that are intentionally not
-    # exposed to the core process globally. The runner passes these to the
-    # worker payload for block-local imports.
+    """Detailed load/save capabilities this block provides.
+
+    Each entry pairs a data type and file format with the handler that does
+    the work; the registry searches these when resolving a loader or saver.
+    """
+    # Extra import roots a packaged block needs at run time; deliberately not
+    # added to the core process's global import path.
     runtime_import_roots: list[str] = field(default_factory=list)
-    # ADR-051: execution mode hint ("auto" | "interactive" | "external") copied
-    # from the ``Block.execution_mode`` ClassVar so consumers (palette/API) can
-    # tell an interactive block apart without instantiating it.
+    """Extra import directories a packaged block needs when it runs.
+
+    These are made available to the worker that runs the block instead of
+    being added to the main process's import path.
+    """
+    # Execution mode + interactive panel metadata copied from the block class
+    # (ADR-051) so consumers can inspect a block without instantiating it.
     execution_mode: str = "auto"
-    # ADR-051: the interactive panel manifest (serialized wire shape) for
-    # INTERACTIVE blocks, surfaced for registry/API/palette consumption and for
-    # package panel asset serving/validation. ``None`` for non-interactive blocks.
+    """How the block runs.
+
+    ``"auto"`` (runs straight through), ``"interactive"`` (pauses for user
+    input mid-run), or ``"external"`` (drives an external application).
+    """
     panel_manifest: dict[str, Any] | None = None
-    # ADR-051: server-side-only filesystem root a package confines its panel
-    # assets under (never serialized to the wire, mirroring ADR-048 asset_root).
-    # Used by the panel asset-serving route for path confinement. ``None`` for
-    # core/bundled panels and non-interactive blocks.
+    """Description of the interactive-panel UI for an interactive block, or ``None``.
+
+    Present only when :attr:`execution_mode` is ``"interactive"``.
+    """
     panel_asset_root: str | None = None
+    """Server-side folder an interactive panel's files are served from, or ``None``.
+
+    Used to confine panel asset serving to one directory; it is never sent to
+    the browser. ``None`` for built-in panels and non-interactive blocks.
+    """
 
 
 class BlockRegistry:
-    """Central catalogue of available block types.
+    """Catalogue of every block type available for building workflows.
 
-    The registry is populated via :meth:`scan` (entry-points / drop-in
-    directories) and queried by the runtime when constructing workflows.
+    Create one registry, call :meth:`scan` once to discover blocks from every
+    source, then look a block up by name with :meth:`get_spec` or build one
+    with :meth:`instantiate`. The system uses a registry to turn a saved
+    workflow into running blocks; tools and the UI use it to list what is
+    available.
 
-    Tier 1: Drop-in ``.py`` files from configured scan directories.
-    Tier 2: ``pyproject.toml`` entry-points under ``"scistudio.blocks"``.
+    :meth:`scan` discovers blocks from four sources:
+
+    - the blocks built in to SciStudio,
+    - loose ``.py`` files in directories you add with :meth:`add_scan_dir`,
+    - installed plugin packages that advertise blocks through the
+      ``scistudio.blocks`` entry-point group in their ``pyproject.toml``,
+    - source-package directories you add with :meth:`add_package_src_dir`.
+
+    Example:
+        >>> registry = BlockRegistry()
+        >>> registry.scan()
+        >>> block = registry.instantiate("LoadData")
     """
 
     def __init__(self) -> None:
@@ -177,20 +335,50 @@ class BlockRegistry:
         self._packages: dict[str, PackageInfo] = {}
 
     def add_scan_dir(self, directory: str | Path) -> None:
-        """Add a directory to the Tier 1 scan path."""
+        """Register a directory of drop-in block files to scan.
+
+        Any ``.py`` file in *directory* that defines a block class is picked up
+        the next time :meth:`scan` (or :meth:`hot_reload`) runs. Use this for
+        loose, file-based blocks that are not installed as a package.
+
+        Args:
+            directory: Path to the folder holding the drop-in block files.
+        """
         self._scan_dirs.append(Path(directory))
 
     def add_package_src_dir(self, directory: str | Path) -> None:
-        """Add a hard-installed source-package directory to the Tier 3 scan path.
+        """Register a directory of block source packages to scan.
 
-        ``directory`` may be a ``packages`` directory containing ``*/src``
-        package sources, a single package root with a ``src`` child, or an
-        already-resolved ``src`` directory.
+        Use this to discover blocks that live in package source trees on disk
+        rather than being installed with pip. The next :meth:`scan` imports the
+        packages found under *directory* and registers their blocks.
+
+        Args:
+            directory: A folder of package sources. It may be a ``packages``
+                folder containing ``*/src`` package sources, a single package
+                root that has a ``src`` child, or an already-resolved ``src``
+                folder.
         """
         self._package_src_dirs.append(Path(directory))
 
     def scan(self) -> None:
-        """Discover block classes from entry-points and drop-in directories."""
+        """Discover all available blocks and populate the registry.
+
+        Runs every discovery source in turn: the built-in blocks, drop-in
+        files from directories added with :meth:`add_scan_dir`, installed
+        plugin packages advertised through the ``scistudio.blocks``
+        entry-point group, and source-package directories added with
+        :meth:`add_package_src_dir`. Call this once after creating the
+        registry, before looking blocks up.
+
+        A block that cannot be registered (for example a mis-packaged plugin)
+        is logged and skipped so the rest of the catalogue still loads.
+
+        Example:
+            >>> registry = BlockRegistry()
+            >>> registry.scan()
+            >>> specs = registry.all_specs()  # name -> BlockSpec
+        """
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
@@ -244,7 +432,23 @@ class BlockRegistry:
         _validate_interactive_capability(cls)
 
     def get_spec(self, identifier: str) -> BlockSpec | None:
-        """Resolve a block spec by display name or public type name."""
+        """Look up a block's descriptor by name.
+
+        Accepts either the block's display name (as shown in the palette) or
+        its stable type name (as stored in saved workflows).
+
+        Args:
+            identifier: The block's display name or type name.
+
+        Returns:
+            The matching :class:`BlockSpec`, or ``None`` if no block is
+            registered under that name.
+
+        Example:
+            >>> registry = BlockRegistry()
+            >>> registry.scan()
+            >>> spec = registry.get_spec("LoadData")  # -> BlockSpec or None
+        """
         if identifier in self._registry:
             return self._registry[identifier]
         alias = self._aliases.get(identifier)
@@ -253,10 +457,29 @@ class BlockRegistry:
         return self._registry.get(alias)
 
     def instantiate(self, name: str, config: dict[str, Any] | None = None) -> Any:
-        """Create a block instance by registered *name*.
+        """Build a ready-to-run block instance by name.
 
-        Performs a fresh import using the stored module path and class name,
-        with mtime-based module name for hot-reload safety.
+        Imports the block class from where its descriptor says it lives and
+        constructs it with the given configuration. For drop-in file blocks
+        the file is re-imported each time, so edits are picked up without a
+        restart.
+
+        Args:
+            name: The block's display name or type name (see :meth:`get_spec`).
+            config: Configuration values for the block, or ``None`` to use the
+                block's defaults.
+
+        Returns:
+            A new block instance.
+
+        Raises:
+            KeyError: If no block is registered under *name*.
+            ImportError: If the block's source file cannot be loaded.
+
+        Example:
+            >>> registry = BlockRegistry()
+            >>> registry.scan()
+            >>> block = registry.instantiate("LoadData", {"path": "data.csv"})
         """
         spec = self.get_spec(name)
         if spec is None:
@@ -294,10 +517,13 @@ class BlockRegistry:
         return cls(config=config)
 
     def hot_reload(self) -> None:
-        """Re-scan Tier 1 dirs and update specs that have changed.
+        """Re-scan the drop-in block directories and apply any changes.
 
-        Compares file mtimes to detect changes.  New files are added,
-        modified files are re-scanned, deleted files are removed.
+        Detects edited files by their last-modified time: new drop-in files
+        are added, changed ones are re-read, and files that were deleted are
+        removed from the registry. Built-in and installed blocks are left
+        untouched. Use this to pick up edits to file-based blocks without
+        rebuilding the whole catalogue.
         """
         from scistudio.blocks.registry._scan import _scan_tier1
 
@@ -314,18 +540,27 @@ class BlockRegistry:
         _scan_tier1(self)
 
     def packages(self) -> dict[str, PackageInfo]:
-        """Return registered package metadata keyed by package name.
+        """Return metadata for the plugin packages that provided blocks.
 
-        Only packages that provided a :class:`PackageInfo` via the
-        ``(PackageInfo, list)`` return convention are included.
+        Only packages that supplied their own :class:`PackageInfo` (name,
+        description, author, version, update source) appear here; built-in and
+        drop-in blocks have no package entry.
+
+        Returns:
+            A mapping from package name to its :class:`PackageInfo`.
         """
         return dict(self._packages)
 
     def specs_by_package(self) -> dict[str, list[BlockSpec]]:
-        """Return block specs grouped by ``package_name``.
+        """Group every registered block by the package that provided it.
 
-        Blocks without a ``package_name`` (builtins, Tier 1) are grouped
-        under the empty string key ``""``.
+        Useful for showing the palette organised by plugin. Built-in and
+        drop-in blocks have no package and are collected under the empty-string
+        key ``""``.
+
+        Returns:
+            A mapping from package name (or ``""``) to the list of that
+            package's :class:`BlockSpec` descriptors.
         """
         grouped: dict[str, list[BlockSpec]] = {}
         for spec in self._registry.values():
@@ -333,7 +568,13 @@ class BlockRegistry:
         return grouped
 
     def all_specs(self) -> dict[str, BlockSpec]:
-        """Return a copy of the full registry mapping."""
+        """Return every registered block keyed by name.
+
+        Returns:
+            A copy of the registry: a mapping from block name to its
+            :class:`BlockSpec`. Mutating the returned dict does not affect the
+            registry.
+        """
         return dict(self._registry)
 
     # ------------------------------------------------------------------
@@ -348,7 +589,29 @@ class BlockRegistry:
         extension: str | None = None,
         format_id: str | None = None,
     ) -> list[FormatCapability]:
-        """List registered ADR-043 IO format capabilities matching filters."""
+        """List the file-format load/save capabilities matching the filters.
+
+        Each capability says that some block can load or save a particular
+        data type in a particular file format. Call with no arguments to list
+        them all, or pass filters to narrow the result.
+
+        Args:
+            direction: Keep only ``"load"`` or only ``"save"`` capabilities.
+            data_type: Keep only capabilities for this data type (and, when
+                loading, its subtypes).
+            extension: Keep only capabilities that handle this file extension
+                (e.g. ``".csv"``). A compound extension like ``".ome.tif"``
+                also matches a block that declares only ``".tif"``.
+            format_id: Keep only capabilities for this named format.
+
+        Returns:
+            The matching capabilities, in registration order.
+
+        Example:
+            >>> savers = registry.list_format_capabilities(direction="save")
+            >>> [cap.format_id for cap in savers]
+            [...]
+        """
         from scistudio.blocks.registry._capability import list_format_capabilities
 
         return list_format_capabilities(
@@ -367,7 +630,35 @@ class BlockRegistry:
         format_id: str | None = None,
         capability_id: str | None = None,
     ) -> FormatCapability:
-        """Resolve a load capability without falling back to registration order."""
+        """Find the single block capability that loads *data_type* from a file.
+
+        Picks one best match for reading the given data type, optionally
+        narrowed by file extension, named format, or an exact capability id.
+        Unlike :meth:`list_format_capabilities`, this never falls back to
+        "whichever was registered first": if the request is not specific enough
+        to choose one, it raises rather than guessing.
+
+        Args:
+            data_type: The data type you want to load.
+            extension: The source file's extension (e.g. ``".csv"``), if known.
+            format_id: A named format to require.
+            capability_id: An exact capability identifier to require.
+
+        Returns:
+            The matching load :class:`FormatCapability`.
+
+        Raises:
+            MissingCapabilityError: If no registered capability can load the
+                request.
+            AmbiguousCapabilityError: If several capabilities match equally and
+                none is clearly best.
+
+        Example:
+            >>> # MyData is the data type you want to read in.
+            >>> cap = registry.find_loader_capability(MyData, ".csv")
+            >>> cap.handler  # name of the method that does the loading
+            'load_csv'
+        """
         from scistudio.blocks.registry._capability import find_loader_capability
 
         return find_loader_capability(
@@ -386,7 +677,32 @@ class BlockRegistry:
         format_id: str | None = None,
         capability_id: str | None = None,
     ) -> FormatCapability:
-        """Resolve a save capability without falling back to registration order."""
+        """Find the single block capability that saves *data_type* to a file.
+
+        The save counterpart of :meth:`find_loader_capability`. Picks one best
+        match for writing the given data type, optionally narrowed by file
+        extension, named format, or an exact capability id, and raises rather
+        than guessing when the request is not specific enough.
+
+        Args:
+            data_type: The data type you want to save.
+            extension: The target file's extension (e.g. ``".csv"``), if known.
+            format_id: A named format to require.
+            capability_id: An exact capability identifier to require.
+
+        Returns:
+            The matching save :class:`FormatCapability`.
+
+        Raises:
+            MissingCapabilityError: If no registered capability can save the
+                request.
+            AmbiguousCapabilityError: If several capabilities match equally and
+                none is clearly best.
+
+        Example:
+            >>> # MyData is the data type you want to write out.
+            >>> cap = registry.find_saver_capability(MyData, ".csv")
+        """
         from scistudio.blocks.registry._capability import find_saver_capability
 
         return find_saver_capability(

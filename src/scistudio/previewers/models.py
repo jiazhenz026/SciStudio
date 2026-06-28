@@ -1,48 +1,46 @@
-"""Typed models for the ADR-048 extensible preview subsystem.
+"""Typed models for the extensible preview subsystem.
 
-This is one of the two canonical author roots for writing a package-owned
-previewer (the other is :mod:`scistudio.previewers.data_access`); import the
-types below from ``scistudio.previewers.models``. The whole preview subsystem is
-**provisional** (ADR-052 §8): usable, but the surface may still settle within a
-minor release. Each public symbol carries a ``scistudio.stability`` marker.
+A *previewer* turns a stored data object, collection, or artifact into a
+bounded, JSON-safe view the frontend can display. This module is one of the
+canonical roots you import from when you write a package-owned previewer; the
+others are :mod:`scistudio.previewers.data_access` (the bounded reader injected
+on each request) and :mod:`scistudio.previewers.helpers` (``sanitize_svg``).
+Import the public types from here, not from the package top level.
 
-Author-facing types (Public / provisional):
+The whole preview subsystem is **provisional**: usable today, but the surface
+may still settle within a minor release. Each public symbol carries a
+``scistudio.stability`` marker so the generated reference can show its tier.
 
-* :class:`PreviewTarget` — what is being previewed (data ref / collection /
-  artifact / plot artifact) plus its recorded type chain.
-* :class:`PreviewerSpec` — a provider declaration (id, owner tier, target
-  type, priority, capabilities, backend provider, frontend manifest).
-* :class:`FrontendManifest` — the same-origin descriptor a previewer ships
-  for its dynamically-loaded ESM module + CSS assets.
-* :class:`PreviewRequest` — the input a provider receives (target, spec, query,
-  the injected :class:`~scistudio.previewers.data_access.PreviewDataAccess`,
-  limits, and the runtime-resolved ``storage`` reference).
-* :class:`PreviewEnvelope` — the canonical backend response (kind, payload,
-  resources, metadata, diagnostics, error).
-* :class:`PreviewMetadata` — the sampled/truncated/cached/derived/complete/
-  failed display flags every envelope must carry (FR-011).
-* The :data:`PreviewProvider` callable type and the
-  :class:`PreviewerEntryPoint` package entry-point protocol.
-* The author-facing error types :class:`PreviewError` (base; catch) and
-  :class:`ProviderError` (raise for hard failures).
+Author-facing types:
 
-Backend/runtime-only types are **Internal** (decorated ``@internal``, excluded
-from ``__all__`` and the generated reference): :class:`PreviewSession` (the
-backend-owned session record) and the six runtime-raised error classes
-(:class:`RoutingAmbiguityError`, :class:`UnknownPreviewerError`,
-:class:`UnknownTargetError`, :class:`MissingBundleError`,
-:class:`InvalidSpecError`, :class:`DuplicatePreviewerIdError`). They stay
-importable for the runtime/API layer but carry no author promise; a provider
-signals routine failures with a :class:`PreviewErrorCode` on a returned
-envelope instead of raising these.
+* :class:`PreviewTarget` — what is being previewed (a data ref, a collection,
+  an artifact, or a plot artifact) plus its recorded type chain.
+* :class:`PreviewerSpec` — a provider declaration: its id, provenance tier,
+  target type, priority, capabilities, backend provider, and frontend manifest.
+* :class:`FrontendManifest` — the same-origin descriptor a previewer ships for
+  its dynamically-loaded UI module and CSS assets.
+* :class:`PreviewRequest` — the input a provider receives: the target, the
+  selected spec, the query, the injected
+  :class:`~scistudio.previewers.data_access.PreviewDataAccess`, the budgets, and
+  the resolved storage reference.
+* :class:`PreviewEnvelope` — the backend response: kind, payload, resources,
+  metadata, diagnostics, and an optional error.
+* :class:`PreviewMetadata` — the display flags every envelope carries (sampled,
+  truncated, cached, derived, complete, failed).
+* The :data:`PreviewProvider` callable type and the :class:`PreviewerEntryPoint`
+  entry-point protocol a package wires up.
+* The error types :class:`PreviewError` (the base you catch) and
+  :class:`ProviderError` (what you raise for a hard failure).
 
-The models are plain frozen dataclasses (not Pydantic) so the core
-previewer layer stays import-light and free of the API layer; the
-``scistudio.api.schemas`` module mirrors the wire shapes as Pydantic
-models for FastAPI serialization.
+Backend/runtime-only types (the session record and the routing/registration
+error classes) are marked internal and excluded from the generated reference.
+They stay importable for the runtime, but a provider signals a routine failure
+by returning an envelope whose ``error`` carries a :class:`PreviewErrorCode`,
+not by raising one of them.
 
-ADR-048 §3 governs the resolution order and entity definitions; this spec
-is ``docs/specs/adr-048-preview-system.md`` (FR-001..FR-030, Key Entities).
+The models are plain frozen dataclasses (not Pydantic) so this layer stays
+import-light and independent of the API layer; the API layer mirrors the same
+wire shapes as Pydantic models for serialization.
 """
 
 from __future__ import annotations
@@ -66,73 +64,102 @@ if TYPE_CHECKING:
 
 @provisional(since="0.3.1")
 class OwnerKind(StrEnum):
-    """Provenance tier of a previewer; drives routing precedence (FR-003).
+    """Where a previewer came from; sets how strongly it wins when routing.
 
-    Project previewers win over package previewers, which win over core
-    fallbacks. The string values are stable and surface verbatim in the
-    REST/session API payloads.
+    When more than one previewer could handle a target, provenance decides
+    precedence: a project-local previewer beats a package previewer, which beats
+    a built-in core fallback. The string values appear verbatim in the REST and
+    session API payloads.
     """
 
     CORE = "core"
+    """A built-in fallback that ships with SciStudio."""
     PACKAGE = "package"
+    """A previewer registered by an installed package."""
     PROJECT = "project"
+    """A previewer registered locally by the active project."""
 
 
 @provisional(since="0.3.1")
 class TargetKind(StrEnum):
-    """What a :class:`PreviewTarget` points at."""
+    """The kind of thing a :class:`PreviewTarget` points at."""
 
     DATA_REF = "data_ref"
+    """A single stored data object (e.g. a table, array, or series)."""
     COLLECTION_REF = "collection_ref"
+    """A collection of items of one item type."""
     ARTIFACT = "artifact"
+    """An opaque file artifact (image, document, ...)."""
     PLOT_ARTIFACT = "plot_artifact"
+    """A rendered plot artifact (PNG/JPEG/SVG/PDF)."""
 
 
 @provisional(since="0.3.1")
 class EnvelopeKind(StrEnum):
-    """Canonical fallback kinds for a :class:`PreviewEnvelope` (spec Key Entities).
+    """The display kind a :class:`PreviewEnvelope` declares for its payload.
 
-    These are previewer-domain kinds. They are intentionally distinct from
-    the *legacy* REST ``preview.kind`` strings (``table``/``image``/
-    ``chart``/``text``/``composite``/``artifact``); the compatibility
-    adapter in the API runtime maps between the two so existing callers and
-    tests keep working.
+    These are the previewer-domain kinds. They are deliberately distinct from
+    the older REST ``preview.kind`` strings (``table`` / ``image`` / ``chart`` /
+    ``text`` / ``composite`` / ``artifact``); the API runtime maps between the
+    two so existing callers and tests keep working.
     """
 
     DATAFRAME = "dataframe"
+    """A tabular payload (rows and columns)."""
     ARRAY = "array"
+    """A numeric N-D array plane."""
     SERIES = "series"
+    """A 1-D series of values for a line/point chart."""
     TEXT = "text"
+    """A bounded chunk of text."""
     ARTIFACT = "artifact"
+    """Metadata (and optionally an inline data URI) for an opaque file."""
     COMPOSITE = "composite"
+    """A multi-slot composite payload."""
     COLLECTION = "collection"
+    """A bounded sample of a collection's items."""
     PLOT = "plot"
+    """A rendered plot (image or SVG)."""
     ERROR = "error"
+    """A failed preview; the envelope's ``error`` field explains why."""
 
 
 @provisional(since="0.3.1")
 class PreviewErrorCode(StrEnum):
-    """Deterministic diagnostic codes for preview failures (FR-029)."""
+    """Stable, machine-readable codes describing why a preview failed.
+
+    A failed envelope carries one of these on its ``error`` field so the
+    frontend can react consistently instead of parsing a free-text message.
+    """
 
     ROUTING_AMBIGUITY = "routing_ambiguity"
+    """Two previewers tied for the target and neither could be preferred."""
     UNKNOWN_PREVIEWER = "unknown_previewer"
+    """The requested previewer id is not registered."""
     UNKNOWN_TARGET = "unknown_target"
+    """No previewer (not even a core fallback) matched the target."""
     MISSING_BUNDLE = "missing_bundle"
+    """A previewer declares a frontend manifest but no servable bundle."""
     PROVIDER_EXCEPTION = "provider_exception"
+    """A backend provider raised while rendering the preview."""
     INVALID_SPEC = "invalid_spec"
+    """A previewer spec failed validation when it was registered."""
     DUPLICATE_PREVIEWER_ID = "duplicate_previewer_id"
+    """Two specs declared the same previewer id."""
     BUDGET_EXCEEDED = "budget_exceeded"
+    """A read would exceed a bounded preview budget (rows/bytes/items/...)."""
 
 
-# The current previewer API compatibility version. Specs declaring a
-# different ``api_version`` are still loaded but flagged via diagnostics so
-# the frontend can refuse to mount an incompatible manifest (FR-006).
-#
-# Public / provisional / since 0.3.1 (ADR-052 §8.1). A bare ``str`` cannot carry
-# a ``scistudio.stability`` marker (an immutable builtin), so the tier is
-# recorded here and in the spec; ``get_stability`` honestly returns ``None`` and
-# the generated reference lists it without a tier badge.
+# A bare ``str`` cannot carry a ``scistudio.stability`` marker (it is an
+# immutable builtin), so the provisional tier is recorded in the spec and this
+# constant renders in the reference without a tier badge.
 PREVIEWER_API_VERSION = "1"
+"""Current previewer API compatibility version.
+
+A :class:`PreviewerSpec` or :class:`FrontendManifest` that declares a different
+``api_version`` is still loaded, but the mismatch is flagged through diagnostics
+so the frontend can refuse to mount an incompatible manifest.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -143,52 +170,74 @@ PREVIEWER_API_VERSION = "1"
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewSource:
-    """Optional workflow/node/output identity for UI display (spec Key Entities).
+    """Optional workflow/node/output identity shown alongside a preview.
 
-    Carries no runtime truth — it is display metadata only so the preview
-    panel can label "node X, output port Y" without the previewer becoming
-    a workflow producer (FR-028).
+    This is display metadata only — it lets the preview panel label a preview as
+    "node X, output port Y" without making the previewer part of the workflow.
+    It carries no runtime truth and never drives data reads.
+
+    Example:
+        >>> source = PreviewSource(workflow_id="wf1", node_id="n3", output_port="out")
+        >>> source.to_dict()["node_id"]
+        'n3'
     """
 
     workflow_id: str | None = None
+    """Id of the workflow the previewed output belongs to, if known."""
     node_id: str | None = None
+    """Id of the node that produced the output, if known."""
     output_port: str | None = None
+    """Name of the node output port the value came from, if known."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of all three identity fields."""
         return asdict(self)
 
 
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewTarget:
-    """Identifies what is being previewed (spec Key Entities / ADR-048 §3).
+    """Identifies the thing a previewer is asked to render.
 
-    Attributes:
-        kind: ``data_ref`` / ``collection_ref`` / ``artifact`` /
-            ``plot_artifact``.
-        ref: Data, collection, or artifact reference (a catalog id or path).
-        recorded_type: The most-specific recorded type name from storage
-            metadata, e.g. ``"Image"``. Empty when unknown.
-        type_chain: Ordered general -> specific type chain, e.g.
-            ``["DataObject", "Array", "Image"]``. The router walks this for
-            parent fallback (FR-003).
-        collection_item_type: Known item type when ``kind`` is
-            ``collection_ref``.
-        source: Optional workflow/node/output identity for UI display.
+    A target names *what* to preview (a data object, a collection, an artifact,
+    or a plot) and records its type information so the router can pick the best
+    previewer. You build a target to ask the preview system for a preview, and a
+    provider receives the normalized target on its request.
+
+    Example:
+        >>> target = PreviewTarget(
+        ...     kind=TargetKind.DATA_REF,
+        ...     ref="catalog://run1/image0",
+        ...     recorded_type="Image",
+        ...     type_chain=("DataObject", "Array", "Image"),
+        ... )
+        >>> target.is_collection
+        False
     """
 
     kind: TargetKind
+    """Which category of thing ``ref`` points at."""
     ref: str
+    """The data, collection, or artifact reference (a catalog id or path)."""
     recorded_type: str = ""
+    """Most specific recorded type name from storage metadata (e.g. ``"Image"``);
+    empty when unknown."""
     type_chain: tuple[str, ...] = ()
+    """Recorded type names ordered general -> specific, e.g.
+    ``("DataObject", "Array", "Image")``. The router walks this to fall back to a
+    parent type's previewer."""
     collection_item_type: str | None = None
+    """Item type name when ``kind`` is ``collection_ref``; ``None`` otherwise."""
     source: PreviewSource | None = None
+    """Optional workflow/node/output identity, for display only."""
 
     @property
     def is_collection(self) -> bool:
+        """Whether this target points at a collection (``kind`` is ``collection_ref``)."""
         return self.kind is TargetKind.COLLECTION_REF
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the target for the API/wire payload."""
         return {
             "kind": self.kind.value,
             "ref": self.ref,
@@ -207,37 +256,44 @@ class PreviewTarget:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class FrontendManifest:
-    """Same-origin descriptor for a previewer's dynamically loaded UI (FR-022/FR-024).
+    """Describes the same-origin UI bundle a previewer ships for the frontend.
 
-    A package or project ships a JavaScript ESM module that the frontend
-    PreviewHost imports at runtime. The backend validates this descriptor
-    (:mod:`scistudio.previewers.assets`) before serving any asset:
+    A package or project previewer can include a small JavaScript module (and
+    optional CSS) that the frontend loads at runtime to render a custom view.
+    This descriptor tells the frontend what to import; the backend validates it
+    and confines every asset read under ``asset_root`` before serving anything,
+    and it refuses remote (http/https) URLs.
 
-    Attributes:
-        previewer_id: The owning previewer's stable id.
-        module_url: Backend-relative URL the host imports the ESM module
-            from, e.g. ``/api/previews/assets/<asset_id>``. Remote (http/https)
-            URLs are rejected by the asset validator.
-        export_name: Named export inside the module to mount.
-        css: Optional list of backend-relative CSS asset URLs.
-        version: Previewer bundle version (fingerprint or semver).
-        api_version: Previewer API compatibility version; must match
-            :data:`PREVIEWER_API_VERSION` to mount without a diagnostic.
-        asset_root: Filesystem directory the package/project confines its
-            assets under. Never serialized to the frontend; used only by the
-            backend asset validator to path-confine reads (FR-024).
+    Example:
+        >>> manifest = FrontendManifest(
+        ...     previewer_id="acme.image.viewer",
+        ...     module_url="/api/previews/assets/abc123",
+        ...     export_name="ImageViewer",
+        ... )
+        >>> "asset_root" in manifest.to_dict()
+        False
     """
 
     previewer_id: str
+    """Stable id of the previewer that owns this bundle."""
     module_url: str
+    """Backend-relative URL the frontend imports the module from, e.g.
+    ``/api/previews/assets/<asset_id>``. Remote URLs are rejected."""
     export_name: str = "default"
+    """Name of the export inside the module to mount."""
     css: tuple[str, ...] = ()
+    """Optional backend-relative CSS asset URLs to load with the module."""
     version: str = "0"
+    """Bundle version (a fingerprint or semantic version)."""
     api_version: str = PREVIEWER_API_VERSION
+    """Previewer API version the bundle targets; must equal
+    :data:`PREVIEWER_API_VERSION` to mount without a diagnostic."""
     asset_root: str | None = None
+    """Filesystem directory the assets are confined under. Used only by the
+    backend asset validator and never sent to the frontend."""
 
     def to_dict(self) -> dict[str, Any]:
-        """Wire shape sent to the frontend. ``asset_root`` is intentionally omitted."""
+        """Return the wire-shape dict sent to the frontend (``asset_root`` is omitted)."""
         return {
             "previewer_id": self.previewer_id,
             "module_url": self.module_url,
@@ -264,42 +320,58 @@ def _provider_repr(provider: object) -> str | None:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewerSpec:
-    """Declares a preview provider (spec Key Entities / FR-006).
+    """Declares one preview provider and how the router should choose it.
 
-    Attributes:
-        previewer_id: Stable id, e.g. ``"core.array.basic"``.
-        owner_kind: ``core`` / ``package`` / ``project``.
-        owner_name: Package name, project identifier, or ``"scistudio"``.
-        target_type: Fully qualified target type name this previewer claims,
-            e.g. ``"Array"`` or ``"Image"``.
-        supports_collection: Whether the previewer can inspect collections
-            (i.e. claims ``Collection[target_type]``).
-        priority: Integer priority within one tier and type specificity;
-            higher wins. Equal priority within a tier+specificity is an
-            ambiguity error (FR-004).
-        capabilities: Feature strings such as ``slice``, ``table``, ``lut``,
-            ``export``.
-        backend_provider: Either a :data:`PreviewProvider` callable or a
-            dotted ``module:callable`` import path resolved lazily.
-        resource_provider: Optional package/project-owned follow-up resource
-            reader for custom resource ids declared by the envelope.
-        frontend_manifest: Optional same-origin manifest descriptor.
-        api_version: Previewer API compatibility version.
+    A package's entry-point callable returns a list of these. Each spec says
+    which target type the previewer handles, how strongly it should win, what
+    features it offers, and which backend callable renders the envelope. You
+    construct specs to register a previewer; the router and session manager read
+    them.
+
+    Example:
+        >>> spec = PreviewerSpec(
+        ...     previewer_id="acme.image.viewer",
+        ...     owner_kind=OwnerKind.PACKAGE,
+        ...     owner_name="acme",
+        ...     target_type="Image",
+        ...     capabilities=("slice", "lut"),
+        ...     backend_provider="acme.previewers:render_image",
+        ... )
+        >>> spec.target_type
+        'Image'
     """
 
     previewer_id: str
+    """Stable, unique id, e.g. ``"core.array.basic"``."""
     owner_kind: OwnerKind
+    """Provenance tier (core / package / project) that sets routing precedence."""
     owner_name: str
+    """Owning package name, project identifier, or ``"scistudio"``."""
     target_type: str
+    """Fully qualified type name this previewer claims, e.g. ``"Array"`` or
+    ``"Image"``."""
     supports_collection: bool = False
+    """Whether the previewer can inspect collections (claims
+    ``Collection[target_type]``)."""
     priority: int = 0
+    """Tie-break weight within one tier and type specificity; higher wins. An
+    unresolved equal-priority tie is a routing error."""
     capabilities: tuple[str, ...] = ()
+    """Feature strings the previewer advertises, e.g. ``slice``, ``table``,
+    ``lut``, ``export``."""
     backend_provider: PreviewProvider | str | None = None
+    """The render callable, or a dotted ``module:callable`` import path resolved
+    lazily."""
     resource_provider: PreviewResourceProvider | str | None = None
+    """Optional follow-up resource reader for custom resource ids the envelope
+    declares."""
     frontend_manifest: FrontendManifest | None = None
+    """Optional same-origin UI bundle descriptor."""
     api_version: str = PREVIEWER_API_VERSION
+    """Previewer API version this spec targets."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the spec (providers shown by name)."""
         provider_repr = _provider_repr(self.backend_provider)
         resource_provider_repr = _provider_repr(self.resource_provider)
         return {
@@ -325,23 +397,37 @@ class PreviewerSpec:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewMetadata:
-    """Display + state metadata carried by every envelope (FR-011).
+    """Display and state flags carried by every preview envelope.
 
-    The six boolean flags are mandatory per the spec: every envelope must
-    state whether the displayed data is sampled, truncated, cached, derived,
-    complete, or failed. ``extra`` carries previewer-owned shape/type/axis
-    metadata (e.g. ``{"shape": [...], "dtype": "..."}``).
+    These six booleans tell the frontend exactly how trustworthy and complete
+    the shown data is — for example whether it was sampled or truncated to stay
+    within budget. Every envelope sets them so the UI can be honest about what
+    the user is looking at. ``extra`` carries previewer-owned shape/type details.
+
+    Example:
+        >>> meta = PreviewMetadata(truncated=True, extra={"shape": [1000, 3]})
+        >>> meta.to_dict()["truncated"]
+        True
     """
 
     sampled: bool = False
+    """True when only a sample of the data was read, not all of it."""
     truncated: bool = False
+    """True when the payload was cut to fit a row/byte/item budget."""
     cached: bool = False
+    """True when the payload was served from a preview cache."""
     derived: bool = False
+    """True when the shown values were computed/transformed, not raw."""
     complete: bool = True
+    """True when the payload represents the whole target."""
     failed: bool = False
+    """True when the preview failed; pair with an ``error`` on the envelope."""
     extra: dict[str, Any] = field(default_factory=dict)
+    """Previewer-owned extra metadata merged into the wire payload, e.g.
+    ``{"shape": [...], "dtype": "..."}``."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the flags plus ``extra`` flattened into one JSON-safe dict."""
         data: dict[str, Any] = {
             "sampled": self.sampled,
             "truncated": self.truncated,
@@ -357,24 +443,34 @@ class PreviewMetadata:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewResource:
-    """Descriptor for a bounded follow-up resource read (session resources route).
+    """Describes a bounded follow-up read a preview offers (a session resource).
 
-    Attributes:
-        resource_id: Opaque id unique within the session.
-        kind: Coarse resource shape, e.g. ``tile`` / ``plane`` / ``page`` /
-            ``asset`` / ``child``.
-        media_type: MIME type of the resource body when it is binary.
-        description: Human-readable label.
-        params: Provider-defined query parameters needed to fetch it.
+    An envelope can advertise extra reads the frontend may request on demand — an
+    array tile, an image plane, a document page, or a child preview — without
+    sending all of that data up front. Each one is described by a resource and
+    fetched on demand through the session's resources route.
+
+    Example:
+        >>> res = PreviewResource(resource_id="tile", kind="tile",
+        ...                       params={"y0": 0, "x0": 0})
+        >>> res.kind
+        'tile'
     """
 
     resource_id: str
+    """Id unique within the session, used to request this resource."""
     kind: str
+    """Coarse shape of the resource, e.g. ``tile`` / ``plane`` / ``page`` /
+    ``asset`` / ``child``."""
     media_type: str | None = None
+    """MIME type of the resource body when it is binary; ``None`` otherwise."""
     description: str = ""
+    """Human-readable label for the resource."""
     params: dict[str, Any] = field(default_factory=dict)
+    """Provider-defined query parameters needed to fetch the resource."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the resource descriptor."""
         return {
             "resource_id": self.resource_id,
             "kind": self.kind,
@@ -387,13 +483,22 @@ class PreviewResource:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewErrorInfo:
-    """Typed error payload embedded in a failed envelope (FR-029)."""
+    """The typed error payload embedded in a failed envelope.
+
+    When a preview fails, the envelope's ``kind`` is ``error`` and this object
+    explains why: a stable :class:`PreviewErrorCode`, a human message, and
+    optional structured detail.
+    """
 
     code: PreviewErrorCode
+    """The machine-readable failure code."""
     message: str
+    """Human-readable explanation of the failure."""
     detail: dict[str, Any] = field(default_factory=dict)
+    """Optional structured context (ids, types, sizes, ...)."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the error payload."""
         return {
             "code": self.code.value,
             "message": self.message,
@@ -404,38 +509,50 @@ class PreviewErrorInfo:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewEnvelope:
-    """Canonical backend preview response (spec Key Entities / FR-011).
+    """The backend's complete response describing one preview.
 
-    Attributes:
-        previewer_id: Selected previewer id.
-        target: Normalized :class:`PreviewTarget`.
-        kind: Canonical :class:`EnvelopeKind`.
-        payload: Previewer-owned bounded payload (JSON-safe).
-        session_id: Owning session id, or ``None`` for one-shot compat previews.
-        resources: Session resource descriptors for follow-up reads.
-        metadata: :class:`PreviewMetadata`.
-        diagnostics: Non-fatal warnings / repair hints.
-        error: Typed error when the preview failed (kind == ``error``).
-        frontend_manifest: Optional same-origin manifest descriptor the host
-            mounts for this envelope. Framework-stamped by
-            :class:`~scistudio.previewers.session.PreviewSessionManager` from the
-            resolved :class:`PreviewerSpec` when a provider does not set its own
-            (ADR-048 §4 / #1579); ``None`` for core fallbacks. The wire shape
-            omits the backend-only ``asset_root``.
+    A provider returns an envelope; the session layer and REST API serialize it
+    to the frontend. It carries the bounded payload, the metadata flags, any
+    follow-up resources, non-fatal diagnostics, and — when the preview failed —
+    a typed error. Build it with the previewer id, the target, an
+    :class:`EnvelopeKind`, and a JSON-safe ``payload``.
+
+    Example:
+        >>> env = PreviewEnvelope(
+        ...     previewer_id="core.text.basic",
+        ...     target=PreviewTarget(kind=TargetKind.DATA_REF, ref="r1"),
+        ...     kind=EnvelopeKind.TEXT,
+        ...     payload={"content": "hello"},
+        ... )
+        >>> env.kind.value
+        'text'
     """
 
     previewer_id: str
+    """Id of the previewer that produced this envelope."""
     target: PreviewTarget
+    """The normalized target that was previewed."""
     kind: EnvelopeKind
+    """The display kind of ``payload``."""
     payload: dict[str, Any] = field(default_factory=dict)
+    """Previewer-owned, bounded, JSON-safe payload for the frontend."""
     session_id: str | None = None
+    """Owning session id, or ``None`` for a one-shot preview."""
     resources: tuple[PreviewResource, ...] = ()
+    """Follow-up resources the frontend may fetch on demand."""
     metadata: PreviewMetadata = field(default_factory=PreviewMetadata)
+    """Display and state flags for ``payload``."""
     diagnostics: tuple[str, ...] = ()
+    """Non-fatal warnings or repair hints."""
     error: PreviewErrorInfo | None = None
+    """Set when the preview failed (``kind`` is ``error``); ``None`` otherwise."""
     frontend_manifest: FrontendManifest | None = None
+    """Optional UI bundle to mount for this envelope. If the provider does not
+    set one, the session manager stamps the resolved spec's manifest; ``None``
+    for core fallbacks. The wire shape omits the backend-only ``asset_root``."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the whole envelope for the API/wire."""
         return {
             "session_id": self.session_id,
             "previewer_id": self.previewer_id,
@@ -450,7 +567,17 @@ class PreviewEnvelope:
         }
 
     def with_session(self, session_id: str | None) -> PreviewEnvelope:
-        """Return a copy bound to *session_id* (envelopes are frozen)."""
+        """Return a copy bound to *session_id*.
+
+        Envelopes are frozen, so this builds a new envelope with every field
+        copied and ``session_id`` replaced.
+
+        Args:
+            session_id: Session id to stamp, or ``None`` for a one-shot preview.
+
+        Returns:
+            A new :class:`PreviewEnvelope` identical except for ``session_id``.
+        """
         return PreviewEnvelope(
             previewer_id=self.previewer_id,
             target=self.target,
@@ -473,19 +600,31 @@ class PreviewEnvelope:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewLimits:
-    """Applied bounded-read budgets recorded on a session (spec Key Entities).
+    """The bounded-read budgets applied to a preview session.
 
-    Mirrors the budgets enforced by :class:`PreviewDataAccess`. Surfaced so
-    the UI can show "showing 200 of N rows" and prove FR-010 bounds.
+    These mirror the limits the bounded reader enforces, and they are surfaced
+    on the session so the UI can be honest about bounds — e.g. show
+    "showing 200 of N rows". Read them from ``request.limits`` inside a provider.
+
+    Example:
+        >>> limits = PreviewLimits()
+        >>> limits.max_rows
+        200
     """
 
     max_rows: int = 200
+    """Maximum table rows returned in one page."""
     max_bytes: int = 8 * 1024 * 1024
+    """Maximum payload size in bytes (default 8 MiB)."""
     max_items: int = 100
+    """Maximum collection items sampled at once."""
     max_tile: int = 256
+    """Maximum width/height in pixels of an array tile read."""
     max_dim: int = 256
+    """Maximum width/height a displayed array plane is downsampled to."""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe dict of the budgets."""
         return asdict(self)
 
 
@@ -532,92 +671,103 @@ class PreviewSession:
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewRequest:
-    """Input handed to a :data:`PreviewProvider` when it renders an envelope.
+    """Everything a provider receives when it is asked to render a preview.
 
-    Attributes:
-        target: The normalized :class:`PreviewTarget`.
-        spec: The selected :class:`PreviewerSpec`.
-        query: Normalized query state (slice index, page, page_size, sort_by,
-            sort_dir, selected slot, selected item, ...).
-        data_access: The bounded :class:`PreviewDataAccess` helper the
-            provider must use for all reads (FR-009/FR-010).
-        limits: The session budgets.
-        session_id: Owning session id, or ``None`` for one-shot previews.
-        storage: The runtime-resolved :class:`StorageReference` for the
-            target's payload (FR-009), populated by the
-            :class:`PreviewSessionManager`. This is the **sanctioned** way a
-            provider obtains its storage ref: read ``request.storage`` and
-            forward it to ``request.data_access`` methods — providers never
-            import :class:`StorageReference` or rebuild it from the query.
-            ``None`` only when a request is constructed outside the session
-            manager without supplying it.
-        record_metadata: The recorded data-record metadata (ADR-052 §8.5),
-            populated by the session manager. Replaces the legacy
-            ``query["_record_metadata"]`` read for provider code.
+    The session manager builds this and passes it to your provider callable.
+    Read the target, query, and budgets; do all reads through ``data_access``
+    using the supplied ``storage`` reference; and return a
+    :class:`PreviewEnvelope`.
 
-    The ``query["_storage"]`` / ``query["_record_metadata"]`` keys remain as a
-    runtime-internal serialization detail (session cache-key versioning and
-    resource reads); they are **not** an author contract (ADR-052 §8.5).
+    Example:
+        >>> def render(request: PreviewRequest) -> PreviewEnvelope:
+        ...     page = request.data_access.dataframe_page(request.storage)
+        ...     return PreviewEnvelope(
+        ...         previewer_id=request.spec.previewer_id,
+        ...         target=request.target,
+        ...         kind=EnvelopeKind.DATAFRAME,
+        ...         payload={"rows": page.rows},
+        ...     )
     """
 
     target: PreviewTarget
+    """The normalized target being previewed."""
     spec: PreviewerSpec
+    """The previewer spec the router selected."""
     query: dict[str, Any]
+    """Normalized query state (slice index, page, page_size, sort_by, sort_dir,
+    selected slot, selected item, ...)."""
     data_access: PreviewDataAccess
+    """The bounded reader to use for all payload reads — never read storage
+    directly."""
     limits: PreviewLimits
+    """The session's applied read budgets."""
     session_id: str | None = None
+    """Owning session id, or ``None`` for a one-shot preview."""
     storage: StorageReference | None = None
+    """The resolved storage reference for the target's payload. This is the
+    sanctioned way to get a storage ref: read ``request.storage`` and pass it to
+    ``request.data_access`` methods — never import or rebuild a storage reference
+    yourself. ``None`` only when a request is built outside the session manager
+    without one."""
     record_metadata: dict[str, Any] = field(default_factory=dict)
+    """The recorded data-record metadata, populated by the session manager."""
+
+    # The ``query["_storage"]`` / ``query["_record_metadata"]`` keys remain a
+    # runtime serialization detail (session cache-key versioning and resource
+    # reads); they are not part of the author contract — use ``storage`` and
+    # ``record_metadata`` above instead.
 
 
-# A backend preview provider is any callable mapping a request to an
-# envelope. Providers MUST NOT raise for routine failures (e.g. missing
-# slot, decode error); they should embed a typed error envelope instead so
-# the session API never crashes (FR-028). The session manager still wraps
-# provider calls defensively for unexpected exceptions.
-# Public / provisional / since 0.3.1 (ADR-052 §8.1). A ``collections.abc.Callable``
-# subscription is a generic-alias with no writable ``__dict__``, so (like the
-# ``list[...]`` alias and the ``str`` constant below) it cannot carry a
-# ``scistudio.stability`` marker, and it must stay a bare alias so it remains
-# valid in type positions. ``get_stability`` returns ``None`` for it; the tier is
-# recorded in the freeze snapshot and the spec, and the generated reference lists
-# it without a tier badge.
+# A ``collections.abc.Callable`` subscription is a generic-alias with no writable
+# ``__dict__`` (like the ``list[...]`` alias and the ``str`` constant), so it
+# cannot carry a ``scistudio.stability`` marker and renders in the reference
+# without a tier badge; the provisional tier is recorded in the spec.
 PreviewProvider = Callable[[PreviewRequest], PreviewEnvelope]
+"""A backend preview provider: a callable mapping a :class:`PreviewRequest` to a
+:class:`PreviewEnvelope`.
+
+Implement one of these to render a preview. It must not raise for routine
+failures (a missing slot, a decode error); instead return an envelope whose
+``error`` carries a :class:`PreviewErrorCode`, so the session API never crashes.
+The session manager still guards against unexpected exceptions.
+"""
 PreviewResourceProvider = Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]]
+"""A follow-up resource reader: a callable taking ``(request, resource_id,
+params)`` and returning a JSON-safe dict for one bounded resource read."""
 
 
 @provisional(since="0.3.1")
 @runtime_checkable
 class PreviewerEntryPoint(Protocol):
-    """``scistudio.previewers`` entry-point callable protocol (FR-002).
+    """The callable a package wires to the ``scistudio.previewers`` entry point.
 
-    A package wires a ``scistudio.previewers`` entry point to a zero-argument
-    callable that returns a list of :class:`PreviewerSpec` objects. Each spec
-    declares its ``owner_kind=OwnerKind.PACKAGE`` and a resolvable
-    ``backend_provider`` (callable or ``module:callable`` import path).
+    A package advertises its previewers by pointing a ``scistudio.previewers``
+    entry point at a zero-argument callable that returns a list of
+    :class:`PreviewerSpec`. Each returned spec declares
+    ``owner_kind=OwnerKind.PACKAGE`` and a resolvable ``backend_provider``
+    (a callable or a ``module:callable`` import path).
 
-    Example (``pyproject.toml``)::
+    Example:
+        In ``pyproject.toml``::
 
-        [project.entry-points."scistudio.previewers"]
-        imaging = "scistudio_blocks_imaging.previewers:get_previewers"
+            [project.entry-points."scistudio.previewers"]
+            imaging = "scistudio_blocks_imaging.previewers:get_previewers"
 
-    Where ``get_previewers() -> list[PreviewerSpec]``. Installed block/type
-    packages may also re-export a module-level ``get_previewers()`` that the
-    registry discovers as a companion factory, in the same spirit as
-    ``get_blocks`` / ``get_types``.
+        where ``get_previewers() -> list[PreviewerSpec]``. An installed
+        block/type package may instead re-export a module-level
+        ``get_previewers()`` that the registry discovers as a companion factory,
+        in the same spirit as ``get_blocks`` / ``get_types``.
     """
 
     def __call__(self) -> list[PreviewerSpec]: ...
 
 
-# Accepted return shapes from the entry-point callable: a list/tuple of
-# specs (canonical) — anything else is rejected with a diagnostic.
-#
-# Public / provisional / since 0.3.1 (ADR-052 §8.1). A PEP 585 ``list[...]`` alias
-# is a ``types.GenericAlias`` with no writable ``__dict__``, so it cannot carry a
-# ``scistudio.stability`` marker; the tier is recorded here and in the spec, and
-# the generated reference lists it without a tier badge.
+# A PEP 585 ``list[...]`` alias is a ``types.GenericAlias`` with no writable
+# ``__dict__``, so it cannot carry a ``scistudio.stability`` marker and renders
+# without a tier badge; the provisional tier is recorded in the spec.
 PreviewerSpecList = list[PreviewerSpec]
+"""The accepted return type of a previewer entry-point callable: a list of
+:class:`PreviewerSpec`. Any other shape is rejected with a diagnostic."""
 
 
 # ---------------------------------------------------------------------------
@@ -627,14 +777,19 @@ PreviewerSpecList = list[PreviewerSpec]
 
 @provisional(since="0.3.1")
 class PreviewError(Exception):
-    """Base class for typed preview errors.
+    """Base class for typed preview errors — catch this in a provider.
 
-    Each subclass carries a :class:`PreviewErrorCode` so the API/session
-    layer can render a deterministic error envelope (FR-029) instead of an
-    opaque 500.
+    Each subclass carries a :class:`PreviewErrorCode` so the session/API layer
+    can render a deterministic error envelope instead of an opaque 500. Catch
+    :class:`PreviewError` to handle any preview-layer failure uniformly.
+
+    Args:
+        message: Human-readable description of the failure.
+        detail: Optional structured context attached to the error envelope.
     """
 
     code: PreviewErrorCode = PreviewErrorCode.PROVIDER_EXCEPTION
+    """The failure code reported on the error envelope for this error type."""
 
     def __init__(self, message: str, *, detail: dict[str, Any] | None = None) -> None:
         super().__init__(message)
@@ -642,6 +797,7 @@ class PreviewError(Exception):
         self.detail = detail or {}
 
     def to_error_info(self) -> PreviewErrorInfo:
+        """Convert this error into a :class:`PreviewErrorInfo` for an envelope."""
         return PreviewErrorInfo(code=self.code, message=self.message, detail=self.detail)
 
 
@@ -680,13 +836,15 @@ class MissingBundleError(PreviewError):
 
 @provisional(since="0.3.1")
 class ProviderError(PreviewError):
-    """A backend provider raised while rendering an envelope.
+    """Raise this from a provider for a hard failure it cannot recover from.
 
-    Authors raise this for hard failures a provider cannot turn into a typed
-    error envelope (ADR-052 §8.1 — Public/provisional).
+    Use it when a provider genuinely cannot produce a payload and cannot turn
+    the situation into a typed error envelope itself; the session layer catches
+    it and renders a ``provider_exception`` error envelope.
     """
 
     code = PreviewErrorCode.PROVIDER_EXCEPTION
+    """Failure code reported for a provider hard failure."""
 
 
 @internal()

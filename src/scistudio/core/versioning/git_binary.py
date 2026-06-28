@@ -1,17 +1,14 @@
-"""Bundled git binary locator (ADR-039 §3.1).
+"""Locator for the bundled git binary.
 
-Locates the portable git executable shipped inside the ADR-037 desktop
-bundle. The bundle layout — verified against
-``docs/architecture/PROJECT_TREE.md`` — places the binary at:
+Finds the portable git executable shipped inside the desktop bundle:
 
 - Windows:  ``<install>/resources/git/bin/git.exe``  (MinGit)
-- macOS:    ``<install>/resources/git/bin/git``     (static universal2)
-- Linux:    ``<install>/resources/git/bin/git``     (static musl)
+- macOS:    ``<install>/resources/git/bin/git``       (static universal2)
+- Linux:    ``<install>/resources/git/bin/git``       (static musl)
 
-For the ``scistudio gui`` developer CLI (no desktop bundle), the locator
-falls back to a system ``git`` resolved via ``shutil.which``. The
-developer fallback is *not* used in packaged desktop builds — users do
-not need git installed.
+For the developer CLI (no desktop bundle), the locator falls back to a system
+``git`` found on ``PATH``. Packaged desktop builds do not use that fallback —
+users do not need git installed.
 """
 
 from __future__ import annotations
@@ -29,36 +26,32 @@ logger = logging.getLogger(__name__)
 
 
 class BundledGitMissing(RuntimeError):  # noqa: N818 — name part of public API surface
-    """Raised when neither bundled nor system git can be located.
+    """Neither a bundled nor a system git binary could be found.
 
-    Surfaced to users as a "Version control unavailable" toast in the
-    desktop UI. The packaged build should never raise this — CI verifies
-    the bundle includes ``resources/git/bin/git[.exe]`` before publishing
-    artifacts.
+    Surfaced to users as a "version control unavailable" message. A packaged
+    build should never raise this, because the bundle is verified to include a
+    git binary before release.
     """
 
 
 class GitBinary:
-    """Resolved path to the git executable + invocation helpers.
+    """A resolved git executable plus helpers to invoke it.
 
-    Construction is via :meth:`locate`. Direct instantiation with an
-    explicit path is supported for tests (e.g. pointing at a known git
-    fixture in a tmpdir).
-
-    Attributes
-    ----------
-    path : pathlib.Path
-        Absolute path to the git executable. Existence is verified at
-        ``locate()`` time but the path is not re-checked on every call —
-        callers expect a long-lived ``GitBinary`` instance.
-    version : str | None
-        Cached ``git --version`` string (best-effort; ``None`` on
-        failure).
+    Construct via :meth:`locate`, which finds the bundled (or system) git.
+    Direct construction with an explicit path is supported for tests (e.g.
+    pointing at a known git fixture in a scratch directory).
     """
 
     def __init__(self, path: Path) -> None:
+        """Wrap the git executable at *path* and probe its version.
+
+        Args:
+            path: Filesystem path to the git executable.
+        """
         self.path = Path(path).resolve()
+        """Absolute path to the resolved git executable."""
         self.version: str | None = None
+        """Cached ``git --version`` string (best-effort; ``None`` on failure)."""
         # Best-effort version probe — log only.
         try:
             proc = subprocess.run(
@@ -80,9 +73,11 @@ class GitBinary:
     def locate(cls) -> GitBinary:
         """Find the bundled git binary, falling back to system git.
 
-        See module docstring + ADR-039 §3.1 lines 56-88.
+        Returns:
+            A :class:`GitBinary` for the first git executable found.
 
-        Raises :class:`BundledGitMissing` if no executable found.
+        Raises:
+            BundledGitMissing: When no git executable can be located.
         """
         tried: list[str] = []
 
@@ -144,14 +139,26 @@ class GitBinary:
         env: dict[str, str] | None = None,
         timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        """Invoke git with the given args.
+        """Invoke git with *args* and return the completed process.
 
-        Thin ``subprocess.run`` wrapper that prepends ``self.path`` and
-        injects SciStudio default env (``GIT_TERMINAL_PROMPT=0``,
-        ``LANG=C``, ``GIT_PAGER=cat``).
+        A thin :func:`subprocess.run` wrapper that prepends the resolved git
+        path, injects SciStudio's default environment
+        (``GIT_TERMINAL_PROMPT=0``, ``GIT_PAGER=cat``, ``LANG``/``LC_ALL=C``),
+        and decodes git's output as UTF-8.
 
-        Raises :class:`GitError` (re-exported via ``git_engine``) when
-        ``check`` and exit != 0.
+        Args:
+            args: Git arguments (without the leading ``git``).
+            cwd: Working directory for the invocation.
+            check: When ``True``, raise on a non-zero exit.
+            text: Decode stdout/stderr as text (UTF-8) rather than bytes.
+            env: Extra environment variables to add or override.
+            timeout: Optional timeout in seconds.
+
+        Returns:
+            The completed :class:`subprocess.CompletedProcess`.
+
+        Raises:
+            GitError: When *check* is ``True`` and git exits non-zero.
         """
         argv = [str(self.path), *args]
         full_env = os.environ.copy()

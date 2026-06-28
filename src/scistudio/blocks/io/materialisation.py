@@ -1,43 +1,27 @@
-"""Materialise / reconstruct DataObjects through the IO block layer.
+"""Write a data object to a file, or rebuild one from a file, via the IO blocks.
 
-This module encapsulates the two operations that ``AppBlock`` and the
-external-app file-exchange bridge (``blocks/app/bridge.py``) repeat
-ad-hoc today:
+These two helpers wrap the format-dispatch logic that the app-block file-exchange
+bridge would otherwise repeat by hand:
 
-- :func:`materialise_to_file` - write a :class:`DataObject` to a file
-  using the saver capability returned by
-  :meth:`BlockRegistry.find_saver_capability` (ADR-028 D8 / #1077,
-  ADR-043 / ADR-047).
-- :func:`reconstruct_from_file` - build a typed :class:`DataObject`
-  from a file path by routing through
-  :meth:`BlockRegistry.find_loader_capability` (ADR-043 / ADR-047).
+- :func:`materialise_to_file` writes a :class:`DataObject` to disk, picking the
+  right saver block for the object's type and the chosen file extension.
+- :func:`reconstruct_from_file` reads a file back into a typed
+  :class:`DataObject`, picking the right loader block for the target type and the
+  file's extension.
 
-The helpers are intentionally pure (no module-level state). Each
-accepts an optional pre-built :class:`BlockRegistry` so callers in hot
-paths can amortise the registry scan; if omitted, the helper builds
-and scans one on demand.
+Both are pure (no module-level state). Each accepts an optional pre-built
+:class:`BlockRegistry` so a hot-path caller can reuse one scan; otherwise the
+helper builds and scans a registry on demand.
 
-ADR-028 D8 / issue #1078: introduced as the canonical materialisation
-surface so AppBlock binner and bridge prepare/restore (follow-up
-issues #1079 and #1080) stop reimplementing format dispatch.
+Pass-through: when the object already lives on disk in the target format,
+:func:`materialise_to_file` links the existing file into place instead of
+re-writing the bytes, falling back to a normal save if the platform refuses the
+link.
 
-Pass-through policy
--------------------
-
-When *obj* already has a ``storage_ref`` whose ``path`` ends in the
-target extension, :func:`materialise_to_file` prefers a native link
-via :func:`scistudio.utils.fs.mount_pathlike` over re-writing the bytes
-through the saver. The link falls back to a byte copy (or normal saver
-round-trip) if the platform refuses to create a link.
-
-Artifact fallback
------------------
-
-When :func:`reconstruct_from_file` cannot find a loader for the
-``(target_type, extension)`` pair, it returns an
-:class:`scistudio.core.types.artifact.Artifact` when *target_type* is
-``Artifact`` (or a subclass). For any other concrete target type
-without a matching loader, the helper raises :class:`LookupError`.
+Artifact fallback: when :func:`reconstruct_from_file` finds no loader for the
+``(target_type, extension)`` pair, it returns a plain
+:class:`scistudio.core.types.artifact.Artifact` if the target type is Artifact
+(or a subclass); for any other type with no loader it raises :class:`LookupError`.
 """
 
 from __future__ import annotations
@@ -204,50 +188,43 @@ def materialise_to_file(
     capability_id: str | None = None,
     registry: BlockRegistry | None = None,
 ) -> Path:
-    """Materialise *obj* to a file under *dest_dir* and return the path.
+    """Write *obj* to a file under *dest_dir* and return the written path.
 
-    Internal (ADR-052 §6.4): AppBlock prepare/restore helper; reachable only via
-    its deep path, not re-exported from the ``scistudio.blocks.io`` root.
+    A helper used by the app-block prepare/restore bridge. It is reachable only
+    via this deep import path and is not part of the stable
+    ``scistudio.blocks.io`` surface.
 
-    Resolution policy (in order):
+    Resolution order:
 
-    1. If *extension* is ``None``, pick the first extension declared by
-       the first saver that accepts ``type(obj)`` (see
-       :func:`_default_extension_for`). When no saver matches, a
-       :class:`LookupError` is raised.
-    2. Compute the destination as ``dest_dir / f"{filename_stem}{extension}"``.
-    3. If ``obj.storage_ref.path`` already references a file whose
-       trailing suffix matches *extension*, link the source into
-       *dest* via :func:`scistudio.utils.fs.mount_pathlike`. On any link
-       failure (e.g. cross-volume hardlink, junction refused), fall
-       through to step 4.
-    4. Resolve the saver via :meth:`BlockRegistry.find_saver_capability`,
-       instantiate the owning block class (passing ``core_type`` for
-       the dynamic-port ``SaveData`` block when applicable), call
-       ``saver.save(obj, config)`` directly. The saver writes to the
-       computed path.
+    1. If *extension* is ``None``, use the first extension of the first saver
+       registered for ``type(obj)``; if none is registered, raise
+       :class:`LookupError`.
+    2. The destination is ``dest_dir / f"{filename_stem}{extension}"``.
+    3. If *obj* already lives on disk in a file whose suffix matches *extension*,
+       link that file into place instead of rewriting it. Any link failure (for
+       example a cross-volume hardlink) falls through to step 4.
+    4. Otherwise resolve the saver, instantiate its block, and call
+       ``saver.save(obj, config)`` to write the file.
 
     Args:
         obj: The :class:`DataObject` to write.
-        dest_dir: Directory that will contain the materialised file.
-            Created if it does not exist.
-        extension: Optional target file extension (e.g. ``".csv"``).
-            When omitted the helper picks a saver-declared default.
-        filename_stem: Stem of the destination filename. Default
-            ``"data"``. Callers that need stable names (e.g. AppBlock
-            file-exchange) should pass the port name here.
-        registry: Optional pre-scanned :class:`BlockRegistry`. When
-            omitted, the helper builds and scans a fresh one.
+        dest_dir: Directory that will contain the file. Created if it does not
+            exist.
+        extension: Optional target file extension (e.g. ``".csv"``). When
+            omitted, a saver-declared default is used.
+        filename_stem: Stem of the destination filename (default ``"data"``).
+            Pass a stable name (e.g. the port name) when you need predictable
+            filenames.
+        capability_id: Optional capability id to force a specific saver.
+        registry: Optional pre-scanned :class:`BlockRegistry`. Built on demand
+            when omitted.
 
     Returns:
         The :class:`Path` of the written file.
 
     Raises:
-        LookupError: when no saver is registered for ``(type(obj),
-            extension)``.
-        Exception: any exception raised by the saver itself is
-            propagated to the caller (the saver contract is the source
-            of truth for write failures).
+        LookupError: when no saver is registered for ``(type(obj), extension)``.
+        Exception: anything the saver itself raises is propagated to the caller.
     """
     reg = _get_registry(registry)
     capability: FormatCapability | None = None
@@ -314,38 +291,41 @@ def reconstruct_from_file(
     capability_id: str | None = None,
     registry: BlockRegistry | None = None,
 ) -> DataObject:
-    """Build a *target_type* instance from *path*.
+    """Read *path* back into a *target_type* data object.
 
-    Resolution policy (in order):
+    The mirror of :func:`materialise_to_file`: it picks the right loader block for
+    the target type and the file's extension, runs it, and returns the resulting
+    object. Like that helper, it is an app-block bridge utility reachable only via
+    this deep import path.
 
-    1. If *extension* is ``None``, derive it from the path's trailing
-       suffix (compound-aware, mirroring
-       :meth:`IOBlock._detect_format`).
-    2. Resolve the loader via :meth:`BlockRegistry.find_loader_capability`. If a
-       loader matches, instantiate and call
-       ``loader.load(config, output_dir="")``. If the loader returns a
-       single-item :class:`Collection` (the standard ``IOBlock.run``
-       wrapper), unwrap it.
-    3. If no loader matches AND *target_type* IS-A
-       :class:`scistudio.core.types.artifact.Artifact`, build an
-       ``Artifact(file_path=path, mime_type=None, description=path.name)``
-       as a documented fallback.
-    4. Otherwise, raise :class:`LookupError`.
+    Resolution order:
+
+    1. If *extension* is ``None``, derive it from the path's trailing suffix
+       (compound-aware, mirroring :meth:`IOBlock._detect_format`).
+    2. Resolve the loader for the target type and extension. If one matches,
+       instantiate it and call ``loader.load(config, output_dir="")``. If it
+       returns a single-item :class:`Collection`, unwrap it.
+    3. If no loader matches and *target_type* is
+       :class:`scistudio.core.types.artifact.Artifact` (or a subclass), build a
+       plain ``Artifact`` pointing at *path* as a documented fallback.
+    4. Otherwise raise :class:`LookupError`.
 
     Args:
         path: File path to load.
         target_type: Concrete :class:`DataObject` subclass to construct.
-        extension: Optional extension override (e.g. ``".ome.tif"``).
-            When omitted, derived from *path*.
-        registry: Optional pre-scanned :class:`BlockRegistry`.
+        extension: Optional extension override (e.g. ``".ome.tif"``). When
+            omitted, derived from *path*.
+        capability_id: Optional capability id to force a specific loader.
+        registry: Optional pre-scanned :class:`BlockRegistry`. Built on demand
+            when omitted.
 
     Returns:
         The constructed :class:`DataObject`.
 
     Raises:
         FileNotFoundError: if *path* does not exist.
-        LookupError: if no loader matches and the Artifact fallback
-            does not apply.
+        LookupError: if no loader matches and the Artifact fallback does not
+            apply.
     """
     if not path.exists():
         raise FileNotFoundError(f"reconstruct_from_file: source not found: {path}")

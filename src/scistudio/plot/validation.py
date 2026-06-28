@@ -1,9 +1,10 @@
-"""Plot manifest + script validation (ADR-048 SPEC 2 FR-020, FR-021).
+"""Load and validate a plot's manifest and render script.
 
-Pure helpers (no MCP decorators) so the tool layer and the runtime can both
-reuse them. Validation covers: manifest schema, path confinement, language,
-entrypoint shape, target existence, declared output formats, and runner
-availability diagnostics (R is reported, never required — FR-021, FR-015).
+Pure helpers (no tool wiring) that the tool layer and the runtime both reuse.
+Validation covers the manifest schema, path confinement, the script language and
+entrypoint shape, that the bound target still exists, the declared output
+formats, and runner availability. A missing R runner is reported as a warning,
+never an error, so a manifest validates the same everywhere.
 """
 
 from __future__ import annotations
@@ -25,35 +26,75 @@ from scistudio.plot.targets import discover_targets
 
 @dataclass
 class LoadedPlot:
-    """A resolved plot: its directory, manifest, and script paths."""
+    """A plot resolved on disk: its id, directory, manifest, and script path.
+
+    The result of :func:`load_plot`. It bundles everything downstream steps need to run
+    or inspect a plot, with every path already resolved and confined under the
+    project root.
+    """
 
     plot_id: str
+    """Id of the loaded plot (the manifest's ``id``)."""
     plot_dir: Path
+    """Absolute path of the plot's ``plots/<id>/`` directory."""
     manifest_path: Path
+    """Absolute path of the plot's ``plot.yaml``."""
     manifest: PlotManifest
+    """The parsed, validated manifest."""
     script_path: Path
+    """Absolute, confined path of the render script."""
 
 
 @dataclass
 class ValidationOutcome:
-    """Outcome of validating a plot manifest + script."""
+    """The result of validating a plot's manifest and render script.
+
+    ``valid`` is ``True`` only when ``errors`` is empty. Errors block a run;
+    warnings are advisory. ``manifest`` is populated whenever the manifest parsed,
+    and ``loaded`` is set only when the plot is fully valid and ready to run.
+    """
 
     valid: bool
+    """``True`` only when there are no blocking errors."""
     errors: list[str] = field(default_factory=list)
+    """Problems that must be fixed before the plot can run."""
     warnings: list[str] = field(default_factory=list)
+    """Advisory notes that do not block a run (e.g. R is not installed)."""
     manifest: PlotManifest | None = None
+    """The parsed manifest when it parsed, else ``None``."""
     loaded: LoadedPlot | None = None
+    """The fully resolved plot when valid, else ``None``."""
 
 
 class PlotNotFoundError(FileNotFoundError):
-    """Raised when a plot id / path does not resolve to a manifest."""
+    """Raised when a plot id or path does not resolve to a manifest.
+
+    Signals that no ``plot.yaml`` was found for the requested plot. A subclass of
+    :class:`FileNotFoundError`.
+    """
 
 
 def resolve_manifest_path(ctx: PlotRuntimeContext, plot_id: str | None, path: str | None) -> Path:
-    """Resolve a manifest path from EITHER ``plot_id`` OR ``path`` (FR-020).
+    """Resolve the path of a plot's ``plot.yaml`` from an id or an explicit path.
 
-    Exactly one must be supplied. The result is always confined under the
-    injected project root (FR-004).
+    Supply exactly one of ``plot_id`` or ``path``. A ``plot_id`` resolves to
+    ``plots/<plot_id>/plot.yaml``; an explicit ``path`` is taken as given. Either
+    way the result is confined under the project root.
+
+    Args:
+        ctx: The injected runtime context.
+        plot_id: Id of the plot, or ``None`` when passing ``path`` instead.
+        path: Project-relative path to a ``plot.yaml``, or ``None`` when passing
+            ``plot_id`` instead.
+
+    Returns:
+        The resolved manifest path.
+
+    Raises:
+        ValueError: When not exactly one of ``plot_id`` / ``path`` is given.
+        PlotNotFoundError: When ``plot_id`` escapes the ``plots/`` directory.
+        RuntimeError: When no project is currently open.
+        PermissionError: When ``path`` resolves outside the project root.
     """
     if (plot_id is None) == (path is None):
         raise ValueError("provide exactly one of plot_id or path.")
@@ -71,7 +112,28 @@ def resolve_manifest_path(ctx: PlotRuntimeContext, plot_id: str | None, path: st
 
 
 def load_plot(ctx: PlotRuntimeContext, plot_id: str | None = None, path: str | None = None) -> LoadedPlot:
-    """Load + parse a plot manifest (FR-020). Raises on missing/invalid manifest."""
+    """Load and parse a plot, resolving its manifest and script paths.
+
+    Reads ``plot.yaml`` (by id or path), validates it against the manifest schema,
+    and resolves the render-script path. Use it when you need the plot ready to
+    run or inspect; for a pass/fail report with messages, use
+    :func:`validate_plot`.
+
+    Args:
+        ctx: The injected runtime context.
+        plot_id: Id of the plot to load, or ``None`` when passing ``path``.
+        path: Project-relative path to a ``plot.yaml``, or ``None`` when passing
+            ``plot_id``.
+
+    Returns:
+        The resolved :class:`LoadedPlot`.
+
+    Raises:
+        ValueError: When not exactly one of ``plot_id`` / ``path`` is given, or
+            the manifest is not a mapping.
+        PlotNotFoundError: When the manifest file does not exist.
+        pydantic.ValidationError: When the manifest fails the schema.
+    """
     manifest_path = resolve_manifest_path(ctx, plot_id, path)
     if not manifest_path.exists():
         raise PlotNotFoundError(f"plot manifest not found: {manifest_path}")
@@ -91,10 +153,24 @@ def load_plot(ctx: PlotRuntimeContext, plot_id: str | None = None, path: str | N
 
 
 def resolve_script_path(plot_dir: Path, script_path: str, *, root: Path) -> Path:
-    """Resolve manifest ``script.path`` and reject escapes before reading/running.
+    """Resolve a manifest's ``script.path`` and reject paths that escape.
 
-    *root* (the project root) is injected by the caller, which resolves it from
-    the :class:`PlotRuntimeContext` (#1824).
+    Joins the manifest's script path onto the plot directory and confirms it stays
+    both inside the plot directory and inside the project root, so a render script
+    can never point outside ``plots/<id>/``. Call this before reading or running
+    the script.
+
+    Args:
+        plot_dir: The plot's ``plots/<id>/`` directory.
+        script_path: The manifest's ``script.path`` value.
+        root: The project root (the caller resolves it from the context).
+
+    Returns:
+        The resolved, confined script path.
+
+    Raises:
+        PermissionError: When the script path escapes the plot directory or the
+            project root.
     """
     raw_path = Path(script_path)
     resolved = raw_path.resolve() if raw_path.is_absolute() else (plot_dir / raw_path).resolve()
@@ -117,10 +193,23 @@ def _rscript_available() -> bool:
 
 
 def validate_plot(ctx: PlotRuntimeContext, plot_id: str | None = None, path: str | None = None) -> ValidationOutcome:
-    """Validate a plot manifest + script end to end (FR-021).
+    """Validate a plot's manifest and render script end to end.
 
-    Manifest schema is always validated. R *runner* availability is reported as
-    a warning, never an error (FR-015 / SC-007): manifests validate everywhere.
+    Checks the manifest schema, the script language and ``render(collection)``
+    entrypoint, path confinement, the declared output formats, and that the bound
+    target still exists. A missing R runner is reported as a warning, never an
+    error, so the same manifest validates everywhere. Returns a structured report
+    rather than raising, so a caller can surface the messages to the user.
+
+    Args:
+        ctx: The injected runtime context.
+        plot_id: Id of the plot to validate, or ``None`` when passing ``path``.
+        path: Project-relative path to a ``plot.yaml``, or ``None`` when passing
+            ``plot_id``.
+
+    Returns:
+        A :class:`ValidationOutcome` whose ``valid`` flag is ``True`` only when
+        there are no errors.
     """
     errors: list[str] = []
     warnings: list[str] = []

@@ -64,41 +64,74 @@ class _PopenProcessAdapter:
 
 @provisional(since="0.3.1")
 class AppBlock(Block):
-    """Block that delegates work to an external GUI application.
+    """Hand a workflow step off to an external GUI application.
 
-    Communication happens via a file-exchange directory: the block serialises
-    inputs, launches the application, watches for output files, and collects
-    the results.
+    Subclass this (or configure one directly) to wrap a desktop program — an
+    image viewer, an analysis GUI, a file converter — as a workflow block. You
+    point it at an executable; the block writes its inputs into a shared
+    "exchange" folder on disk, launches the program, waits for the program to
+    write result files into an output folder, and packs those files back into
+    the block's output ports.
 
-    State transitions: IDLE -> READY -> RUNNING -> PAUSED -> (RUNNING ->) DONE
+    While the external program is open, the block reports that it is paused and
+    waiting, so the rest of the workflow knows it is blocked on you (or on the
+    program) rather than stuck. Once result files appear and stop changing, the
+    block finishes on its own.
 
-    The block enters PAUSED state after launching the external application,
-    signalling to the scheduler that it is waiting for external output.
-    Once output files are detected, the block transitions back to RUNNING
-    and then to DONE.
+    Ports and config:
+        - Reads an optional input port named ``data`` by default; you can add or
+          rename input and output ports in the port editor. Each output port may
+          declare a file *extension* so that result files are sorted into ports
+          by their type (for example ``.csv`` files to one port, ``.png`` to
+          another).
+        - Emits one output Collection per output port. With no ports declared it
+          falls back to emitting one
+          :class:`~scistudio.core.types.artifact.Artifact` per output file.
+        - The ``app_command`` config field (the path to the executable) is
+          required; the optional ``output_dir`` field chooses where results are
+          saved.
+
+    Example:
+        >>> class FijiBlock(AppBlock):
+        ...     app_command = "/Applications/Fiji.app"
+        ...     output_patterns = ["*.tif"]
     """
 
     app_command: ClassVar[str] = ""
+    """Default path to the external executable to launch.
+
+    Usually left empty here and set per workflow via the ``app_command`` config
+    field; a subclass may hard-code it (for example a fixed install path).
+    """
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
+    """Marks the block as driven by an external process rather than run in-engine."""
     output_patterns: ClassVar[list[str]] = ["*"]
+    """Glob patterns the watcher uses to find result files (default: every file)."""
     terminate_grace_sec: ClassVar[float] = 10.0
+    """Seconds to wait after asking the external process to quit before force-killing it."""
 
     # Issue #680: AppBlock ports are user-configurable via the port editor.
     # The ClassVar values below act as default scaffolds — subclasses may
     # override them, and any user can replace them at config time through
     # the port editor (ADR-029).
     variadic_inputs: ClassVar[bool] = True
+    """Allow the input ports to be edited per node in the port editor."""
     variadic_outputs: ClassVar[bool] = True
+    """Allow the output ports to be edited per node in the port editor."""
 
     name: ClassVar[str] = "App Block"
+    """Display name shown for this block in the palette and on its node."""
     description: ClassVar[str] = "Delegate work to an external GUI application"
+    """One-line description shown in the block palette."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False, description="Input data for the app"),
     ]
+    """Default input ports: a single optional ``data`` port; users may edit these."""
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="result", accepted_types=[Artifact], description="Output artifacts from the app"),
     ]
+    """Default output ports: a single ``result`` port; users may edit these."""
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -163,6 +196,7 @@ class AppBlock(Block):
         },
         "required": ["app_command"],
     }
+    """Form schema describing this block's config fields for the editor UI."""
 
     # ------------------------------------------------------------------
     # Issue #680: extension-based output binning
@@ -360,19 +394,37 @@ class AppBlock(Block):
 
     @provisional(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Prepare inputs, launch the external app, and collect outputs.
+        """Serialise inputs, launch the external app, and collect its outputs.
 
-        ADR-018: Handles CANCELLED transitions when external process exits unexpectedly.
-        ADR-019: Stores ProcessHandle from bridge for cancellation support.
-        ADR-020: Accepts and returns Collection-wrapped data.
+        This is the block's main step. It writes each input into a shared
+        exchange folder, validates and launches the configured executable,
+        watches the output folder until result files appear and settle, then
+        loads those files back into output Collections. The external process is
+        always waited on (and terminated or killed if it overruns), and any
+        exchange folder created just for this run is removed, even on error.
 
-        Issue #680: when the user has declared output ports via the port
-        editor, output files are binned by extension instead of being
-        passed through the legacy ``bridge.collect()`` path.
+        If output ports were declared in the port editor, result files are
+        sorted into those ports by file extension; otherwise every result file
+        becomes one :class:`~scistudio.core.types.artifact.Artifact`.
 
-        Resource cleanup (#338, #339):
-        - Subprocess is always waited on / terminated / killed in finally block.
-        - Temp exchange directories (not project-dir) are cleaned up in finally block.
+        Args:
+            inputs: Input Collections keyed by input-port name.
+            config: The node configuration. ``app_command`` (the executable
+                path) is required; ``output_dir``, ``output_patterns``,
+                ``output_ports``, ``stability_period``, and ``done_marker`` are
+                optional.
+
+        Returns:
+            Output Collections keyed by output-port name.
+
+        Raises:
+            ValueError: If no ``app_command`` is set, the command fails the
+                injection-safety check, or a required output port receives no
+                matching files.
+            LookupError: If a declared output port type cannot be reconstructed
+                from its matching file.
+            BlockCancelledByAppError: If the external process exits before
+                writing any output, so the step is recorded as cancelled.
         """
         bridge = FileExchangeBridge()
         command = config.get("app_command") or self.app_command

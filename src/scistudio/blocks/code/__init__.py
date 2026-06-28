@@ -1,13 +1,13 @@
-"""CodeBlock authoring surface (ADR-052 §7A).
+"""Public surface for authoring and running a Code Block.
 
-Canonical root: ``from scistudio.blocks.code import …``. The whole CodeBlock
-surface is **provisional** (ADR-052 §7A; ADR-041): the :class:`CodeBlock`
-script-authoring base, its config models, the backend-registration API, and the
-file-exchange / interpreter / introspection / provenance / validation helpers
-plus the concrete interpreter backends.
+Import everything from here: ``from scistudio.blocks.code import ...``. This
+package provides the :class:`CodeBlock` itself, its configuration models, the
+API for registering interpreter backends, the file-exchange, interpreter,
+introspection, provenance, and validation helpers, and the built-in interpreter
+backends (Python, notebook, R/Quarto, shell, and MATLAB/Octave).
 
-Leading-underscore names stay internal; the legacy ``runner_registry`` /
-``runners`` layer was deleted as dead code (ADR-052 §7A decision log).
+This whole surface is **provisional**: it is usable but may still change in a
+minor release. Leading-underscore names are internal and may change at any time.
 """
 
 from __future__ import annotations
@@ -89,9 +89,9 @@ from scistudio.blocks.code.validation import (
     validate_codeblock_config,
 )
 
-# Whole surface provisional (ADR-052 §7A). Sorted (isort-style) for the
-# anti-drift freeze snapshot. ``InterpreterFamily`` is a ``Literal`` type-alias
-# (public per §7A) that cannot carry a runtime stability marker.
+# Sorted (isort-style) so the exported surface stays in a stable order.
+# ``InterpreterFamily`` is a ``Literal`` type alias and cannot carry a runtime
+# stability marker, but it is part of the public surface.
 __all__ = [
     "CodeBlock",
     "CodeBlockBackend",

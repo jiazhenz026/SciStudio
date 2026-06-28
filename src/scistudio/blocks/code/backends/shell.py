@@ -1,4 +1,4 @@
-"""POSIX shell backend for CodeBlock v2."""
+"""Backend that runs POSIX shell Code Block scripts."""
 
 from __future__ import annotations
 
@@ -23,15 +23,32 @@ _SHELL_CANDIDATES = ("sh", "bash", "dash", "zsh")
 
 @provisional(since="0.3.1")
 class ShellCodeBlockBackend:
-    """Shell `.sh` backend for the ADR-041 shared runtime."""
+    """Run a Code Block script written as a POSIX shell script (``.sh``).
+
+    This backend runs ``.sh`` scripts with a POSIX-compatible shell. It tries
+    ``sh``, ``bash``, ``dash``, then ``zsh`` from the system path, or uses a
+    path you pin through ``interpreter_mode`` / ``interpreter_path`` (a Windows
+    ``System32\\bash.exe`` is rejected as incompatible). The script runs in the
+    per-run exchange folder and is given ``SCISTUDIO_CODEBLOCK_*`` environment
+    variables pointing at its input, output, project, and script paths.
+
+    Example:
+        >>> backend = ShellCodeBlockBackend()
+        >>> backend.supports(Path("convert.sh"), config)
+        True
+    """
 
     name = "shell"
+    """Backend identifier used in the registry and provenance records."""
     extensions = frozenset({".sh"})
+    """File extensions this backend handles (POSIX shell scripts)."""
 
     def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
+        """Return whether *script_path* is a shell script this backend runs."""
         return script_path.suffix.lower() in self.extensions
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+        """Resolve a POSIX shell and build the launch command and environment."""
         executable = _resolve_shell_executable(
             mode=context.config.interpreter_mode,
             interpreter_path=context.config.interpreter_path,
@@ -54,6 +71,7 @@ class ShellCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        """Launch the shell on the script and return the finished process."""
         return run_codeblock_process(
             argv=interpreter.argv,
             cwd=context.exchange_dir,

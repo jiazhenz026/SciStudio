@@ -17,31 +17,62 @@ if TYPE_CHECKING:
 
 
 class MergeBlock(ProcessBlock):
-    """Merge, join, or concatenate multiple DataFrames.
+    """Combine two tables into one.
 
-    Config params:
-        how: Join strategy — "concat" (vertical), "inner", "outer", "left".
-             Default: "concat".
-        on: Column(s) to join on.  Required for inner/outer/left.
+    Takes a table on each of its two input ports and produces a single
+    combined table. Today it stacks the two tables on top of each other
+    (concatenation); key-based joins are recognised but not yet implemented.
+
+    Ports: reads ``left`` and ``right`` (each a DataFrame) and emits the
+    combined table on ``merged``. Config: ``how`` selects the strategy --
+    ``"concat"`` (the default) stacks the rows; any other value (``"inner"``,
+    ``"outer"``, ``"left"``) is reserved and currently raises
+    :class:`NotImplementedError`. ``on`` names the join column(s) and applies
+    only to the not-yet-implemented join strategies.
+
+    Example:
+        >>> block = MergeBlock({"how": "concat"})
     """
 
     name: ClassVar[str] = "Merge"
+    """Display name shown in the block palette and on the canvas node."""
+
     algorithm: ClassVar[str] = "merge"
+    """Stable identifier for this block's transform; recorded in metadata."""
+
     description: ClassVar[str] = "Merge or concatenate multiple DataFrames"
+    """One-line summary shown in the palette and node tooltip."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="left", accepted_types=[DataFrame], description="Left/first table"),
         InputPort(name="right", accepted_types=[DataFrame], description="Right/second table"),
     ]
+    """The two input ports: ``left`` and ``right``, each accepting a DataFrame."""
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="merged", accepted_types=[DataFrame], description="Merged table"),
     ]
+    """The single output port ``merged``, carrying the combined DataFrame."""
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Merge two DataFrames via Arrow tables.
+        """Combine the ``left`` and ``right`` tables into one.
 
-        Accepts both raw DataFrame and Collection[DataFrame] inputs for
-        backward compatibility during the ADR-020 transition.
+        Each input may arrive either as a raw DataFrame or as a length-one
+        Collection wrapping one; a Collection is unwrapped before merging.
+
+        Args:
+            inputs: Mapping with ``left`` and ``right``, each a DataFrame or a
+                Collection holding one DataFrame.
+            config: The block configuration. ``how`` selects the strategy and
+                defaults to ``"concat"``.
+
+        Returns:
+            Mapping of ``merged`` to a Collection holding the combined
+            DataFrame.
+
+        Raises:
+            TypeError: If either input does not resolve to an Arrow table.
+            NotImplementedError: If ``how`` is anything other than ``"concat"``.
         """
         from scistudio.core.types.collection import Collection
 

@@ -1,23 +1,23 @@
-"""IOBlock — abstract base for plugin-owned data ingress and egress.
+"""The abstract base class for blocks that read files in or write files out.
 
-Per ADR-028 §D1, ``IOBlock`` is an abstract base class. Subclasses
-override :meth:`load` (for ``direction="input"``) or :meth:`save` (for
-``direction="output"``); the default :meth:`run` dispatches based on
-the ``direction`` ClassVar.
+:class:`IOBlock` is what every data-ingress or data-egress block inherits from.
+A subclass picks one direction and overrides one method:
 
-ADR-031 D4: ``load()`` now accepts an ``output_dir`` parameter so
-loader implementations can persist data to storage and return
-reference-only :class:`DataObject` instances. The base class provides
-:meth:`persist_array` and :meth:`persist_table` helper methods for
-streaming writes. The ``run()`` method enforces a safety net: any
-DataObject returned without ``storage_ref`` is auto-flushed before
-crossing the block boundary.
+- a *loader* sets ``direction = "input"`` and overrides :meth:`load`;
+- a *saver* sets ``direction = "output"`` and overrides :meth:`save`.
 
-The legacy ``adapter_registry`` / ``adapters/`` dispatch layer was
-removed in T-TRK-004. Concrete core loaders (``LoadData``, ``SaveData``)
-arrive in T-TRK-007 and T-TRK-008. Plugin-owned IO blocks (e.g.
-``LoadImage`` in ``scistudio-blocks-imaging``) subclass ``IOBlock``
-directly and register via the ``scistudio.blocks`` entry-point group.
+The inherited :meth:`run` looks at the ``direction`` and calls the right one, so
+subclasses never implement ``run`` themselves.
+
+Loaders can stream large files straight to storage instead of holding them in
+memory: :meth:`load` receives an ``output_dir`` and the base class offers
+``persist_array`` / ``persist_table`` helpers for that. As a safety net,
+:meth:`run` automatically writes any returned object that is still in memory out
+to storage before it leaves the block.
+
+Plugin-owned IO blocks (for example, an image loader shipped in a separate
+package) subclass :class:`IOBlock` directly and register through the
+``scistudio.blocks`` entry-point group.
 """
 
 from __future__ import annotations
@@ -42,52 +42,75 @@ _logger = logging.getLogger(__name__)
 
 @stable(since="0.3.1")
 class IOBlock(Block):
-    """Abstract base for blocks that load or save data.
+    """Abstract base for a block that loads data from a file or saves it to one.
 
-    Subclasses must override :meth:`load` (for ``direction='input'``)
-    or :meth:`save` (for ``direction='output'``). The default
-    :meth:`run` dispatches based on the ``direction`` ClassVar.
+    Inherit from this to build a custom IO block. Choose a direction with the
+    ``direction`` class attribute and override the matching method:
+
+    - ``direction = "input"`` (a loader): override :meth:`load` to read the
+      configured ``path`` and return a :class:`DataObject` or a
+      :class:`Collection`. A loader has no data input port — it is a pure source.
+    - ``direction = "output"`` (a saver): override :meth:`save` to write the
+      object arriving on the ``data`` input port to the configured ``path``.
+
+    You do not override :meth:`run`; the base class reads ``direction`` and calls
+    :meth:`load` or :meth:`save` for you. Declare the file formats the block
+    handles in :attr:`format_capabilities` so the runtime can route files by
+    extension and the UI can list the format. The base ``config_schema``
+    contributes a required ``path`` field; subclasses add their own fields.
+
+    Example:
+        >>> from pathlib import Path
+        >>> class LoadPlainText(IOBlock):
+        ...     direction = "input"
+        ...     def load(self, config, output_dir=""):
+        ...         text = Path(config.get("path")).read_text(encoding="utf-8")
+        ...         return Text(content=text, format="plain")
     """
 
-    # ``name`` and ``description`` are preserved from the pre-T-TRK-004
-    # concrete IOBlock so that the existing ``BlockRegistry`` builtin
-    # registration (``registry._scan_builtins``) keeps surfacing the
-    # ``"IO Block"`` / ``"io_block"`` identity that integration tests,
-    # workflow YAMLs, and the API connection-validator depend on. The
-    # spec body at standards doc lines 914-976 omits these but does not
-    # forbid them; ADR-028 §D1 only mandates ``load`` / ``save``
-    # abstractness and the ``run()`` dispatch contract.
+    # ``name``/``description`` are kept so the builtin BlockRegistry scan keeps
+    # surfacing the historical "IO Block"/"io_block" identity that integration
+    # tests, workflow YAMLs, and the connection validator rely on.
     name: ClassVar[str] = "IO Block"
+    """Display name of the block, shown in the UI block library."""
     description: ClassVar[str] = "Abstract base for blocks that load or save data."
+    """One-line description of the block, shown in the UI."""
 
-    # Stability: stable (ADR-052 §6.1) — ``"input"`` / ``"output"``.
     direction: ClassVar[str] = "input"
+    """``"input"`` for a loader (overrides :meth:`load`) or ``"output"`` for a
+    saver (overrides :meth:`save`). Selects which method :meth:`run` calls."""
     subcategory: ClassVar[str] = "io"
+    """Block-library subcategory this block is grouped under in the UI."""
 
-    # ADR-028 §D8: subclasses declare the file extensions they handle as a
-    # mapping from suffix (lower-case, leading dot, may be compound like
-    # ``".ome.tif"``) to a stable format identifier (e.g. ``"ome_tiff"``).
-    # The base default is empty; downstream issues #1074-#1076 populate it
-    # on the concrete IO subclasses. ``_detect_format`` consults this
-    # mapping at runtime; ``BlockRegistry.find_loader`` / ``find_saver``
-    # (#1077) query it for extension-based dispatch.
-    #
-    # .. deprecated:: 0.3.1
-    #    Stability: deprecated (ADR-052 §5/§6.1). Legacy extension->format
-    #    scaffolding kept importable for the migration window; declare
-    #    ``format_capabilities`` (ADR-043) instead. Slated for removal under
-    #    the §5 deprecation policy (#1817).
+    # Legacy extension->format scaffolding kept importable for the migration
+    # window; the registry's extension dispatch still consults it at runtime.
+    # New blocks should declare ``format_capabilities`` instead.
     supported_extensions: ClassVar[dict[str, str]] = {}
-    # Stability: stable (ADR-052 §6.1) — ADR-043 go-forward capability
-    # declaration; the supported replacement for ``supported_extensions``.
+    """Legacy map from file suffix to a stable format id (e.g. ``".ome.tif"`` ->
+    ``"ome_tiff"``); suffixes are lowercase with a leading dot and may be
+    compound. Empty by default.
+
+    .. deprecated:: 0.3.1
+        Declare :attr:`format_capabilities` instead. This mapping is kept only so
+        blocks written before the capability model still import, and it will be
+        removed.
+    """
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = ()
+    """The file formats this block can read or write, as :class:`FormatCapability`
+    records. This is the supported way to declare format support; the runtime and
+    UI read it for extension-based routing. Empty on the base class."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False),
     ]
+    """Declared input ports. Loaders (``direction="input"``) drop this to an empty
+    list automatically, since a loader reads from its ``path`` rather than an
+    incoming edge."""
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="data", accepted_types=[DataObject]),
     ]
+    """Declared output ports. The default single ``data`` port carries the loaded
+    object; savers override this with an empty list."""
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -100,6 +123,9 @@ class IOBlock(Block):
         },
         "required": ["path"],
     }
+    """JSON-schema for the block's configuration. The base schema contributes a
+    required ``path`` field (rendered as a file browser); subclasses merge in
+    their own fields."""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -117,13 +143,16 @@ class IOBlock(Block):
     @classmethod
     @stable(since="0.3.1")
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
-        """Return explicit ADR-043 capabilities or legacy migration records.
+        """Return the file formats this block supports as capability records.
 
-        ``supported_extensions`` synthesis exists only as migration
-        scaffolding while published packages move to explicit
-        ``FormatCapability`` records. Synthesized records are marked with
-        ``is_synthesized=True`` so registry/package validation can distinguish
-        them from final package-author declarations.
+        Prefers the explicit :attr:`format_capabilities`. If those are empty but
+        the legacy :attr:`supported_extensions` map is set, one capability is
+        synthesized per format from that map (each marked ``is_synthesized=True``
+        so tooling can tell synthesized records from hand-authored ones).
+
+        Returns:
+            A tuple of :class:`FormatCapability` records, or an empty tuple when
+            the block declares neither source.
         """
 
         if cls.format_capabilities:
@@ -172,28 +201,46 @@ class IOBlock(Block):
     @abstractmethod
     @stable(since="0.3.1")
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
-        """Load and return a single :class:`DataObject` or :class:`Collection`.
+        """Read the configured file and return its contents as a data object.
 
-        ADR-031 D4: ``output_dir`` is the directory where loaders should
-        persist data to storage. Implementations may EITHER:
+        Override this in a loader (``direction="input"``). Read the path from
+        ``config`` and return either a single :class:`DataObject` or a
+        :class:`Collection` of them. There are two ways to hand back the data:
 
-        (a) Return an in-memory DataObject (simple path):
-            The base class auto-persists it to storage via ``_auto_flush``.
-            Works for small/medium files. Will OOM on very large files.
+        - **Simple** — return an in-memory object; the base class writes it out
+          to storage for you. Fine for small or medium files, but a very large
+          file can exhaust memory.
+        - **Streaming** — write to storage yourself with :meth:`persist_array`
+          or :meth:`persist_table` and return a reference-only object. Use this
+          for large files.
 
-        (b) Write to storage directly using :meth:`persist_array` or
-            :meth:`persist_table` and return a reference-only object
-            (streaming path). Required for large files.
+        :class:`~scistudio.core.types.artifact.Artifact` results are exempt:
+        return one carrying a ``file_path`` and no storage write is needed.
 
-        Artifact subclasses are exempt — return with ``file_path``, no
-        storage write needed.
+        Args:
+            config: The block's configuration; read ``config.get("path")`` and
+                any block-specific fields from here.
+            output_dir: Directory to stream large outputs into when taking the
+                streaming path.
+
+        Returns:
+            The loaded :class:`DataObject`, or a :class:`Collection` of them.
         """
         ...
 
     @abstractmethod
     @stable(since="0.3.1")
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
-        """Persist *obj* to the configured path."""
+        """Write *obj* to the configured file path.
+
+        Override this in a saver (``direction="output"``). The object arrives on
+        the block's ``data`` input port; read the destination from
+        ``config.get("path")``.
+
+        Args:
+            obj: The :class:`DataObject` (or :class:`Collection`) to write out.
+            config: The block's configuration, including the target ``path``.
+        """
         ...
 
     def _resolved_input_port_name(self) -> str:
@@ -261,16 +308,27 @@ class IOBlock(Block):
         inputs: dict[str, Collection],
         config: BlockConfig,
     ) -> dict[str, Collection]:
-        """Dispatch to :meth:`load` or :meth:`save` based on ``direction``.
+        """Run the block: call :meth:`load` or :meth:`save` based on ``direction``.
 
-        For ``direction='input'`` the result of :meth:`load` is wrapped
-        in a single-item :class:`Collection` if it is not already a
-        Collection, and returned under the declared output port name.
+        You normally do not override this. For a loader (``direction="input"``)
+        it calls :meth:`load`, wraps a bare result in a single-item
+        :class:`Collection`, writes any still-in-memory object out to storage,
+        and returns it under the output port name. For a saver
+        (``direction="output"``) it takes the object from the required input
+        port, calls :meth:`save`, and returns the written path as a receipt.
 
-        For ``direction='output'`` the declared input port is required
-        and forwarded to :meth:`save`; the configured ``path`` is
-        returned under a receipt key that defaults to ``"path"`` for
-        backward compatibility.
+        Args:
+            inputs: Objects arriving on the block's input ports, keyed by port
+                name. A saver requires its ``data`` port to be present.
+            config: The block's configuration (including ``path``).
+
+        Returns:
+            A mapping from output port name to a :class:`Collection`: the loaded
+            data for a loader, or a single-item ``Text`` Collection holding the
+            written path for a saver.
+
+        Raises:
+            ValueError: if a saver is run without its required input present.
         """
         if self.direction == "input":
             # ADR-031 D4: resolve output_dir for loader persistence.

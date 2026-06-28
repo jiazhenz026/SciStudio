@@ -1,15 +1,18 @@
-"""CompletionWatcher — multi-signal completion detection for AI Block (ADR-035 §3.5).
+"""CompletionWatcher — detect when an AI Block's agent has finished.
 
-Three completion paths, all supported simultaneously (first-wins):
+An AI Block run can finish in three ways, all watched at once (whichever
+happens first wins):
 
-| Signal | Trigger |
-|---|---|
-| (a) MCP tool   | Agent calls ``mcp__scistudio__finish_ai_block(outputs={...})``. The MCP tool writes ``signals/finish_ai_block.json`` under the run dir. |
-| (b) FileWatcher| All declared ``expected_path`` files exist and have been size-stable for 2s. |
-| (c) User button| User clicks "Mark done" in the AI Block tab header → engine writes ``signals/mark_done.json``. |
+1. The agent calls the ``mcp__scistudio__finish_ai_block`` tool, naming the
+   output files it produced (the tool writes ``signals/finish_ai_block.json``
+   under the run directory).
+2. Every declared output file exists and has held a steady size for a couple
+   of seconds.
+3. The user clicks "Mark done" in the AI Block tab (which writes
+   ``signals/mark_done.json``).
 
-Path (a) is the only one with explicit per-port output naming. Paths (b)
-and (c) read from the per-port ``expected_path`` only.
+Only the first path names outputs per port explicitly; the other two read
+each port's configured expected path.
 """
 
 from __future__ import annotations
@@ -33,55 +36,61 @@ logger = logging.getLogger(__name__)
 class WatcherCancelledError(RuntimeError):
     """Raised by :meth:`CompletionWatcher.wait` after :meth:`cancel` is called.
 
-    Distinct from ``asyncio.CancelledError`` so synchronous callers can
-    catch it without importing asyncio. Caller (``AIBlock.run``)
-    translates this into a ``BlockState.CANCELLED`` transition.
+    A dedicated exception (rather than ``asyncio.CancelledError``) so
+    synchronous callers can catch it without importing asyncio. The AI Block
+    translates it into a cancelled run.
     """
 
 
 class CompletionSource(Enum):
-    """Which of the three paths fired (ADR-035 §3.5)."""
+    """Which of the three completion paths finished an AI Block run."""
 
     MCP_FINISH_TOOL = "mcp_finish_tool"
-    """Agent called ``mcp__scistudio__finish_ai_block``."""
+    """The agent called the ``mcp__scistudio__finish_ai_block`` tool."""
 
     FILE_WATCHER = "file_watcher"
-    """All ``expected_path`` files exist + size-stable for 2s."""
+    """Every declared output file exists and held a steady size briefly."""
 
     USER_MARK_DONE = "user_mark_done"
-    """User clicked "Mark done" in the tab header."""
+    """The user clicked "Mark done" in the tab header."""
 
 
 @dataclass(frozen=True)
 class CompletionEvent:
-    """One completion signal.
+    """A single completion signal from an AI Block run.
 
-    Attributes:
-        source: Which path fired.
-        outputs: Resolved per-port output paths. For ``MCP_FINISH_TOOL``
-            this is the dict the agent passed; for ``FILE_WATCHER`` and
-            ``USER_MARK_DONE`` it is built from each port's ``expected_path``.
-        detail: Source-specific metadata (timestamp, agent-supplied notes, etc.).
+    Records which path finished the run and where the outputs landed.
     """
 
     source: CompletionSource
+    """Which of the three completion paths fired."""
+
     outputs: dict[str, Path]
+    """Resolved output file path per port name. For the agent's ``finish`` tool
+    this is what the agent reported; for the file-watcher and "Mark done" paths
+    it is built from each port's configured expected path."""
+
     detail: dict[str, Any]
+    """Extra metadata about the signal (timestamp, agent-supplied notes, etc.)."""
 
 
 class CompletionWatcher:
-    """Race the three completion paths defined in ADR-035 §3.5.
+    """Watch for the first of the three AI Block completion signals.
 
-    Polling-loop implementation. Each iteration checks (a) → (b) → (c) in
-    priority order. First match returns a :class:`CompletionEvent`.
-    Honors ``timeout_sec`` — raises ``TimeoutError`` when exceeded.
+    Polls in a loop. Each tick checks, in priority order, the agent's
+    ``finish`` tool, then the output files, then the user "Mark done" signal,
+    and returns a :class:`CompletionEvent` for the first that fires. Honors an
+    optional timeout, raising ``TimeoutError`` when it elapses.
 
-    Internally tracks per-file size-stability for path (b) without
-    instantiating ``scistudio.blocks.app.watcher.FileWatcher``: that
-    watcher waits on a single directory + glob pattern, but AI Block's
-    expected_paths can live in arbitrary directories. We replicate the
-    stability heuristic (size unchanged for ``stability_period`` seconds)
-    here. The interface remains compatible with ADR-035 §3.5.
+    It tracks output-file size stability itself rather than reusing the app
+    file watcher, because an AI Block's output files can live in any directory
+    while that watcher follows a single directory and glob pattern.
+
+    Example:
+        >>> watcher = CompletionWatcher(run_dir, output_specs, project_dir)  # doctest: +SKIP
+        >>> event = watcher.wait(timeout_sec=None)  # blocks until done  # doctest: +SKIP
+        >>> event.source  # doctest: +SKIP
+        <CompletionSource.FILE_WATCHER: 'file_watcher'>
     """
 
     def __init__(
@@ -92,25 +101,28 @@ class CompletionWatcher:
         poll_interval: float = 0.25,
         stability_period: float = 2.0,
     ) -> None:
-        """Initialize the watcher.
+        """Set up the watcher.
 
         Args:
-            run_dir: :class:`RunDir` instance — used to locate the MCP
-                signal file and the user-mark-done signal file.
-            output_specs: ``{port_name: {"expected_path": str, ...}}`` from
-                the manifest. The watcher uses ``expected_path`` only.
-            project_dir: Used to resolve relative ``expected_path`` values
-                (per ADR-035 §3.3 "Relative paths resolve against the
-                project directory").
-            poll_interval: Seconds between polls. Default 250 ms — AI Block
-                runs are user-visible; latency at signal time matters.
-            stability_period: Seconds an output file must be size-stable
-                before path (b) counts (per ADR-035 §3.5 row 2).
+            run_dir: :class:`RunDir` for this run — used to find the agent's
+                ``finish`` signal file and the user "Mark done" file.
+            output_specs: ``{port_name: {"expected_path": str, ...}}`` from the
+                manifest. The watcher uses ``expected_path`` only.
+            project_dir: Base directory used to resolve relative
+                ``expected_path`` values.
+            poll_interval: Seconds between polls. Default 250 ms — runs are
+                user-visible, so latency at finish time matters.
+            stability_period: Seconds an output file must hold a steady size
+                before the file-watcher path counts it as done.
         """
         self.run_dir = run_dir
+        """:class:`RunDir` for this run; the signal files live under it."""
         self.project_dir = Path(project_dir)
+        """Base directory for resolving relative output paths."""
         self.poll_interval = poll_interval
+        """Seconds between polls of the completion signals."""
         self.stability_period = stability_period
+        """Seconds an output file must hold a steady size to count as done."""
 
         # Resolve each output's expected_path against project_dir up front.
         self._resolved: dict[str, Path] = {}
@@ -126,17 +138,25 @@ class CompletionWatcher:
         self._cancel_event = threading.Event()
 
     def wait(self, timeout_sec: float | None = None) -> CompletionEvent:
-        """Poll until one of the three signals fires.
+        """Poll until one of the three completion signals fires.
 
-        Returns the first :class:`CompletionEvent` to fire. Priority order
-        on a single tick: (a) MCP > (b) FileWatcher > (c) user mark-done.
-        (Order matters only when multiple signals race within one tick.)
+        On each tick the signals are checked in priority order — the agent's
+        ``finish`` tool, then the output files, then user "Mark done" — which
+        matters only when several fire within the same tick.
+
+        Args:
+            timeout_sec: Maximum seconds to wait, or ``None`` to wait
+                indefinitely (the AI Block default).
+
+        Returns:
+            The first :class:`CompletionEvent` to fire.
 
         Raises:
-            TimeoutError: deadline exceeded.
-            ValueError: malformed JSON in MCP signal file (caller transitions
-                block to ERROR; the bad signal file is preserved).
-            asyncio.CancelledError: ``cancel()`` called from another thread.
+            TimeoutError: ``timeout_sec`` elapsed before any signal fired.
+            ValueError: the agent's ``finish`` signal file held malformed JSON;
+                the bad file is left in place for inspection and the run is
+                recorded as failed.
+            WatcherCancelledError: :meth:`cancel` was called from another thread.
         """
         deadline = (time.monotonic() + timeout_sec) if timeout_sec is not None else None
 
@@ -261,7 +281,7 @@ class CompletionWatcher:
     def cancel(self) -> None:
         """Cancel an in-flight :meth:`wait` from another thread.
 
-        Sets an internal cancel flag; the next poll iteration raises
-        ``CancelledError``.
+        Sets an internal flag; the next poll in :meth:`wait` raises
+        :class:`WatcherCancelledError`.
         """
         self._cancel_event.set()

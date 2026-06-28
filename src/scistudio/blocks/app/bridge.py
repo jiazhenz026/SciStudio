@@ -46,23 +46,58 @@ def _external_app_launch_env() -> dict[str, str] | None:
 @provisional(since="0.3.1")
 @runtime_checkable
 class ExternalAppBridge(Protocol):
-    """Structural protocol for bridging external GUI applications."""
+    """The contract an :class:`AppBlock` uses to talk to an external program.
 
-    def prepare(self, inputs: dict[str, Any], exchange_dir: Path) -> None: ...
-    def launch(self, command: str, exchange_dir: Path) -> Any: ...
-    def watch(self, exchange_dir: Path, patterns: list[str]) -> list[Path]: ...
-    def collect(self, output_files: list[Path]) -> dict[str, Any]: ...
+    A bridge is the four-step adapter between a block and a desktop application:
+    write the inputs somewhere the app can read them, launch the app, watch for
+    the files it produces, and load those files back as results. Provide your
+    own implementation to support an app that needs a different on-disk layout
+    or launch convention; the default is :class:`FileExchangeBridge`.
+
+    Because this is a runtime-checkable protocol, any object with matching
+    ``prepare`` / ``launch`` / ``watch`` / ``collect`` methods satisfies it
+    without subclassing.
+    """
+
+    def prepare(self, inputs: dict[str, Any], exchange_dir: Path) -> None:
+        """Write *inputs* into *exchange_dir* so the external app can read them."""
+        ...
+
+    def launch(self, command: str, exchange_dir: Path) -> Any:
+        """Start the external application and return a handle to its process."""
+        ...
+
+    def watch(self, exchange_dir: Path, patterns: list[str]) -> list[Path]:
+        """Wait for output files matching *patterns* and return their paths."""
+        ...
+
+    def collect(self, output_files: list[Path]) -> dict[str, Any]:
+        """Load *output_files* into a mapping of result name to value."""
+        ...
 
 
 @provisional(since="0.3.1")
 class FileExchangeBridge:
-    """Default bridge that serialises inputs to JSON/files and launches a subprocess.
+    """Default :class:`ExternalAppBridge`: swap data with an app through files.
 
-    .. note::
+    This is the bridge :class:`AppBlock` uses unless you supply your own. It
+    serialises each input to a file (or to JSON for scalars and unknown values)
+    under an exchange directory, launches the executable with that directory as
+    its working directory, watches an ``outputs`` subfolder for files the app
+    writes, and turns each output file into an
+    :class:`~scistudio.core.types.artifact.Artifact`.
 
-        Engine-level subprocess management (ADR-017 spawn_block_process factory)
-        and ProcessHandle integration (ADR-019) are handled by LocalRunner.
+    Example:
+        A block rarely builds this directly — :class:`AppBlock` constructs and
+        drives the bridge. Manual use looks like::
+
+            bridge = FileExchangeBridge()
+            bridge.prepare({"image": my_array}, exchange_dir)
+            proc = bridge.launch("/Applications/Fiji.app", exchange_dir)
     """
+
+    # Engine-level subprocess management and process-handle integration live in
+    # LocalRunner, not here (see ADR-017 / ADR-019).
 
     @provisional(since="0.3.1")
     def prepare(
@@ -73,37 +108,39 @@ class FileExchangeBridge:
         input_ports: list[dict[str, Any]] | None = None,
         registry: Any | None = None,
     ) -> None:
-        """Serialise *inputs* into *exchange_dir*.
+        """Write each input into *exchange_dir* and record a manifest.
 
-        ADR-028 §D8 / #1080: :class:`DataObject` inputs (including items
-        inside a :class:`Collection`) are materialised to real files via
-        :func:`scistudio.blocks.io.materialisation.materialise_to_file` —
-        which routes through :meth:`BlockRegistry.find_saver` and
-        prefers a :func:`scistudio.utils.fs.mount_pathlike` pass-through
-        when ``storage_ref.path`` already matches the target extension.
-        Scalar (``str``/``int``/``float``/``bool``), ``bytes``, and
-        otherwise-unknown inputs keep the legacy JSON / raw-bytes
-        serialisation paths.
+        Typed data objects (and the items inside a
+        :class:`~scistudio.core.types.collection.Collection`) are saved to real
+        files via
+        :func:`scistudio.blocks.io.materialisation.materialise_to_file`,
+        reusing the object's existing on-disk file when its extension already
+        matches the target. Scalars (``str`` / ``int`` / ``float`` / ``bool``),
+        ``bytes``, and otherwise-unknown values fall back to JSON or raw-bytes
+        files. A ``manifest.json`` describing every input is written alongside
+        them so the external app can find each file.
 
-        The manifest format per port is now:
+        The manifest entry per input is one of:
 
-        - DataObject:
+        - data object:
           ``{"type": <ClassName>, "path": <abspath>, "extension": ".csv",
-          "format": "csv"}``.
-        - Collection:
+          "format": "csv"}``
+        - collection:
           ``{"type": "collection", "item_type": <ClassName | "mixed">,
-          "items": [{"type": ..., "path": ..., "extension": ...,
-          "format": ...}, ...]}``.
-        - Scalar: ``{"type": "scalar", "value": <value>}``.
-        - Bytes: ``{"type": "file", "path": <abspath>}`` (extension
-          ``".bin"``).
-        - Fallback JSON: ``{"type": "json", "path": <abspath>,
-          "extension": ".json", "format": "json"}``.
+          "items": [<entry>, ...]}``
+        - scalar: ``{"type": "scalar", "value": <value>}``
+        - bytes: ``{"type": "file", "path": <abspath>}`` (extension ``".bin"``)
+        - other: ``{"type": "json", "path": <abspath>, "extension": ".json",
+          "format": "json"}``
 
-        The optional *registry* kwarg lets callers in hot paths
-        (FileExchangeBridge is normally instantiated once per AppBlock
-        execution) amortise the registry scan; when omitted,
-        :func:`materialise_to_file` builds and scans a fresh one.
+        Args:
+            inputs: Input values keyed by input-port name.
+            exchange_dir: Directory to write inputs and the manifest into; an
+                ``inputs`` subfolder is created inside it.
+            input_ports: Optional per-port settings (such as a preferred file
+                ``extension``) from the port editor.
+            registry: Optional pre-scanned block registry to reuse; when omitted
+                a fresh one is built and scanned for this call.
         """
         from scistudio.core.types.base import DataObject
         from scistudio.core.types.collection import Collection
@@ -191,23 +228,29 @@ class FileExchangeBridge:
         exchange_dir: Path,
         argv_override: list[str] | None = None,
     ) -> subprocess.Popen[bytes]:
-        """Launch the external application with *command*.
+        """Start the external application and return its process handle.
 
-        The command is validated through :func:`validate_app_command` to prevent
-        shell injection attacks (see issue #70).  ``shell=False`` is set
-        explicitly as a defence-in-depth measure.
+        The command is checked by :func:`validate_app_command` to reject shell
+        metacharacters before launch, and ``shell=False`` is used as a second
+        line of defence. On macOS, a ``.app`` bundle is opened with ``open -W``
+        so the returned process tracks the application's lifetime rather than
+        the short-lived launcher.
 
-        Parameters
-        ----------
-        command:
-            Executable and any fixed arguments (validated for injection safety).
-        exchange_dir:
-            The file-exchange working directory, used as ``cwd`` for the process.
-        argv_override:
-            When provided, these strings are appended to the validated command
-            instead of the default ``str(exchange_dir)`` suffix.  Use this to
-            pass specific file paths (e.g. staged TIFF files) to applications
-            that open files by path rather than by directory (see issue #420).
+        Args:
+            command: Executable and any fixed arguments, as a single string or a
+                pre-split argument list.
+            exchange_dir: File-exchange directory used as the process working
+                directory and, by default, passed to the app as its argument.
+            argv_override: When given, these strings are passed to the app
+                instead of the exchange-directory path — use it for apps that
+                open specific files by path (for example staged TIFF files)
+                rather than a whole directory.
+
+        Returns:
+            The launched process as a :class:`subprocess.Popen`.
+
+        Raises:
+            ValueError: If the command fails the injection-safety check.
         """
         from scistudio.blocks.app.command_validator import validate_app_command
 
@@ -233,7 +276,22 @@ class FileExchangeBridge:
 
     @provisional(since="0.3.1")
     def watch(self, exchange_dir: Path, patterns: list[str]) -> list[Path]:
-        """Watch *exchange_dir* for output files matching *patterns*."""
+        """Wait for output files in *exchange_dir* and return their paths.
+
+        Watches an ``outputs`` subfolder of *exchange_dir* until files matching
+        *patterns* appear and stop changing.
+
+        Args:
+            exchange_dir: The exchange directory whose ``outputs`` subfolder is
+                watched.
+            patterns: Glob patterns the output files must match.
+
+        Returns:
+            Paths of the detected output files.
+
+        Raises:
+            TimeoutError: If no matching files appear within the watch timeout.
+        """
         from scistudio.blocks.app.watcher import FileWatcher
 
         output_dir = exchange_dir / "outputs"
@@ -247,16 +305,22 @@ class FileExchangeBridge:
 
     @provisional(since="0.3.1")
     def collect(self, output_files: list[Path]) -> dict[str, Any]:
-        """Collect results from *output_files* into a typed output mapping."""
+        """Wrap each output file as an Artifact, keyed by its file stem.
+
+        Args:
+            output_files: Paths of files the external app produced.
+
+        Returns:
+            A mapping from each file's stem (its name without extension) to an
+            :class:`~scistudio.core.types.artifact.Artifact` for that file.
+        """
         from scistudio.core.types.artifact import Artifact
 
         results: dict[str, Any] = {}
         for fp in output_files:
-            # ADR-052 §7.2: ``mime_type`` is non-load-bearing (it only feeds a
-            # provenance sidecar; dispatch keys off extension->format-id, not
-            # MIME). Core must not infer types from extensions, so leave it
-            # unset — matching the typed path, which constructs Artifacts with
-            # ``mime_type=None``.
+            # mime_type is non-load-bearing (it only feeds a provenance
+            # sidecar; dispatch keys off extension, not MIME), so leave it
+            # unset to match the typed path (ADR-052 §7.2).
             artifact = Artifact(file_path=fp, mime_type=None, description=fp.name)
             results[fp.stem] = artifact
         return results

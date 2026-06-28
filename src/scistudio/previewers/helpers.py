@@ -1,20 +1,16 @@
-"""Public author-facing previewer helpers (ADR-052 §8).
+"""Public author-facing previewer helpers.
 
 This is the canonical home for the small, reusable helpers a package-owned
-previewer may import, alongside the two canonical author roots
-``scistudio.previewers.models`` and ``scistudio.previewers.data_access``.
+previewer may import, alongside the two main author roots
+:mod:`scistudio.previewers.models` and :mod:`scistudio.previewers.data_access`.
 
-Today it exposes a single helper:
+Today it exposes a single helper, :func:`sanitize_svg`, which a package SVG/plot
+previewer uses to scrub SVG text before returning it.
 
-* :func:`sanitize_svg` — defense-in-depth SVG sanitization (FR-019) that a
-  package SVG/plot previewer reuses before returning SVG text. Previously this
-  lived in the core-internal ``scistudio.previewers.fallbacks`` module; it was
-  relocated here in #1823 so authors never import from ``fallbacks``.
-
-NOTE: the authoritative security boundary for rendered SVG is the frontend's
-``<iframe sandbox="" srcDoc=...>`` (no ``allow-scripts`` / ``allow-same-origin``).
-This best-effort regex pass is a second layer, not the sole guarantee, since
-regex-based HTML filtering cannot be made fully robust.
+Note: the authoritative security boundary for rendered SVG is the frontend's
+sandboxed ``<iframe>`` (no scripts, no same-origin access). This regex pass is a
+best-effort second layer, not the sole guarantee, because regex-based HTML
+filtering can never be made fully robust.
 """
 
 from __future__ import annotations
@@ -43,12 +39,26 @@ _SVG_EXTERNAL_HREF_RE = re.compile(
 
 @provisional(since="0.3.1")
 def sanitize_svg(svg_text: str) -> tuple[str, bool]:
-    """Strip <script>, on* handlers, and remote href/xlink:href from SVG (FR-019).
+    """Strip scripts, event handlers, and remote links from SVG text.
 
-    Public author helper (ADR-052 §8.3 — provisional). A package SVG/plot
-    previewer calls this before returning SVG text. Returns
-    ``(sanitized_text, removed_anything)``. The authoritative security boundary
-    is the frontend sandboxed iframe; this is a best-effort second layer.
+    Call this before returning SVG from a previewer to remove ``<script>``
+    blocks, ``on*`` event-handler attributes, and remote or active-scheme
+    ``href`` / ``xlink:href`` values (http/https, protocol-relative,
+    ``javascript:``, ``vbscript:``). Embedded ``data:`` image URIs are left
+    intact. This is a best-effort second layer; the sandboxed iframe in the
+    frontend is the authoritative boundary.
+
+    Args:
+        svg_text: The raw SVG markup to sanitize.
+
+    Returns:
+        A ``(sanitized_text, removed_anything)`` tuple, where the boolean is
+        ``True`` if anything was stripped.
+
+    Example:
+        >>> clean, removed = sanitize_svg('<svg onload="x()"><rect/></svg>')
+        >>> removed
+        True
     """
     sanitized = _SVG_SCRIPT_RE.sub("", svg_text)
     sanitized, n_events = _SVG_EVENT_ATTR_RE.subn("", sanitized)

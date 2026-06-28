@@ -11,23 +11,33 @@ from scistudio.stability import provisional
 
 @provisional(since="0.3.1")
 def introspect_script(script_path: str | Path) -> dict[str, Any]:
-    """Parse a user script and extract its interface metadata.
+    """Read a script's structure without running it.
 
-    Analyses the script's AST to discover:
-    - ``run()`` function signature (parameter names, annotations, defaults).
-    - ``configure()`` return value (if present) — treated as a parameter schema.
-    - Top-level docstring.
-    - Variadic port list derived from ``run()`` parameter annotations (ADR-029 D7).
+    Parses the script's source to learn about its ``run()`` and ``configure()``
+    functions and its top-level docstring. The Code Block tooling uses this to
+    suggest input ports and a configuration form for a script, so a user does
+    not have to declare everything by hand. Reading is done by static analysis
+    only, so the script is never executed.
 
-    Returns a dictionary with keys:
-        ``has_run``: bool
-        ``run_params``: list of dicts with name, annotation, default
-        ``has_configure``: bool
-        ``configure_schema``: dict or None
-        ``docstring``: str or None
-        ``input_ports``: list of ``{"name": str, "types": list[str]}`` dicts
-            derived from ``run()`` parameter annotations.  Unannotated
-            parameters default to ``["DataObject"]``.
+    Args:
+        script_path: Path to the script file to inspect.
+
+    Returns:
+        A dictionary with these keys:
+
+        - ``has_run`` (bool): whether the script defines a ``run()`` function.
+        - ``run_params`` (list): one dict per ``run()`` parameter, with its
+            name, annotation, and default.
+        - ``has_configure`` (bool): whether the script defines ``configure()``.
+        - ``configure_schema`` (dict or ``None``): the literal dictionary
+            ``configure()`` returns, when it can be read statically.
+        - ``docstring`` (str or ``None``): the script's top-level docstring.
+        - ``input_ports`` (list): ``{"name": str, "types": list[str]}`` dicts
+            derived from ``run()`` parameters; an unannotated parameter defaults
+            to ``["DataObject"]``.
+
+    Raises:
+        FileNotFoundError: If *script_path* does not exist.
     """
     path = Path(script_path)
     if not path.exists():

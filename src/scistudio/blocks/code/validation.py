@@ -1,4 +1,11 @@
-"""Reusable validation for ADR-041 CodeBlock v2 declarations."""
+"""Checking a Code Block's configuration before it runs.
+
+These helpers validate a saved Code Block configuration without launching any
+interpreter: that the script path and folders stay inside the project, that the
+file extension has a backend to run it, and that the declared ports are
+well-formed. They return human-readable diagnostics the workflow editor can show
+the user.
+"""
 
 from __future__ import annotations
 
@@ -42,15 +49,31 @@ _RUNTIME_ONLY_CONFIG_KEYS = {
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CodeBlockValidationDiagnostic:
-    """Human-readable validation diagnostic for one CodeBlock config field."""
+    """One problem found in a Code Block configuration, ready to show a user.
+
+    Names the config field (and port, when relevant), explains what is wrong in
+    plain language, and says whether it blocks the run (``"error"``) or is only
+    advisory (``"warning"``).
+    """
 
     field: str
+    """The configuration field the problem relates to (for example ``"script_path"``)."""
     message: str
+    """Human-readable explanation of the problem."""
     severity: str = "error"
+    """Whether the problem blocks the run (``"error"``) or is advisory (``"warning"``)."""
     port_name: str | None = None
+    """The port the problem relates to, if any."""
 
     def render(self, *, node_id: str | None = None) -> str:
-        """Render this diagnostic in workflow-validator style."""
+        """Format this diagnostic as a one-line message for the workflow editor.
+
+        Args:
+            node_id: Optional workflow node identifier to prefix the message with.
+
+        Returns:
+            A single-line message naming the block, port, field, and problem.
+        """
 
         prefix = f"Node '{node_id}': " if node_id else ""
         port = f" port '{self.port_name}'" if self.port_name else ""
@@ -59,7 +82,19 @@ class CodeBlockValidationDiagnostic:
 
 @provisional(since="0.3.1")
 def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
-    """Return persisted CodeBlock config values from root or ``params`` shape."""
+    """Extract just the saved Code Block settings from a raw config mapping.
+
+    A config may arrive with its fields at the top level or nested under a
+    ``params`` key, and may carry runtime-only keys the runtime injects (such as
+    the project directory). This returns the script settings only, flattened and
+    with those runtime-only keys removed.
+
+    Args:
+        config: The raw configuration mapping.
+
+    Returns:
+        The persisted Code Block settings as a plain dictionary.
+    """
 
     params = config.get("params")
     if isinstance(params, Mapping):
@@ -74,7 +109,17 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
 
 @provisional(since="0.3.1")
 def resolve_codeblock_data_type(data_type: str) -> type[DataObject]:
-    """Resolve a persisted CodeBlock ``data_type`` name to a DataObject class."""
+    """Look up a core data-type name and return its class.
+
+    Args:
+        data_type: A core data-type name such as ``"DataFrame"`` or ``"Array"``.
+
+    Returns:
+        The matching data-type class.
+
+    Raises:
+        ValueError: If the name is not one of the core data types.
+    """
 
     try:
         return _CORE_DATA_TYPES[data_type]
@@ -84,7 +129,15 @@ def resolve_codeblock_data_type(data_type: str) -> type[DataObject]:
 
 @provisional(since="0.3.1")
 def selected_codeblock_capabilities(config: CodeBlockConfig) -> dict[str, str]:
-    """Return declared capability ids keyed by ``direction:port``."""
+    """List the save/load handler chosen for each port, where one is pinned.
+
+    Args:
+        config: The Code Block configuration to inspect.
+
+    Returns:
+        A mapping from ``direction:port`` (for example ``"input:data"``) to the
+        pinned handler identifier, for ports that pin one.
+    """
 
     selected: dict[str, str] = {}
     for port in [*config.inputs, *config.outputs]:
@@ -100,7 +153,23 @@ def validate_codeblock_config(
     project_dir: Path,
     registry: BlockRegistry | None = None,
 ) -> list[CodeBlockValidationDiagnostic]:
-    """Validate persisted ADR-041 CodeBlock v2 config without resolving interpreters."""
+    """Check a saved Code Block configuration and return any problems found.
+
+    Runs the configuration through the same model the runtime uses, then checks
+    the script path and folders stay inside the project, the script's extension
+    has a backend to run it, and each declared port is well-formed. No
+    interpreter is launched. When a registry is provided, it also checks that a
+    save/load handler exists for each port.
+
+    Args:
+        config: The raw saved configuration mapping.
+        project_dir: Absolute path to the project root.
+        registry: Optional block registry used to check that a file-format
+            handler exists for each declared port.
+
+    Returns:
+        A list of diagnostics; empty when the configuration is valid.
+    """
 
     payload = codeblock_config_payload(config)
     diagnostics: list[CodeBlockValidationDiagnostic] = []

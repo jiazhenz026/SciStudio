@@ -1,12 +1,9 @@
-"""ChannelInfo — Pydantic BaseModel describing one acquisition channel.
+"""Frozen descriptor for one data-acquisition channel.
 
-Implements ADR-027 D5 / Addendum 1 §3 (Meta Pydantic constraints).
-
-``ChannelInfo`` lives in ``scistudio.core.meta`` because multiple plugin
-packages will need to compose it (``scistudio-blocks-imaging``,
-``scistudio-blocks-spectral``, ...). Keeping it in core means plugins
-never have to import from each other to share this primitive
-descriptor — see ADR-027 D5 §"Question 3" for the rationale.
+``ChannelInfo`` lives in ``scistudio.core.meta`` because several plugin
+packages (imaging, spectral, and others) need to compose it. Keeping it in
+core means those plugins never have to import one another just to share this
+small descriptor.
 """
 
 from __future__ import annotations
@@ -18,24 +15,14 @@ from scistudio.stability import stable
 
 @stable(since="0.3.1")
 class ChannelInfo(BaseModel):
-    """Description of one acquisition channel.
+    """One acquisition channel's descriptive properties.
 
-    Used by ``FluorImage.Meta``, ``SRSImage.Meta``, and similar plugin
-    ``Meta`` classes that need to describe per-channel properties
-    (excitation wavelength, emission wavelength, dye, etc.).
-
-    All fields are optional except ``name`` so plugin authors can fill
-    in only what they have. The model is frozen so it round-trips
-    through Pydantic JSON serialisation cleanly per ADR-027 Addendum 1
-    §3.
-
-    Attributes:
-        name: Human-readable channel label (e.g. ``"DAPI"``, ``"GFP"``,
-            ``"Cy5"``). Required.
-        dye: Optional dye name (e.g. ``"Hoechst 33342"``).
-        excitation_nm: Optional excitation peak wavelength in
-            nanometres.
-        emission_nm: Optional emission peak wavelength in nanometres.
+    Plugin ``Meta`` classes use this to describe per-channel properties such as
+    excitation/emission wavelength and dye (for example
+    ``FluorImage.Meta.channels`` or ``SRSImage.Meta``). Every field except
+    ``name`` is optional, so an author fills in only what they have. The model
+    is frozen (immutable), so it serialises to and from JSON cleanly when an
+    object travels between processes.
 
     Example:
         >>> dapi = ChannelInfo(
@@ -51,6 +38,10 @@ class ChannelInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
+    """Human-readable channel label (e.g. ``"DAPI"``, ``"GFP"``, ``"Cy5"``)."""
     dye: str | None = None
+    """Dye or fluorophore name (e.g. ``"Hoechst 33342"``), if known."""
     excitation_nm: float | None = None
+    """Excitation peak wavelength in nanometres, if known."""
     emission_nm: float | None = None
+    """Emission peak wavelength in nanometres, if known."""

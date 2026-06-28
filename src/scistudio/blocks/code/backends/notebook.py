@@ -1,4 +1,4 @@
-"""Notebook backend for CodeBlock v2."""
+"""Backend that runs Jupyter notebook Code Block scripts."""
 
 from __future__ import annotations
 
@@ -24,18 +24,39 @@ _NOTEBOOK_MIME_TYPE = "application/x-ipynb+json"
 
 @provisional(since="0.3.1")
 class NotebookCodeBlockBackend:
-    """Jupyter notebook backend for ADR-041 CodeBlock v2."""
+    """Run a Code Block script that is a Jupyter notebook (``.ipynb``).
+
+    This backend executes a notebook end to end with Jupyter ``nbconvert`` and
+    saves the run notebook as an output artifact, so you can use a notebook as a
+    workflow step. It needs Jupyter ``nbconvert`` available, either auto-detected
+    on the system path or pinned through the Code Block's ``interpreter_mode`` /
+    ``interpreter_path`` settings. The notebook's kernel launches from the
+    project root and reads and writes the declared input and output folders.
+
+    Args:
+        executable_locator: Optional function that finds an executable by name
+            (defaults to :func:`shutil.which`). Mainly useful for testing.
+
+    Example:
+        >>> backend = NotebookCodeBlockBackend()
+        >>> backend.supports(Path("report.ipynb"), config)
+        True
+    """
 
     name = "notebook"
+    """Backend identifier used in the registry and provenance records."""
     extensions = frozenset({".ipynb"})
+    """File extensions this backend handles (Jupyter notebooks)."""
 
     def __init__(self, executable_locator: Callable[[str], str | None] | None = None) -> None:
         self._executable_locator = executable_locator or shutil.which
 
     def supports(self, script_path: Path, config: CodeBlockConfig) -> bool:
+        """Return whether *script_path* is a notebook this backend runs."""
         return script_path.suffix.lower() in self.extensions
 
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+        """Resolve ``nbconvert`` and build the command that executes the notebook."""
         executable = self._resolve_executable(context.config)
         target = executed_notebook_path(context)
         # ADR-041 §4: nbconvert launches the kernel from the configured
@@ -68,6 +89,7 @@ class NotebookCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        """Execute the notebook in place and return the finished process."""
         target = executed_notebook_path(context)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(context.script_path, target)

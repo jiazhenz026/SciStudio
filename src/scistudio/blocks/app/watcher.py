@@ -1,13 +1,10 @@
-"""FileWatcher — polling-based output detection for AppBlock.
+"""Polling file watcher that detects an external app's output files.
 
-Uses a simple polling loop to detect new or modified files matching glob
-patterns.  A watchdog-based implementation can be added later for lower
-latency, but polling is reliable across all platforms and avoids adding
-watchdog as a hard runtime dependency for the watcher alone.
-
-TODO: add an optional ``watchdog``-based backend for lower-latency
-output detection on platforms where ``watchdog`` is already installed
-(fall back to polling otherwise).
+:class:`FileWatcher` watches a directory and reports files that appear or change
+after it starts. :class:`AppBlock` uses it to know when an external program has
+finished writing its results. It polls on a timer, which is slower than an
+OS file-event backend but works the same way on every platform and adds no
+extra runtime dependency.
 """
 
 from __future__ import annotations
@@ -19,26 +16,43 @@ from typing import Any
 
 from scistudio.stability import provisional
 
+# Output detection is polling-based, which keeps the watcher free of any
+# extra runtime dependency.
+
 
 @provisional(since="0.3.1")
 class ProcessExitedWithoutOutputError(RuntimeError):
-    """Raised when the external process exits before producing expected output files."""
+    """The external app quit before writing any output files.
+
+    Raised by :meth:`FileWatcher.wait_for_output` when the watched process ends
+    while no expected output has appeared. :class:`AppBlock` treats this as the
+    step being cancelled rather than failing.
+    """
 
     pass
 
 
 @provisional(since="0.3.1")
 class FileWatcher:
-    """Watches a directory for new or modified files matching glob patterns.
+    """Watch a directory for new or changed files matching glob patterns.
 
-    Used by :class:`AppBlock` to detect when an external application has
-    produced output files.
-
-    ``process_handle`` is any object whose liveness the watcher can probe:
-    either a plain :class:`subprocess.Popen` (alive while ``poll()`` returns
-    ``None``) or a wrapper exposing ``is_alive()`` (ADR-052 §7.1/§7.3). When the
-    handle reports the process exited before any output appeared, the watcher
+    :class:`AppBlock` uses this to tell when an external application has finished
+    writing its results. After :meth:`start` takes a snapshot of the directory,
+    :meth:`wait_for_output` blocks until files that appear or change settle
+    (their modification time stops moving), then returns them. If a process
+    handle is supplied and that process exits before producing any output, it
     raises :class:`ProcessExitedWithoutOutputError`.
+
+    A process handle is any object whose liveness can be probed: a plain
+    :class:`subprocess.Popen` (alive while ``poll()`` returns ``None``) or any
+    object exposing an ``is_alive()`` method.
+
+    Example:
+        >>> from pathlib import Path
+        >>> watcher = FileWatcher(Path("/tmp/outputs"), patterns=["*.csv"])
+        >>> watcher.start()
+        >>> files = watcher.wait_for_output()  # blocks until *.csv files settle
+        >>> watcher.stop()
     """
 
     @provisional(since="0.3.1")
@@ -52,10 +66,30 @@ class FileWatcher:
         stability_period: float = 2.0,
         done_marker: str | None = None,
     ) -> None:
+        """Configure a watcher (it does not start watching until :meth:`start`).
+
+        Args:
+            directory: Directory to watch for output files.
+            patterns: Glob patterns a file must match to count as output.
+            timeout: Seconds to wait before raising :class:`TimeoutError`;
+                ``None`` waits indefinitely.
+            poll_interval: Seconds between directory scans.
+            process_handle: Optional handle to the external process; when it
+                reports the process has exited with no output, watching stops
+                with :class:`ProcessExitedWithoutOutputError`.
+            stability_period: Seconds a file's modification time must stay
+                unchanged before it is treated as finished.
+            done_marker: Optional glob; when a matching file appears, all other
+                new files are returned at once (the marker itself excluded).
+        """
         self.directory: Path = directory
+        """Directory being watched for output files."""
         self.patterns: list[str] = patterns
+        """Glob patterns a file must match to be reported as output."""
         self.timeout: int | None = timeout
+        """Seconds to wait for output before timing out; ``None`` waits forever."""
         self.poll_interval: float = poll_interval
+        """Seconds between successive scans of the watched directory."""
         self._process_handle: Any | None = process_handle
         self._stability_period: float = stability_period
         self._done_marker: str | None = done_marker
@@ -75,17 +109,22 @@ class FileWatcher:
 
     @provisional(since="0.3.1")
     def wait_for_output(self) -> list[Path]:
-        """Block until new output files are detected and return their paths.
+        """Block until output files are detected and return their paths.
 
-        New files must have a stable mtime for at least ``stability_period``
-        seconds before they are returned (TOCTOU mitigation, issue #70).
-        If a ``done_marker`` pattern is set and a matching file appears, all
-        other new files are returned immediately (excluding the marker itself).
+        A new file must keep the same modification time for at least
+        ``stability_period`` seconds before it is returned, so a file still
+        being written is not picked up half-finished. If a ``done_marker`` glob
+        is set and a matching file appears, all other new files are returned at
+        once (the marker itself excluded).
 
-        Raises :class:`ProcessExitedWithoutOutputError` if the watched process
-        exits without producing output files.
-        Raises :class:`TimeoutError` if *timeout* seconds elapse without
-        detecting new matching files.
+        Returns:
+            Sorted paths of the detected output files.
+
+        Raises:
+            RuntimeError: If called before :meth:`start`.
+            ProcessExitedWithoutOutputError: If the watched process exits without
+                producing any output.
+            TimeoutError: If ``timeout`` seconds elapse with no matching files.
         """
         if not self._running:
             raise RuntimeError("FileWatcher has not been started.")

@@ -36,10 +36,36 @@ def _wrap_zarr_read_error(ref: StorageReference, operation: str, exc: Exception)
 
 
 class ZarrBackend:
-    """Zarr-based storage backend for chunked N-dimensional arrays."""
+    """Storage backend for chunked N-dimensional arrays, backed by Zarr.
+
+    Persists array data as a chunked, compressed Zarr store and reads it back as
+    numpy arrays. The router selects this backend for array types, so you rarely
+    construct it directly. Writes are atomic: on a crash or cancellation the
+    previous store is left intact rather than half-written.
+
+    Example:
+        >>> import os, tempfile
+        >>> import numpy as np
+        >>> backend = ZarrBackend()
+        >>> path = os.path.join(tempfile.mkdtemp(), "a.zarr")
+        >>> ref = backend.write(np.arange(6).reshape(2, 3), StorageReference(backend="zarr", path=path))
+        >>> backend.read(ref).shape
+        (2, 3)
+    """
 
     def read(self, ref: StorageReference) -> Any:
-        """Read a Zarr array from *ref* and return it as a numpy array."""
+        """Read the Zarr array at *ref* and return it as a numpy array.
+
+        Args:
+            ref: Pointer to the stored Zarr array.
+
+        Returns:
+            The array as a :class:`numpy.ndarray`.
+
+        Raises:
+            StorageMissingError: When the store does not exist.
+            StorageReferenceInvalidError: When the store is corrupt or unreadable.
+        """
         try:
             arr = zarr.open_array(ref.path, mode="r")
             return np.asarray(arr)
@@ -47,13 +73,19 @@ class ZarrBackend:
             raise _wrap_zarr_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
-        """Write *data* (numpy array) as a Zarr array to *ref*.
+        """Write *data* as a Zarr array to *ref*.
 
-        Returns an updated :class:`StorageReference` with shape/dtype metadata.
+        Writes to a scratch directory and renames into place, so either the
+        old data remains intact or the new data is fully committed.
 
-        Uses write-to-temp-directory-then-rename for atomicity: on crash or
-        cancellation, either the old data remains intact or the new data is
-        fully committed.
+        Args:
+            data: Array-like data (converted via :func:`numpy.asarray`).
+            ref: Pointer describing where to write the store. An ``"axes"`` key
+                in ``ref.metadata`` is stored as a Zarr attribute.
+
+        Returns:
+            An updated :class:`StorageReference` whose metadata records the
+            array shape and dtype.
         """
         arr = np.asarray(data)
 
@@ -84,9 +116,19 @@ class ZarrBackend:
         )
 
     def slice(self, ref: StorageReference, *args: Any) -> Any:
-        """Return a sub-array slice from the Zarr store at *ref*.
+        """Read a sub-array from the Zarr store at *ref* without loading it whole.
 
-        *args* should be valid numpy-style index expressions (slices, ints).
+        Args:
+            ref: Pointer to the stored Zarr array.
+            *args: numpy-style index expressions (slices, ints) applied to the
+                array.
+
+        Returns:
+            The selected sub-array as a :class:`numpy.ndarray`.
+
+        Raises:
+            StorageMissingError: When the store does not exist.
+            StorageReferenceInvalidError: When the store is corrupt or unreadable.
         """
         try:
             arr = zarr.open_array(ref.path, mode="r")
@@ -95,7 +137,19 @@ class ZarrBackend:
             raise _wrap_zarr_read_error(ref, "slice", exc) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
-        """Yield chunks along axis 0 of the Zarr array at *ref*."""
+        """Yield the Zarr array at *ref* in slabs along its first axis.
+
+        Args:
+            ref: Pointer to the stored Zarr array.
+            chunk_size: Number of elements along axis 0 per yielded slab.
+
+        Yields:
+            A :class:`numpy.ndarray` slab for each range along axis 0.
+
+        Raises:
+            StorageMissingError: When the store does not exist.
+            StorageReferenceInvalidError: When the store is corrupt or unreadable.
+        """
         try:
             arr = zarr.open_array(ref.path, mode="r")
             total = arr.shape[0]
@@ -109,12 +163,32 @@ class ZarrBackend:
             raise StorageMissingError(ref, operation="iter_chunks", detail=str(exc)) from exc
 
     def write_from_memory(self, data: Any, path: str) -> StorageReference:
-        """Write raw in-memory numpy data to a Zarr store at *path*."""
+        """Write in-memory array data to a new Zarr store at *path*.
+
+        Args:
+            data: Array-like data (converted via :func:`numpy.asarray`).
+            path: Target filesystem path for the Zarr store.
+
+        Returns:
+            A :class:`StorageReference` pointing at the new store.
+        """
         ref = StorageReference(backend="zarr", path=path)
         return self.write(data, ref)
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
-        """Return Zarr-level metadata for *ref*."""
+        """Return Zarr-level metadata for *ref*.
+
+        Args:
+            ref: Pointer to the stored Zarr array.
+
+        Returns:
+            A dict with ``shape``, ``dtype``, ``chunks``, and ``ndim``, plus an
+            ``axes`` entry when the store records one.
+
+        Raises:
+            StorageMissingError: When the store does not exist.
+            StorageReferenceInvalidError: When the store is corrupt or unreadable.
+        """
         try:
             arr = zarr.open_array(ref.path, mode="r")
         except Exception as exc:

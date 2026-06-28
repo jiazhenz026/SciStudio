@@ -1,11 +1,9 @@
-"""Series — 1D indexed data DataObject (time series, chromatograms, spectra).
+"""One-dimensional indexed data (:class:`Series`).
 
-ADR-027 D2: this module is core-only. The legacy domain subclasses
-(``Spectrum``, ``RamanSpectrum``, ``MassSpectrum``) have been removed as
-of T-007 and now belong in the ``scistudio-blocks-spectral`` plugin
-package. Code that previously imported them should either switch to
-``Series(index_name=..., value_name=...)`` directly or depend on the
-spectral plugin.
+The data type for a single sequence of values against an index — a time
+series, a chromatogram, a spectrum. It is stored as a one-column
+Arrow/Parquet table. Domain-specific series (such as spectra) live in plugin
+packages and subclass this.
 """
 
 from __future__ import annotations
@@ -18,17 +16,18 @@ from scistudio.stability import internal, provisional, stable
 
 @stable(since="0.3.1")
 class Series(DataObject):
-    """One-dimensional indexed data (time series, chromatogram, spectrum).
+    """One-dimensional indexed data: a time series, chromatogram, or spectrum.
 
-    Persisted Series payloads use the Arrow/Parquet backend. In-memory
-    payloads are normalised to a ``pyarrow.Table`` at the persistence boundary
-    so ``to_memory()`` remains table-shaped after worker reconstruction.
+    A single run of values paired with an index axis (for example intensity
+    vs. wavenumber). It is persisted as a one-column Arrow/Parquet table, so
+    :meth:`to_memory` returns a ``pyarrow.Table`` even after the series has
+    crossed a worker subprocess.
 
-    Attributes:
-        index_name: Label for the index axis (e.g. ``"wavenumber"``,
-            ``"mz"``, ``"time"``).
-        value_name: Label for the value axis (e.g. ``"intensity"``).
-        length: Number of data points, if known.
+    Example:
+        >>> from scistudio.core.types import Series
+        >>> spec = Series(index_name="wavenumber", value_name="intensity", length=1024)
+        >>> spec.index_name
+        'wavenumber'
     """
 
     @stable(since="0.3.1")
@@ -41,21 +40,25 @@ class Series(DataObject):
         data: Any = None,
         **kwargs: Any,
     ) -> None:
-        """Construct a Series with optional axis labels and length.
-
-        Standard :class:`DataObject` slots (``framework``, ``meta``,
-        ``user``, ``storage_ref``) are passed through ``**kwargs`` to
-        :meth:`DataObject.__init__`.
+        """Construct a series, optionally with axis labels and length.
 
         Args:
-            data: Optional in-memory series data (e.g. Arrow table).
-                Stored in ``_transient_data``; never serialised.
-                ADR-031 Addendum 2.
+            index_name: Label for the index axis, e.g. ``"time"``.
+            value_name: Label for the value axis, e.g. ``"intensity"``.
+            length: Number of data points, if known.
+            data: Optional in-memory series data (for example a
+                ``pyarrow.Table`` or a value array). Held only until the
+                framework writes it to storage; never serialised directly.
+            **kwargs: The shared :class:`DataObject` slots (``framework``,
+                ``meta``, ``user``, ``storage_ref``).
         """
         super().__init__(**kwargs)
         self.index_name = index_name
+        """Label for the index axis (e.g. ``"wavenumber"``, ``"mz"``, ``"time"``)."""
         self.value_name = value_name
+        """Label for the value axis (e.g. ``"intensity"``)."""
         self.length = length
+        """Number of data points, or ``None`` when not known."""
         if data is not None:
             self._transient_data = data
 
@@ -69,20 +72,22 @@ class Series(DataObject):
 
     @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
-        """Return a new Series with the ``meta`` slot updated.
+        """Return a copy with some typed ``meta`` fields changed.
 
-        Overrides :meth:`DataObject.with_meta` to propagate the
-        Series-specific constructor arguments (``index_name``,
-        ``value_name``, ``length``). The base implementation only
-        propagates the four standard DataObject slots (``framework``,
-        ``meta``, ``user``, ``storage_ref``); without this override the
-        call would lose the Series-specific attributes on the returned
-        instance.
+        Like :meth:`DataObject.with_meta`, but also carries the
+        series-specific fields (:attr:`index_name`, :attr:`value_name`,
+        :attr:`length`) onto the copy.
+
+        Args:
+            **changes: Field name / value pairs to update on the ``meta``
+                model.
+
+        Returns:
+            A new series of the same type with the updated metadata.
 
         Raises:
-            ValueError: if ``self.meta is None`` (no typed Meta to
-                update). Only Series subclasses that declare a ``Meta``
-                ClassVar can use :meth:`with_meta`.
+            ValueError: if this series has no typed ``meta`` (only subclasses
+                that declare a :attr:`Meta` model can use this).
         """
         if self._meta is None:
             raise ValueError(
@@ -113,15 +118,14 @@ class Series(DataObject):
     def to_pandas(self) -> Any:
         """Return the series as a :class:`pandas.Series`.
 
-        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
-        over the inherited :meth:`to_memory` reader (which returns the
-        canonical single-column ``pyarrow.Table``). It never replaces
-        ``to_memory``. Packages inherit this accessor and must not
-        redefine it (ADR-052 §4.2), and it is kept out of the core
-        data-flow path (ADR-052 §8) — for inspection / export only.
+        A convenience reader for inspecting or exporting the series. It
+        materialises the canonical single-column ``pyarrow.Table`` from
+        storage and converts it; it does not replace :meth:`to_memory`. Use
+        it for a quick look or with pandas-based tools — not inside a block's
+        main compute path.
 
         Returns:
-            A :class:`pandas.Series` materialised from storage.
+            A :class:`pandas.Series` loaded from storage.
         """
         return self.to_memory().column(0).to_pandas()
 
@@ -129,10 +133,8 @@ class Series(DataObject):
     def to_numpy(self) -> Any:
         """Return the series values as a NumPy ``ndarray``.
 
-        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
-        over :meth:`to_pandas` (and hence the inherited :meth:`to_memory`
-        reader). It never replaces ``to_memory`` and is kept out of the
-        core data-flow path (ADR-052 §8) — for inspection / export only.
+        A convenience reader, built on :meth:`to_pandas`, for inspection or
+        export only; it does not replace :meth:`to_memory`.
 
         Returns:
             A :class:`numpy.ndarray` of the series values.
@@ -144,14 +146,17 @@ class Series(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
-        """Return ``Series``-specific kwargs for worker reconstruction.
+        """Rebuild a series' constructor arguments from saved metadata.
 
-        Extracts ``index_name`` / ``value_name`` / ``length`` from the
-        wire-format metadata sidecar. All three are optional on the
-        constructor; a missing key round-trips as ``None``.
+        Reads ``index_name`` / ``value_name`` / ``length`` back out of the
+        metadata produced by :meth:`serialise_extra_metadata`. All three are
+        optional; a missing key round-trips as ``None``.
 
-        See ADR-027 Addendum 1 §2 ("D11' companion") for the full
-        contract.
+        Args:
+            metadata: The saved metadata dict for one series.
+
+        Returns:
+            Keyword arguments to pass to ``cls(**kwargs)``.
         """
         return {
             "index_name": metadata.get("index_name"),
@@ -162,15 +167,18 @@ class Series(DataObject):
     @classmethod
     @provisional(since="0.3.1")
     def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
-        """Return ``Series``-specific fields for the metadata sidecar.
+        """Return a series' own fields for the saved metadata.
 
-        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
-        All three fields are already JSON-primitive (``str | None`` /
-        ``int | None``) and need no conversion.
+        The counterpart of :meth:`reconstruct_extra_kwargs`. All three fields
+        are already JSON primitives and need no conversion.
 
-        The parameter is typed as :class:`DataObject` to respect the
-        Liskov substitution principle with the base classmethod; at
-        runtime the caller only ever passes an instance of ``cls``.
+        Args:
+            obj: The series to serialise. Typed as :class:`DataObject` so it
+                matches the base method's signature; the caller always passes
+                a :class:`Series`.
+
+        Returns:
+            A JSON-serialisable dict of the series' fields.
         """
         assert isinstance(obj, Series), f"Expected Series, got {type(obj).__name__}"
         return {

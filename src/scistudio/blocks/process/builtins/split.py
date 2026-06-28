@@ -17,34 +17,72 @@ if TYPE_CHECKING:
 
 
 class SplitBlock(ProcessBlock):
-    """Filter, subset, or split input data.
+    """Take a slice of a table, or split it into two.
 
-    Config params:
-        mode: "filter" (column-based filter), "head" (first N rows),
-              or "ratio" (train-test split).  Default: "head".
-        n: Number of rows for "head" mode.  Default: 100.
-        ratio: Fraction for the first split in "ratio" mode.  Default: 0.8.
-        column: Column name for "filter" mode.
-        value: Value to match for "filter" mode.
+    Reduces one table to a smaller one, or divides it into a primary part and
+    a remainder. Use it to keep the first N rows, hold out a fraction for a
+    train/test split, or keep only the rows whose column matches a value.
+
+    Ports: reads one table on ``data`` and emits the result on ``out``; in
+    ``"ratio"`` mode it also emits the held-out rows on the optional
+    ``remainder`` port. Config:
+
+    - ``mode`` -- ``"head"`` (the default) keeps the first ``n`` rows,
+      ``"ratio"`` splits into two parts at ``ratio``, ``"filter"`` keeps rows
+      where ``column`` equals ``value``.
+    - ``n`` -- row count for ``"head"`` mode (default ``100``).
+    - ``ratio`` -- fraction kept in the first part for ``"ratio"`` mode
+      (default ``0.8``); the rest goes to ``remainder``.
+    - ``column`` / ``value`` -- the column to test and the value to match for
+      ``"filter"`` mode.
+
+    Example:
+        >>> block = SplitBlock({"mode": "head", "n": 10})
     """
 
     name: ClassVar[str] = "Split"
+    """Display name shown in the block palette and on the canvas node."""
+
     algorithm: ClassVar[str] = "split"
+    """Stable identifier for this block's transform; recorded in metadata."""
+
     description: ClassVar[str] = "Filter, subset, or split tabular data"
+    """One-line summary shown in the palette and node tooltip."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataFrame], description="Input table"),
     ]
+    """The single input port ``data``, accepting a DataFrame."""
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="out", accepted_types=[DataFrame], description="Primary output"),
         OutputPort(name="remainder", accepted_types=[DataFrame], required=False, description="Complement (ratio mode)"),
     ]
+    """The output ports: ``out`` (always emitted) and the optional
+    ``remainder`` (only in ``"ratio"`` mode), each carrying a DataFrame.
+    """
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Split the input DataFrame.
+        """Slice or split the input table according to ``mode``.
 
-        Accepts both raw DataFrame and Collection[DataFrame] inputs for
-        backward compatibility during the ADR-020 transition.
+        The input may arrive either as a raw DataFrame or as a length-one
+        Collection wrapping one; a Collection is unwrapped before processing.
+
+        Args:
+            inputs: Mapping with ``data``, a DataFrame or a Collection holding
+                one DataFrame.
+            config: The block configuration. ``mode`` selects the operation
+                (defaults to ``"head"``); the remaining fields are read per
+                mode (see the class docstring).
+
+        Returns:
+            Mapping of ``out`` to the result Collection. In ``"ratio"`` mode it
+            also includes ``remainder`` with the held-out rows.
+
+        Raises:
+            TypeError: If the input does not resolve to an Arrow table.
+            ValueError: If ``mode`` is ``"filter"`` without ``column`` and
+                ``value``, or if ``mode`` is not one of the supported values.
         """
         from scistudio.core.types.collection import Collection
 

@@ -1,11 +1,10 @@
-"""Core IO savers for SciStudio (ADR-028 Addendum 1).
+"""SciStudio's built-in core savers.
 
-This sub-package hosts the dynamic-port core saver blocks introduced
-by ADR-028 Addendum 1 §C9. The canonical entry point is
-:class:`SaveData`, a single block that uses the ``core_type`` enum to
-drive a per-instance ``InputPort`` accepted-types override and
-dispatches its actual file-writing work to module-level private
-``_save_*`` functions inside :mod:`scistudio.blocks.io.savers.save_data`.
+This sub-package holds the framework's general-purpose saver block,
+:class:`SaveData`. One block writes any of the six core data types to a file: its
+``core_type`` setting picks the type, which also retypes the input port. These
+are internal building blocks — most authors write their own saver on
+:class:`~scistudio.blocks.io.SimpleSaver` instead.
 """
 
 from __future__ import annotations

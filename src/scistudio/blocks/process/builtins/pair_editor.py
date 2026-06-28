@@ -1,11 +1,10 @@
-"""PairEditor -- interactive reordering to fix index-based pairing.
+"""PairEditor -- interactively reorder items to fix index-based pairing.
 
-#594: When a multi-input block (e.g. ExtractSpectrum) receives N Collections
-from N parallel branches, it zips by index. If the Collections arrive in
-different orders, the pairing is wrong. PairEditor lets users visually
-reorder items within each Collection so same-index items are paired.
-
-First consumer of ADR-029 variadic port system alongside DataRouter (#591).
+When a multi-input block (for example one that extracts spectra) receives
+several Collections from parallel branches, it pairs them by position: the
+first item of each, then the second, and so on. If the Collections arrive in
+different orders, the wrong items get paired. PairEditor lets the user reorder
+items within each Collection so that same-position items line up correctly.
 """
 
 from __future__ import annotations
@@ -26,33 +25,41 @@ from scistudio.blocks.process.process_block import ProcessBlock
 logger = logging.getLogger(__name__)
 
 
+# Interaction model (pause/resume, worker subprocesses, panel manifest) is
+# specified in ADR-051; the variadic port system in ADR-029.
 class PairEditor(InteractiveMixin, ProcessBlock):
-    """Interactive item reordering block for fixing index-based pairing.
+    """Reorder items within Collections so they pair up correctly.
 
-    Users configure N variadic input ports (2-8). Output ports are
-    auto-mirrored from inputs (same count, same types). At runtime the
-    block pauses with side-by-side sortable panels. Same-row items across
-    panels are "paired" (highlighted with same color). Users drag to
-    reorder within each panel.
+    Wire two to eight Collections into the input ports. When the workflow
+    reaches this block it pauses and shows the Collections as side-by-side
+    sortable lists, with items on the same row highlighted as a pair. Drag
+    items within each list until the rows that should be paired line up, then
+    confirm. The output ports mirror the inputs (same count and types), each
+    carrying its reordered Collection.
 
-    ADR-051: carries the interaction capability (``InteractiveMixin`` +
-    ``execution_mode = INTERACTIVE``); runs as two worker subprocesses around an
-    engine-held pause and opens its window through :attr:`interactive_panel`.
-    Its pair-reordering behaviour is unchanged.
+    All input Collections must have the same length; otherwise the block stops
+    with an error before pausing.
 
-    Runtime flow:
-        1. User configures N input ports (2-8), output ports auto-mirror
-        2. Workflow reaches PairEditor; prompt phase builds the view (subprocess) -> PAUSED
-        3. Frontend resolves the panel from the manifest (N side-by-side sortable panels)
-        4. Confirm -> reordered indices sent to backend -> compute phase reorders -> DONE
+    Ports: a variadic input side (2-8 ports) and a matching set of output
+    ports auto-mirrored from the inputs. Config: reads
+    ``interactive_response.reorder``, a mapping of input port name to the new
+    item order the user chose; the framework fills this in from the panel.
 
-    Validation: All input Collections must have equal length.
+    This block is used by wiring it into a workflow and interacting with its
+    panel; it is not meant to be subclassed.
     """
 
     name: ClassVar[str] = "Pair Editor"
+    """Display name shown in the block palette and on the canvas node."""
+
     description: ClassVar[str] = "Interactive reordering of items within Collections for correct index-based pairing"
+    """One-line summary shown in the palette and node tooltip."""
+
     algorithm: ClassVar[str] = "pair_editor"
+    """Stable identifier for this block's transform; recorded in metadata."""
+
     subcategory: ClassVar[str] = "routing"
+    """Palette subgroup this block is filed under (here, ``"routing"``)."""
 
     # #1839 / #1847: macaron apricot + a left-right swap glyph for the
     # pairing/reorder block. (Recoloured off the earlier rose, which read too
@@ -61,30 +68,54 @@ class PairEditor(InteractiveMixin, ProcessBlock):
     ui_icon: ClassVar[str] = "arrow-left-right"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
+    """Marks the block as interactive: it pauses for user input mid-run."""
 
     # ADR-051: the block-owned window, resolved from the built-in panel registry.
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.pair_editor",
         version="1",
     )
+    """Identifies the built-in UI panel the frontend opens when this block pauses."""
 
     variadic_inputs: ClassVar[bool] = True
+    """When ``True``, the user adds and removes input ports instead of using a fixed list."""
+
     variadic_outputs: ClassVar[bool] = True
+    """When ``True``, the output ports follow the input ports instead of using a fixed list."""
+
     allowed_input_types: ClassVar[list[type]] = []
+    """Data types selectable for the variadic input ports; empty means any type."""
+
     allowed_output_types: ClassVar[list[type]] = []
+    """Data types selectable for the variadic output ports; empty means any type."""
+
     min_input_ports: ClassVar[int | None] = 2
+    """Fewest input ports the user may configure."""
+
     max_input_ports: ClassVar[int | None] = 8
+    """Most input ports the user may configure."""
 
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
-        """Build the panel view for the interactive prompt (ADR-051 prompt phase).
+        """Build the data the sortable panels need, while the block is paused.
 
-        Runs in an isolated worker subprocess. Validates equal-length
-        Collections and returns an
-        :class:`~scistudio.blocks.base.interactive.InteractivePrompt` whose
-        ``panel_payload`` carries:
-            ports: list of port name strings
-            items_per_port: dict mapping port name to list of item descriptors
-            collection_length: int (common length of all Collections)
+        Called before the pause to describe the items the user will reorder.
+        Runs in an isolated worker subprocess and checks that every input
+        Collection has the same length.
+
+        Args:
+            inputs: Mapping of input port name to its Collection (or a single
+                value), one entry per connected input port.
+            config: The block configuration for this run.
+
+        Returns:
+            An :class:`~scistudio.blocks.base.interactive.InteractivePrompt`
+            whose ``panel_payload`` carries ``ports`` (the port names),
+            ``items_per_port`` (each port mapped to a list of item
+            descriptors), and ``collection_length`` (the shared length of all
+            Collections).
+
+        Raises:
+            ValueError: If the input Collections do not all have equal length.
         """
         from scistudio.core.types.collection import Collection
 
@@ -131,11 +162,28 @@ class PairEditor(InteractiveMixin, ProcessBlock):
         )
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Reorder items in each Collection based on user-specified indices.
+        """Reorder each Collection using the order the user chose in the panel.
 
-        The ``interactive_response`` in config contains:
-            reorder: dict mapping port name to list of indices (new order)
-                e.g. {"A": [2, 0, 4, 1, 3], "B": [2, 0, 4, 1, 3]}
+        Emits each reordered Collection on the matching output port (output
+        ports are named independently of the input ports, so results are placed
+        by position). A port with no reorder entry, or a non-Collection input,
+        is passed through unchanged.
+
+        Args:
+            inputs: Mapping of input port name to its Collection (or a single
+                value).
+            config: The block configuration. Its ``interactive_response``
+                holds ``reorder``: a mapping of input port name to the list of
+                item indices giving the new order (for example
+                ``{"input_1": [2, 0, 1]}``).
+
+        Returns:
+            Mapping of output port name to the reordered Collection.
+
+        Raises:
+            ValueError: If the interactive response contains no reorder data,
+                or if a reorder index list does not match its Collection's
+                length.
         """
         from scistudio.core.types.collection import Collection
 

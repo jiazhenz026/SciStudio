@@ -1,17 +1,13 @@
-"""SubWorkflowBlock — authoring-only container (ADR-044).
+"""Authoring-time block that references another workflow file.
 
-ADR-044 makes ``SubWorkflowBlock`` an editor/parser-time concept only. A node of
-this type references an external workflow file (``config.ref.path``) and exposes
-the referenced file's ``exposed_ports`` so the parent canvas can wire to the
-sub-pipeline as if it were a single block. The engine scheduler never observes a
-``SubWorkflowBlock``: at run start the parser inline-flattens every reference
-into the parent DAG (see :mod:`scistudio.workflow.flatten`).
-
-This class therefore has no runtime behaviour — its :meth:`run` raises. The pre-
-ADR-044 nested-execution stub (``_scheduler_factory``, ``_cleanup_callback``,
-``_run_with_scheduler``, ``_sequential_execute``, ``input_mapping`` /
-``output_mapping``) is deleted (FR-012); issue #890's nested-execution premise
-is dissolved by this ADR rather than implemented.
+A :class:`SubWorkflowBlock` node points at an external workflow file and shows
+that file's exposed input/output ports, so the parent canvas can wire to the
+referenced pipeline as if it were a single block. It exists only while editing
+and parsing a workflow: when a run starts, the parser replaces each reference
+with the referenced workflow's own nodes (see
+:mod:`scistudio.workflow.flatten`), so the scheduler never sees a
+:class:`SubWorkflowBlock`. The class therefore has no run-time behaviour — its
+:meth:`run` always raises.
 """
 
 from __future__ import annotations
@@ -30,17 +26,24 @@ logger = logging.getLogger(__name__)
 
 
 class SubWorkflowBlock(Block):
-    """Authoring-time container that references an external subworkflow file.
+    """A collapsed reference to another workflow, shown as one node.
 
-    The node renders a single collapsed pipeline on the parent canvas. Its
-    effective ports are derived from the referenced file's ``exposed_ports``
-    section (FR-004). It has no ``run()``-time behaviour: by the time the
-    scheduler runs, :func:`scistudio.workflow.flatten.flatten_subworkflows` has
-    replaced it with the referenced workflow's inner nodes (ADR-044 §3, §4).
+    Drop this on a canvas and point it at a workflow file to reuse that whole
+    pipeline as a single step. Its input and output ports are taken from the
+    referenced file's exposed-ports section, so you can wire to it like any
+    other block. It does nothing at run time: before the scheduler runs,
+    :func:`scistudio.workflow.flatten.flatten_subworkflows` swaps the node for
+    the referenced workflow's inner nodes.
+
+    Example:
+        >>> block = SubWorkflowBlock({"ref": {"path": "pipelines/clean.yaml"}})
+        >>> block.get_effective_input_ports()  # ports exposed by clean.yaml
     """
 
     name: ClassVar[str] = "Sub-Workflow"
-    description: ClassVar[str] = "Reference a workflow file as a single authoring-time node (ADR-044)"
+    """Display name shown for this block in the palette and on its node."""
+    description: ClassVar[str] = "Reference a workflow file as a single authoring-time node"
+    """One-line description shown in the block palette."""
 
     # ADR-044 §5: a SubWorkflowBlock stores only a *reference* to an external
     # file (``config.ref.path``), never an embedded copy. ``ref.path`` is a
@@ -66,12 +69,15 @@ class SubWorkflowBlock(Block):
             },
         },
     }
+    """Form schema for the block's config: just the referenced workflow file."""
 
     # Ports are dynamic (per referenced file); the static ClassVars are empty
     # and :meth:`get_effective_input_ports` / :meth:`get_effective_output_ports`
     # override the base behaviour.
     input_ports: ClassVar[list[InputPort]] = []
+    """Empty by default; the effective input ports come from the referenced file."""
     output_ports: ClassVar[list[OutputPort]] = []
+    """Empty by default; the effective output ports come from the referenced file."""
 
     # -- ADR-044 FR-004: dynamic ports from the referenced exposed_ports -------
 
@@ -114,16 +120,37 @@ class SubWorkflowBlock(Block):
         return ports
 
     def get_effective_input_ports(self) -> list[InputPort]:
+        """Return the input ports declared by the referenced workflow file.
+
+        Returns:
+            One :class:`InputPort` per input the referenced workflow exposes;
+            empty when the reference is missing or cannot be read.
+        """
         return self._effective_ports("input")
 
     def get_effective_output_ports(self) -> list[OutputPort]:
+        """Return the output ports declared by the referenced workflow file.
+
+        Returns:
+            One :class:`OutputPort` per output the referenced workflow exposes;
+            empty when the reference is missing or cannot be read.
+        """
         return self._effective_ports("output")
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Never invoked: ADR-044 flattens this node away before dispatch.
+        """Never runs: this block is replaced before the scheduler dispatches it.
 
-        Raising here guards against a regression that lets a ``SubWorkflowBlock``
-        reach the scheduler (which would violate SC-001).
+        A :class:`SubWorkflowBlock` is flattened into the referenced workflow's
+        nodes before execution, so this method should never be called. It raises
+        to catch the bug where an un-flattened node reaches the scheduler.
+
+        Args:
+            inputs: Unused.
+            config: Unused.
+
+        Raises:
+            RuntimeError: Always, because this block must be flattened before
+                dispatch.
         """
         raise RuntimeError(
             "SubWorkflowBlock is authoring-only (ADR-044); it must be inline-flattened "
@@ -132,21 +159,27 @@ class SubWorkflowBlock(Block):
 
 
 class SubWorkflowBroken(SubWorkflowBlock):
-    """Marker emitted when a ``SubWorkflowBlock`` reference cannot resolve.
+    """Marker node used when a sub-workflow reference cannot be resolved.
 
-    ADR-044 §10 / FR-010: a missing or unreadable ``config.ref.path`` does not
-    hard-fail editor load — the parser substitutes this marker so the rest
-    of the canvas still renders (the editor shows it in the broken-ref style and
-    offers a "locate file…" affordance). At run start the validator rejects any
-    remaining marker so an unresolved reference cannot be dispatched.
+    When a :class:`SubWorkflowBlock`'s referenced file is missing or unreadable,
+    the parser substitutes this marker instead of failing the whole editor load,
+    so the rest of the canvas still renders (the editor shows it in a broken-ref
+    style and offers a "locate file…" option). At run start the validator
+    rejects any remaining marker, so an unresolved reference can never be
+    dispatched.
     """
 
     type_name: ClassVar[str] = "subworkflow_broken"
+    """Stable identifier used to recognise this marker block type."""
     name: ClassVar[str] = "Sub-Workflow (broken reference)"
-    description: ClassVar[str] = "Unresolved subworkflow reference marker (ADR-044 §10)"
+    """Display name shown for the broken-reference marker."""
+    description: ClassVar[str] = "Unresolved subworkflow reference marker"
+    """One-line description shown in the block palette."""
 
     def get_effective_input_ports(self) -> list[InputPort]:
+        """Return no input ports (a broken reference exposes none)."""
         return []
 
     def get_effective_output_ports(self) -> list[OutputPort]:
+        """Return no output ports (a broken reference exposes none)."""
         return []
