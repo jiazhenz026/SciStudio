@@ -38,6 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
+from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
 
 if TYPE_CHECKING:
@@ -233,48 +234,12 @@ def interactive_item_label(item: Any, index: int) -> str:
 
     Interactive panels (DataRouter, PairEditor) list a block's input items for
     the user to route or reorder. A generic ``item_<index>`` is meaningless when
-    the user is matching items by which file they came from, so prefer an
-    identifying name in this order:
-
-    1. an explicit ``name`` attribute, if the object carries one;
-    2. the generic ``user['display_name']`` presentation hook (#1810 interim,
-       #1812 convention) — e.g. ``"<file> — <sheet>"`` for an .xlsx sheet so
-       same-file/different-sheet items do not collide;
-    3. the originating file's basename from typed domain metadata
-       (``item.meta.source_file`` — populated by the loaders for spectra,
-       images, etc.);
-    4. an :class:`~scistudio.core.types.artifact.Artifact`-style ``file_path``
-       basename;
-    5. ``item_<index>`` as the last resort.
-
-    The lookups are all duck-typed so the helper stays type-agnostic across the
-    DataObject hierarchy and any plugin-provided type.
+    the user is matching items by which file they came from, so this delegates
+    to :func:`scistudio.core.meta._display_name.resolve_display_name` — the
+    single canonical precedence authority shared with the previewer/API path
+    (#1812) — and supplies ``item_<index>`` as the last-resort fallback.
     """
-    name = getattr(item, "name", None)
-    if isinstance(name, str) and name:
-        return name
-
-    user = getattr(item, "user", None)
-    display_name = user.get("display_name") if isinstance(user, dict) else None
-    if isinstance(display_name, str) and display_name:
-        return display_name
-
-    meta = getattr(item, "meta", None)
-    source_file = getattr(meta, "source_file", None) if meta is not None else None
-    if isinstance(source_file, str) and source_file:
-        # Basename, tolerant of either path separator (the value is a
-        # user-supplied path captured at load time).
-        basename = source_file.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-        if basename:
-            return basename
-
-    file_path = getattr(item, "file_path", None)
-    if file_path is not None:
-        fp_name = getattr(file_path, "name", None)
-        if isinstance(fp_name, str) and fp_name:
-            return fp_name
-
-    return f"item_{index}"
+    return resolve_display_name(item, fallback=f"item_{index}")
 
 
 def interactive_input_signature(inputs: dict[str, Any]) -> dict[str, list[str]]:

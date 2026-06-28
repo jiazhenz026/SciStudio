@@ -52,6 +52,37 @@ describe("extractRefEntries", () => {
     ]);
   });
 
+  it("prefers the backend-stamped top-level display_name over everything (#1812)", () => {
+    // The backend is the single precedence authority; when it stamps
+    // display_name on the descriptor the frontend trusts it and does not
+    // re-derive from metadata (here the metadata would disagree).
+    const result = extractRefEntries({
+      data_ref: "data-sheet2",
+      display_name: "exp.xlsx — beta",
+      metadata: {
+        framework: { source: "/data/exp.xlsx" },
+        meta: { source_file: "/data/wrong.csv" },
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({ ref: "data-sheet2", displayName: "exp.xlsx — beta" }),
+    ]);
+  });
+
+  it("carries the stamped display_name through collection items (#1812)", () => {
+    // Collection items are normalized before reaching the grid viewer; the
+    // stamped name must survive so the grid reads the same label as the pills.
+    const result = extractRefEntries({
+      images: {
+        kind: "collection",
+        item_type: "DataFrame",
+        items: [{ data_ref: "data-1", type_name: "DataFrame", display_name: "exp.xlsx — alpha" }],
+      },
+    });
+    const items = result[0].initialQuery?._collection_items as Record<string, unknown>[];
+    expect(items[0].display_name).toBe("exp.xlsx — alpha");
+  });
+
   it("falls back to metadata.meta.source_file when framework absent", () => {
     const result = extractRefEntries({
       data_ref: "data-xyz",
