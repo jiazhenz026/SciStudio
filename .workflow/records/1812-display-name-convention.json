@@ -235,9 +235,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "db60aee0d5cadcc04cd61f8e1b3ab52cb7ea387b",
+    "sha": "8f82293a961a064497d3f5ac75315b87d73a6806",
     "shas": [
-      "db60aee0d5cadcc04cd61f8e1b3ab52cb7ea387b"
+      "8f82293a961a064497d3f5ac75315b87d73a6806"
     ],
     "trailers": []
   },
@@ -901,6 +901,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.608533Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/meta/_display_name.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/meta/_display_name.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.616845Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.625477Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.634517Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.643040Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.651709Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.659964Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.668149Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.676253Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T00:45:19.689024Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -913,7 +1038,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "1965e8708d83d9bfafe102afc1c0f485d628b8f4",
     "base_sha": "1965e870",
     "changed_files": [
       ".workflow/records/1812-display-name-convention.json",
@@ -927,9 +1052,9 @@
       "tests/api/test_data.py",
       "tests/core/test_display_name.py"
     ],
-    "diff_fingerprint": "sha256:3cc3820fd9beb27fea91f28e15e2c04a3e5ad060dfc452a5cabd386714273614",
+    "diff_fingerprint": "sha256:971c353559db08ef39638af6e567545c98cda538c53dd0e92fe55fb6b398cb25",
     "head": "HEAD",
-    "head_sha": "0d3d1244",
+    "head_sha": "8f82293a",
     "surfaces": {
       "docs": 1,
       "frontend": 2,
@@ -950,7 +1075,7 @@
     "closes": [
       1812
     ],
-    "number": null,
+    "number": 1827,
     "url": null
   },
   "reconcile_events": [
@@ -992,6 +1117,14 @@
     {
       "at": "2026-06-28T00:44:31.434838Z",
       "diff_fingerprint": "sha256:3cc3820fd9beb27fea91f28e15e2c04a3e5ad060dfc452a5cabd386714273614",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T00:45:19.689054Z",
+      "diff_fingerprint": "sha256:971c353559db08ef39638af6e567545c98cda538c53dd0e92fe55fb6b398cb25",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
