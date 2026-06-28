@@ -67,6 +67,7 @@
       .status.error { color: var(--error); }
       .status.success { color: var(--success); }
       .link { background: none; border: none; color: var(--muted); padding: 6px 0; text-decoration: underline; cursor: pointer; font-weight: 400; font-size: 12px; }
+      p.note { margin: 16px 0 0; color: var(--muted); font-size: 12px; }
     </style>
   </head>
   <body>
@@ -95,6 +96,12 @@
     </div>
 
     <button id="quit" class="link" type="button">Quit</button>
+
+    <!-- #1855: alpha-only privacy notice. Removed in beta with the gate. -->
+    <p class="note">
+      During the alpha, SciStudio may collect usage and log information to help
+      with testing and development.
+    </p>
 
     <script>
       const api = window.scistudioAlphaGate;

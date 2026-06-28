@@ -106,6 +106,49 @@ SCISTUDIO_ALPHA_PUBKEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY----
                          # dev only: use a public key inline without a rebuild
 ```
 
+## Alpha tester check-in (#1855)
+
+The gate binds a token to a machine but, being offline/zero-server, cannot tell
+you how many machines are actually running the build (the issuance ledger only
+counts tokens you *minted*). A lightweight launch check-in fills that gap.
+
+How it works:
+
+- On every launch the **Python backend** (`scistudio.api.app` lifespan) fires a
+  best-effort, fire-and-forget POST to a Slack incoming webhook. It runs on a
+  daemon thread, never blocks startup, and swallows all errors.
+- It lives in the backend on purpose: a user who bypasses the Electron gate by
+  running the bundled backend directly still flows through `create_app`, so the
+  count includes them.
+- The payload is a single Slack `{"text": ...}` line:
+  `alpha_launch fp=<fingerprint> build=<n> <os>/<arch> name=<tester>`. The
+  fingerprint matches the gate's exactly, so you can de-duplicate by machine and
+  spot a shared token (one token id reporting from many fingerprints means the
+  per-machine binding was spoofed).
+
+Setup (per build, the URL is **never committed**):
+
+```bash
+# Create the gitignored config so the desktop app knows where to report.
+cat > desktop/resources/alpha-checkin.json <<'JSON'
+{ "url": "https://hooks.slack.com/services/XXX/YYY/ZZZ" }
+JSON
+```
+
+`desktop/main.js` reads that file and forwards the URL plus the already-computed
+fingerprint to the backend as `SCISTUDIO_ALPHA_CHECKIN_URL` /
+`SCISTUDIO_ALPHA_FP`. With no config file the check-in is a no-op (source
+checkouts and CI stay silent). The webhook URL is intentionally gitignored: in
+an open-source build it would otherwise let anyone spam the channel. If that
+happens, rotate the webhook.
+
+A short privacy notice on the activation screen tells testers that usage and log
+information may be collected during the alpha.
+
+> The check-in narrows casual bypass tracking, not determined bypass: a
+> professional can strip it from the open source. That is accepted — the goal is
+> a tester count, not DRM.
+
 ## Beta removal checklist
 
 The gate is intentionally isolated so it can be deleted in one pass:
@@ -125,4 +168,12 @@ The gate is intentionally isolated so it can be deleted in one pass:
       import if unused elsewhere.
 - [ ] In `desktop/package.json`: remove `activation.js` and `preload-gate.js`
       from `build.files`.
+- [ ] (#1855 check-in) Delete `src/scistudio/telemetry/` and
+      `tests/telemetry/test_checkin.py`; remove the `fire_and_forget()` block
+      from the `scistudio.api.app` lifespan; remove `alphaCheckinEnv()` and its
+      spread in `runtimeEnv()` from `desktop/main.js`; remove the privacy notice
+      from `desktop/resources/alpha-gate.html`; drop the `alpha-checkin.json`
+      entry from `desktop/resources/.gitignore`.
+- [ ] (Local only) remove `desktop/resources/alpha-checkin.json` from your
+      machine; the Slack webhook is never committed.
 - [ ] Delete this document.

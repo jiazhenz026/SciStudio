@@ -648,6 +648,36 @@ function macLoginShellEnv() {
   return cachedMacLoginShellEnv;
 }
 
+// #1855: alpha-only launch check-in env. Reads the gitignored webhook URL from
+// resources/alpha-checkin.json and forwards it plus the already-computed machine
+// fingerprint (and the activated tester's name, if any) so the Python backend
+// check-in can report active machines. Best-effort: any failure yields no env
+// additions and never blocks runtime spawn. ALPHA-ONLY; removed in beta with the
+// #1848 gate (see docs/alpha-activation-gate.md).
+function alphaCheckinEnv() {
+  const out = {};
+  try {
+    const cfg = readJsonSafe(path.join(resourcesDir(), "alpha-checkin.json"));
+    const url = cfg && typeof cfg.url === "string" ? cfg.url.trim() : "";
+    if (!url) {
+      return out;
+    }
+    out.SCISTUDIO_ALPHA_CHECKIN_URL = url;
+    try {
+      out.SCISTUDIO_ALPHA_FP = activation.machineFingerprint();
+    } catch {
+      // Fingerprint is best-effort; the Python side recomputes it if absent.
+    }
+    const stored = readJsonSafe(activation.activationFilePath(app.getPath("userData")));
+    if (stored && typeof stored.name === "string" && stored.name) {
+      out.SCISTUDIO_ALPHA_NAME = stored.name;
+    }
+  } catch {
+    // Check-in wiring is purely a counting aid and must never affect launch.
+  }
+  return out;
+}
+
 function runtimeEnv() {
   const resources = resourcesDir();
   const stagedSrc = path.join(resources, "backend", "src");
@@ -690,7 +720,9 @@ function runtimeEnv() {
     SCISTUDIO_BUILD_NUMBER: String(effectiveBuild()),
     // #1741: route backend logs to the same directory as the desktop log so the
     // diagnostic bundle captures both the Electron and Python sides.
-    SCISTUDIO_LOG_DIR: desktopLogDir()
+    SCISTUDIO_LOG_DIR: desktopLogDir(),
+    // #1855: alpha-only check-in wiring (webhook URL + machine fingerprint).
+    ...alphaCheckinEnv()
   };
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
