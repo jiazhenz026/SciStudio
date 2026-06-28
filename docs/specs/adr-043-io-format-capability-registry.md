@@ -62,7 +62,6 @@ governs:
     - src/scistudio/workflow/validator.py
     - frontend/src/**
     - docs/architecture/ARCHITECTURE.md
-    - docs/block-development/**
 tests:
   - tests/blocks/io/test_format_capabilities.py
   - tests/blocks/io/test_simple_io.py

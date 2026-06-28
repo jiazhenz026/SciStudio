@@ -61,7 +61,10 @@ class TestCompositeDataSlotAccess:
 
     def test_set_and_get(self) -> None:
         comp = CompositeData()
-        obj = DataObject(metadata={"test": True})
+        # The deprecated ``metadata=`` constructor kwarg was removed in the
+        # ADR-052 §16 cleanup; construct a plain DataObject (slot identity is
+        # what this test pins, not provenance).
+        obj = DataObject()
         comp.set("my_slot", obj)
         assert comp.get("my_slot") is obj
 

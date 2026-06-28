@@ -16,6 +16,7 @@ from scistudio.blocks.io.capabilities import (
 from scistudio.blocks.io.io_block import IOBlock
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
+from scistudio.stability import stable
 
 
 def _require_path(config: BlockConfig, *, base_name: str) -> Path:
@@ -60,6 +61,7 @@ def _required_extensions(cls: type[IOBlock]) -> tuple[str, ...]:
     return normalize_extensions(value)
 
 
+@stable(since="0.3.1")
 class SimpleLoader(IOBlock):
     """Small local loader base that synthesizes one conservative capability."""
 
@@ -70,6 +72,7 @@ class SimpleLoader(IOBlock):
     metadata_fidelity: ClassVar[MetadataFidelity] = MetadataFidelity(level="pixel_only")
 
     @classmethod
+    @stable(since="0.3.1")
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
         if cls.format_capabilities:
             return super().get_format_capabilities()
@@ -97,11 +100,13 @@ class SimpleLoader(IOBlock):
         raise TypeError(f"{type(self).__name__} is a loader and does not implement save().")
 
     @abstractmethod
+    @stable(since="0.3.1")
     def load_file(self, path: Path, config: dict[str, Any]) -> DataObject:
         """Load one object from *path*."""
         ...
 
 
+@stable(since="0.3.1")
 class SimpleSaver(IOBlock):
     """Small local saver base that synthesizes one conservative capability."""
 
@@ -112,6 +117,7 @@ class SimpleSaver(IOBlock):
     metadata_fidelity: ClassVar[MetadataFidelity] = MetadataFidelity(level="pixel_only")
 
     @classmethod
+    @stable(since="0.3.1")
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
         if cls.format_capabilities:
             return super().get_format_capabilities()
@@ -147,6 +153,7 @@ class SimpleSaver(IOBlock):
         self.save_file(item, _require_path(config, base_name=type(self).__name__), dict(config.params))
 
     @abstractmethod
+    @stable(since="0.3.1")
     def save_file(self, obj: DataObject, path: Path, config: dict[str, Any]) -> None:
         """Save one object to *path*."""
         ...

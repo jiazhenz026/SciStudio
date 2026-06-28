@@ -13,8 +13,10 @@ from scistudio.blocks.code.code_block import (
 )
 from scistudio.blocks.code.config import CodeBlockConfig, CodeBlockConfigError
 from scistudio.blocks.code.interpreters import ResolvedInterpreter, resolve_script_interpreter
+from scistudio.stability import provisional
 
 
+@provisional(since="0.3.1")
 class PythonCodeBlockBackend:
     """Python `.py` backend for the ADR-041 shared runtime."""
 

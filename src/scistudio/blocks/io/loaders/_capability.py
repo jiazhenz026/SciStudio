@@ -252,12 +252,12 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
     ),
     # ----- Artifact (opaque catch-all loader) -----------------------------
     # ``_load_artifact`` accepts any extension at runtime — it copies bytes
-    # to an :class:`Artifact` with MIME-guessed type. The capability
-    # records below cover the canonical MIME-mapped extensions
-    # (:data:`_MIME_GUESS`) AND every extension the typed core loaders
-    # claim, so workflows that declare a wildcard port (AppBlock's
-    # ``types=['DataObject']``, which the binner maps to Artifact) can
-    # still resolve a loader for the legacy supported-extension union.
+    # to an :class:`Artifact` (``mime_type=None`` per ADR-052 §7.2). The
+    # capability records below cover the canonical artifact extensions AND
+    # every extension the typed core loaders claim, so workflows that declare
+    # a wildcard port (AppBlock's ``types=['DataObject']``, which the binner
+    # maps to Artifact) can still resolve a loader for the legacy
+    # supported-extension union.
     # The runtime catch-all means unknown extensions also load via this
     # path; the records below are the discoverable / registry-visible
     # surface.

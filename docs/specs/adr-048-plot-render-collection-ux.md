@@ -37,7 +37,6 @@ governs:
   files:
     - docs/specs/adr-048-plot-render-collection-ux.md
     - docs/specs/adr-048-ai-plot-tools.md
-    - docs/block-development/previewers-and-plots.md
     - src/scistudio/ai/agent/mcp/tools_plot/_harness.py
     - src/scistudio/ai/agent/mcp/tools_plot/runtime.py
     - src/scistudio/ai/agent/mcp/tools_plot/validation.py

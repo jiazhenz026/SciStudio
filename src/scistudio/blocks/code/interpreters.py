@@ -17,18 +17,24 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.blocks.code.config import InterpreterMode, resolve_project_path
+from scistudio.stability import provisional
 
+# Stability: provisional type-alias (ADR-052 §7A). ``Literal`` special forms
+# cannot carry a stability marker; tier is recorded in the ADR-052 contract.
 InterpreterFamily = Literal["python", "notebook", "r", "quarto", "shell", "matlab", "octave"]
 
 
+@provisional(since="0.3.1")
 class InterpreterResolutionError(RuntimeError):
     """Raised when CodeBlock v2 cannot produce a safe interpreter command."""
 
 
+@provisional(since="0.3.1")
 class UnsupportedScriptExtensionError(InterpreterResolutionError):
     """Raised when Track A does not support a script extension."""
 
 
+@provisional(since="0.3.1")
 class ResolvedInterpreter(BaseModel):
     """Resolved command metadata for launching a CodeBlock v2 script."""
 
@@ -43,6 +49,7 @@ class ResolvedInterpreter(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+@provisional(since="0.3.1")
 def resolve_script_interpreter(
     script_path: Path,
     *,

@@ -171,6 +171,12 @@ class BlockSummary(BaseModel):
     # app, ai, subworkflow).  subcategory is the optional palette grouping label.
     base_category: str = ""
     subcategory: str = ""
+    # #1839: optional block-declared canvas-node display hints. ``ui_color`` is
+    # a CSS hex string; ``ui_icon`` is a Lucide icon name. Both ``None`` (the
+    # default) means the frontend uses the base_category default. Mirrors the
+    # ``TypeHierarchyEntry.ui_ring_color`` precedent for ports.
+    ui_color: str | None = None
+    ui_icon: str | None = None
     description: str = ""
     version: str = "0.1.0"
     input_ports: list[BlockPortResponse] = Field(default_factory=list)

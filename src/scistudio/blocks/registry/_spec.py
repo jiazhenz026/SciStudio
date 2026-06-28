@@ -381,6 +381,9 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
         class_name=cls.__name__,
         base_category=base_cat,
         subcategory=sub_cat,
+        # #1839: copy the optional canvas-node display hints off the class.
+        ui_color=getattr(cls, "ui_color", None),
+        ui_icon=getattr(cls, "ui_icon", None),
         input_ports=list(getattr(cls, "input_ports", [])),
         output_ports=list(getattr(cls, "output_ports", [])),
         config_schema=_merge_config_schema(cls),

@@ -35,10 +35,12 @@ from scistudio.blocks.io.capabilities import CapabilityDirection, FormatCapabili
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.text import Text
+from scistudio.stability import stable
 
 _logger = logging.getLogger(__name__)
 
 
+@stable(since="0.3.1")
 class IOBlock(Block):
     """Abstract base for blocks that load or save data.
 
@@ -58,6 +60,7 @@ class IOBlock(Block):
     name: ClassVar[str] = "IO Block"
     description: ClassVar[str] = "Abstract base for blocks that load or save data."
 
+    # Stability: stable (ADR-052 §6.1) — ``"input"`` / ``"output"``.
     direction: ClassVar[str] = "input"
     subcategory: ClassVar[str] = "io"
 
@@ -68,7 +71,15 @@ class IOBlock(Block):
     # on the concrete IO subclasses. ``_detect_format`` consults this
     # mapping at runtime; ``BlockRegistry.find_loader`` / ``find_saver``
     # (#1077) query it for extension-based dispatch.
+    #
+    # .. deprecated:: 0.3.1
+    #    Stability: deprecated (ADR-052 §5/§6.1). Legacy extension->format
+    #    scaffolding kept importable for the migration window; declare
+    #    ``format_capabilities`` (ADR-043) instead. Slated for removal under
+    #    the §5 deprecation policy (#1817).
     supported_extensions: ClassVar[dict[str, str]] = {}
+    # Stability: stable (ADR-052 §6.1) — ADR-043 go-forward capability
+    # declaration; the supported replacement for ``supported_extensions``.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = ()
 
     input_ports: ClassVar[list[InputPort]] = [
@@ -104,6 +115,7 @@ class IOBlock(Block):
             cls.input_ports = []
 
     @classmethod
+    @stable(since="0.3.1")
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
         """Return explicit ADR-043 capabilities or legacy migration records.
 
@@ -158,6 +170,7 @@ class IOBlock(Block):
         return DataObject
 
     @abstractmethod
+    @stable(since="0.3.1")
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
         """Load and return a single :class:`DataObject` or :class:`Collection`.
 
@@ -178,6 +191,7 @@ class IOBlock(Block):
         ...
 
     @abstractmethod
+    @stable(since="0.3.1")
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
         """Persist *obj* to the configured path."""
         ...
@@ -241,6 +255,7 @@ class IOBlock(Block):
     # persist_array and persist_table are inherited from Block base class.
     # See Block.persist_array / Block.persist_table (ADR-031 Addendum 1).
 
+    @stable(since="0.3.1")
     def run(
         self,
         inputs: dict[str, Collection],

@@ -68,7 +68,6 @@ governs:
     - src/scistudio/workflow/validator.py
     - frontend/src/**
     - docs/architecture/ARCHITECTURE.md
-    - docs/block-development/**
 tests:
   - tests/blocks/code/test_codeblock_v2_config.py
   - tests/blocks/code/test_codeblock_exchange.py

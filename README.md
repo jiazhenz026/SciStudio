@@ -315,8 +315,11 @@ class RamanDenoise(ProcessBlock):
         )
 ```
 
-See the [Block Developer SDK Quickstart](docs/block-development/quickstart.md)
-for a complete, tested example and the full ClassVar contract.
+See the [generated API reference](docs/user/reference/index.md) for the public
+block-authoring surface (stability tier + `Since` per symbol, ADR-052). The
+hand-written developer guides are being rewritten (#1825); the generated
+reference and `docs/specs/adr-052-public-api-surface.md` are the authoritative
+contract.
 
 Click "Reload Blocks" in the GUI and it appears in the palette.
 

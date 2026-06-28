@@ -1,4 +1,5 @@
-// ADR-050 §2.1 (canvas polish, #1698) — per-base-category node visuals.
+// ADR-050 §2.1 (canvas polish, #1698) — per-base-category node visuals, with
+// optional per-block overrides (#1839).
 //
 // The square canvas node shows the block's BASE category (io / process / code /
 // app / ai / subworkflow) as:
@@ -7,16 +8,18 @@
 //
 // Colour is keyed off `base_category` so the six core block kinds are
 // distinguishable at a glance; package blocks resolve to their owning base
-// category. This is a FRONTEND presentation table only — it adds no schema
-// field and no backend dependency.
+// category.
 //
-// FOLLOW-UP (per-block custom icons): a block declaring its OWN icon needs a
-// backend `icon` field on the block schema (BlockSummary/BlockSchemaResponse)
-// so packages can ship their own glyphs; that is tracked separately and out of
-// scope for this frontend-only PR. Until then the frontend falls back to these
-// category icons.
+// #1839 (per-block color + icon): a block may now declare its OWN node color
+// (`ui_color`, a CSS hex) and/or icon (`ui_icon`, a Lucide icon NAME) on its
+// backend `BlockSummary`. Resolution order is
+// `block-declared ?? category default ?? CUSTOM`: a block that declares neither
+// looks exactly as before. An unknown `ui_icon` name (not in the curated set
+// below) silently falls back to the category icon — never an error, never a
+// missing glyph. Custom SVG/asset glyphs are deferred (issue #1839 option b).
 
 import {
+  // Base-category icons.
   AppWindow,
   Code2,
   FolderInput,
@@ -24,6 +27,30 @@ import {
   Package,
   Puzzle,
   Sparkles,
+  // Curated extras a block author may name via `ui_icon` (#1839). Kept to a
+  // bounded, already-bundled set rather than importing all of lucide-react.
+  Activity,
+  Atom,
+  Binary,
+  Box,
+  Brain,
+  Calculator,
+  Cpu,
+  Database,
+  Dna,
+  Filter,
+  FlaskConical,
+  Gauge,
+  Image,
+  LineChart,
+  Microscope,
+  ScatterChart,
+  Sigma,
+  Table,
+  TestTube,
+  Waves,
+  Workflow,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,7 +101,111 @@ export const categoryVisuals: Record<string, CategoryVisual> = {
   custom: CUSTOM,
 };
 
-/** Resolve the visual for a base category, falling back to the custom glyph. */
-export function getCategoryVisual(category: string | undefined): CategoryVisual {
-  return (category && categoryVisuals[category]) || CUSTOM;
+// Curated, name-addressable Lucide set a block may select via `ui_icon` (#1839).
+// Includes the base-category icons plus common science/data glyphs. Names are
+// the PascalCase Lucide export names a block author writes (e.g. "Microscope").
+const CURATED_ICONS: Record<string, LucideIcon> = {
+  AppWindow,
+  Code2,
+  FolderInput,
+  FunctionSquare,
+  Package,
+  Puzzle,
+  Sparkles,
+  Activity,
+  Atom,
+  Binary,
+  Box,
+  Brain,
+  Calculator,
+  Cpu,
+  Database,
+  Dna,
+  Filter,
+  FlaskConical,
+  Gauge,
+  Image,
+  LineChart,
+  Microscope,
+  ScatterChart,
+  Sigma,
+  Table,
+  TestTube,
+  Waves,
+  Workflow,
+  Zap,
+};
+
+// Lowercased index for tolerant lookup (so "microscope" resolves "Microscope").
+const CURATED_ICONS_LOWER: Record<string, LucideIcon> = Object.fromEntries(
+  Object.entries(CURATED_ICONS).map(([name, Icon]) => [name.toLowerCase(), Icon]),
+);
+
+/**
+ * Resolve a Lucide icon NAME (#1839) to a component from the curated set.
+ * Returns `undefined` for an empty or unknown name so callers fall back to the
+ * category icon (never an error, never a missing glyph).
+ */
+export function resolveIconByName(name: string | null | undefined): LucideIcon | undefined {
+  if (!name) return undefined;
+  return CURATED_ICONS[name] ?? CURATED_ICONS_LOWER[name.toLowerCase()];
+}
+
+const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Parse a #rgb / #rrggbb string to [r, g, b], or null if invalid. */
+function parseHex(hex: string): [number, number, number] | null {
+  if (!HEX_RE.test(hex)) return null;
+  let h = hex.slice(1);
+  if (h.length === 3) {
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+/** Multiply each channel toward black by `factor` (0..1) and return #rrggbb. */
+function darken(rgb: [number, number, number], factor: number): string {
+  const to2 = (v: number) =>
+    Math.max(0, Math.min(255, Math.round(v * factor)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${to2(rgb[0])}${to2(rgb[1])}${to2(rgb[2])}`;
+}
+
+/**
+ * Resolve the visual for a base category (#1698), applying optional per-block
+ * overrides (#1839):
+ *   - `uiColor` (valid CSS hex) becomes the body fill, with `fg` (accent) and
+ *     `border` derived as deeper shades — mirroring the category palette
+ *     relationship. An invalid hex is ignored (category colors kept).
+ *   - `uiIcon` (a curated Lucide name) becomes the node icon; an unknown name
+ *     keeps the category icon.
+ * With neither override the category default is returned unchanged.
+ */
+export function getCategoryVisual(
+  category: string | undefined,
+  uiColor?: string | null,
+  uiIcon?: string | null,
+): CategoryVisual {
+  const base = (category && categoryVisuals[category]) || CUSTOM;
+  if (!uiColor && !uiIcon) return base;
+
+  const overrideIcon = resolveIconByName(uiIcon);
+  const rgb = uiColor ? parseHex(uiColor) : null;
+
+  return {
+    ...base,
+    Icon: overrideIcon ?? base.Icon,
+    ...(rgb
+      ? {
+          bg: uiColor as string,
+          fg: darken(rgb, 0.45),
+          border: darken(rgb, 0.82),
+        }
+      : {}),
+  };
 }

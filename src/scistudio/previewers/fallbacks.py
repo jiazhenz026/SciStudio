@@ -26,6 +26,7 @@ core catch-all tiers.
 from __future__ import annotations
 
 import logging
+import mimetypes
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.helpers import sanitize_svg
@@ -50,13 +51,12 @@ from scistudio.previewers.models import (
 
 logger = logging.getLogger(__name__)
 
-_PLOT_MIME = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".svg": "image/svg+xml",
-    ".pdf": "application/pdf",
-}
+# The static-plot viewer supports exactly these artifact formats (the whitelist
+# is load-bearing — an unsupported suffix returns an error envelope). The MIME
+# string itself is non-load-bearing display metadata (ADR-052 §7.2/§12, owner
+# option c), so it is resolved from the stdlib ``mimetypes`` registry rather
+# than a hand-maintained map.
+_PLOT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".svg", ".pdf"})
 
 
 def _ref_for(request: PreviewRequest) -> StorageReference:
@@ -442,9 +442,9 @@ def plot_previewer(request: PreviewRequest) -> PreviewEnvelope:
     ref = _ref_for(request)
     path = Path(ref.path)
     suffix = path.suffix.lower()
-    mime = _PLOT_MIME.get(suffix)
-    if mime is None:
+    if suffix not in _PLOT_SUFFIXES:
         return _error_envelope(request, None, f"unsupported plot artifact format: {suffix or '<none>'}")
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
     payload: dict[str, object] = {"format": suffix.lstrip("."), "mime_type": mime, "path": ref.path}
     diagnostics: list[str] = []

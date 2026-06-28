@@ -29,10 +29,10 @@ of the original ADR-009 descriptor-only design:
    message pointing at the offending class rather than failing silently at
    serialisation time inside a worker subprocess.
 
-T-013 will add per-base-class ``_reconstruct_extra_kwargs`` / ``_serialise_
-extra_metadata`` hooks on each of the six core base classes; T-014 will
-wire the worker subprocess call site. Both rely on the resolver and the
-validation hook added here.
+Each core base class carries per-base ``reconstruct_extra_kwargs`` /
+``serialise_extra_metadata`` hooks (ADR-052 §3.1 author extension point);
+the worker subprocess call site wires them. Both rely on the resolver and
+the validation hook added here.
 """
 
 from __future__ import annotations

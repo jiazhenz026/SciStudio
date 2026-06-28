@@ -12,8 +12,10 @@ from __future__ import annotations
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import provisional, stable
 
 
+@stable(since="0.3.1")
 class DataFrame(DataObject):
     """Columnar tabular data, backed by Arrow/Parquet for large datasets.
 
@@ -23,6 +25,7 @@ class DataFrame(DataObject):
         schema: Column-level type schema, if known.
     """
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -52,6 +55,7 @@ class DataFrame(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new DataFrame with the ``meta`` slot updated.
 
@@ -91,10 +95,43 @@ class DataFrame(DataObject):
             storage_ref=self._storage_ref,
         )
 
+    # -- ergonomic accessors (ADR-052 §10) ---------------------------------
+
+    @stable(since="0.3.1")
+    def to_pandas(self) -> Any:
+        """Return the table as a :class:`pandas.DataFrame`.
+
+        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
+        over the inherited :meth:`to_memory` reader (which returns the
+        canonical ``pyarrow.Table``). It never replaces ``to_memory``.
+        Packages inherit this accessor and must not redefine it
+        (ADR-052 §4.2), and it is kept out of the core data-flow path
+        (ADR-052 §8) — for inspection / export only.
+
+        Returns:
+            A :class:`pandas.DataFrame` materialised from storage.
+        """
+        return self.to_memory().to_pandas()
+
+    @stable(since="0.3.1")
+    def to_numpy(self) -> Any:
+        """Return the table values as a NumPy ``ndarray``.
+
+        Ergonomic accessor (ADR-052 §10): a read-only, additive wrapper
+        over :meth:`to_pandas` (and hence the inherited :meth:`to_memory`
+        reader). It never replaces ``to_memory`` and is kept out of the
+        core data-flow path (ADR-052 §8) — for inspection / export only.
+
+        Returns:
+            A :class:`numpy.ndarray` of the table values.
+        """
+        return self.to_pandas().to_numpy()
+
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return ``DataFrame``-specific kwargs for worker reconstruction.
 
         Extracts ``columns`` / ``row_count`` / ``schema`` from the
@@ -112,10 +149,11 @@ class DataFrame(DataObject):
         }
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return ``DataFrame``-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
         ``columns`` is copied to a new list and ``schema`` to a new
         dict so the returned payload is independent of the source
         instance.

@@ -1,0 +1,65 @@
+name: Docs
+
+# Publish the generated public-API reference (ADR-052 §7) to GitHub Pages.
+#
+# The site is generated from docstrings + the scistudio.stability decorators by
+# scripts/docs/build_reference.py (which also runs `mkdocs build --strict`), so
+# the published reference cannot drift from the code. On every push to main the
+# reference is rebuilt and deployed to https://<owner>.github.io/<repo>/.
+#
+# One-time setup by a repo admin: Settings -> Pages -> Build and deployment ->
+# Source = "GitHub Actions". No gh-pages branch is created (artifact deploy).
+
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something that affects the reference changes.
+    paths:
+      - "src/**"
+      - "mkdocs.yml"
+      - "scripts/docs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+# Least privilege for the deploy job; the build job needs nothing special.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deploys at once; let an in-flight run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e ".[docs]"
+      # Generates docs/user/reference/*.md and runs `mkdocs build --strict`,
+      # writing the static site to build/mkdocs-site.
+      - run: PYTHONPATH=src python scripts/docs/build_reference.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/mkdocs-site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

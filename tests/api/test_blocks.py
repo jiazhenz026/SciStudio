@@ -559,3 +559,29 @@ def test_block_source_endpoint_unknown_type_is_404(client: TestClient) -> None:
     """An unregistered block type resolves to 404, not a server error."""
     response = client.get("/api/blocks/no_such_block_type/source")
     assert response.status_code == 404
+
+
+def test_summary_passes_through_node_visual_hints() -> None:
+    """#1839: _summary() carries ui_color/ui_icon from the spec to BlockSummary."""
+    from scistudio.api.routes.blocks import _summary
+    from scistudio.blocks.registry import BlockSpec
+
+    spec = BlockSpec(
+        name="VisualBlock",
+        type_name="visual_block",
+        ui_color="#ff5733",
+        ui_icon="Microscope",
+    )
+    summary = _summary(spec)
+    assert summary.ui_color == "#ff5733"
+    assert summary.ui_icon == "Microscope"
+
+
+def test_summary_node_visual_hints_default_to_none() -> None:
+    """#1839: a spec declaring no hints yields ui_color=None, ui_icon=None."""
+    from scistudio.api.routes.blocks import _summary
+    from scistudio.blocks.registry import BlockSpec
+
+    summary = _summary(BlockSpec(name="PlainBlock", type_name="plain_block"))
+    assert summary.ui_color is None
+    assert summary.ui_icon is None

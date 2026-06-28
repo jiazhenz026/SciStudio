@@ -17,8 +17,10 @@ from pathlib import Path
 from typing import Any, ClassVar, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import internal, provisional, stable
 
 
+@stable(since="0.3.1")
 class Array(DataObject):
     """N-dimensional array, optionally chunked and backed by Zarr.
 
@@ -65,6 +67,7 @@ class Array(DataObject):
     allowed_axes: ClassVar[frozenset[str] | None] = None
     canonical_order: ClassVar[tuple[str, ...]] = ()
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -119,10 +122,12 @@ class Array(DataObject):
             raise ValueError(f"{type(self).__name__} accepts only {sorted(self.allowed_axes)}, unexpected: {extra}")
 
     @property
+    @stable(since="0.3.1")
     def ndim(self) -> int:
         """Return the number of dimensions (length of ``axes``)."""
         return len(self.axes)
 
+    @stable(since="0.3.1")
     def __array__(self, dtype: Any = None, copy: Any = None) -> Any:
         """Support ``np.asarray(array_obj)`` via the NumPy array protocol.
 
@@ -140,6 +145,7 @@ class Array(DataObject):
 
     # -- ADR-027 D4: sel and iter_over ------------------------------------
 
+    @stable(since="0.3.1")
     def sel(self, **kwargs: int | slice) -> Array:
         """Select a sub-array along named axes (ADR-027 D4).
 
@@ -295,6 +301,7 @@ class Array(DataObject):
             )
         return new_instance
 
+    @internal()
     def iter_over(self, axis: str) -> Iterator[Array]:
         """Yield sub-arrays along one named axis (ADR-027 D4).
 
@@ -324,6 +331,7 @@ class Array(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new Array with the ``meta`` slot updated.
 
@@ -366,6 +374,7 @@ class Array(DataObject):
 
     # -- to_memory transition override (ADR-031 backward compat) -----------
 
+    @stable(since="0.3.1")
     def to_memory(self) -> Any:
         """Materialise the full data into an in-memory representation.
 
@@ -382,10 +391,32 @@ class Array(DataObject):
             return self._transient_data
         raise ValueError("Cannot load data: no storage reference set.")
 
+    # -- ergonomic accessor (ADR-052 §10) ----------------------------------
+
+    @stable(since="0.3.1")
+    def to_numpy(self) -> Any:
+        """Return the array data as a NumPy ``ndarray``.
+
+        Ergonomic accessor (ADR-052 §10): a read-only, additive alias of
+        the inherited :meth:`to_memory` reader. It wraps the canonical
+        in-memory form in :func:`numpy.asarray` and never replaces
+        ``to_memory``. Packages inherit this accessor and must not
+        redefine it (ADR-052 §4.2). It is deliberately kept out of the
+        core data-flow path (ADR-052 §8) — use it only for inspection /
+        export, not inside a block's compute path.
+
+        Returns:
+            A :class:`numpy.ndarray` materialised from storage.
+        """
+        import numpy as np
+
+        return np.asarray(self.to_memory())
+
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return ``Array``-specific kwargs for worker reconstruction.
 
         Extracts ``axes`` / ``shape`` / ``dtype`` / ``chunk_shape`` from
@@ -407,18 +438,19 @@ class Array(DataObject):
         }
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return ``Array``-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
         Tuples are converted to lists so the payload is JSON-clean;
         ``dtype`` is stringified because numpy dtypes are not natively
         JSON-serialisable.
 
         The parameter is typed as :class:`DataObject` (not :class:`Array`)
         to respect the Liskov substitution principle with the base
-        classmethod. T-014's worker calls
-        ``type(obj)._serialise_extra_metadata(obj)`` polymorphically, so
+        classmethod. The worker calls
+        ``type(obj).serialise_extra_metadata(obj)`` polymorphically, so
         the override must accept any ``DataObject`` the worker hands in;
         at runtime the caller will only ever pass an instance of
         ``cls`` (or a subclass).

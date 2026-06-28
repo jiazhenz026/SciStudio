@@ -16,11 +16,13 @@ from scistudio.blocks.code.code_block import (
 from scistudio.blocks.code.config import CodeBlockConfig, CodeBlockConfigError
 from scistudio.blocks.code.exchange import safe_exchange_name
 from scistudio.blocks.code.interpreters import InterpreterResolutionError, ResolvedInterpreter
+from scistudio.stability import provisional
 
 _EXECUTED_NOTEBOOK_PORT = "_executed_notebook"
 _NOTEBOOK_MIME_TYPE = "application/x-ipynb+json"
 
 
+@provisional(since="0.3.1")
 class NotebookCodeBlockBackend:
     """Jupyter notebook backend for ADR-041 CodeBlock v2."""
 

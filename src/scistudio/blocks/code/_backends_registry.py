@@ -38,8 +38,10 @@ from typing import Any, Protocol
 
 from scistudio.blocks.code.config import CodeBlockConfig
 from scistudio.blocks.code.interpreters import ResolvedInterpreter
+from scistudio.stability import provisional
 
 
+@provisional(since="0.3.1")
 class CodeBlockTimeoutError(TimeoutError):
     """Raised when a CodeBlock v2 script exceeds its configured timeout."""
 
@@ -50,6 +52,7 @@ class CodeBlockTimeoutError(TimeoutError):
         self.stderr = stderr
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CodeBlockRuntimeContext:
     """Shared CodeBlock v2 execution context passed to interpreter backends."""
@@ -61,6 +64,7 @@ class CodeBlockRuntimeContext:
     environment_config: Mapping[str, Any]
 
 
+@provisional(since="0.3.1")
 def codeblock_exchange_env(context: CodeBlockRuntimeContext) -> dict[str, str]:
     """``SCISTUDIO_*`` env vars that let a script locate its exchange dirs.
 
@@ -80,6 +84,7 @@ def codeblock_exchange_env(context: CodeBlockRuntimeContext) -> dict[str, str]:
     }
 
 
+@provisional(since="0.3.1")
 class CodeBlockBackend(Protocol):
     """Registration surface for CodeBlock v2 interpreter backends."""
 
@@ -104,6 +109,7 @@ _CODEBLOCK_BACKENDS: list[CodeBlockBackend] = []
 _BACKEND_MODULES_LOADED = False
 
 
+@provisional(since="0.3.1")
 def register_codeblock_backend(backend: CodeBlockBackend, *, replace: bool = False) -> None:
     """Register a CodeBlock v2 interpreter backend.
 
@@ -137,12 +143,14 @@ def register_codeblock_backend(backend: CodeBlockBackend, *, replace: bool = Fal
     _CODEBLOCK_BACKENDS.append(backend)
 
 
+@provisional(since="0.3.1")
 def unregister_codeblock_backend(name: str) -> None:
     """Remove a registered CodeBlock backend by name."""
 
     _CODEBLOCK_BACKENDS[:] = [backend for backend in _CODEBLOCK_BACKENDS if backend.name != name]
 
 
+@provisional(since="0.3.1")
 def list_codeblock_backends() -> tuple[CodeBlockBackend, ...]:
     """Return registered CodeBlock v2 interpreter backends."""
 
@@ -150,6 +158,7 @@ def list_codeblock_backends() -> tuple[CodeBlockBackend, ...]:
     return tuple(_CODEBLOCK_BACKENDS)
 
 
+@provisional(since="0.3.1")
 def resolve_codeblock_backend(script_path: Path, config: CodeBlockConfig) -> CodeBlockBackend:
     """Select the registered backend for a CodeBlock v2 script."""
 
@@ -164,6 +173,7 @@ def resolve_codeblock_backend(script_path: Path, config: CodeBlockConfig) -> Cod
     )
 
 
+@provisional(since="0.3.1")
 def ensure_codeblock_backends_loaded() -> None:
     """Load built-in CodeBlock backend modules exactly once."""
 
@@ -176,6 +186,7 @@ def ensure_codeblock_backends_loaded() -> None:
     _BACKEND_MODULES_LOADED = True
 
 
+@provisional(since="0.3.1")
 def run_codeblock_process(
     *,
     argv: Sequence[str],
@@ -210,6 +221,7 @@ __all__ = [
     "CodeBlockBackend",
     "CodeBlockRuntimeContext",
     "CodeBlockTimeoutError",
+    "codeblock_exchange_env",
     "ensure_codeblock_backends_loaded",
     "list_codeblock_backends",
     "register_codeblock_backend",

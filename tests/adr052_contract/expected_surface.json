@@ -1,0 +1,642 @@
+{
+  "_meta": {
+    "description": "Independent ADR-052 public-API surface, hand-transcribed from docs/specs/adr-052-public-api-surface.md and docs/adr/ADR-052.md for issue #1833. Public surface = each canonical root's __all__. Every __all__ symbol carries exactly one stability tier (stable|provisional) with since=0.3.1; @internal never appears in __all__.",
+    "since_baseline": "0.3.1",
+    "mode_legend": {
+      "exact": "live __all__ must equal symbols set exactly (count + names); each tier/since must match",
+      "subset": "every listed symbol must be present in live __all__ with the listed tier/since; extra live symbols are tolerated because the spec defers the exhaustive set (owner-deferred / count-discrepant). The no-internal-leak test still pins specific demotions and forbids internal/undecorated members."
+    }
+  },
+  "scistudio.core.types": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a73",
+      "spec \u00a73.1-\u00a73.9",
+      "ADR \u00a73"
+    ],
+    "symbols": {
+      "DataObject": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "TypeSignature": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "Array": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "DataFrame": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "Series": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "Text": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "Artifact": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "CompositeData": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "Collection": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "StorageReference": {
+        "tier": "stable",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.core.meta": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a73.10"
+    ],
+    "symbols": {
+      "FrameworkMeta": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "with_meta_changes": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "ChannelInfo": {
+        "tier": "stable",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.blocks.base": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a74",
+      "spec \u00a74.8 Net blocks.base.__all__ change"
+    ],
+    "symbols": {
+      "Block": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "BlockConfig": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "InputPort": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "OutputPort": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "ExecutionMode": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "PackageInfo": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "PackageOtaSource": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "InteractiveMixin": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "InteractivePrompt": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PanelManifest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "load_intermediate": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PANEL_API_VERSION": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "INTERACTIVE_RESPONSE_KEY": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.blocks.process": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a75"
+    ],
+    "symbols": {
+      "ProcessBlock": {
+        "tier": "stable",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.blocks.io": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a76",
+      "spec \u00a76.5 Net io.__all__ change"
+    ],
+    "symbols": {
+      "IOBlock": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "SimpleLoader": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "SimpleSaver": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "FormatCapability": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "MetadataFidelity": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "CapabilityDirection": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "MetadataFidelityLevel": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "CapabilityValidationError": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "InvalidExtensionError": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "InvalidMetadataFidelityError": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "InvalidFormatCapabilityError": {
+        "tier": "stable",
+        "since": "0.3.1"
+      },
+      "SimpleIODeclarationError": {
+        "tier": "stable",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.blocks.app": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a77",
+      "spec \u00a77 Net app.__all__ change"
+    ],
+    "symbols": {
+      "AppBlock": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "FileExchangeBridge": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ExternalAppBridge": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "FileWatcher": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ProcessExitedWithoutOutputError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "validate_app_command": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "BlockCancelledByAppError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.blocks.code": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a77A",
+      "spec \u00a718 log 2026-06-27"
+    ],
+    "ambiguity": "Reconciled at integration (#1833) to the live 60-symbol blocks.code surface: per the owner directive (spec \u00a77A, \u00a718 log 2026-06-27) the ENTIRE blocks/code non-underscore surface is Public/provisional. InterpreterFamily is a non-markable type-alias (ADR-052 \u00a715) whose tier is carried by this fixture, not a runtime marker.",
+    "symbols": {
+      "CodeBlock": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockConfig": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockConfigError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockExchangeError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockExchangeLayout": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockExchangeManifest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockExchangePort": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockExecutionError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockMigrationError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockProvenancePayload": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockRuntimeContext": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockTimeoutError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CodeBlockValidationDiagnostic": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "EnvironmentSnapshot": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ExchangeDiagnostic": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ExchangeFileRecord": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "InterpreterFamily": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "InterpreterResolutionError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "LazyList": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "MaterialiseAdapter": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "MatlabCodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "MatlabRuntimeResolutionError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "NotebookCodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "OutputDiscoveryResult": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PortFileConfig": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PortManifestRecord": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PythonCodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "RQuartoCodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ReconstructAdapter": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ResolvedInterpreter": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ScriptProvenance": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ShellCodeBlockBackend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "UnsupportedScriptExtensionError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "allocate_port_folder": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "build_codeblock_provenance_payload": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "capture_environment_snapshot": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "capture_script_provenance": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "codeblock_config_payload": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "codeblock_exchange_env": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "collect_codeblock_outputs": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "create_codeblock_exchange_layout": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "discover_declared_outputs": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ensure_codeblock_backends_loaded": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "initialise_exchange_manifest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "introspect_script": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "list_codeblock_backends": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "normalise_extension": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "plan_input_filenames": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "prepare_codeblock_exchange": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "register_codeblock_backend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "resolve_codeblock_backend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "resolve_codeblock_data_type": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "resolve_script_interpreter": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "run_codeblock_process": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "safe_exchange_name": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "selected_codeblock_capabilities": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "unregister_codeblock_backend": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "utc_now_iso": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "validate_codeblock_config": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.previewers.models": {
+    "mode": "subset",
+    "spec_refs": [
+      "spec \u00a78.1"
+    ],
+    "ambiguity": "Spec \u00a78.1 prose states the current __all__ declares 29 symbols and #1817 drops the 7 Internal rows; the enumerated table rows total 28 (21 Public + 7 Internal), an off-by-one vs the stated 29. The 21 Public rows below are explicitly enumerated; subset mode plus the no-internal-leak test (which forbids the 7 named Internal symbols) is the honest guard given the unreconciled count.",
+    "symbols": {
+      "PREVIEWER_API_VERSION": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "OwnerKind": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "EnvelopeKind": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "TargetKind": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewErrorCode": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewerSpec": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "FrontendManifest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewRequest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewTarget": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewSource": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewLimits": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewEnvelope": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewMetadata": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewResource": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewErrorInfo": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewProvider": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewResourceProvider": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewerEntryPoint": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewerSpecList": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PreviewError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ProviderError": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      }
+    }
+  },
+  "scistudio.previewers.data_access": {
+    "mode": "exact",
+    "spec_refs": [
+      "spec \u00a78.2"
+    ],
+    "symbols": {
+      "PreviewDataAccess": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "DataFramePage": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ArrayPlane": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "SliceAxis": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ArrayTile": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "SeriesPoints": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "TableXYPoints": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "TextChunk": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "ArtifactInfo": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CompositeSlots": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "CollectionSample": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      }
+    }
+  }
+}

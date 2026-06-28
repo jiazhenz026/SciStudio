@@ -32,8 +32,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from scistudio.blocks.io import LoadData
-from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP
+from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP, LoadData
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.collection import Collection
@@ -87,12 +86,17 @@ def test_dynamic_ports_classvar_shape() -> None:
         assert mapping[type_name] == [type_name]
 
 
-def test_load_data_in_io_blocks_namespace() -> None:
-    """LoadData must be importable from ``scistudio.blocks.io``."""
-    from scistudio.blocks.io import IOBlock
-    from scistudio.blocks.io import LoadData as Reexported
+def test_load_data_is_internal_not_in_io_public_surface() -> None:
+    """ADR-052 §6.5: ``LoadData`` is internal — not in ``blocks.io.__all__``.
 
-    assert Reexported is LoadData
+    The deep module path (``scistudio.blocks.io.loaders.load_data``) keeps
+    working for internal callers (this test imports it that way), but the public
+    ``scistudio.blocks.io`` root no longer advertises it as author surface.
+    """
+    import scistudio.blocks.io as io_root
+    from scistudio.blocks.io import IOBlock
+
+    assert "LoadData" not in io_root.__all__, "LoadData must be dropped from blocks.io.__all__ (§6.5)"
     assert issubclass(LoadData, IOBlock)
 
 
@@ -331,7 +335,12 @@ def test_load_text_unsupported_extension_raises(tmp_path: Path) -> None:
 
 
 def test_load_artifact_from_bin(tmp_path: Path) -> None:
-    """Generic .bin files become Artifacts with mime + filename + path."""
+    """Generic .bin files become Artifacts with filename + path.
+
+    Mime-type auto-guessing was removed with ``_guess_mime`` in the ADR-052
+    landing; ``Artifact.mime_type`` is the authoritative source and is left
+    unset (``None``) unless a loader explicitly populates it.
+    """
     bin_path = tmp_path / "blob.bin"
     bin_path.write_bytes(b"\x01\x02\x03\x04")
 
@@ -340,7 +349,7 @@ def test_load_artifact_from_bin(tmp_path: Path) -> None:
 
     assert isinstance(art, Artifact)
     assert art.file_path == bin_path
-    assert art.mime_type == "application/octet-stream"
+    assert art.mime_type is None
     assert art.description == "blob.bin"
 
 

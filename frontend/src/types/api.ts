@@ -169,6 +169,12 @@ export interface BlockSummary {
   // app, ai, subworkflow).  subcategory is the optional palette grouping label.
   base_category: string;
   subcategory: string;
+  /** #1839: block-declared canvas-node color (CSS hex) — null/undefined uses the
+   *  base_category default. */
+  ui_color?: string | null;
+  /** #1839: block-declared canvas-node icon (a Lucide icon name) — unknown names
+   *  fall back to the category icon. */
+  ui_icon?: string | null;
   description: string;
   version: string;
   input_ports: BlockPortResponse[];

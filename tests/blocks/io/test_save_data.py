@@ -33,8 +33,7 @@ import pyarrow.csv as pcsv
 import pyarrow.parquet as pq
 import pytest
 
-from scistudio.blocks.io import SaveData
-from scistudio.blocks.io.savers.save_data import _CORE_TYPE_MAP
+from scistudio.blocks.io.savers.save_data import _CORE_TYPE_MAP, SaveData
 from scistudio.core.meta.framework import FrameworkMeta
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact

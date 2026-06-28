@@ -75,6 +75,17 @@ dev = [
     # extra in sync so auto-provisioned local parity environments can run it.
     "fastembed>=0.7",
 ]
+docs = [
+    # ADR-052 §7: the author-facing API reference is generated from docstrings +
+    # the scistudio.stability decorators via mkdocstrings (griffe collector), so
+    # the reference cannot drift from the code and tier/Since badges render
+    # automatically. ``scripts/docs/build_reference.py`` emits the public surface
+    # (the 9 canonical roots' ``__all__``) under ``docs/user/reference/`` and runs
+    # ``mkdocs build --strict``. ``griffe`` is already pinned in the ``dev`` extra.
+    "mkdocs>=1.6",
+    "mkdocstrings[python]>=0.26",
+    "griffe>=1.7",
+]
 
 [project.scripts]
 scistudio = "scistudio.cli.main:app"
@@ -103,10 +114,10 @@ scistudio = "scistudio.cli.main:app"
 # repository contributes no built-in domain types via this group.
 [project.entry-points."scistudio.types"]
 
-[project.entry-points."scistudio.runners"]
-python = "scistudio.blocks.code.runners.python_runner:PythonRunner"
-r = "scistudio.blocks.code.runners.r_runner:RRunner"
-julia = "scistudio.blocks.code.runners.julia_runner:JuliaRunner"
+# The ``scistudio.runners`` entry-point group was removed with the dead legacy
+# CodeBlock runner layer (ADR-052 §7A): CodeBlock resolves interpreters through
+# ``scistudio.blocks.code.backends`` / ``_backends_registry``, not the deleted
+# ``runners/*`` modules. The group had no runtime consumer.
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]

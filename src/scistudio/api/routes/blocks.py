@@ -199,6 +199,9 @@ def _summary(spec: Any, registry: Any = None) -> BlockSummary:
         type_name=spec.type_name,
         base_category=spec.base_category,
         subcategory=spec.subcategory,
+        # #1839: pass through the block-declared node display hints (or None).
+        ui_color=getattr(spec, "ui_color", None),
+        ui_icon=getattr(spec, "ui_icon", None),
         description=spec.description,
         version=spec.version,
         input_ports=[_port_response(port, direction="input") for port in spec.input_ports],

@@ -13,10 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.blocks.code.config import InterpreterMode, resolve_project_path
 from scistudio.blocks.code.interpreters import ResolvedInterpreter
+from scistudio.stability import provisional
 
 GitStatus = Literal["tracked-clean", "tracked-modified", "untracked"]
 
 
+@provisional(since="0.3.1")
 class ScriptProvenance(BaseModel):
     """Source identity for a selected CodeBlock v2 script."""
 
@@ -31,6 +33,7 @@ class ScriptProvenance(BaseModel):
     mtime_ns: int
 
 
+@provisional(since="0.3.1")
 class EnvironmentSnapshot(BaseModel):
     """Best-effort interpreter/environment reproducibility evidence."""
 
@@ -43,6 +46,7 @@ class EnvironmentSnapshot(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+@provisional(since="0.3.1")
 class CodeBlockProvenancePayload(BaseModel):
     """Stable lineage-owned payload for a CodeBlock v2 run."""
 
@@ -57,12 +61,14 @@ class CodeBlockProvenancePayload(BaseModel):
     exchange_manifest: dict[str, Any] = Field(default_factory=dict)
 
 
+@provisional(since="0.3.1")
 def utc_now_iso() -> str:
     """Return a timezone-aware UTC timestamp with second precision."""
 
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+@provisional(since="0.3.1")
 def capture_script_provenance(script_path: Path, *, project_dir: Path) -> ScriptProvenance:
     """Capture project-local script hash and git evidence."""
 
@@ -82,6 +88,7 @@ def capture_script_provenance(script_path: Path, *, project_dir: Path) -> Script
     )
 
 
+@provisional(since="0.3.1")
 def capture_environment_snapshot(
     resolved_interpreter: ResolvedInterpreter,
     *,
@@ -100,6 +107,7 @@ def capture_environment_snapshot(
     )
 
 
+@provisional(since="0.3.1")
 def build_codeblock_provenance_payload(
     *,
     script: ScriptProvenance,

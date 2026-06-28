@@ -17,8 +17,7 @@ classes.
 - :mod:`scistudio.blocks.io.loaders._capability` — ``FormatCapability``
   declarations, ``_LOAD_EXTENSION_MAP``, ``_resolve_format``.
 - :mod:`scistudio.blocks.io.loaders._helpers` — ``_resolve_path``,
-  ``_check_pickle_allowed``, ``_CORE_TYPE_MAP``, ``_TEXT_FORMAT_MAP``,
-  ``_MIME_GUESS``.
+  ``_check_pickle_allowed``, ``_CORE_TYPE_MAP``, ``_TEXT_FORMAT_MAP``.
 
 The helper symbols are re-imported below so legacy callers that do
 ``from scistudio.blocks.io.loaders.load_data import _LOAD_CAPABILITIES``
@@ -67,7 +66,6 @@ from scistudio.blocks.io.loaders._capability import (
 from scistudio.blocks.io.loaders._helpers import (
     _CORE_TYPE_MAP,
     _LOGGER,  # noqa: F401  re-export for backward compat
-    _MIME_GUESS,
     _TEXT_FORMAT_MAP,
     _check_pickle_allowed,
     _read_xlsx_sheets,
@@ -784,24 +782,26 @@ def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
 
 
 def _load_artifact(config: BlockConfig) -> Artifact:
-    """Load opaque Artifact from any file (raw bytes + filename + mime).
+    """Load opaque Artifact from any file (raw bytes + filename).
 
     Mirrors the deleted ``generic_adapter.read()``: builds an
-    :class:`Artifact` whose ``file_path`` points at the source file,
-    ``mime_type`` is guessed from the extension, and ``description``
-    defaults to the file name. If a sidecar ``<path>.meta.json`` is
-    present, its keys are merged onto the user metadata dict (so callers
-    can attach format-specific descriptors without subclassing
-    :class:`Artifact`).
+    :class:`Artifact` whose ``file_path`` points at the source file and
+    ``description`` defaults to the file name. If a sidecar
+    ``<path>.meta.json`` is present, its keys are merged onto the user
+    metadata dict (so callers can attach format-specific descriptors
+    without subclassing :class:`Artifact`).
+
+    ADR-052 §7.2: ``mime_type`` is left ``None`` — it is non-load-bearing
+    (only feeds a provenance sidecar; dispatch keys off extension->format-id,
+    not MIME) and core must not infer types from extensions.
     """
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: artifact source not found: {path}")
 
-    mime = _MIME_GUESS.get(path.suffix.lower(), "application/octet-stream")
     artifact = Artifact(
         file_path=path,
-        mime_type=mime,
+        mime_type=None,
         description=path.name,
         framework=_source_framework(path),
     )

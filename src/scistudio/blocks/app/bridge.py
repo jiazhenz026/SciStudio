@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
+from scistudio.stability import provisional
+
 if TYPE_CHECKING:
     from scistudio.blocks.registry import BlockRegistry
 
@@ -41,6 +43,7 @@ def _external_app_launch_env() -> dict[str, str] | None:
     return env
 
 
+@provisional(since="0.3.1")
 @runtime_checkable
 class ExternalAppBridge(Protocol):
     """Structural protocol for bridging external GUI applications."""
@@ -51,6 +54,7 @@ class ExternalAppBridge(Protocol):
     def collect(self, output_files: list[Path]) -> dict[str, Any]: ...
 
 
+@provisional(since="0.3.1")
 class FileExchangeBridge:
     """Default bridge that serialises inputs to JSON/files and launches a subprocess.
 
@@ -60,6 +64,7 @@ class FileExchangeBridge:
         and ProcessHandle integration (ADR-019) are handled by LocalRunner.
     """
 
+    @provisional(since="0.3.1")
     def prepare(
         self,
         inputs: dict[str, Any],
@@ -179,6 +184,7 @@ class FileExchangeBridge:
         manifest_path = exchange_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+    @provisional(since="0.3.1")
     def launch(
         self,
         command: str | list[str],
@@ -225,6 +231,7 @@ class FileExchangeBridge:
             shell=False,
         )
 
+    @provisional(since="0.3.1")
     def watch(self, exchange_dir: Path, patterns: list[str]) -> list[Path]:
         """Watch *exchange_dir* for output files matching *patterns*."""
         from scistudio.blocks.app.watcher import FileWatcher
@@ -238,30 +245,21 @@ class FileExchangeBridge:
         finally:
             watcher.stop()
 
+    @provisional(since="0.3.1")
     def collect(self, output_files: list[Path]) -> dict[str, Any]:
         """Collect results from *output_files* into a typed output mapping."""
         from scistudio.core.types.artifact import Artifact
 
         results: dict[str, Any] = {}
         for fp in output_files:
-            artifact = Artifact(file_path=fp, mime_type=_guess_mime(fp), description=fp.name)
+            # ADR-052 §7.2: ``mime_type`` is non-load-bearing (it only feeds a
+            # provenance sidecar; dispatch keys off extension->format-id, not
+            # MIME). Core must not infer types from extensions, so leave it
+            # unset — matching the typed path, which constructs Artifacts with
+            # ``mime_type=None``.
+            artifact = Artifact(file_path=fp, mime_type=None, description=fp.name)
             results[fp.stem] = artifact
         return results
-
-
-def _guess_mime(path: Path) -> str:
-    """Guess MIME type from file extension."""
-    mapping = {
-        ".csv": "text/csv",
-        ".tsv": "text/tab-separated-values",
-        ".json": "application/json",
-        ".txt": "text/plain",
-        ".png": "image/png",
-        ".tif": "image/tiff",
-        ".tiff": "image/tiff",
-        ".pdf": "application/pdf",
-    }
-    return mapping.get(path.suffix.lower(), "application/octet-stream")
 
 
 _CORE_TYPE_DEFAULT_EXTENSION: dict[str, str] = {

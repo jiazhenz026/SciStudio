@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import stable
 
 
+@stable(since="0.3.1")
 class Collection:
     """Homogeneous ordered collection of DataObjects for inter-block transport.
 
@@ -26,6 +28,7 @@ class Collection:
 
     __slots__ = ("_item_type", "_items")
 
+    @stable(since="0.3.1")
     def __init__(self, items: list[DataObject] | None = None, item_type: type | None = None) -> None:
         items = items if items is not None else []
 
@@ -50,34 +53,50 @@ class Collection:
         self._item_type: type = item_type or DataObject
 
     @property
+    @stable(since="0.3.1")
     def item_type(self) -> type:
         """Return the element type of this Collection (immutable)."""
         return self._item_type
 
     @property
+    @stable(since="0.3.1")
     def length(self) -> int:
         """Return the number of items in this Collection."""
         return len(self._items)
 
+    @stable(since="0.3.1")
     def __iter__(self) -> Any:
+        """Iterate over the contained :class:`DataObject` items in order."""
         return iter(self._items)
 
+    @stable(since="0.3.1")
     def __len__(self) -> int:
+        """Return the number of items in this Collection."""
         return len(self._items)
 
+    @stable(since="0.3.1")
     def __getitem__(self, index: int | slice) -> Any:
+        """Index or slice the Collection.
+
+        An ``int`` returns the single :class:`DataObject` at that
+        position; a ``slice`` returns a ``list`` of items.
+        """
         if isinstance(index, slice):
             return [self._items[i] for i in range(*index.indices(len(self._items)))]
         return self._items[index]
 
+    @stable(since="0.3.1")
     def __class_getitem__(cls, item_type: type) -> Any:
         """Enable ``Collection[Image]`` syntax for type annotations."""
         return cls
 
+    @stable(since="0.3.1")
     def __repr__(self) -> str:
+        """Return the ``Collection[Type](length=N)`` display string."""
         return f"Collection[{self._item_type.__name__}](length={len(self._items)})"
 
     @property
+    @stable(since="0.3.1")
     def storage_refs(self) -> list[Any]:
-        """Extract StorageReference from each item."""
+        """Return the per-item :class:`StorageReference` list."""
         return [item.storage_ref for item in self._items]

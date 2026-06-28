@@ -6,7 +6,10 @@ import ast
 from pathlib import Path
 from typing import Any
 
+from scistudio.stability import provisional
 
+
+@provisional(since="0.3.1")
 def introspect_script(script_path: str | Path) -> dict[str, Any]:
     """Parse a user script and extract its interface metadata.
 

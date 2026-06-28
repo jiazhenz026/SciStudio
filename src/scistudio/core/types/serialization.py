@@ -9,8 +9,8 @@ through the JSON wire format used by the engine↔worker subprocess
 boundary.
 
 The functions delegate to each base class's
-``_reconstruct_extra_kwargs`` / ``_serialise_extra_metadata`` classmethod
-hooks (T-013) via polymorphic class lookup. They never know about the
+``reconstruct_extra_kwargs`` / ``serialise_extra_metadata`` classmethod
+hooks via polymorphic class lookup. They never know about the
 scalar per-class surface of ``Array`` / ``Series`` / ``DataFrame`` /
 ``Text`` / ``Artifact`` — that knowledge lives on the base classes
 themselves.
@@ -166,7 +166,7 @@ def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
        ``cls.Meta`` is declared; ``None`` on classes that do not
        declare a Meta ClassVar.
     5. Copy the ``user`` slot (shallow dict).
-    6. Call ``cls._reconstruct_extra_kwargs(md)`` to pick up the
+    6. Call ``cls.reconstruct_extra_kwargs(md)`` to pick up the
        base-class-specific constructor kwargs (e.g. ``axes``/``shape``
        for :class:`Array`, ``slots`` for :class:`CompositeData`).
     7. Construct ``cls(**all_kwargs)`` and return.
@@ -247,10 +247,11 @@ def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
         user_raw = {}
     user = dict(user_raw)
 
-    # Step 6: base-class-specific extras via the T-013 classmethod hook.
+    # Step 6: base-class-specific extras via the classmethod hook
+    # (ADR-052 §3.1 author extension point).
     extra_kwargs: dict[str, Any] = {}
-    if hasattr(cls, "_reconstruct_extra_kwargs"):
-        extra_kwargs = cls._reconstruct_extra_kwargs(md)
+    if hasattr(cls, "reconstruct_extra_kwargs"):
+        extra_kwargs = cls.reconstruct_extra_kwargs(md)
 
     # Step 6b: CompositeData slot recursion — owned by the serialiser
     # (round-4 no-cycles #1342), mirroring _serialise_one above so the type
@@ -335,13 +336,13 @@ def _serialise_one(obj: DataObject) -> dict[str, Any]:
     # user slot — already JSON-serialisable per ADR-017.
     md["user"] = dict(obj.user or {})
 
-    # Base-class extras: delegate to the T-013 classmethod hook on the
-    # concrete class. type(obj) is used (not cls) so that plugin
-    # subclasses that override _serialise_extra_metadata are called
-    # polymorphically.
+    # Base-class extras: delegate to the classmethod hook on the
+    # concrete class (ADR-052 §3.1 author extension point). type(obj) is
+    # used (not cls) so that plugin subclasses that override
+    # serialise_extra_metadata are called polymorphically.
     cls = type(obj)
-    if hasattr(cls, "_serialise_extra_metadata"):
-        md.update(cls._serialise_extra_metadata(obj))
+    if hasattr(cls, "serialise_extra_metadata"):
+        md.update(cls.serialise_extra_metadata(obj))
 
     # CompositeData is the one core type that nests other DataObjects in its
     # slots. Round-4 no-cycles (#1342): the serialiser owns that recursion so

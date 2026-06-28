@@ -19,6 +19,7 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
+from scistudio.stability import provisional
 
 _CAPABILITY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$")
 _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
@@ -38,6 +39,7 @@ _RUNTIME_ONLY_CONFIG_KEYS = {
 }
 
 
+@provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CodeBlockValidationDiagnostic:
     """Human-readable validation diagnostic for one CodeBlock config field."""
@@ -55,6 +57,7 @@ class CodeBlockValidationDiagnostic:
         return f"{prefix}CodeBlock{port} {self.field}: {self.message}"
 
 
+@provisional(since="0.3.1")
 def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
     """Return persisted CodeBlock config values from root or ``params`` shape."""
 
@@ -69,6 +72,7 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in raw.items() if key not in _RUNTIME_ONLY_CONFIG_KEYS}
 
 
+@provisional(since="0.3.1")
 def resolve_codeblock_data_type(data_type: str) -> type[DataObject]:
     """Resolve a persisted CodeBlock ``data_type`` name to a DataObject class."""
 
@@ -78,6 +82,7 @@ def resolve_codeblock_data_type(data_type: str) -> type[DataObject]:
         raise ValueError(f"unknown data_type {data_type!r}; expected one of {sorted(_CORE_DATA_TYPES)}") from exc
 
 
+@provisional(since="0.3.1")
 def selected_codeblock_capabilities(config: CodeBlockConfig) -> dict[str, str]:
     """Return declared capability ids keyed by ``direction:port``."""
 
@@ -88,6 +93,7 @@ def selected_codeblock_capabilities(config: CodeBlockConfig) -> dict[str, str]:
     return selected
 
 
+@provisional(since="0.3.1")
 def validate_codeblock_config(
     config: Mapping[str, Any],
     *,

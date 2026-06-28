@@ -13,15 +13,19 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from scistudio.stability import provisional
+
 PortDirection = Literal["input", "output"]
 InterpreterMode = Literal["auto", "existing"]
 ExchangeDirectoryPolicy = Literal["project", "custom"]
 
 
+@provisional(since="0.3.1")
 class CodeBlockConfigError(ValueError):
     """Raised when a CodeBlock v2 config violates ADR-041 constraints."""
 
 
+@provisional(since="0.3.1")
 class PortFileConfig(BaseModel):
     """File-exchange contract for one CodeBlock v2 port."""
 
@@ -71,7 +75,11 @@ class PortFileConfig(BaseModel):
 
 
 class MigrationDiagnostic(BaseModel):
-    """Explicit diagnostic for legacy inline/function CodeBlock configs."""
+    """Explicit diagnostic for legacy inline/function CodeBlock configs.
+
+    Internal (ADR-052 §7A): legacy-config migration diagnostic model; not part
+    of the public ``scistudio.blocks.code`` surface.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -82,6 +90,7 @@ class MigrationDiagnostic(BaseModel):
     reference: str = "ADR-041 Section 3.3"
 
 
+@provisional(since="0.3.1")
 class CodeBlockConfig(BaseModel):
     """Persisted CodeBlock v2 script configuration.
 
@@ -173,6 +182,10 @@ def resolve_project_path(
 ) -> Path:
     """Resolve *raw_path* and require it to stay inside *project_dir*.
 
+    Internal (ADR-052 §7A): path-resolution helper, not part of the public
+    ``scistudio.blocks.code`` surface.
+
+
     The check resolves symlinks before comparing paths, matching ADR-041's
     project-local source requirement without scanning the project tree.
     """
@@ -196,7 +209,10 @@ def resolve_project_path(
 
 
 def legacy_migration_diagnostics(config: Mapping[str, Any]) -> list[MigrationDiagnostic]:
-    """Classify legacy CodeBlock config fields without mutating the config."""
+    """Classify legacy CodeBlock config fields without mutating the config.
+
+    Internal (ADR-052 §7A): legacy-config migration tooling, not public surface.
+    """
 
     diagnostics: list[MigrationDiagnostic] = []
     mode = str(config.get("mode", "")).strip().lower()

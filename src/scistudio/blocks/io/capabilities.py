@@ -14,7 +14,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import stable
 
+# Stability: stable type-aliases (ADR-052 §6.3). ``Literal`` special forms
+# cannot carry a stability marker; tier is recorded in the ADR-052 contract.
 CapabilityDirection = Literal["load", "save"]
 MetadataFidelityLevel = Literal[
     "pixel_only",
@@ -27,28 +30,41 @@ VALID_CAPABILITY_DIRECTIONS: frozenset[str] = frozenset({"load", "save"})
 VALID_METADATA_FIDELITY_LEVELS: frozenset[str] = frozenset({"pixel_only", "typed_meta", "format_specific", "lossless"})
 
 
+@stable(since="0.3.1")
 class CapabilityValidationError(ValueError):
-    """Base class for invalid IO capability declarations."""
+    """Base class for invalid IO capability declarations.
+
+    Public/stable (ADR-052 §6.3): authors may catch this (and its subclasses)
+    for internal fallback when a capability declaration is rejected.
+    """
 
 
+@stable(since="0.3.1")
 class InvalidExtensionError(CapabilityValidationError):
     """Raised when an extension cannot be normalized safely."""
 
 
+@stable(since="0.3.1")
 class InvalidMetadataFidelityError(CapabilityValidationError):
     """Raised when a metadata fidelity declaration is invalid."""
 
 
+@stable(since="0.3.1")
 class InvalidFormatCapabilityError(CapabilityValidationError):
     """Raised when a format capability declaration is internally invalid."""
 
 
+@stable(since="0.3.1")
 class SimpleIODeclarationError(CapabilityValidationError):
     """Raised when a SimpleLoader/SimpleSaver class omits required fields."""
 
 
 def normalize_extension(extension: str) -> str:
-    """Return a lowercase extension with a leading dot."""
+    """Return a lowercase extension with a leading dot.
+
+    Internal (ADR-052 §6.3): the framework normalizes extensions automatically
+    via ``FormatCapability.__post_init__``; not part of the public surface.
+    """
 
     if not isinstance(extension, str):
         raise InvalidExtensionError(f"Extension must be a string, got {type(extension).__name__}.")
@@ -103,6 +119,7 @@ def _meta_model_fields(data_type: type[DataObject]) -> frozenset[str]:
     return frozenset(meta_model.model_fields.keys())
 
 
+@stable(since="0.3.1")
 @dataclass(frozen=True)
 class MetadataFidelity:
     """Typed ``meta`` preservation contract for one IO boundary capability."""
@@ -140,17 +157,20 @@ class MetadataFidelity:
             )
 
     @property
+    @stable(since="0.3.1")
     def typed_meta_fields(self) -> tuple[str, ...]:
         """Return all declared typed ``meta`` fields without duplicates."""
 
         return tuple(dict.fromkeys((*self.typed_meta_reads, *self.typed_meta_writes)))
 
     @property
+    @stable(since="0.3.1")
     def format_metadata_fields(self) -> tuple[str, ...]:
         """Return all declared format-specific metadata fields without duplicates."""
 
         return tuple(dict.fromkeys((*self.format_metadata_reads, *self.format_metadata_writes)))
 
+    @stable(since="0.3.1")
     def validate_typed_meta_fields(self, data_type: type[DataObject]) -> None:
         """Validate declared typed ``meta`` fields against ``data_type.Meta``."""
 
@@ -165,6 +185,7 @@ class MetadataFidelity:
             )
 
 
+@stable(since="0.3.1")
 @dataclass(frozen=True)
 class FormatCapability:
     """One external file-format conversion owned by an IOBlock class."""
@@ -220,12 +241,14 @@ class FormatCapability:
             raise InvalidFormatCapabilityError("lossless capabilities must declare roundtrip_group.")
 
     @property
+    @stable(since="0.3.1")
     def migration_scaffold(self) -> bool:
         """Whether this capability was synthesized from legacy declarations."""
 
         return self.is_synthesized
 
     @property
+    @stable(since="0.3.1")
     def normalized_extensions(self) -> tuple[str, ...]:
         """Return normalized extensions for downstream registry code."""
 
