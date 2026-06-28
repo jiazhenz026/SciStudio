@@ -1,12 +1,20 @@
-"""App block authoring surface (ADR-052 §7).
+"""Tools for building blocks that hand work to an external GUI application.
 
-Canonical root: ``from scistudio.blocks.app import …``. The whole app-block
-surface is **provisional** (ADR-052 §7): the base :class:`AppBlock`, the
-file-exchange facilities (:class:`FileExchangeBridge` and the
-:class:`ExternalAppBridge` protocol), the output :class:`FileWatcher` and its
-:class:`ProcessExitedWithoutOutputError`, the :func:`validate_app_command`
-security helper, and :class:`BlockCancelledByAppError` (re-exported from
-``scistudio.blocks.base`` as its AppBlock-authoring home).
+Import everything from this one place::
+
+    from scistudio.blocks.app import AppBlock, FileExchangeBridge
+
+This is the surface a block author uses to wrap a desktop program — an image
+viewer, an analysis GUI, a file converter — as a SciStudio block: the base
+:class:`AppBlock`, the file-exchange helpers (:class:`FileExchangeBridge` and
+the :class:`ExternalAppBridge` protocol it satisfies), the output-file
+:class:`FileWatcher` and its :class:`ProcessExitedWithoutOutputError`, the
+:func:`validate_app_command` safety check, and
+:class:`BlockCancelledByAppError` (re-exported here because this is where an
+app-block author meets it).
+
+Everything in this module is still settling and may change in a future minor
+release.
 """
 
 from __future__ import annotations
