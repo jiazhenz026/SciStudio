@@ -42,6 +42,10 @@ language_source: en
     `core/meta`, `blocks/base`, `blocks/process`, `blocks/io`, `blocks/app`,
     `blocks/subworkflow`, `blocks/code`, `blocks/ai`, `blocks/registry`,
     `plot`, `previewers`.
+  - Public **attributes and properties** of those public classes
+    (e.g. block `ui_icon`/`ui_color`, config `ClassVar`s): add attribute
+    docstrings so they render in the generated reference with descriptions.
+    Verified end-to-end (mkdocs `--strict`); no build-tooling change needed.
   - `docs/contributing/docstring-style.md` (the convention; manager-owned).
 - Out of scope:
   - Internal-only modules' docstrings (tracked by umbrella `#1843`).

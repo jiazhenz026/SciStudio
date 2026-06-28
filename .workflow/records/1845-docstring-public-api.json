@@ -31,6 +31,11 @@
       "at": "2026-06-28T19:45:12.441470Z",
       "owner_directive": "Convention doc + dispatch checklist landed; 11 implementer agents (one per public module) + 3 no-context audits; manager owns the single ledger, integration, and final PR.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-28T19:48:06.938037Z",
+      "owner_directive": "Also document public class attributes and properties (attribute docstrings) so they appear in the generated API reference; verified mechanism (no build-tooling change needed).",
+      "reason": "Owner added requirement: public class attributes/properties (e.g. block ui_icon) are dropped from the generated reference because they lack docstrings; document them with attribute docstrings so they render with descriptions."
     }
   ],
   "docs_events": [
@@ -47,6 +52,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/planning/1845-docstring-public-api-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T19:48:06.938184Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/contributing/docstring-style.md",
       "rationale": null,
       "verified_in_diff": null
     }

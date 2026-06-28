@@ -75,6 +75,42 @@ Not every symbol needs every sub-part of the contract (a property with no args
 has no `Args`), but summary + purpose are mandatory, and the contract must cover
 whatever the symbol actually takes, returns, and raises.
 
+### 2.3 Public attributes and properties must be documented (and they must render)
+
+The published reference is generated with `show_if_no_docstring` off, so a public
+attribute or property with **no docstring is silently dropped from the docs**.
+This is why block UI metadata like `ui_icon` / `ui_color` and config fields
+currently do not appear in the reference: they carry a `#` comment, and a `#`
+comment is **not** a docstring griffe can render.
+
+Every public attribute and property of a public class MUST carry a docstring so
+that it both renders and reads clearly:
+
+- **Class / instance attributes** (including `ClassVar` block metadata and
+  config fields): add an *attribute docstring* — a string literal on the line
+  immediately after the assignment:
+
+  ```python
+  ui_icon: ClassVar[str | None] = None
+  """Lucide icon *name* shown on this block's node (e.g. ``"Microscope"``).
+
+  An unknown name falls back to the category icon; ``None`` uses the default.
+  """
+  ```
+
+  A one-line summary is the minimum; add a short purpose/contract line when the
+  attribute's meaning, units, or accepted values are not obvious from the name.
+  An existing explanatory `#` comment may stay as a maintainer note, but the
+  user-facing description belongs in the attribute docstring.
+
+- **Properties**: document them like any method (the property's own docstring),
+  with summary + purpose + `Returns`/`Raises` as applicable.
+
+Scope note: document the public attributes/properties of the public classes in
+your module (those exported in `__all__` or `@stable`/`@provisional`). Skip
+`_`-prefixed and `internal`-tier members. Adding an attribute docstring is a
+docstring-only change — it does not alter runtime behavior.
+
 ## 3. Worked Example
 
 Before (cites internal records, leans on ADR-internal "Tier" labels):
@@ -162,5 +198,7 @@ emits one output Collection of the same length."
 - [ ] Sphinx roles (`:meth:` etc.) preserved, not mangled.
 - [ ] Contract covers actual args / returns / raises (and ports/config for
       blocks).
+- [ ] Every public attribute / property of the class has an attribute docstring
+      (so it renders in the reference), not just a `#` comment.
 - [ ] At least one runnable example where it helps.
 - [ ] Reads cleanly to someone who has never seen the source or any ADR.
