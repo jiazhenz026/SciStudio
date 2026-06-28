@@ -17,7 +17,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^iter_over$"]
 
 ## `Artifact` — _class_
 
@@ -30,7 +30,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^get_in_memory_data$"]
 
 ## `Collection` — _class_
 
@@ -56,7 +56,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^get_in_memory_data$"]
 
 ## `DataFrame` — _class_
 
@@ -82,7 +82,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^get_in_memory_data$"]
 
 ## `Series` — _class_
 
@@ -95,7 +95,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^get_in_memory_data$"]
 
 ## `StorageReference` — _class_
 
@@ -121,7 +121,7 @@ Public surface — every symbol below is declared in this module's `__all__` (10
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^get_in_memory_data$"]
 
 ## `TypeSignature` — _class_
 

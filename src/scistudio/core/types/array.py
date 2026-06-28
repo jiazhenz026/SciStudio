@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Self
 
 from scistudio.core.types.base import DataObject
-from scistudio.stability import provisional, stable
+from scistudio.stability import internal, provisional, stable
 
 
 @stable(since="0.3.1")
@@ -301,6 +301,7 @@ class Array(DataObject):
             )
         return new_instance
 
+    @internal()
     def iter_over(self, axis: str) -> Iterator[Array]:
         """Yield sub-arrays along one named axis (ADR-027 D4).
 

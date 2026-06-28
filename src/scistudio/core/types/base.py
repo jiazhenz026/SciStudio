@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from scistudio.core.meta import FrameworkMeta
 from scistudio.core.storage.ref import StorageReference
-from scistudio.stability import provisional, stable
+from scistudio.stability import internal, provisional, stable
 
 # Warn when to_memory() would load more than this many bytes (2 GB).
 _SIZE_WARNING_THRESHOLD = 2 * 1024 * 1024 * 1024
@@ -432,6 +432,7 @@ class DataObject:
             raise ValueError("Cannot iterate chunks: no storage reference set.")
         yield from _get_backend(self._storage_ref).iter_chunks(self._storage_ref, chunk_size)
 
+    @internal()
     def get_in_memory_data(self) -> Any:
         """Materialise data from storage for persistence/export.
 

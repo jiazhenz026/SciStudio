@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
-from scistudio.stability import provisional, stable
+from scistudio.stability import internal, provisional, stable
 
 
 @stable(since="0.3.1")
@@ -59,6 +59,7 @@ class Series(DataObject):
         if data is not None:
             self._transient_data = data
 
+    @internal()
     def get_in_memory_data(self) -> Any:
         if self._storage_ref is not None:
             return self.to_memory()

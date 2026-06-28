@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, ClassVar, Self
 
 from scistudio.core.types.base import DataObject
-from scistudio.stability import stable
+from scistudio.stability import internal, stable
 
 
 @stable(since="0.3.1")
@@ -79,6 +79,7 @@ class CompositeData(DataObject):
         """Return the names of all currently populated slots."""
         return list(self._slots.keys())
 
+    @internal()
     def get_in_memory_data(self) -> Any:
         """Return dict of slot data for composite persistence.
 

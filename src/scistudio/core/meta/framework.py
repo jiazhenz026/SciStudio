@@ -28,7 +28,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from scistudio.stability import stable
+from scistudio.stability import internal, stable
 
 
 @stable(since="0.3.1")
@@ -67,6 +67,7 @@ class FrameworkMeta(BaseModel):
     lineage_id: str | None = None
     derived_from: str | None = None
 
+    @internal()
     def derive(self, **changes: Any) -> FrameworkMeta:
         """Return a new ``FrameworkMeta`` for a derived object.
 
@@ -109,6 +110,7 @@ class FrameworkMeta(BaseModel):
             **changes,
         )
 
+    @internal()
     def with_lineage_id(self, lineage_id: str) -> FrameworkMeta:
         """Return a copy of this ``FrameworkMeta`` with ``lineage_id`` set.
 

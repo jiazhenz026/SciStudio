@@ -30,7 +30,7 @@ Public surface — every symbol below is declared in this module's `__all__` (3 
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_"]
+      filters: ["!^_", "!^derive$", "!^with_lineage_id$"]
 
 ## `with_meta_changes` — _function_
 

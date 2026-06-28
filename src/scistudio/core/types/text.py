@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
-from scistudio.stability import provisional, stable
+from scistudio.stability import internal, provisional, stable
 
 
 @stable(since="0.3.1")
@@ -44,6 +44,7 @@ class Text(DataObject):
         self.format = format
         self.encoding = encoding
 
+    @internal()
     def get_in_memory_data(self) -> Any:
         """Return text content for persistence."""
         if self.content is not None:

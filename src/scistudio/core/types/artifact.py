@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
-from scistudio.stability import provisional, stable
+from scistudio.stability import internal, provisional, stable
 
 
 @stable(since="0.3.1")
@@ -44,6 +44,7 @@ class Artifact(DataObject):
         self.mime_type = mime_type
         self.description = description
 
+    @internal()
     def get_in_memory_data(self) -> Any:
         """Return file bytes for persistence."""
         if self.file_path is not None and self.file_path.exists():
