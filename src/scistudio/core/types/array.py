@@ -85,8 +85,7 @@ class Array(DataObject):
         Args:
             axes: Required list of axis names, one per dimension, e.g.
                 ``["z", "y", "x"]``.
-            shape: Size along each axis, or ``None`` for a metadata-only
-                placeholder.
+            shape: Size along each axis, or ``None`` for a metadata-only array (no backing data).
             dtype: Element data type (for example a NumPy dtype).
             chunk_shape: Chunk sizes for chunked/lazy storage, or ``None``.
             data: Optional in-memory array (for example a NumPy ndarray).

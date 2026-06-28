@@ -353,7 +353,7 @@ class SaveData(IOBlock):
     """The (type, format) pairs this saver can write, as :class:`FormatCapability`
     records. Extension-based format dispatch is derived from these."""
 
-    # The ``data`` input port's accepted_types is a placeholder ``[DataObject]``
+    # The ``data`` input port's accepted_types is a broad default ``[DataObject]``
     # here; the per-instance override in :meth:`get_effective_input_ports`
     # tightens it to the core type chosen via ``config['core_type']``.
     input_ports: ClassVar[list[InputPort]] = [

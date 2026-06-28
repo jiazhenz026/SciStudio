@@ -39,7 +39,7 @@ class GitBinary:
 
     Construct via :meth:`locate`, which finds the bundled (or system) git.
     Direct construction with an explicit path is supported for tests (e.g.
-    pointing at a known git fixture in a temporary directory).
+    pointing at a known git fixture in a scratch directory).
     """
 
     def __init__(self, path: Path) -> None:

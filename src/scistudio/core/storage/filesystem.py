@@ -76,7 +76,7 @@ class FilesystemBackend:
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* to the file at *ref* atomically.
 
-        Writes to a temporary file in the same directory and renames it into
+        Writes to a scratch file in the same directory and renames it into
         place (``os.replace`` is atomic on POSIX and Windows), so a partial
         write is never observed.
 

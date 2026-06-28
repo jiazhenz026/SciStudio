@@ -75,7 +75,7 @@ class ZarrBackend:
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* as a Zarr array to *ref*.
 
-        Writes to a temporary directory and renames into place, so either the
+        Writes to a scratch directory and renames into place, so either the
         old data remains intact or the new data is fully committed.
 
         Args:

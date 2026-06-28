@@ -40,8 +40,7 @@ class Text(DataObject):
         """Construct a text object.
 
         Args:
-            content: The text content, or ``None`` for a metadata-only
-                placeholder.
+            content: The text content, or ``None`` for a metadata-only text object (no content).
             format: Content flavour: ``"plain"`` (default), ``"markdown"``,
                 or ``"json"``.
             encoding: Character encoding; defaults to UTF-8.

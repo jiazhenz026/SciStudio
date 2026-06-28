@@ -16,9 +16,8 @@ from typing import Any
 
 from scistudio.stability import provisional
 
-# TODO: add an optional ``watchdog``-based backend for lower-latency output
-# detection on platforms where ``watchdog`` is already installed (fall back to
-# polling otherwise).
+# Output detection is polling-based, which keeps the watcher free of any
+# extra runtime dependency.
 
 
 @provisional(since="0.3.1")

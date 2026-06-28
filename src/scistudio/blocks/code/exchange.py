@@ -126,7 +126,7 @@ class CodeBlockExchangeLayout:
     """The set of folders and files that make up one run's exchange directory.
 
     Every Code Block run gets its own exchange folder with fixed subfolders for
-    inputs, outputs, logs, and temporary files, plus a manifest file recording
+    inputs, outputs, logs, and scratch files, plus a manifest file recording
     what happened. This describes where each of those lives on disk.
     """
 
@@ -141,7 +141,7 @@ class CodeBlockExchangeLayout:
     logs_dir: Path
     """Folder for run logs."""
     temp_dir: Path
-    """Folder for temporary files created during the run."""
+    """Folder for scratch files created during the run."""
 
 
 @provisional(since="0.3.1")
