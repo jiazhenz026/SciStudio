@@ -578,11 +578,12 @@ class PreviewRequest:
 # Public / provisional / since 0.3.1 (ADR-052 §8.1). A ``collections.abc.Callable``
 # subscription is a generic-alias with no writable ``__dict__``, so (like the
 # ``list[...]`` alias and the ``str`` constant below) it cannot carry a
-# ``scistudio.stability`` marker; the no-op call documents intent but
-# ``get_stability`` returns ``None`` and the generated reference lists these
-# without a tier badge. The tier is recorded here and in the spec.
-PreviewProvider = provisional(since="0.3.1")(Callable[[PreviewRequest], PreviewEnvelope])
-PreviewResourceProvider = provisional(since="0.3.1")(Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]])
+# ``scistudio.stability`` marker, and it must stay a bare alias so it remains
+# valid in type positions. ``get_stability`` returns ``None`` for it; the tier is
+# recorded in the freeze snapshot and the spec, and the generated reference lists
+# it without a tier badge.
+PreviewProvider = Callable[[PreviewRequest], PreviewEnvelope]
+PreviewResourceProvider = Callable[[PreviewRequest, str, dict[str, Any]], dict[str, Any]]
 
 
 @provisional(since="0.3.1")

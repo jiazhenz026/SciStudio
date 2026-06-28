@@ -279,7 +279,9 @@ async def get_lineage(
             if sref.path:
                 obj = store.get_by_storage_path(sref.path)
                 if obj is not None:
-                    fmw = getattr(obj.metadata, "framework", None)
+                    # ADR-052 §3.1: the legacy ``DataObject.metadata`` shim was
+                    # removed; the framework slot is exposed directly.
+                    fmw = getattr(obj, "framework", None)
                     if fmw is not None:
                         object_id = fmw.object_id
         if not object_id:
