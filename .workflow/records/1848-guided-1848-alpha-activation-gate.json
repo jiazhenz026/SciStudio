@@ -49,6 +49,55 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-06-28T20:57:33.269792Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2f90130b58ec88db28456f1a1d2851ff5128335717459a1d2ec775d47d0db7a5",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-28T20:57:37.314728Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b4c3e87ba7df8d069c609c027139d84dc6f6500d1c0ec29a80c33628bfef32fa",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-28T20:57:37.329946Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:238553235c872df30b3358d990487404d34bc6f96817baecfcb2b5fd7fac580e",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
     }
   ],
   "check_na": [],
@@ -75,6 +124,11 @@
       "at": "2026-06-28T20:53:42.030244Z",
       "owner_directive": "\u7ed9 GUI \u52a0\u4e00\u4e2a\u628a\u6240\u6709\u7b7e\u53d1\u7684 token \u548c\u673a\u5668\u6307\u7eb9\u8bb0\u5230 CSV \u7684\u529f\u80fd,\u65b9\u4fbf\u77e5\u9053\u53d1\u4e86\u591a\u5c11\u4e2a token",
       "reason": "owner \u8981\u6c42\u53d1\u653e\u53f0\u8d26:GUI/CLI \u6bcf\u6b21\u7b7e\u53d1 token \u90fd\u8bb0\u5f55\u5230\u672c\u5730 CSV(\u65f6\u95f4/\u540d\u5b57/\u673a\u5668\u6307\u7eb9/token),\u4fbf\u4e8e\u7edf\u8ba1\u53d1\u4e86\u591a\u5c11"
+    },
+    {
+      "at": "2026-06-28T21:03:44.144101Z",
+      "owner_directive": "\u7b7e\u53d1\u5de5\u5177\u4e0d\u9700\u8981\u72ec\u7acb dmg,\u505a\u4e2a\u8f7b\u91cf\u53cc\u51fb\u542f\u52a8\u5668\u5c31\u884c(B)",
+      "reason": "owner \u9009 B:\u4e0d\u505a\u72ec\u7acb Electron \u5305,\u6539\u4e3a\u6781\u5c0f\u7684\u53cc\u51fb\u542f\u52a8\u5668(.command)\u8fd0\u884c\u73b0\u6709 GUI \u811a\u672c"
     }
   ],
   "docs_events": [
@@ -148,6 +202,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.355984Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.367726Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.377946Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.388516Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.399160Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.410016Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.420041Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.430721Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.440858Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T20:57:37.454678Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -169,13 +283,16 @@
       "desktop/package.json",
       "desktop/preload-gate.js",
       "desktop/resources/alpha-gate.html",
+      "desktop/resources/alpha-public-key.pem",
       "desktop/test/activation.test.js",
+      "desktop/test/alpha-token.test.js",
       "docs/alpha-activation-gate.md",
+      "scripts/alpha-token-gui.js",
       "scripts/alpha-token.js"
     ],
-    "diff_fingerprint": "sha256:96d05dd1f226133ebfb1466e71edfd7490fdc88fbd9caf578ab1b7be284e9418",
+    "diff_fingerprint": "sha256:e90a79645f0f01ce8e7ec4c853d41c1abeecbd889200182ffe7730bbdc155024",
     "head": "HEAD",
-    "head_sha": "afac326f",
+    "head_sha": "945cd229",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -185,7 +302,7 @@
       "packaging": 0,
       "protected_core": 0,
       "sentrux": 0,
-      "test": 1,
+      "test": 2,
       "workflow_ci": 0
     }
   },
@@ -196,6 +313,14 @@
     {
       "at": "2026-06-28T20:38:27.043625Z",
       "diff_fingerprint": "sha256:96d05dd1f226133ebfb1466e71edfd7490fdc88fbd9caf578ab1b7be284e9418",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T20:57:37.454711Z",
+      "diff_fingerprint": "sha256:e90a79645f0f01ce8e7ec4c853d41c1abeecbd889200182ffe7730bbdc155024",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
@@ -258,6 +383,12 @@
       "at": "2026-06-28T20:53:42.030482Z",
       "pattern": "scripts/**",
       "reason": "owner \u8981\u6c42\u53d1\u653e\u53f0\u8d26:GUI/CLI \u6bcf\u6b21\u7b7e\u53d1 token \u90fd\u8bb0\u5f55\u5230\u672c\u5730 CSV(\u65f6\u95f4/\u540d\u5b57/\u673a\u5668\u6307\u7eb9/token),\u4fbf\u4e8e\u7edf\u8ba1\u53d1\u4e86\u591a\u5c11"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T21:03:44.144298Z",
+      "pattern": "scripts/**",
+      "reason": "owner \u9009 B:\u4e0d\u505a\u72ec\u7acb Electron \u5305,\u6539\u4e3a\u6781\u5c0f\u7684\u53cc\u51fb\u542f\u52a8\u5668(.command)\u8fd0\u884c\u73b0\u6709 GUI \u811a\u672c"
     }
   ],
   "session_id": "945f4a8a-9e47-4c21-b82c-e4c9b522eb61",

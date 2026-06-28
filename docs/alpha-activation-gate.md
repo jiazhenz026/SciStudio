@@ -65,6 +65,9 @@ closed (the window shows "Activation is not configured").
    fingerprint, optionally a name, click **Sign token**, and copy the result. It
    also shows a running count of how many tokens you have issued.
 
+   To avoid the terminal, double-click `scripts/alpha-token-issuer.command` in
+   Finder: it launches the same GUI (Ctrl+C in its Terminal window stops it).
+
    **CLI:**
 
    ```bash
@@ -94,7 +97,8 @@ The gate is intentionally isolated so it can be deleted in one pass:
 - [ ] Delete `desktop/activation.js`, `desktop/preload-gate.js`,
       `desktop/resources/alpha-gate.html`, `desktop/resources/alpha-public-key.pem`.
 - [ ] Delete `desktop/test/activation.test.js`.
-- [ ] Delete `scripts/alpha-token.js` and `scripts/alpha-token-gui.js`.
+- [ ] Delete `scripts/alpha-token.js`, `scripts/alpha-token-gui.js`, and
+      `scripts/alpha-token-issuer.command`.
 - [ ] (Local only) the issuance ledger `~/.scistudio/alpha-issued-tokens.csv` and
       the signing key `~/.scistudio/alpha-signing.key` are never committed; remove
       them from your machine when you retire the alpha.
