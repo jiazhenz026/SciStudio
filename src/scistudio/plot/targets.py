@@ -18,8 +18,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context
-from scistudio.ai.agent.mcp.tools_plot.models import PlotTarget
+from scistudio.plot._context import PlotRuntimeContext, resolve_project_root, safe_under
+from scistudio.plot.models import PlotTarget
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def make_target_id(workflow_path: str, node_id: str, output_port: str) -> str:
 
 def _workflow_files(root: Path, workflow_path: str | None) -> list[Path]:
     if workflow_path:
-        candidate = _safe_under(root, Path(workflow_path))
+        candidate = safe_under(root, Path(workflow_path))
         return [candidate] if candidate.is_file() else []
     wf_dir = root / "workflows"
     if not wf_dir.is_dir():
@@ -137,10 +137,15 @@ def _looks_like_collection(value: Any) -> bool:
     return isinstance(value, (list, tuple))
 
 
-def discover_targets(workflow_path: str | None = None, include_unavailable: bool = True) -> list[PlotTarget]:
-    """Enumerate plot targets across the project's workflows (FR-005)."""
-    ctx = get_context()
-    root = _resolve_project_root(ctx)
+def discover_targets(
+    ctx: PlotRuntimeContext, workflow_path: str | None = None, include_unavailable: bool = True
+) -> list[PlotTarget]:
+    """Enumerate plot targets across the project's workflows (FR-005).
+
+    The caller injects *ctx* (REST: ``ApiRuntime``; MCP: the agent context);
+    the engine never reaches a global context (#1824).
+    """
+    root = resolve_project_root(ctx)
 
     # Local import: keep the module import cheap and avoid a hard dependency on
     # workflow serialization at decorator-registration time.
@@ -209,9 +214,11 @@ def discover_targets(workflow_path: str | None = None, include_unavailable: bool
     return targets
 
 
-def resolve_target_by_id(target_id: str, workflow_path: str | None = None) -> PlotTarget | None:
+def resolve_target_by_id(
+    ctx: PlotRuntimeContext, target_id: str, workflow_path: str | None = None
+) -> PlotTarget | None:
     """Return the :class:`PlotTarget` for ``target_id`` or ``None`` (FR-006)."""
-    for target in discover_targets(workflow_path=workflow_path, include_unavailable=True):
+    for target in discover_targets(ctx, workflow_path=workflow_path, include_unavailable=True):
         if target.target_id == target_id:
             return target
     return None

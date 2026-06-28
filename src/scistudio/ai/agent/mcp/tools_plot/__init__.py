@@ -13,7 +13,20 @@ ports, not reusable block types.
 
 from __future__ import annotations
 
-from scistudio.ai.agent.mcp.tools_plot.models import (
+# Side-effect import: registers the six @mcp.tool functions.
+from scistudio.ai.agent.mcp.tools_plot.tools import (
+    list_plot_examples,
+    list_plot_targets,
+    read_plot_source,
+    run_plot_job,
+    scaffold_plot,
+    validate_plot,
+)
+
+# Models moved to the first-class ``scistudio.plot`` package (#1824); re-exported
+# here for back-compat so existing ``...tools_plot import <Model>`` imports keep
+# working. The canonical home is ``scistudio.plot.models``.
+from scistudio.plot.models import (
     ListPlotExamplesResult,
     ListPlotTargetsResult,
     PlotArtifact,
@@ -25,16 +38,6 @@ from scistudio.ai.agent.mcp.tools_plot.models import (
     ReadPlotSourceResult,
     ScaffoldPlotResult,
     ValidatePlotResult,
-)
-
-# Side-effect import: registers the six @mcp.tool functions.
-from scistudio.ai.agent.mcp.tools_plot.tools import (
-    list_plot_examples,
-    list_plot_targets,
-    read_plot_source,
-    run_plot_job,
-    scaffold_plot,
-    validate_plot,
 )
 
 __all__ = [

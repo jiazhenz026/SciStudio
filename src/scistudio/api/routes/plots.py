@@ -73,8 +73,8 @@ async def list_plots(
     surface a relink entry point for them. Targets are discovered once per
     workflow path and reused across plots.
     """
-    from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
-    from scistudio.ai.agent.mcp.tools_plot.validation import load_plot
+    from scistudio.plot.targets import discover_targets
+    from scistudio.plot.validation import load_plot
 
     try:
         project = runtime.require_active_project()
@@ -103,7 +103,7 @@ async def list_plots(
     def _discover(wf_path: str) -> list | None:
         if wf_path not in discovery_cache:
             try:
-                discovery_cache[wf_path] = discover_targets(workflow_path=wf_path, include_unavailable=True)
+                discovery_cache[wf_path] = discover_targets(runtime, workflow_path=wf_path, include_unavailable=True)
             except Exception as exc:  # discovery is best-effort for the broken flag
                 logger.debug("list_plots: target discovery failed for %r: %s", wf_path, exc)
                 discovery_cache[wf_path] = None
@@ -132,7 +132,7 @@ async def list_plots(
     warnings: list[str] = []
     for manifest_path in sorted(plots_dir.glob("*/plot.yaml")):
         try:
-            loaded = load_plot(plot_id=manifest_path.parent.name)
+            loaded = load_plot(runtime, plot_id=manifest_path.parent.name)
         except Exception as exc:
             warnings.append(f"{_project_relative(project_root, manifest_path)}: {exc}")
             continue
@@ -173,11 +173,11 @@ async def list_plot_targets(
     include_unavailable: Annotated[bool, Query()] = True,
 ) -> PlotTargetListResponse:
     """List workflow output targets a new plot can bind to."""
-    from scistudio.ai.agent.mcp.tools_plot.targets import discover_targets
+    from scistudio.plot.targets import discover_targets
 
     try:
         runtime.require_active_project()
-        targets = discover_targets(workflow_path=workflow_path, include_unavailable=include_unavailable)
+        targets = discover_targets(runtime, workflow_path=workflow_path, include_unavailable=include_unavailable)
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (PermissionError, ValueError) as exc:
@@ -198,15 +198,15 @@ async def list_plot_targets(
 @router.post("", response_model=PlotCreateResponse)
 async def create_plot(payload: PlotCreateRequest, runtime: RuntimeDep) -> PlotCreateResponse:
     """Create ``plots/<id>/plot.yaml`` plus a render script from the plot template."""
-    from scistudio.ai.agent.mcp.tools_plot.scaffold import PlotScaffoldError, scaffold_plot_files
-    from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
+    from scistudio.plot.scaffold import PlotScaffoldError, scaffold_plot_files
+    from scistudio.plot.targets import resolve_target_by_id
 
     try:
         project = runtime.require_active_project()
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    target = resolve_target_by_id(payload.target_id)
+    target = resolve_target_by_id(runtime, payload.target_id)
     if target is None:
         raise HTTPException(status_code=400, detail="Unknown plot target. Choose a block output from the target list.")
 
@@ -249,9 +249,9 @@ async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: R
     returns the new target plus validation diagnostics so the UI can confirm a
     previously broken target is now valid.
     """
-    from scistudio.ai.agent.mcp.tools_plot.relink import PlotRelinkError, relink_plot
-    from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
-    from scistudio.ai.agent.mcp.tools_plot.validation import PlotNotFoundError
+    from scistudio.plot.relink import PlotRelinkError, relink_plot
+    from scistudio.plot.targets import resolve_target_by_id
+    from scistudio.plot.validation import PlotNotFoundError
 
     try:
         project = runtime.require_active_project()
@@ -259,7 +259,7 @@ async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: R
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     try:
-        outcome = relink_plot(plot_id, payload.target_id)
+        outcome = relink_plot(runtime, plot_id, payload.target_id)
     except PlotNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except PlotRelinkError as exc:
@@ -272,7 +272,7 @@ async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: R
     project_root = Path(project.path).resolve()
     # relink_plot already proved target_id resolves (else PlotRelinkError),
     # so this re-resolution only rebuilds the full PlotTargetItem for the UI.
-    target = resolve_target_by_id(payload.target_id)
+    target = resolve_target_by_id(runtime, payload.target_id)
     if target is None:  # pragma: no cover - target vanished between relink and re-resolve
         raise HTTPException(status_code=409, detail="Plot target became unavailable during relink.")
     return PlotRelinkResponse(
@@ -295,15 +295,15 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
     """
     # Import inside the handler so the ``api`` import surface stays light and the
     # allowed ``api -> ai`` dependency edge is exercised lazily.
-    from scistudio.ai.agent.mcp.tools_plot.runtime import run_plot_job
-    from scistudio.ai.agent.mcp.tools_plot.validation import (
+    from scistudio.plot.runtime import run_plot_job
+    from scistudio.plot.validation import (
         LoadedPlot,
         PlotNotFoundError,
         load_plot,
     )
 
     try:
-        loaded: LoadedPlot = load_plot(plot_id=payload.plot_id)
+        loaded: LoadedPlot = load_plot(runtime, plot_id=payload.plot_id)
     except PlotNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (PermissionError, ValueError) as exc:
@@ -320,6 +320,7 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
         result = await run_in_threadpool(
             partial(
                 run_plot_job,
+                runtime,
                 plot_id=payload.plot_id,
                 run_id=payload.run_id,
                 timeout_seconds=payload.timeout_seconds,

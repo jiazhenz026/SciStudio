@@ -7,7 +7,7 @@ and return familiar matplotlib / ggplot2 plot objects.
 
 from __future__ import annotations
 
-from scistudio.ai.agent.mcp.tools_plot.models import PlotExample
+from scistudio.plot.models import PlotExample
 
 _MATPLOTLIB_SCATTER = '''def render(collection):
     """Scatter plot with matplotlib."""

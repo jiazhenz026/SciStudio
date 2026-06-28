@@ -20,10 +20,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from scistudio.ai.agent.mcp.tools_plot.models import PlotManifest, PlotManifestTarget
-from scistudio.ai.agent.mcp.tools_plot.scaffold import render_manifest_yaml
-from scistudio.ai.agent.mcp.tools_plot.targets import resolve_target_by_id
-from scistudio.ai.agent.mcp.tools_plot.validation import (
+from scistudio.plot._context import PlotRuntimeContext
+from scistudio.plot.models import PlotManifest, PlotManifestTarget
+from scistudio.plot.scaffold import render_manifest_yaml
+from scistudio.plot.targets import resolve_target_by_id
+from scistudio.plot.validation import (
     load_plot,
     validate_plot,
 )
@@ -50,7 +51,7 @@ class RelinkOutcome:
     warnings: list[str] = field(default_factory=list)
 
 
-def relink_plot(plot_id: str, target_id: str) -> RelinkOutcome:
+def relink_plot(ctx: PlotRuntimeContext, plot_id: str, target_id: str) -> RelinkOutcome:
     """Re-point an existing plot at a new ``target_id`` (bug#7, strict 1:1).
 
     Loads ``plots/<plot_id>/plot.yaml``, resolves ``target_id`` the same way
@@ -58,14 +59,14 @@ def relink_plot(plot_id: str, target_id: str) -> RelinkOutcome:
     the manifest back, then re-validates so the caller can see the (now)
     resolved target.
 
-    Raises :class:`~scistudio.ai.agent.mcp.tools_plot.validation.PlotNotFoundError`
+    Raises :class:`~scistudio.plot.validation.PlotNotFoundError`
     when the plot does not exist and :class:`PlotRelinkError` when ``target_id``
     does not resolve to a discoverable target.
     """
     # Load existing manifest (raises PlotNotFoundError when missing).
-    loaded = load_plot(plot_id=plot_id)
+    loaded = load_plot(ctx, plot_id=plot_id)
 
-    target = resolve_target_by_id(target_id)
+    target = resolve_target_by_id(ctx, target_id)
     if target is None:
         raise PlotRelinkError(
             f"unknown target_id {target_id!r}: choose a block output from list_plot_targets. "
@@ -89,7 +90,7 @@ def relink_plot(plot_id: str, target_id: str) -> RelinkOutcome:
     loaded.manifest_path.write_text(render_manifest_yaml(updated), encoding="utf-8")
 
     # Re-validate the relinked plot so a previously broken target reports valid.
-    outcome = validate_plot(plot_id=plot_id)
+    outcome = validate_plot(ctx, plot_id=plot_id)
     return RelinkOutcome(
         plot_id=updated.id,
         manifest_path=loaded.manifest_path,

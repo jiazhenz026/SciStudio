@@ -13,13 +13,13 @@ from pathlib import Path
 
 import yaml
 
-from scistudio.ai.agent.mcp.tools_plot.models import (
+from scistudio.plot.models import (
     PlotLanguage,
     PlotManifest,
     PlotManifestScript,
     PlotManifestTarget,
 )
-from scistudio.ai.agent.mcp.tools_plot.targets import PlotTarget
+from scistudio.plot.targets import PlotTarget
 
 # A plot id is a single safe directory segment: letters, digits, dash,
 # underscore. No dots (blocks ``..`` traversal and hidden dirs), no slashes.

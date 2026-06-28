@@ -32,8 +32,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from scistudio.ai.agent.mcp.tools_plot.runtime import preview_cache_dir
 from scistudio.api.runtime import ApiRuntime
+from scistudio.plot.runtime import preview_cache_dir
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
@@ -580,7 +580,7 @@ def test_plot_run_offloads_blocking_job_off_the_event_loop(
     """
     import threading
 
-    from scistudio.ai.agent.mcp.tools_plot import runtime as plot_runtime
+    from scistudio.plot import runtime as plot_runtime
 
     _seed_block_output(runtime, opened_project)
     _write_workflow_and_plot(client, opened_project)

@@ -30,7 +30,7 @@ from scistudio.ai.agent.mcp.tools_plot import (
     scaffold_plot,
     validate_plot,
 )
-from scistudio.ai.agent.mcp.tools_plot import runtime as plot_runtime
+from scistudio.plot import runtime as plot_runtime
 
 pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
@@ -519,7 +519,7 @@ def _target_id_for_node(node_id: str) -> str:
 
 def test_relink_updates_manifest_target(project: Path) -> None:
     """relink_plot rewrites only the manifest target to the new node + port."""
-    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
+    from scistudio.plot.relink import relink_plot
 
     _write_workflow(project, repeated=True)
     _set_ctx(_make_runtime(project, repeated=True))
@@ -528,7 +528,7 @@ def test_relink_updates_manifest_target(project: Path) -> None:
     _run(scaffold_plot(plot_id="p", target_id=tid_a, language="python", title="Keep Me"))
 
     tid_b = _target_id_for_node("node_b")
-    outcome = relink_plot(plot_id="p", target_id=tid_b)
+    outcome = relink_plot(_context.get_context(), plot_id="p", target_id=tid_b)
 
     assert outcome.plot_id == "p"
     assert outcome.manifest.target.node_id == "node_b"
@@ -543,31 +543,31 @@ def test_relink_updates_manifest_target(project: Path) -> None:
 
 
 def test_relink_unknown_target_raises(project: Path) -> None:
-    from scistudio.ai.agent.mcp.tools_plot.relink import PlotRelinkError, relink_plot
+    from scistudio.plot.relink import PlotRelinkError, relink_plot
 
     _set_ctx(_make_runtime(project))
     tid = _target_id(project)
     _run(scaffold_plot(plot_id="p", target_id=tid, language="python"))
     with pytest.raises(PlotRelinkError, match="unknown target_id"):
-        relink_plot(plot_id="p", target_id="tgt_does_not_exist")
+        relink_plot(_context.get_context(), plot_id="p", target_id="tgt_does_not_exist")
     # The manifest is untouched on a failed relink.
     text = (project / "plots" / "p" / "plot.yaml").read_text(encoding="utf-8")
     assert "node_id: node_a" in text
 
 
 def test_relink_missing_plot_raises(project: Path) -> None:
-    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
-    from scistudio.ai.agent.mcp.tools_plot.validation import PlotNotFoundError
+    from scistudio.plot.relink import relink_plot
+    from scistudio.plot.validation import PlotNotFoundError
 
     _set_ctx(_make_runtime(project))
     tid = _target_id(project)
     with pytest.raises(PlotNotFoundError):
-        relink_plot(plot_id="missing", target_id=tid)
+        relink_plot(_context.get_context(), plot_id="missing", target_id=tid)
 
 
 def test_relink_repairs_broken_target(project: Path) -> None:
     """bug#7: a plot whose original node was replaced relinks to valid again."""
-    from scistudio.ai.agent.mcp.tools_plot.relink import relink_plot
+    from scistudio.plot.relink import relink_plot
 
     _set_ctx(_make_runtime(project))
     tid_a = _target_id(project)
@@ -588,7 +588,7 @@ def test_relink_repairs_broken_target(project: Path) -> None:
     assert any("broken target" in e.lower() or "not found" in e.lower() for e in before.errors)
 
     tid_new = _target_id_for_node("node_new")
-    outcome = relink_plot(plot_id="p", target_id=tid_new)
+    outcome = relink_plot(_context.get_context(), plot_id="p", target_id=tid_new)
 
     assert outcome.valid, outcome.errors
     assert outcome.manifest.target.node_id == "node_new"
@@ -1250,7 +1250,7 @@ def _python_harness_namespace() -> dict[str, Any]:
     (``_open_ref`` etc.) can be exercised exactly as the plot subprocess runs
     them. ``__name__`` is set to a non-``__main__`` value so the harness entry
     ``main()`` does not execute on import."""
-    from scistudio.ai.agent.mcp.tools_plot import _harness
+    from scistudio.plot import _harness
 
     ns: dict[str, Any] = {"__name__": "_python_harness_undertest"}
     exec(compile(_harness.PYTHON_HARNESS, "<python_harness>", "exec"), ns)
