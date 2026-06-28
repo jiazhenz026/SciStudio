@@ -1,6 +1,6 @@
 {
   "name": "scistudio-frontend",
-  "version": "0.3.1-alpha-build0000",
+  "version": "0.3.2-alpha-build0000",
   "private": true,
   "type": "module",
   "scripts": {

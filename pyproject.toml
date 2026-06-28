@@ -1,6 +1,6 @@
 [project]
 name = "scistudio"
-version = "0.3.1a0"
+version = "0.3.2a0"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
 license = {text = "MIT"}
@@ -453,7 +453,7 @@ ancestors = ["scistudio.ai.agent.mcp.tools_inspection"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.3.1a0"
+version = "0.3.2a0"
 tag_format = "v$version"
 
 # Issue #1340 / ADR-042 code-quality stack: vulture runs as an informational
