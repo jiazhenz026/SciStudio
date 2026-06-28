@@ -1,29 +1,14 @@
-"""RunDir — per-block-execution coordination directory for AI Block (ADR-035 §3.2, §3.4).
+"""RunDir — per-run coordination directory for an AI Block.
 
-The directory at ``{project}/.scistudio/ai-block-runs/{block_execution_id}/``
-holds the manifest.json, transcript copy, and completion-signal scratch
-files for one AI Block execution.
+Each AI Block execution gets its own directory under
+``{project}/.scistudio/ai-block-runs/{block_execution_id}/`` that holds the
+manifest the agent reads, the completion-signal files, and a copy of the
+terminal transcript.
 
-**Naming note (ADR-038 §5.2)**: this identifier is **per block execution**
-— each invocation of one AI Block within a workflow gets a fresh one — so
-the ADR-038 cascade renamed the internal variable from ``run_id`` to
-``block_execution_id`` to disambiguate it from the workflow-level ``run_id``
-defined in the unified lineage store (ADR-038 §3.1, ``runs`` table).
-External surfaces that already shipped under the legacy spelling are
-preserved verbatim:
-
-* The manifest JSON key ``block.run_id`` (ADR-035 §3.4 schema) — agent
-  prompts in the wild reference this name.
-* ``PtyTabSpec.block_run_id`` (engine surface, ADR-034 freeze).
-* ``notify_block_pty_event(block_run_id, ...)`` (engine surface).
-
-Only the internal Python identifiers and the on-disk path component have
-been renamed.
-
-**This is NOT a sandbox.** The agent runs with the project directory as cwd
-and full filesystem access (ADR-035 §3.2, §3.7). The run dir exists only to
-hold lineage / coordination artifacts. The agent is free to read and write
-anywhere else the user has access.
+This is **not** a sandbox. The agent runs with the project directory as its
+working directory and full filesystem access; this directory only holds the
+coordination and lineage files for one run. The agent is free to read and
+write anywhere else the user can.
 """
 
 from __future__ import annotations
@@ -89,42 +74,43 @@ def _type_chain(cls: type) -> list[str]:
     return chain
 
 
+# Naming note: this identifier is per block *execution* (one per invocation of
+# an AI Block in a workflow), not the workflow-level run id. Some already-shipped
+# external surfaces keep the older ``run_id`` spelling for back-compat: the
+# manifest JSON key ``block.run_id``, ``PtyTabSpec.block_run_id``, and
+# ``notify_block_pty_event(block_run_id, ...)``. Only the internal Python names
+# and the on-disk path component use ``block_execution_id``.
 class RunDir:
-    """Per-block-execution coordination directory for an AI Block.
+    """Per-execution coordination directory for an AI Block.
 
-    Owns the lifecycle of
+    Owns the lifecycle of one run's directory under
     ``{project}/.scistudio/ai-block-runs/{block_execution_id}/``: creates it,
-    writes the manifest, exposes paths for completion-signal files, copies
-    the transcript on close. Does NOT enforce any access control on what
-    the agent can do outside this dir — see module-level docstring.
+    writes the manifest, exposes the paths of the completion-signal files, and
+    copies the terminal transcript in. It does not restrict what the agent can
+    do outside this directory — see the module docstring.
 
-    References:
-        ADR-035 §3.2 (lineage/coordination role),
-        ADR-035 §3.4 (manifest schema),
-        ADR-035 §3.5 (completion signal file locations),
-        ADR-038 §5.2 (rename rationale).
+    Example:
+        >>> from pathlib import Path
+        >>> run_dir = RunDir(Path("/tmp/proj"), "20260513-220045-extract-abc1234")
+        >>> run_dir.path.name
+        '20260513-220045-extract-abc1234'
     """
 
     def __init__(self, project_dir: Path, block_execution_id: str) -> None:
-        """Initialize the run-dir handle.
+        """Set up the run-dir handle.
 
-        Does NOT create the directory yet — :meth:`create` is explicit so
-        the caller can choose to deal with collisions.
+        Does not create the directory — call :meth:`create` explicitly so the
+        caller controls when (and how to handle a collision).
 
-        Parameters
-        ----------
-        project_dir:
-            Project root. The coordination directory lives under
-            ``project_dir / ".scistudio" / "ai-block-runs"``.
-        block_execution_id:
-            Per-AI-Block execution identifier (one per invocation). Renamed
-            from ``run_id`` per ADR-038 §5.2 to avoid collision with the
-            workflow-level ``runs.run_id`` introduced by the unified
-            lineage store.
+        Args:
+            project_dir: Project root. The coordination directory lives under
+                ``project_dir / ".scistudio" / "ai-block-runs"``.
+            block_execution_id: Identifier for one AI Block execution (one per
+                invocation).
 
         Raises:
-            ValueError: if ``block_execution_id`` contains a path
-                separator (would escape the run-dir scope).
+            ValueError: ``block_execution_id`` contains a path separator, which
+                would let it escape the run-dir location.
         """
         if (
             not block_execution_id
@@ -134,8 +120,11 @@ class RunDir:
         ):
             raise ValueError(f"block_execution_id contains path separator(s): {block_execution_id!r}")
         self.project_dir = Path(project_dir)
+        """Project root this run directory hangs off of."""
         self.block_execution_id = block_execution_id
+        """Identifier for this single AI Block execution."""
         self.path = self.project_dir / ".scistudio" / "ai-block-runs" / block_execution_id
+        """Absolute path to this run's coordination directory."""
 
     def create(self) -> None:
         """Create the run dir and ``signals/`` subdir on disk.
@@ -162,35 +151,32 @@ class RunDir:
         deadline_iso: str | None = None,
         output_paths: dict[str, str] | None = None,
     ) -> Path:
-        """Write ``manifest.json`` per the schema in ADR-035 §3.4.
+        """Write ``manifest.json`` describing this run's inputs and outputs.
 
-        Returns the absolute path to the written manifest (suitable for
-        injection into the agent's initial prompt).
+        The manifest is what the agent reads to learn its task, where its
+        inputs are on disk, and where each output is expected. Written
+        atomically (temp file + ``os.replace``) so a crash mid-write leaves
+        either the old file or the new one, never a partial.
 
         Args:
-            block_name: Name of the AIBlock instance.
-            block_type: Class name of the AIBlock subclass.
-            user_prompt: The natural-language prompt to drive the agent.
-            inputs: ``{port_name: [DataObject, ...]}`` — already iterated
-                from the input Collections by the caller. Each DataObject's
-                ``storage_ref.path`` (if set) or ``file_path`` (Artifact)
-                is recorded **verbatim** — no symlinking, no rewriting.
-            outputs: List of declared output ports (effective ports).
-            deadline_iso: Optional ISO-8601 UTC deadline string. ``None`` when
-                the block runs without a wall-clock timeout (the default); the
-                manifest then records ``"deadline": null``.
-            output_paths: Optional ``{port_name: expected_path}`` overrides
-                from ``config["output_ports"]`` port-editor entries. When
-                missing, defaults to ``./{block_name}_outputs/{port}.{ext}``.
+            block_name: Name of the AI Block instance.
+            block_type: Class name of the AI Block.
+            user_prompt: Natural-language task that drives the agent.
+            inputs: ``{port_name: [DataObject, ...]}`` already collected from
+                the input Collections by the caller. Each object's storage path
+                (or, for an Artifact, its file path) is recorded verbatim — no
+                copying, symlinking, or rewriting.
+            outputs: Declared output ports for this instance.
+            deadline_iso: Optional ISO-8601 UTC deadline string, or ``None``
+                when the block runs without a wall-clock deadline (the default),
+                which records ``"deadline": null``.
+            output_paths: Optional ``{port_name: expected_path}`` overrides from
+                the port-editor entries. When missing, defaults to
+                ``./{block_name}_outputs/{port}.{ext}``.
 
-        Atomically written (tempfile + ``os.replace``) so a crash mid-write
-        leaves either the old file or the new file, never a partial.
-
-        References:
-            ADR-035 §3.4 (schema), §3.3 (default expected_path),
-            ADR-038 §5.2 (manifest ``block.run_id`` key kept under its
-            legacy spelling — agent-facing contract),
-            src/scistudio/blocks/app/bridge.py (atomic-write idiom).
+        Returns:
+            Absolute path to the written manifest, suitable for handing to the
+            agent in its first prompt.
         """
         from scistudio.core.types.artifact import Artifact
 
@@ -312,22 +298,26 @@ class RunDir:
         return f"./{block_name}_outputs/{port.name}.{ext}"
 
     def mcp_signal_path(self) -> Path:
-        """Path the MCP tool writes to on ``finish_ai_block`` (ADR-035 §3.5 path a)."""
+        """Path the agent's ``finish`` tool writes to when it completes a run."""
         return self.path / "signals" / "finish_ai_block.json"
 
     def mark_done_signal_path(self) -> Path:
-        """Path the engine writes to on user "Mark done" (ADR-035 §3.5 path c)."""
+        """Path written when the user clicks "Mark done" in the tab."""
         return self.path / "signals" / "mark_done.json"
 
     def copy_transcript(self, source: Path) -> Path:
-        """Copy the PTY tab's transcript log into the run dir.
+        """Copy the terminal transcript log into this run's directory.
 
-        Best-effort: if ``source`` does not exist, logs a warning and
-        returns the destination path unchanged (no copy). Disk-full and
-        other ``OSError`` propagate.
+        Best-effort: if *source* is missing, logs a warning and returns the
+        destination path without copying. Disk-full and other ``OSError``
+        propagate.
 
-        References:
-            ADR-035 §6.1 (lineage / archived alongside the manifest).
+        Args:
+            source: Path to the terminal transcript log to copy in.
+
+        Returns:
+            Destination path inside the run directory (``transcript.log``),
+            whether or not the copy happened.
         """
         dest = self.path / "transcript.log"
         if not source.exists() or not source.is_file():
