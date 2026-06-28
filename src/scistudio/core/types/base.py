@@ -12,10 +12,9 @@ Implements the stratified three-slot metadata model from ADR-027 D5:
 - ``user``: a free-form ``dict[str, Any]`` escape hatch the framework
   does not interpret. Must be JSON-serialisable per ADR-017.
 
-The legacy single-dict ``metadata`` API is preserved as a deprecation
-shim for one phase: ``DataObject(metadata=...)`` and the
-``DataObject.metadata`` property both still work and emit
-``DeprecationWarning``. Both are removed in Phase 11.
+The three-slot model (``framework`` / ``meta`` / ``user``) is the only
+metadata API; the legacy single-dict ``metadata`` shim was removed per
+ADR-052 §16.
 """
 
 from __future__ import annotations
@@ -30,6 +29,7 @@ from pydantic import BaseModel
 
 from scistudio.core.meta import FrameworkMeta
 from scistudio.core.storage.ref import StorageReference
+from scistudio.stability import provisional, stable
 
 # Warn when to_memory() would load more than this many bytes (2 GB).
 _SIZE_WARNING_THRESHOLD = 2 * 1024 * 1024 * 1024
@@ -56,6 +56,7 @@ def _get_backend(ref: StorageReference) -> Any:
     return backends[ref.backend]
 
 
+@stable(since="0.3.1")
 @dataclass
 class TypeSignature:
     """Describes the semantic type of a DataObject via a chain of type names.
@@ -78,6 +79,7 @@ class TypeSignature:
     slot_schema: dict[str, str] | None = field(default=None)
     required_axes: frozenset[str] | None = field(default=None)
 
+    @stable(since="0.3.1")
     def matches(self, other: TypeSignature) -> bool:
         """Return ``True`` if *other* is compatible with this signature.
 
@@ -101,6 +103,7 @@ class TypeSignature:
         return True
 
     @classmethod
+    @stable(since="0.3.1")
     def from_type(cls, data_type: type) -> TypeSignature:
         """Build a :class:`TypeSignature` from a Python class's MRO.
 
@@ -138,6 +141,7 @@ class TypeSignature:
         return cls(type_chain=chain, slot_schema=slot_schema, required_axes=required_axes)
 
 
+@stable(since="0.3.1")
 class DataObject:
     """Base class for all first-class data objects in SciStudio.
 
@@ -155,19 +159,20 @@ class DataObject:
     - :attr:`user` — a free-form ``dict[str, Any]`` escape hatch. Must
       be JSON-serialisable per ADR-017 (cross-process worker transport).
 
-    Backward-compat shim: ``DataObject(metadata=...)`` and the
-    ``DataObject.metadata`` property both still work and emit
-    :class:`DeprecationWarning`. Both are removed in Phase 11.
+    The three slots above are the only metadata API; the legacy
+    ``DataObject(metadata=...)`` kwarg and ``DataObject.metadata``
+    property were removed per ADR-052 §16.
     """
 
     # ADR-027 D5: subclasses override this with their own typed Pydantic
     # model. The base class has no Meta (None), so bare ``DataObject()``
-    # instances have ``meta=None``. T-013 will use this ClassVar in
-    # ``_reconstruct_extra_kwargs`` to know which Pydantic model to
-    # instantiate when round-tripping a DataObject through the worker
-    # subprocess.
+    # instances have ``meta=None``. The worker reconstruction path reads
+    # this ClassVar in ``reconstruct_extra_kwargs`` to know which Pydantic
+    # model to instantiate when round-tripping a DataObject through the
+    # worker subprocess.
     Meta: ClassVar[type[BaseModel] | None] = None
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -175,27 +180,7 @@ class DataObject:
         meta: BaseModel | None = None,
         user: dict[str, Any] | None = None,
         storage_ref: StorageReference | None = None,
-        # Legacy kwarg, deprecated in Phase 10, removed in Phase 11.
-        metadata: dict[str, Any] | None = None,
     ) -> None:
-        # Backward-compat shim: if the legacy ``metadata=`` kwarg is
-        # passed, treat it as the new ``user`` slot. Refuse to accept
-        # both forms simultaneously to avoid silent ambiguity.
-        if metadata is not None:
-            if user is not None:
-                raise ValueError(
-                    "Cannot pass both `metadata` (deprecated) and `user`. "
-                    "Use `user` only — `metadata` is removed in Phase 11."
-                )
-            warnings.warn(
-                "DataObject(metadata=...) is deprecated since Phase 10; "
-                "use the typed three-slot model: framework=, meta=, user=. "
-                "The deprecation shim is removed in Phase 11.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            user = metadata
-
         # ADR-027 D5: framework slot is always populated. ``FrameworkMeta``
         # default factories produce a fresh ``object_id`` and
         # ``created_at`` per instance.
@@ -235,6 +220,7 @@ class DataObject:
     # -- new three-slot properties ------------------------------------------
 
     @property
+    @stable(since="0.3.1")
     def framework(self) -> FrameworkMeta:
         """Framework-managed metadata. Immutable from block authors' perspective.
 
@@ -243,6 +229,7 @@ class DataObject:
         return self._framework
 
     @property
+    @stable(since="0.3.1")
     def meta(self) -> BaseModel | None:
         """Typed domain metadata (Pydantic ``BaseModel``).
 
@@ -255,6 +242,7 @@ class DataObject:
         return self._meta
 
     @property
+    @stable(since="0.3.1")
     def user(self) -> dict[str, Any]:
         """Free-form user metadata dict.
 
@@ -263,26 +251,9 @@ class DataObject:
         """
         return self._user
 
-    # -- backward-compat metadata property ----------------------------------
-
-    @property
-    def metadata(self) -> dict[str, Any]:
-        """DEPRECATED: returns :attr:`user` for backward compatibility.
-
-        Removed in Phase 11. Use :attr:`user` for free-form metadata or
-        :attr:`meta` for typed domain metadata.
-        """
-        warnings.warn(
-            "DataObject.metadata is deprecated since Phase 10; use `obj.user` "
-            "for free-form metadata or `obj.meta` (a typed Pydantic model) "
-            "for domain metadata. Removed in Phase 11.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._user
-
     # -- with_meta immutable update -----------------------------------------
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new instance with the ``meta`` slot's fields updated.
 
@@ -346,11 +317,13 @@ class DataObject:
     # -- properties (unchanged from pre-T-005 contract) ---------------------
 
     @property
+    @stable(since="0.3.1")
     def dtype_info(self) -> TypeSignature:
         """Return the :class:`TypeSignature` describing this object's type."""
         return TypeSignature.from_type(type(self))
 
     @property
+    @stable(since="0.3.1")
     def storage_ref(self) -> StorageReference | None:
         """Return the :class:`StorageReference` if the object is persisted."""
         return self._storage_ref
@@ -363,8 +336,11 @@ class DataObject:
     # -- ADR-031 Addendum 2: backward-compat property bridges ----------------
     # These properties let legacy code that writes ``obj._data = arr`` or
     # ``obj._arrow_table = table`` transparently use the declared
-    # ``_transient_data`` slot. They will be removed once all callers are
-    # migrated to the ``data=`` constructor parameter.
+    # ``_transient_data`` slot. Internal (excluded from ``__all__`` and the
+    # ADR-052 public surface).
+    # TODO(#1817): retire the _data/_arrow_table transient-data bridges once
+    #   all callers migrate to the data= constructor parameter (ADR-031
+    #   Addendum 2). Internal-only; no public-surface impact.
 
     @property
     def _data(self) -> Any:
@@ -398,6 +374,7 @@ class DataObject:
 
     # -- data access (ADR-031 D1/D2/D6: methods moved from ViewProxy) --------
 
+    @stable(since="0.3.1")
     def to_memory(self) -> Any:
         """Materialise the full data from storage into memory.
 
@@ -427,6 +404,7 @@ class DataObject:
             )
         return backend.read(self._storage_ref)
 
+    @stable(since="0.3.1")
     def slice(self, *args: Any) -> Any:
         """Return a sub-selection of the data without full materialisation.
 
@@ -440,6 +418,7 @@ class DataObject:
             raise ValueError("Cannot slice: no storage reference set.")
         return _get_backend(self._storage_ref).slice(self._storage_ref, *args)
 
+    @stable(since="0.3.1")
     def iter_chunks(self, chunk_size: int) -> Iterator[Any]:
         """Yield successive chunks of the data from storage.
 
@@ -472,6 +451,7 @@ class DataObject:
             return self._transient_data
         raise ValueError(f"{type(self).__name__} has no in-memory data to persist.")
 
+    @provisional(since="0.3.1")
     def save(self, path: str | Path) -> StorageReference:
         """Persist the data object to *path* using the appropriate backend.
 
@@ -494,30 +474,34 @@ class DataObject:
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return base-class-specific kwargs for worker reconstruction.
 
+        Author extension point (ADR-052 §3.1, ADR-027 Addendum 1 §2).
         Called by :func:`scistudio.core.types.serialization._reconstruct_one`
-        (full implementation in T-014) to extract the keyword arguments
-        that ``cls.__init__`` needs **beyond** the four standard
-        :class:`DataObject` slots (``storage_ref``, ``framework``,
-        ``meta``, ``user``).
+        to extract the keyword arguments that ``cls.__init__`` needs
+        **beyond** the four standard :class:`DataObject` slots
+        (``storage_ref``, ``framework``, ``meta``, ``user``).
 
         Base-class default: no extra kwargs. Plain ``DataObject``
         instances round-trip through the four standard slots alone.
 
         Each concrete base class (``Array``, ``Series``, ``DataFrame``,
-        ``Text``, ``Artifact``, ``CompositeData``) overrides this hook
-        to extract its constructor-required fields from the wire-format
-        metadata sidecar. Plugin subclasses inherit their base class's
-        hook and almost never need to override; the rare override pattern
-        is to call ``super()._reconstruct_extra_kwargs(metadata)`` and
-        extend the returned dict with additional fields. See ADR-027
-        Addendum 1 §2 ("D11' companion") for the full contract.
+        ``Text``, ``Artifact``) overrides this hook to extract its
+        constructor-required fields from the wire-format metadata
+        sidecar (``CompositeData`` is the exception — its slots recurse
+        through the serializer). This hook and
+        :meth:`serialise_extra_metadata` are a **symmetric pair**:
+        override both or neither, with the ``super()``-chain-then-extend
+        pattern (call ``super().reconstruct_extra_kwargs(metadata)`` and
+        extend the returned dict). ``reconstruct_*`` must invert exactly
+        the conversions ``serialise_*`` applied. See ADR-027 Addendum 1
+        §2 ("D11' companion") for the full contract.
 
         Args:
             metadata: The ``metadata`` dict from the wire-format payload
-                item (produced by :meth:`_serialise_extra_metadata`).
+                item (produced by :meth:`serialise_extra_metadata`).
 
         Returns:
             A dict of kwargs to splat into ``cls(**kwargs)``.
@@ -525,23 +509,27 @@ class DataObject:
         return {}
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return base-class-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
-        Called by :func:`scistudio.core.types.serialization._serialise_one`
-        (full implementation in T-014) to compute the fields that need
-        to live in the wire-format metadata sidecar **beyond** the four
-        standard slots that :func:`_serialise_one` always writes
-        (``type_chain``, ``framework``, ``meta``, ``user``).
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs` and the
+        other half of the ADR-052 §3.1 author extension point. Called by
+        :func:`scistudio.core.types.serialization._serialise_one` to
+        compute the fields that need to live in the wire-format metadata
+        sidecar **beyond** the four standard slots that
+        :func:`_serialise_one` always writes (``type_chain``,
+        ``framework``, ``meta``, ``user``).
 
         Base-class default: no extras. Plain ``DataObject`` instances
         serialise through the four standard slots alone.
 
         Each concrete base class overrides this hook to emit its
         constructor-specific fields in a JSON-serialisable form
-        (e.g. tuples become lists, :class:`pathlib.Path` becomes
-        :class:`str`). See ADR-027 Addendum 1 §2 for the full contract.
+        (tuples become lists, :class:`pathlib.Path` becomes :class:`str`,
+        dtype becomes a canonical string). Override both this hook and
+        :meth:`reconstruct_extra_kwargs` or neither. See ADR-027
+        Addendum 1 §2 for the full contract.
 
         Args:
             obj: The :class:`DataObject` instance to serialise.

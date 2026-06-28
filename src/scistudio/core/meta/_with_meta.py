@@ -12,9 +12,12 @@ from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
+from scistudio.stability import stable
+
 T = TypeVar("T", bound=BaseModel)
 
 
+@stable(since="0.3.1")
 def with_meta_changes(meta: T, **changes: Any) -> T:
     """Return a new Pydantic ``Meta`` instance with the given fields updated.
 

@@ -28,7 +28,10 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from scistudio.stability import stable
 
+
+@stable(since="0.3.1")
 class FrameworkMeta(BaseModel):
     """Framework-managed metadata slot, populated at DataObject construction.
 

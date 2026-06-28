@@ -13,8 +13,10 @@ from __future__ import annotations
 from typing import Any, ClassVar, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import stable
 
 
+@stable(since="0.3.1")
 class CompositeData(DataObject):
     """A named collection of heterogeneous :class:`DataObject` slots.
 
@@ -27,6 +29,7 @@ class CompositeData(DataObject):
 
     expected_slots: ClassVar[dict[str, type]] = {}
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -48,12 +51,14 @@ class CompositeData(DataObject):
             for name, obj in slots.items():
                 self.set(name, obj)
 
+    @stable(since="0.3.1")
     def get(self, slot_name: str) -> DataObject:
         """Retrieve the :class:`DataObject` stored in *slot_name*."""
         if slot_name not in self._slots:
             raise KeyError(f"Slot '{slot_name}' is not populated.")
         return self._slots[slot_name]
 
+    @stable(since="0.3.1")
     def set(self, slot_name: str, data: DataObject) -> None:
         """Store *data* in *slot_name*, validating against expected_slots if defined."""
         expected = self.slot_types()
@@ -63,11 +68,13 @@ class CompositeData(DataObject):
                 raise TypeError(f"Slot '{slot_name}' expects {expected_type.__name__}, got {type(data).__name__}.")
         self._slots[slot_name] = data
 
+    @stable(since="0.3.1")
     def slot_types(self) -> dict[str, type]:
         """Return the expected slot-type mapping declared on this class."""
         return dict(self.expected_slots)
 
     @property
+    @stable(since="0.3.1")
     def slot_names(self) -> list[str]:
         """Return the names of all currently populated slots."""
         return list(self._slots.keys())
@@ -93,6 +100,7 @@ class CompositeData(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new CompositeData with the ``meta`` slot updated.
 
@@ -137,8 +145,9 @@ class CompositeData(DataObject):
 
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
     #
-    # ``CompositeData`` does NOT override ``_serialise_extra_metadata`` /
-    # ``_reconstruct_extra_kwargs``. Its slots are nested ``DataObject``s, and
+    # ``CompositeData`` does NOT override ``serialise_extra_metadata`` /
+    # ``reconstruct_extra_kwargs`` (the ADR-052 §3.7 hook exception). Its
+    # slots are nested ``DataObject``s, and
     # the recursion that (de)serialises them is owned by the serialiser itself
     # (``scistudio.core.types.serialization._serialise_one`` /
     # ``_reconstruct_one`` handle the ``CompositeData`` case directly).

@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import provisional, stable
 
 
+@stable(since="0.3.1")
 class Artifact(DataObject):
     """Opaque file artifact (PDF, binary blob, rendered report, etc.).
 
@@ -22,6 +24,7 @@ class Artifact(DataObject):
         description: Human-readable description.
     """
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -49,6 +52,7 @@ class Artifact(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new Artifact with the ``meta`` slot updated.
 
@@ -91,7 +95,8 @@ class Artifact(DataObject):
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return ``Artifact``-specific kwargs for worker reconstruction.
 
         Extracts ``file_path`` / ``mime_type`` / ``description`` from
@@ -112,10 +117,11 @@ class Artifact(DataObject):
         }
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return ``Artifact``-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`.
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`.
         :attr:`Artifact.file_path` is converted to a string (or
         ``None``) so the payload is JSON-clean.
 

@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Any, Self
 
 from scistudio.core.types.base import DataObject
+from scistudio.stability import provisional, stable
 
 
+@stable(since="0.3.1")
 class Text(DataObject):
     """Textual data object (plain text, markdown, JSON, etc.).
 
@@ -22,6 +24,7 @@ class Text(DataObject):
         encoding: Character encoding (default UTF-8).
     """
 
+    @stable(since="0.3.1")
     def __init__(
         self,
         *,
@@ -49,6 +52,7 @@ class Text(DataObject):
 
     # -- with_meta override (T-005's base only handles standard slots) ----
 
+    @stable(since="0.3.1")
     def with_meta(self, **changes: Any) -> Self:
         """Return a new Text with the ``meta`` slot updated.
 
@@ -90,7 +94,8 @@ class Text(DataObject):
     # -- worker subprocess reconstruction hooks (ADR-027 Addendum 1 §2) -----
 
     @classmethod
-    def _reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def reconstruct_extra_kwargs(cls, metadata: dict[str, Any]) -> dict[str, Any]:
         """Return ``Text``-specific kwargs for worker reconstruction.
 
         Extracts ``content`` / ``format`` / ``encoding`` from the
@@ -110,10 +115,11 @@ class Text(DataObject):
         }
 
     @classmethod
-    def _serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
+    @provisional(since="0.3.1")
+    def serialise_extra_metadata(cls, obj: DataObject) -> dict[str, Any]:
         """Return ``Text``-specific fields for the metadata sidecar.
 
-        Symmetric counterpart of :meth:`_reconstruct_extra_kwargs`. All
+        Symmetric counterpart of :meth:`reconstruct_extra_kwargs`. All
         three fields are already JSON-primitive (``str | None``) and
         need no conversion.
 
