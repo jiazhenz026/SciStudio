@@ -1,46 +1,16 @@
-"""AIBlock — PTY-tab agent runtime per ADR-035.
+"""AIBlock — run a coding agent (claude or codex) as a workflow step.
 
-This module supersedes the previous one-shot Anthropic Messages API
-``AIBlock`` (see ADR-035 §2.1, §4 "Delete"). It is now an EXTERNAL-mode
-block (same family as :class:`AppBlock`) that spawns a claude/codex agent
-inside an ADR-034 PTY tab, hands the agent a manifest describing its
-inputs and expected outputs, and waits for one of three completion
-signals (MCP tool call, file watcher, user "Mark done" button) before
-validating outputs and resuming the workflow.
+This block hands a slice of your workflow's data to an AI coding agent
+running in a visible terminal tab, lets the agent work on it on its own,
+and feeds the files the agent produces back into the workflow as typed
+outputs. Reach for it when a step is easier to describe in plain language
+("clean up these tables", "summarise these images") than to wire up as a
+fixed sequence of blocks.
 
-ADR-039 §3.4a — agent commit convention
----------------------------------------
-AIBlock does **not** itself invoke ``GitEngine.commit()``. When the
-spawned agent (claude / codex) makes a programmatic commit on the user's
-behalf, that commit MUST use the ``agent:`` prefix per ADR-039 §3.4a:
-
-    agent: <short summary> (session=<block_execution_id>)
-
-**Current enforcement (D39-3.2 / #968 truth check)** — there is no
-in-tree ``GitEngine``-mediated path that an agent can call to apply the
-prefix automatically. The convention is enforced **convention-by-prompt**:
-the agent's system prompt (and ``docs/cli-integration.md``) instructs
-claude / codex to prefix any ``git commit -m`` invocation it issues in
-its PTY shell with ``agent: ``. The History "Manual milestones" filter
-(ADR-039 §3.4) classifies commits by reading this prefix from the commit
-subject directly.
-
-A future enhancement may register an ``mcp__scistudio__git_commit`` MCP
-tool that wraps ``GitEngine.commit(prefix="agent")`` so the prefix is
-enforced server-side rather than by prompt. That tool does **not** exist
-today; the previous version of this docstring referenced it
-incorrectly.
-
-If a future direct commit path is added inside this module, it MUST
-pass ``prefix="agent"`` to keep the History filter classifying the
-result correctly.
-
-References:
-    docs/adr/ADR-035.md §3 (decision), §3.1 (block category),
-    §3.2 (runtime topology), §3.4 (manifest), §3.5 (completion paths),
-    §3.6 (output validation), §3.7 (permission), §3.9 (state machine),
-    §3.10 (engine ↔ worker IPC).
-    docs/adr/ADR-039.md §3.4a (``agent:`` commit prefix convention).
+Unlike a per-item processing block, the whole input Collection is handed
+to the agent at once through a manifest file, and the block stays paused
+until the agent finishes. See :class:`AIBlock` for the ports, config, and
+the three ways a run can complete.
 """
 
 from __future__ import annotations
@@ -110,44 +80,101 @@ def _discover_provider(provider: str) -> str | None:
     return None
 
 
+# Agent commit convention: AIBlock does not commit on its own. When the spawned
+# claude/codex agent makes a commit on the user's behalf in its terminal shell,
+# that commit should be prefixed with ``agent: `` so the History "Manual
+# milestones" filter can classify it. There is no in-tree path the agent can
+# call to apply the prefix automatically; it is enforced through the agent's
+# system prompt. If a direct commit path is ever added inside this module, it
+# must pass ``prefix="agent"`` to keep that filter working.
 class AIBlock(Block):
-    """Workflow-graph node that spawns a claude/codex agent in an ADR-034 PTY tab.
+    """Workflow step that runs a claude or codex agent in a terminal tab.
 
-    Per ADR-035 §3.1 the block is **EXTERNAL** mode (same family as
-    :class:`AppBlock`), not :class:`ProcessBlock`: the entire input
-    Collection is presented to the agent at once via a manifest, the
-    agent runs autonomously inside a visible PTY tab, and completion is
-    signalled via one of three paths (MCP tool, file watcher, user
-    button — see ADR-035 §3.5).
+    Hands the agent the step's inputs plus a written task, lets it work on
+    its own in a visible terminal, then loads the files it produces back into
+    the workflow as typed outputs. Use it for work that is easier to ask for
+    in words than to build from fixed blocks.
 
-    Variadic ports reuse ADR-029 verbatim. Type allowlists are
-    deliberately permissive — the agent can in principle produce any
-    ``DataObject`` subtype.
+    This is an *external* block, in the same family as :class:`AppBlock` (it
+    launches an outside program) rather than a per-item processing block: the
+    whole input Collection is handed to the agent at once via a manifest file,
+    and the block stays paused until the agent finishes.
 
-    State machine (ADR-035 §3.9 — same as AppBlock)::
+    Ports:
+        Reads one variadic input port, ``data`` — any number of inputs of any
+        data-object type, written into the manifest the agent reads. Emits one
+        variadic output port, ``result`` — the file(s) the agent writes at each
+        declared output path, loaded back as a Collection. Both ports accept
+        any type because an agent can in principle consume or produce anything;
+        declare the concrete ports and each output's expected file path in the
+        block's config.
 
-        IDLE → READY → RUNNING → PAUSED → DONE
-                                 ↓        ↑
-                                 ERROR / CANCELLED
+    Config:
+        ``user_prompt`` (required) is the natural-language task. ``provider``
+        selects ``"claude-code"`` (default) or ``"codex"``. ``permission_mode``
+        is ``"safe"`` (the agent asks before sensitive tool use, default) or
+        ``"bypass"`` (full filesystem access). ``input_ports`` / ``output_ports``
+        declare the named ports and, for outputs, the file path where each
+        result is expected.
+
+    A run finishes on the first of three signals: the agent calls its
+    ``finish`` tool, every declared output file appears and stops changing, or
+    the user clicks "Mark done" in the tab.
+
+    Example:
+        The config normally comes from the block editor, not code::
+
+            config = {
+                "user_prompt": "Summarise each CSV into one row of statistics.",
+                "provider": "claude-code",
+                "permission_mode": "safe",
+                "output_ports": [
+                    {"name": "result",
+                     "types": ["DataFrame"],
+                     "expected_path": "./summary.csv"},
+                ],
+            }
     """
 
     # -- ClassVar metadata -----------------------------------------------------
 
     type_name: ClassVar[str] = "ai.agent"
+    """Stable identifier used to register and look up this block type."""
+
     name: ClassVar[str] = "AI Agent"
+    """Human-readable name shown in the block library and on the node."""
+
     description: ClassVar[str] = "Spawn a claude/codex agent in a PTY tab to process inputs into typed outputs."
+    """One-line description shown in the block library."""
+
     subcategory: ClassVar[str] = "ai"
+    """Library grouping this block appears under."""
+
     version: ClassVar[str] = "0.2.0"
+    """Block version, bumped when its contract or behavior changes."""
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
+    """Marks this as an external block: it launches an outside program (the
+    agent's terminal) and pauses the workflow until that program reports back,
+    instead of running to completion in-process."""
 
     variadic_inputs: ClassVar[bool] = True
+    """The number of input ports is configurable, not fixed by the class."""
+
     variadic_outputs: ClassVar[bool] = True
+    """The number of output ports is configurable, not fixed by the class."""
 
     allowed_input_types: ClassVar[list[type]] = [DataObject]
+    """Input types accepted on any port; any data object is allowed because the
+    agent can consume anything handed to it."""
+
     allowed_output_types: ClassVar[list[type]] = [DataObject]
+    """Output types allowed on any port; any data object is allowed because the
+    agent can produce anything."""
 
     terminate_grace_sec: ClassVar[float] = 10.0
+    """Seconds to wait for the agent's terminal to exit on cancellation before
+    it is force-stopped."""
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(
@@ -158,6 +185,9 @@ class AIBlock(Block):
             description="Inputs handed to the agent via manifest.json (any DataObject).",
         ),
     ]
+    """Default input ports: a single optional, variadic ``data`` port whose
+    items are written into the manifest the agent reads."""
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="result",
@@ -169,6 +199,9 @@ class AIBlock(Block):
             description="Output port; the agent writes one or more files at the configured expected_path.",
         ),
     ]
+    """Default output ports: a single variadic ``result`` port; the agent writes
+    one or more files at the configured expected path, loaded back as a
+    Collection."""
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -238,19 +271,36 @@ class AIBlock(Block):
         },
         "required": ["user_prompt"],
     }
+    """JSON-schema for the block's config form: the task prompt, provider,
+    permission mode, and the declared input/output ports (each output carries
+    its expected file path). Only ``user_prompt`` is required."""
 
     # -- Lifecycle methods -----------------------------------------------------
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Drive the AI Block's PTY-tab lifecycle end-to-end (ADR-035 §3.2).
+        """Run the block: open the agent's terminal and load its outputs.
 
-        Returns ``{port_name: Collection([loaded_obj])}`` on success.
-        Returns ``{}`` after transitioning to ``CANCELLED`` (user closed
-        tab, workflow cancelled, or timeout).
+        Writes the manifest, opens a terminal tab running the chosen agent,
+        waits for the run to finish, then validates and loads each declared
+        output file into a Collection.
 
-        Raises whatever the validation loaders raise (after recording the
-        block as ERROR) — the exception text + the offending file path are
-        the user-facing diagnostic per ADR-035 §3.6.
+        Args:
+            inputs: Input Collections keyed by port name; handed to the agent
+                through the manifest.
+            config: Block config (prompt, provider, permission mode, declared
+                ports).
+
+        Returns:
+            ``{port_name: Collection}`` of loaded outputs on success.
+
+        Raises:
+            RuntimeError: the run directory, manifest, or agent terminal could
+                not be created.
+            BlockCancelledByAppError: the run was cancelled before completion
+                (tab closed or workflow cancelled).
+            Exception: any error raised while loading a declared output is
+                re-raised after the block is recorded as failed; the message
+                and the offending file path are the user-facing diagnostic.
         """
         from scistudio.core.types.collection import Collection
 
@@ -398,11 +448,20 @@ class AIBlock(Block):
         return results
 
     def validate_config(self, config: BlockConfig) -> None:
-        """Validate-time config checks (ADR-035 §3.8 validate-time tier).
+        """Check the config before the workflow runs.
 
-        Distinct from :meth:`Block.validate` (which is run-time input
-        validation). Surfaces "provider not installed" before run-time so
-        the user sees an actionable error message.
+        Runs before execution so problems surface as a clear message in the
+        editor rather than as a mid-run failure. This is separate from
+        :meth:`Block.validate`, which checks the input *data* at run time.
+
+        Args:
+            config: The block's config to check.
+
+        Raises:
+            ValueError: the provider is unknown, the chosen provider's
+                command-line tool is not installed, or ``user_prompt`` is
+                missing or blank. The message includes how to install a
+                missing provider.
         """
         provider = str(config.get("provider", "claude-code"))
         if provider not in _BYPASS_FLAG:
