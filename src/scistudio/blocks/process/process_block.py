@@ -1,11 +1,11 @@
-"""ProcessBlock base — algorithm-driven data transformation.
+"""ProcessBlock -- the base class for item-by-item data transformations.
 
-ADR-027 D7 (setup/teardown lifecycle hooks): blocks with expensive
-one-time initialisation (loading ML models, opening DB connections,
-compiling regexes) override :meth:`ProcessBlock.setup` to do that work
-once per :meth:`ProcessBlock.run`. The returned state is passed to
-every :meth:`ProcessBlock.process_item` call as the third argument.
-:meth:`ProcessBlock.teardown` runs in a ``finally`` block even on error.
+A block with expensive one-time initialisation (loading an ML model, opening a
+database connection, compiling a regex) overrides :meth:`ProcessBlock.setup`
+so that work runs once per :meth:`ProcessBlock.run`. The value ``setup``
+returns is passed to every :meth:`ProcessBlock.process_item` call as the third
+argument, and :meth:`ProcessBlock.teardown` runs afterwards in a ``finally``
+block, even when an item raises.
 """
 
 from __future__ import annotations
@@ -21,31 +21,49 @@ if TYPE_CHECKING:
     from scistudio.core.types.collection import Collection
 
 
+# Lifecycle hooks and the process_item override contract are specified in
+# ADR-027 D7 / ADR-020-Add5.
 @stable(since="0.3.1")
 class ProcessBlock(Block):
-    """Block for deterministic, algorithm-driven data transformations.
+    """Transform every item of a Collection with a deterministic algorithm.
 
-    Subclasses should set *algorithm* to a human-readable identifier for the
-    transformation they perform.
+    Subclass this for row-by-row or item-by-item transforms (filtering,
+    normalising, feature extraction). The base :meth:`run` streams the primary
+    input Collection one item at a time, so peak memory stays at roughly one
+    item regardless of how large the dataset is.
 
-    **Lifecycle hooks (ADR-027 D7)**: blocks with expensive one-time setup
-    override :meth:`setup` to load resources once per ``run()``. The returned
-    state is passed to every :meth:`process_item` call as the third argument.
-    :meth:`teardown` runs in a ``finally`` block, even on error.
+    To implement a block, pick one of two levels of control:
 
-    **Tier 1 (ADR-020-Add5, ADR-027 D7)**: override :meth:`process_item` only
-    with the signature ``(self, item, config, state=None)``. The default
-    :meth:`run` iterates the primary input Collection, calls ``setup`` once,
-    calls ``process_item`` per item with the shared ``state``, auto-flushes
-    each result, packs into an output Collection, and calls ``teardown`` in
-    a ``finally`` block. Peak memory = O(1 item).
+    - **Common case** -- override :meth:`process_item` with the signature
+      ``(self, item, config, state=None)``. The base :meth:`run` does the rest:
+      one :meth:`setup` call, one :meth:`process_item` per item with the shared
+      ``state``, auto-flush of each result, packing into the output Collection,
+      and :meth:`teardown` in a ``finally`` block.
+    - **Full control** -- override :meth:`run` directly and use ``map_items()``,
+      ``parallel_map()``, or ``pack()`` to build the output Collection yourself.
 
-    **Tier 2/3**: Override ``run()`` directly and use ``map_items()``,
-    ``parallel_map()``, or ``pack()`` for Collection handling.
+    Ports: reads the primary (first) input Collection and emits one output
+    Collection of the same length on the first output port. Config: this base
+    class reads no config fields of its own; a subclass declares whatever
+    ``config`` keys its :meth:`process_item` consumes.
+
+    Set the class attribute :attr:`algorithm` to a human-readable identifier
+    for the transform.
+
+    Example:
+        >>> class Doubler(ProcessBlock):
+        ...     algorithm = "doubler"
+        ...     def process_item(self, item, config, state=None):
+        ...         return item * 2
     """
 
-    # Stability: stable (ADR-052 §5) — human-readable transform identifier.
+    # Stability: stable (ADR-052 §5).
     algorithm: ClassVar[str] = ""
+    """Human-readable identifier for the transform this block performs.
+
+    Set this on each subclass (for example ``algorithm = "normalise"``). It
+    labels the block's transform in metadata; it does not affect execution.
+    """
 
     # ------------------------------------------------------------------
     # ADR-027 D7: lifecycle hooks
@@ -53,41 +71,40 @@ class ProcessBlock(Block):
 
     @stable(since="0.3.1")
     def setup(self, config: BlockConfig) -> Any:
-        """Called once per :meth:`run` before iterating the input Collection.
+        """Run once at the start of :meth:`run`, before any item is processed.
 
-        Override to load expensive resources that should be amortised across
-        all items in this ``run()`` call. Examples: loading an ML model,
-        opening a database connection, compiling a regex.
+        Override this to load expensive resources that should be paid for once
+        and shared across every item in this run -- for example loading an ML
+        model, opening a database connection, or compiling a regex. The base
+        implementation does nothing and returns ``None``.
 
-        The return value is passed to :meth:`process_item` as the third
-        argument and to :meth:`teardown`.
-
-        ADR-027 D7: ``setup`` receives only ``config``. It must not access
-        ``inputs``. Blocks that need data-driven initialisation should do it
-        lazily inside ``process_item`` and cache on the ``state`` object.
+        ``setup`` receives only ``config``; it cannot see the input data. A
+        block that needs data-driven initialisation should do it lazily inside
+        :meth:`process_item` and cache the result on the ``state`` object.
 
         Args:
-            config: BlockConfig instance for this run.
+            config: The block configuration for this run.
 
         Returns:
-            Any opaque "state" object the block needs across items. Default
-            returns ``None``.
+            Any value the block wants to reuse across items (its "state"). It is
+            passed unchanged to every :meth:`process_item` call and to
+            :meth:`teardown`. Defaults to ``None``.
         """
         return None
 
     @stable(since="0.3.1")
     def teardown(self, state: Any) -> None:
-        """Called once per :meth:`run` in a ``finally`` block, even on error.
+        """Run once at the end of :meth:`run`, even if an item raised.
 
-        Override to release resources allocated in :meth:`setup`. Examples:
-        closing a database connection, freeing GPU memory via
-        ``torch.cuda.empty_cache()``.
-
-        Default: no-op.
+        Override this to release whatever :meth:`setup` allocated -- for
+        example closing a database connection or freeing GPU memory with
+        ``torch.cuda.empty_cache()``. It runs inside a ``finally`` block, so it
+        is called whether the run succeeds or fails. The base implementation
+        does nothing.
 
         Args:
-            state: The value returned by :meth:`setup`. May be ``None`` if
-                ``setup`` was not overridden.
+            state: The value :meth:`setup` returned. It is ``None`` when
+                :meth:`setup` was not overridden.
         """
         return None
 
@@ -97,28 +114,37 @@ class ProcessBlock(Block):
 
     @stable(since="0.3.1")
     def process_item(self, item: Any, config: BlockConfig, state: Any = None) -> Any:
-        """Tier 1 entry point: override for per-item processing.
+        """Transform a single item; override this for the common case.
 
-        ADR-027 D7: signature is ``(self, item, config, state=None)``. The
-        ``state`` argument is whatever :meth:`setup` returned; it is shared
-        across all items in a single :meth:`run` call.
+        This is the one method most blocks need to write. The base :meth:`run`
+        iterates the primary input Collection and calls this method once per
+        item, auto-flushing each returned value. The base implementation raises
+        :class:`NotImplementedError`, so a subclass must provide its own.
 
-        The default :meth:`run` iterates the primary input Collection and
-        calls this method for each item, auto-flushing each result. 80% of
-        blocks only need to override this method.
-
-        Pre-T-009 two-argument overrides ``(self, item, config)`` remain
-        source-compatible: :meth:`run` inspects the override's signature and
-        calls it with 2 args when no ``state`` parameter is present.
+        The recommended signature is ``(self, item, config, state=None)``, where
+        ``state`` is whatever :meth:`setup` returned and is shared across every
+        item in one :meth:`run` call. A two-argument override
+        ``(self, item, config)`` is also accepted: :meth:`run` inspects the
+        signature and omits ``state`` when the override does not declare it.
 
         Args:
-            item: A single DataObject from the primary input Collection.
-            config: BlockConfig for this run.
-            state: The opaque state returned by :meth:`setup`. ``None`` when
-                :meth:`setup` is not overridden.
+            item: One DataObject from the primary input Collection.
+            config: The block configuration for this run.
+            state: The value :meth:`setup` returned, shared across all items.
+                ``None`` when :meth:`setup` was not overridden.
 
         Returns:
-            The transformed DataObject (or any value the framework auto-flushes).
+            The transformed value for this item. The framework auto-flushes it
+            and packs it into the output Collection.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this method.
+
+        Example:
+            >>> class Doubler(ProcessBlock):
+            ...     algorithm = "doubler"
+            ...     def process_item(self, item, config, state=None):
+            ...         return item * 2
         """
         raise NotImplementedError("Subclass must implement process_item()")
 
@@ -128,19 +154,29 @@ class ProcessBlock(Block):
 
     @stable(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Default Tier 1 execution with setup/teardown lifecycle.
+        """Stream the primary input Collection through :meth:`process_item`.
 
-        Calls :meth:`setup` once before iterating the primary input
-        Collection, calls :meth:`process_item` per item with the shared
-        ``state``, auto-flushes each result, and packs into an output
-        Collection on the first output port. :meth:`teardown` runs in a
-        ``finally`` block so resources are released even when
-        :meth:`process_item` raises.
+        This is the default execution path for the common case. It calls
+        :meth:`setup` once, then calls :meth:`process_item` for each item of the
+        primary (first) input Collection with the shared ``state``, auto-flushes
+        each result, and packs the results into a single output Collection on
+        the first output port. :meth:`teardown` runs in a ``finally`` block, so
+        resources are released even when :meth:`process_item` raises. Peak
+        memory stays at roughly one item.
 
-        Subclasses that need custom iteration or multi-port logic should
-        override this method directly (Tier 2/3). Such overrides are
-        responsible for calling their own ``setup``/``teardown`` if they
-        need the lifecycle semantics.
+        Override this method directly when you need full control -- custom
+        iteration, multiple output ports, or batching. Such an override is
+        responsible for calling its own :meth:`setup` / :meth:`teardown` if it
+        wants the lifecycle behaviour.
+
+        Args:
+            inputs: Mapping of input port name to its Collection. The first
+                value is treated as the primary input to iterate.
+            config: The block configuration for this run.
+
+        Returns:
+            Mapping of the first output port name to a Collection holding the
+            processed items.
         """
         from scistudio.core.types.collection import Collection
 

@@ -1,10 +1,8 @@
-"""DataRouter -- interactive N-input to M-output item routing.
+"""DataRouter -- interactively route items from many inputs to many outputs.
 
-#591: Replaces separate Merge Selection / Slice Collection / Split Collection
-blocks with a single interactive block that lets users drag items from
-any input port to any output port.
-
-First consumer of ADR-029 variadic port system.
+A single interactive block that replaces separate merge/slice/split blocks:
+the user drags items from any input port onto any output port. The number of
+input and output ports is configurable rather than fixed.
 """
 
 from __future__ import annotations
@@ -26,33 +24,42 @@ from scistudio.core.types.base import DataObject
 logger = logging.getLogger(__name__)
 
 
+# Interaction model (pause/resume, worker subprocesses, panel manifest) is
+# specified in ADR-051; the variadic port system in ADR-029.
 class DataRouter(InteractiveMixin, ProcessBlock):
-    """Interactive N-to-M data routing block.
+    """Route items from several inputs to several outputs, by hand.
 
-    Users configure variadic input/output ports (ADR-029). At runtime the
-    block pauses with a drag-and-drop UI for manually routing items from
-    inputs to outputs.
+    Add as many input and output ports as you need, then wire data to them.
+    When the workflow reaches this block it pauses and opens a drag-and-drop
+    panel: drag each item from an input port onto the output port you want it
+    to leave by. Use it to merge, split, or re-sort items across branches
+    without writing code.
 
-    ADR-051: a processing block that carries the interaction capability
-    (``InteractiveMixin`` + ``execution_mode = INTERACTIVE``). It runs as two
-    worker subprocesses around an engine-held pause and opens its window through
-    the :attr:`interactive_panel` manifest rather than a hardcoded frontend
-    branch. Its item-routing behaviour is unchanged.
+    Ports: variadic on both sides -- the user adds input and output ports as
+    needed (at least one of each). Reads every connected input Collection and
+    emits one Collection per output port holding the items routed to it.
+    Config: reads ``interactive_response.assignments``, a mapping of output
+    port name to the list of item references the user dragged onto it; the
+    framework fills this in from the panel, so there is nothing to set by hand.
 
-    Runtime flow:
-        1. User configures N input ports + M output ports via variadic editor
-        2. Workflow reaches DataRouter; prompt phase builds the panel view
-           (subprocess) -> PAUSED
-        3. Frontend resolves the panel from the manifest (drag items inputs->outputs)
-        4. Confirm -> assignments sent to backend -> compute phase routes items -> DONE
+    This block is used by wiring it into a workflow and interacting with its
+    panel; it is not meant to be subclassed.
     """
 
     name: ClassVar[str] = "Data Router"
+    """Display name shown in the block palette and on the canvas node."""
+
     description: ClassVar[str] = "Interactive drag-and-drop routing of items from N inputs to M outputs"
+    """One-line summary shown in the palette and node tooltip."""
+
     algorithm: ClassVar[str] = "data_router"
+    """Stable identifier for this block's transform; recorded in metadata."""
+
     subcategory: ClassVar[str] = "routing"
+    """Palette subgroup this block is filed under (here, ``"routing"``)."""
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
+    """Marks the block as interactive: it pauses for user input mid-run."""
 
     # ADR-051: the block-owned window. Resolved by the frontend panel host from
     # the built-in panel registry (core panel; no wheel-served module_url).
@@ -60,24 +67,44 @@ class DataRouter(InteractiveMixin, ProcessBlock):
         panel_id="core.interactive.data_router",
         version="1",
     )
+    """Identifies the built-in UI panel the frontend opens when this block pauses."""
 
     variadic_inputs: ClassVar[bool] = True
+    """When ``True``, the user adds and removes input ports instead of using a fixed list."""
+
     variadic_outputs: ClassVar[bool] = True
+    """When ``True``, the user adds and removes output ports instead of using a fixed list."""
+
     allowed_input_types: ClassVar[list[type]] = []
+    """Data types selectable for the variadic input ports; empty means any type."""
+
     allowed_output_types: ClassVar[list[type]] = []
+    """Data types selectable for the variadic output ports; empty means any type."""
+
     min_input_ports: ClassVar[int | None] = 1
+    """Fewest input ports the user may configure."""
+
     min_output_ports: ClassVar[int | None] = 1
+    """Fewest output ports the user may configure."""
 
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
-        """Build the panel view for the interactive prompt (ADR-051 prompt phase).
+        """Build the data the drag-and-drop panel needs, while the block is paused.
 
-        Runs in an isolated worker subprocess. Returns an
-        :class:`~scistudio.blocks.base.interactive.InteractivePrompt` whose
-        ``panel_payload`` carries:
-            input_ports: list of port name strings
-            items_per_port: dict mapping port name to list of item descriptors
-            output_ports: list of output port name strings
-        DataRouter needs no intermediate reuse, so it returns no references.
+        Called before the pause to describe the items the user will route. Runs
+        in an isolated worker subprocess.
+
+        Args:
+            inputs: Mapping of input port name to its Collection (or a single
+                value), one entry per connected input port.
+            config: The block configuration for this run.
+
+        Returns:
+            An :class:`~scistudio.blocks.base.interactive.InteractivePrompt`
+            whose ``panel_payload`` carries ``input_ports`` (the input port
+            names), ``items_per_port`` (each port mapped to a list of item
+            descriptors), and ``output_ports`` (the output port names). It
+            holds no references because this block reuses nothing between the
+            prompt and the routing step.
         """
         from scistudio.core.types.collection import Collection
 
@@ -121,11 +148,26 @@ class DataRouter(InteractiveMixin, ProcessBlock):
         )
 
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """Route items from inputs to outputs based on user assignments.
+        """Route items from inputs to outputs using the user's panel choices.
 
-        The ``interactive_response`` in config contains:
-            assignments: dict mapping output port name to list of item refs
-                (each ref is "input_port:index")
+        Reads the assignments the user made in the panel and emits one
+        Collection per output port. If two routed items disagree on type, the
+        output Collection widens to the common ``DataObject`` type so mixed
+        routing does not fail.
+
+        Args:
+            inputs: Mapping of input port name to its Collection (or a single
+                value).
+            config: The block configuration. Its ``interactive_response``
+                holds ``assignments``: a mapping of output port name to the
+                list of item references (each ``"input_port:index"``) the user
+                dragged onto that port.
+
+        Returns:
+            Mapping of output port name to the Collection of items routed there.
+
+        Raises:
+            ValueError: If the interactive response contains no assignments.
         """
         from scistudio.core.types.collection import Collection
 
