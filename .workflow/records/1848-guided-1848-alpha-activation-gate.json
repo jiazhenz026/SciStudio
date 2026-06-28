@@ -147,13 +147,28 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-06-28T21:45:08.847212Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a50bccf2195d7cf04cc14eb9f57c9e6b1c36981eb0186d024c8ee90b8d289300",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "9fdefd1a358778a15c5467324f67ec72a521d019",
+    "sha": "06a19688be211d1a0119f0e237c521ecc221353b",
     "shas": [
-      "9fdefd1a358778a15c5467324f67ec72a521d019"
+      "06a19688be211d1a0119f0e237c521ecc221353b"
     ],
     "trailers": []
   },
@@ -562,6 +577,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.869529Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.878223Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.887335Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.895929Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.904274Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.912631Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.921182Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.930001Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.939143Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:08.953089Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.093304Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.103932Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.114051Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.124319Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.134284Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.144455Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.154271Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.164286Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.174267Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-28T21:45:20.188886Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -592,9 +727,9 @@
       "scripts/alpha-token.js",
       "scripts/build-issuer-app.sh"
     ],
-    "diff_fingerprint": "sha256:5f5f06bcc298bcf0ea6d9d5f31a189d123fa132fe1337fc915889bb380842d3c",
+    "diff_fingerprint": "sha256:261e215ccb206dd9e1bac378e905259df3c7bbfe28999946772ee554bb55146b",
     "head": "HEAD",
-    "head_sha": "9fdefd1a",
+    "head_sha": "06a19688",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -662,6 +797,22 @@
     {
       "at": "2026-06-28T21:31:08.312735Z",
       "diff_fingerprint": "sha256:5f5f06bcc298bcf0ea6d9d5f31a189d123fa132fe1337fc915889bb380842d3c",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T21:45:08.953123Z",
+      "diff_fingerprint": "sha256:261e215ccb206dd9e1bac378e905259df3c7bbfe28999946772ee554bb55146b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-28T21:45:20.188915Z",
+      "diff_fingerprint": "sha256:261e215ccb206dd9e1bac378e905259df3c7bbfe28999946772ee554bb55146b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
