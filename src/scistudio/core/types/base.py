@@ -246,7 +246,7 @@ class DataObject:
             meta: Typed domain metadata, or ``None``. A subclass with a
                 :attr:`Meta` model passes an instance of that model here.
             user: Free-form metadata. Copied on input so the caller's dict
-                cannot be mutated later. Must be JSON-serialisable.
+                cannot be mutated afterwards. Must be JSON-serialisable.
             storage_ref: Where the object's data is persisted, if it has
                 already been written to storage.
 
@@ -594,7 +594,7 @@ class DataObject:
         """Return the extra constructor arguments needed to rebuild an object.
 
         Extension point for subclass authors. When a data object is sent to a
-        worker subprocess it is taken apart into plain metadata and later
+        worker subprocess it is taken apart into plain metadata and then
         rebuilt; this hook supplies any constructor arguments **beyond** the
         four shared slots (``storage_ref``, ``framework``, ``meta``,
         ``user``).

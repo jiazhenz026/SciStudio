@@ -445,7 +445,7 @@ class PreviewMetadata:
 class PreviewResource:
     """Describes a bounded follow-up read a preview offers (a session resource).
 
-    An envelope can advertise extra reads the frontend may request later — an
+    An envelope can advertise extra reads the frontend may request on demand — an
     array tile, an image plane, a document page, or a child preview — without
     sending all of that data up front. Each one is described by a resource and
     fetched on demand through the session's resources route.
@@ -539,7 +539,7 @@ class PreviewEnvelope:
     session_id: str | None = None
     """Owning session id, or ``None`` for a one-shot preview."""
     resources: tuple[PreviewResource, ...] = ()
-    """Follow-up resources the frontend may fetch later."""
+    """Follow-up resources the frontend may fetch on demand."""
     metadata: PreviewMetadata = field(default_factory=PreviewMetadata)
     """Display and state flags for ``payload``."""
     diagnostics: tuple[str, ...] = ()

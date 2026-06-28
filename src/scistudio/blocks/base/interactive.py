@@ -156,7 +156,7 @@ class InteractivePrompt:
     """What :meth:`InteractiveMixin.prepare_prompt` returns to drive the panel.
 
     Bundles the window-sized view the panel renders together with any heavy
-    intermediate results the block wants to reuse later, without putting those
+    intermediate results the block wants to reuse afterwards, without putting those
     heavy results in memory or on the wire.
 
     Example:
@@ -167,7 +167,7 @@ class InteractivePrompt:
     """JSON-safe, window-sized view of the data the panel renders.
 
     Reducing the data to something a person can look at (a downsampled trace, a
-    summary table, a list of selectable items) is the block's job; the runtime
+    summary table, a list of selectable items) is the block's responsibility; the runtime
     rejects a payload that is not plain JSON.
     """
 

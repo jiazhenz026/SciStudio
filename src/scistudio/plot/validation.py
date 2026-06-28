@@ -28,7 +28,7 @@ from scistudio.plot.targets import discover_targets
 class LoadedPlot:
     """A plot resolved on disk: its id, directory, manifest, and script path.
 
-    The result of :func:`load_plot`. It bundles everything later steps need to run
+    The result of :func:`load_plot`. It bundles everything downstream steps need to run
     or inspect a plot, with every path already resolved and confined under the
     project root.
     """

@@ -67,7 +67,7 @@ def _discover_provider(provider: str) -> str | None:
     ADR-035 §3.8 references ``scistudio.ai.agent.claude_code.discover`` —
     that module does not yet exist (it is implied by ADR-034). For now
     we use ``shutil.which`` against a known executable name. The discover
-    module can replace this lookup later without changing the call site.
+    module can replace this lookup without changing the call site.
     """
     candidates = {
         "claude-code": ["claude"],

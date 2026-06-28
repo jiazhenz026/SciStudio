@@ -8,12 +8,12 @@ module; which format is written for a given extension is derived from
 :attr:`SaveData.format_capabilities`. It is the write-side counterpart of
 :class:`scistudio.blocks.io.loaders.LoadData`.
 
-Security — writing (and later loading) a pickle file can run arbitrary code
+Security — writing (and then loading) a pickle file can run arbitrary code
 ---------------------------------------------------------------------------
 ``.pkl`` / ``.pickle`` output is written with :mod:`pickle`. Saving itself is
 safe, but the matching load step runs whatever code is embedded in the file, so
 a shared workflow that enables ``allow_pickle`` becomes a way to run code on
-whoever later opens it. Pickle output therefore defaults to a hard refusal: it
+whoever opens it afterwards. Pickle output therefore defaults to a hard refusal: it
 only happens when the user explicitly enables ``allow_pickle``, and a loud
 ``WARNING`` is logged each time. Prefer a non-pickle format unless you control
 both ends.

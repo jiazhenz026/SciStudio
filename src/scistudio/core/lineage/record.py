@@ -10,7 +10,7 @@ Each dataclass mirrors one of the four tables in the lineage database:
 Object identity is the ``object_id`` carried in a ``DataObject``'s framework
 metadata, not a content digest. :class:`DataObjectRow` does keep a separate
 ``content_hash`` purely for integrity checks (detecting an artifact whose bytes
-were later overwritten); it is never used as an identity key.
+were overwritten afterwards); it is never used as an identity key.
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ class DataObjectRow:
     """One row in the ``data_objects`` table — a single ``DataObject`` ever seen.
 
     ``wire_payload`` carries the full reference-only envelope, so the object can
-    be reconstructed later even if the underlying ``storage_path`` is
+    be reconstructed afterwards even if the underlying ``storage_path`` is
     overwritten.
     """
 
@@ -108,7 +108,7 @@ class DataObjectRow:
     backend: str | None = None
     """Storage backend that holds the object's data (e.g. ``"zarr"``), or ``None``."""
     storage_path: str | None = None
-    """On-disk location of the object's data; best-effort and may later be overwritten."""
+    """On-disk location of the object's data; best-effort and may be overwritten by a subsequent run."""
     size_bytes: int | None = None
     """Size of the stored bytes at record time, or ``None`` when unknown."""
     mtime_at_write: str | None = None
@@ -117,10 +117,10 @@ class DataObjectRow:
     """The parent object's ``object_id`` when this object was derived, else ``None``."""
     produced_by_execution: str | None = None
     """The ``block_execution_id`` that produced this object, or ``None`` for external inputs."""
-    # Content digest captured at record time so a later run that overwrites the
+    # Content digest captured at record time so a subsequent run that overwrites the
     # same storage_path can be detected as a dangling artifact.
     content_hash: str | None = None
-    """Digest of the bytes at ``storage_path`` at record time, used to detect a later overwrite; ``None`` when not computable."""
+    """Digest of the bytes at ``storage_path`` at record time, used to detect a subsequent overwrite; ``None`` when not computable."""
 
 
 @dataclass

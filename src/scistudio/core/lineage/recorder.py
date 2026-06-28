@@ -182,7 +182,7 @@ class LineageRecorder:
 
         Call this once the run is finished (completed, errored, or cancelled) so
         the event bus stops holding a reference to the recorder and its store
-        handle, and so a later run's events are not fanned out to this stale
+        handle, and so a subsequent run's events are not fanned out to this stale
         recorder. Idempotent — repeated calls are no-ops.
         """
         if not self._subscribed:

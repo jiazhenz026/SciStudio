@@ -54,7 +54,7 @@ class EnvironmentSnapshot(BaseModel):
     """Best-effort record of the interpreter and environment a script ran in.
 
     Captures which interpreter was used and how it was chosen, so a run can be
-    understood and re-created later.
+    understood and re-created afterwards.
     """
 
     model_config = ConfigDict(extra="forbid")

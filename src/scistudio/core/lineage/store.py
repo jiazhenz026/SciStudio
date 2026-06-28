@@ -61,7 +61,7 @@ def hash_artifact_file(storage_path: str | None) -> str | None:
     """Return an xxhash digest of the file at *storage_path*, or ``None``.
 
     #1529 (DSN-5): records a content digest alongside the mutable
-    ``storage_path`` so a later run that overwrites the same path (ADR-038
+    ``storage_path`` so a subsequent run that overwrites the same path (ADR-038
     §3.5 "no per-run isolation") can be detected as a dangling artifact.
 
     Returns ``None`` (rather than raising) when *storage_path* is falsy, is
@@ -208,7 +208,7 @@ _SCHEMA_STATEMENTS: list[str] = [
         -- #1529 (DSN-5): content digest (xxhash) of the bytes at
         -- ``storage_path`` captured at record time, plus the size/mtime
         -- snapshot. ADR-038 §3.5 says on-disk intermediates may be
-        -- overwritten by a later run with no per-run isolation, so a bare
+        -- overwritten by a subsequent run with no per-run isolation, so a bare
         -- ``storage_path`` can silently dangle (point at bytes that no
         -- longer match what the producing run wrote). Recording the digest
         -- lets ``detect_dangling_objects`` flag artifacts whose current
@@ -434,7 +434,7 @@ class LineageStore:
             status: Terminal status (e.g. ``"completed"``, ``"failed"``).
             provenance_degraded: Whether any lineage write for this run failed.
                 It is OR-ed into the stored column, so a single failed write
-                latches the flag even if later writes succeed.
+                latches the flag even if subsequent writes succeed.
         """
         with self._connect() as conn:
             conn.execute(
@@ -607,12 +607,12 @@ class LineageStore:
 
         Duplicate writes of the same ``object_id`` are no-ops; the producing
         run's recorded ``storage_path`` is deliberately preserved rather than
-        overwritten by a later run.
+        overwritten by a subsequent run.
 
         When the row has a ``storage_path`` but no ``content_hash``, the digest
         of the on-disk bytes is computed here (along with the size and
         modification time when not supplied), so :meth:`check_object_integrity`
-        and :meth:`detect_dangling_objects` can later tell whether the path
+        and :meth:`detect_dangling_objects` can subsequently tell whether the path
         still points at the bytes the producing run wrote.
 
         Args:
@@ -696,7 +696,7 @@ class LineageStore:
 
             * ``"ok"`` — the recorded hash matches the current file bytes.
             * ``"dangling"`` — a hash was recorded but the file is missing or
-              its bytes differ (overwritten by a later run, deleted, ...).
+              its bytes differ (overwritten by a subsequent run, deleted, ...).
             * ``"unknown"`` — not checkable: no such row, no ``storage_path``,
               no recorded hash, or a path that is not a regular file (e.g. a
               directory-backed backend).

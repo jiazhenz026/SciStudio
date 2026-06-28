@@ -20,7 +20,7 @@ class Artifact(DataObject):
     """An opaque file: a PDF, a rendered report, an image, a binary blob.
 
     Use an :class:`Artifact` when the result of a step is a whole file that
-    later steps should carry along or save rather than inspect. SciStudio
+    downstream steps should carry along or save rather than inspect. SciStudio
     does not parse its contents; it just tracks the file, its MIME type, and
     a human-readable description.
 
