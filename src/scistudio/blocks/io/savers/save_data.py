@@ -1,58 +1,22 @@
-"""SaveData — dynamic-port core IO saver (ADR-028 Addendum 1 §C5/§C9, ADR-043).
+"""SaveData -- the built-in saver that writes core data objects to files.
 
-The :class:`SaveData` block is the canonical core IO **output** block:
-one block class with a ``core_type`` enum that drives a per-instance
-``InputPort`` accepted-types override via
-:meth:`SaveData.get_effective_input_ports`, and a small dispatch
-table that routes :meth:`SaveData.save` to one of six module-level
-private ``_save_*`` functions per ADR-028 Addendum 1 §C9 (private
-functions, **not** helper classes).
+:class:`SaveData` is one block that can write any of the six core data types
+(Array, DataFrame, Series, Text, Artifact, CompositeData). Its ``core_type``
+setting picks the type, which also retypes the single ``data`` input port. The
+actual file-writing work lives in small private ``_save_*`` functions in this
+module; which format is written for a given extension is derived from
+:attr:`SaveData.format_capabilities`. It is the write-side counterpart of
+:class:`scistudio.blocks.io.loaders.LoadData`.
 
-The six private functions absorb the write logic from the deleted
-``csv_adapter.py``, ``parquet_adapter.py``, ``zarr_adapter.py``, and
-``generic_adapter.py``. ``allow_pickle`` gating happens inside each
-``_save_*`` whenever the file extension is ``.pkl`` or ``.pickle`` —
-the default is ``False`` and a write to a pickle file fails loudly
-unless the user explicitly opts in. When pickle is enabled an explicit
-security warning is logged at ``WARNING`` level.
-
-This block is symmetric with :class:`scistudio.blocks.io.loaders.LoadData`
-(T-TRK-007). The two blocks share the same ``_CORE_TYPE_MAP`` /
-``config_schema`` shape; the only differences are ``direction``,
-``input_ports`` vs ``output_ports``, and ``input_port_mapping`` vs
-``output_port_mapping`` in the ``dynamic_ports`` declaration.
-
-ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003:
-``SaveData`` now declares explicit ``FormatCapability`` records via
-``format_capabilities`` (mirror of ``LoadData.format_capabilities`` with
-``direction="save"``). The legacy ``supported_extensions`` ClassVar has
-been removed; format dispatch is derived from the capability
-declarations via :func:`_legacy_save_extension_map`. Each save
-capability is paired with its load sibling via ``roundtrip_group``.
-
-Module layout (Path D, issue #1459, Phase 2 of #1427)
------------------------------------------------------
-
-The module-level helper functions that used to live in this file were
-extracted to private sibling modules per ADR-028 Addendum 1 §C9
-("private functions, not helper classes" — Path D satisfies this
-verbatim because the new siblings contain *only* module-level
-``_underscore`` functions, no classes):
-
-- :mod:`scistudio.blocks.io.savers._capability` — ``FormatCapability``
-  declarations, ``_SAVE_EXTENSION_MAP``, ``_resolve_save_format``.
-- :mod:`scistudio.blocks.io.savers._helpers` — ``_require_path``,
-  ``_check_pickle_gate``, ``_unwrap_for_save``, ``_CORE_TYPE_MAP``,
-  and the small per-format coercion helpers shared by the dispatch
-  functions.
-- :mod:`scistudio.blocks.io.savers._streaming` — row-group / zero
-  materialisation export paths used by ``_save_array`` and
-  ``_save_dataframe`` (ADR-031 Phase 3).
-
-The helper symbols are re-imported at module level below so legacy
-callers that do ``from scistudio.blocks.io.savers.save_data import
-_SAVE_CAPABILITIES`` (test code, mostly) continue to work without
-change.
+Security — writing (and later loading) a pickle file can run arbitrary code
+---------------------------------------------------------------------------
+``.pkl`` / ``.pickle`` output is written with :mod:`pickle`. Saving itself is
+safe, but the matching load step runs whatever code is embedded in the file, so
+a shared workflow that enables ``allow_pickle`` becomes a way to run code on
+whoever later opens it. Pickle output therefore defaults to a hard refusal: it
+only happens when the user explicitly enables ``allow_pickle``, and a loud
+``WARNING`` is logged each time. Prefer a non-pickle format unless you control
+both ends.
 """
 
 from __future__ import annotations
@@ -344,55 +308,63 @@ def _selected_package_save_capability(config: BlockConfig) -> str | None:
 
 
 class SaveData(IOBlock):
-    """Dynamic-port core IO **output** block (ADR-028 Addendum 1 §C5/§C9).
+    """Write one of the six core data types to a file (the built-in "Save" block).
 
-    A single block class that exposes the ``core_type`` enum to drive
-    a per-instance ``InputPort.accepted_types`` override on the
-    ``data`` input port. Dispatches :meth:`save` to one of six private
-    module-level ``_save_*`` functions based on ``core_type``.
+    A single saver block that writes an :class:`Array`, :class:`DataFrame`,
+    :class:`Series`, :class:`Text`, :class:`Artifact`, or :class:`CompositeData`
+    to disk. The ``core_type`` config field chooses which type to accept, and the
+    single ``data`` input port is retyped to match. A multi-item
+    :class:`Collection` is written as one file per item under the configured
+    folder (DataFrame/Series collections from a multi-sheet ``.xlsx`` are
+    regrouped back into multi-sheet workbooks).
 
-    See :class:`scistudio.blocks.io.loaders.LoadData` (T-TRK-007) for the
-    symmetric input-direction block.
+    Ports: one input port ``data`` (required); no output port (the written path
+    is returned as a receipt, not a typed port). Config: ``core_type`` (required),
+    optional ``filename`` and ``overwrite``, and the inherited ``path``. Supported
+    formats depend on ``core_type`` and are declared in
+    :attr:`format_capabilities` — for example CSV / TSV / Parquet / JSON / XLSX
+    for tabular types and NPY / NPZ / Zarr for arrays. ``.pkl`` / ``.pickle`` is
+    written only when ``allow_pickle`` is explicitly enabled (see this module's
+    security note).
+
+    This is the write-side counterpart of
+    :class:`scistudio.blocks.io.loaders.LoadData`.
     """
 
     direction: ClassVar[str] = "output"
+    """Fixed to ``"output"`` — SaveData is a saver."""
     type_name: ClassVar[str] = "save_data"
+    """Stable registry identifier for this block type."""
     name: ClassVar[str] = "Save"
+    """Display name shown in the UI block library."""
     description: ClassVar[str] = (
         "Save a core DataObject (Array / DataFrame / Series / Text / Artifact / CompositeData) to disk."
     )
+    """One-line description shown in the UI."""
     subcategory: ClassVar[str] = "io"
+    """Block-library subcategory this block is grouped under."""
 
-    # ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003:
-    # explicit per-(type, format) capability records. Replaces the
-    # legacy ``supported_extensions`` ClassVar which has been removed.
-    # The capability id convention follows spec FR-015:
-    # ``core.{lower(type)}.{format_id}.save``. Each save capability is
-    # paired with its load sibling via ``roundtrip_group``. Pickle
-    # records carry ``notes="requires allow_pickle=True"``; the runtime
-    # gate is enforced by :func:`_check_pickle_gate`. Extension
-    # dispatch is derived from these records at module load time via
-    # :data:`_SAVE_EXTENSION_MAP`.
+    # Capability id convention: ``core.{lower(type)}.{format_id}.save``. Each save
+    # capability is paired with its load sibling via ``roundtrip_group``. Pickle
+    # records carry ``notes="requires allow_pickle=True"``; the runtime gate is
+    # ``_check_pickle_gate``. Extension dispatch is derived from these records at
+    # module load time via ``_SAVE_EXTENSION_MAP``.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = _SAVE_CAPABILITIES
+    """The (type, format) pairs this saver can write, as :class:`FormatCapability`
+    records. Extension-based format dispatch is derived from these."""
 
-    # The ``data`` input port's accepted_types is a placeholder
-    # ``[DataObject]`` here. The per-instance override in
-    # :meth:`get_effective_input_ports` tightens this to the specific
-    # core type chosen via ``config['core_type']``.
+    # The ``data`` input port's accepted_types is a placeholder ``[DataObject]``
+    # here; the per-instance override in :meth:`get_effective_input_ports`
+    # tightens it to the core type chosen via ``config['core_type']``.
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=True),
     ]
-    # SaveData has no output ports — it is a sink. The default
-    # ``IOBlock.run`` returns the configured path under the ``"path"``
-    # key for downstream consumers; that key is not exposed as a typed
-    # ``OutputPort`` because it is a write receipt, not a DataObject.
+    """Static input ports. The single ``data`` port is retyped per instance by
+    :meth:`get_effective_input_ports` from the chosen ``core_type``."""
     output_ports: ClassVar[list[OutputPort]] = []
+    """Empty — SaveData is a sink. The written path comes back as a ``"path"``
+    receipt from :meth:`IOBlock.run`, not as a typed output port."""
 
-    # ADR-028 Addendum 1 D1: declarative dynamic-port descriptor. Mirror
-    # of :attr:`LoadData.dynamic_ports` but uses ``input_port_mapping``
-    # (singular per-block: SaveData drives the single ``data`` input
-    # port). The frontend ``computeEffectivePorts`` helper in T-TRK-009
-    # must handle both keys.
     dynamic_ports: ClassVar[dict[str, Any] | None] = {
         "source_config_key": "core_type",
         "input_port_mapping": {
@@ -406,6 +378,8 @@ class SaveData(IOBlock):
             },
         },
     }
+    """Descriptor the API and frontend read to recolour the input port live as the
+    user changes ``core_type``."""
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -428,11 +402,13 @@ class SaveData(IOBlock):
                 "default": False,
                 "ui_priority": 3,
             },
-            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            # Direction-aware post-processing auto-switches to directory_browser.
+            # ``path`` is inherited from the IOBlock base class via MRO merge;
+            # direction-aware post-processing switches it to a directory browser.
         },
         "required": ["core_type"],
     }
+    """JSON-schema for the block config: ``core_type`` (enum, required),
+    ``filename``, ``overwrite``, plus the inherited ``path`` field."""
 
     def _detect_format(self, path: Path) -> str | None:
         """Resolve *path* to a stable format id via the capability map.
@@ -454,12 +430,14 @@ class SaveData(IOBlock):
         return None
 
     def get_effective_input_ports(self) -> list[InputPort]:
-        """Return effective input ports tightened to the chosen ``core_type``.
+        """Return the input port retyped to the configured ``core_type``.
 
-        Reads ``self.config['core_type']`` and looks up the matching
-        :class:`DataObject` subclass in :data:`_CORE_TYPE_MAP`; an
-        unknown enum value falls back to :class:`DataFrame` (the
-        documented default in :attr:`config_schema`).
+        Reads ``self.config['core_type']`` and tightens the ``data`` input port's
+        accepted type to the matching core type. An unknown value falls back to
+        :class:`DataFrame` (the documented default).
+
+        Returns:
+            A one-element list holding the effective ``data`` input port.
         """
         type_name = self.config.get("core_type", "DataFrame")
         cls = _CORE_TYPE_MAP.get(type_name)
@@ -470,20 +448,32 @@ class SaveData(IOBlock):
         return [InputPort(name="data", accepted_types=[cls], required=True)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
-        """SaveData is output-only — :meth:`load` raises.
+        """``SaveData`` is output-only; :meth:`load` always raises.
 
-        Use :class:`scistudio.blocks.io.loaders.LoadData` for the
-        input-direction core IO block.
+        Use :class:`scistudio.blocks.io.loaders.LoadData` to read files.
+
+        Raises:
+            NotImplementedError: always.
         """
         raise NotImplementedError("SaveData is output-only; use LoadData for input.")
 
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
-        """Dispatch to the matching ``_save_*`` function based on ``core_type``.
+        """Write *obj* using the writer for the configured ``core_type``.
 
-        ``obj`` may be a bare :class:`DataObject` or a homogeneous
-        :class:`Collection` whose items match the configured
-        ``core_type``. Multi-item Collections are written as one file per
-        item under the configured folder path.
+        ``obj`` may be a single :class:`DataObject` or a homogeneous
+        :class:`Collection` whose items match ``core_type``. A multi-item
+        Collection is written as one file per item under the configured folder;
+        DataFrame/Series collections destined for ``.xlsx`` are regrouped into
+        multi-sheet workbooks instead.
+
+        Args:
+            obj: The object or Collection to write.
+            config: Block config; reads ``core_type``, ``path``, ``filename``,
+                and the optional ``allow_pickle`` opt-in.
+
+        Raises:
+            ValueError: if ``core_type`` is unknown, or a package capability is
+                selected with a multi-item Collection input.
         """
         type_name = config.get("core_type", "DataFrame")
         if type_name not in _CORE_TYPE_MAP:

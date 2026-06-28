@@ -1,8 +1,10 @@
-"""IO format capability declarations for ADR-043.
+"""Records that describe which file formats an IO block can read or write.
 
-The classes in this module describe boundary conversions owned by IOBlock
-classes. They intentionally model file formats as IO capabilities, not as
-properties of DataObject types.
+A "capability" pairs a data type with one external file format (for example,
+"this block can save a DataFrame as CSV") plus a note on how faithfully metadata
+survives the round trip. File-format support lives here, on the IO block that
+performs the conversion, rather than on the data type itself: the same DataFrame
+can be saved by several different blocks to several different formats.
 """
 
 from __future__ import annotations
@@ -16,15 +18,23 @@ from pydantic import BaseModel
 from scistudio.core.types.base import DataObject
 from scistudio.stability import stable
 
-# Stability: stable type-aliases (ADR-052 §6.3). ``Literal`` special forms
-# cannot carry a stability marker; tier is recorded in the ADR-052 contract.
+# ``Literal`` special forms cannot carry a stability marker; the stable tier for
+# these aliases is recorded in the public-API contract docs.
 CapabilityDirection = Literal["load", "save"]
+"""Direction of a capability: ``"load"`` reads a file, ``"save"`` writes one."""
 MetadataFidelityLevel = Literal[
     "pixel_only",
     "typed_meta",
     "format_specific",
     "lossless",
 ]
+"""How much metadata a capability preserves, from least to most.
+
+``"pixel_only"`` keeps only the raw values; ``"typed_meta"`` also preserves the
+data object's typed ``meta`` fields; ``"format_specific"`` additionally keeps
+format-native metadata; ``"lossless"`` guarantees a faithful round trip and must
+name a ``roundtrip_group``.
+"""
 
 VALID_CAPABILITY_DIRECTIONS: frozenset[str] = frozenset({"load", "save"})
 VALID_METADATA_FIDELITY_LEVELS: frozenset[str] = frozenset({"pixel_only", "typed_meta", "format_specific", "lossless"})
@@ -32,31 +42,55 @@ VALID_METADATA_FIDELITY_LEVELS: frozenset[str] = frozenset({"pixel_only", "typed
 
 @stable(since="0.3.1")
 class CapabilityValidationError(ValueError):
-    """Base class for invalid IO capability declarations.
+    """Base error for an invalid IO format-capability declaration.
 
-    Public/stable (ADR-052 §6.3): authors may catch this (and its subclasses)
-    for internal fallback when a capability declaration is rejected.
+    Raised when a block declares a :class:`FormatCapability`,
+    :class:`MetadataFidelity`, or a :class:`~scistudio.blocks.io.SimpleLoader` /
+    :class:`~scistudio.blocks.io.SimpleSaver` whose fields do not make sense.
+    Catch this (or one of its more specific subclasses below) when you want to
+    detect and recover from a bad declaration yourself instead of letting it
+    propagate.
     """
 
 
 @stable(since="0.3.1")
 class InvalidExtensionError(CapabilityValidationError):
-    """Raised when an extension cannot be normalized safely."""
+    """Raised when a file extension cannot be turned into a safe ``.ext`` form.
+
+    Triggered by, for example, an empty string, a bare ``"."``, or a value that
+    contains a path separator such as ``"/"`` or ``"\\"``.
+    """
 
 
 @stable(since="0.3.1")
 class InvalidMetadataFidelityError(CapabilityValidationError):
-    """Raised when a metadata fidelity declaration is invalid."""
+    """Raised when a :class:`MetadataFidelity` declaration is inconsistent.
+
+    For example: an unknown fidelity level, a ``"pixel_only"`` level that still
+    lists preserved fields, or a typed-metadata field that the data type's
+    ``Meta`` model does not declare.
+    """
 
 
 @stable(since="0.3.1")
 class InvalidFormatCapabilityError(CapabilityValidationError):
-    """Raised when a format capability declaration is internally invalid."""
+    """Raised when a :class:`FormatCapability` record is internally inconsistent.
+
+    For example: a blank id or label, a direction other than ``"load"`` /
+    ``"save"``, a ``data_type`` that is not a :class:`DataObject` subclass, or a
+    ``"lossless"`` capability that names no ``roundtrip_group``.
+    """
 
 
 @stable(since="0.3.1")
 class SimpleIODeclarationError(CapabilityValidationError):
-    """Raised when a SimpleLoader/SimpleSaver class omits required fields."""
+    """Raised when a :class:`~scistudio.blocks.io.SimpleLoader` or
+    :class:`~scistudio.blocks.io.SimpleSaver` subclass omits a required field.
+
+    These ergonomic bases require the subclass to set ``format_id``,
+    ``extensions``, and the ``output_type`` (loader) or ``input_type`` (saver).
+    The error names the field that is missing or has the wrong type.
+    """
 
 
 def normalize_extension(extension: str) -> str:
@@ -122,14 +156,34 @@ def _meta_model_fields(data_type: type[DataObject]) -> frozenset[str]:
 @stable(since="0.3.1")
 @dataclass(frozen=True)
 class MetadataFidelity:
-    """Typed ``meta`` preservation contract for one IO boundary capability."""
+    """How much of a file's metadata one IO capability preserves.
+
+    Attach this to a :class:`FormatCapability` to record what survives a read or
+    write: just the raw values, the data object's typed ``meta`` fields, extra
+    format-native metadata, or a fully lossless round trip. On construction the
+    declared fields are checked for consistency (for example, a ``"pixel_only"``
+    capability may not also list preserved fields).
+
+    Example:
+        >>> MetadataFidelity(level="pixel_only")  # keep only the values
+        >>> MetadataFidelity(
+        ...     level="typed_meta",
+        ...     typed_meta_writes=("exposure_time",),
+        ... )
+    """
 
     level: MetadataFidelityLevel = "pixel_only"
+    """Overall preservation level; see :data:`MetadataFidelityLevel`."""
     typed_meta_reads: tuple[str, ...] = ()
+    """Typed ``meta`` field names this capability fills in when *reading* a file."""
     typed_meta_writes: tuple[str, ...] = ()
+    """Typed ``meta`` field names this capability persists when *writing* a file."""
     format_metadata_reads: tuple[str, ...] = ()
+    """Format-native metadata keys recovered when *reading* (``format_specific``)."""
     format_metadata_writes: tuple[str, ...] = ()
+    """Format-native metadata keys preserved when *writing* (``format_specific``)."""
     notes: str | None = None
+    """Optional free-text note describing fidelity caveats for this capability."""
 
     def __post_init__(self) -> None:
         if self.level not in VALID_METADATA_FIDELITY_LEVELS:
@@ -159,20 +213,43 @@ class MetadataFidelity:
     @property
     @stable(since="0.3.1")
     def typed_meta_fields(self) -> tuple[str, ...]:
-        """Return all declared typed ``meta`` fields without duplicates."""
+        """All typed ``meta`` field names this capability touches, de-duplicated.
+
+        Returns:
+            The union of :attr:`typed_meta_reads` and :attr:`typed_meta_writes`,
+            in first-seen order with duplicates removed.
+        """
 
         return tuple(dict.fromkeys((*self.typed_meta_reads, *self.typed_meta_writes)))
 
     @property
     @stable(since="0.3.1")
     def format_metadata_fields(self) -> tuple[str, ...]:
-        """Return all declared format-specific metadata fields without duplicates."""
+        """All format-native metadata keys this capability touches, de-duplicated.
+
+        Returns:
+            The union of :attr:`format_metadata_reads` and
+            :attr:`format_metadata_writes`, in first-seen order without
+            duplicates.
+        """
 
         return tuple(dict.fromkeys((*self.format_metadata_reads, *self.format_metadata_writes)))
 
     @stable(since="0.3.1")
     def validate_typed_meta_fields(self, data_type: type[DataObject]) -> None:
-        """Validate declared typed ``meta`` fields against ``data_type.Meta``."""
+        """Check that every declared typed ``meta`` field exists on the data type.
+
+        Pass the :class:`DataObject` subclass the capability applies to. The
+        check does nothing when no typed fields are declared.
+
+        Args:
+            data_type: Data type whose ``Meta`` model must declare the fields
+                named in :attr:`typed_meta_reads` / :attr:`typed_meta_writes`.
+
+        Raises:
+            InvalidMetadataFidelityError: if any declared field is missing from
+                ``data_type.Meta``.
+        """
 
         fields = self.typed_meta_fields
         if not fields:
@@ -188,21 +265,59 @@ class MetadataFidelity:
 @stable(since="0.3.1")
 @dataclass(frozen=True)
 class FormatCapability:
-    """One external file-format conversion owned by an IOBlock class."""
+    """One file-format conversion an IO block can perform.
+
+    Records that a specific block can read (or write) one data type as one file
+    format — for example, "save a :class:`DataFrame` as a ``.csv`` file". A block
+    lists its capabilities in its ``format_capabilities`` so the runtime can pick
+    the right block for a given file extension and so the format appears in the
+    UI. Every field is validated and normalized on construction (extensions are
+    lowercased with a leading dot, ids and labels are trimmed).
+
+    Example:
+        >>> FormatCapability(
+        ...     id="mypkg.MyCsvSaver.save.csv",
+        ...     direction="save",
+        ...     data_type=DataObject,
+        ...     format_id="csv",
+        ...     extensions=(".csv",),
+        ...     label="CSV",
+        ...     block_type="MyCsvSaver",
+        ...     handler="save_file",
+        ... )
+    """
 
     id: str
+    """Stable, unique identifier for this capability (e.g. ``"mypkg.Saver.save.csv"``)."""
     direction: CapabilityDirection
+    """Whether this capability loads (reads) or saves (writes) the file."""
     data_type: type[DataObject]
+    """The :class:`DataObject` subclass this capability reads into or writes from."""
     format_id: str
+    """Short stable format name, lowercased (e.g. ``"csv"``, ``"ome_tiff"``)."""
     extensions: tuple[str, ...]
+    """File extensions this format uses, normalized to lowercase with a leading dot."""
     label: str
+    """Human-readable name shown in the UI (e.g. ``"CSV"``, ``"OME-TIFF"``)."""
     block_type: str
+    """Class name of the IO block that owns this capability."""
     handler: str
+    """Name of the block method that performs the conversion (e.g. ``"save_file"``)."""
     is_default: bool = False
+    """Whether this is the preferred capability when several match one extension."""
     priority: int = 0
+    """Tie-breaker when several capabilities match; higher wins."""
     roundtrip_group: str | None = None
+    """Tag pairing a load capability with its matching save capability.
+
+    Required for ``"lossless"`` fidelity so the framework knows the read and
+    write sides form a faithful round trip.
+    """
     metadata_fidelity: MetadataFidelity = field(default_factory=MetadataFidelity)
+    """How much metadata this conversion preserves; see :class:`MetadataFidelity`."""
     is_synthesized: bool = False
+    """``True`` when this record was generated from a legacy declaration rather
+    than written by hand. See :attr:`migration_scaffold`."""
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
@@ -243,13 +358,24 @@ class FormatCapability:
     @property
     @stable(since="0.3.1")
     def migration_scaffold(self) -> bool:
-        """Whether this capability was synthesized from legacy declarations."""
+        """Whether this capability was generated from a legacy declaration.
+
+        Returns:
+            ``True`` when the record was synthesized automatically (so tools can
+            tell it apart from a final, hand-authored declaration); otherwise
+            ``False``. Mirrors :attr:`is_synthesized`.
+        """
 
         return self.is_synthesized
 
     @property
     @stable(since="0.3.1")
     def normalized_extensions(self) -> tuple[str, ...]:
-        """Return normalized extensions for downstream registry code."""
+        """The capability's file extensions, already lowercased with leading dots.
+
+        Returns:
+            The same value as :attr:`extensions`; exposed under this name for
+            registry code that asks for the normalized form explicitly.
+        """
 
         return self.extensions

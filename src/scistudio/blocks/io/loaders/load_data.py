@@ -1,42 +1,22 @@
-"""LoadData -- dynamic-port core IO loader (ADR-028 Addendum 1, ADR-043).
+"""LoadData -- the built-in loader that reads core data objects from files.
 
-Canonical core IO loader block per ADR-028 Addendum 1 §C5 (hardcoded
-``_CORE_TYPE_MAP``) and §C9 (private module-level dispatch functions
-instead of helper classes). ADR-043 / spec ``adr-043-package-migration``
-FR-001 / FR-003 added the explicit :class:`FormatCapability` records on
-:attr:`LoadData.format_capabilities`; format dispatch is derived from
-those records via :func:`_legacy_extension_map` and held in
-:data:`_LOAD_EXTENSION_MAP`.
+:class:`LoadData` is one block that can load any of the six core data types
+(Array, DataFrame, Series, Text, Artifact, CompositeData). Its ``core_type``
+setting picks the type, which also retypes (and recolours) the single output
+port. The actual file-reading work lives in small private ``_load_*`` functions
+in this module; which format is read for a given extension is derived from
+:attr:`LoadData.format_capabilities`.
 
-Module-level helpers were extracted to private sibling modules per
-issue #1459 (Phase 2 of #1427) so this file stays under the 750-LOC
-god-file threshold. Path D satisfies §C9 verbatim: every extracted
-sibling contains only ``_underscore`` module-level functions, no
-classes.
-
-- :mod:`scistudio.blocks.io.loaders._capability` — ``FormatCapability``
-  declarations, ``_LOAD_EXTENSION_MAP``, ``_resolve_format``.
-- :mod:`scistudio.blocks.io.loaders._helpers` — ``_resolve_path``,
-  ``_check_pickle_allowed``, ``_CORE_TYPE_MAP``, ``_TEXT_FORMAT_MAP``.
-
-The helper symbols are re-imported below so legacy callers that do
-``from scistudio.blocks.io.loaders.load_data import _LOAD_CAPABILITIES``
-(test code, mostly) continue to work without change. The load side has
-no streaming sibling: pyarrow readers already operate batch-by-batch.
-
-Security — pickle is remote code execution (#1545 / BUG-10)
-----------------------------------------------------------
-``.pkl`` / ``.pickle`` inputs are deserialised with :func:`pickle.load`,
-which **executes arbitrary code** embedded in the byte stream. Because
-the ``allow_pickle`` opt-in lives in the block config (persisted in the
-workflow YAML), a *shared or untrusted* workflow that sets
-``allow_pickle: true`` on a ``LoadData`` block pointed at a crafted
-``.pkl`` turns "open someone's project and press Run" into code
-execution on the opener's machine. The gate (:func:`_check_pickle_allowed`)
-keeps the default ``False`` (hard refusal unless explicitly enabled) and
-emits a loud ``WARNING`` whenever the opt-in is honoured so the run is
-auditable. Per #1545 we do not change the default behavior here; a richer
-UI acknowledgement is tracked on that issue.
+Security — opening a pickle file can run arbitrary code
+-------------------------------------------------------
+``.pkl`` / ``.pickle`` inputs are read with :func:`pickle.load`, which
+**executes whatever code is embedded in the file**. Because the ``allow_pickle``
+opt-in is stored in the block config (and saved into the workflow file), a shared
+or untrusted workflow that turns ``allow_pickle`` on and points at a crafted
+``.pkl`` can run code on the machine of whoever opens the project and presses
+Run. Loading a pickle therefore defaults to a hard refusal: it only happens when
+the user explicitly enables ``allow_pickle``, and a loud ``WARNING`` is logged
+each time so the run is auditable. Only load ``.pkl`` files you trust.
 """
 
 from __future__ import annotations
@@ -95,42 +75,53 @@ def _is_xlsx_path(path: Any) -> bool:
 
 
 class LoadData(IOBlock):
-    """Dynamic-port core IO loader covering the six core ``DataObject`` types.
+    """Load one of the six core data types from a file (the built-in "Load" block).
 
-    The block exposes a single output port ``data`` whose ``accepted_types``
-    are computed from the ``core_type`` config field via
-    :meth:`get_effective_output_ports`. The ``dynamic_ports`` ClassVar is
-    the static descriptor that the API and frontend consume to render the
-    enum-driven port-color UI.
+    A single loader block that reads an :class:`Array`, :class:`DataFrame`,
+    :class:`Series`, :class:`Text`, :class:`Artifact`, or :class:`CompositeData`
+    from disk. The ``core_type`` config field chooses which type to produce, and
+    the single ``data`` output port is retyped to match (so the canvas shows the
+    right port colour). When ``path`` is a list of files — or points at a
+    multi-sheet ``.xlsx`` — the block emits a :class:`Collection` instead of a
+    single object.
 
-    See ADR-028 Addendum 1 §C5 / §C9 and the implementation standards doc
-    T-TRK-007 (lines 1243-1446) for the full contract.
+    Ports: no input port (a loader reads from ``path``); one output port
+    ``data``. Config: ``core_type`` (required; one of the six type names) and the
+    inherited ``path``. Supported file formats depend on ``core_type`` and are
+    declared in :attr:`format_capabilities` — for example CSV / TSV / Parquet /
+    JSON for tabular types, NPY / NPZ / Zarr for arrays, and plain-text formats
+    for Text. ``.pkl`` / ``.pickle`` is read only when ``allow_pickle`` is
+    explicitly enabled (see the security note in this module's docstring).
     """
 
     direction: ClassVar[str] = "input"
+    """Fixed to ``"input"`` — LoadData is a loader."""
     type_name: ClassVar[str] = "load_data"
+    """Stable registry identifier for this block type."""
     name: ClassVar[str] = "Load"
+    """Display name shown in the UI block library."""
     description: ClassVar[str] = (
         "Load a single core DataObject (Array, DataFrame, Series, Text, "
         "Artifact, or CompositeData) from a file. The output port type "
         "follows the configured core_type."
     )
+    """One-line description shown in the UI."""
     subcategory: ClassVar[str] = "io"
+    """Block-library subcategory this block is grouped under."""
 
-    # ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003:
-    # explicit per-(type, format) capability records. Replaces the
-    # legacy ``supported_extensions`` ClassVar which has been removed.
-    # The capability id convention follows spec FR-015:
-    # ``core.{lower(type)}.{format_id}.load``. Pickle records carry
-    # ``notes="requires allow_pickle=True"``; the runtime gate is
-    # enforced by :func:`_check_pickle_allowed`. Extension dispatch is
-    # derived from these records at module load time via
-    # :data:`_LOAD_EXTENSION_MAP`.
+    # Capability id convention: ``core.{lower(type)}.{format_id}.load``. Pickle
+    # records carry ``notes="requires allow_pickle=True"``; the runtime gate is
+    # ``_check_pickle_allowed``. Extension dispatch is derived from these records
+    # at module load time via ``_LOAD_EXTENSION_MAP``.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = _LOAD_CAPABILITIES
+    """The (type, format) pairs this loader can read, as :class:`FormatCapability`
+    records. Extension-based format dispatch is derived from these."""
 
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="data", accepted_types=[DataObject]),
     ]
+    """Static output ports. The single ``data`` port is retyped per instance by
+    :meth:`get_effective_output_ports` from the chosen ``core_type``."""
 
     dynamic_ports: ClassVar[dict[str, Any] | None] = {
         "source_config_key": "core_type",
@@ -145,6 +136,8 @@ class LoadData(IOBlock):
             },
         },
     }
+    """Descriptor the API and frontend read to recolour the output port live as
+    the user changes ``core_type``."""
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -155,10 +148,12 @@ class LoadData(IOBlock):
                 "default": "DataFrame",
                 "ui_priority": 0,
             },
-            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
+            # ``path`` is inherited from the IOBlock base class via MRO merge.
         },
         "required": ["core_type"],
     }
+    """JSON-schema for the block config: ``core_type`` (enum, required) plus the
+    inherited ``path`` field."""
 
     def _detect_format(self, path: Path) -> str | None:
         """Resolve *path* to a stable format id via the capability map.
@@ -180,18 +175,18 @@ class LoadData(IOBlock):
         return None
 
     def get_effective_output_ports(self) -> list[OutputPort]:
-        """Return the per-instance output port for the configured ``core_type``.
+        """Return the output port retyped to the configured ``core_type``.
 
-        Reads ``self.config["core_type"]`` (defaulting to ``"DataFrame"``)
-        and returns a single ``OutputPort`` whose ``accepted_types`` is
-        ``[_CORE_TYPE_MAP[core_type]]``. Unknown enum values fall back to
-        ``DataFrame`` so the validator never sees a malformed port; the
-        run-time ``load()`` call still raises ``ValueError`` for unknown
-        enum values, so the frontend can show the error path.
+        Reads ``self.config["core_type"]`` (defaulting to ``"DataFrame"``) and
+        returns a single ``data`` output port whose accepted type is the matching
+        core type. An unknown value falls back to ``DataFrame`` so the workflow
+        validator never sees a malformed port; the actual :meth:`load` call still
+        raises for an unknown type, so the error surfaces at run time. When
+        ``path`` is a list, or the source is a multi-sheet ``.xlsx``, the port is
+        marked as producing a :class:`Collection`.
 
-        When ``config["path"]`` is a list, the output port is annotated with
-        ``is_collection=True`` to signal to the frontend and runtime that the
-        block produces a Collection rather than a bare DataObject.
+        Returns:
+            A one-element list holding the effective ``data`` output port.
         """
         type_name = self.config.get("core_type", "DataFrame")
         cls = _CORE_TYPE_MAP.get(type_name)
@@ -209,26 +204,30 @@ class LoadData(IOBlock):
         return [OutputPort(name="data", accepted_types=[cls], is_collection=is_multi or is_xlsx)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
-        """Dispatch to one of the six private ``_load_*`` functions.
+        """Read the configured file(s) for the chosen ``core_type``.
 
-        ADR-031 D4: ``output_dir`` is passed through from :meth:`IOBlock.run`.
-        Loaders that produce tabular data use :meth:`persist_table` to
-        write to arrow storage. Array/npy loaders use the simple path
-        (base class auto-flush handles persistence). Artifact and Text
-        loaders are exempt.
+        Routes to the right reader based on ``config["core_type"]``; an unknown
+        value raises :class:`ValueError` rather than silently guessing. Tabular
+        types stream their table to storage; Array, Artifact, and Text take the
+        simpler in-memory path.
 
-        The selected function is determined by ``config["core_type"]``;
-        unknown values raise ``ValueError`` rather than silently picking
-        a default.
+        When ``path`` is a single string, returns one object. When ``path`` is a
+        list of files — or a single ``.xlsx`` with multiple sheets — each file or
+        sheet is read and the results are packed into a homogeneous
+        :class:`Collection` whose item type matches ``core_type``.
 
-        When ``config["path"]`` is a list of strings, each file is loaded
-        individually and the results are packed into a homogeneous
-        :class:`Collection`. All files in a multi-path list must produce the
-        same ``core_type``; the Collection ``item_type`` is derived from the
-        configured ``core_type``.
+        Args:
+            config: Block config; reads ``core_type`` and ``path`` (and the
+                optional ``allow_pickle`` opt-in).
+            output_dir: Directory tabular readers stream their storage into,
+                passed through from :meth:`IOBlock.run`.
 
-        When ``config["path"]`` is a single string, the pre-existing single-
-        object return behavior is preserved.
+        Returns:
+            A single :class:`DataObject`, or a :class:`Collection` for multi-file
+            or multi-sheet sources.
+
+        Raises:
+            ValueError: if ``core_type`` is not a recognised type.
         """
         type_name = config.get("core_type", "DataFrame")
         if type_name not in _CORE_TYPE_MAP:
@@ -387,11 +386,12 @@ class LoadData(IOBlock):
         return _load_composite_data(config, self, output_dir)
 
     def save(self, obj: DataObject | Any, config: BlockConfig) -> None:
-        """``LoadData`` is input-only; ``save()`` always raises.
+        """``LoadData`` is input-only; :meth:`save` always raises.
 
-        Per ADR-028 Addendum 1 §C9 the loader and saver are separate
-        concrete classes; the egress concrete class is ``SaveData``
-        (T-TRK-008).
+        Loading and saving are separate blocks. Use ``SaveData`` to write files.
+
+        Raises:
+            NotImplementedError: always.
         """
         raise NotImplementedError("LoadData is input-only; use SaveData")
 
