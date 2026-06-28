@@ -229,7 +229,7 @@ export function ArrayViewer({
   return (
     <div data-testid="core-array-viewer" className="space-y-2">
       <div
-        className="flex flex-wrap items-center gap-2 rounded-[1rem] border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600"
+        className="flex flex-wrap items-center gap-2 rounded-[1rem] border border-ink/10 bg-white px-3 py-2 text-xs text-ink/70"
         data-testid="array-info"
       >
         <span className="font-medium text-ink">Array</span>
@@ -240,7 +240,7 @@ export function ArrayViewer({
 
       {isScalar ? (
         <div
-          className="rounded-[1rem] border border-stone-200 bg-white p-4 text-sm"
+          className="rounded-[1rem] border border-ink/10 bg-white p-4 text-sm"
           data-testid="array-scalar"
         >
           {String(scalarValue(matrix) ?? "")}
@@ -262,7 +262,7 @@ export function ArrayViewer({
             return (
               <div
                 key={ax.axis}
-                className="flex items-center gap-2 text-xs text-stone-600"
+                className="flex items-center gap-2 text-xs text-ink/70"
                 data-testid={`array-slice-row-${ax.axis}`}
               >
                 <span className="w-24 truncate">
@@ -286,7 +286,7 @@ export function ArrayViewer({
                   max={ax.size - 1}
                   value={value}
                   onChange={(e) => change(ax.axis, clampIndex(Number(e.target.value), ax.size))}
-                  className="w-16 rounded border border-stone-300 bg-white px-1 py-0.5 text-right"
+                  className="w-16 rounded border border-ink/15 bg-white px-1 py-0.5 text-right"
                 />
                 <span className="w-12 text-right">
                   {value + 1}/{ax.size}
@@ -392,11 +392,13 @@ export function heatmapColor(value: Cell, vmin: number, vmax: number): string {
 
 /** Pick readable text color for a heatmap cell given its intensity. */
 function cellTextColor(value: Cell, vmin: number, vmax: number): string {
-  if (value === null || !Number.isFinite(value)) return "#94a3b8";
+  // Warm-neutral contrast tones over the heatmap (brand ink / warm white),
+  // matching the rest of the app rather than cool slate.
+  if (value === null || !Number.isFinite(value)) return "rgb(var(--ss-ink) / 0.4)";
   const mag =
     vmin < 0 && vmax > 0 ? Math.max(Math.abs(vmin), Math.abs(vmax)) || 1 : vmax - vmin || 1;
   const intensity = vmin < 0 && vmax > 0 ? Math.abs(value) / mag : (value - vmin) / mag;
-  return intensity > 0.6 ? "#f8fafc" : "#0f172a";
+  return intensity > 0.6 ? "#fffdf8" : "rgb(var(--ss-ink))";
 }
 
 /** Format a numeric cell compactly but readably. ``null`` = non-finite cell. */
@@ -443,16 +445,13 @@ export function ArrayHeatmapTable({
   const cols = matrix[0]?.length ?? 0;
   return (
     <div data-testid="array-2d-heatmap" className="space-y-1">
-      <div className="max-h-80 overflow-auto rounded-[0.8rem] border border-stone-200 bg-white">
+      <div className="max-h-80 overflow-auto rounded-[0.8rem] border border-ink/10 bg-white">
         <table className="border-collapse text-[10px] tabular-nums">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-10 bg-stone-100 px-1 py-0.5 text-stone-400" />
+              <th className="sticky left-0 top-0 z-10 bg-ink/10 px-1 py-0.5 text-ink/45" />
               {Array.from({ length: cols }, (_, c) => (
-                <th
-                  key={c}
-                  className="sticky top-0 bg-stone-100 px-1 py-0.5 font-normal text-stone-400"
-                >
+                <th key={c} className="sticky top-0 bg-ink/10 px-1 py-0.5 font-normal text-ink/45">
                   {c}
                 </th>
               ))}
@@ -461,7 +460,7 @@ export function ArrayHeatmapTable({
           <tbody>
             {matrix.map((row, r) => (
               <tr key={r}>
-                <th className="sticky left-0 z-10 bg-stone-100 px-1 py-0.5 font-normal text-stone-400">
+                <th className="sticky left-0 z-10 bg-ink/10 px-1 py-0.5 font-normal text-ink/45">
                   {r}
                 </th>
                 {row.map((value, c) => (
@@ -483,7 +482,7 @@ export function ArrayHeatmapTable({
           </tbody>
         </table>
       </div>
-      <div className="text-[10px] text-stone-400" data-testid="array-grid-info">
+      <div className="text-[10px] text-ink/45" data-testid="array-grid-info">
         {shape.length ? `${shape.join(" × ")} | ` : ""}
         displaying {rows} × {cols}
       </div>
@@ -499,7 +498,7 @@ export function ArrayLegend({ vmin, vmax }: { vmin: number; vmax: number }) {
   });
   const mid = vmin < 0 && vmax > 0 ? 0 : (vmin + vmax) / 2;
   return (
-    <div className="flex items-center gap-2 text-[10px] text-stone-500" data-testid="array-legend">
+    <div className="flex items-center gap-2 text-[10px] text-ink/60" data-testid="array-legend">
       <span data-testid="array-legend-min">{formatCell(vmin)}</span>
       <div
         className="h-2 flex-1 rounded"
@@ -528,7 +527,7 @@ export function SeriesViewer({ envelope }: { envelope: PreviewEnvelope }) {
           type="button"
           onClick={() => setMode("chart")}
           aria-pressed={mode === "chart"}
-          className={`rounded-full px-3 py-0.5 ${mode === "chart" ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+          className={`rounded-full px-3 py-0.5 ${mode === "chart" ? "bg-ink text-white" : "bg-white text-ink/70"}`}
         >
           Chart
         </button>
@@ -536,7 +535,7 @@ export function SeriesViewer({ envelope }: { envelope: PreviewEnvelope }) {
           type="button"
           onClick={() => setMode("table")}
           aria-pressed={mode === "table"}
-          className={`rounded-full px-3 py-0.5 ${mode === "table" ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+          className={`rounded-full px-3 py-0.5 ${mode === "table" ? "bg-ink text-white" : "bg-white text-ink/70"}`}
         >
           Table
         </button>
@@ -564,21 +563,21 @@ export function SeriesViewer({ envelope }: { envelope: PreviewEnvelope }) {
         />
       ) : (
         <div
-          className="max-h-72 overflow-auto rounded-[1rem] border border-stone-200 bg-white"
+          className="max-h-72 overflow-auto rounded-[1rem] border border-ink/10 bg-white"
           data-testid="series-table"
         >
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr>
-                <th className="border-b border-stone-200 px-3 py-1">index</th>
-                <th className="border-b border-stone-200 px-3 py-1">value</th>
+                <th className="border-b border-ink/10 px-3 py-1">index</th>
+                <th className="border-b border-ink/10 px-3 py-1">value</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.map((r, i) => (
                 <tr key={i}>
-                  <td className="border-b border-stone-100 px-3 py-1">{String(r.index ?? "")}</td>
-                  <td className="border-b border-stone-100 px-3 py-1">{String(r.value ?? "")}</td>
+                  <td className="border-b border-ink/5 px-3 py-1">{String(r.index ?? "")}</td>
+                  <td className="border-b border-ink/5 px-3 py-1">{String(r.value ?? "")}</td>
                 </tr>
               ))}
             </tbody>
@@ -601,7 +600,7 @@ export function TextViewer({ envelope }: { envelope: PreviewEnvelope }) {
   const handoff = asRecord(payload.editor_handoff);
   return (
     <div data-testid="core-text-viewer" className="space-y-2">
-      <pre className="max-h-80 overflow-auto rounded-[1rem] border border-stone-200 bg-white p-4 text-sm">
+      <pre className="max-h-80 overflow-auto rounded-[1rem] border border-ink/10 bg-white p-4 text-sm">
         {content}
       </pre>
       {truncated ? (
@@ -635,7 +634,7 @@ export function ArtifactViewer({ envelope }: { envelope: PreviewEnvelope }) {
   return (
     <div
       data-testid="core-artifact-viewer"
-      className="space-y-2 rounded-[1rem] border border-stone-200 bg-white p-4 text-sm text-stone-600"
+      className="space-y-2 rounded-[1rem] border border-ink/10 bg-white p-4 text-sm text-ink/70"
     >
       <p className="font-medium text-ink">Artifact</p>
       <p className="break-all text-xs">{path}</p>
@@ -665,7 +664,7 @@ export function CompositeViewer({
   const slotResources = envelope.resources.filter((r) => r.resource_id.startsWith("slot:"));
   return (
     <div data-testid="core-composite-viewer" className="space-y-2">
-      <p className="text-xs uppercase tracking-wider text-stone-500">
+      <p className="text-xs uppercase tracking-wider text-ink/60">
         {Object.keys(slots).length} slot{Object.keys(slots).length === 1 ? "" : "s"}
       </p>
       {Object.entries(slots).map(([name, typeName]) => {
@@ -676,14 +675,14 @@ export function CompositeViewer({
             type="button"
             data-testid={`composite-slot-${name}`}
             onClick={() => (resource && onOpenResource ? onOpenResource(resource) : undefined)}
-            className="flex w-full items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left hover:bg-stone-50"
+            className="flex w-full items-center justify-between rounded-2xl border border-ink/10 bg-white px-4 py-3 text-left hover:bg-ink/5"
           >
             <span>
-              <span className="text-xs uppercase tracking-wider text-stone-500">{name}</span>
+              <span className="text-xs uppercase tracking-wider text-ink/60">{name}</span>
               <span className="mt-1 block text-sm text-ink">{String(typeName)}</span>
             </span>
             {resource && onOpenResource ? (
-              <span className="text-xs text-stone-400">Preview →</span>
+              <span className="text-xs text-ink/45">Preview →</span>
             ) : null}
           </button>
         );
@@ -711,10 +710,7 @@ export function CollectionViewer({
   const itemResources = envelope.resources.filter((r) => r.resource_id.startsWith("item:"));
   return (
     <div data-testid="core-collection-viewer" className="space-y-2">
-      <p
-        className="text-xs uppercase tracking-wider text-stone-500"
-        data-testid="collection-summary"
-      >
+      <p className="text-xs uppercase tracking-wider text-ink/60" data-testid="collection-summary">
         {count} {itemType} (showing {items.length})
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -728,12 +724,12 @@ export function CollectionViewer({
               type="button"
               data-testid={`collection-item-${idx}`}
               onClick={() => (resource && onOpenResource ? onOpenResource(resource) : undefined)}
-              className="rounded-2xl border border-stone-200 bg-white px-3 py-2 text-left text-xs hover:bg-stone-50"
+              className="rounded-2xl border border-ink/10 bg-white px-3 py-2 text-left text-xs hover:bg-ink/5"
             >
               <span className="block truncate text-ink" title={ref}>
                 {displayName}
               </span>
-              <span className="text-stone-400">{asString(item.type_name, itemType)}</span>
+              <span className="text-ink/45">{asString(item.type_name, itemType)}</span>
             </button>
           );
         })}
@@ -752,13 +748,15 @@ export function ErrorViewer({ envelope }: { envelope: PreviewEnvelope }) {
   return (
     <div
       data-testid="core-error-viewer"
-      className="space-y-1 rounded-[1rem] border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+      className="space-y-1 rounded-[1rem] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
       role="alert"
     >
       <p className="font-medium">Preview failed</p>
       {error ? (
         <>
-          <p className="text-xs uppercase tracking-wider text-red-500">{String(error.code)}</p>
+          <p className="text-xs uppercase tracking-wider text-destructive/70">
+            {String(error.code)}
+          </p>
           <p className="text-xs">{error.message}</p>
         </>
       ) : (

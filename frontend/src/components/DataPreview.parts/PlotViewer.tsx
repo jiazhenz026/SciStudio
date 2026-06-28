@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Button } from "../ui/button";
 import type { PreviewEnvelope, PreviewResource } from "../../types/api";
 
 function asString(value: unknown, fallback = ""): string {
@@ -113,7 +114,7 @@ export function PlotViewer({
   return (
     <div data-testid="core-plot-viewer" className="space-y-2">
       <PlotDiagnosticsBanner diagnostics={envelope.diagnostics} />
-      <div className="rounded-[1rem] border border-stone-200 bg-white p-3">
+      <div className="rounded-[1rem] border border-ink/10 bg-white p-3">
         <div className={PLOT_PREVIEW_SURFACE_CLASS} data-testid="plot-preview-surface">
           {/* Zoom layer: scale from the top-left so the whole figure stays
               reachable via the surface's scrollbars when zoomed in. At 100%
@@ -151,57 +152,65 @@ export function PlotViewer({
                 className="block w-full"
               />
             ) : (
-              <p className="text-xs text-stone-500">No renderable plot artifact.</p>
+              <p className="text-xs text-ink/60">No renderable plot artifact.</p>
             )}
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-xs text-stone-600">
-        <span className="uppercase tracking-wider text-stone-400">{format || mime}</span>
+      <div className="flex items-center gap-2 text-xs text-ink/70">
+        <span className="uppercase tracking-wider text-ink/45">{format || mime}</span>
         {hasRenderable ? (
           <div className="flex items-center gap-1" data-testid="plot-zoom-controls">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               aria-label="Zoom out"
               data-testid="plot-zoom-out"
               onClick={() => applyZoom(zoom - 0.25)}
-              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+              className="h-7 px-2"
             >
               −
-            </button>
+            </Button>
             <span className="w-12 text-center tabular-nums" data-testid="plot-zoom-level">
               {Math.round(zoom * 100)}%
             </span>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               aria-label="Zoom in"
               data-testid="plot-zoom-in"
               onClick={() => applyZoom(zoom + 0.25)}
-              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+              className="h-7 px-2"
             >
               +
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               aria-label="Reset zoom"
               data-testid="plot-zoom-reset"
               onClick={() => setZoom(1)}
-              className="rounded border border-stone-300 bg-white px-2 leading-none hover:bg-stone-50"
+              className="h-7 px-2"
             >
               Reset
-            </button>
+            </Button>
           </div>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           data-testid="plot-export-button"
           aria-label={`Save plot as ${format || "file"}`}
           disabled={!exportResource}
           onClick={() => (exportResource && onExport ? onExport(exportResource) : undefined)}
-          className="ml-auto rounded border border-stone-300 bg-white px-3 py-0.5 disabled:opacity-50"
+          className="ml-auto h-7"
         >
           Save
-        </button>
+        </Button>
       </div>
       <PlotMetadataBadges envelope={envelope} />
     </div>

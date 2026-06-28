@@ -117,6 +117,10 @@ class LoadData(IOBlock):
     )
     subcategory: ClassVar[str] = "io"
 
+    # #1847: a folder-up glyph (data coming *in* from disk). Keeps the io
+    # category default colour; pairs visually with SaveData's folder-down.
+    ui_icon: ClassVar[str] = "folder-up"
+
     # ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003:
     # explicit per-(type, format) capability records. Replaces the
     # legacy ``supported_extensions`` ClassVar which has been removed.

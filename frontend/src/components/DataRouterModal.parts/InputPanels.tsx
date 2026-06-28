@@ -23,15 +23,15 @@ export function InputPanels({
 }: InputPanelsProps) {
   return (
     <div className="flex flex-1 flex-col gap-3" onDrop={onDropOnInput} onDragOver={onDragOver}>
-      <div className="text-xs font-medium uppercase tracking-wide text-stone-400">Inputs</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-ink/45">Inputs</div>
       {inputPorts.map((portName) => {
         const portItems = itemsPerPort[portName] ?? [];
         const unassignedPortItems = portItems.filter((item) => !assignedRefs.has(item.ref));
         return (
-          <div key={portName} className="rounded-lg border border-stone-200 bg-stone-50 p-3">
-            <div className="mb-2 text-xs font-medium text-stone-600">
+          <div key={portName} className="rounded-lg border border-ink/10 bg-ink/5 p-3">
+            <div className="mb-2 text-xs font-medium text-ink/70">
               {portName}{" "}
-              <span className="text-stone-400">
+              <span className="text-ink/45">
                 ({unassignedPortItems.length}/{portItems.length})
               </span>
             </div>
@@ -40,7 +40,7 @@ export function InputPanels({
                 <ItemCard key={item.ref} item={item} draggable onDragStart={onDragStart} />
               ))}
               {unassignedPortItems.length === 0 && (
-                <span className="text-[10px] italic text-stone-400">All items assigned</span>
+                <span className="text-[10px] italic text-ink/45">All items assigned</span>
               )}
             </div>
           </div>

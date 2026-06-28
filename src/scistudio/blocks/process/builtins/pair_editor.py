@@ -54,6 +54,12 @@ class PairEditor(InteractiveMixin, ProcessBlock):
     algorithm: ClassVar[str] = "pair_editor"
     subcategory: ClassVar[str] = "routing"
 
+    # #1839 / #1847: macaron apricot + a left-right swap glyph for the
+    # pairing/reorder block. (Recoloured off the earlier rose, which read too
+    # close to the subworkflow category pink.)
+    ui_color: ClassVar[str] = "#f6cba0"
+    ui_icon: ClassVar[str] = "arrow-left-right"
+
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
     # ADR-051: the block-owned window, resolved from the built-in panel registry.
