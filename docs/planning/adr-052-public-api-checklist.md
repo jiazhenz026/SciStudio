@@ -164,6 +164,6 @@ Append only.
 - [x] All dispatched agents have final outputs (A1–A6 impl/test + 3 no-context audits).
 - [x] Manager reviewed every changed file (scope-checked per agent; reconciled all gate findings).
 - [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux (recorded as guard event), commit; PR provenance recorded post-PR.
-- [~] PR closes #1833 (final PR via `scripts/scistudio_pr_create.py`).
-- [~] CI passed — **requires the owner to add the `admin-approved:core-change` label** (protected core; CI validates label actor provenance; owner-authorized scope but the label can only be applied by the owner/admin).
+- [x] PR closes #1833 — final PR **#1842** via `scripts/scistudio_pr_create.py`.
+- [~] CI passed — `admin-approved:core-change` label applied (owner-authorized scope; protected core); the `Workflow Gate Check` re-runs on the `labeled` event and validates the labeling-actor provenance. The Codex `ai-review.yml` workflow was re-enabled (it was `disabled_manually`) and is re-triggered by this push so the Codex auto-review runs.
 - [~] Checklist final state matches PR and gate record.
