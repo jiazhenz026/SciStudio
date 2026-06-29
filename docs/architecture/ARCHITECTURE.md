@@ -2062,9 +2062,9 @@ distribution beyond one user machine.
 ## 12. Extensibility
 
 SciStudio keeps the **core runtime** small and lets scientific capability grow
-through stable extension boundaries. Two questions organize this chapter: **what
-can be extended** (§12.2) and **at which level an extension ships**
-(§12.3–§12.5).
+through stable extension boundaries. Three questions organize this chapter: **what
+can be extended** (§12.2), **at which level an extension ships** (§12.3–§12.5),
+and **what an extension may rely on** — the public API boundary (§12.6).
 
 ### 12.1 Extension Philosophy
 
@@ -2181,6 +2181,68 @@ dataset and workflow branch that needs it, stays inside the project repository,
 and can be iterated before deciding whether it belongs in a package. User-wide
 `blocks/` and `types/` cover code a user reuses across projects; previewers are
 extended at the project or package level rather than user-wide.
+
+### 12.6 Public API Boundary
+
+Extensions — and the embedded agent that writes them — build against a **named
+public surface** that is separated from core internals, so the runtime can evolve
+without breaking author code. The boundary is defined by ADR-052.
+
+#### 12.6.1 What Is Public
+
+A symbol is public when it is reachable through a **canonical root import path**
+the contract names, and is listed in that root's `__all__`. The public roots are
+`scistudio.core.types` and `scistudio.core.meta` (data types and metadata),
+`scistudio.blocks.base` plus the concrete base roots
+`scistudio.blocks.process` / `.io` / `.app` / `.code` (block authoring), and
+`scistudio.previewers.models` / `.data_access` (previewer authoring). The
+import-free `render(collection)` plot contract (§10) is public by **shape**
+rather than by symbol.
+
+Everything else — deeper module paths (`scistudio.core.types.dataframe`),
+underscore-named modules (`_support`), and underscore-named members — is
+**internal**: still importable, so nothing breaks, but unsupported and excluded
+from generated documentation. This is the load-bearing choice of the boundary:
+the public path is the curated root the contract controls, **not** the file a
+symbol happens to live in, so internals can be split, moved, or renamed without
+breaking an extension that imported from the root.
+
+#### 12.6.2 Stability And Version, Recorded On The Symbol
+
+Every public symbol carries two facts an author cannot infer — how far they may
+rely on it, and when it appeared — recorded **in the code, on the symbol**, via
+decorators in `scistudio.stability` (no-ops at runtime that attach metadata):
+
+| Tier | Promise |
+|---|---|
+| `stable` | Supported; no incompatible change within a major version without a deprecation period first. |
+| `provisional` | Usable but still settling; may change in a minor release with a changelog note. |
+| `internal` | No promise; may change or vanish in any release. Excluded from the public surface and the reference. |
+
+`Since` records the version a symbol first became public. A `stable` symbol is
+removed only after at least one minor release marked deprecated; this keeps the
+contract evolvable without surprise breakage.
+
+#### 12.6.3 Packages Obey The Same Boundary
+
+A package draws the **same** boundary against its own version line. Its
+**registration surface** to core (the entry points of §12.4) is distinct from its
+**reuse surface** to other authors — the types it exports, their constructors, and
+the accessors they inherit. The reuse-surface rules mirror core's: a public symbol
+is declared in the package's top-level `__all__` and reached from the package
+root (`from scistudio_blocks_X import T`, never a deep path); it carries the same
+stability tiers and `Since`; domain construction is a constructor **on the type**;
+and a package must not define underscore-named author-facing helpers or redefine
+the inherited `to_pandas` / `to_numpy`.
+
+#### 12.6.4 Generated, Versioned Reference
+
+The author-facing API reference is **generated** from docstrings and the
+stability decorators, emitting only the declared public surface with its tier and
+`Since` rendered automatically, so the reference cannot drift from the code. The
+contract itself is a versioned promise: the public surface is captured in a
+committed snapshot and freeze-tested, so an accidental change to the surface fails
+CI while an intentional one is a reviewable diff tied to the deprecation policy.
 
 ---
 

@@ -57,10 +57,16 @@ def test_core_source_does_not_import_package_owned_image_decoders() -> None:
     assert offenders == []
 
 
-def test_readme_current_status_mentions_root_version() -> None:
-    """README should advertise the same current version as package metadata."""
-    pyproject = _load_toml(REPO_ROOT / "pyproject.toml")
-    root_version = pyproject["project"]["version"]
+def test_readme_declares_alpha_and_points_to_releases() -> None:
+    """README must declare the project status and route users to a release.
 
+    The README was rewritten (#1850) into a short landing page that no longer
+    hard-codes the package version (which would drift every release); the
+    authoritative version lives in package metadata, the Releases page, and the
+    per-symbol stability tiers in the API reference. This test pins the new
+    contract instead: the README advertises the development status and links to
+    the Releases page so users can find the current build.
+    """
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert readme.count(f"(v{root_version})") >= 2
+    assert "alpha" in readme.lower(), "README must state the development status (alpha)"
+    assert "/releases" in readme, "README must link users to the Releases page"

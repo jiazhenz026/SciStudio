@@ -43,10 +43,21 @@ import argparse
 import enum
 import importlib
 import inspect
+import re
 import subprocess
 import sys
 import types
 from pathlib import Path
+
+#: Convert in-docstring Sphinx cross-reference roles (``:meth:`run```,
+#: ``:class:`pandas.DataFrame```) into plain inline code for the self-contained
+#: Markdown reference (the mkdocs site does the same via griffe_sphinx_roles.py).
+_SPHINX_ROLE_RE = re.compile(r":[a-zA-Z]+:`~?([^`]+)`")
+
+
+def _strip_sphinx_roles(text: str) -> str:
+    return _SPHINX_ROLE_RE.sub(r"`\1`", text)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = REPO_ROOT / "src"
@@ -70,6 +81,13 @@ CANONICAL_ROOTS: tuple[str, ...] = (
 )
 
 REFERENCE_DIR = REPO_ROOT / "docs" / "user" / "reference"
+#: Self-contained reference (ADR-052 §7; #1850). Unlike ``REFERENCE_DIR`` (which
+#: holds ``mkdocstrings`` directive shells that only render under an mkdocs
+#: build), this directory holds **self-contained** Markdown with real signatures
+#: and docstrings inlined, so it is readable as-is. It lives inside the package
+#: so it ships in the wheel and is provisioned into ``<project>/user-guide/
+#: api-reference/`` for the in-project human + embedded agent.
+PACKAGE_REFERENCE_DIR = SRC / "scistudio" / "_user_guide" / "api-reference"
 SITE_DIR = REPO_ROOT / "build" / "mkdocs-site"  # gitignored (build/)
 MKDOCS_CONFIG = REPO_ROOT / "mkdocs.yml"
 
@@ -225,6 +243,153 @@ def _render_index(stats: list[tuple[str, int, int]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# --------------------------------------------------------------------------
+# Self-contained renderer (#1850): real signatures + docstrings inlined, so the
+# reference is readable without an mkdocs build and can be provisioned as-is.
+# --------------------------------------------------------------------------
+
+
+def _sc_badge(obj: object) -> str:
+    info = get_stability(obj)
+    if info is None:
+        return "_unmarked — see the module source / ADR-052_"
+    since = f" · Since `{info.since}`" if info.since else ""
+    return f"`{info.tier}`{since}"
+
+
+def _sc_signature(obj: object) -> str | None:
+    """Best-effort signature string; ``None`` when uninspectable."""
+    try:
+        return str(inspect.signature(obj))
+    except (TypeError, ValueError):
+        return None
+
+
+def _sc_firstline(doc: str | None) -> str:
+    if not doc:
+        return ""
+    for line in doc.strip().splitlines():
+        if line.strip():
+            return _strip_sphinx_roles(line.strip())
+    return ""
+
+
+def _sc_public_members(cls: type) -> list[tuple[str, object]]:
+    """Public, non-``internal`` members defined on ``cls`` itself (not inherited)."""
+    members: list[tuple[str, object]] = []
+    for name, value in vars(cls).items():
+        if name.startswith("_"):
+            continue
+        info = get_stability(value)
+        if info is not None and info.tier == "internal":
+            continue
+        if (
+            inspect.isfunction(value)
+            or inspect.ismethod(value)
+            or isinstance(value, (property, staticmethod, classmethod))
+        ):
+            members.append((name, value))
+    return members
+
+
+def _sc_render_symbol(root: str, name: str, obj: object) -> str:
+    kind = _symbol_kind(obj)
+    out = [f"## `{name}` — _{kind}_", "", f"**Stability:** {_sc_badge(obj)}", ""]
+
+    if inspect.isclass(obj):
+        bases = [b.__name__ for b in obj.__bases__ if b is not object]
+        header = f"class {name}({', '.join(bases)})" if bases else f"class {name}"
+        init = obj.__dict__.get("__init__")
+        init_sig = _sc_signature(obj) if init is not None else None
+        code = header + (f"\n{name}{init_sig}" if init_sig else "")
+        out += ["```python", code, "```", ""]
+        doc = _strip_sphinx_roles(inspect.getdoc(obj) or "")
+        if doc:
+            out += [doc, ""]
+        methods = _sc_public_members(obj)
+        if methods:
+            out += ["**Members**", ""]
+            for mname, mval in methods:
+                target = (
+                    mval.fget
+                    if isinstance(mval, property)
+                    else (mval.__func__ if isinstance(mval, (staticmethod, classmethod)) else mval)
+                )
+                sig = _sc_signature(target) or ""
+                summary = _sc_firstline(inspect.getdoc(target))
+                tier = _sc_badge(target)
+                line = f"- `{mname}{sig}` — {tier}"
+                if summary:
+                    line += f" — {summary}"
+                out.append(line)
+            out.append("")
+    elif inspect.isroutine(obj):
+        sig = _sc_signature(obj) or "(...)"
+        out += ["```python", f"{name}{sig}", "```", ""]
+        doc = _strip_sphinx_roles(inspect.getdoc(obj) or "")
+        if doc:
+            out += [doc, ""]
+    else:
+        out += [f"_{kind}_ — see the module source for the value.", ""]
+        doc = _strip_sphinx_roles(inspect.getdoc(obj) or "")
+        if doc and doc != inspect.getdoc(type(obj)):
+            out += [doc, ""]
+    return "\n".join(out)
+
+
+def _sc_render_root_page(root: str) -> tuple[str, int]:
+    module = importlib.import_module(root)
+    public = sorted(getattr(module, "__all__", []))
+    body = [
+        _GENERATED_BANNER,
+        f"# `{root}`\n",
+        f"Canonical import root: `from {root} import ...`\n",
+        f"Self-contained public-API reference — {len(public)} symbols from this "
+        "module's `__all__`, with signatures and docstrings inlined (ADR-052 §7). "
+        "Generated; do not hand-edit.\n",
+    ]
+    for name in public:
+        body.append(_sc_render_symbol(root, name, getattr(module, name)))
+    return "\n".join(body) + "\n", len(public)
+
+
+def _sc_render_index(stats: list[tuple[str, int]]) -> str:
+    version = _core_version()
+    lines = [
+        _GENERATED_BANNER,
+        "# SciStudio API reference\n",
+        f"**Version:** `{version}` (single-version for this release, ADR-052 §7).\n",
+        "The public API you may rely on, generated from the code's docstrings and "
+        "`scistudio.stability` decorators. Only the public surface (each canonical "
+        "root's `__all__`) appears; `internal` symbols are excluded. Import from the "
+        "canonical root shown on each page, never a deeper module path.\n",
+        "## Stability\n",
+        "- `stable` — supported; no incompatible change within a major version "
+        "without deprecation.\n"
+        "- `provisional` — usable, may change in a minor release.\n"
+        "- `internal` — excluded from this reference.\n",
+        "## Canonical roots\n",
+    ]
+    for root, count in stats:
+        lines.append(f"- [`{root}`]({root}.md) — {count} symbols")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def generate_selfcontained() -> list[tuple[str, int]]:
+    """Generate the self-contained reference under ``PACKAGE_REFERENCE_DIR`` (#1850)."""
+    PACKAGE_REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+    stats: list[tuple[str, int]] = []
+    for root in CANONICAL_ROOTS:
+        page, count = _sc_render_root_page(root)
+        (PACKAGE_REFERENCE_DIR / f"{root}.md").write_text(page, encoding="utf-8")
+        stats.append((root, count))
+        print(f"  [self-contained] wrote {root}.md  ({count} symbols)")
+    (PACKAGE_REFERENCE_DIR / "index.md").write_text(_sc_render_index(stats), encoding="utf-8")
+    print(f"  [self-contained] wrote index.md  (version {_core_version()})")
+    return stats
+
+
 def generate() -> list[tuple[str, int, int]]:
     """Generate index + per-root pages under ``docs/user/reference/``."""
     REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -267,6 +432,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Generating ADR-052 §7 public API reference ...")
     generate()
+    print("Generating self-contained reference (#1850) ...")
+    generate_selfcontained()
     if args.generate_only:
         print("Generated (skipped mkdocs build).")
         return 0

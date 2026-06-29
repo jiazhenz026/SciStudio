@@ -83,14 +83,16 @@ def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
     """The CLAUDE.md/AGENTS.md template must spell out non-negotiable rules.
 
     These rules are the agent's first defense (Layer 1 of ADR-040's
-    defense in depth): MCP tools over CLI, list_blocks before authoring,
-    list_types before port selection, write_workflow over direct edits.
+    defense in depth): the MCP tools are the only interface (no CLI),
+    list_blocks before authoring, list_types before port selection,
+    write_workflow over direct edits.
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
-    # MCP tools over CLI
+    # MCP is the only interface; the doc states there is no command-line tool
+    # (positive framing, #1850) rather than denying CLI use.
     assert "mcp__scistudio__" in body
-    assert "scistudio" in body.lower() and "CLI" in body
+    assert "command-line tool" in body.lower()
     # Block-reuse rule (#875)
     assert "list_blocks" in body
     assert "#875" in body or "reuse" in body.lower()
@@ -102,30 +104,26 @@ def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
     assert "write_workflow" in body
 
 
-def test_template_distinguishes_claude_vs_codex_hook_safety_net(tmp_project_dir: Path) -> None:
-    """F40-integration F4: template must distinguish hook-backed (Claude)
-    vs no-safety-net (Codex) per ADR-040 §3.10.
+def test_template_hook_safety_covers_both_providers(tmp_project_dir: Path) -> None:
+    """#1850: hook coverage now applies to BOTH Claude Code and Codex.
 
-    Pre-F4 the template wrote "A PreToolUse hook blocks such calls" /
-    "A PostToolUse hook stderr-warns" unconditionally, which is FALSE
-    on Codex — Codex hook coverage is deferred per ADR §3.10. A Codex
-    agent reading the unfixed template believes hooks will catch
-    violations; they will not.
-
-    Post-F4 the template carries a top-level "Hook safety net — Claude
-    Code only" section and parenthetical (on Claude Code, …; on Codex,
-    no hook fires) clauses on each rule.
+    The earlier template carried a "Hook safety net — Claude Code only"
+    section and "on Codex, no hook fires — self-police" caveats because Codex
+    hook coverage was deferred. Codex now has full hook coverage, so the
+    template must say the hooks back both providers and must NOT tell the
+    agent it has no backstop on Codex.
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
     body_lower = body.lower()
-    # Top-level distinction section present.
-    assert "claude code only" in body_lower, (
-        "Template must carry a top-level 'Hook safety net — Claude Code only' "
-        "section so Codex agents see they have no backstop (F40-integration F4)."
-    )
-    # Codex explicitly named and self-police phrasing present.
-    assert "codex" in body_lower
-    assert "self-police" in body_lower or "no hook" in body_lower
-    # ADR §3.10 reference grounds the gap.
-    assert "3.10" in body or "ADR-040" in body
+    # A hook-safety section is present and names both providers.
+    assert "hook safety net" in body_lower
+    assert "both" in body_lower
+    assert "claude code" in body_lower and "codex" in body_lower
+    # The obsolete "no backstop on Codex" framing is gone.
+    assert "claude code only" not in body_lower
+    assert "no hook fires" not in body_lower
+    assert "self-police" not in body_lower
+    # The user's data/ is protected and the no-internal-citation rule is present.
+    assert "data/" in body
+    assert "per scistudio's requirements" in body_lower or "rule-citation" in body_lower

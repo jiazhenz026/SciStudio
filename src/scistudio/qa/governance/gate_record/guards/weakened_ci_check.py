@@ -191,13 +191,26 @@ def check(inputs: GuardInputs) -> AuditReport:
     required_tokens = _required_removal_tokens()
     findings: list[Finding] = []
 
+    # A required-check token that still appears on an ADDED line of the SAME
+    # governed file was renamed/relocated, not removed: the check is still there.
+    # Without this, a substring like "build" (the wheel-build token) false-matches
+    # a docs build step that merely renames its script/artifact
+    # (``build_reference.py`` -> ``build_site.py``, ``build/mkdocs-site`` ->
+    # ``build/site``) — the token survives on both sides, so it is not a weakening.
+    # A genuine removal drops the token from the file's additions and still trips.
+    added_text_by_file: dict[str, str] = {}
+    for path, sign, text in lines:
+        if sign == "+":
+            added_text_by_file[path] = f"{added_text_by_file.get(path, '')}\n{text.lower()}"
+
     for path, sign, text in lines:
         lowered = text.lower()
         if sign == "-":
             if _is_non_executable_removal(text):
                 continue
+            added_here = added_text_by_file.get(path, "")
             for rule_suffix, token in required_tokens:
-                if token.lower() in lowered:
+                if token.lower() in lowered and token.lower() not in added_here:
                     findings.append(
                         Finding(
                             rule_id=f"weakened-ci.removed-{rule_suffix}",

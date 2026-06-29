@@ -10,7 +10,7 @@ description: |
 # scistudio-inspect-data
 
 SciStudio data flows as references (`StorageReference`), not in-memory
-payloads. This is the ADR-031 reference-only contract: blocks emit
+payloads. This is the reference-only contract: blocks emit
 refs, edges carry refs, and the runtime materialises data inside a
 block's `run()` only when the block itself asks. As an agent you
 inspect refs without materialising them — `inspect_data` returns
@@ -22,7 +22,7 @@ This skill teaches when to reach for each tool, how to interpret the
 results faithfully, and when to materialise (rarely — only via a
 block's `run()`, never inside an agent turn).
 
-## 1. Reference-only contract (ADR-031)
+## 1. Reference-only contract
 
 Data never flows through the agent's memory. The agent sees refs
 (opaque IDs like `rf-001`); MCP tools operate on refs. There is no
@@ -64,7 +64,7 @@ keep previews cheap. The preview is for the user's eye. Do NOT report a preview
 as the actual data — it is downsampled or truncated.
 
 For a richer interactive view (slice slider, LUT, custom panels) the GUI's
-preview panel routes through the ADR-048 previewer system; as an agent you use
+preview panel routes through the previewer system; as an agent you use
 `preview_data` for a quick bounded look. To draw a figure from a block output,
 use the `scistudio-write-plot` skill (preview-only plot jobs).
 
@@ -74,7 +74,7 @@ Returns the producing chain (transitive ancestors of the ref): which
 block produced it, on which run, from which input refs. Useful for
 "where did this come from?" questions.
 
-`get_lineage` returns the ADR-038-recorded lineage; the answers are
+`get_lineage` returns the recorded lineage; the answers are
 authoritative. Do not guess at provenance.
 
 ## 5. `get_block_output(run_id, block_id, port)`

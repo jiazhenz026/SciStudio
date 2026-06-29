@@ -1,11 +1,15 @@
 name: Docs
 
-# Publish the generated public-API reference (ADR-052 §7) to GitHub Pages.
+# Publish the combined SciStudio documentation site to GitHub Pages: the user
+# guide, the self-contained public-API reference (ADR-052 §7), and the package
+# development guide.
 #
-# The site is generated from docstrings + the scistudio.stability decorators by
-# scripts/docs/build_reference.py (which also runs `mkdocs build --strict`), so
-# the published reference cannot drift from the code. On every push to main the
-# reference is rebuilt and deployed to https://<owner>.github.io/<repo>/.
+# scripts/docs/build_site.py generates the self-contained reference from
+# docstrings + the scistudio.stability decorators, stages the unified docs tree,
+# and runs `mkdocs build`. The reference is the SAME artifact provisioned into
+# projects, so the published site cannot drift from the code or from what ships
+# with the app. On every push to main the site is rebuilt and deployed to
+# https://<owner>.github.io/<repo>/.
 #
 # One-time setup by a repo admin: Settings -> Pages -> Build and deployment ->
 # Source = "GitHub Actions". No gh-pages branch is created (artifact deploy).
@@ -13,10 +17,11 @@ name: Docs
 on:
   push:
     branches: [main]
-    # Only rebuild when something that affects the reference changes.
+    # Only rebuild when something that affects the site changes.
     paths:
       - "src/**"
-      - "mkdocs.yml"
+      - "docs/package-development/**"
+      - "mkdocs.site.yml"
       - "scripts/docs/**"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
@@ -34,7 +39,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build reference
+    name: Build docs site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -46,12 +51,13 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system -e ".[docs]"
-      # Generates docs/user/reference/*.md and runs `mkdocs build --strict`,
-      # writing the static site to build/mkdocs-site.
-      - run: PYTHONPATH=src python scripts/docs/build_reference.py
+      # Generates the self-contained API reference, stages the unified docs tree
+      # (user guide + reference + package development), and runs `mkdocs build`,
+      # writing the static site to build/site.
+      - run: PYTHONPATH=src python scripts/docs/build_site.py
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/mkdocs-site
+          path: build/site
 
   deploy:
     name: Deploy to GitHub Pages

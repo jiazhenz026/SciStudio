@@ -155,6 +155,12 @@ def test_no_py_files_outside_known_packages() -> None:
         "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)
         "telemetry",  # #1855: alpha-only tester check-in (removed in beta with the gate)
     }
+    # Documentation trees that ship in the wheel as data, not importable code.
+    # #1850: ``_user_guide/examples/`` holds runnable example block files
+    # (several named ``block.py``) provisioned into projects for users to read
+    # and adapt; they are teaching material, not part of the ``scistudio`` import
+    # surface, so they are exempt from the package-placement rule.
+    doc_trees = {"_user_guide"}
     stray: list[str] = []
     for filepath in SRC_ROOT.rglob("*.py"):
         relative = filepath.relative_to(SRC_ROOT)
@@ -163,6 +169,8 @@ def test_no_py_files_outside_known_packages() -> None:
             # Root-level files (already checked by test_no_stray_files_in_package_root)
             continue
         top_package = parts[0]
+        if top_package in doc_trees:
+            continue
         if top_package not in known_packages:
             stray.append(str(relative))
     assert not stray, f"Found .py files outside known packages: {stray}"

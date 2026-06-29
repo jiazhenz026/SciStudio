@@ -16,7 +16,7 @@ canonical diagnostic sequence — start at the run-status envelope,
 drill into per-block logs, follow lineage backwards to find the
 upstream cause, and inspect intermediate data refs without
 materialising them into memory. Most run failures fall into ~6
-recurring categories; §5 maps each to the next tool call.
+recurring categories; the error catalog below maps each to the next tool call.
 
 ## 1. The canonical diagnostic sequence
 
@@ -110,9 +110,9 @@ might be in A even though B is the one that failed.
 If the error does not match any row, read the full traceback and
 report the bottom-most call site to the user. Do not guess.
 
-## 6. lineage.db (ADR-038) — use the MCP surface
+## 6. lineage.db — use the MCP surface
 
-ADR-038 lineage data lives in `.scistudio/lineage.db` (SQLite). Do NOT
+Lineage data lives in `.scistudio/lineage.db` (SQLite). Do NOT
 query that file directly. The MCP tools are the public surface:
 
 - `get_lineage(ref)` — ancestors of one ref
@@ -150,7 +150,7 @@ workflow.
 - `finish_ai_block` called with output refs that don't match the
   declared port types — runtime rejects with a type-mismatch error;
   fix the upstream block or the port declaration.
-- AI block timed out (`subprocess.TimeoutExpired` from §5) — the
+- AI block timed out (`subprocess.TimeoutExpired`) — the
   parent workflow already failed; you can no longer
   `finish_ai_block`. Surface to the user and let them re-run with a
   larger `timeout_sec`.

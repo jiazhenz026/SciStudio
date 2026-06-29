@@ -1,111 +1,86 @@
 ---
 name: scistudio-project-qa
 description: |
-  Use when the user asks about the project itself — what blocks are
-  installed, where docs live, what files are in data/, project name /
-  metadata, recent workflows. NOT for designing or debugging workflows.
+  Use when the user asks a question ABOUT SciStudio or about this project —
+  how a feature works, what a block/type/contract is, what blocks are
+  installed, where docs/data live, project name / metadata, recent
+  workflows. The Q&A skill. NOT for designing or debugging workflows
+  (scistudio-build-workflow / scistudio-debug-run) or authoring code
+  (scistudio-write-block / scistudio-write-plot).
 ---
 
 # scistudio-project-qa
 
-Use this skill when the user asks meta-questions about the SciStudio
-project workspace: which plugins are installed, where the docs are,
-what's been recently modified, what files live in `data/`. These are
-surfaces beyond the workflow / run scope — they map to four read-only
-tools that pull from the file system, the block registry, and the
-docs index. This skill teaches what each tool returns and how to
-combine them for common questions.
+Answer the user's SciStudio and project questions accurately, grounded in the
+provisioned docs and the live project state — never from memory or invention.
 
-## 1. `get_project_info`
+## Where the answers live
 
-Returns project name, root directory, installed scistudio plugins (and
-their versions), recently-modified workflows (top 3-ish by mtime), and
-backend / runtime version info. Call this first for any "what is this
-project?" or "what's installed?" question.
+Two kinds of source, both authoritative. Read them; cite them.
 
-Cite the returned values verbatim; do not invent plugin names or
-versions.
+**Provisioned docs (in this project):**
 
-## 2. `search_docs(query)`
+| Question is about… | Read |
+|---|---|
+| How to use a feature; what something is, for a user | `user-guide/` (start at `user-guide/README.md`) |
+| The public-API contract — types, blocks, plots, imports, stability | `.scistudio/agent-reference/` (start at `.scistudio/agent-reference/README.md`) |
+| The exact signature of a class / method / function | `user-guide/api-reference/` |
+| Built-in blocks and what each does | `user-guide/built-in-blocks.md` |
 
-Free-text search over the project's `docs/` directory and any
-installed plugins' docs. Returns matching doc paths with snippets.
-Use this when the user asks a documentation question and you do not
-already know the canonical doc path.
+**Live project state (MCP tools):**
 
-Prefer `search_docs` over guessing paths with `Read` — the search
-indexes the docs the way the project intends them to be discovered.
+| Question is about… | Tool |
+|---|---|
+| Project name, installed packages + versions, recent workflows | `get_project_info` |
+| The authoritative list of available blocks / data types | `list_blocks` / `list_types` |
+| A specific block's exact ports + config | `get_block_schema(block_type)` |
+| What data files exist | `list_data` |
+| Finding a doc by text, then reading it | `search_docs(query)` → `get_doc(path)` |
 
-## 3. `get_doc(path)`
+## How to answer
 
-Returns the full text of a specific doc by path. Use this after
-`search_docs` returns a candidate path, or when the user names a doc
-directly (e.g. "show me the README").
+1. **A "how does SciStudio do X / what is Y" question** → read the relevant
+   `user-guide/` or `.scistudio/agent-reference/` page and answer from it. These
+   are the authoritative, version-matched docs shipped into the project.
+2. **A "what's installed / what's in this project" question** → call
+   `get_project_info` (packages, recent workflows) and/or `list_blocks` /
+   `list_types` (the authoritative live registry). Cite returns verbatim.
+3. **A "what's the signature / contract of Z" question** → `user-guide/
+   api-reference/` for core symbols; `get_block_schema` for a block's live ports.
+4. **A documentation lookup** → `search_docs` then `get_doc`, rather than guessing
+   paths with the generic Read tool.
 
-## 4. `list_data`
+Prefer the provisioned docs over your own knowledge: they match the installed
+version. Prefer MCP tool returns over the docs for *project-specific* state
+(installed packages, registered blocks) — the docs are general, the tools are
+live.
 
-Enumerates data assets under `data/`. Returns file paths, sizes, and
-inferred types. Use this for "what data do we have?" or before
-suggesting input paths for a new workflow.
+## Worked example
 
-## 5. Combining tools
-
-For "what's this project about?":
-
-```
-get_project_info                       # project name, plugins, recent workflows
-search_docs(query="overview")          # or get_doc(path="README.md")
-```
-
-For "what blocks does this project have access to?":
+User: "What blocks does this project have access to, and how do I write my own?"
 
 ```
-get_project_info                       # see installed_plugins
-# If the user wants to use them, pivot to scistudio-build-workflow which
-# uses list_blocks for the canonical authoritative list.
-```
-
-For "where are my outputs?":
-
-```
-list_data                              # everything under data/
-get_project_info                       # confirm project_root for resolving relative paths
-```
-
-## 6. Worked example
-
-User: "What blocks does this project have access to?"
-
-```
-get_project_info
-# → {project_name: "lcms-analysis",
-#    project_root: "/home/user/projects/lcms-analysis",
-#    installed_plugins: [
-#      {name: "scistudio-blocks-imaging", version: "0.5.2"},
-#      {name: "scistudio-blocks-lcms", version: "0.3.1"}
-#    ],
-#    recently_modified_workflows: ["workflows/qc.yaml", ...]}
-
-# Report: "This project has scistudio-blocks-imaging 0.5.2 and
-# scistudio-blocks-lcms 0.3.1 installed. For the authoritative block
-# list, I can call list_blocks — would you like me to?"
+get_project_info        # installed packages + versions (project-specific)
+list_blocks             # authoritative available-block list
+# Then point the user at the how-to:
+#   "To write your own, see user-guide/writing-blocks.md; I can also do it for
+#    you — that's the scistudio-write-block flow."
 ```
 
 ## Mandatory rules
 
-- Never invent project details — cite `get_project_info` returns
-  verbatim.
-- For doc-lookup questions, prefer `search_docs` over guessing paths
-  with the generic Read tool.
-- For the authoritative block list, use `list_blocks` (covered in
-  scistudio-build-workflow / scistudio-write-block) — `get_project_info`
-  only surfaces the plugin metadata.
+- Never invent project details — cite `get_project_info` / `list_blocks` /
+  `list_types` / `get_block_schema` returns verbatim.
+- For "how / what is" SciStudio questions, answer from `user-guide/` or
+  `.scistudio/agent-reference/`, not from memory.
+- For signatures, use `user-guide/api-reference/` or `get_block_schema` — never
+  guess a signature.
+- For doc lookup, prefer `search_docs` / `get_doc` over the generic Read tool.
 
 ## Anti-patterns
 
-- Inventing plugin names or versions instead of reading
-  `get_project_info`.
-- Reading random files via the generic Read tool when `get_doc`
-  would resolve the canonical path.
-- Reporting "I think this project does X" without grounding in
-  `get_project_info` / `get_doc` / `list_data` outputs.
+- Answering a SciStudio question from memory when a `user-guide/` or
+  `.scistudio/agent-reference/` page covers it.
+- Inventing plugin names, versions, block names, or signatures.
+- Reading random files via the generic Read tool when `get_doc` resolves the
+  canonical path.
