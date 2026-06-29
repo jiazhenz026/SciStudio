@@ -661,6 +661,18 @@
       "at": "2026-06-29T04:26:40.311690Z",
       "pattern": "docs/specs/desktop-ota-hot-update.md",
       "reason": "OTA manifest gains requires.min_build + mandatory-update client behavior; the OTA spec documents that contract."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T14:34:48.971175Z",
+      "pattern": "src/scistudio/desktop/parent_watchdog.py",
+      "reason": "CI xdist worker crashed/hung on the #1865 parent-watchdog test (leaked while-True daemon thread). Make watchdog stoppable; test stop+joins it deterministically."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T14:34:48.971333Z",
+      "pattern": "tests/desktop/test_parent_watchdog.py",
+      "reason": "CI xdist worker crashed/hung on the #1865 parent-watchdog test (leaked while-True daemon thread). Make watchdog stoppable; test stop+joins it deterministically."
     }
   ],
   "session_id": "0725cdef-25af-45f8-8a02-869a3fb74c13",

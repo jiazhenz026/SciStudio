@@ -65,23 +65,30 @@ def start_parent_death_watchdog(
     *,
     interval: float = PARENT_WATCH_INTERVAL_S,
     on_orphan: Callable[[], None] | None = None,
+    stop_event: threading.Event | None = None,
 ) -> threading.Thread | None:
     """Start a daemon thread that reaps this backend once it is orphaned.
 
     Returns the started thread, or ``None`` when there is no live parent to
     watch (``initial_ppid <= 1``). POSIX-only; callers gate on bundled mode.
+
+    ``stop_event`` makes the poll loop interruptible: setting it ends the loop
+    on the next tick without invoking the handler. The bundled runtime never
+    sets it (the watchdog runs for the process lifetime); tests pass one so the
+    daemon thread is stopped and joined deterministically rather than leaked.
     """
     if initial_ppid <= 1:
         return None
 
     handler = on_orphan or _shutdown_orphaned_backend
+    stop = stop_event if stop_event is not None else threading.Event()
 
     def _run() -> None:
         import os
-        import time
 
-        while True:
-            time.sleep(interval)
+        # Event.wait returns True only when the stop event is set; on a timeout
+        # (the common path) it returns False, so we poll the parent each tick.
+        while not stop.wait(interval):
             if backend_is_orphaned(initial_ppid, os.getppid()):
                 handler()
                 return
