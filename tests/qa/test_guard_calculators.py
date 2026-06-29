@@ -357,6 +357,42 @@ def test_weakened_ci_does_not_flag_gate_record_ci_to_check_fold() -> None:
     assert not report.blocks_merge
 
 
+def test_weakened_ci_does_not_flag_renamed_docs_build_step() -> None:
+    # #1850 regression: switching the docs job from build_reference.py to
+    # build_site.py and the artifact path from build/mkdocs-site to build/site is
+    # a rename, not a removal. The "build" wheel token survives on the ADDED side
+    # of the same file, so it must NOT be read as removing a required CI check.
+    diff = (
+        "diff --git a/.github/workflows/docs.yml b/.github/workflows/docs.yml\n"
+        "--- a/.github/workflows/docs.yml\n"
+        "+++ b/.github/workflows/docs.yml\n"
+        "-    name: Build reference\n"
+        "+    name: Build docs site\n"
+        "-      - run: PYTHONPATH=src python scripts/docs/build_reference.py\n"
+        "+      - run: PYTHONPATH=src python scripts/docs/build_site.py\n"
+        "-          path: build/mkdocs-site\n"
+        "+          path: build/site\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_weakened_ci_still_flags_removal_when_token_absent_from_additions() -> None:
+    # The rename tolerance must not mask a genuine removal: deleting the wheel
+    # build step while only adding unrelated lines (no "build" token) still trips.
+    diff = (
+        "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n"
+        "--- a/.github/workflows/ci.yml\n"
+        "+++ b/.github/workflows/ci.yml\n"
+        "-          python -m build\n"
+        "+          python -m pytest\n"
+    )
+    report = weakened_ci_check.check(_inputs(extras={"governed_diff_text": diff}))
+    assert report.blocks_merge
+    assert "weakened-ci.removed-wheel_release_smoke" in _rule_ids(report)
+
+
 def test_weakened_ci_still_flags_genuine_full_audit_removal() -> None:
     # The token precision fix must NOT let a genuine removal slip: deleting the
     # full_audit invocation from a governed CI workflow is still a weakening.

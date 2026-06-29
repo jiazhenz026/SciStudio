@@ -204,6 +204,10 @@ ignore_missing_imports = true
 follow_imports_for_stubs = true
 mypy_path = "src"
 packages = ["scistudio"]
+# The in-project documentation tree (#1850) ships example block files as data,
+# not importable library modules. Several are named block.py and collide as
+# duplicate top-level modules under type checking; exclude the whole docs tree.
+exclude = ['/_user_guide/']
 
 # zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
 # in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot

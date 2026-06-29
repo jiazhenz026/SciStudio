@@ -1,6 +1,163 @@
 {
   "branch": "guided/1850-adr-052-author-docs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-06-29T01:44:02.647067Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c18ca8c077959d6d8d63e3db33af0432469822960f5eea5ba464fb1f9bd23490",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:44:03.420623Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c02266301eca0835a0c64ee46155f1281425a7285fac3d11f1f0b1ef98f71b9f",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:44:03.462093Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ff9a0a1fb2c107b9ef19b43d45f2da2ea071512a7438f0e59a57e82be29369d8",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T01:44:06.896848Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:55d3444024df677ae96d4814632360ae5534390bf9f8316420c4dd2f39f3bc93",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:44:07.019157Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1aaa89b51c6613052491795e44ce117873b4b7c2232c8231af2ddf0d3333a5c9",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:44:07.040562Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1207cc2cf7772355803b6327f6734d5a7bedce3a3feaa64f28b98d8fb75a83a7",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T01:45:38.959026Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f56dcce86df407177bf455235507f3157c7f554704ab3eec78fec069a90e5339",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:47:40.296649Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e46c1cde09934c81b45100f11df136efe9dde9871b10790642fb9851479e10bf",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T01:47:41.466782Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 2,
+      "input_fingerprint": "sha256:1fe297810319cc33938c4f3b30f939d6710085de7838ce111ecd217982959fa9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "fail",
+      "summary": "exit 2",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-29T01:47:43.809419Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:894dc69b7087f381430b895212a8e0eae65f03790ee5b429add40f1ad3c85238",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -116,8 +273,242 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
-  "guard_events": [],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-06-29T01:43:39.138056Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-903/popen-gw2/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-29T01:43:39.995691Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-903/popen-gw2/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-29T01:47:43.839084Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/block_base_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/block_base_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.850311Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.861644Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.874193Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.885506Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/docs.yml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".github/workflows/docs.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-29T01:47:43.897462Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.909288Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.920779Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.931798Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T01:47:43.943269Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/docs.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-name: Build reference",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/docs.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/docs.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-- run: PYTHONPATH=src python scripts/docs/build_reference.py",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/docs.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/docs.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-path: build/mkdocs-site",
+          "id": "weakened-ci.removed-wheel_release_smoke",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: build",
+          "path": ".github/workflows/docs.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-wheel_release_smoke",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -127,11 +518,117 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "764f94733a4f8528a7a44e58cc5fd041c3658b8e",
+    "base_sha": "764f9473",
+    "changed_files": [
+      ".github/workflows/docs.yml",
+      ".workflow/records/1850-guided-1850-adr-052-author-docs.json",
+      "CONTRIBUTING.md",
+      "README.md",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/assets/README.md",
+      "docs/assets/scistudio-canvas.png",
+      "docs/package-development/architecture.md",
+      "docs/package-development/blocks.md",
+      "docs/package-development/index.md",
+      "docs/package-development/previewers.md",
+      "docs/package-development/publishing.md",
+      "docs/package-development/types.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "docs/user/reference/index.md",
+      "mkdocs.site.yml",
+      "pyproject.toml",
+      "scripts/docs/build_reference.py",
+      "scripts/docs/build_site.py",
+      "src/scistudio/_agent_reference/README.md",
+      "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/_agent_reference/data-types.md",
+      "src/scistudio/_agent_reference/package-discovery.md",
+      "src/scistudio/_agent_reference/plot-contract.md",
+      "src/scistudio/_agent_reference/public-api.md",
+      "src/scistudio/_agent_reference/workflow-schema.md",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/_user_guide/README.md",
+      "src/scistudio/_user_guide/ai-assistant.md",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.app.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.base.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.code.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.process.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.core.meta.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.core.types.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "src/scistudio/_user_guide/built-in-blocks.md",
+      "src/scistudio/_user_guide/custom-types.md",
+      "src/scistudio/_user_guide/examples/README.md",
+      "src/scistudio/_user_guide/examples/app-fiji/README.md",
+      "src/scistudio/_user_guide/examples/app-fiji/block.py",
+      "src/scistudio/_user_guide/examples/app-fiji/gaussian_blur.ijm",
+      "src/scistudio/_user_guide/examples/code-accucor-r/README.md",
+      "src/scistudio/_user_guide/examples/code-accucor-r/accucor.R",
+      "src/scistudio/_user_guide/examples/io-load-npy/README.md",
+      "src/scistudio/_user_guide/examples/io-load-npy/block.py",
+      "src/scistudio/_user_guide/examples/process-scale-array/README.md",
+      "src/scistudio/_user_guide/examples/process-scale-array/block.py",
+      "src/scistudio/_user_guide/getting-started.md",
+      "src/scistudio/_user_guide/history-and-branches.md",
+      "src/scistudio/_user_guide/using-the-gui.md",
+      "src/scistudio/_user_guide/writing-blocks.md",
+      "src/scistudio/_user_guide/writing-plots.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/docs.py",
+      "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "src/scistudio/blocks/_templates/block_base_template.py",
+      "tests/agent_provisioning/test_claude_agents_md.py",
+      "tests/agent_provisioning/test_docs.py"
+    ],
+    "diff_fingerprint": "sha256:eaa81c305d5757065e4af7eb6cbc2791931ff55bb7f42bcb575cfa4b624d3c72",
+    "head": "HEAD",
+    "head_sha": "7511da97",
+    "surfaces": {
+      "docs": 11,
+      "frontend": 0,
+      "governance": 2,
+      "governed_docs": 0,
+      "implementation": 48,
+      "packaging": 1,
+      "protected_core": 1,
+      "sentrux": 51,
+      "test": 2,
+      "workflow_ci": 1
+    }
+  },
   "owner_directive": "ADR-052 public-API author docs batch: rewrite block-development into (A) in-package user guide src/scistudio/_user_guide/** provisioned into <project>/user-guide/, and (B) repo-only package-development guide docs/package-development/**; plus items 5/8/9/10 and README in later directives. Start with item 4.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-06-29T01:47:43.943353Z",
+      "diff_fingerprint": "sha256:eaa81c305d5757065e4af7eb6cbc2791931ff55bb7f42bcb575cfa4b624d3c72",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.format_check",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check",
+        "guard.mod_guard",
+        "guard.weakened_ci_check",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1850-guided-1850-adr-052-author-docs",
   "requested_admin_labels": [
     {
@@ -142,11 +639,39 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -234,10 +759,67 @@
       "at": "2026-06-29T01:41:26.198799Z",
       "pattern": "docs/assets/**",
       "reason": "Rewrite top-level README and CONTRIBUTING for ADR-052 docs landing; add home-page screenshot asset"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T02:08:50.730394Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/guards/weakened_ci_check.py",
+      "reason": "Owner-authorized: fix weakened_ci_check false positive (rename-tolerant token check) so the docs Pages CI rename passes; declare governance touch for docs.yml + pyproject + guard edit; add changed tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T02:08:50.730530Z",
+      "pattern": "src/scistudio/agent_provisioning/docs.py",
+      "reason": "Owner-authorized: fix weakened_ci_check false positive (rename-tolerant token check) so the docs Pages CI rename passes; declare governance touch for docs.yml + pyproject + guard edit; add changed tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T02:08:50.730533Z",
+      "pattern": "pyproject.toml",
+      "reason": "Owner-authorized: fix weakened_ci_check false positive (rename-tolerant token check) so the docs Pages CI rename passes; declare governance touch for docs.yml + pyproject + guard edit; add changed tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T02:08:50.730534Z",
+      "pattern": "tests/**",
+      "reason": "Owner-authorized: fix weakened_ci_check false positive (rename-tolerant token check) so the docs Pages CI rename passes; declare governance touch for docs.yml + pyproject + guard edit; add changed tests"
     }
   ],
   "session_id": "664821f6-5b76-47da-8389-12d8a47f2f4e",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-06-29T02:08:50.730544Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_guard_calculators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T02:08:50.730557Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_placement.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T02:08:50.730559Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_version_alignment.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T02:08:50.730560Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }

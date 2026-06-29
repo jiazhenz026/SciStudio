@@ -18,6 +18,7 @@ run as a non-fatal sub-step by the orchestrator.
 from __future__ import annotations
 
 import importlib.resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 #: (source package, project-relative destination root).
@@ -27,7 +28,9 @@ _DOC_TREES: tuple[tuple[str, str], ...] = (
 )
 
 
-def _copy_tree(src, dest: Path, *, force: bool, rel: str, written: list[str]) -> None:
+def _copy_tree(
+    src: Traversable, dest: Path, *, force: bool, rel: str, written: list[str]
+) -> None:
     """Recursively copy a ``importlib.resources`` traversable into ``dest``."""
     for child in src.iterdir():
         name = child.name
