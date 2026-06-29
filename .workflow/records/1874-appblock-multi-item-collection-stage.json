@@ -145,9 +145,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "e2eec62bb3b71ef49e6fa5094c79addfe6dfc5c0",
+    "sha": "721fdb2cf154f292f4c962a3313470d076e00e36",
     "shas": [
-      "e2eec62bb3b71ef49e6fa5094c79addfe6dfc5c0"
+      "721fdb2cf154f292f4c962a3313470d076e00e36"
     ],
     "trailers": []
   },
@@ -465,6 +465,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.922180Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/app/app_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/app/app_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/app/bridge.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/app/bridge.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-06-29T22:06:52.931356Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.940256Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.949699Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.958351Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.967877Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.976575Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.984655Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:52.992615Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:06:53.002901Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -485,9 +610,9 @@
       "src/scistudio/blocks/app/bridge.py",
       "tests/blocks/app/test_app_block_multi_item_input.py"
     ],
-    "diff_fingerprint": "sha256:4e1d951c3dc0e19266ed2e1848ac2a0971bf0d0f007e48d607b7bff4b2530c36",
+    "diff_fingerprint": "sha256:198d58ba3db6bdcae1ddbfa1cd2e6d2a8ecf1bf3242a1726cb318dfc34219930",
     "head": "HEAD",
-    "head_sha": "e2eec62b",
+    "head_sha": "721fdb2c",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -525,6 +650,16 @@
     {
       "at": "2026-06-29T22:06:10.402181Z",
       "diff_fingerprint": "sha256:4e1d951c3dc0e19266ed2e1848ac2a0971bf0d0f007e48d607b7bff4b2530c36",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "guard.core_change_guard"
+      ]
+    },
+    {
+      "at": "2026-06-29T22:06:53.002934Z",
+      "diff_fingerprint": "sha256:198d58ba3db6bdcae1ddbfa1cd2e6d2a8ecf1bf3242a1726cb318dfc34219930",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
