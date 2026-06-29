@@ -190,6 +190,15 @@ def test_list_blocks_returns_registered_blocks(ctx: _StubRuntime) -> None:
     # (that is exactly what this change removed; fetch it via get_block_schema).
     assert not hasattr(sample, "config_schema")
     assert not hasattr(sample, "input_ports")
+    sigs = [b.signature for b in result.blocks]
+    # Signatures must surface concrete accepted_types, not collapse every typed
+    # port to ``Any`` (regression guard: types live on ``accepted_types``, not a
+    # ``.type`` attribute — see PR #1863 Codex review).
+    assert any(":DataObject" in s for s in sigs), "expected a concrete port type in some signature"
+    # Variadic blocks must advertise expandability with a ``*:`` marker even
+    # when they declare fixed seed ports (e.g. Data Router / Merge Collection).
+    variadic = [b for b in result.blocks if b.signature and "*:" in b.signature]
+    assert variadic, "expected at least one variadic block to expose a '*:' marker"
 
 
 def test_list_blocks_no_context_raises() -> None:
