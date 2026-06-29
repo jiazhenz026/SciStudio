@@ -14,28 +14,45 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class BlockSpecEnvelope(BaseModel):
-    """JSON-safe projection of a :class:`BlockSpec`."""
+class BlockSummary(BaseModel):
+    """Lean catalog entry for one block type (``list_blocks``).
+
+    Carries only what the agent needs to *select* a block: identity,
+    category, owning package, a one-line description, and a one-line I/O
+    signature. The full I/O ports and ``config_schema`` are intentionally
+    omitted to keep the catalog small even with many packages installed;
+    fetch them on demand via ``get_block_schema``.
+    """
 
     name: str = Field(description="Registered block type name.")
     base_category: str = Field(description="One of io/process/code/app/ai/subworkflow.")
     subcategory: str | None = Field(default=None, description="Optional subcategory string.")
-    version: str = Field(description="Block version string.")
+    package_name: str = Field(
+        default="",
+        description="Owning plugin package name, or '' for core blocks.",
+    )
     description: str = Field(description="One-line block description from BlockSpec.")
-    input_ports: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Input port specs: {name, type, required}.",
-    )
-    output_ports: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Output port specs: {name, type, required}.",
-    )
-    config_schema: dict[str, Any] = Field(
-        default_factory=dict,
-        description="JSON Schema for the block's static config.",
+    signature: str = Field(
+        description="One-line I/O signature, e.g. 'image:Image, mask?:Array → result:Image'.",
     )
 
-    model_config = {"extra": "allow"}
+
+class ListBlocksResult(BaseModel):
+    """Return shape for the ``list_blocks`` tool.
+
+    A progressive-disclosure catalog: ``blocks`` is the lean index;
+    ``next_step`` points the agent at the detail tool for full schemas.
+    """
+
+    blocks: list[BlockSummary] = Field(description="Lean catalog of every registered block type.")
+    count: int = Field(description="Total number of registered block types.")
+    next_step: str = Field(
+        default=(
+            "Call mcp__scistudio__get_block_schema with a block's name to fetch its "
+            "full I/O ports and config_schema before wiring edges or setting params."
+        ),
+        description="Suggested next MCP call to obtain a block's full configuration.",
+    )
 
 
 class BlockSchemaResult(BaseModel):
@@ -195,11 +212,12 @@ __all__ = [
     "ActiveWorkflowContextResult",
     "BlockErrorEntry",
     "BlockSchemaResult",
-    "BlockSpecEnvelope",
+    "BlockSummary",
     "CancelRunResult",
     "FinishAIBlockError",
     "FinishAIBlockOK",
     "GetRunStatusResult",
+    "ListBlocksResult",
     "ListTypesResult",
     "RunWorkflowResult",
     "TypeEntry",

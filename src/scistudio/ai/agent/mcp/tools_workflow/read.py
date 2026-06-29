@@ -26,14 +26,15 @@ from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _get_workflow_runtime,
     _looks_like_inline_yaml,
     _port_to_dict,
-    _spec_to_dict,
+    _spec_signature,
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
     ActiveWorkflowContextResult,
     BlockErrorEntry,
     BlockSchemaResult,
-    BlockSpecEnvelope,
+    BlockSummary,
     GetRunStatusResult,
+    ListBlocksResult,
     ListTypesResult,
     TypeEntry,
     ValidateWorkflowResult,
@@ -50,8 +51,14 @@ logger = logging.getLogger(__name__)
 
 
 @mcp.tool(name="list_blocks", tags={"category:workflow", "read"})
-async def list_blocks() -> list[BlockSpecEnvelope]:
-    """List every block type registered in the active block registry.
+async def list_blocks() -> ListBlocksResult:
+    """List every registered block type as a lean catalog (name, category,
+    package, one-line description, one-line I/O signature).
+
+    This is a progressive-disclosure catalog: it omits each block's full
+    ``config_schema`` and port detail so the response stays small even with
+    many packages installed. Follow ``next_step`` to ``get_block_schema``
+    when you need a specific block's full configuration.
 
     Use when:
       - You need to choose a block type for a new workflow node.
@@ -59,20 +66,24 @@ async def list_blocks() -> list[BlockSpecEnvelope]:
       - Closing the #875 block-reuse gap before authoring a new block.
 
     Do NOT use to:
-      - Inspect a specific block's full schema — call ``get_block_schema``.
+      - Inspect a specific block's full schema or config — call
+        ``get_block_schema`` with the block name.
       - Enumerate data types (use ``list_types``).
     """
     ctx = get_context()
     specs = ctx.block_registry.all_specs()
-    envelopes: list[BlockSpecEnvelope] = []
-    for spec in specs.values():
-        raw = _spec_to_dict(spec)
-        # Apply the same dynamic core_type enum the HTTP block API serves, so the
-        # agent's contract matches the GUI / validate_workflow (shared source of
-        # truth in scistudio.blocks.io._config_enrichment).
-        raw["config_schema"] = enrich_io_config_schema(spec, ctx.block_registry, ctx.type_registry)
-        envelopes.append(BlockSpecEnvelope.model_validate(raw))
-    return envelopes
+    blocks = [
+        BlockSummary(
+            name=spec.name,
+            base_category=spec.base_category,
+            subcategory=spec.subcategory or None,
+            package_name=getattr(spec, "package_name", "") or "",
+            description=spec.description,
+            signature=_spec_signature(spec),
+        )
+        for spec in specs.values()
+    ]
+    return ListBlocksResult(blocks=blocks, count=len(blocks))
 
 
 # ---------------------------------------------------------------------------
