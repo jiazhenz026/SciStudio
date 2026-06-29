@@ -18,6 +18,12 @@ const activation = require("./activation");
 // safeLog is hoisted and only called when the handler fires.
 ipcMain.handle("scistudio:relaunch", () => {
   safeLog("[scistudio] relaunch requested by renderer (package update)");
+  // #1867: stop the backend before exiting. app.exit() does NOT emit
+  // `before-quit`, so without this the child backend is never signalled and is
+  // reparented to init as an orphan on every package-update relaunch. Mirrors
+  // the OTA relaunch path.
+  isQuitting = true;
+  stopRuntime();
   app.relaunch();
   app.exit(0);
 });
@@ -40,6 +46,39 @@ let isQuitting = false;
 // window-all-closed quit before the main window is created.
 let startingUp = false;
 let cachedMacLoginShellEnv = null;
+
+// #1867: single-instance lock. A second launch must focus the existing window
+// instead of spawning a second backend (which would then orphan on quit). The
+// whenReady handler bails early when the lock was not acquired.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+// #1867: last-resort synchronous reap. If the main process is exiting while the
+// backend is still tracked (e.g. the SIGTERM escalation timer in stopRuntime was
+// dropped when the process exited first), kill it now. The 'exit' event only
+// permits synchronous work, so this sends SIGKILL directly. A clean stopRuntime
+// nulls runtimeProcess first, making this a no-op on the normal path.
+process.on("exit", () => {
+  if (runtimeProcess && !runtimeProcess.killed && process.platform !== "win32") {
+    try {
+      runtimeProcess.kill("SIGKILL");
+    } catch {
+      // best-effort; the process is already going away
+    }
+  }
+});
 
 function installPipeGuard(stream) {
   if (!stream || typeof stream.on !== "function") {
@@ -405,6 +444,95 @@ async function downloadAndApply(manifest) {
       // Temp cleanup is best-effort.
     }
   }
+}
+
+// #1868: pre-window mandatory-update gate. Runs before the runtime/window so a
+// required build can block entry. Returns true when startup should continue,
+// false when the app is updating or quitting.
+//
+// Fail-open by design: OTA disabled, no manifest URL, or any fetch/parse failure
+// (offline, bad manifest) returns true. Only a successfully fetched manifest that
+// `evaluateUpdate` marks `mandatory` can block. Optional (non-mandatory) updates
+// are left to the post-window maybeCheckForUpdate so this gate never nags.
+async function maybeEnforceMandatoryUpdate() {
+  const config = loadOtaConfig();
+  if (!config.enabled || !config.manifestUrl) {
+    return true;
+  }
+
+  let manifest = null;
+  try {
+    manifest = JSON.parse(await fetchText(config.manifestUrl, OTA_MANIFEST_TIMEOUT_MS));
+  } catch (error) {
+    safeLog(`[scistudio] mandatory update check skipped (fail-open): ${error.message}`);
+    return true;
+  }
+
+  const baseline = baselineVersion();
+  const local = effectiveBuild();
+  const decision = ota.evaluateUpdate(config, manifest, baseline, local);
+  if (!decision.mandatory) {
+    return true;
+  }
+  safeLog(`[scistudio] mandatory update required: kind=${decision.kind} remote build=${manifest.build}`);
+
+  if (decision.kind === "incompatible") {
+    // Can't hot-patch across a base bump: the only path forward is a reinstall.
+    await dialog.showMessageBox({
+      type: "warning",
+      title: "Update required",
+      message: "A required SciStudio update is available.",
+      detail:
+        `Version ${ota.displayBuildVersion(manifest.base, decision.build)} requires a newer base ` +
+        `version (${decision.minBase}) than this installation (${baseline.base}). ` +
+        `Please download and reinstall SciStudio to continue.`,
+      buttons: ["Quit"],
+      defaultId: 0
+    });
+    app.quit();
+    return false;
+  }
+  if (decision.kind !== "patch") {
+    return true;
+  }
+
+  const choice = await dialog.showMessageBox({
+    type: "warning",
+    title: "Update required",
+    message: `SciStudio must update to ${ota.displayBuildVersion(manifest.base, manifest.build)} to continue.`,
+    detail:
+      (manifest.notes ? `${manifest.notes}\n\n` : "") + "SciStudio will restart to apply the update.",
+    buttons: ["Update now", "Quit"],
+    defaultId: 0,
+    cancelId: 1
+  });
+  if (choice.response !== 0) {
+    app.quit();
+    return false;
+  }
+
+  try {
+    await downloadAndApply(manifest);
+  } catch (error) {
+    safeError(`[scistudio] mandatory update apply failed: ${error.message}`);
+    await dialog.showMessageBox({
+      type: "error",
+      title: "Update failed",
+      message: "SciStudio could not apply the required update.",
+      detail: `${error.message}\n\nPlease try again or reinstall SciStudio.`,
+      buttons: ["Quit"],
+      defaultId: 0
+    });
+    app.quit();
+    return false;
+  }
+
+  safeLog(`[scistudio] applied mandatory OTA build ${manifest.build}; relaunching`);
+  isQuitting = true;
+  stopRuntime();
+  app.relaunch();
+  app.exit(0);
+  return false;
 }
 
 // Launch-time update check. Silent on dev builds and when offline.
@@ -1193,6 +1321,11 @@ async function ensureAlphaActivation() {
 }
 
 app.whenReady().then(async () => {
+  // #1867: a second instance never acquired the lock; it has already requested
+  // quit and must not start a runtime or window.
+  if (!gotSingleInstanceLock) {
+    return;
+  }
   try {
     safeLog("[scistudio] electron ready");
     // #1848: alpha gate — do not start the runtime or main window until the
@@ -1204,6 +1337,13 @@ app.whenReady().then(async () => {
     if (!activated) {
       safeLog("[scistudio] alpha activation not completed; quitting");
       app.quit();
+      return;
+    }
+    // #1868: enforce a mandatory OTA update before starting the runtime/window.
+    // Fail-open: returns true (continue) unless a fetched manifest marks the
+    // update mandatory and the user declines or it cannot be applied.
+    const proceed = await maybeEnforceMandatoryUpdate();
+    if (!proceed) {
       return;
     }
     const { ready } = await startRuntimeWithRollback();

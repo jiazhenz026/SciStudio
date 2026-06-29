@@ -97,6 +97,10 @@ Update decision (pure logic in `desktop/ota.js`, `evaluateUpdate`):
 3. `base >= manifest.requires.min_base` → **patch**; otherwise **incompatible**
    (prompt to reinstall). The client always targets the latest build; a client
    several builds behind jumps straight to it in one snapshot download.
+4. **Mandatory (#1868)**: if `manifest.requires.min_build` is set and the
+   effective build is below it (and the offered `build >= min_build`), the
+   result carries `mandatory: true`. Both **patch** and **incompatible** results
+   can be mandatory.
 
 ## 4. Distribution
 
@@ -104,7 +108,9 @@ Update decision (pure logic in `desktop/ota.js`, `evaluateUpdate`):
   `ota-<channel>`, with assets `manifest.json` and `backend-build<N>.tar.gz`.
   Anonymous download (repo is public); pre-release is visible but not "latest".
 - `manifest.json`:
-  `{channel, base, build, requires:{min_base}, url, sha256, size, notes, published_at}`.
+  `{channel, base, build, requires:{min_base, min_build?}, url, sha256, size, notes, published_at}`.
+  `requires.min_build` is optional (#1868): present only for a mandatory patch,
+  set via `ota_publish.py --min-build N`.
 - Publish: `scripts/ota_publish.py` packs `desktop/resources/backend/src` into a
   gzip tarball rooted at `src/` (excluding `__pycache__`/`.pyc`/`egg-info`),
   computes sha256, sets `build = max(latest_published, baseline) + 1`, and
@@ -112,13 +118,25 @@ Update decision (pure logic in `desktop/ota.js`, `evaluateUpdate`):
 
 ## 5. Client behavior (`desktop/main.js`)
 
-- **Launch-time only**, after the window is shown (never blocks startup); offline
-  failures are logged and ignored.
+- **Optional updates: launch-time only**, after the window is shown (never blocks
+  startup); offline failures are logged and ignored.
+- **Mandatory updates (#1868): pre-window gate.** Before the runtime/window come
+  up, `maybeEnforceMandatoryUpdate()` fetches the manifest and, if the decision is
+  `mandatory`, blocks: a **patch** shows "Update now / Quit" (no "Later") and
+  declining quits; an **incompatible** mandatory update shows a reinstall notice
+  and quits. **Fail-open**: OTA disabled, no manifest URL, or any fetch/parse
+  failure (offline) allows normal startup — only a successfully fetched mandatory
+  manifest can block. Non-mandatory updates fall through to the post-window check.
 - Reads `resources/ota-config.json`. `{enabled:false, channel:"dev"}` (the
   default for local builds) disables OTA entirely.
 - On a `patch` decision: native dialog → download → sha256 verify → `tar -xzf`
   into a temp dir → atomic rename to `userData/patches/build<N>/` → write
   `active.json` pointer → `app.relaunch()`.
+- **Single instance + clean shutdown (#1867)**: the app holds a single-instance
+  lock (a second launch focuses the existing window); the package-update relaunch
+  path and `process.on("exit")` stop the backend so it is never left as an orphan.
+  The enforcement logic lives in the Electron shell, so mandatory updates only
+  apply to clients already running a force-aware shell (next dmg onward).
 - `runtimeEnv()` prepends `userData/patches/build<N>/src` to `PYTHONPATH`; the
   app bundle is never modified (works under a read-only/signed bundle and avoids
   Windows `Program Files` permission issues). The ordered entries are resolved by
@@ -167,10 +185,12 @@ deferred to a release-grade channel.
 ## 8. Verification
 
 - `tests/scripts/test_ota_publish.py`: version parse, monotonic build numbering,
-  manifest shape, naming/URLs, sha256, snapshot packing + exclusions.
-- `desktop/test/ota.test.js`: `parseVersion`, numeric `compareBase`, and every
+  manifest shape (incl. optional `min_build`, #1868), naming/URLs, sha256,
+  snapshot packing + exclusions.
+- `desktop/test/ota.test.js`: `parseVersion`, numeric `compareBase`, every
   `evaluateUpdate` branch (disabled, invalid, channel-mismatch, up-to-date,
-  patch, incompatible, effective-build comparison).
+  patch, incompatible, effective-build comparison), and `isMandatoryUpdate` /
+  the `mandatory` flag on patch and incompatible decisions (#1868).
 - Manual: `python scripts/ota_publish.py --channel alpha --dry-run`; build a
   dev DMG and confirm OTA is skipped; build with `SCISTUDIO_OTA_CHANNEL=alpha`
   and confirm the launch-time dialog, apply, relaunch, and `/version` update.

@@ -107,13 +107,22 @@ def build_manifest(
     size: int,
     notes: str,
     published_at: str,
+    min_build: int | None = None,
 ) -> dict:
-    """Assemble the manifest document the desktop client compares against."""
+    """Assemble the manifest document the desktop client compares against.
+
+    #1868: pass ``min_build`` to mark the patch mandatory — clients whose
+    effective build is below it must take the update before they can continue
+    (the desktop shell blocks startup). Omit it for an ordinary optional patch.
+    """
+    requires: dict[str, object] = {"min_base": base}
+    if min_build is not None:
+        requires["min_build"] = min_build
     return {
         "channel": channel,
         "base": base,
         "build": build,
-        "requires": {"min_base": base},
+        "requires": requires,
         "url": url,
         "sha256": sha256,
         "size": size,
@@ -230,6 +239,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", default=DEFAULT_REPO, help="owner/name of the GitHub repo.")
     parser.add_argument("--notes", default="", help="Human-readable patch notes for the manifest.")
     parser.add_argument(
+        "--min-build",
+        type=int,
+        default=None,
+        help=(
+            "#1868: mark this patch mandatory. Clients whose effective build is below "
+            "this value must apply the update before they can continue (the desktop "
+            "shell blocks startup). Omit for an ordinary optional patch."
+        ),
+    )
+    parser.add_argument(
         "--src",
         type=Path,
         default=STAGED_SRC,
@@ -275,6 +294,7 @@ def main(argv: list[str] | None = None) -> int:
         size=size,
         notes=args.notes,
         published_at=_utc_now_iso(),
+        min_build=args.min_build,
     )
     manifest_path = workdir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

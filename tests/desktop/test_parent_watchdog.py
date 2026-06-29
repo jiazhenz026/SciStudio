@@ -40,6 +40,7 @@ class TestStartParentDeathWatchdog:
 
     def test_fires_on_orphan_when_parent_goes_away(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fired = threading.Event()
+        stop = threading.Event()
         # Pretend the spawning parent (pid 4321) has been replaced by init.
         monkeypatch.setattr(os, "getppid", lambda: 1)
 
@@ -47,14 +48,19 @@ class TestStartParentDeathWatchdog:
             4321,
             interval=0.01,
             on_orphan=fired.set,
+            stop_event=stop,
         )
         assert thread is not None
-        assert fired.wait(timeout=2.0), "watchdog did not fire after parent loss"
-        thread.join(timeout=2.0)
+        try:
+            assert fired.wait(timeout=2.0), "watchdog did not fire after parent loss"
+        finally:
+            stop.set()
+            thread.join(timeout=2.0)
         assert not thread.is_alive()
 
     def test_stays_quiet_while_parent_is_alive(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fired = threading.Event()
+        stop = threading.Event()
         # Parent pid never changes -> backend is not orphaned.
         monkeypatch.setattr(os, "getppid", lambda: 4321)
 
@@ -62,8 +68,17 @@ class TestStartParentDeathWatchdog:
             4321,
             interval=0.01,
             on_orphan=fired.set,
+            stop_event=stop,
         )
         assert thread is not None
-        # Give the daemon several poll intervals to (incorrectly) fire.
-        assert not fired.wait(timeout=0.2)
-        assert thread.is_alive()
+        try:
+            # Give the daemon several poll intervals to (incorrectly) fire.
+            assert not fired.wait(timeout=0.2)
+            assert thread.is_alive()
+        finally:
+            # Stop and join deterministically so the daemon never leaks past the
+            # test (a leaked while-loop thread crashed an xdist worker, #1867).
+            stop.set()
+            thread.join(timeout=2.0)
+        assert not thread.is_alive()
+        assert not fired.is_set()
