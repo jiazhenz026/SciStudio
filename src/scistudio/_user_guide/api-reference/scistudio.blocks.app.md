@@ -28,6 +28,13 @@ waiting, so the rest of the workflow knows it is blocked on you (or on the
 program) rather than stuck. Once result files appear and stop changing, the
 block finishes on its own.
 
+Config-driven tools: some command-line tools do not read the exchange
+directory themselves — they expect a generated config/parameter file listing
+each input by path and a non-default command line (for example
+``tool --config config.xml``). Override `prepare_launch` to generate
+that file from the staged inputs and return the launch arguments; the
+default implementation is a no-op and keeps the standard behavior.
+
 Ports and config:
     - Reads an optional input port named ``data`` by default; you can add or
       rename input and output ports in the port editor. Each output port may
@@ -48,6 +55,7 @@ Example:
 
 **Members**
 
+- `prepare_launch(self, exchange_dir: 'Path', output_dir: 'Path', config: 'BlockConfig') -> 'list[str] | None'` — `provisional` · Since `0.3.2` — Customise the launch of the external tool after inputs are staged.
 - `run(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'` — `provisional` · Since `0.3.1` — Serialise inputs, launch the external app, and collect its outputs.
 
 ## `BlockCancelledByAppError` — _exception_
