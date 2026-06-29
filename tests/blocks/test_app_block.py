@@ -1181,3 +1181,148 @@ class TestAppBlockVestigialStateRemoval:
 
                 with pytest.raises(BlockCancelledByAppError, match="gone"):
                     block.run(inputs={}, config=config)
+
+
+# ---------------------------------------------------------------------------
+# Issue #1870: AppBlock.prepare_launch pre-launch hook (ADR-006 Addendum 1)
+# ---------------------------------------------------------------------------
+
+
+class TestAppBlockPrepareLaunch:
+    """#1870: subclass-overridable pre-launch hook customises the launch argv."""
+
+    @staticmethod
+    def _run_with_mocks(block: Any, config: Any, tmp_path: Path) -> tuple[Any, Any]:
+        """Run ``block`` with the bridge + watcher mocked.
+
+        Returns ``(mock_bridge, mock_watcher_cls)`` so callers can assert how
+        ``bridge.launch`` and ``FileWatcher`` were invoked.
+        """
+        from unittest.mock import MagicMock, patch
+
+        with (
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch(
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
+                return_value=str(tmp_path / "exchange"),
+            ),
+        ):
+            mock_bridge = MagicMock()
+            mock_bridge_cls.return_value = mock_bridge
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+            mock_proc.pid = 1
+            mock_proc.wait.return_value = 0
+            mock_bridge.launch.return_value = mock_proc
+
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+                mock_watcher = MagicMock()
+                mock_watcher_cls.return_value = mock_watcher
+                fake_output = tmp_path / "result.csv"
+                fake_output.write_text("a,b\n1,2\n", encoding="utf-8")
+                mock_watcher.wait_for_output.return_value = [fake_output]
+                mock_bridge.collect.return_value = {}
+
+                block.run(inputs={}, config=config)
+
+        return mock_bridge, mock_watcher_cls
+
+    def test_default_hook_returns_none_and_launch_unchanged(self, tmp_path: Path) -> None:
+        """The base hook returns None and launch receives argv_override=None.
+
+        Regression guard: the default code path must be identical to the
+        pre-#1870 behavior, where launch only ever appended the exchange dir.
+        """
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+
+        block = AppBlock()
+        # The hook itself is a no-op for the base class.
+        assert block.prepare_launch(tmp_path, tmp_path, BlockConfig(params={})) is None
+
+        config = BlockConfig(params={"app_command": "echo hello"})
+        mock_bridge, _ = self._run_with_mocks(block, config, tmp_path)
+
+        launch_call = mock_bridge.launch.call_args
+        assert launch_call.kwargs.get("argv_override") is None
+
+    def test_subclass_override_argv_is_threaded_to_launch(self, tmp_path: Path) -> None:
+        """A subclass-supplied argv is passed through to bridge.launch."""
+        from typing import ClassVar
+
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+
+        custom_argv = ["--config", "/generated/config.xml"]
+
+        class _ConfigDrivenBlock(AppBlock):
+            app_command: ClassVar[str] = "echo hello"
+
+            def prepare_launch(self, exchange_dir: Path, output_dir: Path, config: Any) -> list[str] | None:
+                return custom_argv
+
+        block = _ConfigDrivenBlock()
+        config = BlockConfig(params={"app_command": "echo hello"})
+        mock_bridge, _ = self._run_with_mocks(block, config, tmp_path)
+
+        launch_call = mock_bridge.launch.call_args
+        assert launch_call.kwargs.get("argv_override") == custom_argv
+
+    def test_hook_receives_existing_output_dir_shared_with_watcher(self, tmp_path: Path) -> None:
+        """output_dir exists when the hook runs and is the dir the watcher polls."""
+        from typing import Any as _Any
+        from typing import ClassVar
+
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+
+        seen: dict[str, _Any] = {}
+
+        class _CapturingBlock(AppBlock):
+            app_command: ClassVar[str] = "echo hello"
+
+            def prepare_launch(self, exchange_dir: Path, output_dir: Path, config: _Any) -> list[str] | None:
+                # The output dir must already exist when the hook is invoked so
+                # a subclass can point a tool's outputs at it.
+                seen["output_dir"] = output_dir
+                seen["existed_at_hook"] = output_dir.exists()
+                seen["exchange_existed"] = exchange_dir.exists()
+                return None
+
+        block = _CapturingBlock()
+        config = BlockConfig(params={"app_command": "echo hello"})
+        _, mock_watcher_cls = self._run_with_mocks(block, config, tmp_path)
+
+        assert seen["existed_at_hook"] is True
+        assert seen["exchange_existed"] is True
+        # The watcher must poll the exact directory the hook was handed (no
+        # second, divergent computation in the watcher step).
+        watcher_directory = mock_watcher_cls.call_args.kwargs["directory"]
+        assert watcher_directory == seen["output_dir"]
+
+    def test_hook_receives_configured_output_dir(self, tmp_path: Path) -> None:
+        """A configured output_dir is the one passed to the hook and watcher."""
+        from typing import Any as _Any
+        from typing import ClassVar
+
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+
+        configured_out = tmp_path / "chosen_outputs"
+        seen: dict[str, _Any] = {}
+
+        class _CapturingBlock(AppBlock):
+            app_command: ClassVar[str] = "echo hello"
+
+            def prepare_launch(self, exchange_dir: Path, output_dir: Path, config: _Any) -> list[str] | None:
+                seen["output_dir"] = output_dir
+                return None
+
+        block = _CapturingBlock()
+        config = BlockConfig(params={"app_command": "echo hello", "output_dir": str(configured_out)})
+        _, mock_watcher_cls = self._run_with_mocks(block, config, tmp_path)
+
+        assert seen["output_dir"] == configured_out
+        assert configured_out.exists()
+        assert mock_watcher_cls.call_args.kwargs["directory"] == configured_out

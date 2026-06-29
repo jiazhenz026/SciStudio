@@ -1,0 +1,113 @@
+{
+  "branch": "jiazhenz026/feature/1870-appblock-prelaunch-hook",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/app/app_block.py",
+      "tests/blocks/test_app_block.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T20:41:26.396698Z",
+      "owner_directive": "Add AppBlock.prepare_launch(exchange_dir, output_dir, config) -> list[str] | None subclass hook (default None = unchanged behavior). Move output_dir computation+mkdir above launch; thread argv_override = prepare_launch(...) into bridge.launch. Document contract extension + backward-compat in ADR-006 addendum. Security: argv_override is block-authored and launched with shell=False, same as the existing exchange_dir trailing arg, so no extra metacharacter validation is needed; the executable itself stays validated by validate_app_command.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T20:41:26.396843Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-006.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T20:41:26.396866Z",
+      "class": "dev-guide",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/package-development/blocks.md only names AppBlock as a base class and has no AppBlock launch-flow section to amend; the hook is documented in the AppBlock docstring (generated API reference) and the ADR-006 addendum.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T20:41:26.396871Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "no changelog file is maintained for provisional core block-authoring hooks in this repo.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1870,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add a subclass-overridable pre-launch hook (prepare_launch) on core AppBlock so config-driven external tools can generate a config/params file from the already-materialised inputs and launch with a custom argv. Generic core capability, no tool-specific naming. Owner authorized this protected-core change (admin-approved:core-change).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1870-jiazhenz026-feature-1870-appblock-prelaunch-hook",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-29T20:41:26.396824Z",
+      "pattern": "src/scistudio/blocks/app/app_block.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T20:41:26.396832Z",
+      "pattern": "tests/blocks/test_app_block.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T20:41:26.396834Z",
+      "pattern": "docs/adr/ADR-006.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "ed81899b-04a1-4b9e-bf01-db45f6455333",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-06-29T20:41:26.396875Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_app_block.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
