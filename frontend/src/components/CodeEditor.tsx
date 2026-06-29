@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
+import { registerApiCompletions } from "./CodeEditor.parts/apiCompletions";
 import { registerPlotCompletions } from "./CodeEditor.parts/plotCompletions";
 import { defineSoftDarkTheme } from "./CodeEditor.parts/theme";
 import { useConflictDecorations } from "./CodeEditor.parts/useConflictDecorations";
@@ -177,6 +178,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   function handleBeforeMount(monaco: any) {
     defineSoftDarkTheme(monaco);
     registerPlotCompletions(monaco);
+    registerApiCompletions(monaco);
   }
 
   // Editor onChange: forward content + schedule lint.

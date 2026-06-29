@@ -19,7 +19,11 @@ What this script does:
    version-stamped ``index.md``. Each page contains an ``mkdocstrings``
    (``griffe``) autodoc directive per symbol, so ``mkdocstrings`` renders the
    docstring + signature while this script supplies the filter + badge.
-4. Runs ``mkdocs build --strict`` (unless ``--generate-only``) so the reference
+4. Emits a compact machine-readable completion manifest
+   (``frontend/src/components/CodeEditor.parts/apiManifest.generated.json``,
+   #1875) from the same introspection, so the in-app Monaco editor can offer
+   SciStudio-API completion + hover without drifting from the public surface.
+5. Runs ``mkdocs build --strict`` (unless ``--generate-only``) so the reference
    provably builds green.
 
 The generated pages under ``docs/user/reference/`` are a generated artifact
@@ -43,6 +47,7 @@ import argparse
 import enum
 import importlib
 import inspect
+import json
 import re
 import subprocess
 import sys
@@ -81,6 +86,15 @@ CANONICAL_ROOTS: tuple[str, ...] = (
 )
 
 REFERENCE_DIR = REPO_ROOT / "docs" / "user" / "reference"
+#: Machine-readable completion manifest for the in-app Monaco editor (#1875).
+#: Generated from the same ``__all__`` + ``scistudio.stability`` + docstring
+#: introspection as the human reference, so the editor's SciStudio-API
+#: completion/hover can never drift from the public surface. Committed and
+#: imported by ``frontend/src/components/CodeEditor.parts/apiCompletions.ts``;
+#: a drift test regenerates and compares it (do not hand-edit).
+FRONTEND_COMPLETION_MANIFEST = (
+    REPO_ROOT / "frontend" / "src" / "components" / "CodeEditor.parts" / "apiManifest.generated.json"
+)
 #: Self-contained reference (ADR-052 §7; #1850). Unlike ``REFERENCE_DIR`` (which
 #: holds ``mkdocstrings`` directive shells that only render under an mkdocs
 #: build), this directory holds **self-contained** Markdown with real signatures
@@ -390,6 +404,82 @@ def generate_selfcontained() -> list[tuple[str, int]]:
     return stats
 
 
+# --------------------------------------------------------------------------
+# Completion manifest (#1875): a compact JSON description of the public surface
+# (importable symbols + signatures + one-line summaries + stability) that the
+# in-app Monaco editor loads to offer SciStudio-API completion and hover. Built
+# from the same introspection as the human reference so it cannot drift.
+# --------------------------------------------------------------------------
+
+
+def _manifest_member(name: str, value: object) -> dict[str, object]:
+    target = (
+        value.fget
+        if isinstance(value, property)
+        else (value.__func__ if isinstance(value, (staticmethod, classmethod)) else value)
+    )
+    return {
+        "name": name,
+        "kind": "property" if isinstance(value, property) else "method",
+        "signature": _sc_signature(target) or "",
+        "summary": _sc_firstline(inspect.getdoc(target)),
+    }
+
+
+def _manifest_symbol(root: str, name: str, obj: object) -> dict[str, object]:
+    info = get_stability(obj)
+    entry: dict[str, object] = {
+        "name": name,
+        "module": root,
+        "kind": _symbol_kind(obj),
+        "signature": _sc_signature(obj) or "",
+        "summary": _sc_firstline(inspect.getdoc(obj)),
+        "stability": info.tier if info is not None else None,
+        "since": info.since if info is not None else None,
+    }
+    if inspect.isclass(obj):
+        members = [_manifest_member(mname, mval) for mname, mval in _sc_public_members(obj)]
+        if members:
+            entry["members"] = members
+    return entry
+
+
+def build_completion_manifest() -> dict[str, object]:
+    """Return the editor completion manifest as a plain (JSON-serialisable) dict."""
+    roots: list[dict[str, object]] = []
+    for root in CANONICAL_ROOTS:
+        module = importlib.import_module(root)
+        public = sorted(getattr(module, "__all__", []))
+        symbols = [_manifest_symbol(root, name, getattr(module, name)) for name in public]
+        roots.append({"module": root, "symbols": symbols})
+    return {
+        "generated_by": "scripts/docs/build_reference.py",
+        "note": "GENERATED (#1875). Do not hand-edit; regenerate from the public API.",
+        "version": _core_version(),
+        "roots": roots,
+    }
+
+
+def _manifest_json(manifest: dict[str, object]) -> str:
+    """Deterministic JSON text (stable across runs for the drift test)."""
+    return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+
+
+def generate_completion_manifest() -> int:
+    """Write the editor completion manifest under ``frontend/`` (#1875)."""
+    manifest = build_completion_manifest()
+    FRONTEND_COMPLETION_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    FRONTEND_COMPLETION_MANIFEST.write_text(_manifest_json(manifest), encoding="utf-8")
+    roots = manifest["roots"]
+    assert isinstance(roots, list)
+    total = sum(len(root["symbols"]) for root in roots)
+    print(
+        f"  [completion-manifest] wrote {FRONTEND_COMPLETION_MANIFEST.name}  "
+        f"({total} symbols across {len(roots)} roots)"
+    )
+    return total
+
+
 def generate() -> list[tuple[str, int, int]]:
     """Generate index + per-root pages under ``docs/user/reference/``."""
     REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -434,6 +524,8 @@ def main(argv: list[str] | None = None) -> int:
     generate()
     print("Generating self-contained reference (#1850) ...")
     generate_selfcontained()
+    print("Generating editor completion manifest (#1875) ...")
+    generate_completion_manifest()
     if args.generate_only:
         print("Generated (skipped mkdocs build).")
         return 0

@@ -1,0 +1,524 @@
+{
+  "branch": "jiazhenz026/guided/1875-editor-api-completion",
+  "check_events": [
+    {
+      "at": "2026-06-29T22:17:13.199949Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b29a1ddd389504d8a61efdd01752e8b280eaa1b30f870b236b259cf4161ca453",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T22:17:18.117068Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a37b2f4a25ee108951a45a67c4d1b4153efac9b96b87f4012875669dfd3b301b",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:17:21.983176Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e4f8664080eb80bc89b57e969f4fd68b61b8ded3e426dbbb7e433b06d1f30e40",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:17:22.020019Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a5420663123af859abcc8acbbc76005653f3e0fe297d7fff45ab56f422f9ce0f",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T22:19:15.215642Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5b17fce54e67dd62f264ec4be3e269e1e7359cec2693c2a67d14619f25bc67d6",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:21:11.423158Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ee8b66f7b5637ccb817556f5ad26ca3fc73bd05503ed1fe4b0d57d173f25c35f",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:22:38.110920Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:cce9f5c30b75c18211110f59954236285bc97b236ee6dffc46e0e786af5c0071",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:22:41.827467Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d49084ff15fd3d6bcf01eeecbd2ec9e562053b38ab226796b1641cfb3ed0de6c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:24:05.055745Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5b17fce54e67dd62f264ec4be3e269e1e7359cec2693c2a67d14619f25bc67d6",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T22:25:59.684557Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e738775004f736221f3f03cb09c7e32a1246cdff317dc467741be446eaa8dff4",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "scripts/docs/**",
+      "frontend/src/components/CodeEditor.tsx",
+      "frontend/src/components/CodeEditor.parts/**",
+      "docs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T22:04:45.352983Z",
+      "owner_directive": "Plan A scope: (1) extend scripts/docs/build_reference.py to emit a generated JSON completion manifest reusing existing introspection helpers; (2) commit the generated manifest under frontend; (3) add a data-driven Monaco Python completion + hover provider; (4) register it in CodeEditor.tsx; (5) tests for generator + provider; (6) docs note.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T22:04:45.353235Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-036.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-29T22:21:11.464646Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.474187Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.483150Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.492002Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.501164Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.510434Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.519248Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.530088Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.540004Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:21:11.556516Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.724431Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.733937Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.743104Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.752829Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.761650Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.770561Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.779439Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.790322Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.799007Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T22:25:59.815260Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1875,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "fb73515c",
+    "changed_files": [
+      ".workflow/records/1875-jiazhenz026-guided-1875-editor-api-completion.json",
+      "docs/adr/ADR-036.md",
+      "frontend/src/components/CodeEditor.parts/apiCompletions.test.ts",
+      "frontend/src/components/CodeEditor.parts/apiCompletions.ts",
+      "frontend/src/components/CodeEditor.parts/apiManifest.generated.json",
+      "frontend/src/components/CodeEditor.tsx",
+      "scripts/docs/build_reference.py",
+      "tests/docs/test_completion_manifest.py"
+    ],
+    "diff_fingerprint": "sha256:c9e0ac8bcf2a04e480349e2afe015a34977b81f1cfc4613324eeea6539afdff4",
+    "head": "HEAD",
+    "head_sha": "5163fb7a",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 4,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 6,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Add SciStudio-API-aware completion + hover to the in-app Monaco Python editor (Plan A: reuse build_reference.py introspection to emit a generated completion manifest that drives a data-driven Monaco completion/hover provider). Exclude Jedi/LSP.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-06-29T22:21:11.556551Z",
+      "diff_fingerprint": "sha256:ca4a0473d79727b20ca18e280d19556871fefed81e9908601ea452daa51f1506",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-06-29T22:25:59.815293Z",
+      "diff_fingerprint": "sha256:c9e0ac8bcf2a04e480349e2afe015a34977b81f1cfc4613324eeea6539afdff4",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    }
+  ],
+  "record_id": "1875-jiazhenz026-guided-1875-editor-api-completion",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "python_tests",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code:claude-opus-4-8",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353190Z",
+      "pattern": "scripts/docs/build_reference.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353205Z",
+      "pattern": "frontend/src/components/CodeEditor.parts/apiCompletions.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353209Z",
+      "pattern": "frontend/src/components/CodeEditor.parts/apiCompletions.test.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353212Z",
+      "pattern": "frontend/src/components/CodeEditor.parts/apiManifest.generated.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353215Z",
+      "pattern": "frontend/src/components/CodeEditor.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:04:45.353220Z",
+      "pattern": "tests/docs/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T22:27:10.846318Z",
+      "pattern": "frontend/src/components/__tests__/CodeEditor.test.tsx",
+      "reason": "Adding the SciStudio-API python completion provider changes the provider-registration count asserted by the existing CodeEditor wiring test; update it to reflect the new provider."
+    }
+  ],
+  "session_id": "5d2e3362-4cb9-4b59-8140-c19e31a35bb8",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-29T22:04:45.353486Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/CodeEditor.parts/apiCompletions.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T22:04:45.353493Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_completion_manifest.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T22:27:10.846466Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/CodeEditor.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

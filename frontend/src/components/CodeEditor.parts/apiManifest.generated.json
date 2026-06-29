@@ -1,0 +1,2298 @@
+{
+  "generated_by": "scripts/docs/build_reference.py",
+  "note": "GENERATED (#1875). Do not hand-edit; regenerate from the public API.",
+  "version": "0.3.2a0",
+  "roots": [
+    {
+      "module": "scistudio.core.types",
+      "symbols": [
+        {
+          "name": "Array",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, axes: 'list[str]', shape: 'tuple[int, ...] | None' = None, dtype: 'Any' = None, chunk_shape: 'tuple[int, ...] | None' = None, data: 'Any' = None, **kwargs: 'Any') -> 'None'",
+          "summary": "N-dimensional array with named axes, optionally chunked on disk.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "ndim",
+              "kind": "property",
+              "signature": "(self) -> 'int'",
+              "summary": "Number of dimensions (the length of `axes`)."
+            },
+            {
+              "name": "sel",
+              "kind": "method",
+              "signature": "(self, **kwargs: 'int | slice') -> 'Array'",
+              "summary": "Select a sub-array by naming positions along one or more axes."
+            },
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            },
+            {
+              "name": "to_memory",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Load the full array into memory and return it."
+            },
+            {
+              "name": "to_numpy",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Return the array data as a NumPy ``ndarray``."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Rebuild an array's constructor arguments from saved metadata."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return an array's own fields for the saved metadata."
+            }
+          ]
+        },
+        {
+          "name": "Artifact",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, file_path: 'Path | None' = None, mime_type: 'str | None' = None, description: 'str' = '', **kwargs: 'Any') -> 'None'",
+          "summary": "An opaque file: a PDF, a rendered report, an image, a binary blob.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Rebuild an artifact's constructor arguments from saved metadata."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return an artifact's own fields for the saved metadata."
+            }
+          ]
+        },
+        {
+          "name": "Collection",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(items: 'list[DataObject] | None' = None, item_type: 'type | None' = None) -> 'None'",
+          "summary": "An ordered batch of `DataObject` items, all of one type.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "item_type",
+              "kind": "property",
+              "signature": "(self) -> 'type'",
+              "summary": "The element type shared by every item (fixed at creation)."
+            },
+            {
+              "name": "length",
+              "kind": "property",
+              "signature": "(self) -> 'int'",
+              "summary": "The number of items in the Collection."
+            },
+            {
+              "name": "storage_refs",
+              "kind": "property",
+              "signature": "(self) -> 'list[Any]'",
+              "summary": "The storage reference of each item, in order."
+            }
+          ]
+        },
+        {
+          "name": "CompositeData",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, slots: 'dict[str, DataObject] | None' = None, **kwargs: 'Any') -> 'None'",
+          "summary": "A bundle of named `DataObject` slots.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get",
+              "kind": "method",
+              "signature": "(self, slot_name: 'str') -> 'DataObject'",
+              "summary": "Return the data object stored under *slot_name*."
+            },
+            {
+              "name": "set",
+              "kind": "method",
+              "signature": "(self, slot_name: 'str', data: 'DataObject') -> 'None'",
+              "summary": "Store *data* under *slot_name*."
+            },
+            {
+              "name": "slot_types",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, type]'",
+              "summary": "Return this class's expected slot-type mapping."
+            },
+            {
+              "name": "slot_names",
+              "kind": "property",
+              "signature": "(self) -> 'list[str]'",
+              "summary": "The names of the currently populated slots."
+            },
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            }
+          ]
+        },
+        {
+          "name": "DataFrame",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, columns: 'list[str] | None' = None, row_count: 'int | None' = None, schema: 'dict[str, Any] | None' = None, data: 'Any' = None, **kwargs: 'Any') -> 'None'",
+          "summary": "Columnar table of rows and named columns, backed by Arrow/Parquet.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            },
+            {
+              "name": "to_pandas",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Return the table as a `pandas.DataFrame`."
+            },
+            {
+              "name": "to_numpy",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Return the table values as a NumPy ``ndarray``."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Rebuild a table's constructor arguments from saved metadata."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return a table's own fields for the saved metadata."
+            }
+          ]
+        },
+        {
+          "name": "DataObject",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, framework: 'FrameworkMeta | None' = None, meta: 'BaseModel | None' = None, user: 'dict[str, Any] | None' = None, storage_ref: 'StorageReference | None' = None) -> 'None'",
+          "summary": "Base class for every first-class data object in SciStudio.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "framework",
+              "kind": "property",
+              "signature": "(self) -> 'FrameworkMeta'",
+              "summary": "Framework-managed metadata (identity, lineage, provenance)."
+            },
+            {
+              "name": "meta",
+              "kind": "property",
+              "signature": "(self) -> 'BaseModel | None'",
+              "summary": "Typed domain metadata (a Pydantic ``BaseModel``), or ``None``."
+            },
+            {
+              "name": "user",
+              "kind": "property",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Free-form user metadata."
+            },
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some of the typed ``meta`` fields changed."
+            },
+            {
+              "name": "dtype_info",
+              "kind": "property",
+              "signature": "(self) -> 'TypeSignature'",
+              "summary": "The `TypeSignature` describing this object's type."
+            },
+            {
+              "name": "storage_ref",
+              "kind": "property",
+              "signature": "(self) -> 'StorageReference | None'",
+              "summary": "Where this object's data is persisted, or ``None``."
+            },
+            {
+              "name": "to_memory",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Load the full data from storage into memory and return it."
+            },
+            {
+              "name": "slice",
+              "kind": "method",
+              "signature": "(self, *args: 'Any') -> 'Any'",
+              "summary": "Read a sub-selection of the data without loading all of it."
+            },
+            {
+              "name": "iter_chunks",
+              "kind": "method",
+              "signature": "(self, chunk_size: 'int') -> 'Iterator[Any]'",
+              "summary": "Yield the data in successive chunks, keeping memory bounded."
+            },
+            {
+              "name": "save",
+              "kind": "method",
+              "signature": "(self, path: 'str | Path') -> 'StorageReference'",
+              "summary": "Persist this object's data to *path* and remember where it went."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Return the extra constructor arguments needed to rebuild an object."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return the subclass-specific fields to store alongside an object."
+            }
+          ]
+        },
+        {
+          "name": "Series",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, index_name: 'str | None' = None, value_name: 'str | None' = None, length: 'int | None' = None, data: 'Any' = None, **kwargs: 'Any') -> 'None'",
+          "summary": "One-dimensional indexed data: a time series, chromatogram, or spectrum.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            },
+            {
+              "name": "to_pandas",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Return the series as a `pandas.Series`."
+            },
+            {
+              "name": "to_numpy",
+              "kind": "method",
+              "signature": "(self) -> 'Any'",
+              "summary": "Return the series values as a NumPy ``ndarray``."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Rebuild a series' constructor arguments from saved metadata."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return a series' own fields for the saved metadata."
+            }
+          ]
+        },
+        {
+          "name": "StorageReference",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(backend: 'str', path: 'str', format: 'str | None' = None, metadata: 'dict[str, Any] | None' = None) -> None",
+          "summary": "Lightweight pointer to a data object stored in a backend.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "Text",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(*, content: 'str | None' = None, format: 'str' = 'plain', encoding: 'str' = 'utf-8', **kwargs: 'Any') -> 'None'",
+          "summary": "Textual data: plain text, Markdown, or JSON.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "with_meta",
+              "kind": "method",
+              "signature": "(self, **changes: 'Any') -> 'Self'",
+              "summary": "Return a copy with some typed ``meta`` fields changed."
+            },
+            {
+              "name": "reconstruct_extra_kwargs",
+              "kind": "method",
+              "signature": "(cls, metadata: 'dict[str, Any]') -> 'dict[str, Any]'",
+              "summary": "Rebuild a text object's constructor arguments from saved metadata."
+            },
+            {
+              "name": "serialise_extra_metadata",
+              "kind": "method",
+              "signature": "(cls, obj: 'DataObject') -> 'dict[str, Any]'",
+              "summary": "Return a text object's own fields for the saved metadata."
+            }
+          ]
+        },
+        {
+          "name": "TypeSignature",
+          "module": "scistudio.core.types",
+          "kind": "class",
+          "signature": "(type_chain: 'list[str]', slot_schema: 'dict[str, str] | None' = None, required_axes: 'frozenset[str] | None' = None) -> None",
+          "summary": "The semantic type of a `DataObject`, used for port matching.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "matches",
+              "kind": "method",
+              "signature": "(self, other: 'TypeSignature') -> 'bool'",
+              "summary": "Return whether this type can stand in for *other*."
+            },
+            {
+              "name": "from_type",
+              "kind": "method",
+              "signature": "(cls, data_type: 'type') -> 'TypeSignature'",
+              "summary": "Build a `TypeSignature` from a `DataObject` subclass."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "scistudio.core.meta",
+      "symbols": [
+        {
+          "name": "ChannelInfo",
+          "module": "scistudio.core.meta",
+          "kind": "class",
+          "signature": "(*, name: str, dye: str | None = None, excitation_nm: float | None = None, emission_nm: float | None = None) -> None",
+          "summary": "One acquisition channel's descriptive properties.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "FrameworkMeta",
+          "module": "scistudio.core.meta",
+          "kind": "class",
+          "signature": "(*, created_at: datetime.datetime = <factory>, object_id: str = <factory>, source: str = '', lineage_id: str | None = None, derived_from: str | None = None) -> None",
+          "summary": "Framework-managed metadata, filled in when a ``DataObject`` is built.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "with_meta_changes",
+          "module": "scistudio.core.meta",
+          "kind": "function",
+          "signature": "(meta: 'T', **changes: 'Any') -> 'T'",
+          "summary": "Return a copy of a metadata model with the given fields updated.",
+          "stability": "stable",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "module": "scistudio.blocks.base",
+      "symbols": [
+        {
+          "name": "Block",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Abstract base class every processing block inherits from.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get_panel_manifest",
+              "kind": "method",
+              "signature": "(self) -> 'Any | None'",
+              "summary": "Return this block's interactive panel manifest, or ``None``."
+            },
+            {
+              "name": "get_effective_input_ports",
+              "kind": "method",
+              "signature": "(self) -> 'list[InputPort]'",
+              "summary": "Return the input ports that actually apply to this block instance."
+            },
+            {
+              "name": "get_effective_output_ports",
+              "kind": "method",
+              "signature": "(self) -> 'list[OutputPort]'",
+              "summary": "Return the output ports that actually apply to this block instance."
+            },
+            {
+              "name": "validate",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Any]') -> 'bool'",
+              "summary": "Check that *inputs* satisfy the block's input-port contract."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'",
+              "summary": "Execute the block's work and return its outputs. **Must be overridden.**"
+            },
+            {
+              "name": "postprocess",
+              "kind": "method",
+              "signature": "(self, outputs: 'dict[str, Collection]') -> 'dict[str, Collection]'",
+              "summary": "Adjust the block's outputs before they are handed downstream."
+            },
+            {
+              "name": "process_item",
+              "kind": "method",
+              "signature": "(self, item: 'Any', config: 'BlockConfig') -> 'Any'",
+              "summary": "Process a single item of the input collection. **Override for per-item work.**"
+            },
+            {
+              "name": "pack",
+              "kind": "method",
+              "signature": "(items: 'list[Any]', item_type: 'type | None' = None) -> 'Any'",
+              "summary": "Bundle data objects into a Collection, saving any not yet saved."
+            },
+            {
+              "name": "unpack",
+              "kind": "method",
+              "signature": "(collection: 'Any') -> 'list[Any]'",
+              "summary": "Return a Collection's items as a plain list of data objects."
+            },
+            {
+              "name": "unpack_single",
+              "kind": "method",
+              "signature": "(collection: 'Any') -> 'Any'",
+              "summary": "Return the single data object from a length-one Collection."
+            },
+            {
+              "name": "map_items",
+              "kind": "method",
+              "signature": "(func: 'Any', collection: 'Any') -> 'Any'",
+              "summary": "Apply *func* to each item in turn, saving each result, into a new Collection."
+            },
+            {
+              "name": "parallel_map",
+              "kind": "method",
+              "signature": "(func: 'Any', collection: 'Any', max_workers: 'int' = 4) -> 'Any'",
+              "summary": "Apply *func* to each item across worker processes, saving each result."
+            },
+            {
+              "name": "persist_array",
+              "kind": "method",
+              "signature": "(self, data_or_iterator: 'Any', shape: 'tuple[int, ...]', dtype: 'Any', output_dir: 'str | None' = None, chunks: 'tuple[int, ...] | None' = None) -> 'StorageReference'",
+              "summary": "Write array data to zarr storage and return a reference to it."
+            },
+            {
+              "name": "persist_table",
+              "kind": "method",
+              "signature": "(self, table: 'Any', output_dir: 'str | None' = None) -> 'StorageReference'",
+              "summary": "Write an Arrow table to parquet storage and return a reference to it."
+            }
+          ]
+        },
+        {
+          "name": "BlockConfig",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(*, params: dict[str, typing.Any] = {}, **extra_data: Any) -> None",
+          "summary": "Holds the parameters a block reads at run time.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get",
+              "kind": "method",
+              "signature": "(self, key: 'str', default: 'Any' = None) -> 'Any'",
+              "summary": "Return the value of parameter *key*, or *default* when it is not set."
+            }
+          ]
+        },
+        {
+          "name": "ExecutionMode",
+          "module": "scistudio.blocks.base",
+          "kind": "enum",
+          "signature": "(*values)",
+          "summary": "How the runtime executes a block.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "INTERACTIVE_RESPONSE_KEY",
+          "module": "scistudio.blocks.base",
+          "kind": "constant",
+          "signature": "",
+          "summary": "str(object='') -> str",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "InputPort",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(*, name: 'str', accepted_types: 'list[type]', is_collection: 'bool' = False, description: 'str' = '', required: 'bool' = True, default: 'Any | None' = None, constraint: 'Callable[[Any], bool] | None' = None, constraint_description: 'str' = '') -> None",
+          "summary": "A typed input connection point on a block.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "InteractiveMixin",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Mix-in that makes a block interactive.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "prepare_prompt",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Any]', config: 'BlockConfig') -> 'InteractivePrompt | dict[str, Any]'",
+              "summary": "Turn the real input data into what the window should show."
+            },
+            {
+              "name": "remap_saved_decision",
+              "kind": "method",
+              "signature": "(self, saved_decision: 'dict[str, Any]', saved_signature: 'dict[str, list[str]]', current_signature: 'dict[str, list[str]]') -> 'dict[str, Any] | None'",
+              "summary": "Re-resolve a remembered decision against the current inputs."
+            }
+          ]
+        },
+        {
+          "name": "InteractivePrompt",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(panel_payload: 'dict[str, Any]', intermediate: 'tuple[StorageReference, ...]' = ()) -> None",
+          "summary": "What `InteractiveMixin.prepare_prompt` returns to drive the panel.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "OutputPort",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(*, name: 'str', accepted_types: 'list[type]', is_collection: 'bool' = False, description: 'str' = '', required: 'bool' = True) -> None",
+          "summary": "A typed output connection point on a block.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PANEL_API_VERSION",
+          "module": "scistudio.blocks.base",
+          "kind": "constant",
+          "signature": "",
+          "summary": "str(object='') -> str",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "PackageInfo",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(name: 'str', description: 'str' = '', author: 'str' = '', version: 'str' = '0.1.0', ota: 'PackageOtaSource | None' = None) -> None",
+          "summary": "Metadata describing an external block package.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PackageOtaSource",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(manifest_url: 'str', channel: 'str' = 'stable') -> None",
+          "summary": "Where a block package publishes its over-the-air (OTA) update manifest.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PanelManifest",
+          "module": "scistudio.blocks.base",
+          "kind": "class",
+          "signature": "(panel_id: 'str', module_url: 'str' = '', export_name: 'str' = 'default', css: 'tuple[str, ...]' = (), version: 'str' = '0', api_version: 'str' = '1', response_schema: 'dict[str, Any] | None' = None, asset_root: 'str | None' = None) -> None",
+          "summary": "Describes the frontend window component a block opens for interaction.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return the JSON-safe wire form of this manifest sent to the frontend."
+            }
+          ]
+        },
+        {
+          "name": "load_intermediate",
+          "module": "scistudio.blocks.base",
+          "kind": "function",
+          "signature": "(config: 'BlockConfig | dict[str, Any]') -> 'tuple[StorageReference, ...]'",
+          "summary": "Return the intermediate storage references the engine carried across the pause.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "module": "scistudio.blocks.process",
+      "symbols": [
+        {
+          "name": "ProcessBlock",
+          "module": "scistudio.blocks.process",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Transform every item of a Collection with a deterministic algorithm.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "setup",
+              "kind": "method",
+              "signature": "(self, config: 'BlockConfig') -> 'Any'",
+              "summary": "Run once at the start of `run`, before any item is processed."
+            },
+            {
+              "name": "teardown",
+              "kind": "method",
+              "signature": "(self, state: 'Any') -> 'None'",
+              "summary": "Run once at the end of `run`, even if an item raised."
+            },
+            {
+              "name": "process_item",
+              "kind": "method",
+              "signature": "(self, item: 'Any', config: 'BlockConfig', state: 'Any' = None) -> 'Any'",
+              "summary": "Transform a single item; override this for the common case."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'",
+              "summary": "Stream the primary input Collection through `process_item`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "scistudio.blocks.io",
+      "symbols": [
+        {
+          "name": "CapabilityDirection",
+          "module": "scistudio.blocks.io",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "CapabilityValidationError",
+          "module": "scistudio.blocks.io",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Base error for an invalid IO format-capability declaration.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "FormatCapability",
+          "module": "scistudio.blocks.io",
+          "kind": "class",
+          "signature": "(id: 'str', direction: 'CapabilityDirection', data_type: 'type[DataObject]', format_id: 'str', extensions: 'tuple[str, ...]', label: 'str', block_type: 'str', handler: 'str', is_default: 'bool' = False, priority: 'int' = 0, roundtrip_group: 'str | None' = None, metadata_fidelity: 'MetadataFidelity' = <factory>, is_synthesized: 'bool' = False) -> None",
+          "summary": "One file-format conversion an IO block can perform.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "migration_scaffold",
+              "kind": "property",
+              "signature": "(self) -> 'bool'",
+              "summary": "Whether this capability was generated from a legacy declaration."
+            },
+            {
+              "name": "normalized_extensions",
+              "kind": "property",
+              "signature": "(self) -> 'tuple[str, ...]'",
+              "summary": "The capability's file extensions, already lowercased with leading dots."
+            }
+          ]
+        },
+        {
+          "name": "IOBlock",
+          "module": "scistudio.blocks.io",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Abstract base for a block that loads data from a file or saves it to one.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get_format_capabilities",
+              "kind": "method",
+              "signature": "(cls) -> 'tuple[FormatCapability, ...]'",
+              "summary": "Return the file formats this block supports as capability records."
+            },
+            {
+              "name": "load",
+              "kind": "method",
+              "signature": "(self, config: 'BlockConfig', output_dir: 'str' = '') -> 'DataObject | Collection'",
+              "summary": "Read the configured file and return its contents as a data object."
+            },
+            {
+              "name": "save",
+              "kind": "method",
+              "signature": "(self, obj: 'DataObject | Collection', config: 'BlockConfig') -> 'None'",
+              "summary": "Write *obj* to the configured file path."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'",
+              "summary": "Run the block: call `load` or `save` based on ``direction``."
+            }
+          ]
+        },
+        {
+          "name": "InvalidExtensionError",
+          "module": "scistudio.blocks.io",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a file extension cannot be turned into a safe ``.ext`` form.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "InvalidFormatCapabilityError",
+          "module": "scistudio.blocks.io",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a `FormatCapability` record is internally inconsistent.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "InvalidMetadataFidelityError",
+          "module": "scistudio.blocks.io",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a `MetadataFidelity` declaration is inconsistent.",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "MetadataFidelity",
+          "module": "scistudio.blocks.io",
+          "kind": "class",
+          "signature": "(level: 'MetadataFidelityLevel' = 'pixel_only', typed_meta_reads: 'tuple[str, ...]' = (), typed_meta_writes: 'tuple[str, ...]' = (), format_metadata_reads: 'tuple[str, ...]' = (), format_metadata_writes: 'tuple[str, ...]' = (), notes: 'str | None' = None) -> None",
+          "summary": "How much of a file's metadata one IO capability preserves.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "typed_meta_fields",
+              "kind": "property",
+              "signature": "(self) -> 'tuple[str, ...]'",
+              "summary": "All typed ``meta`` field names this capability touches, de-duplicated."
+            },
+            {
+              "name": "format_metadata_fields",
+              "kind": "property",
+              "signature": "(self) -> 'tuple[str, ...]'",
+              "summary": "All format-native metadata keys this capability touches, de-duplicated."
+            },
+            {
+              "name": "validate_typed_meta_fields",
+              "kind": "method",
+              "signature": "(self, data_type: 'type[DataObject]') -> 'None'",
+              "summary": "Check that every declared typed ``meta`` field exists on the data type."
+            }
+          ]
+        },
+        {
+          "name": "MetadataFidelityLevel",
+          "module": "scistudio.blocks.io",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "SimpleIODeclarationError",
+          "module": "scistudio.blocks.io",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a `scistudio.blocks.io.SimpleLoader` or",
+          "stability": "stable",
+          "since": "0.3.1"
+        },
+        {
+          "name": "SimpleLoader",
+          "module": "scistudio.blocks.io",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Base class for a loader that reads one file into one data object.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get_format_capabilities",
+              "kind": "method",
+              "signature": "(cls) -> 'tuple[FormatCapability, ...]'",
+              "summary": "Return the single capability synthesized from this loader's attributes."
+            },
+            {
+              "name": "load",
+              "kind": "method",
+              "signature": "(self, config: 'BlockConfig', output_dir: 'str' = '') -> 'DataObject | Collection'",
+              "summary": "Read the configured ``path`` and return the loaded object."
+            },
+            {
+              "name": "save",
+              "kind": "method",
+              "signature": "(self, obj: 'DataObject | Collection', config: 'BlockConfig') -> 'None'",
+              "summary": "Always raises — a SimpleLoader cannot save."
+            },
+            {
+              "name": "load_file",
+              "kind": "method",
+              "signature": "(self, path: 'Path', config: 'dict[str, Any]') -> 'DataObject'",
+              "summary": "Read one object from *path*. Implement this in your loader."
+            }
+          ]
+        },
+        {
+          "name": "SimpleSaver",
+          "module": "scistudio.blocks.io",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Base class for a saver that writes one data object to one file.",
+          "stability": "stable",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "get_format_capabilities",
+              "kind": "method",
+              "signature": "(cls) -> 'tuple[FormatCapability, ...]'",
+              "summary": "Return the single capability synthesized from this saver's attributes."
+            },
+            {
+              "name": "load",
+              "kind": "method",
+              "signature": "(self, config: 'BlockConfig', output_dir: 'str' = '') -> 'DataObject | Collection'",
+              "summary": "Always raises — a SimpleSaver cannot load."
+            },
+            {
+              "name": "save",
+              "kind": "method",
+              "signature": "(self, obj: 'DataObject | Collection', config: 'BlockConfig') -> 'None'",
+              "summary": "Validate the incoming object and write it to the configured path."
+            },
+            {
+              "name": "save_file",
+              "kind": "method",
+              "signature": "(self, obj: 'DataObject', path: 'Path', config: 'dict[str, Any]') -> 'None'",
+              "summary": "Write one object to *path*. Implement this in your saver."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "scistudio.blocks.app",
+      "symbols": [
+        {
+          "name": "AppBlock",
+          "module": "scistudio.blocks.app",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Hand a workflow step off to an external GUI application.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "prepare_launch",
+              "kind": "method",
+              "signature": "(self, exchange_dir: 'Path', output_dir: 'Path', config: 'BlockConfig') -> 'list[str] | None'",
+              "summary": "Customise the launch of the external tool after inputs are staged."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'",
+              "summary": "Serialise inputs, launch the external app, and collect its outputs."
+            }
+          ]
+        },
+        {
+          "name": "BlockCancelledByAppError",
+          "module": "scistudio.blocks.app",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a block's external application exits without producing output.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ExternalAppBridge",
+          "module": "scistudio.blocks.app",
+          "kind": "protocol",
+          "signature": "(*args, **kwargs)",
+          "summary": "The contract an `AppBlock` uses to talk to an external program.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "prepare",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Any]', exchange_dir: 'Path') -> 'None'",
+              "summary": "Write *inputs* into *exchange_dir* so the external app can read them."
+            },
+            {
+              "name": "launch",
+              "kind": "method",
+              "signature": "(self, command: 'str', exchange_dir: 'Path') -> 'Any'",
+              "summary": "Start the external application and return a handle to its process."
+            },
+            {
+              "name": "watch",
+              "kind": "method",
+              "signature": "(self, exchange_dir: 'Path', patterns: 'list[str]') -> 'list[Path]'",
+              "summary": "Wait for output files matching *patterns* and return their paths."
+            },
+            {
+              "name": "collect",
+              "kind": "method",
+              "signature": "(self, output_files: 'list[Path]') -> 'dict[str, Any]'",
+              "summary": "Load *output_files* into a mapping of result name to value."
+            }
+          ]
+        },
+        {
+          "name": "FileExchangeBridge",
+          "module": "scistudio.blocks.app",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Default `ExternalAppBridge`: swap data with an app through files.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "prepare",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Any]', exchange_dir: 'Path', *, input_ports: 'list[dict[str, Any]] | None' = None, registry: 'Any | None' = None) -> 'None'",
+              "summary": "Write each input into *exchange_dir* and record a manifest."
+            },
+            {
+              "name": "launch",
+              "kind": "method",
+              "signature": "(self, command: 'str | list[str]', exchange_dir: 'Path', argv_override: 'list[str] | None' = None) -> 'subprocess.Popen[bytes]'",
+              "summary": "Start the external application and return its process handle."
+            },
+            {
+              "name": "watch",
+              "kind": "method",
+              "signature": "(self, exchange_dir: 'Path', patterns: 'list[str]') -> 'list[Path]'",
+              "summary": "Wait for output files in *exchange_dir* and return their paths."
+            },
+            {
+              "name": "collect",
+              "kind": "method",
+              "signature": "(self, output_files: 'list[Path]') -> 'dict[str, Any]'",
+              "summary": "Wrap each output file as an Artifact, keyed by its file stem."
+            }
+          ]
+        },
+        {
+          "name": "FileWatcher",
+          "module": "scistudio.blocks.app",
+          "kind": "class",
+          "signature": "(directory: 'Path', patterns: 'list[str]', timeout: 'int | None' = None, poll_interval: 'float' = 0.5, process_handle: 'Any | None' = None, stability_period: 'float' = 2.0, done_marker: 'str | None' = None) -> 'None'",
+          "summary": "Watch a directory for new or changed files matching glob patterns.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "start",
+              "kind": "method",
+              "signature": "(self) -> 'None'",
+              "summary": "Begin watching the directory for changes."
+            },
+            {
+              "name": "wait_for_output",
+              "kind": "method",
+              "signature": "(self) -> 'list[Path]'",
+              "summary": "Block until output files are detected and return their paths."
+            },
+            {
+              "name": "stop",
+              "kind": "method",
+              "signature": "(self) -> 'None'",
+              "summary": "Stop watching and release resources."
+            }
+          ]
+        },
+        {
+          "name": "ProcessExitedWithoutOutputError",
+          "module": "scistudio.blocks.app",
+          "kind": "exception",
+          "signature": "",
+          "summary": "The external app quit before writing any output files.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "validate_app_command",
+          "module": "scistudio.blocks.app",
+          "kind": "function",
+          "signature": "(command: 'str | list[str]') -> 'list[str]'",
+          "summary": "Check an app command is safe to launch and split it into arguments.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "module": "scistudio.blocks.code",
+      "symbols": [
+        {
+          "name": "CodeBlock",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(config: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Run a project-local script as a workflow step, exchanging data via files.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'",
+              "summary": "Run the configured script and return its declared outputs."
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "protocol",
+          "signature": "(*args, **kwargs)",
+          "summary": "Interface an interpreter backend must implement to run Code Block scripts.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether this backend can run the script at *script_path*."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve the interpreter command and environment for a run."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Launch the resolved interpreter and return the finished process."
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockConfig",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, script_path: str, code: str | None = None, inline_code: str | None = None, entry_function: str | None = None, working_directory: str = '.', interpreter_mode: Literal['auto', 'existing'] = 'auto', interpreter_path: str | None = None, environment: collections.abc.Mapping[str, typing.Any] = <factory>, environment_variables: dict[str, str] = <factory>, timeout_seconds: Annotated[float | None, Gt(gt=0)] = None, exchange_directory_policy: Literal['project', 'custom'] = 'project', exchange_root: str = 'exchange', inputs: list[scistudio.blocks.code.config.PortFileConfig] = <factory>, outputs: list[scistudio.blocks.code.config.PortFileConfig] = <factory>) -> None",
+          "summary": "The saved settings for one Code Block: script, interpreter, and ports.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "resolve_script_path",
+              "kind": "method",
+              "signature": "(self, project_dir: 'Path') -> 'Path'",
+              "summary": "Resolve ``script_path`` to an absolute path inside the project."
+            },
+            {
+              "name": "resolve_working_directory",
+              "kind": "method",
+              "signature": "(self, project_dir: 'Path') -> 'Path'",
+              "summary": "Resolve ``working_directory`` to an absolute path inside the project."
+            },
+            {
+              "name": "resolve_exchange_root",
+              "kind": "method",
+              "signature": "(self, project_dir: 'Path') -> 'Path'",
+              "summary": "Resolve ``exchange_root`` to an absolute path inside the project."
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockConfigError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a Code Block configuration is invalid.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockExchangeError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "(message: 'str', diagnostics: 'Sequence[ExchangeDiagnostic]') -> 'None'",
+          "summary": "Raised when preparing inputs or collecting outputs hits a blocking error.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockExchangeLayout",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, exchange_dir: 'Path', inputs_dir: 'Path', outputs_dir: 'Path', manifest_path: 'Path', logs_dir: 'Path', temp_dir: 'Path') -> None",
+          "summary": "The set of folders and files that make up one run's exchange directory.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockExchangeManifest",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, layout: 'CodeBlockExchangeLayout', ports: 'dict[tuple[PortDirection, str], PortManifestRecord]', diagnostics: 'list[ExchangeDiagnostic]' = <factory>) -> None",
+          "summary": "The full record of one Code Block run's exchange: folders, ports, issues.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "input_folders",
+              "kind": "property",
+              "signature": "(self) -> 'dict[str, Path]'",
+              "summary": "Map each input port name to its on-disk folder."
+            },
+            {
+              "name": "output_folders",
+              "kind": "property",
+              "signature": "(self) -> 'dict[str, Path]'",
+              "summary": "Map each output port name to its on-disk folder."
+            },
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, object]'",
+              "summary": "Return the whole manifest as a JSON-serialisable dictionary."
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockExchangePort",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, name: 'str', direction: 'PortDirection', data_type: 'type[DataObject] | str' = <class 'scistudio.core.types.base.DataObject'>, extension: 'str', capability_id: 'str | None' = None, required: 'bool' = True, folder_name: 'str | None' = None) -> None",
+          "summary": "A single Code Block port, resolved for use by the exchange runtime.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockExecutionError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "(message: 'str', *, returncode: 'int', stdout: 'str', stderr: 'str') -> 'None'",
+          "summary": "Raised when the script's interpreter process exits with an error.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockMigrationError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "(diagnostics: 'list[MigrationDiagnostic]') -> 'None'",
+          "summary": "Raised when an old-style Code Block config cannot be run as-is.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockProvenancePayload",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, script: scistudio.blocks.code.provenance.ScriptProvenance, interpreter: scistudio.blocks.code.interpreters.ResolvedInterpreter, environment: scistudio.blocks.code.provenance.EnvironmentSnapshot, started_at: str, completed_at: str | None = None, selected_capabilities: dict[str, str] = <factory>, exchange_manifest: dict[str, typing.Any] = <factory>) -> None",
+          "summary": "The complete provenance record stored for one Code Block run.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockRuntimeContext",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(config: 'CodeBlockConfig', script_path: 'Path', project_dir: 'Path', exchange_dir: 'Path', environment_config: 'Mapping[str, Any]') -> None",
+          "summary": "Everything a backend needs to resolve and launch one script run.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockTimeoutError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "(message: 'str', *, timeout_seconds: 'float', stdout: 'str | None', stderr: 'str | None') -> 'None'",
+          "summary": "Raised when a Code Block script runs longer than its allowed time.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CodeBlockValidationDiagnostic",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(field: 'str', message: 'str', severity: 'str' = 'error', port_name: 'str | None' = None) -> None",
+          "summary": "One problem found in a Code Block configuration, ready to show a user.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "render",
+              "kind": "method",
+              "signature": "(self, *, node_id: 'str | None' = None) -> 'str'",
+              "summary": "Format this diagnostic as a one-line message for the workflow editor."
+            }
+          ]
+        },
+        {
+          "name": "EnvironmentSnapshot",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, mode: Literal['auto', 'existing'], interpreter_path: str, version: str | None = None, environment_delta: dict[str, str] = <factory>, warnings: list[str] = <factory>) -> None",
+          "summary": "Best-effort record of the interpreter and environment a script ran in.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ExchangeDiagnostic",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, severity: 'DiagnosticSeverity', code: 'str', message: 'str', port_name: 'str | None' = None, path: 'Path | None' = None) -> None",
+          "summary": "One warning or error raised while preparing or collecting exchange files.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, str | None]'",
+              "summary": "Return this diagnostic as a JSON-serialisable dictionary."
+            }
+          ]
+        },
+        {
+          "name": "ExchangeFileRecord",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, port_name: 'str', direction: 'PortDirection', path: 'Path', object_type: 'str', format_hint: 'str', status: 'ManifestStatus', capability_id: 'str | None' = None, warning: 'str | None' = None) -> None",
+          "summary": "One file in the manifest: a written input or a discovered output.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, str | None]'",
+              "summary": "Return this record as a JSON-serialisable dictionary."
+            }
+          ]
+        },
+        {
+          "name": "InterpreterFamily",
+          "module": "scistudio.blocks.code",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "InterpreterResolutionError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when no safe interpreter command can be built for a script.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "LazyList",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(collection: 'Collection') -> 'None'",
+          "summary": "A list-like view over a Collection that loads items only when needed.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_list",
+              "kind": "method",
+              "signature": "(self) -> 'list[Any]'",
+              "summary": "Load all items into memory and return as a plain list."
+            }
+          ]
+        },
+        {
+          "name": "MaterialiseAdapter",
+          "module": "scistudio.blocks.code",
+          "kind": "protocol",
+          "signature": "(*args, **kwargs)",
+          "summary": "A function that writes one data object into an input folder as a file.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "MatlabCodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Run a Code Block script written for MATLAB or Octave (``.m``, ``.mlx``).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether *script_path* is a MATLAB-family script this backend runs."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve a MATLAB or Octave interpreter and build its launch command."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Launch MATLAB or Octave on the script and return the finished process."
+            }
+          ]
+        },
+        {
+          "name": "MatlabRuntimeResolutionError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when no usable MATLAB or Octave interpreter can be selected.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "NotebookCodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(executable_locator: 'Callable[[str], str | None] | None' = None) -> 'None'",
+          "summary": "Run a Code Block script that is a Jupyter notebook (``.ipynb``).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether *script_path* is a notebook this backend runs."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve ``nbconvert`` and build the command that executes the notebook."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Execute the notebook in place and return the finished process."
+            }
+          ]
+        },
+        {
+          "name": "OutputDiscoveryResult",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, files_by_port: 'dict[str, list[Path]]', diagnostics: 'list[ExchangeDiagnostic]') -> None",
+          "summary": "What an output-folder scan found, before files are read back into objects.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "has_errors",
+              "kind": "property",
+              "signature": "(self) -> 'bool'",
+              "summary": "Whether any diagnostic is an error."
+            }
+          ]
+        },
+        {
+          "name": "PortFileConfig",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, name: str, direction: Literal['input', 'output'], data_type: str, extension: str, capability_id: str | None = None, required: bool = True, exchange_folder: str | None = None) -> None",
+          "summary": "How one Code Block port maps a named input or output to files on disk.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PortManifestRecord",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, name: 'str', direction: 'PortDirection', object_type: 'str', folder: 'Path', format_hint: 'str', capability_id: 'str | None', required: 'bool', status: 'ManifestStatus' = 'planned', files: 'list[ExchangeFileRecord]' = <factory>, warnings: 'list[str]' = <factory>) -> None",
+          "summary": "The manifest entry for one declared port and the files it gathered.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, object]'",
+              "summary": "Return this port record as a JSON-serialisable dictionary."
+            }
+          ]
+        },
+        {
+          "name": "PythonCodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Run a Code Block script written in Python (``.py``).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether *script_path* is a Python script this backend runs."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve the Python interpreter and exchange environment for a run."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Launch the Python interpreter on the script and return the process."
+            }
+          ]
+        },
+        {
+          "name": "RQuartoCodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Run a Code Block script written in R or Quarto (``.R``, ``.Rmd``, ``.qmd``).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether *script_path* is an R or Quarto script this backend runs."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve ``Rscript`` or ``quarto`` and build the launch command."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Launch the R or Quarto command and return the finished process."
+            }
+          ]
+        },
+        {
+          "name": "ReconstructAdapter",
+          "module": "scistudio.blocks.code",
+          "kind": "protocol",
+          "signature": "(*args, **kwargs)",
+          "summary": "A function that reads one output file back into a data object.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ResolvedInterpreter",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, family: Literal['python', 'notebook', 'r', 'quarto', 'shell', 'matlab', 'octave'], executable: str, argv: list[str], working_directory: str, environment: dict[str, str] = <factory>, version: str | None = None, warnings: list[str] = <factory>) -> None",
+          "summary": "The exact command and environment chosen to run one script.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ScriptProvenance",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "(*, relative_path: str, resolved_path: str, content_sha256: str, git_commit: str | None = None, git_status: Literal['tracked-clean', 'tracked-modified', 'untracked'], size_bytes: int, mtime_ns: int) -> None",
+          "summary": "Identity of the exact script that ran, for reproducibility.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ShellCodeBlockBackend",
+          "module": "scistudio.blocks.code",
+          "kind": "class",
+          "signature": "()",
+          "summary": "Run a Code Block script written as a POSIX shell script (``.sh``).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "supports",
+              "kind": "method",
+              "signature": "(self, script_path: 'Path', config: 'CodeBlockConfig') -> 'bool'",
+              "summary": "Return whether *script_path* is a shell script this backend runs."
+            },
+            {
+              "name": "resolve",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext') -> 'ResolvedInterpreter'",
+              "summary": "Resolve a POSIX shell and build the launch command and environment."
+            },
+            {
+              "name": "run",
+              "kind": "method",
+              "signature": "(self, context: 'CodeBlockRuntimeContext', interpreter: 'ResolvedInterpreter') -> 'subprocess.CompletedProcess[str]'",
+              "summary": "Launch the shell on the script and return the finished process."
+            }
+          ]
+        },
+        {
+          "name": "UnsupportedScriptExtensionError",
+          "module": "scistudio.blocks.code",
+          "kind": "exception",
+          "signature": "",
+          "summary": "Raised when a script's file extension has no interpreter to run it.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "allocate_port_folder",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(parent: 'Path', port_name: 'str', used_names: 'set[str]', *, create: 'bool' = True) -> 'Path'",
+          "summary": "Choose a unique folder for one port under *parent*, avoiding collisions.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "build_codeblock_provenance_payload",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(*, script: 'ScriptProvenance', interpreter: 'ResolvedInterpreter', environment: 'EnvironmentSnapshot', started_at: 'str', completed_at: 'str | None' = None, selected_capabilities: 'Mapping[str, str] | None' = None, exchange_manifest: 'Mapping[str, Any] | None' = None) -> 'dict[str, Any]'",
+          "summary": "Assemble the full provenance record for a run as a JSON-ready dictionary.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "capture_environment_snapshot",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(resolved_interpreter: 'ResolvedInterpreter', *, mode: 'InterpreterMode', environment_delta: 'Mapping[str, str] | None' = None) -> 'EnvironmentSnapshot'",
+          "summary": "Build an environment snapshot from a resolved interpreter.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "capture_script_provenance",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(script_path: 'Path', *, project_dir: 'Path') -> 'ScriptProvenance'",
+          "summary": "Record a script's identity: its content hash, git state, and metadata.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "codeblock_config_payload",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(config: 'Mapping[str, Any]') -> 'dict[str, Any]'",
+          "summary": "Extract just the saved Code Block settings from a raw config mapping.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "codeblock_exchange_env",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(context: 'CodeBlockRuntimeContext') -> 'dict[str, str]'",
+          "summary": "Build the ``SCISTUDIO_*`` environment variables a script uses to find its files.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "collect_codeblock_outputs",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(port_configs: 'Sequence[CodeBlockExchangePort]', *, manifest: 'CodeBlockExchangeManifest', reconstruct_adapter: 'ReconstructAdapter') -> 'dict[str, Collection]'",
+          "summary": "Read the script's output files back into typed collections.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "create_codeblock_exchange_layout",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(exchange_root: 'Path', *, block_id: 'str', run_id: 'str', block_slug: 'str' = 'codeblock', create: 'bool' = True) -> 'CodeBlockExchangeLayout'",
+          "summary": "Work out (and optionally create) the folders for one Code Block run.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "discover_declared_outputs",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(port_configs: 'Sequence[CodeBlockExchangePort]', *, manifest: 'CodeBlockExchangeManifest') -> 'OutputDiscoveryResult'",
+          "summary": "Scan the output folders for the files the script wrote.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ensure_codeblock_backends_loaded",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "() -> 'None'",
+          "summary": "Import the built-in backend modules once so they self-register.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "initialise_exchange_manifest",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(port_configs: 'Sequence[CodeBlockExchangePort]', *, layout: 'CodeBlockExchangeLayout') -> 'CodeBlockExchangeManifest'",
+          "summary": "Create a folder for every declared port and return a starting manifest.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "introspect_script",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(script_path: 'str | Path') -> 'dict[str, Any]'",
+          "summary": "Read a script's structure without running it.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "list_codeblock_backends",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "() -> 'tuple[CodeBlockBackend, ...]'",
+          "summary": "Return every currently registered interpreter backend.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "normalise_extension",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(extension: 'str') -> 'str'",
+          "summary": "Clean up a file extension into a consistent ``.lowercase`` form.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "plan_input_filenames",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(objects: 'Sequence[DataObject]', *, extension: 'str') -> 'list[str]'",
+          "summary": "Pick a unique filename for each input object on one port.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "prepare_codeblock_exchange",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(inputs: 'Mapping[str, DataObject | Collection]', port_configs: 'Sequence[CodeBlockExchangePort]', *, exchange_root: 'Path', block_id: 'str', run_id: 'str', materialise_adapter: 'MaterialiseAdapter', block_slug: 'str' = 'codeblock') -> 'CodeBlockExchangeManifest'",
+          "summary": "Lay out the run's folders and write the declared inputs to files.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "register_codeblock_backend",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(backend: 'CodeBlockBackend', *, replace: 'bool' = False) -> 'None'",
+          "summary": "Add an interpreter backend to the in-process Code Block registry.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "resolve_codeblock_backend",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(script_path: 'Path', config: 'CodeBlockConfig') -> 'CodeBlockBackend'",
+          "summary": "Pick the registered backend that can run a given script.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "resolve_codeblock_data_type",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(data_type: 'str') -> 'type[DataObject]'",
+          "summary": "Look up a core data-type name and return its class.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "resolve_script_interpreter",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(script_path: 'Path', *, environment_config: 'Mapping[str, Any] | None' = None, project_dir: 'Path', mode: 'InterpreterMode' = 'auto', interpreter_path: 'Path | str | None' = None) -> 'ResolvedInterpreter'",
+          "summary": "Choose the Python interpreter command to run a ``.py`` script.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "run_codeblock_process",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(*, argv: 'Sequence[str]', cwd: 'Path', env_delta: 'Mapping[str, str]', timeout_seconds: 'float | None') -> 'subprocess.CompletedProcess[str]'",
+          "summary": "Launch an interpreter as a subprocess and capture its output.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "safe_exchange_name",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(value: 'str', *, fallback: 'str' = 'port') -> 'str'",
+          "summary": "Turn a free-form name into a single safe folder/file name component.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "selected_codeblock_capabilities",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(config: 'CodeBlockConfig') -> 'dict[str, str]'",
+          "summary": "List the save/load handler chosen for each port, where one is pinned.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "unregister_codeblock_backend",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(name: 'str') -> 'None'",
+          "summary": "Remove a previously registered backend by its name.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "utc_now_iso",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "() -> 'str'",
+          "summary": "Return the current UTC time as an ISO-8601 string with second precision.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "validate_codeblock_config",
+          "module": "scistudio.blocks.code",
+          "kind": "function",
+          "signature": "(config: 'Mapping[str, Any]', *, project_dir: 'Path', registry: 'BlockRegistry | None' = None) -> 'list[CodeBlockValidationDiagnostic]'",
+          "summary": "Check a saved Code Block configuration and return any problems found.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "module": "scistudio.previewers.models",
+      "symbols": [
+        {
+          "name": "EnvelopeKind",
+          "module": "scistudio.previewers.models",
+          "kind": "enum",
+          "signature": "(*values)",
+          "summary": "The display kind a `PreviewEnvelope` declares for its payload.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "FrontendManifest",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(previewer_id: 'str', module_url: 'str', export_name: 'str' = 'default', css: 'tuple[str, ...]' = (), version: 'str' = '0', api_version: 'str' = '1', asset_root: 'str | None' = None) -> None",
+          "summary": "Describes the same-origin UI bundle a previewer ships for the frontend.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return the wire-shape dict sent to the frontend (``asset_root`` is omitted)."
+            }
+          ]
+        },
+        {
+          "name": "OwnerKind",
+          "module": "scistudio.previewers.models",
+          "kind": "enum",
+          "signature": "(*values)",
+          "summary": "Where a previewer came from; sets how strongly it wins when routing.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PREVIEWER_API_VERSION",
+          "module": "scistudio.previewers.models",
+          "kind": "constant",
+          "signature": "",
+          "summary": "str(object='') -> str",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "PreviewEnvelope",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(previewer_id: 'str', target: 'PreviewTarget', kind: 'EnvelopeKind', payload: 'dict[str, Any]' = <factory>, session_id: 'str | None' = None, resources: 'tuple[PreviewResource, ...]' = (), metadata: 'PreviewMetadata' = <factory>, diagnostics: 'tuple[str, ...]' = (), error: 'PreviewErrorInfo | None' = None, frontend_manifest: 'FrontendManifest | None' = None) -> None",
+          "summary": "The backend's complete response describing one preview.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the whole envelope for the API/wire."
+            },
+            {
+              "name": "with_session",
+              "kind": "method",
+              "signature": "(self, session_id: 'str | None') -> 'PreviewEnvelope'",
+              "summary": "Return a copy bound to *session_id*."
+            }
+          ]
+        },
+        {
+          "name": "PreviewError",
+          "module": "scistudio.previewers.models",
+          "kind": "exception",
+          "signature": "(message: 'str', *, detail: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Base class for typed preview errors — catch this in a provider.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_error_info",
+              "kind": "method",
+              "signature": "(self) -> 'PreviewErrorInfo'",
+              "summary": "Convert this error into a `PreviewErrorInfo` for an envelope."
+            }
+          ]
+        },
+        {
+          "name": "PreviewErrorCode",
+          "module": "scistudio.previewers.models",
+          "kind": "enum",
+          "signature": "(*values)",
+          "summary": "Stable, machine-readable codes describing why a preview failed.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PreviewErrorInfo",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(code: 'PreviewErrorCode', message: 'str', detail: 'dict[str, Any]' = <factory>) -> None",
+          "summary": "The typed error payload embedded in a failed envelope.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the error payload."
+            }
+          ]
+        },
+        {
+          "name": "PreviewLimits",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(max_rows: 'int' = 200, max_bytes: 'int' = 8388608, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256) -> None",
+          "summary": "The bounded-read budgets applied to a preview session.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the budgets."
+            }
+          ]
+        },
+        {
+          "name": "PreviewMetadata",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(sampled: 'bool' = False, truncated: 'bool' = False, cached: 'bool' = False, derived: 'bool' = False, complete: 'bool' = True, failed: 'bool' = False, extra: 'dict[str, Any]' = <factory>) -> None",
+          "summary": "Display and state flags carried by every preview envelope.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return the flags plus ``extra`` flattened into one JSON-safe dict."
+            }
+          ]
+        },
+        {
+          "name": "PreviewProvider",
+          "module": "scistudio.previewers.models",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "PreviewRequest",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(target: 'PreviewTarget', spec: 'PreviewerSpec', query: 'dict[str, Any]', data_access: 'PreviewDataAccess', limits: 'PreviewLimits', session_id: 'str | None' = None, storage: 'StorageReference | None' = None, record_metadata: 'dict[str, Any]' = <factory>) -> None",
+          "summary": "Everything a provider receives when it is asked to render a preview.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PreviewResource",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(resource_id: 'str', kind: 'str', media_type: 'str | None' = None, description: 'str' = '', params: 'dict[str, Any]' = <factory>) -> None",
+          "summary": "Describes a bounded follow-up read a preview offers (a session resource).",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the resource descriptor."
+            }
+          ]
+        },
+        {
+          "name": "PreviewResourceProvider",
+          "module": "scistudio.previewers.models",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "PreviewSource",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(workflow_id: 'str | None' = None, node_id: 'str | None' = None, output_port: 'str | None' = None) -> None",
+          "summary": "Optional workflow/node/output identity shown alongside a preview.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of all three identity fields."
+            }
+          ]
+        },
+        {
+          "name": "PreviewTarget",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(kind: 'TargetKind', ref: 'str', recorded_type: 'str' = '', type_chain: 'tuple[str, ...]' = (), collection_item_type: 'str | None' = None, source: 'PreviewSource | None' = None) -> None",
+          "summary": "Identifies the thing a previewer is asked to render.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "is_collection",
+              "kind": "property",
+              "signature": "(self) -> 'bool'",
+              "summary": "Whether this target points at a collection (``kind`` is ``collection_ref``)."
+            },
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the target for the API/wire payload."
+            }
+          ]
+        },
+        {
+          "name": "PreviewerEntryPoint",
+          "module": "scistudio.previewers.models",
+          "kind": "protocol",
+          "signature": "(*args, **kwargs)",
+          "summary": "The callable a package wires to the ``scistudio.previewers`` entry point.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PreviewerSpec",
+          "module": "scistudio.previewers.models",
+          "kind": "class",
+          "signature": "(previewer_id: 'str', owner_kind: 'OwnerKind', owner_name: 'str', target_type: 'str', supports_collection: 'bool' = False, priority: 'int' = 0, capabilities: 'tuple[str, ...]' = (), backend_provider: 'PreviewProvider | str | None' = None, resource_provider: 'PreviewResourceProvider | str | None' = None, frontend_manifest: 'FrontendManifest | None' = None, api_version: 'str' = '1') -> None",
+          "summary": "Declares one preview provider and how the router should choose it.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "to_dict",
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'",
+              "summary": "Return a JSON-safe dict of the spec (providers shown by name)."
+            }
+          ]
+        },
+        {
+          "name": "PreviewerSpecList",
+          "module": "scistudio.previewers.models",
+          "kind": "type-alias",
+          "signature": "(*args, **kwargs)",
+          "summary": "Built-in mutable sequence.",
+          "stability": null,
+          "since": null
+        },
+        {
+          "name": "ProviderError",
+          "module": "scistudio.previewers.models",
+          "kind": "exception",
+          "signature": "(message: 'str', *, detail: 'dict[str, Any] | None' = None) -> 'None'",
+          "summary": "Raise this from a provider for a hard failure it cannot recover from.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "TargetKind",
+          "module": "scistudio.previewers.models",
+          "kind": "enum",
+          "signature": "(*values)",
+          "summary": "The kind of thing a `PreviewTarget` points at.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "module": "scistudio.previewers.data_access",
+      "symbols": [
+        {
+          "name": "ArrayPlane",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(shape: 'list[int]', axes: 'list[str]', dtype: 'str', slice_axis_name: 'str | None', slice_axis_size: 'int | None', slice_index: 'int | None', slice_axes: 'list[SliceAxis]', matrix: 'list[list[float | None]]', vmin: 'float | None', vmax: 'float | None', truncated: 'bool', ndim: 'int') -> None",
+          "summary": "A bounded 2-D plane sliced out of an N-D array, with axis metadata.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ArrayTile",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(y0: 'int', x0: 'int', height: 'int', width: 'int', matrix: 'list[list[float]]') -> None",
+          "summary": "A bounded rectangular tile read out of a 2-D array plane.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "ArtifactInfo",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(path: 'str', mime_type: 'str', size_bytes: 'int', data_uri: 'str | None' = None) -> None",
+          "summary": "Bounded metadata about an opaque artifact, with no full read.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CollectionSample",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]', sampled: 'bool') -> None",
+          "summary": "A bounded sample of a collection's items.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "CompositeSlots",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(slots: 'dict[str, str]') -> None",
+          "summary": "The slot inventory of a composite target, with no child rendered.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "DataFramePage",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(columns: 'list[str]', rows: 'list[dict[str, Any]]', total_rows: 'int', page: 'int', page_size: 'int', total_pages: 'int', sort_by: 'str | None', sort_dir: 'str | None', truncated: 'bool') -> None",
+          "summary": "One bounded page of a table, returned by `PreviewDataAccess.dataframe_page`.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "PreviewDataAccess",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(*, max_rows: 'int' = 200, max_bytes: 'int' = 8388608, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256, text_chars: 'int' = 5000, series_points: 'int' = 256) -> 'None'",
+          "summary": "The bounded reader a provider uses for every payload read.",
+          "stability": "provisional",
+          "since": "0.3.1",
+          "members": [
+            {
+              "name": "dataframe_page",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', *, page: 'int' = 1, page_size: 'int' = 50, sort_by: 'str | None' = None, sort_dir: 'str' = 'asc') -> 'DataFramePage'",
+              "summary": "Return one bounded, optionally sorted page of a CSV/Parquet table."
+            },
+            {
+              "name": "table_xy_points",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', *, x_column: 'str | None' = None, y_column: 'str | None' = None) -> 'TableXYPoints'",
+              "summary": "Return all finite x/y points from two Parquet table columns."
+            },
+            {
+              "name": "array_plane",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', *, slice_index: 'int' = 0, axis_indices: 'dict[int, int] | None' = None) -> 'ArrayPlane'",
+              "summary": "Return array shape/axes metadata plus one bounded, downsampled 2-D plane."
+            },
+            {
+              "name": "array_tile",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', *, slice_index: 'int' = 0, y0: 'int' = 0, x0: 'int' = 0, height: 'int | None' = None, width: 'int | None' = None) -> 'ArrayTile'",
+              "summary": "Read one bounded rectangular tile from a 2-D plane."
+            },
+            {
+              "name": "series_points",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', metadata: 'dict[str, Any]') -> 'SeriesPoints'",
+              "summary": "Return the complete set of chart points for a Series."
+            },
+            {
+              "name": "text_chunk",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference') -> 'TextChunk'",
+              "summary": "Return a bounded chunk of text plus a truncation marker."
+            },
+            {
+              "name": "artifact_metadata",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', *, mime_type: 'str | None' = None) -> 'ArtifactInfo'",
+              "summary": "Return bounded artifact metadata, inlining a small image as a data URI."
+            },
+            {
+              "name": "composite_slots",
+              "kind": "method",
+              "signature": "(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'",
+              "summary": "Return a composite's slot inventory without rendering any child."
+            },
+            {
+              "name": "composite_slot_ref",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', slot_name: 'str') -> 'StorageReference | None'",
+              "summary": "Resolve the storage reference for one slot of a composite target."
+            },
+            {
+              "name": "composite_raster_slot",
+              "kind": "method",
+              "signature": "(self, ref: 'StorageReference', slot_name: 'str' = 'raster') -> 'ArrayPlane | None'",
+              "summary": "Bounded read of a composite's raster slot subdirectory, if present."
+            },
+            {
+              "name": "collection_sample",
+              "kind": "method",
+              "signature": "(self, *, count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]') -> 'CollectionSample'",
+              "summary": "Return a bounded sample of a collection's item references."
+            }
+          ]
+        },
+        {
+          "name": "SeriesPoints",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0) -> None",
+          "summary": "The complete finite set of (x, y) chart points for a Series preview.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "SliceAxis",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(axis: 'int', name: 'str', size: 'int', index: 'int') -> None",
+          "summary": "One non-displayed (sliced) axis of an N-D array.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "TableXYPoints",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(columns: 'list[str]', x_column: 'str', y_column: 'str', points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int') -> None",
+          "summary": "The complete finite set of (x, y) points from two table columns.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        },
+        {
+          "name": "TextChunk",
+          "module": "scistudio.previewers.data_access",
+          "kind": "class",
+          "signature": "(content: 'str', truncated: 'bool', total_bytes: 'int', language: 'str') -> None",
+          "summary": "A bounded chunk of text plus a truncation marker.",
+          "stability": "provisional",
+          "since": "0.3.1"
+        }
+      ]
+    }
+  ]
+}

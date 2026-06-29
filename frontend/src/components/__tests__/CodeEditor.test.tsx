@@ -338,8 +338,15 @@ describe("CodeEditor", () => {
       />,
     );
     await waitFor(() => expect(editorState.lastProps).not.toBeNull());
-    expect(editorState.completionProviders.map((entry) => entry.language)).toEqual(["python", "r"]);
+    // Plot completions register python + r; the SciStudio-API completions
+    // (#1875) register an additional python provider after them.
+    expect(editorState.completionProviders.map((entry) => entry.language)).toEqual([
+      "python",
+      "r",
+      "python",
+    ]);
 
+    // The plot provider is registered first, so it is the one exercised here.
     const pythonProvider = editorState.completionProviders.find(
       (entry) => entry.language === "python",
     )?.provider;
