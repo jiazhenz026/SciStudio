@@ -13,8 +13,8 @@ from typing import Any, ClassVar
 
 import pyarrow as pa
 
-from scistudio.blocks.process import ProcessBlock
 from scistudio.blocks.base import BlockConfig, InputPort, OutputPort
+from scistudio.blocks.process import ProcessBlock
 from scistudio.core.types import DataFrame
 
 

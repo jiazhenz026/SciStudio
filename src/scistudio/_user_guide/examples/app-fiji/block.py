@@ -36,7 +36,7 @@ class FijiMacro(AppBlock):
         "/Applications/Fiji.app/Contents/MacOS/ImageJ-macosx",  # EDIT: your Fiji
         "--headless",
         "-macro",
-        "gaussian_blur.ijm",                                    # EDIT: macro path
+        "gaussian_blur.ijm",  # EDIT: macro path
     ]
 
     # Image files in and out. Artifact = an opaque file; Fiji reads/writes TIFF

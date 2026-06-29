@@ -28,9 +28,7 @@ _DOC_TREES: tuple[tuple[str, str], ...] = (
 )
 
 
-def _copy_tree(
-    src: Traversable, dest: Path, *, force: bool, rel: str, written: list[str]
-) -> None:
+def _copy_tree(src: Traversable, dest: Path, *, force: bool, rel: str, written: list[str]) -> None:
     """Recursively copy a ``importlib.resources`` traversable into ``dest``."""
     for child in src.iterdir():
         name = child.name

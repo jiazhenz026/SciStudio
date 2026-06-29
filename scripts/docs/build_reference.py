@@ -58,6 +58,7 @@ _SPHINX_ROLE_RE = re.compile(r":[a-zA-Z]+:`~?([^`]+)`")
 def _strip_sphinx_roles(text: str) -> str:
     return _SPHINX_ROLE_RE.sub(r"`\1`", text)
 
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
@@ -282,7 +283,11 @@ def _sc_public_members(cls: type) -> list[tuple[str, object]]:
         info = get_stability(value)
         if info is not None and info.tier == "internal":
             continue
-        if inspect.isfunction(value) or inspect.ismethod(value) or isinstance(value, (property, staticmethod, classmethod)):
+        if (
+            inspect.isfunction(value)
+            or inspect.ismethod(value)
+            or isinstance(value, (property, staticmethod, classmethod))
+        ):
             members.append((name, value))
     return members
 
@@ -305,8 +310,10 @@ def _sc_render_symbol(root: str, name: str, obj: object) -> str:
         if methods:
             out += ["**Members**", ""]
             for mname, mval in methods:
-                target = mval.fget if isinstance(mval, property) else (
-                    mval.__func__ if isinstance(mval, (staticmethod, classmethod)) else mval
+                target = (
+                    mval.fget
+                    if isinstance(mval, property)
+                    else (mval.__func__ if isinstance(mval, (staticmethod, classmethod)) else mval)
                 )
                 sig = _sc_signature(target) or ""
                 summary = _sc_firstline(inspect.getdoc(target))
