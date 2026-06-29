@@ -1,0 +1,42 @@
+# Combined SciStudio documentation site (#1850), published to GitHub Pages.
+#
+# Built by scripts/docs/build_site.py, which stages a unified docs tree under
+# build/site-src/ (Home + User Guide + the self-contained API reference +
+# Package Development) and runs `mkdocs build` against this config. The site is
+# plain Markdown end to end — the API reference is the self-contained Markdown
+# generated into the package, the SAME artifact provisioned into projects, so the
+# published site and the in-project reference never diverge.
+#
+# This is separate from mkdocs.yml (the mkdocstrings reference-only build used as
+# a self-check by build_reference.py).
+
+site_name: SciStudio Documentation
+site_description: User guide, public API reference, and package development guide.
+docs_dir: build/site-src
+site_dir: build/site
+use_directory_urls: false
+
+theme:
+  name: readthedocs
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: false
+
+# mkdocs auto-generates the nav from the staged directory tree (Home, then the
+# user-guide/, package-development/ sections). Keep link/nav diagnostics as
+# warnings so a single stray cross-reference cannot fail the published build.
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    absolute_links: ignore
+    unrecognized_links: ignore

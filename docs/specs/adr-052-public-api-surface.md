@@ -1319,36 +1319,68 @@ edits themselves land with #1817 (not in this docs-only PR).
 - [ ] `docs/user/reference/**` — generated output target (ADR-052
   `planned_governs`); stays generated, not hand-edited.
 - [ ] `mkdocs.yml` — reference nav (ADR-052 `planned_governs`).
-- [ ] `docs/block-development/**` — **delete the entire hand-written set and rewrite
-  from scratch** as guide + example docs only (owner 2026-06-27; tracked in **#1825**,
-  owner-paced). The generated API reference (ADR-052 §7) + this spec are the
-  authoritative contract; the rewritten guides/examples **link to** the reference
-  instead of restating it. Deletes coordinate with #1817 so there is never a window
-  with no contract docs.
-- [ ] `docs/architecture/ARCHITECTURE.md` — record the public/private boundary.
+- [x] `docs/block-development/**` — hand-written set **deleted** in #1833; **rewritten
+  from scratch** under **#1850**, split by audience (owner 2026-06-28). The generated
+  API reference (ADR-052 §7) + this spec are the authoritative contract; the rewritten
+  guides/examples **link to** the reference instead of restating it. Two tracks:
+  - **User guide** (in-package source `src/scistudio/_user_guide/**`, ships in the
+    wheel and is provisioned into `<project>/user-guide/`, see the provisioning item
+    below) — a full in-project **end-user manual**, not block-authoring only (owner
+    2026-06-28): `README` (landing/map) + overall `getting-started` (project → first
+    run) + GUI-operation pages `using-the-gui` (build/run/preview merged),
+    `history-and-branches` (run history restore + git **branching** for variants),
+    `ai-assistant` (chat capabilities + an AI-Agent-block metadata-inference use
+    case), `built-in-blocks` (catalogue of the 9 core built-ins) + authoring pages
+    `writing-blocks`, `custom-types`, `writing-plots` (`render(collection)` §9) + one
+    worked `examples/` folder per core block type (`ProcessBlock`/`Block`, `IOBlock`,
+    `AppBlock`=Fiji, `CodeBlock`=R AccuCor). Per-block `ui_icon`/`ui_color` (Lucide
+    icons + colors, #1847) documented in `writing-blocks`.
+  - **Package-development guide** (repo-only `docs/package-development/**`, **not**
+    provisioned into projects): `index` + `architecture` + `types` + `blocks` +
+    `previewers` + `publishing`, using the in-repo `scistudio-blocks-spectroscopy`
+    package (`Spectrum` type / `BaselineCorrection` block / `Spectrum` previewer) as
+    the running example. (Supersedes the earlier single-set `#1825` plan.)
+- [x] `docs/architecture/ARCHITECTURE.md` — public/private boundary recorded as
+  §12.6 "Public API Boundary" (canonical-root surface, stability tiers + `Since`,
+  symmetric package contract, generated/freeze-tested reference) under #1850.
 - [ ] CHANGELOG — the contract, the `Since` baseline, and any deprecations.
 - [ ] `scistudio-package-template` — adopt the §13.1 rules (separate repo).
-- [ ] Custom-block GUI starter template — teaching surface for the public API
-  (#1816/#1817).
-- [ ] **Embedded-agent skills** (`src/scistudio/_skills/scistudio/**`) — the in-app
-  SciStudio agent's primary teaching surface (a base `SKILL.md` + 6 task skills).
-  They ship inside the package and carry worked-example code, so they must teach the
-  **public surface + canonical import roots only** (currently some reach into
-  internals). Highest-impact: `scistudio-write-block` (block authoring API + example
-  imports → canonical roots, public symbols), `scistudio-write-plot` (must match the
-  §9 `render(collection)` contract and survive the #1824 relocation),
-  `scistudio-inspect-data` (ergonomic accessors §10 + large-data access §11). The
-  base `SKILL.md`, `scistudio-build-workflow`, `scistudio-debug-run`, and
-  `scistudio-project-qa` get a lighter pass. — #1817.
-- [ ] **Per-project provisioned agent docs** (`scistudio.agent_provisioning`,
-  ADR-040 §3.5–3.8) — in production, `install_project_agent_assets` writes a
-  per-project agent asset set into the project's hidden dirs at create/open-project
-  (`<project>/.claude/` + `AGENTS.md`/`CLAUDE.md`, hooks, the skills split, MCP
-  config, a provision-version marker). This set **must also include the complete
-  generated contract manual** (the ADR-052 §7 reference) so the in-project embedded
-  agent reads the authoritative public API contract instead of reaching into
-  internals. **This batch is not yet written**; provisioning the contract manual is
-  new work that depends on #1817 producing the generated reference.
+- [x] Custom-block GUI starter template (`src/scistudio/blocks/_templates/block_base_template.py`)
+  — already canonical-import + `_support`-warning + `ui_color`/`ui_icon` aligned
+  (#1816/#1833/#1839); updated under #1850 to teach the §3.1 public ergonomic
+  accessors (`item.to_pandas()`/`to_numpy()` instead of `to_memory().to_pandas()`).
+  Protected-path edit under `admin-approved:core-change`.
+- [x] **Embedded-agent skills** (`src/scistudio/_skills/scistudio/**`) — slimmed to
+  the "thin task flow + pointers" model under #1850: dense contract content now lives
+  in the provisioned `.scistudio/agent-reference/**` docs, and skills point at them.
+  `scistudio-write-block` fully rewritten (canonical-root imports only; deep-path /
+  `AIBlock`-as-author / dead `block-development` link removed; points at
+  `block-contract`/`public-api`/`data-types`/`package-discovery`).
+  `scistudio-project-qa` fully rewritten as the Q&A skill (answer from
+  `user-guide/` + `.scistudio/agent-reference/` + `user-guide/api-reference/` + MCP
+  tools). Base `SKILL.md` synced (AIBlock not an author surface; provisioned-reference
+  pointer). `scistudio-write-plot` / `-inspect-data` already aligned;
+  `-build-workflow` / `-debug-run` left as-is (clean). — #1850.
+- [x] **Per-project provisioned agent docs** (`scistudio.agent_provisioning`,
+  ADR-040 §3.5–3.8) — implemented under #1850. `install_project_agent_assets` gains a
+  `docs` sub-step (`agent_provisioning/docs.py`, wheel-safe `importlib.resources`
+  copy, `force=False` idempotent) that the create/open-project paths already run, so
+  the **open-project top-up auto-fills these into existing projects** on next open
+  (no version-marker gating; `SCISTUDIO_PROVISION_VERSION` bumped). It provisions
+  three sets:
+  - **user guide** → `<project>/user-guide/` (`src/scistudio/_user_guide/**`,
+    visible, for the human);
+  - **self-contained API reference** → `<project>/user-guide/api-reference/`
+    (generated into the package by `build_reference.py`, real signatures + docstrings
+    inlined — not mkdocstrings directive shells — so it is readable as-is); and
+  - **agent reference docs** → `<project>/.scistudio/agent-reference/`
+    (`src/scistudio/_agent_reference/**`: public-api, data-types, block-contract,
+    workflow-schema, plot-contract, package-discovery — the contracts the skills
+    point at).
+
+  Package-data ships `_user_guide/**` + `_agent_reference/**`. The
+  package-development guide is **not** provisioned. Tests:
+  `tests/agent_provisioning/test_docs.py`.
 
 ## 15. Enforcement And Anti-Drift
 

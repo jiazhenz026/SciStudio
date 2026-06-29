@@ -8,8 +8,10 @@ it yours:
     2. Declare your input/output ports and parameters.
     3. Fill in ``run()`` with your logic.
 
-Everything you need is in the sections below. Read the part you care about and
-skip the rest.
+New to writing blocks? The project's user guide has a friendlier walkthrough
+with worked examples -- see ``user-guide/writing-blocks.md`` (and the rest of
+``user-guide/``). The sections below are a quick on-the-spot reference; read the
+part you care about and skip the rest.
 
 ====================================================================
 1. WHAT IS A BLOCK -- and which base class to inherit
@@ -49,8 +51,9 @@ value. What you get back depends on the type:
     Text        str                         Text(content="hello")
     Artifact    bytes                       Artifact(file_path=Path(...))
 
-    (*) DataFrame/Series give you an Arrow table. For a pandas frame:
-        df = item.to_memory().to_pandas()
+    (*) DataFrame/Series store an Arrow table. To read it as pandas or numpy,
+        use the ergonomic accessors directly:
+        df = item.to_pandas()        # or item.to_numpy()
         ...and build one back with:
         DataFrame(data=pyarrow.Table.from_pandas(df))
 
@@ -142,7 +145,7 @@ DataFrame -- keep only the numeric columns of every table in the batch::
 
     def run(self, inputs, config):
         def numeric_only(item):
-            df = item.to_memory().to_pandas()       # pyarrow.Table -> pandas
+            df = item.to_pandas()                   # ergonomic: Arrow -> pandas
             numeric = df.select_dtypes(include="number")
             return DataFrame(data=pa.Table.from_pandas(numeric))
 

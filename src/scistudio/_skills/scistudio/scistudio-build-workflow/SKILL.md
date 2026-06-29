@@ -207,7 +207,7 @@ workflow:
       block_type: imaging.normalize
       config: {method: percentile, low_pct: 1.0, high_pct: 99.0}
     - id: seg
-      block_type: ai.assisted_segmenter   # ADR-035 AIBlock subclass
+      block_type: ai.assisted_segmenter   # an AI Agent block
       config:
         provider: claude-code             # or "codex"
         initial_prompt: "Segment each microplastic particle."
@@ -227,7 +227,7 @@ workflow:
       target: "stats:image"
 ```
 
-The `ai.assisted_segmenter` block is an `AIBlock` (ADR-035). When the
+The `ai.assisted_segmenter` block is an AI Agent block. When the
 runtime hits it, the engine spawns an embedded agent (claude-code or
 codex) inside a PTY tab in the GUI. The embedded agent uses the same
 MCP tool surface and terminates cleanly via

@@ -1,0 +1,225 @@
+{
+  "branch": "guided/1850-adr-052-author-docs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_user_guide/**",
+      "docs/package-development/**",
+      "docs/specs/adr-052-public-api-surface.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-28T21:07:45.410372Z",
+      "owner_directive": "Item 4 complete: user guide (src/scistudio/_user_guide/**) + package-development guide (docs/package-development/**) written; spec adr-052 \u00a714 synced to the two-track structure. Items 5/8/9/10/README follow as later directives.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-06-28T21:38:34.181378Z",
+      "owner_directive": "Latest main merged user-customisable Lucide block icons and block colors (ui_icon / ui_color ClassVars, provisional). Add this to the block-authoring docs.",
+      "reason": "owner expanded item-4 scope: document the per-block custom Lucide icon + color feature (ui_icon / ui_color), merged to main via #1847/PR#1851"
+    },
+    {
+      "at": "2026-06-28T21:45:12.266289Z",
+      "owner_directive": "Publishing doc must reflect the current ALPHA scheme (GitHub-release a .whl, users download and install it in the GUI), and be marked as alpha-stage developer guidance that may not be the final publishing model.",
+      "reason": "owner clarified alpha-stage publishing: GitHub release .whl + user installs via GUI; mark publishing.md as alpha-stage developer guidance, not the final scheme"
+    },
+    {
+      "at": "2026-06-28T21:49:27.457849Z",
+      "owner_directive": "Expand src/scistudio/_user_guide into a full user manual: add pages teaching GUI basics and features \u2014 building a workflow, running a workflow, previewers, writing a plot, writing a block, history, git, AI chat \u2014 plus an overall getting-started. Human-facing.",
+      "reason": "owner expanded _user_guide from block-authoring-only into a full in-project user manual (GUI basics + feature intros + overall getting-started)"
+    },
+    {
+      "at": "2026-06-28T21:59:54.097600Z",
+      "owner_directive": "Refine _user_guide: (1) merge building/running-workflow + previewer into one GUI-operations doc; (2) merge history+git into one doc \u2014 history records & restores prior runs' workflow+params, git is for BRANCHING (switch between batches/params/pipeline-order variants), not version control; (3) ai-assistant doc explains what AI can do (answer questions, write plot/block/workflow, check data, iterate runs to tune params) + an AIBlock use case (read data -> infer metadata -> output sample/condition metadata table); (4) add a doc cataloguing every built-in block's function and usage.",
+      "reason": "owner refined user-guide scope: merge workflow/run/previewer into one GUI-ops doc; merge history+git into one doc (history=restore prior run's workflow+params, git=branching to switch between data-batch/param/pipeline variants); ai-assistant doc lists what AI helps with + adds an AIBlock metadata-inference use case; add a built-in-block catalog doc"
+    },
+    {
+      "at": "2026-06-28T23:16:40.122684Z",
+      "owner_directive": "In ai-assistant.md, tell users SciStudio supports the Claude Code and Codex providers, and how to install each one's CLI: go to the official site, copy the install command, and paste it into a terminal (macOS/Linux) or PowerShell (Windows).",
+      "reason": "owner: ai-assistant doc must state SciStudio supports Claude Code + Codex and explain installing their CLIs (get the command from the official site, paste into terminal/PowerShell)"
+    },
+    {
+      "at": "2026-06-28T23:23:24.075906Z",
+      "owner_directive": "Item 5: in docs/architecture/ARCHITECTURE.md, record the public/private API boundary (ADR-052): canonical-root public surface via __all__, stability tiers + Since, deep/underscore = internal, ergonomic accessors, symmetric package contract, generated reference.",
+      "reason": "item 5: record the ADR-052 public/private API boundary in the top-level architecture doc"
+    },
+    {
+      "at": "2026-06-28T23:35:46.475768Z",
+      "owner_directive": "Item 8: update the custom-block starter template to use the public ergonomic accessor item.to_pandas() (and to_numpy()) instead of item.to_memory().to_pandas(); owner authorizes admin-approved:core-change for this protected-path edit.",
+      "reason": "item 8: owner authorized admin-approved:core-change to update the protected starter template (src/scistudio/blocks/_templates) to teach the ADR-052 \u00a73.1 public ergonomic accessors"
+    },
+    {
+      "at": "2026-06-28T23:50:28.523076Z",
+      "owner_directive": "Decisions: (1) publish a combined docs site (user guide + package-dev + API reference) to GitHub Pages via mkdocs; (2) the generated API reference's source moves INTO the package (e.g. src/scistudio/_user_guide/api-reference/), single source for repo/wheel/project/site; (3) provision user guide + API reference into <project>/user-guide/; (4) additionally author a set of AGENT-facing reference docs (beyond the API) to provision for the embedded agent; (5) fully rewrite the write-block and project-qa skills (writing style + pointers to the provisioned API ref and agent docs).",
+      "reason": "owner decisions: publish a combined mkdocs site to GitHub Pages; API reference generated INTO the package (single source); provision user-guide + api-reference + a NEW agent-facing reference doc set into projects; write-block + project-qa skills to be fully rewritten to point at them"
+    },
+    {
+      "at": "2026-06-29T00:04:04.228211Z",
+      "owner_directive": "API reference: generate a SELF-CONTAINED markdown reference (real signatures + docstrings inlined, with stability/Since) into src/scistudio/_user_guide/api-reference/, so it ships in the wheel, is provisioned into projects, and is the single source for repo/site.",
+      "reason": "item 10: owner chose option 1 \u2014 add a self-contained API-reference generator (inline signatures+docstrings) emitting into the package (src/scistudio/_user_guide/api-reference) so the reference is provisionable and single-source"
+    },
+    {
+      "at": "2026-06-29T00:14:46.923189Z",
+      "owner_directive": "Item 9: slim the embedded-agent skills. Fully rewrite scistudio-write-block (thin task flow + pointers to .scistudio/agent-reference contracts) and scistudio-project-qa (answer user SciStudio questions from the provisioned user-guide + agent-reference + api-reference). Sync base SKILL.md. Remove deep-path imports, AIBlock-as-author-surface, and the dead block-development doc link.",
+      "reason": "item 9: fully rewrite write-block + project-qa skills (slim + point to provisioned agent-reference/user-guide/api-reference); sync base SKILL; fix deep-path imports / AIBlock / dead doc link"
+    },
+    {
+      "at": "2026-06-29T00:16:20.852612Z",
+      "owner_directive": "Implement an additive-only, non-destructive merge for .claude/settings.json in the hooks provisioning step: register missing hook matchers into an existing settings.json without overwriting or deleting user entries (instead of skip-if-exists). Bump SCISTUDIO_PROVISION_VERSION so old projects pick it up on next open.",
+      "reason": "owner: close provisioning gap \u2014 old projects with an existing .claude/settings.json never get new hook matchers registered; implement additive-only (add-not-modify, never-delete) settings.json merge + bump SCISTUDIO_PROVISION_VERSION so top-up reaches old projects"
+    },
+    {
+      "at": "2026-06-29T00:23:28.630343Z",
+      "owner_directive": "Update the provisioned per-project CLAUDE.md/AGENTS.md template (agent_provisioning/templates/claude_agents_md.md): include scistudio-write-plot, correct the project-qa description, add a 'reference docs' section pointing at user-guide/ + user-guide/api-reference/ + .scistudio/agent-reference/, and add a non-negotiable canonical-imports rule (import from roots only; AIBlock/SubWorkflowBlock not author surfaces).",
+      "reason": "owner: the provisioned project AGENTS.md/CLAUDE.md template was missed \u2014 update it to list write-plot, fix the Q&A project-qa description, point at the new provisioned docs (user-guide / api-reference / agent-reference), and add the canonical-import public-API rule"
+    },
+    {
+      "at": "2026-06-29T00:26:18.930508Z",
+      "owner_directive": "Keep CLAUDE.md/AGENTS.md provisioning at force=False (no refresh of existing files) \u2014 users may customize their AGENTS.md. The updated template applies to new projects; this is intended.",
+      "reason": "owner decision: do NOT refresh existing per-project CLAUDE.md/AGENTS.md (keep force=False skip-if-exists) because users may edit their own AGENTS.md; template update applies to new projects only"
+    },
+    {
+      "at": "2026-06-29T00:30:28.119958Z",
+      "owner_directive": "Update CLAUDE.md/AGENTS.md template: (1) hook safety now applies fully to BOTH Claude Code and Codex (remove the Codex-deferred caveat); (2) add a rule that the agent must NOT modify the user's data/ (a hook intercepts data/ writes); (3) commit after each completed batch of requested work \u2014 commit often to preserve changes; (4) do not expose internal rule-citation phrasing to the user (e.g. 'per SciStudio's requirements').",
+      "reason": "owner: more project AGENTS.md/CLAUDE.md template updates \u2014 Codex now has full hook coverage (not deferred); new hook intercepts data/ writes (forbid modifying user data); commit after each completed batch (commit often); do not surface internal rule-citation phrasing to the user"
+    },
+    {
+      "at": "2026-06-29T00:43:39.237556Z",
+      "owner_directive": "Add to scistudio-write-block + block-contract reference: when authoring a block, write short-but-clear user-facing text on the fields users actually see \u2014 block name/description, every InputPort/OutputPort name + description, every config_schema property title + description, and concise code comments. A non-programmer must be able to tell ports/params apart (not 3 unlabeled Image ports).",
+      "reason": "owner: skill must tell the agent to fill the user-facing description fields (block name/description, each port name + description, each config_schema property title + description) and keep code comments short-but-clear, so users can tell e.g. three Image ports apart"
+    },
+    {
+      "at": "2026-06-29T00:45:08.989182Z",
+      "owner_directive": "Add to scistudio-write-block + block-contract reference: any value a user might reasonably want to choose (processing parameters, thresholds, methods) must be exposed in the block's config_schema (with a title/description) so the user can change it easily in the GUI \u2014 do not hard-code tunables in the block body.",
+      "reason": "owner: skill must tell the agent to expose user-tunable values (e.g. processing parameters) as config_schema parameters rather than hard-coding them, so users can easily change them in the GUI"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-28T21:07:45.410563Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-28T21:07:45.410572Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/package-development/index.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1850,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-052 public-API author docs batch: rewrite block-development into (A) in-package user guide src/scistudio/_user_guide/** provisioned into <project>/user-guide/, and (B) repo-only package-development guide docs/package-development/**; plus items 5/8/9/10 and README in later directives. Start with item 4.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1850-guided-1850-adr-052-author-docs",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-28T21:07:45.410543Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T21:07:45.410552Z",
+      "pattern": "docs/package-development/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T23:23:24.076051Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "item 5: record the ADR-052 public/private API boundary in the top-level architecture doc"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T23:35:46.475900Z",
+      "pattern": "src/scistudio/blocks/_templates/block_base_template.py",
+      "reason": "item 8: owner authorized admin-approved:core-change to update the protected starter template (src/scistudio/blocks/_templates) to teach the ADR-052 \u00a73.1 public ergonomic accessors"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T23:50:28.523210Z",
+      "pattern": "mkdocs.yml",
+      "reason": "owner decisions: publish a combined mkdocs site to GitHub Pages; API reference generated INTO the package (single source); provision user-guide + api-reference + a NEW agent-facing reference doc set into projects; write-block + project-qa skills to be fully rewritten to point at them"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T23:50:28.523214Z",
+      "pattern": "scripts/docs/build_reference.py",
+      "reason": "owner decisions: publish a combined mkdocs site to GitHub Pages; API reference generated INTO the package (single source); provision user-guide + api-reference + a NEW agent-facing reference doc set into projects; write-block + project-qa skills to be fully rewritten to point at them"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-28T23:50:28.523216Z",
+      "pattern": "pyproject.toml",
+      "reason": "owner decisions: publish a combined mkdocs site to GitHub Pages; API reference generated INTO the package (single source); provision user-guide + api-reference + a NEW agent-facing reference doc set into projects; write-block + project-qa skills to be fully rewritten to point at them"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:04:04.228364Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "item 10: owner chose option 1 \u2014 add a self-contained API-reference generator (inline signatures+docstrings) emitting into the package (src/scistudio/_user_guide/api-reference) so the reference is provisionable and single-source"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:14:46.923328Z",
+      "pattern": "src/scistudio/_skills/scistudio/**",
+      "reason": "item 9: fully rewrite write-block + project-qa skills (slim + point to provisioned agent-reference/user-guide/api-reference); sync base SKILL; fix deep-path imports / AIBlock / dead doc link"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:20.852762Z",
+      "pattern": "src/scistudio/agent_provisioning/hooks.py",
+      "reason": "owner: close provisioning gap \u2014 old projects with an existing .claude/settings.json never get new hook matchers registered; implement additive-only (add-not-modify, never-delete) settings.json merge + bump SCISTUDIO_PROVISION_VERSION so top-up reaches old projects"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:23:28.630507Z",
+      "pattern": "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "reason": "owner: the provisioned project AGENTS.md/CLAUDE.md template was missed \u2014 update it to list write-plot, fix the Q&A project-qa description, point at the new provisioned docs (user-guide / api-reference / agent-reference), and add the canonical-import public-API rule"
+    }
+  ],
+  "session_id": "664821f6-5b76-47da-8389-12d8a47f2f4e",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

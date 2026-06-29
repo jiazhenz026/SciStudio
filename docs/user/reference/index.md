@@ -2,7 +2,7 @@
 
 # SciStudio API Reference
 
-**Version:** `0.3.1a0` — single-version reference for this release (ADR-052 §7; multi-version hosting via `mike` is a tracked follow-up, #1817).
+**Version:** `0.3.2a0` — single-version reference for this release (ADR-052 §7; multi-version hosting via `mike` is a tracked follow-up, #1817).
 
 This reference is **generated** from the public API's docstrings and the `scistudio.stability` decorators (ADR-052 §7). It contains only the public surface — the symbols declared in each canonical root's `__all__`; `internal` symbols are excluded. Do not hand-edit; regenerate with `scripts/docs/build_reference.py`.
 

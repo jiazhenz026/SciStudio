@@ -25,6 +25,7 @@ from pathlib import Path
 
 from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
 from scistudio.agent_provisioning.codex_config import write_codex_config
+from scistudio.agent_provisioning.docs import write_docs
 from scistudio.agent_provisioning.hooks import write_hooks
 from scistudio.agent_provisioning.skills import write_skills
 
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 #   only changed canonical files) is Phase 3 design.
 #   Out of scope per ADR-040 §3.8 / §9 OQ-1.
 #   Followup: https://github.com/zjzcpj/SciStudio/issues/1011.
-SCISTUDIO_PROVISION_VERSION = "0.1.0"
+SCISTUDIO_PROVISION_VERSION = "0.2.0"
 
 _MARKER_REL_PATH = ".claude/.scistudio-provision-version"
 
@@ -106,6 +107,11 @@ def install_project_agent_assets(
             lambda: write_codex_config(project_dir, force=force),
             [".codex/config.toml"],
         ),
+        (
+            "docs",
+            lambda: write_docs(project_dir, force=force),
+            _expected_doc_paths(),
+        ),
     ]
 
     for label, fn, expected in steps:
@@ -145,6 +151,22 @@ def install_project_agent_assets(
         result.failed.append((_MARKER_REL_PATH, f"{type(exc).__name__}: {exc}"))
 
     return result
+
+
+def _expected_doc_paths() -> list[str]:
+    """Representative landing files the docs sub-step is expected to write (#1850).
+
+    Used only to compute the skipped delta; the full set (every user-guide page,
+    example, and API-reference page, plus the agent reference docs) is discovered
+    from the packaged trees at write time.
+    """
+    return [
+        "user-guide/README.md",
+        "user-guide/getting-started.md",
+        "user-guide/api-reference/index.md",
+        ".scistudio/agent-reference/README.md",
+        ".scistudio/agent-reference/public-api.md",
+    ]
 
 
 def _expected_skill_paths() -> list[str]:

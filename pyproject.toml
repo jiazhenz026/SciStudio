@@ -138,6 +138,11 @@ scistudio = [
     # codex_config.toml, 6 hook scripts) must ship with the wheel so
     # ``scistudio init`` / ``ApiRuntime.create_project`` can install them.
     "agent_provisioning/templates/**/*",
+    # ADR-052 §7 / #1850: the in-project user guide + self-contained API
+    # reference and the agent reference docs must ship in the wheel so
+    # provisioning can copy them into each project (user-guide/ + agent docs).
+    "_user_guide/**/*",
+    "_agent_reference/**/*",
 ]
 
 [tool.ruff]
