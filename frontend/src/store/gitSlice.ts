@@ -125,6 +125,34 @@ function describeApiError(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * #1872: after a git checkout (branch switch) the active workflow YAML on disk
+ * has been replaced, but the store still holds the previous branch's
+ * `workflowNodes`. Refetch the active workflow and reload it into the workflow
+ * slice so the canvas + config panel reflect the new branch's content.
+ *
+ * Best-effort: a fetch failure leaves the previous canvas in place rather than
+ * blanking it (the user can still reload via the file tree). The post-fetch
+ * `workflowId` guard avoids clobbering the canvas if the user switched tabs
+ * while the refetch was in flight. Scoped to the active tab only; other open
+ * tabs reload from disk when next selected. Defensive existence checks keep the
+ * slice usable in isolation (unit tests construct it without the workflow
+ * slice).
+ */
+async function refreshOpenWorkflowFromDisk(get: () => AppStore): Promise<void> {
+  const openId = get().workflowId;
+  const setWorkflow = get().setWorkflow;
+  if (!openId || typeof setWorkflow !== "function") return;
+  try {
+    const fresh = await api.getWorkflow(openId);
+    if (get().workflowId === openId) {
+      setWorkflow(fresh);
+    }
+  } catch {
+    // best-effort — keep the existing canvas; user can reload from the file tree.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers (always safe to call — no IO, no TODO)
 // ---------------------------------------------------------------------------
@@ -300,6 +328,15 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
       await get().loadBranches();
       void get().loadStatus();
       void get().loadLog(name);
+      // #1872: the checkout replaced the workflow YAML on disk, but the open
+      // canvas still holds the previous branch's `workflowNodes` (and thus the
+      // config panel's stale `selectedNode.config.params`). The backend
+      // `workflow.changed` WS event is unreliable for git-checkout replacements
+      // — it is dropped by the ADR-045 version-vector guard (cross-branch
+      // versions are not comparable) and by the dirty-conflict branch. Mirror
+      // the lineage Restore precedent (RunDetail `onRestored`, the #1400 hotfix)
+      // and explicitly reload the active workflow from disk. Active tab only.
+      await refreshOpenWorkflowFromDisk(get);
       return { auto_commit_sha: autoSha };
     } catch (err) {
       set({ lastError: describeApiError(err, `Failed to switch to '${name}'`) });
