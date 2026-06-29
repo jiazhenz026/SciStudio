@@ -175,12 +175,21 @@ def _run(coro):
 
 
 def test_list_blocks_returns_registered_blocks(ctx: _StubRuntime) -> None:
-    blocks = _run(tools_workflow.list_blocks())
-    # FastMCP returns Pydantic envelopes.
-    names = {b.name for b in blocks}
-    # At least some builtin block should register.
-    assert blocks, "expected at least one registered block"
+    result = _run(tools_workflow.list_blocks())
+    # Lean progressive-disclosure catalog: a ListBlocksResult envelope.
+    assert result.blocks, "expected at least one registered block"
+    assert result.count == len(result.blocks)
+    # next_step must route the agent to the detail tool for full schemas.
+    assert "get_block_schema" in result.next_step
+    names = {b.name for b in result.blocks}
     assert any(isinstance(n, str) and n for n in names)
+    sample = result.blocks[0]
+    # Catalog entries carry a one-line I/O signature with the arrow separator.
+    assert sample.signature and "→" in sample.signature
+    # The heavy per-block config_schema must NOT be inlined in the catalog
+    # (that is exactly what this change removed; fetch it via get_block_schema).
+    assert not hasattr(sample, "config_schema")
+    assert not hasattr(sample, "input_ports")
 
 
 def test_list_blocks_no_context_raises() -> None:

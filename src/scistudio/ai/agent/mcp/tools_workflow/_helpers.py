@@ -52,6 +52,46 @@ def _port_to_dict(port: Any) -> dict[str, Any]:
     }
 
 
+def _spec_signature(spec: Any) -> str:
+    """Render a one-line I/O signature for a block's catalog entry.
+
+    Example: ``image:Image, mask?:Array → result:Image``. Optional ports
+    carry a ``?`` suffix; an empty side renders as ``()``; variadic ports
+    render as ``*:<Type|Type>`` (or ``*:Any`` when no allowed types are
+    declared).
+
+    This is the only I/O detail ``list_blocks`` carries — enough for the
+    agent to judge wiring compatibility during selection without fetching
+    the full per-block schema. Call ``get_block_schema`` for exact port
+    names/types and the config_schema.
+    """
+
+    def _fmt_side(ports: Any, variadic: bool, allowed: Any) -> str:
+        rendered = []
+        for port in ports or []:
+            projected = _port_to_dict(port)
+            name = projected.get("name") or "?"
+            type_name = projected.get("type") or "Any"
+            optional = "" if projected.get("required") else "?"
+            rendered.append(f"{name}{optional}:{type_name}")
+        if variadic and not rendered:
+            allowed_types = list(allowed or [])
+            rendered.append("*:" + ("|".join(allowed_types) if allowed_types else "Any"))
+        return ", ".join(rendered) if rendered else "()"
+
+    inputs = _fmt_side(
+        spec.input_ports,
+        bool(getattr(spec, "variadic_inputs", False)),
+        getattr(spec, "allowed_input_types", None),
+    )
+    outputs = _fmt_side(
+        spec.output_ports,
+        bool(getattr(spec, "variadic_outputs", False)),
+        getattr(spec, "allowed_output_types", None),
+    )
+    return f"{inputs} → {outputs}"
+
+
 def _atomic_write_text(path: Path, text: str) -> int:
     """Write *text* to *path* via tempfile + rename. Returns bytes written."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,5 +172,6 @@ __all__ = [
     "_looks_like_inline_yaml",
     "_port_to_dict",
     "_resolve_ai_block_run_dir",
+    "_spec_signature",
     "_spec_to_dict",
 ]

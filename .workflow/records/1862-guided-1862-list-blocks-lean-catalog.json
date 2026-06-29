@@ -1,0 +1,114 @@
+{
+  "branch": "guided/1862-list-blocks-lean-catalog",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_models.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/__init__.py",
+      "tests/ai/test_mcp_tools_workflow.py",
+      "tests/ai/agent/mcp/test_tools_workflow_surface.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T01:03:25.961857Z",
+      "owner_directive": "Slim list_blocks to a lean catalog; one-line I/O signature; next_step to get_block_schema. No new params, no grouping.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T01:03:25.962063Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T01:03:26.104276Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T01:03:26.104287Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-040 documents next_step as a write-class convention and does not freeze the list_blocks field set; this is a proportionate read-tool optimization, not an architectural decision reversal.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T01:03:26.104292Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "repository has no CHANGELOG file.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1862,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Optimize agent MCP list-type tools: slim list_blocks into a pure progressive-disclosure catalog (drop inlined config_schema, compress I/O to a one-line signature, add a next_step hint pointing to get_block_schema). No new filter params, no grouping.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1862-guided-1862-list-blocks-lean-catalog",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-29T01:03:26.104119Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "list_blocks contract change also updates the architecture MCP-tool table; declare docs landing and N/A for ADR/spec/changelog (no frozen field-level contract; no CHANGELOG file in repo)."
+    }
+  ],
+  "session_id": "84d7dc24-5fd0-4949-b1eb-8157021a9c1d",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-29T01:03:25.962314Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T01:03:25.962326Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_tools_workflow_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
