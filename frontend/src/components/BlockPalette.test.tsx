@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { BlockPalette } from "./BlockPalette";
+import { BlockPalette, paletteColumns } from "./BlockPalette";
 import type { BlockSummary } from "../types/api";
 
 afterEach(() => {
@@ -188,5 +188,39 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     expect(screen.queryByTestId("palette-category-chips")).not.toBeInTheDocument();
     // The block is still reachable by its title attribute.
     expect(screen.getByTitle("Cellpose Segment")).toBeInTheDocument();
+  });
+
+  it("renders the tile grid via a width-driven column count, not a fixed 2-col class (#1857)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    const grid = screen.getByTestId("palette-block-tile").parentElement!;
+    // No hardcoded Tailwind 2-column class anymore.
+    expect(grid.className).not.toContain("grid-cols-2");
+    expect(grid.className).toContain("grid");
+    // Column count is driven by an inline grid-template-columns. jsdom has no
+    // layout / ResizeObserver, so the component keeps the default 2 columns.
+    expect(grid.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+  });
+});
+
+describe("paletteColumns — width → column count (#1857)", () => {
+  it("keeps the default 2 columns before the grid has been measured", () => {
+    expect(paletteColumns(0)).toBe(2);
+    expect(paletteColumns(-50)).toBe(2);
+  });
+
+  it("falls back to 1 column only when too narrow for two 80px tiles", () => {
+    expect(paletteColumns(100)).toBe(1);
+    expect(paletteColumns(163)).toBe(1); // just under 2*80 + gap
+    expect(paletteColumns(164)).toBe(2); // exactly two tiles + gap fit
+  });
+
+  it("prefers 2 columns at a typical default panel width", () => {
+    expect(paletteColumns(184)).toBe(2);
+  });
+
+  it("expands to 3 columns when the panel is dragged wide, capped at 3", () => {
+    expect(paletteColumns(247)).toBe(2); // just under 3 tiles
+    expect(paletteColumns(248)).toBe(3); // three tiles + gaps fit
+    expect(paletteColumns(1000)).toBe(3); // never exceeds the 3-column cap
   });
 });

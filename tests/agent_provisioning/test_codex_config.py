@@ -6,7 +6,47 @@ import sys
 import tomllib
 from pathlib import Path
 
+from scistudio.agent_provisioning import codex_config as _cc
 from scistudio.agent_provisioning.codex_config import write_codex_config
+from scistudio.agent_provisioning.hooks import _HOOK_FILES, _build_settings_json
+
+
+def test_every_provisioned_hook_is_wired_for_both_providers() -> None:
+    """#1858 parity guard: every provisioned hook script is registered for BOTH
+    Claude Code (``.claude/settings.json``) and Codex (``.codex/config.toml``).
+
+    Locks the two provider configs and the provisioned script set together so a
+    future hook added to one provider can't silently miss the other.
+    """
+    provisioned = {dest for _template, dest in _HOOK_FILES}
+
+    settings = _build_settings_json(".claude/hooks")
+    claude_wired: set[str] = set()
+    for entries in settings["hooks"].values():
+        for entry in entries:
+            for handler in entry["hooks"]:
+                for name in provisioned:
+                    if name in handler["command"]:
+                        claude_wired.add(name)
+
+    codex_wired = {s for _m, s, _msg in _cc._PRE_HOOKS} | {s for _m, s, _msg in _cc._POST_HOOKS}
+
+    assert provisioned == claude_wired, f"Claude missing: {provisioned - claude_wired}"
+    assert provisioned == codex_wired, f"Codex missing: {provisioned - codex_wired}"
+
+
+def test_data_dir_guard_matcher_covers_file_tools_and_bash_for_both_providers() -> None:
+    """The data/ guard must fire for file edits AND Bash on both providers."""
+    settings = _build_settings_json(".claude/hooks")
+    claude_matcher = next(
+        e["matcher"] for e in settings["hooks"]["PreToolUse"] if "protect_data_dir.py" in e["hooks"][0]["command"]
+    )
+    for tool in ("Edit", "Write", "MultiEdit", "Bash"):
+        assert tool in claude_matcher
+
+    codex_matcher = next(m for m, s, _ in _cc._PRE_HOOKS if s == "protect_data_dir.py")
+    for tool in ("Edit", "Write", "MultiEdit", "apply_patch", "Bash"):
+        assert tool in codex_matcher
 
 
 def test_writes_codex_config_toml(tmp_project_dir: Path) -> None:
@@ -45,7 +85,7 @@ def test_codex_config_mcp_block_matches_install_render(tmp_project_dir: Path) ->
 def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
     """ADR-040/042: Codex gets the same hook surface as Claude.
 
-    Asserts ``features.hooks = true``, 3 PreToolUse + 3 PostToolUse
+    Asserts ``features.hooks = true``, 4 PreToolUse + 3 PostToolUse
     matcher groups, and each hook command line references a script
     under ``.claude/hooks/`` (the cross-provider canonical home).
     """
@@ -59,12 +99,13 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
 
     pre = data.get("hooks", {}).get("PreToolUse", [])
     post = data.get("hooks", {}).get("PostToolUse", [])
-    assert len(pre) == 3, f"expected 3 PreToolUse hooks, got {len(pre)}"
+    assert len(pre) == 4, f"expected 4 PreToolUse hooks, got {len(pre)}"
     assert len(post) == 3, f"expected 3 PostToolUse hooks, got {len(post)}"
 
     expected_pre_scripts = {
         "deny_scistudio_cli.py",
         "protect_workflow_yaml.py",
+        "protect_data_dir.py",
         "enforce_list_blocks_before_block_write.py",
     }
     expected_post_scripts = {

@@ -1,0 +1,738 @@
+{
+  "branch": "guided/1858-agent-data-protection",
+  "check_events": [
+    {
+      "at": "2026-06-29T00:37:59.386628Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:10a6959b1c117546f44f442d779fa2c1e71fc3292c91f2d4d881e78c062df010",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T00:38:05.145773Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:630e11153f6b19fe99d2979eba0bc116eb75949c549a6059b4f1e9f208b49e67",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:38:09.279055Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4aff3615e8ab3b5a4de94b2875e971a6f8c46195825cf891d11f3742cb0aba9b",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:38:09.777238Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:98aa889e422dadbd23d8c21bc2aabf3f018297997405ee56528476c00e2b8ee6",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:38:09.818759Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bce8f43c166013bd9210552dc52455dcaf7660e9aadb55489d38a851d9418364",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-06-29T00:40:03.039275Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b66269ad014d80b24fb7d159b002aa3487f05776ea0017deb2e33232fae5ca4f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:42:02.598712Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b8290c47eacf0f6c1ad508660c8a3aec61492bcf867c1591810b081356b57d5a",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:42:09.321605Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:02061c9db0121e4af5cbef7492894b1f2dd421ec121c27c510d1960cff2047de",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-06-29T00:44:39.789312Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e391601083f02636aafec1093e98807583fecec3f12f2efba65abe8984375e9d",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:44:43.415569Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:911faff1c0df995fb49a9d06ba7688f46ccfdf9c8c2102d76fe4d47b2372d4eb",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:46:01.396915Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b66269ad014d80b24fb7d159b002aa3487f05776ea0017deb2e33232fae5ca4f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-29T00:47:59.301632Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0117a1a818aec1f1edb6642660a0f56bfd1ed451fbc347041e69940c01e867a4",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "69cbd910adae9a1515968ce38bf15fc8a0ee399e",
+    "shas": [
+      "69cbd910adae9a1515968ce38bf15fc8a0ee399e"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/BlockPalette.tsx",
+      "frontend/src/components/BlockPalette.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T00:16:51.897883Z",
+      "owner_directive": "Add a PreToolUse hook for the internal agent that intercepts direct modification of project data/ and all subfolders. Block file-tool edits (Edit/Write/MultiEdit) under data/; block obvious destructive Bash targeting data/ (rm/mv/cp/redirect); reads allowed; deletes outside data/ (e.g. workflow) allowed; workflow runtime artifact writes unaffected.",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "at": "2026-06-29T00:16:52.036852Z",
+      "owner_directive": "On project open, check structure and auto-update old projects with things they are missing (new docs, new hooks). Additively merge missing canonical hook entries into existing .claude/settings.json (never overwrite user-modified files, never delete), bump provision version, keep generic for future docs. Reuse the deferred ADR-040 Phase-3 upgrade flow (stale TODO #1011, now closed).",
+      "reason": "Owner directive: opening a project should top up old projects with newly-added canonical assets."
+    },
+    {
+      "at": "2026-06-29T00:17:02.090637Z",
+      "owner_directive": "On the AI chat setup screen, when Codex provider is selected, show a short note that Codex will ask to trust this project's hooks on first launch and the user should accept it, otherwise SciStudio's protection hooks will not run. Do NOT auto-write trust into the user's global Codex config file.",
+      "reason": "Owner directive: instead of auto-writing global Codex trust (out of scope), add a UI note."
+    },
+    {
+      "at": "2026-06-29T00:32:32.395557Z",
+      "owner_directive": "Confirm all hooks take effect for both Codex and Claude Code; if any hook is not effective for a provider, wire it up. Add a parity guard.",
+      "reason": "Owner directive: verify every provisioned hook is wired for BOTH Codex and Claude Code; connect any that are not."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T00:35:10.938902Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-040.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-06-29T00:42:09.494175Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.504063Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.514208Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.524454Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.533648Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.543577Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.553326Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.564638Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.573687Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:42:09.586625Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.340451Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.350009Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.359840Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.369747Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.379253Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.388357Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.398118Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.408859Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.419224Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:47:59.432263Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.308550Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.317011Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.326131Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.335278Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.344069Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.353194Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.362006Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.371238Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.379859Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-29T00:48:26.392149Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1857,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1858,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1859,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "764f9473",
+    "changed_files": [
+      ".workflow/records/1857-guided-1858-agent-data-protection.json",
+      "docs/adr/ADR-040.md",
+      "frontend/src/components/AIChat/SetupScreen.tsx",
+      "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "frontend/src/components/BlockPalette.test.tsx",
+      "frontend/src/components/BlockPalette.tsx",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/codex_config.py",
+      "src/scistudio/agent_provisioning/hooks.py",
+      "src/scistudio/agent_provisioning/templates/hook_protect_data_dir.py",
+      "tests/agent_provisioning/test_codex_config.py",
+      "tests/agent_provisioning/test_hooks.py",
+      "tests/agent_provisioning/test_orchestrate.py"
+    ],
+    "diff_fingerprint": "sha256:4f7ba06719ee3f97d30fe3d8354c1ddad4d93c15373bbcdd673914ef92443fba",
+    "head": "HEAD",
+    "head_sha": "69cbd910",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 4,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 8,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 12,
+      "test": 5,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix palette block grid to auto-adapt column count to palette width (default 2, expand to 3 when wide, drop to 1 only when too narrow for two 72px swatches).",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1857,
+      1858,
+      1859
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-06-29T00:42:09.586658Z",
+      "diff_fingerprint": "sha256:19341cfd6ffc7f74a8bcbc5f5ef5ce3765949385ee6aa7c4ea9e2c8472979f3a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.python_tests",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-06-29T00:47:59.432300Z",
+      "diff_fingerprint": "sha256:9215533f17b50132089255edc2cc8a0ca4a6749602f455249bf3807870ca1a6d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-29T00:48:26.392179Z",
+      "diff_fingerprint": "sha256:4f7ba06719ee3f97d30fe3d8354c1ddad4d93c15373bbcdd673914ef92443fba",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1857-guided-1858-agent-data-protection",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:51.898054Z",
+      "pattern": "src/scistudio/agent_provisioning/templates/hook_protect_data_dir.py",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:51.898065Z",
+      "pattern": "src/scistudio/agent_provisioning/hooks.py",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:51.898067Z",
+      "pattern": "src/scistudio/agent_provisioning/codex_config.py",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:51.898068Z",
+      "pattern": "tests/agent_provisioning/test_hooks.py",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:51.898069Z",
+      "pattern": "tests/agent_provisioning/test_codex_config.py",
+      "reason": "Owner directive: add a guard so the in-app agent cannot directly modify project data/."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:52.037035Z",
+      "pattern": "src/scistudio/agent_provisioning/_orchestrate.py",
+      "reason": "Owner directive: opening a project should top up old projects with newly-added canonical assets."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:52.037040Z",
+      "pattern": "tests/agent_provisioning/test_orchestrate.py",
+      "reason": "Owner directive: opening a project should top up old projects with newly-added canonical assets."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:16:52.037042Z",
+      "pattern": "docs/adr/ADR-040.md",
+      "reason": "Owner directive: opening a project should top up old projects with newly-added canonical assets."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:17:02.090765Z",
+      "pattern": "frontend/src/components/AIChat/SetupScreen.tsx",
+      "reason": "Owner directive: instead of auto-writing global Codex trust (out of scope), add a UI note."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:17:02.090770Z",
+      "pattern": "frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx",
+      "reason": "Owner directive: instead of auto-writing global Codex trust (out of scope), add a UI note."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:17:02.090771Z",
+      "pattern": "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "reason": "Owner directive: instead of auto-writing global Codex trust (out of scope), add a UI note."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T00:32:32.395678Z",
+      "pattern": "tests/agent_provisioning/test_codex_config.py",
+      "reason": "Owner directive: verify every provisioned hook is wired for BOTH Codex and Claude Code; connect any that are not."
+    }
+  ],
+  "session_id": "9c77c001-25e9-40f0-a316-b6e47c67d5c5",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-29T00:43:46.291072Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T00:43:46.291236Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_codex_config.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T00:43:46.291239Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_orchestrate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T00:43:46.291240Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BlockPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T00:43:46.291241Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

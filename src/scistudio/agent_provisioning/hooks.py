@@ -1,15 +1,16 @@
 """Write project-scoped hook config + scripts (ADR-040 §3.6).
 
-Provisions ``<project>/.claude/settings.json`` and the 6 hook scripts at
+Provisions ``<project>/.claude/settings.json`` and the 7 hook scripts at
 ``<project>/.claude/hooks/`` for Claude Code's hook system.
 
 Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
 review on PR #1047 — Claude Code treats ``MultiEdit`` as a distinct
 tool name; omitting it leaves a bypass path):
 
-  PreToolUse (3):
+  PreToolUse (4):
     - hook_deny_scistudio_cli.py                      (matcher: Bash)
     - hook_protect_workflow_yaml.py                 (matcher: Edit|Write|MultiEdit)
+    - hook_protect_data_dir.py                       (matcher: Edit|Write|MultiEdit|Bash)
     - hook_enforce_list_blocks_before_block_write.py
         (matcher: Edit|Write|MultiEdit|Bash|mcp__scistudio__scaffold_block)
 
@@ -46,6 +47,7 @@ _SETTINGS_REL = ".claude/settings.json"
 _HOOK_FILES: tuple[tuple[str, str], ...] = (
     ("hook_deny_scistudio_cli.py", "deny_scistudio_cli.py"),
     ("hook_protect_workflow_yaml.py", "protect_workflow_yaml.py"),
+    ("hook_protect_data_dir.py", "protect_data_dir.py"),
     (
         "hook_enforce_list_blocks_before_block_write.py",
         "enforce_list_blocks_before_block_write.py",
@@ -87,6 +89,9 @@ def _build_settings_json(hooks_dir_rel: str) -> dict:
     pre = [
         ("Bash", "deny_scistudio_cli.py"),
         ("Edit|Write|MultiEdit", "protect_workflow_yaml.py"),
+        # #1858: one matcher covers file tools + Bash; the script branches on
+        # tool_name (file-tool target check vs. best-effort Bash check).
+        ("Edit|Write|MultiEdit|Bash", "protect_data_dir.py"),
         (
             "Edit|Write|MultiEdit|Bash|mcp__scistudio__scaffold_block",
             "enforce_list_blocks_before_block_write.py",
@@ -161,12 +166,73 @@ def _upgrade_legacy_settings_commands(settings: dict, hooks_dir_rel: str) -> boo
     return changed
 
 
+def _entry_command_strings(entry: object) -> list[str]:
+    """Return all ``command`` strings declared by a settings hook entry."""
+    if not isinstance(entry, dict):
+        return []
+    handlers = entry.get("hooks")
+    if not isinstance(handlers, list):
+        return []
+    out: list[str] = []
+    for handler in handlers:
+        if isinstance(handler, dict) and isinstance(handler.get("command"), str):
+            out.append(handler["command"])
+    return out
+
+
+def _entry_script_name(entry: object, script_names: set[str]) -> str | None:
+    """The canonical hook script a settings entry invokes, if any."""
+    for command in _entry_command_strings(entry):
+        for script in script_names:
+            if script in command:
+                return script
+    return None
+
+
+def _merge_missing_canonical_hooks(settings: dict) -> bool:
+    """Additively register canonical hook entries missing from ``settings``.
+
+    ADR-040 Addendum 6 top-up (#1858): when a newer SciStudio version adds a
+    canonical hook, existing projects already have a ``settings.json`` and so
+    the plain "write only if absent" path never registers the new matcher.
+    This merge appends any canonical hook entry whose script is not referenced
+    in the corresponding event group.
+
+    Strictly additive: user-authored entries and any already-present canonical
+    entry (including a user-edited matcher/command for it) are left untouched.
+    Returns True if the settings dict was modified.
+    """
+    canonical = _build_settings_json(_HOOKS_DIR_REL)["hooks"]
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        if "hooks" in settings:
+            return False  # malformed user config — do not touch
+        hooks = {}
+        settings["hooks"] = hooks
+    script_names = {dest for _template, dest in _HOOK_FILES}
+    changed = False
+    for event, entries in canonical.items():
+        group = hooks.get(event)
+        if not isinstance(group, list):
+            hooks[event] = json.loads(json.dumps(entries))
+            changed = True
+            continue
+        present = {name for entry in group if (name := _entry_script_name(entry, script_names)) is not None}
+        for entry in entries:
+            script = _entry_script_name(entry, script_names)
+            if script is not None and script not in present:
+                group.append(json.loads(json.dumps(entry)))
+                present.add(script)
+                changed = True
+    return changed
+
+
 def write_hooks(
     project_dir: Path,
     *,
     force: bool = False,
 ) -> list[str]:
-    """Write ``<project>/.claude/settings.json`` + 6 hook scripts.
+    """Write ``<project>/.claude/settings.json`` + 7 hook scripts.
 
     Returns list of project-relative paths actually written.
     """
@@ -189,9 +255,15 @@ def write_hooks(
             existing = json.loads(settings_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             existing = None
-        if isinstance(existing, dict) and _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL):
-            settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
-            written.append(_SETTINGS_REL)
+        if isinstance(existing, dict):
+            # Order matters: upgrade legacy command strings first, then top up
+            # any canonical hooks this SciStudio version adds (#1858). Use a
+            # non-short-circuiting OR so both run.
+            upgraded = _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL)
+            merged = _merge_missing_canonical_hooks(existing)
+            if upgraded or merged:
+                settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+                written.append(_SETTINGS_REL)
 
     for template_name, dest_name in _HOOK_FILES:
         dest = hooks_dir / dest_name

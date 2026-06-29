@@ -156,4 +156,28 @@ describe("SetupScreen", () => {
     act(() => fireEvent.click(screen.getByTestId("setup-cancel")));
     expect(onCancel).toHaveBeenCalled();
   });
+
+  it("shows the Codex trust-hooks note only when Codex is selected (#1859)", async () => {
+    mockStatusOnce({
+      providers: [
+        { name: "claude-code", available: true, version: "2.1.0", logged_in: true },
+        { name: "codex", available: true, version: "0.118.0", logged_in: true },
+      ],
+    });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-launch");
+
+    // No provider chosen yet → no note.
+    expect(screen.queryByTestId("setup-codex-trust-note")).not.toBeInTheDocument();
+
+    // Claude Code selected → still no Codex note.
+    act(() => fireEvent.click(screen.getByTestId("setup-provider-claude-code")));
+    expect(screen.queryByTestId("setup-codex-trust-note")).not.toBeInTheDocument();
+
+    // Codex selected → note appears and mentions trusting hooks + the data/ guard.
+    act(() => fireEvent.click(screen.getByTestId("setup-provider-codex")));
+    const note = screen.getByTestId("setup-codex-trust-note");
+    expect(note.textContent).toMatch(/trust/i);
+    expect(note.textContent).toMatch(/data\//);
+  });
 });
