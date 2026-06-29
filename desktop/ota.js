@@ -49,13 +49,29 @@ function displayBuildVersion(base, build) {
   return `${base}.${padded}`;
 }
 
+// #1868: is the offered update mandatory for this client? A manifest may carry
+// `requires.min_build: N`; when the local effective build is below it the update
+// must be taken. Guard on `manifest.build >= min_build` so applying the offered
+// build actually clears the requirement (a misconfigured min_build above the
+// offered build is treated as non-mandatory rather than an unsatisfiable block).
+function isMandatoryUpdate(manifest, effectiveBuild) {
+  const minBuild =
+    manifest && manifest.requires && typeof manifest.requires.min_build === "number"
+      ? manifest.requires.min_build
+      : 0;
+  return effectiveBuild < minBuild && manifest.build >= minBuild;
+}
+
 // Decide what to do with a fetched manifest given local state.
 //
 // Returns one of:
 //   { kind: "none", reason }          - nothing to do
 //   { kind: "invalid", reason }       - manifest is malformed; ignore it
-//   { kind: "incompatible", build, minBase } - newer, but needs a new installer
-//   { kind: "patch", build }          - newer and hot-patchable
+//   { kind: "incompatible", build, minBase, mandatory } - newer, needs a new installer
+//   { kind: "patch", build, mandatory } - newer and hot-patchable
+//
+// #1868: `mandatory` is true when the manifest's `requires.min_build` is newer
+// than the local build; main.js blocks startup on a mandatory update.
 function evaluateUpdate(config, manifest, baseline, effectiveBuild) {
   if (!config || !config.enabled) {
     return { kind: "none", reason: "ota-disabled" };
@@ -69,11 +85,12 @@ function evaluateUpdate(config, manifest, baseline, effectiveBuild) {
   if (manifest.build <= effectiveBuild) {
     return { kind: "none", reason: "up-to-date" };
   }
+  const mandatory = isMandatoryUpdate(manifest, effectiveBuild);
   const minBase = (manifest.requires && manifest.requires.min_base) || manifest.base;
   if (minBase && baseline && compareBase(baseline.base, minBase) < 0) {
-    return { kind: "incompatible", build: manifest.build, minBase };
+    return { kind: "incompatible", build: manifest.build, minBase, mandatory };
   }
-  return { kind: "patch", build: manifest.build };
+  return { kind: "patch", build: manifest.build, mandatory };
 }
 
 // #1787: decide how to treat the persisted active-patch pointer given the
@@ -130,6 +147,7 @@ module.exports = {
   parseVersion,
   compareBase,
   patchDirName,
+  isMandatoryUpdate,
   evaluateUpdate,
   resolveActivePatch,
   pythonPathFor,

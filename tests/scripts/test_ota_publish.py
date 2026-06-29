@@ -101,6 +101,38 @@ def test_build_manifest_shape(mod):
     assert json.loads(json.dumps(manifest))["url"].endswith("backend-build7.tar.gz")
 
 
+def test_build_manifest_omits_min_build_by_default(mod):
+    # #1868: an ordinary optional patch must not carry min_build.
+    manifest = mod.build_manifest(
+        channel="alpha",
+        base="0.2.1",
+        build=7,
+        url="https://example/backend-build7.tar.gz",
+        sha256="abc",
+        size=1234,
+        notes="hi",
+        published_at="2026-06-25T00:00:00Z",
+    )
+    assert "min_build" not in manifest["requires"]
+
+
+def test_build_manifest_includes_min_build_when_mandatory(mod):
+    # #1868: a mandatory patch records requires.min_build so the client blocks
+    # startup for builds below it.
+    manifest = mod.build_manifest(
+        channel="alpha",
+        base="0.2.1",
+        build=8,
+        url="https://example/backend-build8.tar.gz",
+        sha256="abc",
+        size=1234,
+        notes="hi",
+        published_at="2026-06-25T00:00:00Z",
+        min_build=8,
+    )
+    assert manifest["requires"] == {"min_base": "0.2.1", "min_build": 8}
+
+
 # --------------------------------------------------------------------------- #
 # sha256_file
 # --------------------------------------------------------------------------- #

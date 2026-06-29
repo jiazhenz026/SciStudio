@@ -80,6 +80,41 @@ test("evaluateUpdate: compares against effective build, not baseline", () => {
   assert.equal(ota.evaluateUpdate(CONFIG, m, BASELINE, 9).reason, "up-to-date");
 });
 
+// #1868: mandatory updates (requires.min_build).
+test("isMandatoryUpdate: below min_build is mandatory; at/above is not", () => {
+  assert.equal(ota.isMandatoryUpdate({ build: 8, requires: { min_build: 8 } }, 6), true);
+  assert.equal(ota.isMandatoryUpdate({ build: 8, requires: { min_build: 8 } }, 8), false);
+  assert.equal(ota.isMandatoryUpdate({ build: 8, requires: { min_build: 8 } }, 9), false);
+});
+
+test("isMandatoryUpdate: no min_build (or non-numeric) is never mandatory", () => {
+  assert.equal(ota.isMandatoryUpdate({ build: 8 }, 0), false);
+  assert.equal(ota.isMandatoryUpdate({ build: 8, requires: {} }, 0), false);
+  assert.equal(ota.isMandatoryUpdate({ build: 8, requires: { min_build: "8" } }, 0), false);
+});
+
+test("isMandatoryUpdate: min_build above the offered build is not enforceable", () => {
+  // Applying build 7 would not reach min_build 9, so it must not block.
+  assert.equal(ota.isMandatoryUpdate({ build: 7, requires: { min_build: 9 } }, 6), false);
+});
+
+test("evaluateUpdate: patch carries mandatory flag from min_build", () => {
+  const required = { build: 8, channel: "alpha", base: "0.2.1", requires: { min_base: "0.2.1", min_build: 8 } };
+  const d = ota.evaluateUpdate(CONFIG, required, BASELINE, 6);
+  assert.equal(d.kind, "patch");
+  assert.equal(d.mandatory, true);
+
+  const optional = { build: 8, channel: "alpha", base: "0.2.1", requires: { min_base: "0.2.1" } };
+  assert.equal(ota.evaluateUpdate(CONFIG, optional, BASELINE, 6).mandatory, false);
+});
+
+test("evaluateUpdate: incompatible can also be mandatory", () => {
+  const m = { build: 8, channel: "alpha", base: "0.3.0", requires: { min_base: "0.3.0", min_build: 8 } };
+  const d = ota.evaluateUpdate(CONFIG, m, BASELINE, 6);
+  assert.equal(d.kind, "incompatible");
+  assert.equal(d.mandatory, true);
+});
+
 // #1787: an active patch must shadow the bundled baseline only when it is
 // strictly newer. A freshly installed bundle whose build is >= the patch build
 // supersedes it; otherwise a stale patch would silently shadow the new bundle.

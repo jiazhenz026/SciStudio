@@ -1,0 +1,88 @@
+{
+  "branch": "guided/1867-desktop-orphan-mandatory-ota",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/main.js",
+      "desktop/ota.js",
+      "scripts/ota_publish.py",
+      "desktop/test/**",
+      "tests/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T04:22:05.377198Z",
+      "owner_directive": "PR B: desktop orphan lifecycle (#1867: relaunch stopRuntime, single-instance lock, exit-time reap) + mandatory OTA (#1868: requires.min_build, pre-window block gate fail-open, publisher --min-build).",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T04:22:05.377345Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-ota-hot-update.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1867,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1868,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "PR B (Electron-shell, ships with next dmg): (1) fix scistudio:relaunch handler to stopRuntime before exit; (2) add single-instance lock; (3) harden stopRuntime SIGKILL fallback; plus mandatory-OTA gate: manifest requires.min_build, block-at-next-launch Update-now/Quit, fail-open offline, incompatible+mandatory -> reinstall+quit; publisher can set min_build.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1867-guided-1867-desktop-orphan-mandatory-ota",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0725cdef-25af-45f8-8a02-869a3fb74c13",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-29T04:22:05.377525Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/ota.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T04:22:05.377536Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
