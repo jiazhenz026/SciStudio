@@ -13,11 +13,16 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.agent_provisioning.hooks import write_hooks
+from scistudio.agent_provisioning.hooks import (
+    _build_settings_json,
+    _merge_missing_canonical_hooks,
+    write_hooks,
+)
 
 _HOOK_NAMES = (
     "deny_scistudio_cli.py",
     "protect_workflow_yaml.py",
+    "protect_data_dir.py",
     "enforce_list_blocks_before_block_write.py",
     "remind_poll_status.py",
     "mark_list_blocks_called.py",
@@ -35,8 +40,13 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     assert "hooks" in data
     pre = data["hooks"]["PreToolUse"]
     post = data["hooks"]["PostToolUse"]
-    assert len(pre) == 3
+    assert len(pre) == 4  # +protect_data_dir.py (#1858)
     assert len(post) == 3
+
+    # #1858: the data/ guard is registered for both file tools and Bash.
+    data_dir_entries = [e for e in pre if "protect_data_dir.py" in e["hooks"][0]["command"]]
+    assert len(data_dir_entries) == 1
+    assert data_dir_entries[0]["matcher"] == "Edit|Write|MultiEdit|Bash"
 
     # Every entry references a python interpreter and a hook script path.
     for entry in pre + post:
@@ -76,17 +86,74 @@ def test_write_hooks_excludes_worktree_write_guard(tmp_project_dir: Path) -> Non
     assert not any("worktree_write_guard" in command for command in commands)
 
 
-def test_write_hooks_idempotent_preserves_user_edits(tmp_project_dir: Path) -> None:
-    """force=False does not overwrite user-customized settings.json."""
-    write_hooks(tmp_project_dir, force=False)
-
-    custom = {"hooks": {"PreToolUse": [], "PostToolUse": [], "_custom": "user-added"}}
-    (tmp_project_dir / ".claude" / "settings.json").write_text(json.dumps(custom), encoding="utf-8")
+def test_write_hooks_idempotent_when_all_canonical_present(tmp_project_dir: Path) -> None:
+    """force=False does not rewrite settings.json when nothing is missing."""
+    settings = _build_settings_json(".claude/hooks")
+    settings["hooks"]["_custom"] = "user-added"
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
 
     written = write_hooks(tmp_project_dir, force=False)
     assert ".claude/settings.json" not in written
-    data = json.loads((tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    assert data.get("hooks", {}).get("_custom") == "user-added"
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert data["hooks"]["_custom"] == "user-added"
+
+
+def test_write_hooks_tops_up_missing_canonical_hook(tmp_project_dir: Path) -> None:
+    """#1858: an existing settings.json missing the data/ guard gets it added.
+
+    Simulates an old project provisioned before ``protect_data_dir.py`` existed:
+    its settings.json already exists, so the plain write-if-absent path would
+    never register the new hook. The additive top-up must add it on next open,
+    while preserving the user's own entries.
+    """
+    settings = _build_settings_json(".claude/hooks")
+    # Drop the data/ guard to mimic a pre-#1858 project, and add a user hook.
+    settings["hooks"]["PreToolUse"] = [
+        e for e in settings["hooks"]["PreToolUse"] if "protect_data_dir.py" not in e["hooks"][0]["command"]
+    ]
+    settings["hooks"]["PreToolUse"].append(
+        {"matcher": "Bash", "hooks": [{"type": "command", "command": "my-own-hook.sh"}]}
+    )
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".claude/settings.json" in written
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    commands = [h["command"] for e in data["hooks"]["PreToolUse"] for h in e["hooks"]]
+    # New canonical hook registered...
+    assert any("protect_data_dir.py" in c for c in commands)
+    # ...the script file is present...
+    assert (tmp_project_dir / ".claude" / "hooks" / "protect_data_dir.py").is_file()
+    # ...and the user's own hook is left intact.
+    assert "my-own-hook.sh" in commands
+
+
+def test_merge_missing_canonical_hooks_is_additive_only() -> None:
+    """The merge adds missing canonical entries and never duplicates present ones."""
+    settings = _build_settings_json(".claude/hooks")
+    # Everything already present → no change.
+    assert _merge_missing_canonical_hooks(settings) is False
+
+    # Remove one canonical entry → exactly that one is re-added, idempotently.
+    settings["hooks"]["PreToolUse"] = [
+        e for e in settings["hooks"]["PreToolUse"] if "protect_data_dir.py" not in e["hooks"][0]["command"]
+    ]
+    assert _merge_missing_canonical_hooks(settings) is True
+    assert _merge_missing_canonical_hooks(settings) is False
+    cmds = [h["command"] for e in settings["hooks"]["PreToolUse"] for h in e["hooks"]]
+    assert sum("protect_data_dir.py" in c for c in cmds) == 1
+
+
+def test_merge_missing_canonical_hooks_leaves_malformed_hooks_untouched() -> None:
+    """A non-dict ``hooks`` value is user data we must not clobber."""
+    settings = {"hooks": "not-a-dict"}
+    assert _merge_missing_canonical_hooks(settings) is False
+    assert settings == {"hooks": "not-a-dict"}
 
 
 def test_write_hooks_upgrades_legacy_python_commands(tmp_project_dir: Path) -> None:
@@ -197,6 +264,99 @@ def test_hook_protect_workflow_yaml_passes_other_paths(tmp_project_dir: Path) ->
     for fp in ("README.md", "data/raw/file.csv", "workflows.yaml.bak"):
         proc = _run_hook(script, {"tool_input": {"file_path": fp}})
         assert proc.returncode == 0, f"expected pass for {fp}"
+
+
+# ---------------------------------------------------------------------------
+# #1858 — protect_data_dir.py
+# ---------------------------------------------------------------------------
+
+
+def _data_hook(tmp_project_dir: Path) -> Path:
+    write_hooks(tmp_project_dir, force=False)
+    return tmp_project_dir / ".claude" / "hooks" / "protect_data_dir.py"
+
+
+def _env_for(tmp_project_dir: Path) -> dict[str, str]:
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    env.pop("SCISTUDIO_PROJECT_DIR", None)
+    return env
+
+
+def test_data_hook_blocks_file_edits_under_data(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    env = _env_for(tmp_project_dir)
+    for tool in ("Edit", "Write", "MultiEdit"):
+        for fp in (
+            "data/raw/file.csv",
+            "data/zarr/array",
+            str(tmp_project_dir / "data" / "artifacts" / "out.png"),
+            "./data/exchange/x.json",
+        ):
+            proc = _run_hook(script, {"tool_name": tool, "tool_input": {"file_path": fp}}, env=env)
+            assert proc.returncode == 2, f"expected block for {tool} {fp}"
+
+
+def test_data_hook_allows_file_edits_outside_data(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    env = _env_for(tmp_project_dir)
+    for fp in (
+        "blocks/my_block.py",
+        "workflows/main.yaml",
+        "README.md",
+        "database.py",  # not the data/ dir
+        "metadata/notes.txt",
+        str(tmp_project_dir / "blocks" / "x.py"),
+    ):
+        proc = _run_hook(script, {"tool_name": "Write", "tool_input": {"file_path": fp}}, env=env)
+        assert proc.returncode == 0, f"expected pass for {fp}"
+
+
+def test_data_hook_blocks_obvious_bash_writes_and_deletes(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    env = _env_for(tmp_project_dir)
+    for cmd in (
+        "rm -rf data/raw",
+        "rm data/zarr/array",
+        "echo hi > data/raw/out.txt",
+        "cat foo >> data/exchange/log",
+        "mv data/raw/a.csv /tmp/a.csv",  # moving OUT of data deletes the source
+        "cp report.csv data/artifacts/report.csv",  # writing INTO data
+        "truncate -s 0 data/raw/big.bin",
+    ):
+        proc = _run_hook(script, {"tool_name": "Bash", "tool_input": {"command": cmd}}, env=env)
+        assert proc.returncode == 2, f"expected block for: {cmd}"
+
+
+def test_data_hook_allows_reads_and_non_data_bash(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    env = _env_for(tmp_project_dir)
+    for cmd in (
+        "cat data/raw/file.csv",  # reading data is fine
+        "ls -la data/",
+        "head -n 5 data/raw/file.csv",
+        "rm -rf workflows/old.yaml",  # deleting non-data is allowed
+        "mv blocks/a.py blocks/b.py",
+        "echo hello > notes.txt",
+    ):
+        proc = _run_hook(script, {"tool_name": "Bash", "tool_input": {"command": cmd}}, env=env)
+        assert proc.returncode == 0, f"expected pass for: {cmd}"
+
+
+def test_data_hook_blocks_apply_patch_touching_data(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    env = _env_for(tmp_project_dir)
+    patch = "*** Begin Patch\n*** Update File: data/raw/file.csv\n+changed\n*** End Patch\n"
+    proc = _run_hook(script, {"tool_name": "apply_patch", "tool_input": {"input": patch}}, env=env)
+    assert proc.returncode == 2
+
+
+def test_data_hook_empty_stdin_passes(tmp_project_dir: Path) -> None:
+    script = _data_hook(tmp_project_dir)
+    proc = subprocess.run([sys.executable, str(script)], input="", capture_output=True, text=True, timeout=15)
+    assert proc.returncode == 0
 
 
 def test_hook_enforce_list_blocks_blocks_without_marker(tmp_project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -25,6 +25,7 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
         ".claude/settings.json",
         ".claude/hooks/deny_scistudio_cli.py",
         ".claude/hooks/protect_workflow_yaml.py",
+        ".claude/hooks/protect_data_dir.py",
         ".claude/hooks/enforce_list_blocks_before_block_write.py",
         ".claude/hooks/remind_poll_status.py",
         ".claude/hooks/mark_list_blocks_called.py",

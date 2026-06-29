@@ -77,7 +77,8 @@ _EXPECTED_TOOL_NAMES = (
 )
 
 _EXPECTED_MODEL_NAMES = (
-    "BlockSpecEnvelope",
+    "BlockSummary",
+    "ListBlocksResult",
     "BlockSchemaResult",
     "TypeEntry",
     "ListTypesResult",
@@ -175,13 +176,13 @@ def test_no_legacy_single_file_module_path() -> None:
 
 
 def test_read_submodule_list_blocks_returns_envelope(ctx: _StubRuntime) -> None:
-    """read.py: ``list_blocks`` returns ``BlockSpecEnvelope`` instances."""
-    blocks = _run(tools_workflow.list_blocks())
-    assert isinstance(blocks, list)
+    """read.py: ``list_blocks`` returns a ``ListBlocksResult`` of ``BlockSummary``."""
+    result = _run(tools_workflow.list_blocks())
+    assert isinstance(result, tools_workflow.ListBlocksResult)
     # Registry scan finds something; if empty in a stripped-down test env
     # we still validate the envelope contract on the result type.
-    for entry in blocks:
-        assert isinstance(entry, tools_workflow.BlockSpecEnvelope)
+    for entry in result.blocks:
+        assert isinstance(entry, tools_workflow.BlockSummary)
 
 
 def test_helpers_submodule_diff_summary_format() -> None:

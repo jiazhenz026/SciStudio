@@ -175,12 +175,30 @@ def _run(coro):
 
 
 def test_list_blocks_returns_registered_blocks(ctx: _StubRuntime) -> None:
-    blocks = _run(tools_workflow.list_blocks())
-    # FastMCP returns Pydantic envelopes.
-    names = {b.name for b in blocks}
-    # At least some builtin block should register.
-    assert blocks, "expected at least one registered block"
+    result = _run(tools_workflow.list_blocks())
+    # Lean progressive-disclosure catalog: a ListBlocksResult envelope.
+    assert result.blocks, "expected at least one registered block"
+    assert result.count == len(result.blocks)
+    # next_step must route the agent to the detail tool for full schemas.
+    assert "get_block_schema" in result.next_step
+    names = {b.name for b in result.blocks}
     assert any(isinstance(n, str) and n for n in names)
+    sample = result.blocks[0]
+    # Catalog entries carry a one-line I/O signature with the arrow separator.
+    assert sample.signature and "→" in sample.signature
+    # The heavy per-block config_schema must NOT be inlined in the catalog
+    # (that is exactly what this change removed; fetch it via get_block_schema).
+    assert not hasattr(sample, "config_schema")
+    assert not hasattr(sample, "input_ports")
+    sigs = [b.signature for b in result.blocks]
+    # Signatures must surface concrete accepted_types, not collapse every typed
+    # port to ``Any`` (regression guard: types live on ``accepted_types``, not a
+    # ``.type`` attribute — see PR #1863 Codex review).
+    assert any(":DataObject" in s for s in sigs), "expected a concrete port type in some signature"
+    # Variadic blocks must advertise expandability with a ``*:`` marker even
+    # when they declare fixed seed ports (e.g. Data Router / Merge Collection).
+    variadic = [b for b in result.blocks if b.signature and "*:" in b.signature]
+    assert variadic, "expected at least one variadic block to expose a '*:' marker"
 
 
 def test_list_blocks_no_context_raises() -> None:

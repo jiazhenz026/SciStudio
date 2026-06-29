@@ -8,8 +8,10 @@ The orchestrator coordinates per-project provisioning:
   - .codex/config.toml (§3.7)            → ``codex_config.py``
 
 A version-marker file at ``<project>/.claude/.scistudio-provision-version``
-governs upgrade behavior on later SciStudio releases (§9 OQ-1; design
-deferred to Phase 3, see #1011).
+records the provisioning version. On every open the top-up writes any
+*missing* canonical assets and additively registers any newly-added canonical
+hook in an existing ``.claude/settings.json`` (ADR-040 Addendum 6, #1858), so
+old projects pick up new hooks/docs without overwriting user edits.
 
 Per ADR §7, failures are NOT fatal — they log at WARNING and return a
 ``ProvisionResult`` summarizing what succeeded. Callers continue with
@@ -31,11 +33,15 @@ from scistudio.agent_provisioning.skills import write_skills
 
 logger = logging.getLogger(__name__)
 
-# I40c Phase 2a sets this to "0.1.0" — the first real cut.
-# TODO(#1011): version-marker UPGRADE flow (detect stale version + re-write
-#   only changed canonical files) is Phase 3 design.
-#   Out of scope per ADR-040 §3.8 / §9 OQ-1.
-#   Followup: https://github.com/zjzcpj/SciStudio/issues/1011.
+# 0.2.0 (ADR-040 Addendum 6, #1858): adds the data/ protection hook and the
+# additive on-open top-up (missing canonical assets + missing settings hook
+# entries are filled in for existing projects). #1850 adds the in-project user
+# guide + agent reference doc trees (``docs.py``) to the same top-up.
+# TODO(#1860): content-aware refresh of canonical files that ALREADY exist
+#   (re-write only files unmodified from a previous canonical version) is still
+#   deferred — it needs per-file canonical hashing to avoid clobbering user
+#   edits. Out of scope per ADR-040 Addendum 6.
+#   Followup: https://github.com/jiazhenz026/SciStudio/issues/1860.
 SCISTUDIO_PROVISION_VERSION = "0.2.0"
 
 _MARKER_REL_PATH = ".claude/.scistudio-provision-version"
@@ -91,6 +97,7 @@ def install_project_agent_assets(
                 ".claude/settings.json",
                 ".claude/hooks/deny_scistudio_cli.py",
                 ".claude/hooks/protect_workflow_yaml.py",
+                ".claude/hooks/protect_data_dir.py",
                 ".claude/hooks/enforce_list_blocks_before_block_write.py",
                 ".claude/hooks/remind_poll_status.py",
                 ".claude/hooks/mark_list_blocks_called.py",

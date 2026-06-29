@@ -145,6 +145,23 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           onChange={setProvider}
         />
 
+        {/* #1859: Codex asks the user to trust this project's hooks on first
+            launch. Non-technical users may not know what hooks are; if they
+            decline, SciStudio's safety hooks (e.g. the data/ guard) never run.
+            We surface a short note rather than silently editing global config. */}
+        {provider === "codex" ? (
+          <div
+            className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            data-testid="setup-codex-trust-note"
+          >
+            <strong className="font-medium">Heads up:</strong> the first time Codex launches in this
+            project it will ask whether to trust its hooks. Please choose{" "}
+            <strong className="font-medium">trust / yes</strong> — SciStudio installs safety hooks
+            (such as protecting your <span className="font-mono">data/</span> folder from accidental
+            edits) that only take effect if you accept.
+          </div>
+        ) : null}
+
         <PermissionModePicker
           tabId={tabId}
           permissionMode={permissionMode}

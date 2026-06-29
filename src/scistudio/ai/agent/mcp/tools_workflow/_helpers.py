@@ -52,6 +52,74 @@ def _port_to_dict(port: Any) -> dict[str, Any]:
     }
 
 
+def _render_port_type(port: Any) -> str:
+    """Render a port's accepted type(s) for a catalog signature.
+
+    SciStudio ports declare their type via ``accepted_types`` (a list of type
+    classes); an empty list means "accept/emit any data object" and renders as
+    ``Any``. Multiple accepted types render as ``A|B``; collection ports get a
+    ``[]`` suffix.
+    """
+    if isinstance(port, dict):
+        accepted = port.get("accepted_types") or []
+        is_collection = bool(port.get("is_collection"))
+    else:
+        accepted = getattr(port, "accepted_types", None) or []
+        is_collection = bool(getattr(port, "is_collection", False))
+    names = [getattr(t, "__name__", str(t)) for t in accepted]
+    rendered = "|".join(names) if names else "Any"
+    return f"{rendered}[]" if is_collection else rendered
+
+
+def _spec_signature(spec: Any) -> str:
+    """Render a one-line I/O signature for a block's catalog entry.
+
+    Example: ``image:Image, mask?:Array → result:Image``. Port types come from
+    each port's ``accepted_types`` (``Any`` when none is declared); optional
+    ports carry a ``?`` suffix; collection ports a ``[]`` suffix; an empty side
+    renders as ``()``. Variadic sides append a ``*:<Type|Type>`` element (after
+    any fixed seed ports) to signal that more ports of those types may be
+    added — ``*:Any`` when no allowed types are declared.
+
+    This is the only I/O detail ``list_blocks`` carries — enough for the
+    agent to judge wiring compatibility during selection without fetching
+    the full per-block schema. Call ``get_block_schema`` for exact port
+    names/types and the config_schema.
+    """
+
+    def _port_name(port: Any) -> str:
+        if isinstance(port, dict):
+            return port.get("name") or "?"
+        return getattr(port, "name", "") or "?"
+
+    def _port_required(port: Any) -> bool:
+        if isinstance(port, dict):
+            return bool(port.get("required", True))
+        return bool(getattr(port, "required", True))
+
+    def _fmt_side(ports: Any, variadic: bool, allowed: Any) -> str:
+        rendered = []
+        for port in ports or []:
+            optional = "" if _port_required(port) else "?"
+            rendered.append(f"{_port_name(port)}{optional}:{_render_port_type(port)}")
+        if variadic:
+            allowed_types = [str(a) for a in (allowed or [])]
+            rendered.append("*:" + ("|".join(allowed_types) if allowed_types else "Any"))
+        return ", ".join(rendered) if rendered else "()"
+
+    inputs = _fmt_side(
+        spec.input_ports,
+        bool(getattr(spec, "variadic_inputs", False)),
+        getattr(spec, "allowed_input_types", None),
+    )
+    outputs = _fmt_side(
+        spec.output_ports,
+        bool(getattr(spec, "variadic_outputs", False)),
+        getattr(spec, "allowed_output_types", None),
+    )
+    return f"{inputs} → {outputs}"
+
+
 def _atomic_write_text(path: Path, text: str) -> int:
     """Write *text* to *path* via tempfile + rename. Returns bytes written."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -131,6 +199,8 @@ __all__ = [
     "_get_workflow_runtime",
     "_looks_like_inline_yaml",
     "_port_to_dict",
+    "_render_port_type",
     "_resolve_ai_block_run_dir",
+    "_spec_signature",
     "_spec_to_dict",
 ]

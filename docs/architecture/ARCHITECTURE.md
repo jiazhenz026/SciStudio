@@ -1325,7 +1325,7 @@ The production MCP surface contains 33 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
-| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_blocks</code> | List registered blocks and palette metadata. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_blocks</code> | List registered blocks as a lean catalog (name, category, package, one-line I/O signature); fetch a block's full schema via <code>get_block_schema</code>. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_schema</code> | Read one block's ports, config schema, and description. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_types</code> | List registered data types for port and workflow authoring. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_workflow</code> | Read a project workflow definition. | Read |
