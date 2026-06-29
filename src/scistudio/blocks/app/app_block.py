@@ -78,6 +78,13 @@ class AppBlock(Block):
     program) rather than stuck. Once result files appear and stop changing, the
     block finishes on its own.
 
+    Config-driven tools: some command-line tools do not read the exchange
+    directory themselves — they expect a generated config/parameter file listing
+    each input by path and a non-default command line (for example
+    ``tool --config config.xml``). Override :meth:`prepare_launch` to generate
+    that file from the staged inputs and return the launch arguments; the
+    default implementation is a no-op and keeps the standard behavior.
+
     Ports and config:
         - Reads an optional input port named ``data`` by default; you can add or
           rename input and output ports in the port editor. Each output port may
@@ -392,6 +399,77 @@ class AppBlock(Block):
             result[port.name] = Collection(items, item_type=item_type)
         return result
 
+    @provisional(since="0.3.2")
+    def prepare_launch(
+        self,
+        exchange_dir: Path,
+        output_dir: Path,
+        config: BlockConfig,
+    ) -> list[str] | None:
+        """Customise the launch of the external tool after inputs are staged.
+
+        This hook is called once per run, after :meth:`run` has materialised the
+        block's inputs into *exchange_dir* (``inputs/<port>/item_XXXX.<ext>`` and
+        a ``manifest.json``) and created *output_dir*, but **before** the
+        external process is started. The default implementation is a no-op that
+        returns ``None``, so the base block and every existing subclass keep the
+        original behavior unchanged.
+
+        Override this for tools that do not read the exchange directory
+        themselves. A *config-driven* command-line tool typically wants a
+        generated config/parameter file that enumerates each staged input by
+        absolute path plus the output directory, and is launched with a
+        non-default command line (for example ``tool --config config.xml``)
+        rather than receiving a directory as a positional argument. A subclass
+        can do both here:
+
+        1. read the already-staged inputs under *exchange_dir* (via
+           ``manifest.json`` or by walking the ``inputs/`` tree) and write the
+           tool's config/parameter file (point its outputs at *output_dir* so
+           the watcher sees them);
+        2. return the argv to launch the tool with.
+
+        The returned list is passed to the bridge as ``argv_override`` and
+        becomes the trailing arguments after the validated executable (the
+        executable itself is still resolved and injection-checked by
+        :func:`validate_app_command`). Returning ``None`` keeps the default
+        behavior of passing *exchange_dir* as the sole trailing argument.
+
+        Security: the returned argv is authored by the block, not by untrusted
+        user input, and the process is started with ``shell=False`` (each list
+        element is one literal ``argv`` token with no shell interpretation),
+        exactly like the default ``[str(exchange_dir)]`` trailing argument. It
+        therefore needs no separate shell-metacharacter validation; do not build
+        it by concatenating an untrusted string into one element.
+
+        Args:
+            exchange_dir: The exchange directory holding the staged inputs and
+                ``manifest.json`` for this run.
+            output_dir: The directory the watcher will poll for result files;
+                point the tool's outputs here.
+            config: The node configuration for this run.
+
+        Returns:
+            The argv (trailing arguments) to launch the tool with, or ``None``
+            to use the default behavior.
+
+        Example:
+            A minimal config-driven pseudo-tool launched as
+            ``mytool --config <file>``::
+
+                class MyToolBlock(AppBlock):
+                    app_command = "mytool"
+
+                    def prepare_launch(self, exchange_dir, output_dir, config):
+                        inputs = sorted((exchange_dir / "inputs").rglob("*"))
+                        config_path = exchange_dir / "config.txt"
+                        lines = [f"out_dir={output_dir}"]
+                        lines += [f"input={p}" for p in inputs if p.is_file()]
+                        config_path.write_text("\\n".join(lines), encoding="utf-8")
+                        return ["--config", str(config_path)]
+        """
+        return None
+
     @provisional(since="0.3.1")
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Serialise inputs, launch the external app, and collect its outputs.
@@ -402,6 +480,12 @@ class AppBlock(Block):
         loads those files back into output Collections. The external process is
         always waited on (and terminated or killed if it overruns), and any
         exchange folder created just for this run is removed, even on error.
+
+        Between staging the inputs and launching the process, :meth:`prepare_launch`
+        is called so subclasses wrapping config-driven tools can generate a
+        config file and supply a custom launch command line; by default it is a
+        no-op and the executable is launched with the exchange folder as its
+        sole trailing argument.
 
         If output ports were declared in the port editor, result files are
         sorted into those ports by file extension; otherwise every result file
@@ -475,22 +559,33 @@ class AppBlock(Block):
 
         proc: subprocess.Popen[bytes] | None = None
         try:
-            # Step 2: Launch external app (waits for external interaction).
-            # PAUSED visibility for in-flight AppBlocks is tracked in #56
-            # (subprocess→engine status channel); the engine-owned scheduler
-            # (ADR-018 §8.1) is the authoritative state machine.
-            proc = bridge.launch(command, exchange_dir)
-
-            # Step 3: Watch for outputs with process monitoring.
+            # Resolve the output directory *before* launch so the pre-launch
+            # hook and the watcher observe the same directory. ADR-030 D3:
+            # use the user-selected output_dir when configured.
             # ADR-052 §7.1 (option b): FileWatcher accepts a plain
             # ``subprocess.Popen`` as its ``process_handle`` (alive while
             # ``poll()`` is None), so no adapter wrapper is needed.
-            # ADR-030 D3: use user-selected output_dir if configured.
             from scistudio.blocks.app.watcher import FileWatcher, ProcessExitedWithoutOutputError
 
             custom_output_dir = config.get("output_dir")
             output_dir = Path(custom_output_dir) if custom_output_dir else exchange_dir / "outputs"
             output_dir.mkdir(parents=True, exist_ok=True)
+
+            # ADR-006 Addendum 1 (#1870): pre-launch hook. Inputs are now staged
+            # under ``exchange_dir`` and ``output_dir`` exists, but the external
+            # process has not started. Subclasses may read the staged inputs to
+            # generate the config/parameter file a config-driven tool needs and
+            # return the argv used to launch it. ``None`` keeps the default
+            # behavior (``exchange_dir`` as the sole trailing argument).
+            argv_override = self.prepare_launch(exchange_dir, output_dir, config)
+
+            # Step 2: Launch external app (waits for external interaction).
+            # PAUSED visibility for in-flight AppBlocks is tracked in #56
+            # (subprocess→engine status channel); the engine-owned scheduler
+            # (ADR-018 §8.1) is the authoritative state machine.
+            proc = bridge.launch(command, exchange_dir, argv_override=argv_override)
+
+            # Step 3: Watch for outputs with process monitoring.
             stability_period = float(config.get("stability_period", 2.0))
             done_marker = config.get("done_marker")
             watcher = FileWatcher(
