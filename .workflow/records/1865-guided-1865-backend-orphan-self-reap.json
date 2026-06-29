@@ -1,0 +1,97 @@
+{
+  "branch": "guided/1865-backend-orphan-self-reap",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/cli/main.py",
+      "tests/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-29T03:42:40.067648Z",
+      "owner_directive": "\u4e3a\u5565\u8981\u653e\u5230cli\u91cc \u2014 move the backstop out of cli/main.py into scistudio/desktop/parent_watchdog.py; cli/main.py just imports and calls it.",
+      "reason": "Owner: parent-death backstop should not live in the cli arg-parsing module; move it to a dedicated desktop bundled-runtime lifecycle module, cli only wires it."
+    },
+    {
+      "at": "2026-06-29T03:46:17.043239Z",
+      "owner_directive": "PR A: OTA-deliverable parent-death backstop in scistudio/desktop/parent_watchdog.py; cli/main.py wires it in bundled+posix gui mode.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-29T03:46:17.043380Z",
+      "class": "user_guide",
+      "kind": "na",
+      "path": null,
+      "rationale": "internal bundled-runtime process-lifecycle hardening; no public API/UI/schema/contract change. Desktop spawn-lifecycle docs belong with the Electron-side PR.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-29T03:46:17.043397Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "alpha pre-release; orphan-backend fix is internal reliability, no user-facing changelog maintained at this stage.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1865,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix bundled backend orphan accumulation. PR A (this one): add an OTA-deliverable parent-death backstop in src/scistudio/cli/main.py so the bundled backend self-terminates when its Electron parent dies by any means. Desktop-side spawn-lifecycle fixes are a separate PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1865-guided-1865-backend-orphan-self-reap",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-29T03:42:40.067783Z",
+      "pattern": "src/scistudio/desktop/parent_watchdog.py",
+      "reason": "Owner: parent-death backstop should not live in the cli arg-parsing module; move it to a dedicated desktop bundled-runtime lifecycle module, cli only wires it."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T03:42:40.067791Z",
+      "pattern": "tests/desktop/**",
+      "reason": "Owner: parent-death backstop should not live in the cli arg-parsing module; move it to a dedicated desktop bundled-runtime lifecycle module, cli only wires it."
+    }
+  ],
+  "session_id": "787b467e-d83b-4f3e-a1fb-40dc4551c342",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-29T03:46:17.043401Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/desktop/test_parent_watchdog.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

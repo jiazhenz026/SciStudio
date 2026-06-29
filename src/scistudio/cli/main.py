@@ -450,6 +450,13 @@ def gui(
     os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://127.0.0.1:{bound_port}")
     if not no_browser and not bundled:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
+    # #1865: in bundled desktop mode, self-reap if the Electron parent dies
+    # without signalling us (force-quit / crash / app.exit relaunch) so the
+    # backend does not linger as an orphan. POSIX-only: relies on reparent-to-init.
+    if bundled and os.name == "posix":
+        from scistudio.desktop.parent_watchdog import start_parent_death_watchdog
+
+        start_parent_death_watchdog(os.getppid())
     # #1741: log_config=None lets uvicorn loggers propagate to our root handlers.
     uvicorn.run(
         "scistudio.api.app:create_app",
