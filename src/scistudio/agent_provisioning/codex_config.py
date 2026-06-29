@@ -55,6 +55,11 @@ _PRE_HOOKS: tuple[tuple[str, str, str], ...] = (
         "Protecting workflows/*.yaml from direct edits",
     ),
     (
+        "^(Edit|Write|MultiEdit|apply_patch|Bash)$",
+        "protect_data_dir.py",
+        "Protecting project data/ from direct agent edits",
+    ),
+    (
         "^(Edit|Write|MultiEdit|apply_patch|Bash|mcp__scistudio__scaffold_block)$",
         "enforce_list_blocks_before_block_write.py",
         "Enforcing #875 block-reuse rule",

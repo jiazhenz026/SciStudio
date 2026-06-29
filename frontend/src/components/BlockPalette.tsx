@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import type { BlockSummary } from "../types/api";
@@ -24,9 +24,32 @@ const POPOVER_OPEN_DELAY_MS = 150;
 /** Rough popover height used to keep it inside the viewport. */
 const POPOVER_MAX_HEIGHT = 240;
 
+// #1857: the tile grid auto-adapts its column count to the (resizable) palette
+// width instead of a hardcoded 2 columns. A tile's intrinsic minimum width is
+// the 72px category swatch plus the tile's own padding, so TILE_MIN_PX leaves a
+// little breathing room above that. We prefer 2 columns (the default-panel
+// look), expand to at most 3 when the panel is dragged wide, and only fall back
+// to 1 when the panel is too narrow to fit two swatches side by side.
+const TILE_MIN_PX = 80;
+const GRID_GAP_PX = 4; // Tailwind gap-1 = 0.25rem.
+const MIN_COLUMNS = 1;
+const MAX_COLUMNS = 3;
+const DEFAULT_COLUMNS = 2;
+
+/** Column count that fits `width` px, clamped to [MIN_COLUMNS, MAX_COLUMNS]. */
+export function paletteColumns(width: number): number {
+  if (width <= 0) {
+    // Pre-measurement (first paint / jsdom): keep the default 2-column look.
+    return DEFAULT_COLUMNS;
+  }
+  const fit = Math.floor((width + GRID_GAP_PX) / (TILE_MIN_PX + GRID_GAP_PX));
+  return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, fit));
+}
+
 interface SectionViewProps {
   section: PaletteSection;
   forceOpen: boolean;
+  columns: number;
   onDragStart: (event: React.DragEvent, block: BlockSummary) => void;
   onAddBlock: (block: BlockSummary) => void;
   onEnter: (block: BlockSummary, rect: DOMRect) => void;
@@ -36,6 +59,7 @@ interface SectionViewProps {
 function SectionView({
   section,
   forceOpen,
+  columns,
   onDragStart,
   onAddBlock,
   onEnter,
@@ -63,7 +87,10 @@ function SectionView({
         </button>
       )}
       {open ? (
-        <div className="grid grid-cols-2 gap-1">
+        <div
+          className="grid gap-1"
+          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        >
           {section.blocks.map((block) => (
             <BlockTile
               block={block}
@@ -99,6 +126,23 @@ export function BlockPalette({
   const [hovered, setHovered] = useState<{ block: BlockSummary; anchor: PopoverAnchor } | null>(
     null,
   );
+
+  // #1857: measure the scrollable grid area so the tile grid can pick a column
+  // count that fits the resizable palette. clientWidth excludes the scrollbar,
+  // so it reflects the space tiles actually get.
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+  useEffect(() => {
+    const node = gridScrollRef.current;
+    if (!node || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(() => setGridWidth(node.clientWidth));
+    observer.observe(node);
+    setGridWidth(node.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+  const columns = paletteColumns(gridWidth);
 
   const handleReload = () => {
     triggerFlash();
@@ -215,9 +259,13 @@ export function BlockPalette({
 
         <CategoryChips active={activeCategories} onToggle={toggleCategory} />
 
-        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin">
+        <div
+          className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin"
+          ref={gridScrollRef}
+        >
           {sections.map((section) => (
             <SectionView
+              columns={columns}
               forceOpen={forceOpen}
               key={section.id}
               onAddBlock={onAddBlock}
