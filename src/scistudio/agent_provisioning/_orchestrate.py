@@ -171,8 +171,10 @@ def _expected_doc_paths() -> list[str]:
         "user-guide/README.md",
         "user-guide/getting-started.md",
         "user-guide/api-reference/index.md",
+        "user-guide/package-reference/index.md",
         ".scistudio/agent-reference/README.md",
         ".scistudio/agent-reference/public-api.md",
+        ".scistudio/agent-reference/package-index.md",
     ]
 
 
