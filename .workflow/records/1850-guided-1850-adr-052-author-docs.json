@@ -216,6 +216,24 @@
       "at": "2026-06-29T00:23:28.630507Z",
       "pattern": "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
       "reason": "owner: the provisioned project AGENTS.md/CLAUDE.md template was missed \u2014 update it to list write-plot, fix the Q&A project-qa description, point at the new provisioned docs (user-guide / api-reference / agent-reference), and add the canonical-import public-API rule"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T01:41:26.198631Z",
+      "pattern": "README.md",
+      "reason": "Rewrite top-level README and CONTRIBUTING for ADR-052 docs landing; add home-page screenshot asset"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T01:41:26.198796Z",
+      "pattern": "CONTRIBUTING.md",
+      "reason": "Rewrite top-level README and CONTRIBUTING for ADR-052 docs landing; add home-page screenshot asset"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-29T01:41:26.198799Z",
+      "pattern": "docs/assets/**",
+      "reason": "Rewrite top-level README and CONTRIBUTING for ADR-052 docs landing; add home-page screenshot asset"
     }
   ],
   "session_id": "664821f6-5b76-47da-8389-12d8a47f2f4e",
