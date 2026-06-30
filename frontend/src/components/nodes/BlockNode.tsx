@@ -20,6 +20,7 @@
 
 import { type Node, type NodeProps } from "@xyflow/react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
@@ -163,10 +164,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       />
 
       {/* Hover detail popover beside the node (#1887). Shared with the palette;
-          pointer-events-none + fixed positioning keep it out of layout flow. */}
-      {detailAnchor && summary ? (
-        <BlockDetailPopover anchor={detailAnchor} block={summary} />
-      ) : null}
+          pointer-events-none + fixed positioning keep it out of layout flow.
+          Portalled to <body> so it escapes ReactFlow's transformed viewport: a
+          position:fixed descendant of a `transform`ed ancestor is positioned in
+          that ancestor's coordinate space, so the getBoundingClientRect-derived
+          viewport anchor would drift from the node after pan/zoom. */}
+      {detailAnchor && summary && typeof document !== "undefined"
+        ? createPortal(<BlockDetailPopover anchor={detailAnchor} block={summary} />, document.body)
+        : null}
 
       {/* ----------------------------------------------------------------- */}
       {/* Fixed 104×104 square body — identity only (ADR-050 §2.1)          */}

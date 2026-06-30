@@ -124,13 +124,58 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-06-30T20:49:19.251517Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:78bd3c609664b2555814c613ecbd764c1b7a96480b95418d70c7c1d8dda858e6",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-30T20:49:23.730507Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f0a8ffa048cb57242a558fdb4de67ea902b420441781c4bdf9bebfe4e49e8a31",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-06-30T20:53:29.507596Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:998df8574cfa1a8870911e2ff82b7a8fd97ead2278715234b939cd6ab3030ea8",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "e798532d61216b9a194b0e889a1db6d8392df4d2",
+    "sha": "0c73d4db34c663e8ebc53876d18f1e3abbfd42bc",
     "shas": [
-      "e798532d61216b9a194b0e889a1db6d8392df4d2"
+      "0c73d4db34c663e8ebc53876d18f1e3abbfd42bc"
     ],
     "trailers": []
   },
@@ -151,6 +196,11 @@
       "at": "2026-06-30T16:31:20.404758Z",
       "owner_directive": "Canvas block nodes reuse the shared BlockDetailPopover on hover (400ms dwell, right-side anchor flipping left near the viewport edge); popover moved to components/ and shared with the palette.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-30T20:46:17.121294Z",
+      "owner_directive": "Render the canvas hover popover outside ReactFlow's transforms \u2014 portal it to document.body so position:fixed uses the real viewport coordinate space that getBoundingClientRect() returns.",
+      "reason": "Owner-reported P2: position:fixed popover is offset under ReactFlow's transformed viewport after pan/zoom"
     }
   ],
   "docs_events": [
@@ -738,6 +788,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.585876Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.604412Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.624200Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.646565Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.671568Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.689449Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.711118Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.729001Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.745017Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:29.775297Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.649631Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.674249Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.693126Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.711335Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.735570Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.752882Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.776627Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.793843Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.815735Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:53:38.838705Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -763,9 +977,9 @@
       "frontend/src/components/nodes/BlockNode.tsx",
       "frontend/src/components/nodes/__tests__/BlockNode/hoverDetail.test.tsx"
     ],
-    "diff_fingerprint": "sha256:604ac6e74a787f30257a4751792eaf15da341d8446f619d44338a74c1b8e223b",
+    "diff_fingerprint": "sha256:c06e61df5984cdaa54dc30b40e8a74bed058daaeba81c9f6bdc18f4e0e2d305e",
     "head": "HEAD",
-    "head_sha": "e798532d",
+    "head_sha": "0c73d4db",
     "surfaces": {
       "docs": 1,
       "frontend": 7,
@@ -843,6 +1057,22 @@
     {
       "at": "2026-06-30T16:40:50.859368Z",
       "diff_fingerprint": "sha256:604ac6e74a787f30257a4751792eaf15da341d8446f619d44338a74c1b8e223b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-30T20:53:29.775374Z",
+      "diff_fingerprint": "sha256:c06e61df5984cdaa54dc30b40e8a74bed058daaeba81c9f6bdc18f4e0e2d305e",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-06-30T20:53:38.838771Z",
+      "diff_fingerprint": "sha256:c06e61df5984cdaa54dc30b40e8a74bed058daaeba81c9f6bdc18f4e0e2d305e",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,

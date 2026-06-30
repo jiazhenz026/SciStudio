@@ -227,6 +227,13 @@ trigger; it does not change the popover's content or the palette behavior above.
   card would overflow the right viewport edge (clamped off the left edge), and
   clamp the top into `[gap, viewportHeight − maxHeight]`. Reading the live
   on-screen rect keeps placement correct under any zoom/pan.
+- **Portalled outside ReactFlow.** The popover is rendered through a React
+  portal to `document.body`, not inline in the node subtree. ReactFlow's
+  viewport applies a CSS `transform`, which makes it the containing block for a
+  `position: fixed` descendant; rendering the popover inside it would place the
+  card in the transformed coordinate space and drift it from the node after
+  pan/zoom. Portalling to `<body>` restores the real viewport coordinate space
+  that the `getBoundingClientRect()`-derived anchor is expressed in.
 - **Coexistence.** The detail popover floats to the side of the 104×104 square;
   the existing `NodeActionToolbar` floats above it (ADR-050 §2.2). They do not
   overlap and both may be visible on hover.

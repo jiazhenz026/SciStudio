@@ -90,4 +90,23 @@ describe("BlockNode — hover detail popover (#1887)", () => {
 
     expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
   });
+
+  it("portals the popover outside the node subtree (escapes ReactFlow transforms)", () => {
+    // #1887 P2: a position:fixed popover under ReactFlow's transformed viewport
+    // would be placed in the transformed coordinate space and drift after
+    // pan/zoom. Portalling to <body> keeps it in the real viewport space that
+    // getBoundingClientRect() (used for the anchor) reports in.
+    const { container } = renderNode({ summary: makeSummary() });
+
+    fireEvent.mouseEnter(screen.getByTestId("block-node-shell"));
+    act(() => {
+      vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS);
+    });
+
+    const popover = screen.getByTestId("block-detail-popover");
+    // Not rendered inside the node's own subtree...
+    expect(container.querySelector('[data-testid="block-detail-popover"]')).toBeNull();
+    // ...but mounted on document.body via the portal.
+    expect(document.body.contains(popover)).toBe(true);
+  });
 });
