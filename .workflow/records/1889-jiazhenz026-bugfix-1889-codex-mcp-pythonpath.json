@@ -351,7 +351,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "ade32a50a6ee903dd197b2d0a68aa0d39f8a29d4",
+    "shas": [
+      "ade32a50a6ee903dd197b2d0a68aa0d39f8a29d4"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -708,6 +714,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.936731Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.945132Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.953642Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.962064Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.971020Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.979613Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.987908Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:49.996979Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:50.005582Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-06-30T20:29:50.016519Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -720,7 +808,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "751d6574272d609bd3eb97797a7be2a0a169a7c7",
     "base_sha": "751d6574",
     "changed_files": [
       ".workflow/records/1889-jiazhenz026-bugfix-1889-codex-mcp-pythonpath.json",
@@ -729,9 +817,9 @@
       "tests/ai/test_windows_executable_resolution.py",
       "tests/cli/test_install.py"
     ],
-    "diff_fingerprint": "sha256:c09c31bceb1ad81c8e5b659ab3416883e6f7ab90c73d255cd3c75e5310c70908",
+    "diff_fingerprint": "sha256:f426ad575d2806907116ce539658baa68ca6fd92e1223a4ff509b8a10f27c581",
     "head": "HEAD",
-    "head_sha": "d98b504c",
+    "head_sha": "ade32a50",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -747,7 +835,12 @@
   },
   "owner_directive": "Fix codex MCP server failing to connect (No module named scistudio); unify codex and claude MCP launch env by injecting PYTHONPATH",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1894,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-06-30T19:57:14.235437Z",
@@ -785,6 +878,16 @@
       "at": "2026-06-30T20:27:14.765398Z",
       "diff_fingerprint": "sha256:c09c31bceb1ad81c8e5b659ab3416883e6f7ab90c73d255cd3c75e5310c70908",
       "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-06-30T20:29:50.016556Z",
+      "diff_fingerprint": "sha256:f426ad575d2806907116ce539658baa68ca6fd92e1223a4ff509b8a10f27c581",
+      "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
       "unsatisfied": [
