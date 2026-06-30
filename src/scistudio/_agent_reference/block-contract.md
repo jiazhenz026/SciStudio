@@ -17,12 +17,13 @@ a body. Imports come from canonical roots ([public-api.md](public-api.md)).
 ([public-api.md](public-api.md)). `base_category` is **inferred** from the parent
 class — never set it as a ClassVar (silently ignored).
 
-## Make it interactive (let the user decide in the GUI)
+## Interactive blocks (optional)
 
 Interaction is a **capability**, not a separate base class. Any category can
 pause mid-run, open a window onto its real input data, take a data-dependent
-decision from the user, and compute outputs from it — instead of hard-coding a
-choice that depends on looking at the data. Mix in `InteractiveMixin`, set
+decision from the user, and compute outputs from it. Use it when a value can
+only be judged by looking at the specific data; it is one option, not a default.
+Mix in `InteractiveMixin`, set
 `execution_mode = ExecutionMode.INTERACTIVE`, declare an `interactive_panel`,
 and override `prepare_prompt`. Import all four from `scistudio.blocks.base`
 (`InteractiveMixin`, `ExecutionMode`, `PanelManifest`, `InteractivePrompt`).
