@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -141,6 +142,13 @@ class FileExchangeBridge:
                 ``extension``) from the port editor.
             registry: Optional pre-scanned block registry to reuse; when omitted
                 a fresh one is built and scanned for this call.
+
+        Raises:
+            TypeError: If an input value is a bare ``list``/``tuple`` containing
+                :class:`~scistudio.core.types.base.DataObject` items. Wrap a batch
+                of data objects in a
+                :class:`~scistudio.core.types.collection.Collection` instead so
+                each item is materialised to its own file (#1874).
         """
         from scistudio.core.types.base import DataObject
         from scistudio.core.types.collection import Collection
@@ -157,6 +165,11 @@ class FileExchangeBridge:
             capability_id = _normalise_capability_id(selected.get("capability_id"))
             if isinstance(value, Collection):
                 collection_dir = input_dir / key
+                if collection_dir.exists() or collection_dir.is_symlink():
+                    if collection_dir.is_dir() and not collection_dir.is_symlink():
+                        shutil.rmtree(collection_dir)
+                    else:
+                        collection_dir.unlink()
                 collection_dir.mkdir(exist_ok=True)
                 item_entries: list[dict[str, Any]] = []
                 item_types: set[str] = set()
@@ -199,6 +212,21 @@ class FileExchangeBridge:
 
             if isinstance(value, (str, int, float, bool)):
                 manifest[key] = {"type": "scalar", "value": value}
+            elif isinstance(value, (list, tuple)) and any(isinstance(item, DataObject) for item in value):
+                # #1874: a bare list/tuple of DataObjects is not a recognised
+                # input shape. Materialising it would require a homogeneous
+                # item type the bare sequence does not carry, and falling through
+                # to the JSON branch below would silently serialise each item as a
+                # useless ``repr`` string and stage no files. Fail loudly and
+                # point the caller at ``Collection``, which is the typed batch
+                # carrier the collection branch above materialises item-by-item.
+                raise TypeError(
+                    f"Input {key!r} is a bare {type(value).__name__} containing "
+                    "DataObject items. Wrap a batch of data objects in a "
+                    "Collection so each item is staged to its own file under "
+                    "inputs/<port>/; a raw sequence has no homogeneous item-type "
+                    "guarantee and cannot be materialised."
+                )
             elif isinstance(value, bytes):
                 file_path = input_dir / f"{key}.bin"
                 file_path.write_bytes(value)

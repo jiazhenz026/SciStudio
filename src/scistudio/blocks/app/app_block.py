@@ -535,12 +535,26 @@ class AppBlock(Block):
         # Project-dir and explicit exchange dirs are intentionally persistent.
         is_temp_dir = not explicit_dir and not (config.get("project_dir") and config.get("block_id"))
 
-        # ADR-020: Unpack Collection inputs to raw values for serialization.
+        # ADR-020 §5: AppBlocks receive whole collections and decide their own
+        # exchange format. The file-exchange bridge materialises one file per
+        # collection item and records a ``collection`` manifest entry (see
+        # ``FileExchangeBridge.prepare``), so a multi-item batch must reach the
+        # bridge *as a Collection*. Only a length-one collection is unpacked to a
+        # bare DataObject, so a single input still lands as one file at
+        # ``inputs/<port>.<ext>`` (and a single-object manifest entry) rather than
+        # ``inputs/<port>/item_0000.<ext>``. A 0- or multi-item collection is
+        # passed through unchanged so ``prepare`` routes it to its
+        # collection-materialise branch.
+        #
+        # #1874: previously a multi-item collection was downcast to a bare
+        # ``list``, which is neither a Collection nor a DataObject and so fell
+        # through to ``prepare``'s JSON fallback — silently serialising the items
+        # as ``repr`` strings and staging no files. Single inputs survived only
+        # because they were unpacked to a bare DataObject.
         unpacked_inputs: dict[str, Any] = {}
         for key, value in inputs.items():
-            if isinstance(value, Collection):
-                items = list(value)
-                unpacked_inputs[key] = items[0] if len(items) == 1 else items
+            if isinstance(value, Collection) and len(value) == 1:
+                unpacked_inputs[key] = value[0]
             else:
                 unpacked_inputs[key] = value
 
