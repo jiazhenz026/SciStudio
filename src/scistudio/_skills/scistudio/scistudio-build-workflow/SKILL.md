@@ -27,23 +27,24 @@ workflow:                            # REQUIRED top-level key
   description: One-line summary.     # optional but recommended for the GUI
   nodes:                             # list of block instances
     - id: load                       # node id (referenced by edges; must be unique)
-      block_type: imaging.load_image # registered block name from list_blocks
+      block_type: load_data          # core Load — one block, configured by core_type (§1.1)
       config:                        # passes the block's config_schema
+        core_type: Image             # the type to read; the enum covers package types too
         path: data/raw/beads.tif
     - id: thr
       block_type: imaging.threshold
       config:
         method: otsu
     - id: save
-      block_type: imaging.save_image
+      block_type: save_data          # core Save — configured by core_type
       config:
+        core_type: Image
         path: data/derived/mask.tif
-        format: tiff
   edges:                             # connections between node ports
-    - source: "load:images"          # MUST be "<node_id>:<port_name>" — colon, not dot
+    - source: "load:data"            # MUST be "<node_id>:<port_name>" — colon, not dot
       target: "thr:image"
     - source: "thr:mask"
-      target: "save:images"
+      target: "save:data"
   metadata: {}                       # optional free-form dict
 ```
 
@@ -72,6 +73,36 @@ workflow:                            # REQUIRED top-level key
 |---|---|---|---|
 | `source` | string | yes | `"<node_id>:<port_name>"` — single colon |
 | `target` | string | yes | `"<node_id>:<port_name>"` — single colon |
+
+## 1.1 Loading and saving data: one core block, configured by `core_type`
+
+SciStudio ships a single built-in **Load** (`load_data`) and **Save**
+(`save_data`) block. You do NOT pick a different loader per data type — you
+pick the *type* on the one core block via its `core_type` config:
+
+- `core_type` is an enum computed live from the type registry, so it lists
+  the six built-in core types (Array, DataFrame, Series, Text, Artifact,
+  CompositeData) **and** every package-registered type that has an IO
+  capability — e.g. `Image`, `Spectrum`, `SpectralDataset`, `Mask`. Call
+  `get_block_schema("load_data")` / `get_block_schema("save_data")` to read
+  the live enum for the installed packages.
+- Under the hood the core block delegates to the owning package's
+  loader/saver (the imaging TIFF reader, the spectroscopy reader, …). The
+  delegation is invisible: the workflow YAML, the canvas node, and the port
+  colour all stay on the one stable core Load/Save block.
+
+A package MAY also register its own dedicated IO block
+(`imaging.load_image`, `spectroscopy.load_spectrum`). It reads the same
+data, but it shows up as a *different* node in the GUI — so a project that
+mixes them ends up with inconsistent Load/Save nodes for the same job.
+**Default to core `load_data` / `save_data` + `core_type` for UI
+consistency.** Reach for a package-specific IO block ONLY when no
+`core_type` value covers the type/format you need. The worked examples below
+all use the core blocks.
+
+Port names: the core Load output port is `data` (retyped + recoloured to the
+chosen `core_type`); the core Save input port is also `data`. Wire edges to
+`<node>:data` — not to a package loader's port name.
 
 ## 2. Common authoring pitfalls
 
@@ -128,23 +159,24 @@ workflow:
   description: Load a TIFF, Otsu-threshold, save the binary mask.
   nodes:
     - id: load
-      block_type: imaging.load_image
+      block_type: load_data
       config:
+        core_type: Image
         path: data/raw/beads.tif
     - id: thr
       block_type: imaging.threshold
       config:
         method: otsu
     - id: save
-      block_type: imaging.save_image
+      block_type: save_data
       config:
+        core_type: Image
         path: data/derived/beads_mask.tif
-        format: tiff
   edges:
-    - source: "load:images"
+    - source: "load:data"
       target: "thr:image"
     - source: "thr:mask"
-      target: "save:images"
+      target: "save:data"
 ```
 
 ### Example B — parallel fan-out (load → [denoise, threshold] → composite)
@@ -156,8 +188,9 @@ workflow:
   description: Side-by-side denoised vs raw thresholded mask.
   nodes:
     - id: load
-      block_type: imaging.load_image
+      block_type: load_data
       config:
+        core_type: Image
         path: data/raw/sample.tif
     - id: denoise
       block_type: imaging.denoise
@@ -175,9 +208,9 @@ workflow:
       config:
         labels: [raw, denoised]
   edges:
-    - source: "load:images"
+    - source: "load:data"
       target: "thr_raw:image"
-    - source: "load:images"
+    - source: "load:data"
       target: "denoise:image"
     - source: "denoise:image"
       target: "thr_denoised:image"
@@ -187,7 +220,7 @@ workflow:
       target: "composite:mask_b"
 ```
 
-Note `load:images` appears as the source of two edges — fan-out is
+Note `load:data` appears as the source of two edges — fan-out is
 just multiple edges with the same `source`. The runtime handles
 ref-counting; you do not need a "tee" block.
 
@@ -200,8 +233,9 @@ workflow:
   description: AI block paused for manual segmentation review before downstream stats.
   nodes:
     - id: load
-      block_type: imaging.load_image
+      block_type: load_data
       config:
+        core_type: Image
         path: data/raw/microplastics.tif
     - id: pre
       block_type: imaging.normalize
@@ -217,7 +251,7 @@ workflow:
       config:
         output_path: data/derived/microplastics_stats.csv
   edges:
-    - source: "load:images"
+    - source: "load:data"
       target: "pre:image"
     - source: "pre:image"
       target: "seg:image"
@@ -291,13 +325,12 @@ changing something; the failure mode will recur.
 
 ## Mandatory rules
 
-- Prefer the core `Load` (`load_data`) / `Save` (`save_data`) blocks
-  configured with a `core_type` for reading and writing data — including
-  package-registered types such as `Spectrum`, `SpectralDataset`, `Image`,
-  `Mask`. These now appear in the `core_type` enum returned by
-  `get_block_schema("load_data")` / `get_block_schema("save_data")`, and the
-  core block delegates to the right package loader/saver under the hood. Reach
-  for a package-specific IO block (e.g. `spectroscopy.load_spectrum`,
+- Default to the core `Load` (`load_data`) / `Save` (`save_data`) blocks
+  configured with a `core_type` for reading and writing data — see §1.1 for
+  the mechanism (the enum covers package types like `Spectrum`,
+  `SpectralDataset`, `Image`, `Mask`; the core block delegates to the right
+  package loader/saver under the hood, keeping one consistent GUI node).
+  Reach for a package-specific IO block (e.g. `spectroscopy.load_spectrum`,
   `imaging.load_image`) ONLY when no `core_type` value covers the type/format
   you need. Do not default to the package-specific IO loader when core
   `Load`/`Save` can do the job.

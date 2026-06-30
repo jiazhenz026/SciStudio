@@ -181,6 +181,11 @@ def test_list_blocks_returns_registered_blocks(ctx: _StubRuntime) -> None:
     assert result.count == len(result.blocks)
     # next_step must route the agent to the detail tool for full schemas.
     assert "get_block_schema" in result.next_step
+    # io_block_guidance steers the agent to the core Load/Save block + core_type
+    # rather than a package-specific IO block, for GUI consistency (#1890).
+    assert result.io_block_guidance
+    assert "core_type" in result.io_block_guidance
+    assert "load_data" in result.io_block_guidance and "save_data" in result.io_block_guidance
     names = {b.name for b in result.blocks}
     assert any(isinstance(n, str) and n for n in names)
     sample = result.blocks[0]
