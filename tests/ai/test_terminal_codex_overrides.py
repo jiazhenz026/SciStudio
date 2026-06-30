@@ -38,7 +38,11 @@ def _env_override_line(project_dir: Path) -> str:
 def test_codex_overrides_inject_pythonpath() -> None:
     line = _env_override_line(Path("/tmp/proj/x"))
     assert "PYTHONPATH=" in line
-    assert _scistudio_src_root() in line
+    # Parse the ``-c`` assignment as TOML (codex does the same) before comparing
+    # the path: on Windows the value is backslash-escaped in the literal, so the
+    # raw path is not a substring of the assignment line (PR #1894 P2).
+    env = tomllib.loads(line)["mcp_servers"]["scistudio"]["env"]
+    assert _scistudio_src_root() in env["PYTHONPATH"].split(os.pathsep)
 
 
 def test_codex_env_override_is_valid_toml_inline_table() -> None:
