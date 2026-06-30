@@ -37,6 +37,7 @@ vi.mock("../../lib/api", async () => {
       gitBranchCreate: vi.fn().mockResolvedValue({ status: "ok", name: "x" }),
       gitBranchDelete: vi.fn().mockResolvedValue({ status: "ok" }),
       gitRestore: vi.fn().mockResolvedValue({ status: "ok", auto_commit_sha: null }),
+      getWorkflow: vi.fn().mockResolvedValue({ id: "wf-a", nodes: [], edges: [] }),
     },
   };
 });
@@ -297,6 +298,39 @@ describe("gitSlice — mutation actions", () => {
     const { api } = await import("../../lib/api");
     expect(api.gitBranchSwitch).toHaveBeenCalledWith("feature");
     expect(get().lastError).toBeNull();
+  });
+
+  it("switchBranch reloads the active workflow from disk so the canvas is not stale (#1872)", async () => {
+    let state: any = {};
+    const set = (partial: any) => {
+      state =
+        typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
+    };
+    const get = () => state;
+    const slice = createGitSlice(set, get, {} as any);
+    const setWorkflow = vi.fn();
+    // Seed the workflow-slice surface the gitSlice reads via the shared store.
+    state = { ...slice, workflowId: "wf-a", setWorkflow };
+
+    const { api } = await import("../../lib/api");
+    const fresh = { id: "wf-a", nodes: [], edges: [] };
+    (api.getWorkflow as any).mockResolvedValueOnce(fresh);
+
+    await slice.switchBranch("feature");
+
+    // The fix: refetch the active workflow and replace the slice in place,
+    // mirroring the lineage Restore precedent, so the config panel reflects
+    // the new branch's params instead of the previous branch's stale values.
+    expect(api.getWorkflow).toHaveBeenCalledWith("wf-a");
+    expect(setWorkflow).toHaveBeenCalledWith(fresh);
+  });
+
+  it("switchBranch does not refetch a workflow when no canvas is open (#1872)", async () => {
+    const { slice } = makeSlice();
+    const { api } = await import("../../lib/api");
+    // Default slice has no workflowId / setWorkflow, so the refresh is skipped.
+    await slice.switchBranch("feature");
+    expect(api.getWorkflow).not.toHaveBeenCalled();
   });
 
   it("switchBranch with clean tree returns auto_commit_sha=null and leaves lastNotice null (#1354)", async () => {
