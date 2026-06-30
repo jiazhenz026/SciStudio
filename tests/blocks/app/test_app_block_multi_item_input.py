@@ -146,6 +146,26 @@ class TestMultiItemStaging:
         # No JSON fallback file with repr strings was written for this port.
         assert not (exchange / "inputs" / "samples.json").exists()
 
+    def test_multi_item_collection_clears_stale_files_on_persistent_exchange(self, tmp_path: Path) -> None:
+        """Repeated prepares against the same exchange dir must not collide with
+        the fixed ``item_0000.*`` collection staging path."""
+        collection = Collection(_make_artifacts(tmp_path))
+        exchange = tmp_path / "exchange"
+
+        bridge = FileExchangeBridge()
+        bridge.prepare({"samples": collection}, exchange, input_ports=None)
+        coll_dir = exchange / "inputs" / "samples"
+        stale = coll_dir / "stale.tmp"
+        stale.write_text("old run", encoding="utf-8")
+
+        bridge.prepare({"samples": collection}, exchange, input_ports=None)
+
+        manifest = json.loads((exchange / "manifest.json").read_text())
+        assert len(manifest["samples"]["items"]) == 2
+        assert not stale.exists()
+        for item_entry in manifest["samples"]["items"]:
+            assert Path(item_entry["path"]).is_file()
+
     def test_single_item_collection_stages_one_bare_file(self, tmp_path: Path) -> None:
         """Single-item path is byte-identical: one bare file, single-object
         manifest entry (not a collection)."""

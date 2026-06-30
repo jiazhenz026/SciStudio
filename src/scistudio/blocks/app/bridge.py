@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -164,6 +165,11 @@ class FileExchangeBridge:
             capability_id = _normalise_capability_id(selected.get("capability_id"))
             if isinstance(value, Collection):
                 collection_dir = input_dir / key
+                if collection_dir.exists() or collection_dir.is_symlink():
+                    if collection_dir.is_dir() and not collection_dir.is_symlink():
+                        shutil.rmtree(collection_dir)
+                    else:
+                        collection_dir.unlink()
                 collection_dir.mkdir(exist_ok=True)
                 item_entries: list[dict[str, Any]] = []
                 item_types: set[str] = set()
