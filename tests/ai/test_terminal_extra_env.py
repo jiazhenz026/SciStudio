@@ -24,6 +24,10 @@ import pytest
 
 from scistudio.ai.agent.terminal import PtyProcess, _build_child_env, resolve_windows_executable
 
+# Real PtyProcess + child subprocesses: isolate from xdist so a hang/leak cannot
+# crash a parallel worker (#1896).
+pytestmark = pytest.mark.serial
+
 
 def _python_print_env_argv(var: str) -> list[str]:
     """A tiny subprocess that prints one env var then exits."""

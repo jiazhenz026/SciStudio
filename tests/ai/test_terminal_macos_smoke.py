@@ -35,10 +35,15 @@ import time
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason="POSIX PTY smoke test — exercised on macOS only.",
-)
+pytestmark = [
+    # Real pty.openpty + Popen: isolate from xdist so a hang/leak cannot crash a
+    # parallel worker (#1896).
+    pytest.mark.serial,
+    pytest.mark.skipif(
+        sys.platform != "darwin",
+        reason="POSIX PTY smoke test — exercised on macOS only.",
+    ),
+]
 
 
 def test_openpty_plus_popen_echo_roundtrip() -> None:

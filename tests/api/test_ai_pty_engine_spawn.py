@@ -32,6 +32,10 @@ from scistudio.api.routes.ai_pty import (
     unregister_ai_pty_subscriber,
 )
 
+# Real PtyProcess (echo child) + timing polls: isolate from xdist so a hang/leak
+# cannot crash a parallel worker (#1896).
+pytestmark = pytest.mark.serial
+
 
 def _echo_argv() -> list[str]:
     return [

@@ -35,6 +35,10 @@ from scistudio.api.routes.ai_pty import (
     open_engine_initiated_tab,
 )
 
+# Real PtyProcess (echo child) + timing polls: isolate from xdist so a hang/leak
+# cannot crash a parallel worker (#1896).
+pytestmark = pytest.mark.serial
+
 # ---------------------------------------------------------------------------
 # Shared fakes
 # ---------------------------------------------------------------------------

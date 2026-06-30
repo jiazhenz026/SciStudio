@@ -22,6 +22,10 @@ from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes import ai_pty
 from scistudio.api.routes.ai_pty import _active_ptys
 
+# Real PtyProcess (echo child) + timing polls: isolate from xdist so a hang/leak
+# cannot crash a parallel worker (#1896).
+pytestmark = pytest.mark.serial
+
 
 def _echo_argv() -> list[str]:
     return [

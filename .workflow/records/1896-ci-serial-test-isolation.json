@@ -1,0 +1,44 @@
+{
+  "branch": "guided/1896-ci-serial-test-isolation",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1896,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u6839\u6cbb CI flaky:\u628a\u8fdb\u7a0b/PTY/watchdog \u7c7b\u6d4b\u8bd5\u4ece -n auto \u5e76\u884c\u6279\u91cc\u62ce\u51fa\u6765\u5355\u72ec\u4e32\u884c\u8dd1(\u65b9\u54112);CI \u548c gate \u4e24\u8fb9\u90fd\u6539,\u4fdd\u6301\u4e00\u81f4\u3002serial \u96c6\u5408=watchdog + \u5168\u90e8\u771f PTY \u6d4b\u8bd5\u3002",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1896-ci-serial-test-isolation",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9cb53f13-c5a0-49c3-b15d-20690eeb2946",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
