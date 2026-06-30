@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,9 @@ import pytest
 
 from scistudio.cli.install import (
     MCP_SERVER_NAME,
+    _mcp_bridge_pythonpath,
+    _mcp_entry_payload,
+    _render_codex_block,
     _strip_codex_block,
     perform_install,
 )
@@ -140,6 +144,71 @@ def test_remove_codex_round_trip(fake_home: Path, fake_cwd: Path) -> None:
 
     text = (fake_home / ".codex" / "config.toml").read_text(encoding="utf-8")
     assert f"[mcp_servers.{MCP_SERVER_NAME}]" not in text
+
+
+# ---------------------------------------------------------------------------
+# #1889 — bridge env carries PYTHONPATH so Codex (stripped launch env) can
+# import scistudio, matching Claude Code (which inherits the parent env).
+# ---------------------------------------------------------------------------
+
+
+def _scistudio_src_root() -> str:
+    import scistudio
+
+    return str(Path(scistudio.__file__).resolve().parents[1])
+
+
+def test_pythonpath_helper_includes_scistudio_root_and_ambient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", f"/custom/a{os.pathsep}/custom/b")
+    result = _mcp_bridge_pythonpath()
+    assert result is not None
+    parts = result.split(os.pathsep)
+    # scistudio's own source root must be present so `-m scistudio` resolves.
+    assert _scistudio_src_root() in parts
+    # The ambient PYTHONPATH segments are preserved (and de-duplicated).
+    assert "/custom/a" in parts
+    assert "/custom/b" in parts
+    assert len(parts) == len(set(parts)), "PYTHONPATH segments must be de-duplicated"
+
+
+def test_mcp_entry_payload_injects_pythonpath_project_scope(tmp_path: Path) -> None:
+    entry = _mcp_entry_payload(tmp_path)
+    env = entry["env"]
+    assert isinstance(env, dict)
+    assert env["SCISTUDIO_PROJECT_DIR"] == str(tmp_path)
+    # #1889: without this, Codex's stripped launch env hits No module named scistudio.
+    assert _scistudio_src_root() in env["PYTHONPATH"].split(os.pathsep)
+
+
+def test_mcp_entry_payload_injects_pythonpath_user_scope() -> None:
+    # User scope (project_dir=None) still needs PYTHONPATH so the bridge imports.
+    entry = _mcp_entry_payload(None)
+    env = entry["env"]
+    assert isinstance(env, dict)
+    assert "SCISTUDIO_PROJECT_DIR" not in env
+    assert _scistudio_src_root() in env["PYTHONPATH"].split(os.pathsep)
+
+
+def test_claude_and_codex_share_identical_mcp_env(tmp_path: Path) -> None:
+    """#1889: both providers go through one env builder, so their launch env matches."""
+    claude_entry = _mcp_entry_payload(tmp_path)
+    codex_block = _render_codex_block(tmp_path)
+    claude_env = claude_entry["env"]
+    assert isinstance(claude_env, dict)
+    pythonpath = claude_env["PYTHONPATH"]
+    # The same PYTHONPATH the claude mcp.json carries appears in the codex TOML.
+    assert pythonpath in codex_block
+    assert claude_env["SCISTUDIO_PROJECT_DIR"] in codex_block
+
+
+def test_render_codex_block_includes_pythonpath_env(tmp_path: Path) -> None:
+    text = _render_codex_block(tmp_path)
+    assert f"[mcp_servers.{MCP_SERVER_NAME}.env]" in text
+    assert "PYTHONPATH = " in text
+    # SCISTUDIO_PROJECT_DIR must still be emitted before PYTHONPATH.
+    assert text.index("SCISTUDIO_PROJECT_DIR") < text.index("PYTHONPATH")
 
 
 def test_strip_codex_block_handles_nested_env() -> None:
