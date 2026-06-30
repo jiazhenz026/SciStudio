@@ -17,6 +17,72 @@ a body. Imports come from canonical roots ([public-api.md](public-api.md)).
 ([public-api.md](public-api.md)). `base_category` is **inferred** from the parent
 class — never set it as a ClassVar (silently ignored).
 
+## Make it interactive (let the user decide in the GUI)
+
+Interaction is a **capability**, not a separate base class. Any category can
+pause mid-run, open a window onto its real input data, take a data-dependent
+decision from the user, and compute outputs from it — instead of hard-coding a
+choice that depends on looking at the data. Mix in `InteractiveMixin`, set
+`execution_mode = ExecutionMode.INTERACTIVE`, declare an `interactive_panel`,
+and override `prepare_prompt`. Import all four from `scistudio.blocks.base`
+(`InteractiveMixin`, `ExecutionMode`, `PanelManifest`, `InteractivePrompt`).
+
+- `prepare_prompt(self, inputs, config) -> dict | InteractivePrompt` — runs
+  first, in its own worker, with the block's full input collections. Reduce the
+  real data to a small, **plain-JSON** view the window renders (a downsampled
+  trace, a summary table, a list of choices); the runtime rejects a non-JSON
+  payload. A bare dict is shorthand for `InteractivePrompt(panel_payload=...)`.
+- `run` / `process_item` — runs after the user confirms; reads the panel's JSON
+  decision from `config.get("interactive_response", {})` and computes outputs.
+
+Two panel options:
+
+- **Reuse a built-in panel** when the interaction is routing or pairing — no
+  frontend code: `PanelManifest(panel_id="core.interactive.data_router")` (drag
+  items from N inputs to M outputs) or `"core.interactive.pair_editor"` (reorder
+  items to fix pairing across collections).
+- **Ship your own panel** for anything data-specific (pick a baseline region on
+  a trace, click a peak, set a threshold against a preview). A panel is one
+  self-contained ES module — plain JS, no React, no build step — served from
+  beside the block:
+
+  ```python
+  from pathlib import Path
+  interactive_panel = PanelManifest(
+      panel_id="myproj.pick_baseline",
+      module_url="/api/blocks/panels/myproj.pick_baseline/index.js",
+      asset_root=str(Path(__file__).parent / "pick_baseline"),  # dir holding index.js
+      version="1",
+  )
+  ```
+
+  `asset_root` is the on-disk directory (next to the block `.py`) holding the
+  panel files; it is served path-confined and never sent to the browser.
+  `module_url` is always `/api/blocks/panels/<panel_id>/<file>`. The module
+  exports `{ apiVersion: "1", mount(container, host) }`; `host.panelPayload` is
+  what `prepare_prompt` returned, `host.confirm(decision)` sends the JSON that
+  becomes `config["interactive_response"]`, and `host.cancel()` cancels the
+  block. `mount` returns `{ unmount() {...} }`.
+
+The registry rejects an interactive block that declares the mixin without the
+mode (or vice versa), omits `prepare_prompt`, or has no valid `interactive_panel`.
+
+## Hand off to an app (AppBlock) or a script (CodeBlock)
+
+- **AppBlock** (`scistudio.blocks.app`) — hand the step to a desktop GUI/CLI
+  program. Set `app_command` (the executable) and declare output ports
+  (optionally keyed by file extension); the block stages inputs to an exchange
+  dir, launches the tool, and packs the result files it writes back into
+  outputs. Override `prepare_launch(exchange_dir, output_dir, config)` only for
+  tools that need a generated config file and a custom argv. Reach for it when a
+  real tool (Fiji, a converter, an analysis GUI) already does the job better
+  than code.
+- **CodeBlock** (`scistudio.blocks.code`) — run a project-local script (Python,
+  R, shell, MATLAB, notebook) as a step without rewriting it as a block. The
+  user keeps their script; the block exchanges declared inputs/outputs through
+  files located by `SCISTUDIO_*` env vars. Reach for it to wrap an existing
+  analysis the user already trusts.
+
 ## Metadata (ClassVars)
 
 ```python

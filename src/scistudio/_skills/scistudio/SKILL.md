@@ -28,10 +28,12 @@ deep work in that area.
   edge wiring, validation, run lifecycle). Use when the user wants to
   build or modify a pipeline.
 - **`scistudio-write-block`** — author a custom block subclassing `Block`
-  (or `ProcessBlock` / `IOBlock` / `AppBlock` / `CodeBlock`). `AIBlock` /
-  `SubWorkflowBlock` are runtime base classes, not author extension points.
-  Use when the user wants new processing logic; ALWAYS check `list_blocks`
-  first and reuse a matching block.
+  (or `ProcessBlock` / `IOBlock` / `AppBlock` / `CodeBlock`), optionally
+  **interactive** (a block that pauses to let the user decide in the GUI).
+  `AIBlock` / `SubWorkflowBlock` are runtime base classes, not author extension
+  points. Use when the user wants new processing logic; ALWAYS check
+  `list_blocks` first and reuse a matching block. Prefer a config parameter or
+  an interactive panel over hard-coding a data-dependent decision.
 - **`scistudio-debug-run`** — diagnose a failed or stuck run. Covers
   run-status inspection, block log retrieval, and lineage navigation.
 - **`scistudio-inspect-data`** — explore data references and previews
