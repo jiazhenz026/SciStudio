@@ -35,6 +35,15 @@ rules: they keep the live GUI, the registry, and lineage consistent.
   matches. Build new only when nothing fits. (A PostToolUse hook
   blocks `blocks/*.py` writes if `list_blocks` was not called earlier in
   the session, on both providers.)
+- When a workflow node reads or writes data, DEFAULT to the core
+  `load_data` / `save_data` block configured with a `core_type`. Its
+  `core_type` enum is computed live from the type registry, so it already
+  covers package-registered types (`Image`, `Spectrum`, `SpectralDataset`,
+  `Mask`, …) and delegates to the owning package's loader/saver under the
+  hood — the user keeps ONE consistent Load/Save node and port colour in the
+  GUI. Reach for a package-specific IO block (e.g. `imaging.load_image`,
+  `spectroscopy.load_spectrum`) ONLY when no `core_type` value covers the
+  type/format you need.
 - BEFORE selecting port types for a new block, call
   `mcp__scistudio__list_types`. Pick the most specific applicable type;
   `DataObject` is reserved for `SubWorkflowBlock`, generic

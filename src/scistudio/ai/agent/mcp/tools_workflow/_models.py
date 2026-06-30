@@ -41,7 +41,9 @@ class ListBlocksResult(BaseModel):
     """Return shape for the ``list_blocks`` tool.
 
     A progressive-disclosure catalog: ``blocks`` is the lean index;
-    ``next_step`` points the agent at the detail tool for full schemas.
+    ``next_step`` points the agent at the detail tool for full schemas;
+    ``io_block_guidance`` reminds the agent to read/write data through the
+    core Load/Save block rather than a package-specific IO block.
     """
 
     blocks: list[BlockSummary] = Field(description="Lean catalog of every registered block type.")
@@ -52,6 +54,17 @@ class ListBlocksResult(BaseModel):
             "full I/O ports and config_schema before wiring edges or setting params."
         ),
         description="Suggested next MCP call to obtain a block's full configuration.",
+    )
+    io_block_guidance: str = Field(
+        default=(
+            "To read or write data, default to the core 'load_data' / 'save_data' block "
+            "configured with a 'core_type' (its enum covers package-registered types like "
+            "Image, Spectrum, SpectralDataset, Mask and delegates to the package loader/saver "
+            "under the hood, keeping one consistent GUI Load/Save node). Use a package-specific "
+            "IO block (e.g. imaging.load_image) only when no core_type value covers the "
+            "type/format you need."
+        ),
+        description="Guidance to prefer the core Load/Save block + core_type over package-specific IO blocks.",
     )
 
 
