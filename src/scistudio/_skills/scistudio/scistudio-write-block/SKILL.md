@@ -16,16 +16,21 @@ description: |
 
 # scistudio-write-block
 
-Author a project-local custom block. This skill is the **task flow**; the block
-**contract** lives in the provisioned reference docs — read them, do not guess:
+Author a project-local custom block. This skill is the **task flow**; the
+**contract** and **worked patterns** live elsewhere — read them, do not guess:
 
-- **`.scistudio/agent-reference/block-contract.md`** — base classes, ports,
-  `config_schema`, `run` vs `process_item`, Collection helpers.
-- **`.scistudio/agent-reference/public-api.md`** — canonical import roots and the
-  rules below. Import from roots only.
+- **`.scistudio/agent-reference/block-contract.md`** — base classes; the optional
+  interactive / App / Code shapes; ports, `config_schema`, `run` vs
+  `process_item`, Collection helpers.
+- **`.scistudio/agent-reference/public-api.md`** — canonical import roots. Import
+  from roots only.
 - **`.scistudio/agent-reference/data-types.md`** — reading/constructing values.
 - **`.scistudio/agent-reference/package-discovery.md`** — using package types.
 - **`user-guide/api-reference/`** — exact signatures of every public symbol.
+- **Worked patterns:** call `mcp__scistudio__list_block_examples` then
+  `mcp__scistudio__read_block_source` to read real, registered blocks for the
+  shape you need (process, io, app, code) and copy the pattern — do not invent a
+  shape the examples already show.
 
 ## Non-negotiables (full detail in the reference docs)
 
@@ -47,6 +52,23 @@ Author a project-local custom block. This skill is the **task flow**; the block
    are runtime base classes; for AI-in-workflow the user adds the built-in **AI
    Agent** block and configures it). Do not set `base_category` (it is inferred).
 
+## Block shapes
+
+A block need not be a plain `ProcessBlock`. These shapes are all available — none
+is preferred; pick whichever fits, and reach for a richer one only when it
+genuinely helps the user. See `block-contract.md` for how to author each.
+
+- **config parameter** — expose a tunable in `config_schema` and read it with
+  `config.get(...)` so the user can reach it. Prefer this over a buried constant
+  for a value the user may want to change; hard-coding is fine when the value is
+  intrinsic or just a convenient default.
+- **interactive (optional)** — a block can pause and let the user make a
+  data-dependent decision in the GUI (route items, mark a region). Reuse a
+  built-in panel (`core.interactive.data_router`, `core.interactive.pair_editor`)
+  or ship a small custom panel.
+- **AppBlock / CodeBlock** — hand the step to an external GUI/CLI tool, or to a
+  project-local script.
+
 ## Tool-call sequence
 
 ```
@@ -63,45 +85,6 @@ mcp__scistudio__run_block_tests type_name="<registered name>"   # read pytest ou
 `category` → parent: `process`→ProcessBlock, `io`→IOBlock, `app`→AppBlock,
 `code`→CodeBlock. Every write-class tool returns a `next_step` — read and follow.
 
-## Worked example
-
-A minimal `ProcessBlock` (one item → one item). Adapt names/algorithm; for IO,
-App, and Code blocks see `block-contract.md`.
-
-```python
-# blocks/scale_image.py — project-local custom block.
-"""Scale every image in the batch by a gain factor."""
-from __future__ import annotations
-
-from typing import Any, ClassVar
-
-from scistudio.blocks.base import BlockConfig, InputPort, OutputPort
-from scistudio.blocks.process import ProcessBlock
-from scistudio.core.types import Array
-
-
-class ScaleImage(ProcessBlock):
-    name: ClassVar[str] = "Scale Image"
-    description: ClassVar[str] = "Multiply each image by a gain factor."
-    input_ports: ClassVar[list[InputPort]] = [
-        InputPort(name="input", accepted_types=[Array], required=True),
-    ]
-    output_ports: ClassVar[list[OutputPort]] = [
-        OutputPort(name="output", accepted_types=[Array]),
-    ]
-    config_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {"gain": {"type": "number", "default": 1.0}},
-    }
-
-    def process_item(self, item: Array, config: BlockConfig, state: Any = None) -> Array:
-        return Array(axes=list(item.axes), data=item.to_memory() * config.get("gain", 1.0))
-```
-
-A package type is imported from the package top level
-(`from scistudio_blocks_spectroscopy import Spectrum`), never a deep path — see
-`package-discovery.md`.
-
 ## Make it usable — label everything the user sees
 
 The user drives your block from the GUI, where the only thing they see is the
@@ -116,26 +99,11 @@ all typed `Image` with no names/descriptions are unusable):
 | Each parameter panel field | the `config_schema` property's `title` (the label) **and** `description` (what it does / units / when to change it) |
 | In the code | short, plain comments explaining the *why*, not the obvious |
 
-```python
-input_ports = [
-    InputPort(name="image",   accepted_types=[Image], description="Image to segment"),
-    InputPort(name="markers", accepted_types=[Image], description="Seed markers for watershed"),
-]
-config_schema = {"type": "object", "properties": {
-    "sigma": {"type": "number", "default": 1.0,
-              "title": "Smoothing (sigma)", "description": "Gaussian blur before thresholding; 0 disables."},
-}}
-```
-
-Keep it terse but specific. Distinct names + a one-line description per port and
-per parameter is the bar.
-
-**Expose tunables as config, never hard-code them.** Any value a user might
-reasonably want to choose — a processing parameter, threshold, window size,
-method choice — goes in `config_schema` (with a `title`/`description` and a sane
-`default`) and is read in the body with `config.get(...)`. Do not bury a tunable
-constant in the code where the user cannot reach it; if they might want to change
-it, surface it.
+Distinct names + a one-line description per port and per parameter is the bar.
+A value the user may reasonably want to change usually belongs in `config_schema`
+(with a `title`/`description` and a sane `default`) rather than buried as an
+unreachable constant — though a hard-coded value is fine when it is intrinsic or
+a convenient default.
 
 ## Mandatory rules
 
@@ -152,3 +120,6 @@ it, surface it.
 - Deep-path or `_support` imports; bare `DataObject` ports on a non-generic block.
 - Subclassing `AIBlock`/`SubWorkflowBlock`, or setting `base_category`.
 - `run()` returning a non-dict; skipping `reload_blocks` / `run_block_tests`.
+- An interactive block declaring `InteractiveMixin` without
+  `execution_mode=INTERACTIVE` (or vice versa), or missing `prepare_prompt` /
+  `interactive_panel` — the registry rejects it at scan time.

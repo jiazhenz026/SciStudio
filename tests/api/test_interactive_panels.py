@@ -82,3 +82,67 @@ def test_panel_asset_route_rejects_path_escape(tmp_path: Path) -> None:
     with pytest.raises(HTTPException) as exc:
         asyncio.run(serve_panel_asset("pkg.interactive.panel", "../secret.js", registry))
     assert exc.value.status_code == 404
+
+
+# A project-local (tier-1) interactive block whose custom panel lives beside the
+# block .py (asset_root = Path(__file__).parent / "<dir>") — the exact shape the
+# scistudio-write-block skill teaches agents to author. The cases above cover
+# tier-1 registration and packaged-panel serving separately, against a faked
+# registry; this proves the combination end to end through a REAL tier-1 scan.
+_PROJECT_LOCAL_PANEL_BLOCK = """
+from pathlib import Path
+from scistudio.blocks.base import (
+    ExecutionMode, InteractiveMixin, InteractivePrompt, PanelManifest,
+)
+from scistudio.blocks.process import ProcessBlock
+
+
+class ProjectLocalPanelBlock(InteractiveMixin, ProcessBlock):
+    name = "ProjectLocalPanelBlock"
+    execution_mode = ExecutionMode.INTERACTIVE
+    interactive_panel = PanelManifest(
+        panel_id="proj.pick_baseline",
+        module_url="/api/blocks/panels/proj.pick_baseline/index.js",
+        asset_root=str(Path(__file__).parent / "pick_baseline"),
+        version="1",
+    )
+
+    def prepare_prompt(self, inputs, config):
+        return InteractivePrompt(panel_payload={"ok": True})
+
+    def run(self, inputs, config):
+        return {}
+"""
+
+
+def test_project_local_interactive_block_panel_registers_and_serves(tmp_path: Path) -> None:
+    """#1882: a tier-1 dropin with a project-relative asset_root registers and serves its panel.
+
+    The write-block skill tells agents to author a project-local interactive
+    block whose custom panel sits next to the block .py. Prove that path: a real
+    tier-1 scan registers the block with ``panel_asset_root`` resolving into the
+    project (and off the wire), and ``serve_panel_asset`` serves ``index.js``
+    from it through the real registry.
+    """
+    scan_dir = tmp_path / "blocks"
+    scan_dir.mkdir()
+    (scan_dir / "project_local_panel.py").write_text(_PROJECT_LOCAL_PANEL_BLOCK, encoding="utf-8")
+    panel_dir = scan_dir / "pick_baseline"
+    panel_dir.mkdir()
+    (panel_dir / "index.js").write_text("export default { apiVersion: '1', mount() {} };", encoding="utf-8")
+
+    registry = BlockRegistry()
+    registry.add_scan_dir(scan_dir)
+    registry._scan_tier1()
+
+    spec = registry.get_spec("ProjectLocalPanelBlock")
+    assert spec is not None, "project-local interactive block did not register"
+    assert spec.execution_mode == "interactive"
+    # Server-only asset_root resolves into the project; never serialized to the wire.
+    assert spec.panel_asset_root == str(panel_dir)
+    assert "asset_root" not in (spec.panel_manifest or {})
+
+    # The panel route serves the project-local index.js through the real registry.
+    response = asyncio.run(serve_panel_asset("proj.pick_baseline", "index.js", registry))
+    assert Path(response.path) == (panel_dir / "index.js").resolve()
+    assert response.media_type in {"text/javascript", "application/javascript"}
