@@ -91,21 +91,70 @@ def _scistudio_command_for_env() -> tuple[str, list[str]]:
     return sys.executable, ["-m", "scistudio"]
 
 
+def _mcp_bridge_pythonpath() -> str | None:
+    """PYTHONPATH that lets ``<python> -m scistudio mcp-bridge`` import scistudio.
+
+    The bridge command pins ``sys.executable`` (see
+    :func:`_scistudio_command_for_env`), but in dev checkouts and the packaged
+    desktop app the ``scistudio`` package is **not** in that interpreter's
+    site-packages — it is importable only via ``PYTHONPATH`` pointing at the
+    backend ``src`` snapshot.
+
+    The two embedded providers launch the MCP server with different inherited
+    environments, which is why Claude Code worked while Codex did not (#1889):
+
+    * **Claude Code** launches the stdio MCP server inheriting the backend
+      process's full environment, so its ``PYTHONPATH`` carries through and
+      ``-m scistudio`` resolves.
+    * **Codex** launches the stdio MCP server in a *stripped* environment that
+      drops ``PYTHONPATH``; the only env it sees is what we inject. With no
+      ``PYTHONPATH`` the bridge dies with ``No module named scistudio`` and
+      Codex reports ``MCP server failed``.
+
+    Injecting ``PYTHONPATH`` into the server ``env`` makes the launch
+    environment self-contained and identical for both providers regardless of
+    whether the launcher inherits the parent environment. Returns ``None`` only
+    when no path can be determined (``scistudio`` already on the default path
+    and no ambient ``PYTHONPATH``).
+    """
+    import scistudio
+
+    parts: list[str] = [str(Path(scistudio.__file__).resolve().parents[1])]
+    existing = os.environ.get("PYTHONPATH")
+    if existing:
+        parts.extend(existing.split(os.pathsep))
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for part in parts:
+        if part and part not in seen:
+            seen.add(part)
+            ordered.append(part)
+    return os.pathsep.join(ordered) if ordered else None
+
+
 def _mcp_entry_payload(project_dir: Path | None) -> dict[str, object]:
     """Build the MCP server entry written into Claude/Codex config.
 
     The env var ``SCISTUDIO_PROJECT_DIR`` is the contract the standalone
     bridge uses to locate the project; we pin it at install time when
     a project scope is in play, or leave it unset (the bridge falls
-    back to ``cwd``) at user scope.
+    back to ``cwd``) at user scope. ``PYTHONPATH`` is injected so the bridge
+    imports ``scistudio`` even when the launcher (Codex) strips the parent
+    environment — see :func:`_mcp_bridge_pythonpath` (#1889).
     """
     command, prefix_args = _scistudio_command_for_env()
     entry: dict[str, object] = {
         "command": command,
         "args": [*prefix_args, "mcp-bridge"],
     }
+    env: dict[str, str] = {}
     if project_dir is not None:
-        entry["env"] = {"SCISTUDIO_PROJECT_DIR": str(project_dir)}
+        env["SCISTUDIO_PROJECT_DIR"] = str(project_dir)
+    pythonpath = _mcp_bridge_pythonpath()
+    if pythonpath:
+        env["PYTHONPATH"] = pythonpath
+    if env:
+        entry["env"] = env
     return entry
 
 
@@ -253,10 +302,15 @@ def _render_codex_block(project_dir: Path | None) -> str:
         f"command = {_format_toml_string(command)}",
         f"args = {args_literal}",
     ]
-    if project_dir is not None:
+    # Reuse the shared entry env so the codex TOML matches the claude mcp.json.
+    env = _mcp_entry_payload(project_dir).get("env", {})
+    if isinstance(env, dict) and env:
         lines.append("")
         lines.append(f"[mcp_servers.{MCP_SERVER_NAME}.env]")
-        lines.append(f"SCISTUDIO_PROJECT_DIR = {_format_toml_string(str(project_dir))}")
+        # SCISTUDIO_PROJECT_DIR first (when present), then PYTHONPATH (#1889).
+        for key in ("SCISTUDIO_PROJECT_DIR", "PYTHONPATH"):
+            if key in env:
+                lines.append(f"{key} = {_format_toml_string(env[key])}")
     return "\n".join(lines) + "\n"
 
 

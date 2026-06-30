@@ -157,18 +157,21 @@ def test_spawn_codex_injects_project_mcp_config_overrides(monkeypatch: Any, tmp_
     terminal.spawn_codex(project_dir=tmp_path, dangerous=False)
 
     argv = spawned["argv"]
-    assert argv[:7] == [
+    # command + args overrides are exact.
+    assert argv[:6] == [
         "codex",
         "-c",
         f"mcp_servers.scistudio.command={json.dumps(sys.executable)}",
         "-c",
         'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]',
         "-c",
-        f"mcp_servers.scistudio.env={{SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}}}",
     ]
-    assert f"mcp_servers.scistudio.command={json.dumps(sys.executable)}" in argv
-    assert 'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]' in argv
-    assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in argv[-1]
+    # The env override pins the project dir and also injects PYTHONPATH (#1889)
+    # so codex's stripped launch environment can still import scistudio.
+    env_override = argv[6]
+    assert env_override.startswith("mcp_servers.scistudio.env={")
+    assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in env_override
+    assert "PYTHONPATH=" in env_override
 
 
 def test_spawn_claude_appends_prompt_after_dashdash(monkeypatch: Any, tmp_path: Path) -> None:
