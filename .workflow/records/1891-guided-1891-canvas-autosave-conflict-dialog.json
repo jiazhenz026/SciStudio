@@ -1,0 +1,91 @@
+{
+  "branch": "guided/1891-canvas-autosave-conflict-dialog",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-06-30T20:07:24.657236Z",
+      "owner_directive": "VS Code-style conflict dialog: freeze autosave while a conflict is pending, prompt Keep mine / Use remote, resume autosave after the choice.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-06-30T20:07:24.657434Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-045.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1891,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix: canvas autosave silently overwrites AI agent workflow writes. Add a VS Code-style conflict dialog: when a remote (agent) change is detected while the editor is dirty, freeze autosave, show a dialog with 'keep mine' vs 'load agent version', and resume autosave after the user chooses. Frontend-only.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1891-guided-1891-canvas-autosave-conflict-dialog",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-06-30T20:07:24.657416Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-30T20:07:24.657425Z",
+      "pattern": "docs/adr/ADR-045.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f0670a1e-93db-4291-8230-e692513131bb",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-06-30T20:07:24.657442Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/workflowSlice.conflict.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-30T20:07:24.657446Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowConflictDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
