@@ -26,6 +26,7 @@ class _Runtime:
     def __init__(self) -> None:
         self.block_registry = _Registry()
         self.refreshed = False
+        self.active_project = None
 
     def refresh_block_registry(self) -> None:
         self.refreshed = True
@@ -68,6 +69,37 @@ def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.Monk
         "blocks_count": 1,
         "replaced": False,
     }
+
+
+def test_install_local_package_route_refreshes_active_project_docs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    install_path = tmp_path / "installed" / "scistudio-blocks-probe-0.1.0"
+    project_dir = tmp_path / "project"
+    captured: list[Path] = []
+
+    def fake_install(path: str, **_kwargs: object) -> LocalPackageInstallResult:
+        return LocalPackageInstallResult(
+            package_name="scistudio-blocks-probe",
+            version="0.1.0",
+            install_path=install_path,
+            source_path=Path(path),
+            modules=("scistudio_blocks_probe",),
+            manifest_path=install_path / "scistudio-local-package.json",
+            replaced=False,
+        )
+
+    monkeypatch.setattr(package_routes, "install_local_package", fake_install)
+    monkeypatch.setattr(package_routes, "write_package_docs", lambda path: captured.append(Path(path)))
+    runtime = _Runtime()
+    runtime.active_project = SimpleNamespace(path=str(project_dir))
+
+    response = TestClient(_bundled_app(runtime)).post("/api/packages/local", json={"path": str(tmp_path / "probe.whl")})
+
+    assert response.status_code == 200
+    assert captured == [project_dir]
 
 
 def test_install_local_package_route_rejects_non_bundled_runs(
@@ -187,6 +219,7 @@ def test_updates_route(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_update_route_refreshes_and_returns_relaunch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
+    captured: list[Path] = []
 
     def fake_update(name, *, packages, core_base):
         return package_manager.PackageActionResult(
@@ -194,12 +227,15 @@ def test_update_route_refreshes_and_returns_relaunch(monkeypatch: pytest.MonkeyP
         )
 
     monkeypatch.setattr(package_manager, "update_package", fake_update)
+    monkeypatch.setattr(package_routes, "write_package_docs", lambda path: captured.append(Path(path)))
     runtime = _Runtime()
+    runtime.active_project = SimpleNamespace(path="/tmp/scistudio-project")
     runtime.block_registry = _RegistryWithPackages()
     response = TestClient(_bundled_app(runtime)).post("/api/packages/scistudio-blocks-demo/update")
     assert response.status_code == 200
     assert response.json()["needs_relaunch"] is True
     assert runtime.refreshed is True
+    assert captured == [Path("/tmp/scistudio-project")]
 
 
 def test_update_route_maps_known_error_to_400(monkeypatch: pytest.MonkeyPatch) -> None:

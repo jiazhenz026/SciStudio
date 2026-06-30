@@ -37,9 +37,25 @@ the first time it is created or opened:
     ... (5 more)
   .codex/
     config.toml                            # project-scope MCP server config
+  user-guide/
+    api-reference/                         # self-contained SciStudio core API reference
+    package-reference/
+      index.md                             # installed package reference index
+      <package-slug>/api-reference/        # package-bundled API reference, if present
+  .scistudio/
+    agent-reference/                       # compact agent-facing SciStudio contract docs
+      package-index.md                     # installed package agent/reference index
+      packages/<package-slug>/             # package-bundled agent/API reference, if present
 ```
 
 All filesystem-only — no network, no daemons, no external binaries.
+
+Installed package docs are discovered from each installed package module's
+`_scistudio_docs/` directory. Core does not build package docs at project-open
+time; package wheels are expected to carry prebuilt docs. When present,
+`agent-reference/`, `api-reference/`, and `user-guide/` subtrees are copied into
+the project-local package reference locations above. Missing package docs are
+non-fatal; the generated package index simply omits that package.
 
 ## When provisioning runs
 
@@ -69,6 +85,10 @@ With `force=False`:
   skills, `.codex/config.toml`, and the hook `settings.json` — none will
   be clobbered on subsequent project opens.
 - Missing files are restored from the bundled template.
+- Installed package reference files under `user-guide/package-reference/`
+  and `.scistudio/agent-reference/packages/` are managed generated docs.
+  They refresh when the bundled package docs change so package install and
+  update actions expose the current package API reference to in-project agents.
 
 With `force=True` (currently used only via tests; no UI/CLI surface yet):
 

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from scistudio.agent_provisioning.docs import write_package_docs
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
 from scistudio.desktop import package_manager
@@ -17,6 +20,7 @@ from scistudio.version import get_version
 router = APIRouter(prefix="/api/packages", tags=["packages"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _PACKAGE_BLOCK_SOURCES = {"entry_point", "package_src"}
+logger = logging.getLogger(__name__)
 
 
 class LocalPackageInstallRequest(BaseModel):
@@ -90,6 +94,17 @@ def _registry_packages(runtime: ApiRuntime) -> dict:
     return getter() if callable(getter) else {}
 
 
+def _refresh_active_project_package_docs(runtime: ApiRuntime) -> None:
+    active_project = getattr(runtime, "active_project", None)
+    project_path = getattr(active_project, "path", None)
+    if not project_path:
+        return
+    try:
+        write_package_docs(Path(project_path))
+    except Exception:
+        logger.warning("Package docs provisioning failed for active project %s", project_path, exc_info=True)
+
+
 @router.post("/local", response_model=LocalPackageInstallResponse)
 async def install_local_package_route(
     body: LocalPackageInstallRequest,
@@ -111,6 +126,7 @@ async def install_local_package_route(
         raise HTTPException(status_code=500, detail=f"Failed to install package: {exc}") from exc
 
     runtime.refresh_block_registry()
+    _refresh_active_project_package_docs(runtime)
     module_names = set(result.modules)
     blocks_count = 0
     for spec in runtime.block_registry.all_specs().values():
@@ -193,6 +209,7 @@ async def update_package_route(package_name: str, runtime: RuntimeDep) -> Packag
     except (PackageInstallError, OSError) as exc:
         raise HTTPException(status_code=500, detail=f"Failed to update package: {exc}") from exc
     runtime.refresh_block_registry()
+    _refresh_active_project_package_docs(runtime)
     return _action_response(result)
 
 
@@ -207,6 +224,7 @@ async def rollback_package_route(package_name: str, runtime: RuntimeDep) -> Pack
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to roll back package: {exc}") from exc
     runtime.refresh_block_registry()
+    _refresh_active_project_package_docs(runtime)
     return _action_response(result)
 
 
@@ -221,6 +239,7 @@ async def delete_package_route(package_name: str, runtime: RuntimeDep) -> Packag
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to delete package: {exc}") from exc
     runtime.refresh_block_registry()
+    _refresh_active_project_package_docs(runtime)
     return _action_response(result)
 
 
