@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { VersionConflictState } from "../store/types";
 import type { ProjectResponse, WorkflowResponse } from "../types/api";
 import { useWorkflowSync } from "./useWorkflowSync";
 
@@ -11,6 +12,19 @@ const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn(),
   openProject: vi.fn(),
   updateWorkflow: vi.fn(),
+}));
+
+// Only the conflict gate in saveWorkflow reads the store, via getState. Mock it
+// narrowly so the test does not pull in the real store (whose init needs a
+// fuller ../lib/api surface than this file mocks).
+const storeMocks = vi.hoisted(() => ({
+  workflowConflict: null as VersionConflictState | null,
+}));
+
+vi.mock("../store", () => ({
+  useAppStore: {
+    getState: () => ({ workflowConflict: storeMocks.workflowConflict }),
+  },
 }));
 
 vi.mock("../lib/api", () => ({
@@ -61,9 +75,24 @@ function renderSync(overrides: Partial<{ currentProject: ProjectResponse | null 
   return { deps, hook };
 }
 
+const pendingConflict: VersionConflictState = {
+  entityClass: "workflow",
+  entityId: "main",
+  kind: "modified",
+  source: "agent",
+  sourceId: null,
+  baseVersion: 5,
+  pendingVersion: 5,
+  remoteVersion: 6,
+  detectedAt: "2026-06-30T00:00:00Z",
+  message: "remote change",
+  remoteWorkflow: null,
+};
+
 describe("useWorkflowSync", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    storeMocks.workflowConflict = null;
   });
 
   it("reopens the current project and retries when backend session lost", async () => {
@@ -113,6 +142,22 @@ describe("useWorkflowSync", () => {
     });
     // The previous save errored, so this success clears its own banner.
     expect(deps.setLastError).toHaveBeenCalledWith(null);
+  });
+
+  it("does not PUT while a version conflict is pending (#1891 P1)", async () => {
+    // Every save entry point — autosave, Ctrl/Cmd+S, Save As — routes through
+    // saveWorkflow. With a conflict pending it must no-op so the stale local
+    // canvas cannot clobber the remote write before the user resolves it.
+    storeMocks.workflowConflict = pendingConflict;
+    const { deps, hook } = renderSync();
+
+    await act(async () => {
+      await hook.result.current.saveWorkflow();
+    });
+
+    expect(apiMocks.updateWorkflow).not.toHaveBeenCalled();
+    expect(apiMocks.createWorkflow).not.toHaveBeenCalled();
+    expect(deps.markWorkflowSaved).not.toHaveBeenCalled();
   });
 
   it("falls back to create only when update returns 404", async () => {

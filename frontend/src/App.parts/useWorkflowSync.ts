@@ -13,6 +13,7 @@
 import { startTransition, useCallback, useRef } from "react";
 
 import { api, ApiError } from "../lib/api";
+import { useAppStore } from "../store";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -91,6 +92,13 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
   // #1421: stable identity across renders.
   const saveWorkflow = useCallback(async () => {
     if (!currentProject) return;
+    // #1891 P1: never PUT while a version conflict is pending. Gating at the
+    // source covers every entry point — debounced autosave, the Ctrl/Cmd+S
+    // shortcut, and Save As (which calls saveWorkflow first) — so none can PUT
+    // the stale local canvas and clobber the remote (agent) write before the
+    // user resolves the conflict dialog. Read live state via getState so the
+    // callback identity stays stable.
+    if (useAppStore.getState().workflowConflict) return;
     try {
       let saved: WorkflowResponse;
       let projectForState = currentProject;

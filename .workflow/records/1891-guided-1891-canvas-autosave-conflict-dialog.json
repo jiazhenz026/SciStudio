@@ -145,6 +145,11 @@
       "at": "2026-06-30T20:07:24.657236Z",
       "owner_directive": "VS Code-style conflict dialog: freeze autosave while a conflict is pending, prompt Keep mine / Use remote, resume autosave after the choice.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-06-30T20:45:59.148762Z",
+      "owner_directive": "Fix P1: gate all workflow-save entry points (incl. Ctrl/Cmd+S shortcut) on the pending conflict via the source saveWorkflow guard so no entry point can clobber while a conflict dialog is open.",
+      "reason": "PR #1892 review P1: Ctrl/Cmd+S bypasses the autosave conflict freeze and PUTs stale canvas before the user resolves the dialog"
     }
   ],
   "docs_events": [
@@ -797,6 +802,12 @@
       "at": "2026-06-30T20:07:24.657425Z",
       "pattern": "docs/adr/ADR-045.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-06-30T20:45:59.148939Z",
+      "pattern": "frontend/src/App.parts/useWorkflowSync.ts",
+      "reason": "PR #1892 review P1: Ctrl/Cmd+S bypasses the autosave conflict freeze and PUTs stale canvas before the user resolves the dialog"
     }
   ],
   "session_id": "f0670a1e-93db-4291-8230-e692513131bb",
@@ -816,6 +827,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/WorkflowConflictDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-06-30T20:45:59.148946Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/useWorkflowSync.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
