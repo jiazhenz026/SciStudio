@@ -48,6 +48,7 @@ import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { ProjectDialog } from "./components/ProjectDialog";
 import { PromptDialog } from "./components/PromptDialog";
+import { WorkflowConflictDialog } from "./components/WorkflowConflictDialog";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -133,6 +134,10 @@ export default function App() {
   const removeEdge = useAppStore((state) => state.removeEdge);
   const addAnnotationNode = useAppStore((state) => state.addAnnotationNode);
   const markWorkflowSaved = useAppStore((state) => state.markWorkflowSaved);
+  // #1891: surfaced by the canvas conflict dialog when a remote write collides
+  // with unsaved local edits; autosave is frozen until the user resolves it.
+  const workflowConflict = useAppStore((state) => state.workflowConflict);
+  const resolveWorkflowConflict = useAppStore((state) => state.resolveWorkflowConflict);
   const undoWorkflow = useAppStore((state) => state.undoWorkflow);
   const redoWorkflow = useAppStore((state) => state.redoWorkflow);
 
@@ -327,6 +332,7 @@ export default function App() {
   useAppLifecycleEffects({
     currentProject,
     workflowDirty,
+    workflowConflict,
     workflowPayload,
     refreshProjects,
     refreshBlocks,
@@ -517,6 +523,9 @@ export default function App() {
           />
 
           <PromptDialog request={promptRequest} onClose={clearPrompt} />
+
+          {/* #1891: version-conflict resolution for the open canvas workflow. */}
+          <WorkflowConflictDialog conflict={workflowConflict} onResolve={resolveWorkflowConflict} />
 
           {/* #591/#594: Interactive block modals. */}
           <InteractiveModals />

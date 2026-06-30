@@ -21,11 +21,19 @@
 
 import { useEffect, useRef } from "react";
 
+import type { VersionConflictState } from "../store/types";
 import type { ProjectResponse, WorkflowResponse } from "../types/api";
 
 export interface AppLifecycleDeps {
   currentProject: ProjectResponse | null;
   workflowDirty: boolean;
+  /**
+   * #1891: when a remote (e.g. AI agent) write conflicts with unsaved local
+   * edits the canvas surfaces a resolution dialog. Autosave is frozen while a
+   * conflict is pending so the debounced save cannot silently clobber the
+   * remote write before the user has chosen a side.
+   */
+  workflowConflict: VersionConflictState | null;
   workflowPayload: WorkflowResponse;
   refreshProjects: () => Promise<void>;
   refreshBlocks: () => Promise<void>;
@@ -45,6 +53,7 @@ export function useAppLifecycleEffects(deps: AppLifecycleDeps): void {
   const {
     currentProject,
     workflowDirty,
+    workflowConflict,
     workflowPayload,
     refreshProjects,
     refreshBlocks,
@@ -81,13 +90,16 @@ export function useAppLifecycleEffects(deps: AppLifecycleDeps): void {
 
   // Auto-save on dirty (workflow tabs). #1421: `saveWorkflow` is a stable
   // useCallback tied to the same reactive inputs the effect already lists.
+  // #1891: skip while a version conflict is pending — autosave must not PUT the
+  // stale local state and clobber the remote write until the user resolves it.
+  // Clearing the conflict re-runs this effect, so autosave resumes on its own.
   useEffect(() => {
-    if (!currentProject || !workflowDirty) return undefined;
+    if (!currentProject || !workflowDirty || workflowConflict) return undefined;
     const timeout = window.setTimeout(() => {
       void saveWorkflow();
     }, 800);
     return () => window.clearTimeout(timeout);
-  }, [currentProject, workflowDirty, workflowPayload, saveWorkflow]);
+  }, [currentProject, workflowDirty, workflowConflict, workflowPayload, saveWorkflow]);
 
   // Sync active tab snapshot when workflow state OR the active tab itself
   // changes. #1421: see PR #1435 commit message — `activeTabId` is in the

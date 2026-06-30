@@ -94,6 +94,21 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
     markWorkflowRemoteConflict: (conflict) =>
       set({ workflowConflict: conflict, workflowDirty: true }),
     clearWorkflowConflict: () => set({ workflowConflict: null }),
+    // #1891: the canvas conflict dialog calls this once the user picks a side.
+    // ``loadRemote`` adopts the remote workflow as the new base via setWorkflow
+    // (which resets dirty/base/pending and clears the conflict). ``keepLocal``
+    // just drops the conflict marker so the (still-dirty) local edits resume
+    // autosaving and overwrite the remote write — now a user-chosen
+    // last-write-wins rather than a silent clobber.
+    resolveWorkflowConflict: (resolution) => {
+      const conflict = get().workflowConflict;
+      if (!conflict) return;
+      if (resolution === "loadRemote") {
+        get().setWorkflow(conflict.remoteWorkflow ?? null);
+        return;
+      }
+      set({ workflowConflict: null });
+    },
     undoWorkflow: () => {
       const state = get();
       const last = state.workflowHistory[state.workflowHistory.length - 1];

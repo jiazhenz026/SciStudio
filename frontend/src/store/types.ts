@@ -49,6 +49,16 @@ export type VersionedChangeSource =
 
 export type VersionedEntityClass = "workflow" | "file";
 
+/**
+ * How the user resolves a workflow version conflict surfaced by the canvas
+ * conflict dialog (#1891):
+ * - ``keepLocal``: keep the unsaved local edits and let autosave persist them,
+ *   overwriting the remote write (now a user-chosen last-write-wins).
+ * - ``loadRemote``: discard local edits and adopt the remote version as the
+ *   new base.
+ */
+export type WorkflowConflictResolution = "keepLocal" | "loadRemote";
+
 export interface VersionConflictState {
   entityClass: VersionedEntityClass;
   entityId: string;
@@ -132,6 +142,7 @@ export interface WorkflowSlice {
   confirmWorkflowVersion: (version: number, sourceId?: string | null) => void;
   markWorkflowRemoteConflict: (conflict: VersionConflictState) => void;
   clearWorkflowConflict: () => void;
+  resolveWorkflowConflict: (resolution: WorkflowConflictResolution) => void;
   undoWorkflow: () => void;
   redoWorkflow: () => void;
 }
