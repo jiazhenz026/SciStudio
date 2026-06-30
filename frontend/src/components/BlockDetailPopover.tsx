@@ -1,14 +1,18 @@
-// Hover detail popover — anchored to the right of a tile, showing the block's
-// icon + name, full description, and typed port signature. Display-only.
+// Hover detail popover — a display-only card showing a block's icon + name,
+// full description, and typed port signature. Shared between the left block
+// palette (hover a tile) and the workflow canvas (hover a placed node), so it
+// lives at the components root rather than under a single surface's `.parts`.
 //
-// Spec: docs/specs/frontend-block-palette.md §6 Hover Detail Popover.
+// Specs:
+//   docs/specs/frontend-block-palette.md §6 (palette hover detail)
+//   docs/specs/frontend-block-palette.md §7 (canvas node hover detail, #1887)
 
-import { getCategoryVisual } from "../nodes/BlockNode.parts/categoryVisuals";
-import type { BlockSummary } from "../../types/api";
-import { portSignature } from "./paletteModel";
+import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
+import { portSignature } from "./BlockPalette.parts/paletteModel";
+import type { BlockSummary } from "../types/api";
 
 export interface PopoverAnchor {
-  /** Viewport-space left edge for the popover (tile right + gap). */
+  /** Viewport-space left edge for the popover. */
   left: number;
   /** Viewport-space top edge for the popover. */
   top: number;
@@ -29,7 +33,7 @@ export function BlockDetailPopover({ block, anchor }: BlockDetailPopoverProps) {
   return (
     <div
       className="pointer-events-none fixed z-50 w-64 rounded-xl border border-stone-200 bg-white p-3 shadow-panel"
-      data-testid="palette-detail-popover"
+      data-testid="block-detail-popover"
       style={{ left: anchor.left, top: anchor.top }}
     >
       <div className="flex items-center gap-2">
