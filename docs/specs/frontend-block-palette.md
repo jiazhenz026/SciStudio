@@ -24,7 +24,7 @@ scope:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
     - Per-block custom icons (still tracked as the categoryVisuals follow-up; palette keeps the category-icon fallback).
     - Plugin-shipped loader/saver blocks as distinct palette entries (consolidated into the unified core Load/Save).
-    - Canvas BlockNode rendering (unchanged; this spec only consumes its categoryVisuals table).
+    - Canvas BlockNode rendering (unchanged by #1797; §10 amendment (#1887) later reuses the shared hover-detail popover on canvas nodes).
     - Collapsed/rail palette mode redesign (the collapsed prop is preserved as-is, not re-themed).
 governs:
   modules:
@@ -146,10 +146,17 @@ non-interactive (display only). It replaces the information previously shown
 always-on (description) and adds the typed port contract, which the old text
 `X in / Y out` line did not convey.
 
+The popover is implemented as a standalone display-only component
+(`components/BlockDetailPopover.tsx`, testid `block-detail-popover`) taking a
+`BlockSummary` and a viewport-space `{ left, top }` anchor. It is shared with
+the canvas, which reuses it for the on-node hover detail (§10, #1887).
+
 ## 7. Out Of Scope
 
 - No backend, schema, or `BlockSummary` contract change.
-- No change to `categoryVisuals.ts` (consumed read-only) or to the canvas node.
+- No change to `categoryVisuals.ts` (consumed read-only). The original #1797 work
+  left the canvas node untouched; the §10 amendment (#1887) later reuses the
+  shared popover on canvas nodes without otherwise changing node rendering.
 - Per-block custom icons remain the separately tracked `categoryVisuals` follow-up.
 - Collapsed/rail palette mode keeps its current minimal rendering; only the
   expanded palette is redesigned.
@@ -173,6 +180,11 @@ Component behavior is covered by the rewritten `BlockPalette.test.tsx`:
 - Activating a category chip filters the visible tiles.
 - Hovering a tile reveals the detail popover with description and port signature.
 
+Canvas hover-detail behavior (§10, #1887) is covered by
+`nodes/BlockNode.parts/nodeDetailAnchor.test.ts` (right/left flip + top clamp of
+the anchor) and `nodes/__tests__/BlockNode/hoverDetail.test.tsx` (dwell-delayed
+open, description + typed ports, dismiss on leave, no-op without a summary).
+
 ## 9. Reload Flash
 
 The palette Reload control gives an at-a-glance confirmation that the catalog
@@ -191,3 +203,39 @@ nodes), so both side panels share one consistent reload feedback.
 
 The hook is covered by `frontend/src/hooks/__tests__/useReloadFlash.test.ts`;
 the palette wiring is covered by `BlockPalette.test.tsx`.
+
+## 10. Canvas Node Hover Detail (#1887 Amendment)
+
+Hovering a placed block node on the workflow canvas opens the same hover-detail
+popover the palette uses, so a user can recall what a block does and its port
+types without opening the BottomPanel Config tab. This amendment adds the canvas
+trigger; it does not change the popover's content or the palette behavior above.
+
+- **Reuse, not reimplementation.** The canvas renders the shared
+  `BlockDetailPopover` (§6) with the node's existing `data.summary`
+  (`BlockSummary`). No new fetch or backend change — the summary is already
+  carried on the node.
+- **Trigger and dwell.** The popover opens after a ~400ms hover dwell — longer
+  than the palette's ~150ms so it does not flash while the user wires or drags
+  nodes — and dismisses immediately when the cursor leaves the node. It is
+  display-only and `pointer-events-none`.
+- **Anchor (canvas-specific).** Unlike the palette (fixed left rail, always
+  opens right), a canvas node can sit anywhere and the canvas pans/zooms, so the
+  anchor is computed from the node's on-screen bounding rect by
+  `computeNodeDetailAnchor` (`nodes/BlockNode.parts/nodeDetailAnchor.ts`):
+  prefer the right side with an 8px gap, flip to the left when the 256px-wide
+  card would overflow the right viewport edge (clamped off the left edge), and
+  clamp the top into `[gap, viewportHeight − maxHeight]`. Reading the live
+  on-screen rect keeps placement correct under any zoom/pan.
+- **Portalled outside ReactFlow.** The popover is rendered through a React
+  portal to `document.body`, not inline in the node subtree. ReactFlow's
+  viewport applies a CSS `transform`, which makes it the containing block for a
+  `position: fixed` descendant; rendering the popover inside it would place the
+  card in the transformed coordinate space and drift it from the node after
+  pan/zoom. Portalling to `<body>` restores the real viewport coordinate space
+  that the `getBoundingClientRect()`-derived anchor is expressed in.
+- **Coexistence.** The detail popover floats to the side of the 104×104 square;
+  the existing `NodeActionToolbar` floats above it (ADR-050 §2.2). They do not
+  overlap and both may be visible on hover.
+- **Graceful no-op.** When `data.summary` is absent (e.g. an unresolved
+  custom/plugin block), no popover opens.

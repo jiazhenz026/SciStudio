@@ -130,14 +130,14 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     vi.useFakeTimers();
     render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
 
-    expect(screen.queryByTestId("palette-detail-popover")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
 
     fireEvent.mouseEnter(screen.getByTestId("palette-block-tile"));
     act(() => {
       vi.advanceTimersByTime(200);
     });
 
-    const popover = screen.getByTestId("palette-detail-popover");
+    const popover = screen.getByTestId("block-detail-popover");
     expect(
       within(popover).getByText("Run Cellpose model on an image to produce instance masks."),
     ).toBeInTheDocument();

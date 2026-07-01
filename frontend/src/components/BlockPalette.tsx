@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
-import { BlockDetailPopover, type PopoverAnchor } from "./BlockPalette.parts/BlockDetailPopover";
+import { BlockDetailPopover, type PopoverAnchor } from "./BlockDetailPopover";
 import { BlockTile } from "./BlockPalette.parts/BlockTile";
 import { CategoryChips } from "./BlockPalette.parts/CategoryChips";
 import { buildPaletteSections, type PaletteSection } from "./BlockPalette.parts/paletteModel";
