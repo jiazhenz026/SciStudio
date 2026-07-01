@@ -99,7 +99,19 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
     ),
     "python_tests": CheckSpec(
         name="python_tests",
-        command=("pytest", "-n", "auto", "--timeout=60", "--timeout-method=thread"),
+        # Two-phase runner: parallel bulk (`-n auto -m "not serial"`) then serial
+        # (`-n 0 -m serial`), so PTY/subprocess/thread tests cannot crash an xdist
+        # worker (#1896). This is the gate's single-command equivalent of the two
+        # literal `pytest` phases the CI `test` job runs inline; the weakened-CI
+        # guard requires the literal `pytest` token in ci.yml, so the two diverge
+        # in form but not policy. Forwarded flags apply to both phases.
+        command=(
+            "python",
+            "-m",
+            "scistudio.qa.testing.run_python_tests",
+            "--timeout=60",
+            "--timeout-method=thread",
+        ),
         covered_surface="python",
         ci_job="ci.yml/Test (Python 3.11, 3.13)",
         needs_src_import=True,

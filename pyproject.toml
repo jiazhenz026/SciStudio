@@ -251,6 +251,7 @@ python_functions = ["test_*"]
 markers = [
     "requires_r: tests that need an R installation with Rscript on PATH",
     "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"').",
+    "serial: process/PTY/thread/timing-sensitive tests that must run OUTSIDE xdist (run with '-n0 -m serial'; the parallel batch deselects them via '-m \"not serial\"'). Under '-n auto' these can leak a thread/subprocess that hangs or crashes an xdist worker (#1867, #1896). See scistudio.qa.testing.run_python_tests.",
 ]
 # filterwarnings policy (issue #1560):
 #   - "error" is NOT applied globally — the suite uses third-party libraries

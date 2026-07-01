@@ -16,6 +16,10 @@ import pytest
 
 from scistudio.ai.agent.terminal import PtyProcess
 
+# Real PtyProcess + child subprocesses: isolate from xdist so a hang/leak cannot
+# crash a parallel worker (#1896).
+pytestmark = pytest.mark.serial
+
 
 def _python_echo_argv() -> list[str]:
     """A tiny line-echo subprocess that flushes on every newline."""

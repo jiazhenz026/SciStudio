@@ -15,6 +15,10 @@ import pytest
 
 from scistudio.desktop import parent_watchdog
 
+# Real daemon-thread watchdog with timing assertions: isolate from xdist so a
+# leaked thread cannot crash a parallel worker (#1867, #1896).
+pytestmark = pytest.mark.serial
+
 
 class TestBackendIsOrphaned:
     def test_unchanged_live_parent_is_not_orphaned(self) -> None:
