@@ -19,7 +19,6 @@ RESOURCES_ROOT="$DESKTOP_ROOT/resources"
 PYTHON_ROOT="$RESOURCES_ROOT/python"
 CACHE_ROOT="$DESKTOP_ROOT/.cache/python-runtime"
 ASSET_JSON="$CACHE_ROOT/python-build-standalone-release.json"
-TARBALL="$CACHE_ROOT/python-build-standalone-linux.tar.gz"
 
 case "$(uname -m)" in
   x86_64|amd64)
@@ -72,6 +71,14 @@ if not assets:
 print(assets[0]["browser_download_url"])
 PY
 )"
+
+# #1895: Key the cache by the resolved asset filename (which encodes the exact
+# CPython version + target triple + variant), not a fixed path. A fixed name
+# would make the download guard reuse a stale interpreter after the version
+# prefix, selected release, or architecture changes, silently packaging the
+# wrong Python. Strip any URL query before taking the basename.
+ASSET_NAME="$(basename "${ASSET_URL%%\?*}")"
+TARBALL="$CACHE_ROOT/$ASSET_NAME"
 
 if [ ! -f "$TARBALL" ]; then
   echo "Downloading $ASSET_URL"

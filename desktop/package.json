@@ -83,7 +83,9 @@
       "category": "Science",
       "synopsis": "AI-native workflow runtime for multimodal scientific data",
       "desktop": {
-        "StartupWMClass": "SciStudio"
+        "entry": {
+          "StartupWMClass": "SciStudio"
+        }
       }
     }
   }

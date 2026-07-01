@@ -19,6 +19,15 @@ test("package.json declares a Linux AppImage electron-builder target", () => {
   assert.equal(linux.icon, "icon.png", "Linux icon must reference the bundled PNG");
 });
 
+test("StartupWMClass is nested under linux.desktop.entry (electron-builder schema)", () => {
+  // electron-builder 26.x validates linux.desktop against a schema that only
+  // accepts `entry` / `desktopActions`; a flat desktop.StartupWMClass is
+  // rejected and fails the build before packaging.
+  const desktop = pkg.build.linux.desktop || {};
+  assert.equal(desktop.StartupWMClass, undefined, "must not use the flat form");
+  assert.equal((desktop.entry || {}).StartupWMClass, "SciStudio");
+});
+
 test("package.json exposes the Linux build + dist npm scripts", () => {
   assert.equal(
     pkg.scripts["build:python:linux"],
