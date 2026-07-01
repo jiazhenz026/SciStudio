@@ -457,8 +457,15 @@ def test_run_reuses_last_output_and_skips_agent(project_dir: Path, stub_agent: S
     assert stub_agent.request_calls == []
     # The prior output file was NOT cleared (reuse must leave it intact).
     assert prior.exists()
-    # Lineage marker records the reuse so an audit can distinguish it.
-    assert any(n[1] == "completed" and n[2].get("source") == "reused_last_output" for n in stub_agent.notifications)
+    # Durable audit marker: the execution's run dir carries reuse.json (and NOT
+    # a manifest.json), so an audit can tell a reuse from a genuine agent run.
+    runs_root = project_dir / ".scistudio" / "ai-block-runs"
+    run_dirs = list(runs_root.iterdir())
+    assert len(run_dirs) == 1
+    marker = json.loads((run_dirs[0] / "reuse.json").read_text(encoding="utf-8"))
+    assert marker["reused_last_output"] is True
+    assert marker["outputs"] == {"out": "./out.csv"}
+    assert not (run_dirs[0] / "manifest.json").exists()
 
 
 def test_run_reuse_falls_back_when_no_prior_output(project_dir: Path, stub_agent: StubAgent) -> None:

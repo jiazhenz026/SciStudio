@@ -362,28 +362,40 @@ class AIBlock(Block):
 
         # #1898: reuse-last-output bypass. When the toggle is on and every
         # declared output from the previous run is still present and non-empty,
-        # re-emit those files and skip the agent run entirely (no run_dir, no
-        # manifest, no PTY, no clearing). On a miss (never ran, or a
-        # missing/empty declared output) fall through to a normal run rather
-        # than erroring. See ADR-035 Addendum 1.
+        # re-emit those files and skip the agent run entirely (no manifest, no
+        # PTY, no clearing). On a miss (never ran, or a missing/empty declared
+        # output) fall through to a normal run rather than erroring. See
+        # ADR-035 Addendum 1.
         if _reuse_last_output_enabled(config):
             reused = self._try_reuse_last_output(output_specs, project_dir, str(config.get("output_dir", "")))
             if reused is not None:
+                # Record the reuse on this execution's own run dir — the durable
+                # per-execution audit trail. Unlike a normal run (manifest +
+                # signals), a reuse writes only ``reuse.json``, so an audit can
+                # tell a reused result from a genuine agent run. Best-effort: the
+                # outputs are already loaded, so a marker-write failure must not
+                # fail the reuse. The PTY completion notify is deliberately NOT
+                # used here — no tab is opened, so it would carry tab_id=null and
+                # be dropped by the frontend (ADR-035 Addendum 1 §4.3).
+                block_execution_id = _make_block_execution_id(
+                    getattr(self, "_instance_name", None) or type(self).__name__
+                )
+                reuse_run_dir = RunDir(project_dir, block_execution_id)
+                marker_path: Any = None
+                try:
+                    reuse_run_dir.create()
+                    marker_path = reuse_run_dir.write_reuse_marker(
+                        block_name=str(block_name),
+                        block_type=type(self).__name__,
+                        outputs={name: str(spec["expected_path"]) for name, spec in output_specs.items()},
+                    )
+                except OSError:
+                    logger.warning("AIBlock %s: could not write reuse marker", block_name, exc_info=True)
                 logger.info(
                     "AIBlock %s: reuse_last_output on and prior outputs present; "
-                    "skipping agent run and re-emitting last output.",
+                    "skipping agent run and re-emitting last output (reuse marker: %s).",
                     block_name,
-                )
-                # Best-effort lineage marker so an audit can tell this run
-                # reused a cached result rather than running the agent. Reuses
-                # the same ``source`` field the normal completion path records.
-                from scistudio.engine import pty_control as _pty_control
-
-                _safe_notify(
-                    _pty_control,
-                    _make_block_execution_id(getattr(self, "_instance_name", None) or type(self).__name__),
-                    "completed",
-                    {"source": "reused_last_output"},
+                    marker_path,
                 )
                 return reused
             logger.info(

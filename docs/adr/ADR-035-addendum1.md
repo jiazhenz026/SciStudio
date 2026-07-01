@@ -67,7 +67,7 @@ block.
 | An AI Block re-runs the agent every workflow run while a user debugs downstream blocks | Wasted time and tokens; a "fixed" result silently changes run-to-run | Opt-in toggle re-emits the previous run's output files and skips the agent entirely | Section 4 |
 | Reusing a computed output under changed inputs would be wrong | Silent wrong results if reuse were auto-gated by a heuristic | Reuse is unconditional and user-owned (enable only while inputs are unchanged); no input fingerprinting | Section 3 |
 | A node that never produced output has nothing to reuse | A hard error would block the very iteration the toggle is meant to help | Fall back to a normal agent run on any missing/empty declared output | Section 4.2 |
-| An audit could mistake a reused result for a genuine agent run | Misattributed lineage | Record `source="reused_last_output"` on the completion event | Section 4.3 |
+| An audit could mistake a reused result for a genuine agent run | Misattributed lineage | Write a `reuse.json` marker (not a manifest) in the block execution's run dir | Section 4.3 |
 
 ## 2. Context And Problem
 
@@ -134,11 +134,18 @@ surfaces its real load error rather than being silently re-run.
 
 ### 4.3 Traceability
 
-A reuse hit emits a best-effort completion notification with
-`source = "reused_last_output"`, reusing the same `source` lineage field the
-normal completion path records (`{"source": event.source.value, ...}`). An audit
-can therefore distinguish a reused result from a genuine agent run. The reuse and
-fallback branches also log at INFO.
+A reuse hit records itself on the block execution's own run dir
+(`.scistudio/ai-block-runs/<execution-id>/`) by writing a `reuse.json` marker
+(`{"reused_last_output": true, "block": {...}, "outputs": {...}}`) *instead of* a
+`manifest.json` + `signals/`. The presence of `reuse.json` and the absence of a
+manifest is the durable, per-execution audit signal that distinguishes a reused
+result from a genuine agent run; the reuse and fallback branches also log at INFO.
+
+The PTY completion path (`notify_block_pty_event`) is deliberately not used on a
+reuse hit: it is a frontend-only WS broadcast that decorates a tab title and
+resolves `tab_id` from the engine's tab→run map. A reuse opens no tab, so a
+notify would carry `tab_id = null`, be dropped by the frontend, and record
+nothing durable — it is not a lineage channel.
 
 ## 5. Consequences
 
