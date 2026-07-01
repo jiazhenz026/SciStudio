@@ -120,6 +120,91 @@ def _spec_signature(spec: Any) -> str:
     return f"{inputs} → {outputs}"
 
 
+# ---------------------------------------------------------------------------
+# Core-IO steering (#1900): flag package-specific IO blocks whose data the
+# core Load/Save block already covers via its dynamic ``core_type`` enum.
+# ---------------------------------------------------------------------------
+
+
+_PACKAGE_MODULE_PREFIX = "scistudio_blocks_"
+
+
+def _is_package_io_block(spec: Any) -> bool:
+    """True for an IO block contributed by a ``scistudio_blocks_*`` plugin package.
+
+    The core Load/Save block (``load_data`` / ``save_data``) already covers every
+    loadable/saveable package type through its dynamic ``core_type`` enum and
+    delegates to the owning package under the hood (see
+    ``blocks.io._config_enrichment``). A package's own IO block is therefore
+    redundant and yields a different, inconsistent canvas node for the same data.
+
+    Detection keys off the block's importable ``module_path`` (plugin packages
+    live under the ``scistudio_blocks_*`` install module). ``package_name`` is
+    not used because core blocks registered via entry points carry the entry-point
+    name there (e.g. ``load_data``), so it is not a reliable core-vs-package
+    signal. User drop-in ``.py`` blocks are intentionally excluded — they may
+    handle a type the core block does not cover.
+    """
+    if getattr(spec, "base_category", "") != "io":
+        return False
+    return str(getattr(spec, "module_path", "") or "").startswith(_PACKAGE_MODULE_PREFIX)
+
+
+def _first_port_type_name(port: Any) -> str | None:
+    """Return the first accepted-type name of *port*, or ``None``."""
+    if isinstance(port, dict):
+        accepted = port.get("accepted_types") or []
+    else:
+        accepted = getattr(port, "accepted_types", None) or []
+    names = [getattr(t, "__name__", str(t)) for t in accepted]
+    return names[0] if names else None
+
+
+def _core_io_equivalent(spec: Any) -> tuple[str, str | None]:
+    """Return ``(core_block_type, core_type_value)`` for a package IO block.
+
+    ``core_block_type`` is ``"load_data"`` for a loader (reads a file, exposes an
+    output port) or ``"save_data"`` for a saver (writes a file, exposes an input
+    port). ``core_type_value`` is the concrete data type the block handles (e.g.
+    ``"Image"``), read from the relevant port's accepted types, or ``None`` when
+    it cannot be determined.
+    """
+    direction = getattr(spec, "direction", "") or ""
+    input_ports = getattr(spec, "input_ports", None) or []
+    output_ports = getattr(spec, "output_ports", None) or []
+    is_saver = direction == "output" or (bool(input_ports) and not output_ports)
+    if is_saver:
+        core_block, ports = "save_data", input_ports
+    else:
+        core_block, ports = "load_data", output_ports
+    core_type: str | None = None
+    for port in ports:
+        core_type = _first_port_type_name(port)
+        if core_type:
+            break
+    return core_block, core_type
+
+
+def _io_redirect_hint(spec: Any) -> str | None:
+    """Build a 'use the core block instead' hint for a package IO block.
+
+    Returns ``None`` for core blocks and non-IO blocks.
+    """
+    if not _is_package_io_block(spec):
+        return None
+    core_block, core_type = _core_io_equivalent(spec)
+    if core_type:
+        return (
+            f"Do not use this package IO block. Use the core '{core_block}' block "
+            f"with core_type='{core_type}' instead — it delegates to the same "
+            f"package loader/saver and keeps one consistent GUI node."
+        )
+    return (
+        f"Do not use this package IO block. Use the core '{core_block}' block "
+        f"configured with the matching core_type instead."
+    )
+
+
 def _atomic_write_text(path: Path, text: str) -> int:
     """Write *text* to *path* via tempfile + rename. Returns bytes written."""
     path.parent.mkdir(parents=True, exist_ok=True)

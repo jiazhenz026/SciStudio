@@ -103,7 +103,7 @@ workflow:
   version: 1.0.0
   nodes:
     - id: b1
-      block_type: LoadData
+      block_type: load_data
       config:
         params:
           backend: csv
@@ -270,7 +270,7 @@ workflow:
   version: 1.0.0
   nodes:
     - id: b1
-      block_type: LoadData
+      block_type: load_data
       config:
         params:
           backend: csv

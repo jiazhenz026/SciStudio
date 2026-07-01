@@ -24,7 +24,21 @@ class BlockSummary(BaseModel):
     fetch them on demand via ``get_block_schema``.
     """
 
-    name: str = Field(description="Registered block type name.")
+    type_name: str = Field(
+        description=(
+            "Canonical block type id. THIS is the exact string to put in a "
+            "workflow node's 'block_type'. The GUI resolves nodes by type_name, "
+            "so writing anything else (a display name, a guessed dotted name) "
+            "produces a node the GUI cannot resolve."
+        ),
+    )
+    name: str = Field(
+        description=(
+            "Human-readable display name shown in the palette (e.g. 'Load'). "
+            "For display only — do NOT use this as a workflow 'block_type'; "
+            "use 'type_name' there."
+        ),
+    )
     base_category: str = Field(description="One of io/process/code/app/ai/subworkflow.")
     subcategory: str | None = Field(default=None, description="Optional subcategory string.")
     package_name: str = Field(
@@ -34,6 +48,15 @@ class BlockSummary(BaseModel):
     description: str = Field(description="One-line block description from BlockSpec.")
     signature: str = Field(
         description="One-line I/O signature, e.g. 'image:Image, mask?:Array → result:Image'.",
+    )
+    use_instead: str | None = Field(
+        default=None,
+        description=(
+            "Set for package-specific IO blocks that the core Load/Save block "
+            "already covers via its core_type enum. When present, do NOT use "
+            "this block: use the named core block ('load_data'/'save_data') "
+            "configured with the given core_type instead."
+        ),
     )
 
 
@@ -50,8 +73,9 @@ class ListBlocksResult(BaseModel):
     count: int = Field(description="Total number of registered block types.")
     next_step: str = Field(
         default=(
-            "Call mcp__scistudio__get_block_schema with a block's name to fetch its "
-            "full I/O ports and config_schema before wiring edges or setting params."
+            "Call mcp__scistudio__get_block_schema with a block's 'type_name' to fetch "
+            "its full I/O ports and config_schema before wiring edges or setting params. "
+            "Always copy 'type_name' (not the display 'name') into a node's 'block_type'."
         ),
         description="Suggested next MCP call to obtain a block's full configuration.",
     )
@@ -60,9 +84,9 @@ class ListBlocksResult(BaseModel):
             "To read or write data, default to the core 'load_data' / 'save_data' block "
             "configured with a 'core_type' (its enum covers package-registered types like "
             "Image, Spectrum, SpectralDataset, Mask and delegates to the package loader/saver "
-            "under the hood, keeping one consistent GUI Load/Save node). Use a package-specific "
-            "IO block (e.g. imaging.load_image) only when no core_type value covers the "
-            "type/format you need."
+            "under the hood, keeping one consistent GUI Load/Save node). Package-specific IO "
+            "blocks are redundant and are flagged with a 'use_instead' hint in this catalog; "
+            "do not use them."
         ),
         description="Guidance to prefer the core Load/Save block + core_type over package-specific IO blocks.",
     )
@@ -126,6 +150,15 @@ class WriteWorkflowResult(BaseModel):
     path: str = Field(description="Absolute resolved path of the written workflow.")
     bytes_written: int = Field(description="Number of bytes written to disk.")
     diff_summary: str = Field(description="Compact diff vs prior file contents.")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-blocking advisories about the written workflow, e.g. a node that "
+            "uses a package-specific IO block the core Load/Save block already "
+            "covers. The write still succeeds; act on these to keep the canvas "
+            "consistent."
+        ),
+    )
     next_step: str = Field(
         default="Call mcp__scistudio__validate_workflow with the same path to confirm runtime acceptance.",
         description="Suggested next MCP call to maintain workflow integrity.",
