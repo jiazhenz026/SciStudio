@@ -150,8 +150,11 @@ class AIBlock(Block):
     subcategory: ClassVar[str] = "ai"
     """Library grouping this block appears under."""
 
-    version: ClassVar[str] = "0.2.0"
-    """Block version, bumped when its contract or behavior changes."""
+    version: ClassVar[str] = "0.3.0"
+    """Block version, bumped when its contract or behavior changes.
+
+    0.3.0 (#1898): added the ``reuse_last_output`` config toggle, which
+    skips the agent run and re-emits the previous run's output files."""
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
     """Marks this as an external block: it launches an outside program (the
@@ -241,6 +244,29 @@ class AIBlock(Block):
                 ),
                 "ui_priority": 3,
             },
+            # #1898: reuse-last-output toggle. When on, the block skips the
+            # agent run entirely and re-emits the outputs left at each declared
+            # expected_path by the previous run. Semantics differ from ADR-051
+            # interaction memory (which reuses a *decision* and still
+            # recomputes): here nothing runs. Reuse is unconditional — no
+            # input-fingerprint gating — so the user is responsible for only
+            # enabling it while upstream inputs are unchanged (the intended use
+            # is iterating on downstream blocks without re-running the agent).
+            # If no reusable output exists (never ran, or a declared output is
+            # missing/empty) the block falls back to a normal run instead of
+            # erroring. Boolean schema fields render as a checkbox in the
+            # config panel (ConfigField), so no frontend change is needed.
+            "reuse_last_output": {
+                "type": "boolean",
+                "default": False,
+                "title": "Reuse last output (skip run)",
+                "description": (
+                    "When on, skip running the agent and re-emit the previous "
+                    "run's output files. Falls back to a normal run if no prior "
+                    "output exists. Only enable while inputs are unchanged."
+                ),
+                "ui_priority": 4,
+            },
             "input_ports": {
                 "type": "array",
                 "items": {
@@ -304,7 +330,80 @@ class AIBlock(Block):
         """
         from scistudio.core.types.collection import Collection
 
-        # 1. Resolve project_dir + block_execution_id, allocate run_dir.
+        # Resolve project_dir and the declared output specs up front: both the
+        # reuse-last-output bypass (#1898) and the normal run need them, and the
+        # bypass must run BEFORE any run_dir/manifest/clear side effect so a
+        # reuse hit leaves the previous run's output files untouched.
+        project_dir_raw = config.get("project_dir") or os.getcwd()
+        project_dir = _to_path(project_dir_raw)
+
+        # Resolve declared output ports + per-port expected_path overrides.
+        # The port editor stores ``expected_path`` on each entry under
+        # ``output_ports`` in the *instance* config (per ADR-029 D12); the
+        # run-time ``config`` may or may not duplicate it. Prefer run-time,
+        # fall back to instance config.
+        effective_outputs = self.get_effective_output_ports()
+        output_path_overrides = _output_path_overrides(config)
+        if not output_path_overrides:
+            output_path_overrides = _output_path_overrides(self.config)
+        block_name = config.get("block_id") or type(self).__name__
+
+        # Declared output specs: ``{port_name: {expected_path, expected_type}}``.
+        # Used both to decide a reuse hit and to clear stale leftovers before a
+        # real run.
+        output_specs: dict[str, dict[str, Any]] = {}
+        for port in effective_outputs:
+            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(str(block_name), port)
+            expected_type = port.accepted_types[0].__name__ if port.accepted_types else "DataObject"
+            output_specs[port.name] = {
+                "expected_path": expected_path,
+                "expected_type": expected_type,
+            }
+
+        # #1898: reuse-last-output bypass. When the toggle is on and every
+        # declared output from the previous run is still present and non-empty,
+        # re-emit those files and skip the agent run entirely (no manifest, no
+        # PTY, no clearing). On a miss (never ran, or a missing/empty declared
+        # output) fall through to a normal run rather than erroring. See
+        # ADR-035 Addendum 1.
+        if _reuse_last_output_enabled(config):
+            reused = self._try_reuse_last_output(output_specs, project_dir, str(config.get("output_dir", "")))
+            if reused is not None:
+                # Record the reuse on this execution's own run dir — the durable
+                # per-execution audit trail. Unlike a normal run (manifest +
+                # signals), a reuse writes only ``reuse.json``, so an audit can
+                # tell a reused result from a genuine agent run. Best-effort: the
+                # outputs are already loaded, so a marker-write failure must not
+                # fail the reuse. The PTY completion notify is deliberately NOT
+                # used here — no tab is opened, so it would carry tab_id=null and
+                # be dropped by the frontend (ADR-035 Addendum 1 §4.3).
+                block_execution_id = _make_block_execution_id(
+                    getattr(self, "_instance_name", None) or type(self).__name__
+                )
+                reuse_run_dir = RunDir(project_dir, block_execution_id)
+                marker_path: Any = None
+                try:
+                    reuse_run_dir.create()
+                    marker_path = reuse_run_dir.write_reuse_marker(
+                        block_name=str(block_name),
+                        block_type=type(self).__name__,
+                        outputs={name: str(spec["expected_path"]) for name, spec in output_specs.items()},
+                    )
+                except OSError:
+                    logger.warning("AIBlock %s: could not write reuse marker", block_name, exc_info=True)
+                logger.info(
+                    "AIBlock %s: reuse_last_output on and prior outputs present; "
+                    "skipping agent run and re-emitting last output (reuse marker: %s).",
+                    block_name,
+                    marker_path,
+                )
+                return reused
+            logger.info(
+                "AIBlock %s: reuse_last_output on but no reusable prior output; falling back to a normal agent run.",
+                block_name,
+            )
+
+        # 1. Allocate the per-execution run_dir.
         # ADR-038 §5.2: this identifier is **per AI Block execution** (one
         # per invocation of this block in a workflow run). It is NOT the
         # workflow-level ``runs.run_id`` — see ADR-038 §3.1 for that table.
@@ -312,8 +411,6 @@ class AIBlock(Block):
         # two layers; the on-the-wire ``PtyTabSpec.block_run_id`` and the
         # manifest ``block.run_id`` JSON key keep their legacy spellings
         # (engine-surface + agent-facing contracts respectively).
-        project_dir_raw = config.get("project_dir") or os.getcwd()
-        project_dir = _to_path(project_dir_raw)
         block_execution_id = _make_block_execution_id(getattr(self, "_instance_name", None) or type(self).__name__)
         run_dir = RunDir(project_dir, block_execution_id)
         try:
@@ -332,21 +429,10 @@ class AIBlock(Block):
                 inputs_unpacked[port_name] = [v for v in value if isinstance(v, DataObject)]
             # else: ignore non-DataObject values (scalar configs etc.)
 
-        # 3. Resolve declared output ports + per-port expected_path overrides.
-        # The port editor stores ``expected_path`` on each entry under
-        # ``output_ports`` in the *instance* config (per ADR-029 D12); the
-        # run-time ``config`` may or may not duplicate it. Prefer run-time,
-        # fall back to instance config.
-        effective_outputs = self.get_effective_output_ports()
-        output_path_overrides = _output_path_overrides(config)
-        if not output_path_overrides:
-            output_path_overrides = _output_path_overrides(self.config)
-
-        # 4. Write manifest. AIBlock runs without a wall-clock timeout: the
+        # 3. Write manifest. AIBlock runs without a wall-clock timeout: the
         #    agent is driven interactively and only stops on completion or
         #    explicit cancellation (tab close / workflow cancel), so no
         #    deadline is computed, recorded, or enforced.
-        block_name = config.get("block_id") or type(self).__name__
         try:
             manifest_path = run_dir.write_manifest(
                 block_name=str(block_name),
@@ -360,21 +446,13 @@ class AIBlock(Block):
         except Exception as exc:
             raise RuntimeError(f"AIBlock: failed to write manifest: {exc}") from exc
 
-        # 4b. Resolve declared output specs and clear any stale leftovers BEFORE
-        # the agent starts (#1789). The FileWatcher completion path fires when all
-        # declared expected_path files exist and are size-stable; a leftover file
-        # from a previous run (the ``<block>_outputs`` dir persists) would
-        # otherwise complete the block instantly before the agent produces
-        # anything. Clearing them up front means completion only triggers on this
-        # run's output (or the MCP finish tool / user "Mark done").
-        output_specs: dict[str, dict[str, Any]] = {}
-        for port in effective_outputs:
-            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(str(block_name), port)
-            expected_type = port.accepted_types[0].__name__ if port.accepted_types else "DataObject"
-            output_specs[port.name] = {
-                "expected_path": expected_path,
-                "expected_type": expected_type,
-            }
+        # 3b. Clear any stale leftover outputs BEFORE the agent starts (#1789).
+        # The FileWatcher completion path fires when all declared expected_path
+        # files exist and are size-stable; a leftover file from a previous run
+        # (the ``<block>_outputs`` dir persists) would otherwise complete the
+        # block instantly before the agent produces anything. Clearing them up
+        # front means completion only triggers on this run's output (or the MCP
+        # finish tool / user "Mark done").
         _clear_expected_outputs(output_specs, project_dir)
 
         # 5. Build spawn argv.
@@ -587,10 +665,56 @@ class AIBlock(Block):
                 results[port_name] = Collection([obj], item_type=type(obj))
         return results
 
+    def _try_reuse_last_output(
+        self,
+        output_specs: dict[str, dict[str, Any]],
+        project_dir: Any,
+        output_dir: str,
+    ) -> dict[str, Collection] | None:
+        """#1898: load the previous run's outputs, or ``None`` on a cache miss.
+
+        A reuse hit requires **every** declared output to still be present at
+        its ``expected_path`` and be non-empty; that is exactly the "never ran /
+        no prior output" boundary the fallback is meant to cover. On a hit the
+        files are loaded through the same ``_validate_and_load_outputs`` path a
+        normal run uses (so a corrupt-but-present file surfaces its real load
+        error rather than being silently re-run). On a miss the caller falls
+        back to a normal agent run.
+        """
+        from pathlib import Path
+
+        if not output_specs:
+            return None
+        resolved_paths: dict[str, str] = {}
+        for port_name, spec in output_specs.items():
+            raw = spec.get("expected_path")
+            if not raw:
+                return None
+            path = Path(str(raw))
+            if not path.is_absolute():
+                path = (Path(str(project_dir)) / path).resolve()
+            if not path.exists() or not path.is_file() or path.stat().st_size == 0:
+                return None
+            resolved_paths[port_name] = str(path)
+        return self._validate_and_load_outputs(resolved_paths, output_specs, project_dir, output_dir)
+
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
+
+REUSE_LAST_OUTPUT_KEY = "reuse_last_output"
+"""Config key for the #1898 reuse-last-output toggle (see ADR-035 Addendum 1)."""
+
+
+def _reuse_last_output_enabled(config: BlockConfig) -> bool:
+    """True when the reuse-last-output toggle is on.
+
+    ``BlockConfig.get`` already reads ``params`` first then extra fields, so a
+    single lookup covers both the nested and top-level storage locations.
+    """
+    return bool(config.get(REUSE_LAST_OUTPUT_KEY, False))
 
 
 def _to_path(value: Any) -> Any:

@@ -13,8 +13,10 @@ import pytest
 
 from scistudio.blocks.ai.ai_block import (
     _BYPASS_FLAG,
+    REUSE_LAST_OUTPUT_KEY,
     AIBlock,
     _output_path_overrides,
+    _reuse_last_output_enabled,
 )
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.state import ExecutionMode
@@ -412,3 +414,120 @@ def test_bypass_flag_table_per_provider() -> None:
     assert "codex" in _BYPASS_FLAG
     assert "bypassPermissions" in _BYPASS_FLAG["claude-code"]
     assert "--dangerously-bypass-approvals-and-sandbox" in _BYPASS_FLAG["codex"]
+
+
+# ---------------------------------------------------------------------------
+# reuse_last_output toggle (#1898 / ADR-035 Addendum 1)
+# ---------------------------------------------------------------------------
+
+
+def test_config_schema_has_reuse_last_output_boolean() -> None:
+    """The toggle is a boolean config field so it renders as a checkbox."""
+    field = AIBlock.config_schema["properties"]["reuse_last_output"]
+    assert field["type"] == "boolean"
+    assert field["default"] is False
+    # Not required — default off keeps the block's behavior unchanged.
+    assert "reuse_last_output" not in AIBlock.config_schema["required"]
+
+
+def test_reuse_last_output_enabled_reads_flag() -> None:
+    assert _reuse_last_output_enabled(_config(reuse_last_output=True)) is True
+    assert _reuse_last_output_enabled(_config(reuse_last_output=False)) is False
+    # Absent → off (unchanged default behavior).
+    assert _reuse_last_output_enabled(_config()) is False
+    assert REUSE_LAST_OUTPUT_KEY == "reuse_last_output"
+
+
+def test_run_reuses_last_output_and_skips_agent(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Toggle on + prior output present → re-emit it without spawning the agent."""
+    prior = project_dir / "out.csv"
+    prior.write_text("a,b\n1,2\n", encoding="utf-8")
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        reuse_last_output=True,
+    )
+
+    result = block.run(inputs={}, config=cfg)
+
+    assert "out" in result
+    # No PTY tab requested: the agent never ran.
+    assert stub_agent.request_calls == []
+    # The prior output file was NOT cleared (reuse must leave it intact).
+    assert prior.exists()
+    # Durable audit marker: the execution's run dir carries reuse.json (and NOT
+    # a manifest.json), so an audit can tell a reuse from a genuine agent run.
+    runs_root = project_dir / ".scistudio" / "ai-block-runs"
+    run_dirs = list(runs_root.iterdir())
+    assert len(run_dirs) == 1
+    marker = json.loads((run_dirs[0] / "reuse.json").read_text(encoding="utf-8"))
+    assert marker["reused_last_output"] is True
+    assert marker["outputs"] == {"out": "./out.csv"}
+    assert not (run_dirs[0] / "manifest.json").exists()
+
+
+def test_run_reuse_falls_back_when_no_prior_output(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Toggle on but nothing to reuse → fall back to a normal agent run."""
+    stub_agent.outputs = {"out": ("out.csv", "a\n1\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        reuse_last_output=True,
+    )
+
+    result = block.run(inputs={}, config=cfg)
+
+    assert "out" in result
+    # Fallback ran the agent: exactly one PTY request.
+    assert len(stub_agent.request_calls) == 1
+
+
+def test_run_reuse_falls_back_when_any_declared_output_missing(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Reuse requires every declared output; a partial prior run is a miss."""
+    # Only ``a`` exists from a prior run; ``b`` was never produced.
+    (project_dir / "a.csv").write_text("x\n1\n", encoding="utf-8")
+    stub_agent.outputs = {
+        "a": ("a.csv", "x\n1\n"),
+        "b": ("b.csv", "y\n2\n"),
+    }
+    block = _prepared_block(
+        output_ports=[
+            {"name": "a", "types": ["DataFrame"], "expected_path": "./a.csv"},
+            {"name": "b", "types": ["DataFrame"], "expected_path": "./b.csv"},
+        ]
+    )
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        reuse_last_output=True,
+    )
+
+    result = block.run(inputs={}, config=cfg)
+
+    assert {"a", "b"} <= set(result)
+    # Missing ``b`` forced a real run.
+    assert len(stub_agent.request_calls) == 1
+
+
+def test_run_ignores_prior_output_when_toggle_off(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Default (toggle off): a prior output file must not short-circuit the run."""
+    (project_dir / "out.csv").write_text("stale\n", encoding="utf-8")
+    stub_agent.outputs = {"out": ("out.csv", "a\n1\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        # reuse_last_output omitted → defaults off.
+    )
+
+    result = block.run(inputs={}, config=cfg)
+
+    assert "out" in result
+    # Agent ran despite the pre-existing file (opt-in only).
+    assert len(stub_agent.request_calls) == 1

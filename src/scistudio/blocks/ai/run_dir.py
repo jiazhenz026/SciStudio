@@ -274,6 +274,41 @@ class RunDir:
         os.replace(tmp_name, manifest_path)
         return manifest_path
 
+    def write_reuse_marker(
+        self,
+        *,
+        block_name: str,
+        block_type: str,
+        outputs: dict[str, str],
+    ) -> Path:
+        """#1898: write ``reuse.json`` recording a reuse-last-output hit.
+
+        A reuse hit re-emits the previous run's output files without spawning
+        the agent, so this run dir gets a ``reuse.json`` marker instead of a
+        ``manifest.json`` + ``signals/``. The presence of this marker (and the
+        absence of a manifest) is the durable, per-execution audit signal that
+        distinguishes a reused result from a genuine agent run — see ADR-035
+        Addendum 1 §4.3. Atomic write via tempfile + ``os.replace``.
+        """
+        marker = {
+            "reused_last_output": True,
+            "block": {"name": block_name, "type": block_type},
+            "outputs": outputs,
+        }
+        marker_path = self.path / "reuse.json"
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json.tmp",
+            prefix="reuse-",
+            dir=str(self.path),
+            delete=False,
+            encoding="utf-8",
+        ) as handle:
+            json.dump(marker, handle, indent=2)
+            tmp_name = handle.name
+        os.replace(tmp_name, marker_path)
+        return marker_path
+
     @staticmethod
     def _default_expected_path(block_name: str, port: OutputPort) -> str:
         """Compute ``./{block_name}_outputs/{port.name}.{ext}`` per ADR-035 §3.3.
