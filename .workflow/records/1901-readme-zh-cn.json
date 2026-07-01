@@ -19,9 +19,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "de69f85ec2d0033807b3654cd43369a8f45958dc",
+    "sha": "6106e554d04109c1b0f601e78162171e363e7e89",
     "shas": [
-      "de69f85ec2d0033807b3654cd43369a8f45958dc"
+      "6106e554d04109c1b0f601e78162171e363e7e89"
     ],
     "trailers": []
   },
@@ -169,6 +169,126 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.877809Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.897692Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.923576Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.947645Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.969549Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:50.996957Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:51.031385Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:51.065509Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:51.108933Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:23:51.141225Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.198645Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.224356Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.264938Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.284667Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.302663Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.342207Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.376016Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.404766Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.426118Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T17:24:01.452608Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -181,16 +301,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "main",
+    "base": "99a1dc61bac5eccd62c5a7688efbf6e278dfd9a9",
     "base_sha": "99a1dc61",
     "changed_files": [
       ".workflow/records/1901-readme-zh-cn.json",
       "README.md",
       "README.zh-CN.md"
     ],
-    "diff_fingerprint": "sha256:02c20064c94e77fe2b2407abb9ea13c84edbb8c62071fcbed15ba2407069a324",
+    "diff_fingerprint": "sha256:f06a0da57d1168f370136c98bb972c57f920eec65d04ccd035d44d7f527f9fd5",
     "head": "HEAD",
-    "head_sha": "de69f85e",
+    "head_sha": "6106e554",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -211,8 +331,8 @@
     "closes": [
       1901
     ],
-    "number": null,
-    "url": null
+    "number": 1902,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1902"
   },
   "reconcile_events": [
     {
@@ -226,6 +346,22 @@
     {
       "at": "2026-07-01T17:23:16.056667Z",
       "diff_fingerprint": "sha256:02c20064c94e77fe2b2407abb9ea13c84edbb8c62071fcbed15ba2407069a324",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-01T17:23:51.142437Z",
+      "diff_fingerprint": "sha256:f06a0da57d1168f370136c98bb972c57f920eec65d04ccd035d44d7f527f9fd5",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-01T17:24:01.452733Z",
+      "diff_fingerprint": "sha256:f06a0da57d1168f370136c98bb972c57f920eec65d04ccd035d44d7f527f9fd5",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
