@@ -345,7 +345,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "8e02342816b072abef8e30f080bb4bc7afb8c9c3",
+    "shas": [
+      "8e02342816b072abef8e30f080bb4bc7afb8c9c3"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -682,6 +688,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.221051Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.242698Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.257308Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.269390Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.279812Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.289743Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.301403Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.311943Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.323059Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-01T02:29:46.339694Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -702,9 +812,9 @@
       "src/scistudio/blocks/ai/ai_block.py",
       "tests/blocks/ai/test_ai_block_skeleton.py"
     ],
-    "diff_fingerprint": "sha256:476773284394a416e6ed4853c4ff26196dfe682bd5a49a5a87453b547cdc83c5",
+    "diff_fingerprint": "sha256:eedade7f1320202d17d36c4a3e4b6769fd19827f93bf35c44ded478de1142e70",
     "head": "HEAD",
-    "head_sha": "2f9baa38",
+    "head_sha": "8e023428",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -720,7 +830,14 @@
   },
   "owner_directive": "Add a reuse_last_output checkbox to the ai.agent block: when checked, skip running the AI agent entirely and directly emit the outputs persisted at the declared expected paths from the previous run; fall back to a normal run if no reusable output exists; mark reused runs for traceability.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1898
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-01T02:15:28.137228Z",
@@ -746,6 +863,14 @@
     {
       "at": "2026-07-01T02:28:29.838772Z",
       "diff_fingerprint": "sha256:476773284394a416e6ed4853c4ff26196dfe682bd5a49a5a87453b547cdc83c5",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-01T02:29:46.339724Z",
+      "diff_fingerprint": "sha256:eedade7f1320202d17d36c4a3e4b6769fd19827f93bf35c44ded478de1142e70",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
