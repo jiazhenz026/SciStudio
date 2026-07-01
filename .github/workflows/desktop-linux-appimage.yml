@@ -1,0 +1,61 @@
+name: Desktop Linux AppImage
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-linux-appimage-${{ github.event.pull_request.number || github.event.inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-appimage:
+    name: Build Linux AppImage
+    # #1895: pin the oldest supported Ubuntu LTS so the bundled glibc-based
+    # Python and the numpy/pyarrow/zarr manylinux wheels bind an old glibc.
+    # An AppImage built on a newer runner would refuse to launch on older
+    # distros. ubuntu-22.04 is the compatibility baseline (ADR-037 §7.3).
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm --prefix desktop ci
+
+      - name: Build portable Python runtime
+        run: npm --prefix desktop run build:python:linux
+
+      - name: Stage resources
+        run: npm --prefix desktop run stage:sh
+
+      - name: Build AppImage
+        run: npm --prefix desktop run dist:linux
+
+      - name: Verify AppImage artifact exists
+        run: |
+          test -n "$(find desktop/dist -maxdepth 1 -name '*.AppImage' -print -quit)"
+          find desktop/dist -maxdepth 1 -type f -print
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: scistudio-linux-appimage
+          path: desktop/dist/*.AppImage
+          if-no-files-found: error
