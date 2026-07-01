@@ -223,7 +223,10 @@ def test_get_block_schema_happy(ctx: _StubRuntime) -> None:
     assert specs, "ctx fixture scanned the registry but no blocks were registered"
     name = next(iter(specs))
     schema = _run(tools_workflow.get_block_schema(name))
-    assert schema.type_name == specs[name].name
+    # get_block_schema returns the canonical type_name (the string that goes
+    # into a workflow node's block_type), not the display name (#1900).
+    assert schema.type_name == specs[name].type_name
+    assert schema.metadata["display_name"] == specs[name].name
     assert "input" in schema.ports and "output" in schema.ports
     assert schema.config_schema is not None
 

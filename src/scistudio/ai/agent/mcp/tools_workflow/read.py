@@ -24,6 +24,7 @@ from scistudio.ai.agent.mcp.tools_workflow._errors import (
 )
 from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _get_workflow_runtime,
+    _io_redirect_hint,
     _looks_like_inline_yaml,
     _port_to_dict,
     _spec_signature,
@@ -74,12 +75,14 @@ async def list_blocks() -> ListBlocksResult:
     specs = ctx.block_registry.all_specs()
     blocks = [
         BlockSummary(
+            type_name=spec.type_name,
             name=spec.name,
             base_category=spec.base_category,
             subcategory=spec.subcategory or None,
             package_name=getattr(spec, "package_name", "") or "",
             description=spec.description,
             signature=_spec_signature(spec),
+            use_instead=_io_redirect_hint(spec),
         )
         for spec in specs.values()
     ]
@@ -111,13 +114,14 @@ async def get_block_schema(
     if spec is None:
         raise KeyError(f"Block type '{type_name}' is not registered")
     return BlockSchemaResult(
-        type_name=spec.name,
+        type_name=spec.type_name,
         ports={
             "input": [_port_to_dict(p) for p in (spec.input_ports or [])],
             "output": [_port_to_dict(p) for p in (spec.output_ports or [])],
         },
         config_schema=enrich_io_config_schema(spec, ctx.block_registry, ctx.type_registry),
         metadata={
+            "display_name": spec.name,
             "description": spec.description,
             "version": spec.version,
             "base_category": spec.base_category,

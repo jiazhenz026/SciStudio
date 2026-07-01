@@ -9,6 +9,7 @@ umbrella #1427). No behavior change.
 from __future__ import annotations
 
 import contextlib
+import difflib
 import json
 import logging
 from pathlib import Path
@@ -18,7 +19,7 @@ import yaml as yaml_module
 from filelock import FileLock, Timeout
 from pydantic import Field, ValidationError
 
-from scistudio.ai.agent.mcp._context import _resolve_project_path
+from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _ensure_error_subscriber,
@@ -27,8 +28,10 @@ from scistudio.ai.agent.mcp.tools_workflow._errors import (
 from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _LOCK_TIMEOUT_SECONDS,
     _atomic_write_text,
+    _core_io_equivalent,
     _diff_summary,
     _get_workflow_runtime,
+    _is_package_io_block,
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
     CancelRunResult,
@@ -75,12 +78,19 @@ async def write_workflow(
     except yaml_module.YAMLError as exc:
         raise ValueError(f"write_workflow: YAML parse failure: {exc}") from exc
     try:
-        WorkflowFileModel.model_validate(parsed)
+        wf_file = WorkflowFileModel.model_validate(parsed)
     except ValidationError as exc:
         raise ValueError(
             "write_workflow: refusing to write — workflow does not match "
             "the SciStudio schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
         ) from exc
+
+    # Resolve every node's block_type against the live registry (#1900).
+    # Unknown/unresolvable types hard-fail here so the agent cannot persist a
+    # workflow the GUI would render as an unresolved grey node. Package-specific
+    # IO blocks are allowed but surfaced as non-blocking warnings that point at
+    # the core Load/Save block.
+    block_type_warnings = _reconcile_node_block_types(wf_file)
 
     p = _resolve_project_path(path)
     lock_path = str(p) + ".lock"
@@ -119,7 +129,86 @@ async def write_workflow(
         version_context=version_context,
     )
     logger.info("write_workflow: wrote %s (%s)", p, summary)
-    return WriteWorkflowResult(path=str(p), bytes_written=bytes_written, diff_summary=summary)
+    return WriteWorkflowResult(
+        path=str(p),
+        bytes_written=bytes_written,
+        diff_summary=summary,
+        warnings=block_type_warnings,
+    )
+
+
+def _reconcile_node_block_types(wf_file: Any) -> list[str]:
+    """Validate node ``block_type`` values against the live block registry (#1900).
+
+    Two problems this closes:
+
+    * The agent copies a display name (e.g. ``"Load"``) or invents a dotted name
+      (e.g. ``"imaging.segmentation"``) into ``block_type``. The GUI resolves
+      nodes by their canonical ``type_name`` only, so such a node renders as an
+      unresolved grey node. We **hard-fail** with the nearest valid ``type_name``.
+    * The agent uses a package-specific IO block the core Load/Save block already
+      covers. That is allowed but inconsistent, so we return a non-blocking
+      **warning** naming the core equivalent.
+
+    Returns the list of warnings. Raises ``ValueError`` when any node references
+    an unregistered ``block_type``.
+    """
+    context = get_context()
+    registry = getattr(context, "block_registry", None)
+    if registry is None:
+        return []
+    try:
+        specs = registry.all_specs()
+    except Exception:  # pragma: no cover - defensive: registry not ready
+        return []
+    if not specs:
+        # An empty/unscanned registry cannot judge block_type validity; skip
+        # rather than reject an otherwise-valid workflow.
+        return []
+
+    by_type_name = {spec.type_name: spec for spec in specs.values() if spec.type_name}
+    display_to_type = {spec.name: spec.type_name for spec in specs.values() if spec.name}
+    valid_type_names = sorted(by_type_name)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    for node in wf_file.workflow.nodes:
+        block_type = node.block_type
+        spec = by_type_name.get(block_type)
+        if spec is None:
+            hint = display_to_type.get(block_type)
+            if hint is not None:
+                detail = (
+                    f"'{block_type}' is a block's display name; its type_name is "
+                    f"'{hint}'. Put the type_name in 'block_type'."
+                )
+            else:
+                close = difflib.get_close_matches(block_type, valid_type_names, n=3, cutoff=0.4)
+                detail = (
+                    ("Did you mean: " + ", ".join(repr(c) for c in close) + "? ") if close else ""
+                ) + "Call list_blocks and copy a block's 'type_name'."
+            errors.append(f"node '{node.id}': block_type '{block_type}' is not a registered block type. {detail}")
+            continue
+        if _is_package_io_block(spec):
+            core_block, core_type = _core_io_equivalent(spec)
+            core_hint = (
+                f"'{core_block}' with core_type='{core_type}'"
+                if core_type
+                else f"'{core_block}' with the matching core_type"
+            )
+            warnings.append(
+                f"node '{node.id}': block_type '{block_type}' is a package-specific "
+                f"IO block. Prefer the core {core_hint} — it delegates to the same "
+                f"package loader/saver and keeps one consistent GUI node."
+            )
+
+    if errors:
+        raise ValueError(
+            "write_workflow: refusing to write — one or more nodes reference a "
+            "block_type the GUI cannot resolve (the GUI resolves nodes by their "
+            "canonical type_name):\n- " + "\n- ".join(errors)
+        )
+    return warnings
 
 
 def _workflow_change_context() -> tuple[Any, Any] | None:

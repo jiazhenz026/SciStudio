@@ -64,7 +64,7 @@ workflow:                            # REQUIRED top-level key
 | Key | Type | Required | Notes |
 |---|---|---|---|
 | `id` | string | yes | Unique within the workflow |
-| `block_type` | string | yes | Must match a registered block (call `list_blocks`) |
+| `block_type` | string | yes | A registered block's canonical `type_name` from `list_blocks` — NOT its display `name`. The GUI resolves nodes by `type_name`. |
 | `config` | dict | yes (may be `{}`) | Validated against the block's `config_schema` |
 
 **Edge shape** — two strings only:
@@ -123,10 +123,12 @@ YAML.
    `get_block_schema(block_type)` and copy the exact
    `input_ports[].name` / `output_ports[].name` strings. Never type
    from memory.
-4. **Wrong `block_type` casing or missing namespace.** Block types
-   are namespaced (`imaging.threshold`, not `threshold`;
-   `lcms.peak_pick`, not `peakpick`). `list_blocks` returns the
-   canonical name.
+4. **Wrong `block_type`: display name instead of `type_name`.** Put a
+   block's canonical `type_name` in `block_type` (`load_data`,
+   `imaging.threshold`), never its display `name` (`Load`, `Threshold`).
+   `list_blocks` returns both fields — copy `type_name`. The GUI resolves
+   nodes by `type_name`, and `write_workflow` hard-fails an unregistered
+   `block_type` with the nearest valid suggestion.
 5. **Missing required config field.** Each block's `config_schema`
    has a `required` list. `write_workflow` validates and rejects with
    the specific JSON-Schema error.
