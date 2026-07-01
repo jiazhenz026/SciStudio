@@ -45,14 +45,34 @@ the packaged SPA (`scistudio/api/static`) from the fresh `frontend/dist` on ever
 build; a bundled app serves only that embedded SPA, never a `frontend/dist` found
 on the host (#1747).
 
+The Linux AppImage build runs on Linux and emits an unsigned AppImage under
+`desktop/dist` (ADR-037 §3.6 D21 selects AppImage as the primary Linux format):
+
+```bash
+npm --prefix desktop run build:python:linux
+npm --prefix desktop run stage:sh
+npm --prefix desktop run dist:linux
+```
+
+`build:python:linux` stages a standalone glibc-based Python under
+`resources/python/bin/python3` for the host architecture
+(`x86_64-unknown-linux-gnu` or `aarch64-unknown-linux-gnu`) before `dist:linux`
+builds the AppImage. Build on the oldest distro you intend to support: the
+bundled interpreter and the numpy/pyarrow/zarr manylinux wheels are glibc-based,
+so an AppImage built against a newer glibc will not launch on older distros. CI
+pins `ubuntu-22.04` as the compatibility baseline. On systems without FUSE
+(minimal containers, some hardened distros), launch with
+`./SciStudio-*.AppImage --appimage-extract-and-run`.
+
 The GitHub Actions build chain for packaged artifacts is intentionally manual
 because the installer jobs are slow. Run `.github/workflows/desktop-windows-installer.yml`
-to upload `scistudio-windows-installer`, and run
-`.github/workflows/desktop-macos-dmg.yml` to upload `scistudio-macos-dmg`.
+to upload `scistudio-windows-installer`, run
+`.github/workflows/desktop-macos-dmg.yml` to upload `scistudio-macos-dmg`, and run
+`.github/workflows/desktop-linux-appimage.yml` to upload `scistudio-linux-appimage`.
 
 The packaged app uses the SciStudio icon assets in `desktop/assets`: `icon.svg`
-is the source, `icon.png` is the runtime window icon, and `icon.ico`/`icon.icns`
-are the Windows and macOS packaging icons.
+is the source, `icon.png` is the runtime window icon (and the Linux AppImage
+icon), and `icon.ico`/`icon.icns` are the Windows and macOS packaging icons.
 
 ## Runtime Python
 
@@ -79,6 +99,11 @@ first.
 
 On macOS, `build:python:mac` stages a standalone Python under
 `resources/python/bin/python3` before `dist:dmg` builds the DMG.
+
+On Linux, `build:python:linux` stages the same standalone `python-build-standalone`
+layout under `resources/python/bin/python3` before `dist:linux` builds the
+AppImage. Linux agent terminals are backed by the stdlib `pty` module, so no
+extra PTY backend is bundled.
 
 ## Local Package Installer
 

@@ -36,6 +36,36 @@ test("machineFingerprint: stable 64-char hex digest", () => {
   assert.equal(fp, activation.machineFingerprint());
 });
 
+test("linuxMachineId: prefers /etc/machine-id, then D-Bus, else null (#1895)", () => {
+  const systemd = (file) => {
+    if (file === "/etc/machine-id") {
+      return "  abc123def456\n";
+    }
+    throw new Error("ENOENT");
+  };
+  assert.equal(activation.linuxMachineId(systemd), "linux:abc123def456");
+
+  const dbusOnly = (file) => {
+    if (file === "/var/lib/dbus/machine-id") {
+      return "dbus789\n";
+    }
+    throw new Error("ENOENT");
+  };
+  assert.equal(activation.linuxMachineId(dbusOnly), "linux:dbus789");
+
+  // Neither source readable -> null so rawMachineId falls back to the hostname.
+  const none = () => {
+    throw new Error("ENOENT");
+  };
+  assert.equal(activation.linuxMachineId(none), null);
+
+  // A present-but-empty machine-id must not be treated as a valid binding.
+  const empty = (file) => (file === "/etc/machine-id" ? "\n" : (() => {
+    throw new Error("ENOENT");
+  })());
+  assert.equal(activation.linuxMachineId(empty), null);
+});
+
 test("verifyToken: valid token for this machine", () => {
   const { privatePem, publicPem } = makeKeypair();
   const fp = "a".repeat(64);

@@ -29,10 +29,32 @@ const path = require("path");
 // Machine fingerprint (stable, cross-platform: macOS + Windows).
 // --------------------------------------------------------------------------- //
 
+// #1895: Linux stable per-machine identifier. systemd's /etc/machine-id is a
+// per-installation 32-hex id that survives app reinstalls; /var/lib/dbus/
+// machine-id is the older D-Bus fallback present on non-systemd distros. Reads
+// are injectable so the branch is unit-testable off Linux. Returns `linux:<id>`
+// or null when neither source is readable (the caller then falls back to the
+// hostname). AppImages run unprivileged from user home, so both files are
+// readable when present.
+function linuxMachineId(readFileSync = fs.readFileSync) {
+  for (const file of ["/etc/machine-id", "/var/lib/dbus/machine-id"]) {
+    try {
+      const id = readFileSync(file, "utf8").trim();
+      if (id) {
+        return `linux:${id}`;
+      }
+    } catch {
+      // Try the next source.
+    }
+  }
+  return null;
+}
+
 // Best-effort stable per-machine identifier. macOS uses the IOPlatformUUID;
-// Windows uses the registry MachineGuid. Both survive app reinstalls. Falls back
-// to the hostname when the platform probe is unavailable so the gate still has
-// *some* binding rather than crashing.
+// Windows uses the registry MachineGuid; Linux uses the systemd/D-Bus machine
+// id. All three survive app reinstalls. Falls back to the hostname when the
+// platform probe is unavailable so the gate still has *some* binding rather
+// than crashing.
 function rawMachineId() {
   try {
     if (process.platform === "darwin") {
@@ -53,6 +75,11 @@ function rawMachineId() {
       const match = out.match(/MachineGuid\s+REG_SZ\s+([A-Za-z0-9-]+)/i);
       if (match && match[1]) {
         return `win:${match[1]}`;
+      }
+    } else if (process.platform === "linux") {
+      const id = linuxMachineId();
+      if (id) {
+        return id;
       }
     }
   } catch {
@@ -204,6 +231,7 @@ function gateEnabled(isPackaged) {
 
 module.exports = {
   machineFingerprint,
+  linuxMachineId,
   verifyToken,
   loadPublicKeyPem,
   activationFilePath,
