@@ -14,6 +14,8 @@
 [![Slack](https://img.shields.io/badge/Slack-join-4A154B.svg?logo=slack&logoColor=white)](https://join.slack.com/t/scistudioalph-mau9124/shared_invite/zt-42dsj9af8-lmEWPOwQRcqOkaYiULbABg)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/5b7kTRU2k)
 
+**English** | [简体中文](README.zh-CN.md)
+
 </div>
 
 ---

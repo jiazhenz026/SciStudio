@@ -1,0 +1,75 @@
+{
+  "branch": "docs/1901-readme-zh-cn",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-07-01T17:21:54.536474Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.zh-CN.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1901,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add a Simplified Chinese version of the top-level README (README.zh-CN.md) with a language switcher on both files.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1901-readme-zh-cn",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-01T17:21:54.536232Z",
+      "pattern": "README.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-01T17:21:54.536453Z",
+      "pattern": "README.zh-CN.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "cd42ace0-7d21-49f9-926e-0ffefe2d90b7",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-07-01T17:21:54.536694Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only change \u2014 adds a Chinese translation of README and language switcher links; no runtime/code behavior changes",
+      "verified_in_diff": null
+    }
+  ]
+}
