@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#1910] `POST /api/blocks/reload` — a backend block re-scan endpoint the
+  palette "Reload" button now calls. It runs `registry.hot_reload()` and
+  broadcasts `blocks.reloaded`, so an in-place drop-in edit (e.g. changing a
+  block's base class to `ProcessBlock`) is picked up — with the correct colour
+  and icon — without saving the file through the app or restarting the backend.
+  (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
+
+### Fixed
+
+- [#1910] Workflow file name and internal `id` may no longer diverge:
+  `write_workflow` now refuses any write whose file-name stem differs from the
+  workflow's `id` (e.g. `collagen_srs_pipeline.yaml` holding
+  `id: collagen-srs-pipeline`). The divergence made the agent's `run_workflow`
+  fail with "Workflow not found" and save/import raise a duplicate-id conflict,
+  because the runtime resolves a workflow by its id to `workflows/{id}.yaml`.
+  (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
+- [#1910] The palette "Reload" button now triggers a real backend re-scan
+  instead of only re-fetching the cached catalog, so an edited custom block's
+  colour and icon refresh on reload. (@claude, 2026-07-02, branch:
+  guided/1910-workflow-id-filename-palette-reload)
+
 ## [0.3.2] - 2026-06-28
 
 Standardized the public API surface (ADR-052) and added the alpha testing token

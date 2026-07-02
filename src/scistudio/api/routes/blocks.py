@@ -249,6 +249,55 @@ async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
     return BlockListResponse(blocks=blocks)
 
 
+class BlockReloadResponse(BaseModel):
+    """Response shape for ``POST /api/blocks/reload`` (#1910)."""
+
+    reloaded: int
+    added: list[str]
+    removed: list[str]
+
+
+@router.post("/reload", response_model=BlockReloadResponse)
+async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
+    """Hot-reload file-based (drop-in) blocks and broadcast the change (#1910).
+
+    The palette "Reload" button previously only re-fetched the cached in-memory
+    catalog (``GET /api/blocks/``) and never re-scanned the blocks directory, so
+    an in-place source edit (e.g. changing a block's base class to
+    ``ProcessBlock``) left its ``base_category``/``ui_color``/``ui_icon`` stale
+    until the file was saved through the app or the agent ``reload_blocks`` tool
+    ran. This endpoint gives the button a real backend re-scan: it calls
+    ``registry.hot_reload()`` and emits ``blocks.reloaded`` so every connected
+    client refreshes its catalog through the existing WS → refresh path.
+    """
+    registry = runtime.block_registry
+    before = set(registry.all_specs().keys())
+    registry.hot_reload()
+    after = set(registry.all_specs().keys())
+    added = sorted(after - before)
+    removed = sorted(before - after)
+    logger.info("POST /api/blocks/reload: added=%s removed=%s", added, removed)
+
+    # Broadcast ``blocks.reloaded`` (already in the WS outbound allow-list — see
+    # ``api/ws.py``) so connected GUIs refresh palette + schemas. Best-effort: a
+    # headless/test runtime with no event bus simply skips the broadcast.
+    event_bus = getattr(runtime, "event_bus", None)
+    if event_bus is not None:
+        from scistudio.engine.events import EngineEvent
+
+        try:
+            await event_bus.emit(
+                EngineEvent(
+                    event_type="blocks.reloaded",
+                    data={"added": added, "removed": removed, "reloaded": sorted(after), "source": "palette"},
+                )
+            )
+        except Exception:
+            logger.exception("POST /api/blocks/reload: blocks.reloaded broadcast failed")
+
+    return BlockReloadResponse(reloaded=len(after), added=added, removed=removed)
+
+
 # ---------------------------------------------------------------------------
 # ADR-036 §3.12 — block template endpoint (skeleton, returns 501)
 #

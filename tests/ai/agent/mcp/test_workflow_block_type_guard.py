@@ -139,7 +139,7 @@ def test_list_blocks_flags_package_io_use_instead(ctx: _StubRuntime) -> None:
 
 
 def test_write_workflow_accepts_canonical_core_type_name(ctx: _StubRuntime) -> None:
-    result = _run(tools_workflow.write_workflow("workflows/ok.yaml", _wf_yaml("load_data")))
+    result = _run(tools_workflow.write_workflow("workflows/guard_test.yaml", _wf_yaml("load_data")))
     assert result.bytes_written > 0
     assert result.warnings == []
 
@@ -176,7 +176,7 @@ def test_write_workflow_unknown_block_type_does_not_write_file(ctx: _StubRuntime
 
 def test_write_workflow_warns_on_package_io_block(ctx: _StubRuntime) -> None:
     _register_fake_package_io(ctx.block_registry, type_name="fake.load_thing", name="Load Thing")
-    result = _run(tools_workflow.write_workflow("workflows/pkg_io.yaml", _wf_yaml("fake.load_thing")))
+    result = _run(tools_workflow.write_workflow("workflows/guard_test.yaml", _wf_yaml("fake.load_thing")))
     # Write succeeds (non-blocking) ...
     assert result.bytes_written > 0
     # ... but a warning names the core equivalent.
