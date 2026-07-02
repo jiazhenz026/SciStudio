@@ -51,7 +51,7 @@ workflow:                            # REQUIRED top-level key
     - id: save
       block_type: imaging.save_image
       config:
-        path: data/derived/mask.tif
+        path: data/processed/mask.tif
         format: tiff
   edges:                             # connections between node ports
     - source: "load:images"          # MUST be "<node_id>:<port_name>" — colon, not dot
@@ -125,7 +125,7 @@ workflow:
     - id: save
       block_type: imaging.save_image
       config:
-        path: data/derived/beads_mask.tif
+        path: data/processed/beads_mask.tif
         format: tiff
   edges:
     - source: "load:images"
@@ -200,7 +200,7 @@ workflow:
     - id: stats
       block_type: imaging.intensity_stats
       config:
-        output_path: data/derived/microplastics_stats.csv
+        output_path: data/processed/microplastics_stats.csv
   edges:
     - source: "load:images"
       target: "pre:image"

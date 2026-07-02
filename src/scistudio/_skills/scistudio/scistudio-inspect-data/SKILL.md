@@ -107,7 +107,7 @@ When reporting results to the user, cite the `inspect_data` return
 values verbatim. Never fabricate shapes, dtypes, or axes from memory.
 
 Example phrasing: "The output mask is shape `(512, 512)`, dtype
-`bool`, axes `YX`, backed by Zarr at `data/derived/mask.zarr`."
+`bool`, axes `YX`, backed by Zarr at `data/processed/mask.zarr`."
 
 If you don't yet know a value, call `inspect_data` before reporting.
 
