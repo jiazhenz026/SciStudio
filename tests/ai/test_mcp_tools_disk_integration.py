@@ -335,7 +335,12 @@ def test_edit_workflow_preserves_config_and_resolves_path(
     user-set block ``config`` and structural comments untouched. The result
     envelope returns the absolute resolved path under project_dir.
     """
-    _run(tools_workflow.write_workflow(path="workflows/edit_target.yaml", yaml=_COMMENTED_WF))
+    # #1910: the file-name stem must equal the internal id.
+    _run(
+        tools_workflow.write_workflow(
+            path="workflows/edit_target.yaml", yaml=_COMMENTED_WF.replace("id: commented", "id: edit_target")
+        )
+    )
     out = _run(
         tools_workflow.edit_workflow(
             workflow_path="workflows/edit_target.yaml",
@@ -375,7 +380,12 @@ def test_concurrent_edit_workflow_serialises(
     project_root: Path,
 ) -> None:
     """Two concurrent edits on the same path serialise via the shared file lock."""
-    _run(tools_workflow.write_workflow(path="workflows/concurrent_edit.yaml", yaml=_COMMENTED_WF))
+    # #1910: the file-name stem must equal the internal id.
+    _run(
+        tools_workflow.write_workflow(
+            path="workflows/concurrent_edit.yaml", yaml=_COMMENTED_WF.replace("id: commented", "id: concurrent_edit")
+        )
+    )
     results: list[Any] = []
     errors: list[BaseException] = []
 
@@ -393,7 +403,7 @@ def test_concurrent_edit_workflow_serialises(
 
     # Two edits touching different lines: both should apply once the lock
     # serialises them (each old_string still matches exactly once).
-    t1 = threading.Thread(target=_worker, args=("id: commented_wf", "id: renamed_wf"))
+    t1 = threading.Thread(target=_worker, args=("id: concurrent_edit", "id: renamed_wf"))
     t2 = threading.Thread(target=_worker, args=("backend: csv", "backend: json"))
     t1.start()
     t2.start()
