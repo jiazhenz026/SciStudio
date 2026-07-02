@@ -7,6 +7,14 @@ on:
         description: "Git ref to build"
         required: false
         default: "main"
+      build_number:
+        description: "Release build number to stamp (e.g. 11). Empty = committed dev build0000."
+        required: false
+        default: ""
+      ota_channel:
+        description: "OTA channel to enable (alpha|beta|stable). Empty = OTA disabled (dev build)."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -36,13 +44,29 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
+      # #1908: For a release build, stamp the SSOT-derived version onto every
+      # manifest before install so electron-builder names the AppImage
+      # SciStudio-<base>-<channel>-build<NNNN>. Empty build_number leaves the
+      # committed dev build0000 in place. Runs before `npm ci` so package.json
+      # and package-lock.json stay consistent for the install.
+      - name: Stamp release version
+        if: ${{ github.event.inputs.build_number != '' }}
+        env:
+          SCISTUDIO_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+        run: python3 scripts/version.py sync
+
       - name: Install desktop dependencies
         run: npm --prefix desktop ci
 
       - name: Build portable Python runtime
         run: npm --prefix desktop run build:python:linux
 
+      # #1908: An OTA channel enables launch-time update checks against that
+      # channel's manifest (stage-resources.sh). Empty ota_channel keeps OTA
+      # disabled, matching a local/dev build.
       - name: Stage resources
+        env:
+          SCISTUDIO_OTA_CHANNEL: ${{ github.event.inputs.ota_channel }}
         run: npm --prefix desktop run stage:sh
 
       - name: Build AppImage

@@ -70,6 +70,14 @@ to upload `scistudio-windows-installer`, run
 `.github/workflows/desktop-macos-dmg.yml` to upload `scistudio-macos-dmg`, and run
 `.github/workflows/desktop-linux-appimage.yml` to upload `scistudio-linux-appimage`.
 
+By default the Linux workflow produces a dev `build0000`, OTA-disabled AppImage.
+For a **release** build that joins the `ota-alpha` release alongside the mac/win
+installers, dispatch it with the `build_number` and `ota_channel` inputs: e.g.
+`build_number=11 ota_channel=alpha` stamps the SSOT version
+(`python scripts/version.py sync`) so electron-builder names the artifact
+`SciStudio-0.3.2-alpha-build0011-*.AppImage` and enables launch-time OTA against
+the channel manifest. Leave both inputs empty for a plain dev build.
+
 The packaged app uses the SciStudio icon assets in `desktop/assets`: `icon.svg`
 is the source, `icon.png` is the runtime window icon (and the Linux AppImage
 icon), and `icon.ico`/`icon.icns` are the Windows and macOS packaging icons.
