@@ -165,6 +165,19 @@ class WriteWorkflowResult(BaseModel):
     )
 
 
+class EditWorkflowResult(BaseModel):
+    """Result envelope for ``edit_workflow`` (surgical partial edit)."""
+
+    path: str = Field(description="Absolute resolved path of the edited workflow.")
+    bytes_written: int = Field(description="Number of bytes written to disk.")
+    diff_summary: str = Field(description="Compact diff vs prior file contents.")
+    edits_applied: int = Field(description="Number of search/replace edits applied to the workflow text.")
+    next_step: str = Field(
+        default="Call mcp__scistudio__validate_workflow with the same path to confirm runtime acceptance.",
+        description="Suggested next MCP call to maintain workflow integrity.",
+    )
+
+
 class RunWorkflowResult(BaseModel):
     """Result envelope for ``run_workflow``."""
 
@@ -260,6 +273,7 @@ __all__ = [
     "BlockSchemaResult",
     "BlockSummary",
     "CancelRunResult",
+    "EditWorkflowResult",
     "FinishAIBlockError",
     "FinishAIBlockOK",
     "GetRunStatusResult",

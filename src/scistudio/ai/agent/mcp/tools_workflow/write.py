@@ -12,12 +12,13 @@ import contextlib
 import difflib
 import json
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import yaml as yaml_module
 from filelock import FileLock, Timeout
-from pydantic import Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
 from scistudio.ai.agent.mcp.server import mcp
@@ -35,6 +36,7 @@ from scistudio.ai.agent.mcp.tools_workflow._helpers import (
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
     CancelRunResult,
+    EditWorkflowResult,
     RunWorkflowResult,
     WriteWorkflowResult,
 )
@@ -134,6 +136,183 @@ async def write_workflow(
         bytes_written=bytes_written,
         diff_summary=summary,
         warnings=block_type_warnings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# (a.6b) edit_workflow  (write-class, surgical search/replace)
+# ---------------------------------------------------------------------------
+
+
+class WorkflowEdit(BaseModel):
+    """One search/replace edit applied to a workflow YAML's text."""
+
+    old_string: str = Field(description="Exact text to find in the workflow YAML.")
+    new_string: str = Field(description="Text to replace it with.")
+    replace_all: bool = Field(
+        default=False,
+        description=(
+            "When true, replace every occurrence of old_string. When false "
+            "(default), old_string must match exactly once (like the Edit tool)."
+        ),
+    )
+
+
+def _apply_edits(text: str, edits: Sequence[WorkflowEdit | dict[str, Any]]) -> str:
+    """Apply ordered search/replace *edits* to *text*.
+
+    Each edit's ``old_string`` must match exactly once unless
+    ``replace_all`` is set. A zero-match or (non-``replace_all``)
+    multi-match edit raises ``ValueError`` before any write, mirroring the
+    Edit tool's uniqueness contract. Edits are applied in order to the
+    running text so a later edit sees the result of earlier ones;
+    everything the edits do not touch is preserved verbatim.
+    """
+    result = text
+    for index, raw in enumerate(edits):
+        # Coerce plain dicts (direct callers / non-FastMCP invocation) into the
+        # typed model. FastMCP coerces via the annotation, but internal callers
+        # and tests may pass dicts.
+        edit = raw if isinstance(raw, WorkflowEdit) else WorkflowEdit.model_validate(raw)
+        if edit.old_string == edit.new_string:
+            raise ValueError(
+                f"edit_workflow: edit #{index + 1} has identical old_string and new_string (no-op edits are rejected)."
+            )
+        count = result.count(edit.old_string)
+        if count == 0:
+            raise ValueError(
+                f"edit_workflow: edit #{index + 1} old_string not found in the "
+                f"workflow. Read the current YAML (get_workflow) and copy the exact "
+                f"text to replace, including indentation."
+            )
+        if count > 1 and not edit.replace_all:
+            raise ValueError(
+                f"edit_workflow: edit #{index + 1} old_string matched {count} times; "
+                f"it must match exactly once. Add more surrounding context to make it "
+                f"unique, or set replace_all=true to replace every occurrence."
+            )
+        result = result.replace(edit.old_string, edit.new_string)
+    return result
+
+
+@mcp.tool(name="edit_workflow", tags={"category:workflow", "write"})
+async def edit_workflow(
+    workflow_path: Annotated[str, Field(description="Project-relative path under workflows/.")],
+    edits: Annotated[
+        list[WorkflowEdit],
+        Field(description="Ordered search/replace edits applied atomically to the workflow YAML text."),
+    ],
+) -> EditWorkflowResult:
+    """Surgically edit part of an existing workflow YAML via search/replace patches.
+
+    Applies one or more ``{old_string, new_string}`` edits to the file's
+    text and preserves everything the edits do not touch — user-set block
+    ``config``, comments, and key order all survive. Each ``old_string``
+    must match exactly once (set ``replace_all`` to replace every match).
+    All edits apply atomically: if any edit fails to match or the result
+    fails schema validation, the file is left unchanged.
+
+    Use when:
+      - You're changing part of an existing workflow (add/remove a node,
+        rewire an edge, tweak a description) and must NOT clobber the
+        user's GUI-set block config or comments.
+
+    Do NOT use to:
+      - Create a new workflow — use ``write_workflow`` (whole-file write).
+      - Patch one block's config params — use ``update_block_config``
+        (schema-aware per-block patch).
+      - Edit ``workflows/*.yaml`` via Bash/Edit/Write tools — the
+        protect_workflow_yaml hook (ADR-040 §3.6) blocks such calls;
+        this is the sanctioned partial-edit path.
+
+    Returns ``EditWorkflowResult`` with ``next_step`` pointing at
+    ``validate_workflow`` for canonical post-edit verification.
+    """
+    from scistudio.workflow.schema import WorkflowFileModel
+
+    if not edits:
+        raise ValueError("edit_workflow: 'edits' must contain at least one edit.")
+
+    p = _resolve_project_path(workflow_path)
+    if not p.exists():
+        raise FileNotFoundError(
+            f"edit_workflow: workflow file not found: {p}. Use write_workflow to create a new workflow."
+        )
+    lock_path = str(p) + ".lock"
+
+    # Best-effort versioned event (GUI sync). A headless/minimal MCP context
+    # without a workflow runtime must still edit the YAML, so degrade to
+    # "no event" instead of raising — same pattern as update_block_config.
+    try:
+        version_context = _workflow_change_context()
+    except Exception:
+        version_context = None
+    version: int | None = None
+
+    try:
+        with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
+            old = p.read_text(encoding="utf-8")
+
+            # Apply the search/replace edits to the file TEXT. Uniqueness /
+            # match errors raise before any write.
+            new_text = _apply_edits(old, edits)
+
+            # Pre-write validation: parse + validate the RESULT against the same
+            # pydantic model write_workflow / the runtime / the GET route use.
+            # Refuse to write on failure (leave the file unchanged).
+            try:
+                parsed = yaml_module.safe_load(new_text)
+            except yaml_module.YAMLError as exc:
+                raise ValueError(f"edit_workflow: edited YAML no longer parses: {exc}") from exc
+            try:
+                wf_file = WorkflowFileModel.model_validate(parsed)
+            except ValidationError as exc:
+                raise ValueError(
+                    "edit_workflow: refusing to write — the edited workflow no longer "
+                    "matches the SciStudio schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
+                ) from exc
+            # Same block_type reconciliation write_workflow runs: unknown types
+            # hard-fail, package IO blocks are non-blocking (edit_workflow does
+            # not surface warnings, so we discard the return here).
+            _reconcile_node_block_types(wf_file)
+
+            if version_context is not None:
+                _, runtime = version_context
+                version = runtime.bump_workflow_version(p.stem)
+                mark_entity_write = getattr(runtime, "mark_entity_first_party_write", None)
+                if mark_entity_write is not None:
+                    with contextlib.suppress(TypeError):
+                        mark_entity_write(
+                            "workflow",
+                            p.stem,
+                            version,
+                            path=p,
+                            kind="modified",
+                            pending=True,
+                        )
+
+            bytes_written = _atomic_write_text(p, new_text)
+            summary = _diff_summary(old, new_text)
+    except Timeout as exc:
+        raise TimeoutError(
+            f"edit_workflow: could not acquire lock for {p} within {_LOCK_TIMEOUT_SECONDS}s (someone else is editing?)"
+        ) from exc
+
+    if version_context is not None:
+        await _emit_agent_workflow_changed(
+            workflow_id=p.stem,
+            path=p,
+            kind="modified",
+            version=version,
+            version_context=version_context,
+        )
+
+    logger.info("edit_workflow: edited %s with %d edit(s) (%s)", p, len(edits), summary)
+    return EditWorkflowResult(
+        path=str(p),
+        bytes_written=bytes_written,
+        diff_summary=summary,
+        edits_applied=len(edits),
     )
 
 
@@ -358,7 +537,10 @@ async def cancel_run(
 
 
 __all__: list[str] = [
+    "WorkflowEdit",
+    "_apply_edits",
     "cancel_run",
+    "edit_workflow",
     "run_workflow",
     "write_workflow",
 ]

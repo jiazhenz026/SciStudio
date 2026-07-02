@@ -2,7 +2,7 @@
 
 Asserts the FastMCP-backed MCP server matches the ADR-040 contract:
 
-* 33 tools discoverable via ``await mcp.list_tools()``
+* 34 tools discoverable via ``await mcp.list_tools()``
   (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488 + 6 plot tools
   from ADR-048 SPEC 2).
 * Every write-class tool's result model has ``next_step: str``.
@@ -39,6 +39,8 @@ _EXPECTED_TOOL_NAMES = {
     "get_workflow",
     "validate_workflow",
     "write_workflow",
+    # #1912: surgical partial-edit workflow tool
+    "edit_workflow",
     "run_workflow",
     "cancel_run",
     "get_run_status",
@@ -83,10 +85,10 @@ def _run(coro):
 # ---------------------------------------------------------------------------
 
 
-def test_fastmcp_lists_33_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2: 33 tools (27 + 6 plot)."""
+def test_fastmcp_lists_34_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912): 34 tools (28 + 6 plot)."""
     tools = _run(mcp.list_tools())
-    assert len(tools) == 33
+    assert len(tools) == 34
     names = {t.name for t in tools}
     assert names == _EXPECTED_TOOL_NAMES, (
         f"missing: {_EXPECTED_TOOL_NAMES - names}; extra: {names - _EXPECTED_TOOL_NAMES}"
@@ -97,6 +99,7 @@ def test_write_class_tools_have_next_step() -> None:
     """ADR-040 §3.2: every write-class tool's result model has next_step: str."""
     write_class = {
         "write_workflow",
+        "edit_workflow",
         "run_workflow",
         "cancel_run",
         "finish_ai_block",

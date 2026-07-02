@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#1912] `edit_workflow` MCP tool — a surgical partial-edit path for existing
+  workflow YAML. The agent previously had to re-emit a whole workflow through
+  `write_workflow` (full-file replace) for any structural change, which dropped
+  the user's GUI-set block `config` and comments. `edit_workflow(workflow_path,
+  edits=[{old_string, new_string}])` applies search/replace patches to the file
+  text (each `old_string` must match exactly once, or `replace_all`), preserving
+  everything untouched, then parses + validates the result against
+  `WorkflowFileModel` exactly like `write_workflow` and refuses to write on
+  failure. Atomic (all edits or none), file-locked, and emits the same versioned
+  `workflow.changed` event for GUI sync. `write_workflow` is now reserved for
+  CREATING a workflow; `update_block_config` for pure config patches. The
+  `protect_workflow_yaml` hook is unchanged — this is the sanctioned partial-edit
+  path. Updates the `scistudio-build-workflow` skill and the MCP tool surface doc
+  (33 → 34 tools). (@claude, 2026-07-02, branch: guided/1912-edit-workflow-mcp)
+
 ## [0.3.2] - 2026-06-28
 
 Standardized the public API surface (ADR-052) and added the alpha testing token

@@ -288,9 +288,26 @@ inspect_data(ref)                      # shape, dtype, axes
 preview_data(ref, fmt)                 # thumbnail / first rows
 ```
 
-Every write-class tool (`write_workflow`, `run_workflow`,
-`cancel_run`, `update_block_config`, `finish_ai_block`) returns a
-result envelope with a `next_step: str` field. Read it and follow.
+Every write-class tool (`write_workflow`, `edit_workflow`,
+`run_workflow`, `cancel_run`, `update_block_config`, `finish_ai_block`)
+returns a result envelope with a `next_step: str` field. Read it and follow.
+
+### 4.1 Creating vs editing an existing workflow
+
+`write_workflow` replaces the whole file — use it only to CREATE a new
+workflow. To change part of an *existing* workflow, do NOT re-emit the
+full YAML through `write_workflow`: re-emitting drops the user's GUI-set
+block `config` and comments. Instead:
+
+- Use `edit_workflow(workflow_path, edits=[{old_string, new_string}])` for
+  any partial edit (add or remove a node, rewire an edge, change a
+  description). It applies search/replace patches to the file and
+  preserves everything you do not touch; each `old_string` must match
+  exactly once (set `replace_all` to replace every occurrence). Call
+  `get_workflow` first to copy the exact text to replace, then
+  `validate_workflow` after.
+- Use `update_block_config(workflow_path, block_id, params)` when you only
+  need to change one block's config params.
 
 ## 5. When validation fails
 
@@ -338,8 +355,13 @@ changing something; the failure mode will recur.
   `Load`/`Save` can do the job.
 - Always call `list_blocks` + `get_block_schema` for each block before
   writing a workflow.
-- Always call `validate_workflow` after `write_workflow`. NEVER call
-  `run_workflow` on an unvalidated YAML.
+- Always call `validate_workflow` after `write_workflow` or
+  `edit_workflow`. NEVER call `run_workflow` on an unvalidated YAML.
+- Use `write_workflow` only to CREATE a workflow. To change an existing
+  one, use `edit_workflow` (partial edit) or `update_block_config` (config
+  only) so the user's block config and comments survive (§4.1).
+- Never edit `workflows/*.yaml` with Bash/Edit/Write; those are blocked by
+  the protect_workflow_yaml hook. Go through the MCP tools.
 - Edge port format is `"node_id:port_name"` (single colon, two
   strings) — NOT the canvas 4-field shape.
 - Always poll `get_run_status` until terminal (`succeeded` / `failed`
@@ -356,3 +378,6 @@ changing something; the failure mode will recur.
 - Polling `get_run_status` once and declaring done on `running`.
 - Hallucinating port names instead of calling `get_block_schema`.
 - Re-running a failed workflow without diagnosing the failure first.
+- Re-emitting a whole existing workflow through `write_workflow` for a
+  small change — it clobbers the user's block config and comments. Use
+  `edit_workflow` or `update_block_config` instead.

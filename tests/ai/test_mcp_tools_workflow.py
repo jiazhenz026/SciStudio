@@ -391,6 +391,184 @@ def test_write_workflow_rejects_unparseable_yaml(ctx: _StubRuntime, tmp_path: Pa
     assert not target.exists()
 
 
+# --- edit_workflow (#1912) -------------------------------------------------
+
+# A workflow that carries user-set block config + a structural comment. The
+# partial-edit tool must preserve everything the edits do not touch.
+_WF_WITH_CONFIG = """\
+# user comment: do not lose me
+workflow:
+  id: edit_wf
+  version: 1.0.0
+  description: original description
+  nodes:
+    - id: b1
+      block_type: load_data
+      config:
+        core_type: DataFrame
+        path: data/raw/in.csv   # user-tuned inline value
+  edges: []
+"""
+
+
+def test_edit_workflow_partial_edit_preserves_config_and_comments(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+
+    result = _run(
+        tools_workflow.edit_workflow(
+            workflow_path=str(target),
+            edits=[{"old_string": "original description", "new_string": "updated description"}],
+        )
+    )
+
+    text = target.read_text(encoding="utf-8")
+    # The targeted edit landed.
+    assert "updated description" in text
+    assert "original description" not in text
+    # Everything untouched survives verbatim: comment, block config, inline note.
+    assert "# user comment: do not lose me" in text
+    assert "core_type: DataFrame" in text
+    assert "path: data/raw/in.csv   # user-tuned inline value" in text
+    # Envelope contract.
+    assert result.edits_applied == 1
+    assert result.bytes_written > 0
+    assert Path(result.path).resolve() == target.resolve()
+    assert "validate_workflow" in result.next_step
+
+
+def test_edit_workflow_zero_match_rejected_no_write(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+    before = target.read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"not found"):
+        _run(
+            tools_workflow.edit_workflow(
+                workflow_path=str(target),
+                edits=[{"old_string": "no such text anywhere", "new_string": "x"}],
+            )
+        )
+    # File is unchanged.
+    assert target.read_text(encoding="utf-8") == before
+
+
+def test_edit_workflow_non_unique_match_rejected(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+    before = target.read_text(encoding="utf-8")
+
+    # "id:" appears more than once (workflow id + node id).
+    with pytest.raises(ValueError, match=r"matched .* times"):
+        _run(
+            tools_workflow.edit_workflow(
+                workflow_path=str(target),
+                edits=[{"old_string": "id:", "new_string": "id: "}],
+            )
+        )
+    assert target.read_text(encoding="utf-8") == before
+
+
+def test_edit_workflow_replace_all(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+
+    # DataFrame -> Series everywhere it appears (schema still valid).
+    result = _run(
+        tools_workflow.edit_workflow(
+            workflow_path=str(target),
+            edits=[{"old_string": "DataFrame", "new_string": "Series", "replace_all": True}],
+        )
+    )
+    text = target.read_text(encoding="utf-8")
+    assert "DataFrame" not in text
+    assert "core_type: Series" in text
+    assert result.edits_applied == 1
+
+
+def test_edit_workflow_multi_edit_atomic_rejects_on_invalid_result(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+    before = target.read_text(encoding="utf-8")
+
+    # First edit is fine, second breaks the schema (removes the required
+    # top-level `workflow:` key). The whole batch must roll back — no write.
+    with pytest.raises(ValueError, match=r"schema|parse"):
+        _run(
+            tools_workflow.edit_workflow(
+                workflow_path=str(target),
+                edits=[
+                    {"old_string": "original description", "new_string": "new description"},
+                    {"old_string": "workflow:", "new_string": "not_workflow:"},
+                ],
+            )
+        )
+    # Atomicity: neither edit persisted.
+    assert target.read_text(encoding="utf-8") == before
+
+
+def test_edit_workflow_missing_file_raises(ctx: _StubRuntime, tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match=r"not found"):
+        _run(
+            tools_workflow.edit_workflow(
+                workflow_path=str(tmp_path / "workflows" / "nope.yaml"),
+                edits=[{"old_string": "a", "new_string": "b"}],
+            )
+        )
+
+
+def test_edit_workflow_emits_agent_versioned_change_event(tmp_path: Path) -> None:
+    runtime = _VersionedStubRuntime(tmp_path)
+    _context.set_context(runtime)
+    try:
+        target = tmp_path / "workflows" / "edit_wf.yaml"
+        _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+        # Reset write_workflow's create event so we assert only the edit event.
+        runtime.event_bus.events.clear()
+        runtime.first_party_writes.clear()
+        runtime.pending_first_party_writes.clear()
+
+        result = _run(
+            tools_workflow.edit_workflow(
+                workflow_path=str(target),
+                edits=[{"old_string": "original description", "new_string": "edited"}],
+            )
+        )
+    finally:
+        _context.set_context(None)
+
+    assert result.edits_applied == 1
+    # The edit bumps the version and emits one modified event.
+    assert len(runtime.event_bus.events) == 1
+    event = runtime.event_bus.events[0]
+    assert event.event_type == WORKFLOW_CHANGED
+    assert event.data["entity_id"] == "edit_wf"
+    assert event.data["kind"] == "modified"
+    assert event.data["source"] == "agent"
+    assert event.data["path"] == "workflows/edit_wf.yaml"
+
+
+def test_edit_workflow_headless_context_still_edits(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """A minimal context with no versioned runtime still edits (degrade to no event)."""
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+    result = _run(
+        tools_workflow.edit_workflow(
+            workflow_path=str(target),
+            edits=[{"old_string": "original description", "new_string": "headless edit"}],
+        )
+    )
+    assert "headless edit" in target.read_text(encoding="utf-8")
+    assert result.edits_applied == 1
+
+
+def test_edit_workflow_empty_edits_rejected(ctx: _StubRuntime, tmp_path: Path) -> None:
+    target = tmp_path / "workflows" / "edit_wf.yaml"
+    _run(tools_workflow.write_workflow(str(target), _WF_WITH_CONFIG))
+    with pytest.raises(ValueError, match=r"at least one edit"):
+        _run(tools_workflow.edit_workflow(workflow_path=str(target), edits=[]))
+
+
 # --- run_workflow ----------------------------------------------------------
 
 

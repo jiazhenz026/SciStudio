@@ -70,6 +70,7 @@ _EXPECTED_TOOL_NAMES = (
     "get_workflow",
     "validate_workflow",
     "write_workflow",
+    "edit_workflow",
     "run_workflow",
     "cancel_run",
     "get_run_status",
@@ -85,6 +86,7 @@ _EXPECTED_MODEL_NAMES = (
     "WorkflowDefinitionEnvelope",
     "ValidateWorkflowResult",
     "WriteWorkflowResult",
+    "EditWorkflowResult",
     "RunWorkflowResult",
     "CancelRunResult",
     "BlockErrorEntry",
@@ -110,7 +112,7 @@ _EXPECTED_INTERNAL_NAMES = (
 
 
 def test_package_exposes_every_legacy_tool_name() -> None:
-    """All 10 ``@mcp.tool`` functions remain attribute-addressable on the package."""
+    """Every ``@mcp.tool`` function remains attribute-addressable on the package."""
     for name in _EXPECTED_TOOL_NAMES:
         assert hasattr(tools_workflow, name), f"missing tool {name!r} after refactor"
         assert callable(getattr(tools_workflow, name)), f"{name!r} is not callable"

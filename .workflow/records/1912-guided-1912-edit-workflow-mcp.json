@@ -1,0 +1,179 @@
+{
+  "branch": "guided/1912-edit-workflow-mcp",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/**",
+      "src/scistudio/_skills/**",
+      "docs/**",
+      "tests/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-02T21:10:52.039338Z",
+      "owner_directive": "Placement: edit_workflow lives in tools_workflow/write.py next to write_workflow (both are workflow-write-class tools decorating @mcp.tool with tags category:workflow+write; reuses that module's _atomic_write_text, _LOCK_TIMEOUT_SECONDS, _workflow_change_context, _emit_agent_workflow_changed). EditWorkflowResult model added to tools_workflow/_models.py next to WriteWorkflowResult. Search/replace on file TEXT preserves config/comments/key-order verbatim; result re-parsed + validated against WorkflowFileModel exactly like write_workflow; refuse write on validation failure. Public surface snapshot (ADR-052) unaffected (MCP tool, not a public Python symbol) \u2014 verified. No new ADR/spec per owner.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-02T21:10:52.039597Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039828Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039832Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039836Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039849Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner decided NO new ADR; edit_workflow is agent tooling within the existing ADR-040 MCP-write model, not an architectural decision",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039856Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner decided NO new spec; no contract/schema change \u2014 edit_workflow reuses WorkflowFileModel validation unchanged",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1912,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add single edit_workflow MCP tool for surgical partial workflow edits so AI edits stop clobbering user-set block config; keep protect_workflow_yaml hook; update build-workflow skill + descriptive docs",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1912-guided-1912-edit-workflow-mcp",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-02T21:10:52.039571Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/write.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-02T21:10:52.039582Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/_models.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-02T21:10:52.039584Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-02T21:10:52.039586Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "44c52890-3348-4012-aa3c-98d8fa677175",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-07-02T21:10:52.039860Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039863Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_disk_integration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039864Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039865Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039866Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_finish_ai_block_skeleton.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-02T21:10:52.039867Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_tools_workflow_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

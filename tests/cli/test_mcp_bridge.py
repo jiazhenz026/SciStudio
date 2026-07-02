@@ -148,9 +148,9 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 33, (
-        f"expected 33 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
-        f"+ 6 ADR-048 SPEC 2 plot tools), got {len(tools)}"
+    assert len(tools) == 34, (
+        f"expected 34 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
+        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912), got {len(tools)}"
     )
 
 
@@ -218,7 +218,7 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         response = json.loads(lines[0].decode("utf-8"))
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
-        assert isinstance(tools, list) and len(tools) == 33  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot tools
+        assert isinstance(tools, list) and len(tools) == 34  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
     finally:
         _shutdown.set()
         if server_thread is not None:
