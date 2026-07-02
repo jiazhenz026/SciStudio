@@ -249,7 +249,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "13195f041cf53951f5392b1632dd3b5537e70608",
+    "shas": [
+      "13195f041cf53951f5392b1632dd3b5537e70608"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -632,6 +638,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.174986Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.184599Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.194647Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.204129Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.213232Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.222441Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.231158Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.239864Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.248722Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:06:25.260111Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -657,9 +745,9 @@
       "src/scistudio/api/routes/filesystem.py",
       "tests/api/test_native_dialog.py"
     ],
-    "diff_fingerprint": "sha256:cac10b4bf1db4e197ac21028bb84b8d8ff77c999c3676b6864a8d13a0abc33da",
+    "diff_fingerprint": "sha256:a141e8ce755f04038a5a8c252c324e34154178002c63fce9caa2a4fcced4364f",
     "head": "HEAD",
-    "head_sha": "4fb8d88a",
+    "head_sha": "13195f04",
     "surfaces": {
       "docs": 0,
       "frontend": 5,
@@ -675,7 +763,14 @@
   },
   "owner_directive": "All load/save file dialogs should default to the current project root instead of the user home; exclude create/open project and diagnostic-bundle export (keep home)",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1915
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-02T21:38:57.478295Z",
@@ -716,6 +811,14 @@
     {
       "at": "2026-07-02T22:05:50.130437Z",
       "diff_fingerprint": "sha256:cac10b4bf1db4e197ac21028bb84b8d8ff77c999c3676b6864a8d13a0abc33da",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-02T22:06:25.260154Z",
+      "diff_fingerprint": "sha256:a141e8ce755f04038a5a8c252c324e34154178002c63fce9caa2a4fcced4364f",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
