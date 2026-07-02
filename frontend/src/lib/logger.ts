@@ -177,7 +177,11 @@ async function openNativeSaveDialog(
       headers: { "Content-Type": "application/json" },
       // prefer_home: a diagnostic bundle is a machine artifact, not a project
       // file, so it saves from home rather than the active project root (#1915).
-      body: JSON.stringify({ mode: "save_file", default_filename: defaultFilename, prefer_home: true }),
+      body: JSON.stringify({
+        mode: "save_file",
+        default_filename: defaultFilename,
+        prefer_home: true,
+      }),
     });
     if (!response.ok) return { path: null, available: false };
     const data = (await response.json()) as { paths?: string[]; available?: boolean };

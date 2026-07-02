@@ -126,6 +126,51 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-07-02T21:40:56.475638Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b6265b0c07db1411cdaec53715f7f780de0ac093872ba5c199888dc27cea1be7",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-02T21:41:03.143898Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d26a5e7ebfd41d94b210794351bdb3525fd192f819fce829587cdba360e3805f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-02T21:45:31.722182Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1e6a2c604c1a80f9c5416f841bd36bbb538656dd31299cecace0ab8c02222eff",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -266,6 +311,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.770443Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.781880Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.794404Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.806218Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.818178Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.829648Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.840578Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.852723Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.863689Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:45:31.877267Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -282,6 +409,7 @@
     "base_sha": "a0eb440d",
     "changed_files": [
       ".workflow/records/1915-guided-1915-dialog-project-root.json",
+      "CHANGELOG.md",
       "frontend/src/components/ProjectDialog.tsx",
       "frontend/src/lib/__tests__/logger.test.ts",
       "frontend/src/lib/api/__tests__/filesystem.test.ts",
@@ -290,9 +418,9 @@
       "src/scistudio/api/routes/filesystem.py",
       "tests/api/test_native_dialog.py"
     ],
-    "diff_fingerprint": "sha256:8c7e1c802c6217be957049fbf5651fe817bd4ca12de70dc2a6b3fbbb772996bc",
+    "diff_fingerprint": "sha256:0aa21b67cba166676f9c4e82d3ad7a4b5d2ee587891c9d7d4df0b6eece597eaa",
     "head": "HEAD",
-    "head_sha": "192f004a",
+    "head_sha": "d732b496",
     "surfaces": {
       "docs": 0,
       "frontend": 5,
@@ -322,6 +450,18 @@
         "docs.docs_required_or_na",
         "guard.docs_landing",
         "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-07-02T21:45:31.877313Z",
+      "diff_fingerprint": "sha256:0aa21b67cba166676f9c4e82d3ad7a4b5d2ee587891c9d7d4df0b6eece597eaa",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.python_tests",
+        "scope.out-of-scope"
       ]
     }
   ],
@@ -360,7 +500,14 @@
   },
   "runtime": "claude",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-02T21:48:21.144730Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "CHANGELOG.md is the docs-landing evidence for this change; include it in scope"
+    }
+  ],
   "session_id": "c6816fbb-5bce-4bc0-b71a-f922a9c6363e",
   "strictness_tier": 2,
   "task_kind": "guided",
