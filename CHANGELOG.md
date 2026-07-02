@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1912] `edit_workflow` MCP tool — a surgical partial-edit path for existing
+  workflow YAML. The agent previously had to re-emit a whole workflow through
+  `write_workflow` (full-file replace) for any structural change, which dropped
+  the user's GUI-set block `config` and comments. `edit_workflow(workflow_path,
+  edits=[{old_string, new_string}])` applies search/replace patches to the file
+  text (each `old_string` must match exactly once, or `replace_all`), preserving
+  everything untouched, then parses + validates the result against
+  `WorkflowFileModel` exactly like `write_workflow` and refuses to write on
+  failure. Atomic (all edits or none), file-locked, and emits the same versioned
+  `workflow.changed` event for GUI sync. `write_workflow` is now reserved for
+  CREATING a workflow; `update_block_config` for pure config patches. The
+  `protect_workflow_yaml` hook is unchanged — this is the sanctioned partial-edit
+  path. Updates the `scistudio-build-workflow` skill and the MCP tool surface doc
+  (33 → 34 tools). (@claude, 2026-07-02, branch: guided/1912-edit-workflow-mcp)
 - [#1910] `POST /api/blocks/reload` — a backend block re-scan endpoint the
   palette "Reload" button now calls. It runs `registry.hot_reload()` and
   broadcasts `blocks.reloaded`, so an in-place drop-in edit (e.g. changing a

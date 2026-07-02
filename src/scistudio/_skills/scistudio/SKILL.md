@@ -72,8 +72,10 @@ underscore module.
 - The `mcp__scistudio__*` tools are your only interface to SciStudio; there
   is no command-line tool. Do not try to drive SciStudio from Bash.
 - Do NOT directly Edit/Write `workflows/*.yaml`. Use
-  `mcp__scistudio__write_workflow` / `update_block_config` so changes
-  flow through schema validation and lineage tracking. Hooks
+  `mcp__scistudio__write_workflow` (create a new workflow),
+  `mcp__scistudio__edit_workflow` (surgical partial edit of an existing
+  workflow), or `mcp__scistudio__update_block_config` (one block's config)
+  so changes flow through schema validation and lineage tracking. Hooks
   block direct edits.
 - Before writing a new block, call `mcp__scistudio__list_blocks` and
   reuse if any existing block's I/O contract matches.
@@ -96,7 +98,7 @@ plugins). Trust the rendered values; do not invent project metadata.
 ## Tool catalog
 
 The injected block below is replaced at prompt-composition time with
-the live MCP tool catalog (33 tools across workflow / authoring /
+the live MCP tool catalog (34 tools across workflow / authoring /
 inspection / qa / plot). Use tool names and descriptions from the rendered
 catalog; do not type from memory if uncertain.
 
@@ -112,14 +114,15 @@ skill (`scistudio-build-workflow`, `scistudio-write-block`,
 `scistudio-write-plot`) for the documented call sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (33 tools — Codex sees this; Claude sees the live
+**Static fallback (34 tools — Codex sees this; Claude sees the live
 catalog re-spliced from FastMCP at compose time).**
 
-- **Workflow (11)** — `list_blocks`, `get_block_schema`, `list_types`,
-  `get_workflow`, `validate_workflow`, `write_workflow`,
+- **Workflow (12)** — `list_blocks`, `get_block_schema`, `list_types`,
+  `get_workflow`, `validate_workflow`, `write_workflow`, `edit_workflow`,
   `run_workflow`, `cancel_run`, `get_run_status`, `finish_ai_block`,
   `get_active_workflow_context`.
-  Read schemas and write/run workflow YAML; poll run status; close
+  Read schemas, create (`write_workflow`) or surgically edit
+  (`edit_workflow`) workflow YAML, and run it; poll run status; close
   out AI blocks; retrieve active workflow context for the current session.
 - **Authoring (5)** — `read_block_source`, `list_block_examples`,
   `scaffold_block`, `reload_blocks`, `run_block_tests`. Author and

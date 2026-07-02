@@ -321,6 +321,103 @@ def test_update_block_config_preserves_comments(
 
 
 # ---------------------------------------------------------------------------
+# Case 9b: edit_workflow surgical partial edit preserves untouched content (#1912).
+# ---------------------------------------------------------------------------
+
+
+def test_edit_workflow_preserves_config_and_resolves_path(
+    ctx_with_project: _StubRuntime,
+    project_root: Path,
+) -> None:
+    """edit_workflow applies a search/replace to file text, preserving the rest.
+
+    Unlike write_workflow (full-file replace), a partial edit must leave a
+    user-set block ``config`` and structural comments untouched. The result
+    envelope returns the absolute resolved path under project_dir.
+    """
+    # #1910: the file-name stem must equal the internal id.
+    _run(
+        tools_workflow.write_workflow(
+            path="workflows/edit_target.yaml", yaml=_COMMENTED_WF.replace("id: commented", "id: edit_target")
+        )
+    )
+    out = _run(
+        tools_workflow.edit_workflow(
+            workflow_path="workflows/edit_target.yaml",
+            edits=[{"old_string": "backend: csv", "new_string": "backend: parquet"}],
+        )
+    )
+    target = (project_root / "workflows" / "edit_target.yaml").resolve()
+    text = target.read_text(encoding="utf-8")
+    # The targeted edit landed; the untouched comment survives verbatim.
+    assert "backend: parquet" in text
+    assert "backend: csv" not in text
+    assert "Top-level comment preserved by ruamel" in text
+    # Envelope echoes the resolved absolute path.
+    assert Path(out.path).resolve() == target
+    assert Path(out.path).is_absolute()
+    assert out.edits_applied == 1
+
+
+def test_edit_workflow_relative_traversal_escape_raises_permission_error(
+    ctx_with_project: _StubRuntime,
+    project_root: Path,
+) -> None:
+    """A ``../`` escape in the path is normalised and rejected before any read/write."""
+    with pytest.raises(PermissionError, match="resolves outside project root"):
+        _run(
+            tools_workflow.edit_workflow(
+                workflow_path="../escape_edit.yaml",
+                edits=[{"old_string": "a", "new_string": "b"}],
+            )
+        )
+    bogus = (project_root.parent / "escape_edit.yaml").resolve()
+    assert not bogus.exists()
+
+
+def test_concurrent_edit_workflow_serialises(
+    ctx_with_project: _StubRuntime,
+    project_root: Path,
+) -> None:
+    """Two concurrent edits on the same path serialise via the shared file lock."""
+    # #1910: the file-name stem must equal the internal id.
+    _run(
+        tools_workflow.write_workflow(
+            path="workflows/concurrent_edit.yaml", yaml=_COMMENTED_WF.replace("id: commented", "id: concurrent_edit")
+        )
+    )
+    results: list[Any] = []
+    errors: list[BaseException] = []
+
+    def _worker(old: str, new: str) -> None:
+        try:
+            r = _run(
+                tools_workflow.edit_workflow(
+                    workflow_path="workflows/concurrent_edit.yaml",
+                    edits=[{"old_string": old, "new_string": new}],
+                )
+            )
+            results.append(r)
+        except BaseException as exc:
+            errors.append(exc)
+
+    # Two edits touching different lines: both should apply once the lock
+    # serialises them (each old_string still matches exactly once).
+    t1 = threading.Thread(target=_worker, args=("id: concurrent_edit", "id: renamed_wf"))
+    t2 = threading.Thread(target=_worker, args=("backend: csv", "backend: json"))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"unexpected errors: {errors}"
+    assert len(results) == 2
+    content = (project_root / "workflows" / "concurrent_edit.yaml").resolve().read_text(encoding="utf-8")
+    assert "renamed_wf" in content
+    assert "backend: json" in content
+
+
+# ---------------------------------------------------------------------------
 # Case 10: every write tool returns an absolute path.
 # ---------------------------------------------------------------------------
 

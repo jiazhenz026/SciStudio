@@ -1321,7 +1321,7 @@ state, and event bus context that the backend uses. This is why MCP calls can
 validate workflows, reload blocks, start runs, inspect lineage, and reflect live
 runtime state instead of operating as disconnected file edits.
 
-The production MCP surface contains 33 tools:
+The production MCP surface contains 34 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
@@ -1330,7 +1330,8 @@ The production MCP surface contains 33 tools:
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_types</code> | List registered data types for port and workflow authoring. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_workflow</code> | Read a project workflow definition. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_workflow</code> | Validate workflow structure before execution or save. | Read |
-| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;write_workflow</code> | Persist schema-validated workflow YAML. | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;write_workflow</code> | Persist schema-validated workflow YAML (whole-file write; use to create a new workflow). | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;edit_workflow</code> | Surgically edit part of an existing workflow via schema-validated search/replace patches, preserving untouched block config and comments. | Write |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;run_workflow</code> | Start a workflow run through the SciStudio runtime. | Write |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;cancel_run</code> | Cancel an active workflow run. | Write |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_run_status</code> | Poll run state, block state, and terminal outcome. | Read |

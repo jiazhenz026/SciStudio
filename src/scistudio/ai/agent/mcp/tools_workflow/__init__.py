@@ -76,6 +76,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     BlockSchemaResult,
     BlockSummary,
     CancelRunResult,
+    EditWorkflowResult,
     FinishAIBlockError,
     FinishAIBlockOK,
     GetRunStatusResult,
@@ -101,7 +102,9 @@ from scistudio.ai.agent.mcp.tools_workflow.read import (
     validate_workflow,
 )
 from scistudio.ai.agent.mcp.tools_workflow.write import (
+    WorkflowEdit,
     cancel_run,
+    edit_workflow,
     run_workflow,
     write_workflow,
 )
@@ -128,6 +131,7 @@ __all__ = [  # noqa: RUF022 — grouped by role (helpers / models / tools)
     "BlockSchemaResult",
     "BlockSummary",
     "CancelRunResult",
+    "EditWorkflowResult",
     "FinishAIBlockError",
     "FinishAIBlockOK",
     "GetRunStatusResult",
@@ -137,9 +141,11 @@ __all__ = [  # noqa: RUF022 — grouped by role (helpers / models / tools)
     "TypeEntry",
     "ValidateWorkflowResult",
     "WorkflowDefinitionEnvelope",
+    "WorkflowEdit",
     "WriteWorkflowResult",
-    # ---- 11 MCP tool functions ----
+    # ---- 12 MCP tool functions ----
     "cancel_run",
+    "edit_workflow",
     "finish_ai_block",
     "get_active_workflow_context",
     "get_block_schema",
