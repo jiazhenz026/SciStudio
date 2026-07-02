@@ -218,7 +218,9 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         response = json.loads(lines[0].decode("utf-8"))
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
-        assert isinstance(tools, list) and len(tools) == 34  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
+        assert (
+            isinstance(tools, list) and len(tools) == 34
+        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
     finally:
         _shutdown.set()
         if server_thread is not None:
