@@ -311,6 +311,10 @@ canonical follow-up is documented here.) When `valid=False`:
 
 `write_workflow` itself is the write-class tool; its result envelope
 carries `next_step` pointing at `validate_workflow`. Always follow it.
+It rejects any write whose file-name stem differs from the workflow's
+internal `id`: always write to `workflows/{id}.yaml`. A divergent pair
+(e.g. `foo_bar.yaml` holding `id: foo-bar`) breaks `run_workflow`,
+save, and import, because the runtime resolves a workflow by its id.
 
 ## 6. When a run fails
 

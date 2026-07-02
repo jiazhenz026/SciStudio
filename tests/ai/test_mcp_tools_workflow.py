@@ -294,7 +294,8 @@ def test_validate_workflow_bad_yaml(ctx: _StubRuntime) -> None:
 
 def test_write_workflow_creates_file(ctx: _StubRuntime, tmp_path: Path) -> None:
     target = tmp_path / "out.yaml"
-    result = _run(tools_workflow.write_workflow(str(target), _WF_YAML))
+    # #1910: the file-name stem must equal the workflow's internal id.
+    result = _run(tools_workflow.write_workflow(str(target), _WF_YAML.replace("test_wf", "out")))
     assert target.exists()
     assert result.bytes_written > 0
     assert "lines" in result.diff_summary
@@ -307,7 +308,8 @@ def test_write_workflow_emits_agent_versioned_change_event(tmp_path: Path) -> No
     _context.set_context(runtime)
     try:
         target = tmp_path / "workflows" / "agent_edit.yaml"
-        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML))
+        # #1910: id must match the file-name stem.
+        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML.replace("test_wf", "agent_edit")))
     finally:
         _context.set_context(None)
 
@@ -351,7 +353,8 @@ def test_write_workflow_emits_versioned_event_through_runtime_adapter(tmp_path: 
     _context.set_context(adapter)
     try:
         target = tmp_path / "workflows" / "agent_adapter_edit.yaml"
-        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML))
+        # #1910: id must match the file-name stem.
+        result = _run(tools_workflow.write_workflow(str(target), _WF_YAML.replace("test_wf", "agent_adapter_edit")))
     finally:
         _context.set_context(None)
 
@@ -388,6 +391,24 @@ def test_write_workflow_rejects_unparseable_yaml(ctx: _StubRuntime, tmp_path: Pa
     target = tmp_path / "broken.yaml"
     with pytest.raises(ValueError, match=r"YAML parse failure"):
         _run(tools_workflow.write_workflow(str(target), "workflow:\n  id: [unterminated"))
+    assert not target.exists()
+
+
+def test_write_workflow_rejects_filename_id_mismatch(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#1910: the file-name stem must exactly equal the workflow's internal id.
+
+    Reproduces the collagen-project failure: a file written as
+    ``collagen_srs_pipeline.yaml`` (underscores) while its internal id is
+    ``collagen-srs-pipeline`` (hyphens). The runtime resolves a workflow by its
+    id to ``workflows/{id}.yaml``, so the divergence breaks run ("Workflow not
+    found") and save/import (duplicate-id conflict). The write is refused with an
+    actionable message rather than persisted.
+    """
+    target = tmp_path / "collagen_srs_pipeline.yaml"
+    yaml_text = _WF_YAML.replace("test_wf", "collagen-srs-pipeline")
+    with pytest.raises(ValueError, match=r"must exactly equal the workflow's internal id"):
+        _run(tools_workflow.write_workflow(str(target), yaml_text))
+    # Nothing is written when the invariant is violated.
     assert not target.exists()
 
 
