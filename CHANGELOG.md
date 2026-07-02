@@ -18,6 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1918] Plot preview **Save** can now produce a valid `png` / `pdf` / `svg` /
+  `jpeg` file. Previously Save only ever wrote the single preferred (SVG)
+  artifact, and changing the destination extension yielded a broken file because
+  the export blindly reused the cached SVG bytes. Re-rendering on save is
+  impossible (the matplotlib figure is closed immediately after render), so the
+  plot run now renders one sibling file per manifest `allowed_formats` up front
+  (`figure.svg` + `.pdf` + `.png` + `.jpg`, promoted to `current.<ext>` in the
+  preview cache); the preview still shows the preferred format, and Save/Export
+  resolves the sibling matching the user's chosen format. The plot viewer gains
+  a format menu offering the formats the run rendered, and requesting an
+  unrendered format now errors cleanly instead of writing a corrupt file. Extra
+  formats degrade gracefully under the output caps (keep the primary, warn).
+  (`src/scistudio/plot/_harness.py`, `src/scistudio/plot/runtime.py`,
+  `src/scistudio/previewers/{fallbacks,session}.py`,
+  `frontend/src/components/DataPreview.parts/{PlotViewer,PreviewHost}.tsx`)
+  (@claude, 2026-07-02, branch: guided/1918-plot-save-format)
+
 - [#1910] Workflow file name and internal `id` may no longer diverge:
   `write_workflow` now refuses any write whose file-name stem differs from the
   workflow's `id` (e.g. `collagen_srs_pipeline.yaml` holding

@@ -57,6 +57,38 @@ logger = logging.getLogger(__name__)
 # option c), so it is resolved from the stdlib ``mimetypes`` registry rather
 # than a hand-maintained map.
 _PLOT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".svg", ".pdf"})
+# Canonical export formats, and the order the frontend Save-as menu offers them.
+_PLOT_EXPORT_FORMAT_ORDER = ("svg", "pdf", "png", "jpeg")
+
+
+def _canonical_plot_format(suffix: str) -> str:
+    """Fold a ``.ext``/``ext`` suffix to a canonical plot format (``jpg``→``jpeg``)."""
+    ext = suffix.lower().lstrip(".")
+    return "jpeg" if ext == "jpg" else ext
+
+
+def _available_plot_formats(primary: object) -> list[str]:
+    """Formats actually rendered for this plot, resolved from the sibling files.
+
+    The plot run promotes one ``<stem>.<suffix>`` file per allowed format next to
+    the preferred-format primary (#1918). Globbing the primary's stem tells the
+    frontend which formats a Save-as menu can offer without re-rendering. Falls
+    back to just the primary's own format when siblings cannot be enumerated.
+    """
+    from pathlib import Path
+
+    path = primary if isinstance(primary, Path) else Path(str(primary))
+    own = _canonical_plot_format(path.suffix)
+    try:
+        found = {
+            _canonical_plot_format(sib.suffix)
+            for sib in path.parent.glob(f"{path.stem}.*")
+            if sib.is_file() and sib.suffix.lower() in _PLOT_SUFFIXES
+        }
+    except OSError:
+        found = set()
+    found.add(own)
+    return [fmt for fmt in _PLOT_EXPORT_FORMAT_ORDER if fmt in found]
 
 
 def _ref_for(request: PreviewRequest) -> StorageReference:
@@ -469,7 +501,17 @@ def plot_previewer(request: PreviewRequest) -> PreviewEnvelope:
         return _error_envelope(request, None, f"unsupported plot artifact format: {suffix or '<none>'}")
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
-    payload: dict[str, object] = {"format": suffix.lstrip("."), "mime_type": mime, "path": ref.path}
+    # Approach B (#1918): the plot run renders one sibling file per allowed
+    # format alongside the preferred-format primary. Surface which formats are
+    # actually available on disk so the frontend can offer a Save-as format
+    # choice and the export resolves the matching sibling instead of forcing SVG.
+    available_formats = _available_plot_formats(path)
+    payload: dict[str, object] = {
+        "format": suffix.lstrip("."),
+        "mime_type": mime,
+        "path": ref.path,
+        "available_formats": available_formats,
+    }
     diagnostics: list[str] = []
 
     if suffix == ".svg":

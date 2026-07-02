@@ -67,6 +67,37 @@ _PLOT_EXPORT_MIME = {
     ".svg": "image/svg+xml",
     ".pdf": "application/pdf",
 }
+# Canonical single-word plot formats a user may export to. ``jpg`` folds to
+# ``jpeg`` so the on-disk ``.jpg`` sibling and a ``jpeg`` request resolve to the
+# same file (#1918).
+_PLOT_EXPORT_FORMATS = frozenset({"svg", "pdf", "png", "jpeg"})
+# Format -> on-disk suffix used for the promoted ``current.<suffix>`` siblings.
+_PLOT_FORMAT_SUFFIX = {"svg": ".svg", "pdf": ".pdf", "png": ".png", "jpeg": ".jpg"}
+
+
+def _canonical_plot_format(suffix: str) -> str:
+    """Fold a ``.ext``/``ext`` suffix to a canonical plot format (``jpg``→``jpeg``)."""
+    ext = suffix.lower().lstrip(".")
+    return "jpeg" if ext == "jpg" else ext
+
+
+def _export_group_stem(primary: Path) -> str:
+    """Cache stem shared by a figure's format siblings, e.g. ``current`` for
+    ``current.svg`` and ``current_1`` for ``current_1.pdf`` (#1918)."""
+    return primary.stem
+
+
+def _sibling_for_format(primary: Path, fmt: str) -> Path:
+    """Resolve the sibling artifact file for *fmt* next to the *primary* file.
+
+    The plot run promotes one ``<stem>.<suffix>`` file per allowed format, so the
+    sibling for a requested format shares the primary's directory and stem and
+    only swaps the extension (``current.svg`` → ``current.pdf`` for ``pdf``).
+    """
+    suffix = _PLOT_FORMAT_SUFFIX.get(fmt, "." + fmt)
+    return primary.parent / (_export_group_stem(primary) + suffix)
+
+
 ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
 ProviderT = TypeVar("ProviderT", bound=Callable[..., Any])
 
@@ -476,32 +507,44 @@ class PreviewSessionManager:
             )
 
         ref = _storage_ref_from_query(params, session.target.ref)
-        path = Path(ref.path)
-        suffix = path.suffix.lower()
-        mime = _PLOT_EXPORT_MIME.get(suffix)
-        if mime is None:
+        primary = Path(ref.path)
+        primary_suffix = primary.suffix.lower()
+        if _PLOT_EXPORT_MIME.get(primary_suffix) is None:
             raise ProviderError(
-                f"unsupported plot export format: {suffix or '<none>'}",
-                detail={"resource_id": "export", "format": suffix.lstrip(".")},
-            )
-        if not path.is_file():
-            raise ProviderError(
-                f"plot export source is unavailable: {path.name or session.target.ref}",
-                detail={"resource_id": "export"},
+                f"unsupported plot export format: {primary_suffix or '<none>'}",
+                detail={"resource_id": "export", "format": primary_suffix.lstrip(".")},
             )
 
-        actual_format = suffix.lstrip(".")
-        requested_format = str(params.get("format") or actual_format).lower().lstrip(".")
-        accepted_formats = {actual_format}
-        if actual_format in {"jpg", "jpeg"}:
-            accepted_formats.update({"jpg", "jpeg"})
-        if requested_format not in accepted_formats:
+        # Approach B (#1918): the plot run renders one sibling file per allowed
+        # format next to the preferred-format primary (``current.svg`` +
+        # ``current.pdf`` + ``current.png`` + ``current.jpg``). Resolve the file
+        # matching the user's chosen format instead of blindly returning the
+        # primary bytes; if that format was not rendered, error cleanly rather
+        # than write a corrupt file with the wrong extension.
+        primary_format = _canonical_plot_format(primary_suffix)
+        requested_format = str(params.get("format") or primary_format).lower().lstrip(".")
+        requested_format = _canonical_plot_format("." + requested_format)
+        if requested_format not in _PLOT_EXPORT_FORMATS:
             raise ProviderError(
-                f"plot export format {requested_format!r} does not match artifact format {actual_format!r}",
+                f"unsupported plot export format: {requested_format or '<none>'}",
                 detail={"resource_id": "export", "format": requested_format},
             )
 
-        if suffix == ".svg":
+        path = _sibling_for_format(primary, requested_format)
+        if not path.is_file():
+            available = sorted(
+                _canonical_plot_format(p.suffix)
+                for p in primary.parent.glob(f"{_export_group_stem(primary)}.*")
+                if _canonical_plot_format(p.suffix) in _PLOT_EXPORT_FORMATS
+            )
+            raise ProviderError(
+                f"plot format {requested_format!r} was not rendered for this plot; "
+                f"available formats: {', '.join(available) or '<none>'}",
+                detail={"resource_id": "export", "format": requested_format, "available_formats": available},
+            )
+
+        mime = _PLOT_EXPORT_MIME[path.suffix.lower()]
+        if path.suffix.lower() == ".svg":
             raw_text = path.read_text(encoding="utf-8", errors="replace")
             sanitized, removed = sanitize_svg(raw_text)
             payload = sanitized.encode("utf-8")
@@ -527,7 +570,7 @@ class PreviewSessionManager:
             )
         payload = path.read_bytes()
         return {
-            "format": "jpeg" if actual_format == "jpg" else actual_format,
+            "format": requested_format,
             "mime_type": mime,
             "filename": path.name,
             "size_bytes": len(payload),

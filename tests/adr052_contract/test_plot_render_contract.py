@@ -192,8 +192,24 @@ def test_plot_render_collection_contract(tmp_path: Path) -> None:
 
     fig = plt.figure()
     fig.add_subplot(111).plot([0, 1, 2], [2, 1, 0])
+    # The return value is still the single preferred-format primary, but the
+    # harness now also writes one sibling file per allowed format so the
+    # previewer can save/export any of them without re-rendering (#1918).
     assert collect(fig, str(out_dir), preferred, _ALL_FORMATS) == ["figure.png"]
     assert (out_dir / "figure.png").is_file()
+    for sibling in ("figure.svg", "figure.pdf", "figure.jpg"):
+        assert (out_dir / sibling).is_file(), sibling
+    # PNG magic bytes for the primary; PDF magic bytes for the sibling.
+    assert (out_dir / "figure.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert (out_dir / "figure.pdf").read_bytes()[:5] == b"%PDF-"
+
+    # With no allowed set only the preferred format is rendered (no siblings).
+    single_dir = tmp_path / "single"
+    single_dir.mkdir()
+    fig_single = plt.figure()
+    fig_single.add_subplot(111).plot([0, 1], [0, 1])
+    assert collect(fig_single, str(single_dir), preferred, []) == ["figure.png"]
+    assert sorted(p.name for p in single_dir.iterdir()) == ["figure.png"]
 
     (out_dir / "made.png").write_bytes(b"x")
     assert collect("made.png", str(out_dir), preferred, _ALL_FORMATS) == ["made.png"]

@@ -459,6 +459,173 @@ def test_plot_preview_resource_save_writes_export_to_user_selected_path(
     assert "<svg" in destination.read_text(encoding="utf-8")
 
 
+def _run_and_open_session(client: TestClient) -> tuple[str, dict[str, Any]]:
+    """Run p1 and open a preview session; return (session_id, envelope)."""
+    run = client.post("/api/plots/run", json={"plot_id": "p1"})
+    assert run.status_code == 200, run.text
+    body = run.json()
+    assert body["status"] == "succeeded", body
+    session = client.post(
+        "/api/previews/sessions",
+        json={
+            "target": {
+                "kind": "plot_artifact",
+                "ref": body["data_ref"],
+                "recorded_type": body["recorded_type"],
+                "type_chain": body["type_chain"],
+                "source": body["source"],
+            },
+            "query": {},
+        },
+    )
+    assert session.status_code == 200, session.text
+    env = session.json()
+    return env["session_id"], env
+
+
+def test_plot_run_renders_all_allowed_formats_as_siblings(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Approach B (#1918): a figure run writes one cache sibling per allowed format.
+
+    The preview still uses the preferred (svg) primary, but pdf/png/jpg siblings
+    exist so Save/Export can produce a valid file in any of them without
+    re-rendering (the figure is closed immediately after render).
+    """
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+
+    run = client.post("/api/plots/run", json={"plot_id": "p1"})
+    assert run.status_code == 200, run.text
+    assert run.json()["status"] == "succeeded"
+
+    cache_dir = preview_cache_dir(opened_project, "main", "node_a", "measurements", "p1")
+    for name in ("current.svg", "current.pdf", "current.png", "current.jpg"):
+        assert (cache_dir / name).is_file(), name
+    # Magic bytes confirm the siblings are genuinely re-rendered, not renamed SVG.
+    assert (cache_dir / "current.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert (cache_dir / "current.pdf").read_bytes()[:5] == b"%PDF-"
+
+
+def test_plot_preview_exposes_available_formats(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """The PLOT envelope advertises the formats the run rendered (for the UI menu)."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+    _sid, env = _run_and_open_session(client)
+    assert env["payload"]["format"] == "svg"
+    assert set(env["payload"]["available_formats"]) == {"svg", "pdf", "png", "jpeg"}
+
+
+@pytest.mark.parametrize(
+    ("fmt", "ext", "magic"),
+    [
+        ("pdf", "pdf", b"%PDF-"),
+        ("png", "png", b"\x89PNG\r\n\x1a\n"),
+    ],
+)
+def test_plot_save_in_chosen_format_writes_valid_file(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    fmt: str,
+    ext: str,
+    magic: bytes,
+) -> None:
+    """Saving as pdf/png writes the matching sibling's real bytes, not the SVG."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+    sid, _env = _run_and_open_session(client)
+
+    export_dir = opened_project / "exports"
+    export_dir.mkdir()
+    destination = export_dir / f"chosen.{ext}"
+    save = client.post(
+        f"/api/previews/sessions/{sid}/resources/export/save",
+        json={"destination_path": str(destination), "params": {"format": fmt}},
+    )
+    assert save.status_code == 200, save.text
+    assert destination.is_file()
+    assert destination.read_bytes()[: len(magic)] == magic
+
+
+def test_plot_save_jpeg_resolves_jpg_sibling(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """A jpeg request resolves the on-disk .jpg sibling and writes JPEG bytes."""
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+    sid, _env = _run_and_open_session(client)
+
+    export_dir = opened_project / "exports"
+    export_dir.mkdir()
+    destination = export_dir / "chosen.jpg"
+    save = client.post(
+        f"/api/previews/sessions/{sid}/resources/export/save",
+        json={"destination_path": str(destination), "params": {"format": "jpeg"}},
+    )
+    assert save.status_code == 200, save.text
+    assert destination.is_file()
+    # JPEG SOI marker.
+    assert destination.read_bytes()[:2] == b"\xff\xd8"
+
+
+def test_plot_save_unrendered_format_errors_cleanly(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Requesting a format that was not rendered errors, never writes a corrupt file.
+
+    The plot's manifest allows only svg/png, so a pdf save must be rejected with
+    a clear error rather than dumping the primary bytes under a .pdf extension.
+    """
+    _seed_block_output(runtime, opened_project)
+    _write_workflow_and_plot(client, opened_project)
+    # Restrict the manifest to svg (primary) + png; pdf/jpeg are not rendered.
+    (opened_project / "plots" / "p1" / "plot.yaml").write_text(
+        "schema_version: 1\n"
+        "id: p1\n"
+        "title: P1\n"
+        "target:\n"
+        "  workflow_path: workflows/main.yaml\n"
+        "  workflow_id: main\n"
+        "  node_id: node_a\n"
+        "  output_port: measurements\n"
+        "  display_label: Seg / measurements\n"
+        "script:\n"
+        "  language: python\n"
+        "  path: render.py\n"
+        "  entrypoint: render\n"
+        "outputs:\n"
+        "  preferred_format: svg\n"
+        "  allowed_formats:\n"
+        "    - svg\n"
+        "    - png\n",
+        encoding="utf-8",
+    )
+    sid, env = _run_and_open_session(client)
+    assert set(env["payload"]["available_formats"]) == {"svg", "png"}
+
+    export_dir = opened_project / "exports"
+    export_dir.mkdir()
+    destination = export_dir / "chosen.pdf"
+    save = client.post(
+        f"/api/previews/sessions/{sid}/resources/export/save",
+        json={"destination_path": str(destination), "params": {"format": "pdf"}},
+    )
+    assert save.status_code >= 400, save.text
+    assert not destination.exists()
+    assert "not rendered" in save.text
+
+
 def test_plot_preview_resource_save_rejects_relative_destination_path(
     client: TestClient,
     runtime: ApiRuntime,
