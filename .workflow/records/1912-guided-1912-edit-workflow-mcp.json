@@ -443,7 +443,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "1cce43da6a6ca0d9e002d24909dac90e5c601da7",
+    "shas": [
+      "1cce43da6a6ca0d9e002d24909dac90e5c601da7"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -840,6 +846,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.666581Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.677746Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.688722Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.698734Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.709071Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.726559Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.739984Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.752634Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.765984Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T22:14:58.782708Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -872,9 +960,9 @@
       "tests/contracts/test_runtime_import_contract.py",
       "tests/integration/test_phase2_mcp_end_to_end.py"
     ],
-    "diff_fingerprint": "sha256:87c7f1a41c6c492bb3798bf89b5039efe33c9698756781efa469931b0e20018a",
+    "diff_fingerprint": "sha256:c94dc3f43ba80cd47efb50d70f231afa17f6ace51f7b01a40bc2eb031d88fe52",
     "head": "HEAD",
-    "head_sha": "424414ec",
+    "head_sha": "1cce43da",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -890,7 +978,14 @@
   },
   "owner_directive": "Add single edit_workflow MCP tool for surgical partial workflow edits so AI edits stop clobbering user-set block config; keep protect_workflow_yaml hook; update build-workflow skill + descriptive docs",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1912
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-02T21:36:22.290576Z",
@@ -928,6 +1023,14 @@
     {
       "at": "2026-07-02T22:14:40.126586Z",
       "diff_fingerprint": "sha256:87c7f1a41c6c492bb3798bf89b5039efe33c9698756781efa469931b0e20018a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-02T22:14:58.782759Z",
+      "diff_fingerprint": "sha256:c94dc3f43ba80cd47efb50d70f231afa17f6ace51f7b01a40bc2eb031d88fe52",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
