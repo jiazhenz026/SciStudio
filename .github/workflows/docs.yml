@@ -55,7 +55,7 @@ jobs:
       # (user guide + reference + package development), and runs `mkdocs build`,
       # writing the static site to build/site.
       - run: PYTHONPATH=src python scripts/docs/build_site.py
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: build/site
 
