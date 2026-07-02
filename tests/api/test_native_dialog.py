@@ -35,7 +35,7 @@ class TestNativeDialogWindowsDirectory:
         assert "IFileDialog" in ps_script
         assert "Add-Type -TypeDefinition" in ps_script
         assert "$owner.TopMost = $true;" in ps_script
-        assert "[FolderPicker]::Pick('Select Folder', $owner.Handle)" in ps_script
+        assert "[FolderPicker]::Pick('Select Folder', '', $owner.Handle)" in ps_script
         assert "FolderBrowserDialog" not in ps_script
 
         assert result == [r"C:\Users\test\Documents"]
@@ -214,3 +214,57 @@ class TestResolveDialogStartDir:
         missing_project = str(tmp_path / "also-missing")
         # An invalid initial_dir and a stale project_root both degrade to home.
         assert _resolve_dialog_start_dir(missing_initial, False, missing_project, None) == str(Path.home())
+
+
+class TestWindowsDirectoryInitialDir:
+    """#1916: the Windows folder picker must open at the resolved start dir.
+
+    The COM ``FolderPicker.Pick`` path previously ignored ``initial_dir``, so
+    directory load/save dialogs (and the home-scoped create/open-project
+    exclusion) opened wherever the shell chose. It must now thread the resolved
+    directory in and apply it via ``IFileDialog.SetFolder``. These assert on the
+    generated PowerShell (subprocess mocked) so they run on any platform.
+    """
+
+    def test_directory_mode_threads_initial_dir_into_setfolder(self) -> None:
+        from scistudio.api.routes.filesystem import _native_dialog_windows
+
+        mock_result = MagicMock()
+        mock_result.stdout = r"C:\proj\out"
+        mock_result.returncode = 0
+
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+            _native_dialog_windows("directory", r"C:\proj")
+
+        ps_script = mock_run.call_args[0][0][-1]
+        assert r"[FolderPicker]::Pick('Select Folder', 'C:\proj', $owner.Handle)" in ps_script
+        # The start dir is materialized into an IShellItem and applied.
+        assert "SHCreateItemFromParsingName" in ps_script
+        assert "dlg.SetFolder(folder)" in ps_script
+
+    def test_directory_mode_escapes_single_quote_in_initial_dir(self) -> None:
+        from scistudio.api.routes.filesystem import _native_dialog_windows
+
+        mock_result = MagicMock()
+        mock_result.stdout = ""
+        mock_result.returncode = 0
+
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+            _native_dialog_windows("directory", "C:\\a'b")
+
+        ps_script = mock_run.call_args[0][0][-1]
+        # Single quotes doubled for the PowerShell single-quoted string (#617).
+        assert "Pick('Select Folder', 'C:\\a''b'," in ps_script
+
+    def test_directory_mode_no_initial_dir_passes_empty(self) -> None:
+        from scistudio.api.routes.filesystem import _native_dialog_windows
+
+        mock_result = MagicMock()
+        mock_result.stdout = ""
+        mock_result.returncode = 0
+
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+            _native_dialog_windows("directory", None)
+
+        ps_script = mock_run.call_args[0][0][-1]
+        assert "[FolderPicker]::Pick('Select Folder', '', $owner.Handle)" in ps_script

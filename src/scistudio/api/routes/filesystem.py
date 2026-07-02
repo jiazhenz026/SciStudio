@@ -502,12 +502,31 @@ public interface IShellItem {
 }
 
 public static class FolderPicker {
-    public static string Pick(string title, IntPtr owner) {
+    // Create an IShellItem from a filesystem path so the folder dialog can be
+    // pointed at a start directory (the project root) via IFileDialog.SetFolder.
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+    private static extern void SHCreateItemFromParsingName(
+        [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+        IntPtr pbc,
+        [In] ref Guid riid,
+        [MarshalAs(UnmanagedType.Interface)] out IShellItem ppv);
+
+    public static string Pick(string title, string initialDir, IntPtr owner) {
         var dlg = (IFileDialog)new FileOpenDialogClass();
         uint opts;
         dlg.GetOptions(out opts);
         dlg.SetOptions(opts | 0x20 | 0x40);
         if (title != null) dlg.SetTitle(title);
+        if (!string.IsNullOrEmpty(initialDir)) {
+            try {
+                Guid iidShellItem = new Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE");
+                IShellItem folder;
+                SHCreateItemFromParsingName(initialDir, IntPtr.Zero, ref iidShellItem, out folder);
+                if (folder != null) dlg.SetFolder(folder);
+            } catch {
+                // Invalid/unreachable start dir -> fall back to the shell default.
+            }
+        }
         int hr = dlg.Show(owner);
         if (hr != 0) return null;
         IShellItem item;
@@ -525,7 +544,7 @@ public static class FolderPicker {
             + cs_source.replace("'", "''")
             + "';"
             + "try {"
-            + "$result = [FolderPicker]::Pick('Select Folder', $owner.Handle);"
+            + f"$result = [FolderPicker]::Pick('Select Folder', '{safe_initial_dir}', $owner.Handle);"
             + "if ($result) { $result } else { '' }"
             + "} finally {"
             + owner_form_teardown
