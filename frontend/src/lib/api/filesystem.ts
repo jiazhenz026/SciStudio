@@ -18,16 +18,20 @@ export const filesystemApi = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ path }),
     }),
-  openNativeDialog: (mode: "file" | "directory", initialDir?: string) =>
+  // `preferHome` opens the dialog at the last-used location / user home instead
+  // of the active project root (#1915) — used only by the create/open-project
+  // and diagnostic-export dialogs, which pick a location outside any project.
+  openNativeDialog: (mode: "file" | "directory", initialDir?: string, preferHome?: boolean) =>
     apiFetch<{ paths: string[] }>("/api/filesystem/native-dialog", {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ mode, initial_dir: initialDir }),
+      body: JSON.stringify({ mode, initial_dir: initialDir, prefer_home: preferHome }),
     }),
   openNativeSaveDialog: (options: {
     initialDir?: string;
     defaultFilename?: string;
     fileFilter?: string;
+    preferHome?: boolean;
   }) =>
     apiFetch<{ paths: string[]; available?: boolean }>("/api/filesystem/native-dialog", {
       method: "POST",
@@ -37,6 +41,7 @@ export const filesystemApi = {
         initial_dir: options.initialDir,
         default_filename: options.defaultFilename,
         file_filter: options.fileFilter,
+        prefer_home: options.preferHome,
       }),
     }),
 };

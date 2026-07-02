@@ -175,7 +175,13 @@ async function openNativeSaveDialog(
     const response = await fetch("/api/filesystem/native-dialog", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "save_file", default_filename: defaultFilename }),
+      // prefer_home: a diagnostic bundle is a machine artifact, not a project
+      // file, so it saves from home rather than the active project root (#1915).
+      body: JSON.stringify({
+        mode: "save_file",
+        default_filename: defaultFilename,
+        prefer_home: true,
+      }),
     });
     if (!response.ok) return { path: null, available: false };
     const data = (await response.json()) as { paths?: string[]; available?: boolean };

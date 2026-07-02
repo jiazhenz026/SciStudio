@@ -40,7 +40,9 @@ export function ProjectDialog({
 
   async function handleBrowse() {
     try {
-      const result = await api.openNativeDialog("directory");
+      // prefer_home: creating/opening a project picks a location outside any
+      // project, so this dialog opens at home, not the active project root (#1915).
+      const result = await api.openNativeDialog("directory", undefined, true);
       if (result.paths.length > 0) {
         onChange({ path: result.paths[0] });
         setPathError(null);

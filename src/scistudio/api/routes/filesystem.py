@@ -353,6 +353,14 @@ class NativeDialogRequest(BaseModel):
     initial_dir: str | None = Field(None, description="Optional starting directory for the dialog")
     default_filename: str | None = Field(None, description="Default filename for save_file mode")
     file_filter: str | None = Field(None, description="File type filter description (e.g. 'YAML files (*.yaml)')")
+    prefer_home: bool = Field(
+        False,
+        description=(
+            "When True, open at the last-used location or the user home instead of the "
+            "active project root. Used by the create/open-project and diagnostic-export "
+            "dialogs, which select a location outside any project."
+        ),
+    )
 
 
 class NativeDialogResponse(BaseModel):
@@ -370,6 +378,32 @@ class NativeDialogResponse(BaseModel):
 
 # Per-session last-used directory (in-memory, resets on restart).
 _last_used_directory: str | None = None
+
+
+def _resolve_dialog_start_dir(
+    initial_dir: str | None,
+    prefer_home: bool,
+    project_root: str | None,
+    last_used: str | None,
+) -> str:
+    """Choose the directory a native file/directory dialog should open in.
+
+    Project-scope dialogs (the default) prefer the active project root so that
+    load/save browsing starts inside the user's project instead of ``$HOME``
+    (#1915). Home-scope dialogs (``prefer_home`` — create/open project and the
+    diagnostic-bundle export) keep opening at the last-used location or the user
+    home, because they select a location *outside* any project.
+
+    ``_safe_is_dir`` swallows ``OSError`` so an over-length or offline candidate
+    degrades to the next fallback instead of raising a 500 (#1753).
+    """
+    if initial_dir and _safe_is_dir(initial_dir):
+        return initial_dir
+    candidates: list[str | None] = [last_used] if prefer_home else [project_root, last_used]
+    for candidate in candidates:
+        if candidate and _safe_is_dir(candidate):
+            return candidate
+    return str(Path.home())
 
 
 def _ps_single_quote_escape(value: str) -> str:
@@ -468,12 +502,31 @@ public interface IShellItem {
 }
 
 public static class FolderPicker {
-    public static string Pick(string title, IntPtr owner) {
+    // Create an IShellItem from a filesystem path so the folder dialog can be
+    // pointed at a start directory (the project root) via IFileDialog.SetFolder.
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+    private static extern void SHCreateItemFromParsingName(
+        [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+        IntPtr pbc,
+        [In] ref Guid riid,
+        [MarshalAs(UnmanagedType.Interface)] out IShellItem ppv);
+
+    public static string Pick(string title, string initialDir, IntPtr owner) {
         var dlg = (IFileDialog)new FileOpenDialogClass();
         uint opts;
         dlg.GetOptions(out opts);
         dlg.SetOptions(opts | 0x20 | 0x40);
         if (title != null) dlg.SetTitle(title);
+        if (!string.IsNullOrEmpty(initialDir)) {
+            try {
+                Guid iidShellItem = new Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE");
+                IShellItem folder;
+                SHCreateItemFromParsingName(initialDir, IntPtr.Zero, ref iidShellItem, out folder);
+                if (folder != null) dlg.SetFolder(folder);
+            } catch {
+                // Invalid/unreachable start dir -> fall back to the shell default.
+            }
+        }
         int hr = dlg.Show(owner);
         if (hr != 0) return null;
         IShellItem item;
@@ -491,7 +544,7 @@ public static class FolderPicker {
             + cs_source.replace("'", "''")
             + "';"
             + "try {"
-            + "$result = [FolderPicker]::Pick('Select Folder', $owner.Handle);"
+            + f"$result = [FolderPicker]::Pick('Select Folder', '{safe_initial_dir}', $owner.Handle);"
             + "if ($result) { $result } else { '' }"
             + "} finally {"
             + owner_form_teardown
@@ -643,7 +696,7 @@ def _native_dialog_linux(
 
 
 @router.post("/api/filesystem/native-dialog", response_model=NativeDialogResponse)
-async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
+async def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> NativeDialogResponse:
     """Open a native OS file or directory dialog and return the selected path.
 
     Uses platform-specific subprocess calls (PowerShell on Windows, osascript
@@ -651,14 +704,15 @@ async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
     """
     global _last_used_directory
 
-    # Determine starting directory: request param > last-used > home.
-    # ``_safe_is_dir`` swallows OSError so an over-length or offline ``initial_dir``
-    # falls back to home instead of raising a 500 (#1753).
-    initial_dir = body.initial_dir
-    if not initial_dir or not _safe_is_dir(initial_dir):
-        initial_dir = _last_used_directory
-    if not initial_dir or not _safe_is_dir(initial_dir):
-        initial_dir = str(Path.home())
+    # Determine starting directory. Project-scope dialogs default to the active
+    # project root; home-scope dialogs (prefer_home) default to last-used/home.
+    project_dir = runtime.project_dir
+    initial_dir = _resolve_dialog_start_dir(
+        body.initial_dir,
+        body.prefer_home,
+        str(project_dir) if project_dir else None,
+        _last_used_directory,
+    )
 
     system = platform.system()
     try:
