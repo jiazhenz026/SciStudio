@@ -164,8 +164,8 @@ def _apply_edits(text: str, edits: Sequence[WorkflowEdit | dict[str, Any]]) -> s
     Each edit's ``old_string`` must match exactly once unless
     ``replace_all`` is set. A zero-match or (non-``replace_all``)
     multi-match edit raises ``ValueError`` before any write, mirroring the
-    Edit tool's uniqueness contract. Edits are applied in order to the
-    running text so a later edit sees the result of earlier ones;
+    Edit tool's uniqueness contract. Edits are applied in sequence to the
+    running text so each edit sees the result of the ones before it;
     everything the edits do not touch is preserved verbatim.
     """
     result = text
