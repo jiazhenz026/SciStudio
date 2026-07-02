@@ -413,7 +413,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "8a24f84ee30ea616fdf813e70b5980fbde1f2349",
+    "shas": [
+      "8a24f84ee30ea616fdf813e70b5980fbde1f2349"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1032,6 +1038,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:07.846882Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:07.867603Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:07.885660Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:07.921130Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:07.957312Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:08.003268Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:08.039867Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:08.084871Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:08.137447Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-02T21:03:08.192464Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1044,7 +1132,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "a0eb440d5606a36c9b2b37294076ede4ba86cd09",
     "base_sha": "a0eb440d",
     "changed_files": [
       ".workflow/records/1910-guided-1910-workflow-id-filename-palette-reload.json",
@@ -1063,9 +1151,9 @@
       "tests/ai/test_mcp_tools_workflow.py",
       "tests/api/test_blocks.py"
     ],
-    "diff_fingerprint": "sha256:9ac6f699033aba2b272a794be1494074c2bfca70bb4cb1f1e9762d61777f89ed",
+    "diff_fingerprint": "sha256:22a886c675553930afc12329640ce7fba36030f91a076c80f446008ed2a6e195",
     "head": "HEAD",
-    "head_sha": "5e525672",
+    "head_sha": "8a24f84e",
     "surfaces": {
       "docs": 0,
       "frontend": 5,
@@ -1081,7 +1169,12 @@
   },
   "owner_directive": "Fix 3 bugs in one PR: (1) Workflow not found, (2) workflow id conflict \u2014 both from filename-stem != internal id; enforce stem==id in MCP write_workflow with an error on mismatch (no auto-correct, keep id a free string). (3) palette Reload button doesn't re-scan blocks; add POST /api/blocks/reload calling registry.hot_reload() + broadcast, wire the button. Owner authorized all changes in scope.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1911,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-02T20:34:09.646465Z",
@@ -1152,6 +1245,16 @@
     {
       "at": "2026-07-02T21:01:38.961533Z",
       "diff_fingerprint": "sha256:9ac6f699033aba2b272a794be1494074c2bfca70bb4cb1f1e9762d61777f89ed",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-02T21:03:08.192540Z",
+      "diff_fingerprint": "sha256:22a886c675553930afc12329640ce7fba36030f91a076c80f446008ed2a6e195",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
