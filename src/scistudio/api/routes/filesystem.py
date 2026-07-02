@@ -353,6 +353,14 @@ class NativeDialogRequest(BaseModel):
     initial_dir: str | None = Field(None, description="Optional starting directory for the dialog")
     default_filename: str | None = Field(None, description="Default filename for save_file mode")
     file_filter: str | None = Field(None, description="File type filter description (e.g. 'YAML files (*.yaml)')")
+    prefer_home: bool = Field(
+        False,
+        description=(
+            "When True, open at the last-used location or the user home instead of the "
+            "active project root. Used by the create/open-project and diagnostic-export "
+            "dialogs, which select a location outside any project."
+        ),
+    )
 
 
 class NativeDialogResponse(BaseModel):
@@ -370,6 +378,32 @@ class NativeDialogResponse(BaseModel):
 
 # Per-session last-used directory (in-memory, resets on restart).
 _last_used_directory: str | None = None
+
+
+def _resolve_dialog_start_dir(
+    initial_dir: str | None,
+    prefer_home: bool,
+    project_root: str | None,
+    last_used: str | None,
+) -> str:
+    """Choose the directory a native file/directory dialog should open in.
+
+    Project-scope dialogs (the default) prefer the active project root so that
+    load/save browsing starts inside the user's project instead of ``$HOME``
+    (#1915). Home-scope dialogs (``prefer_home`` — create/open project and the
+    diagnostic-bundle export) keep opening at the last-used location or the user
+    home, because they select a location *outside* any project.
+
+    ``_safe_is_dir`` swallows ``OSError`` so an over-length or offline candidate
+    degrades to the next fallback instead of raising a 500 (#1753).
+    """
+    if initial_dir and _safe_is_dir(initial_dir):
+        return initial_dir
+    candidates: list[str | None] = [last_used] if prefer_home else [project_root, last_used]
+    for candidate in candidates:
+        if candidate and _safe_is_dir(candidate):
+            return candidate
+    return str(Path.home())
 
 
 def _ps_single_quote_escape(value: str) -> str:
@@ -643,7 +677,7 @@ def _native_dialog_linux(
 
 
 @router.post("/api/filesystem/native-dialog", response_model=NativeDialogResponse)
-async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
+async def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> NativeDialogResponse:
     """Open a native OS file or directory dialog and return the selected path.
 
     Uses platform-specific subprocess calls (PowerShell on Windows, osascript
@@ -651,14 +685,15 @@ async def native_file_dialog(body: NativeDialogRequest) -> NativeDialogResponse:
     """
     global _last_used_directory
 
-    # Determine starting directory: request param > last-used > home.
-    # ``_safe_is_dir`` swallows OSError so an over-length or offline ``initial_dir``
-    # falls back to home instead of raising a 500 (#1753).
-    initial_dir = body.initial_dir
-    if not initial_dir or not _safe_is_dir(initial_dir):
-        initial_dir = _last_used_directory
-    if not initial_dir or not _safe_is_dir(initial_dir):
-        initial_dir = str(Path.home())
+    # Determine starting directory. Project-scope dialogs default to the active
+    # project root; home-scope dialogs (prefer_home) default to last-used/home.
+    project_dir = runtime.project_dir
+    initial_dir = _resolve_dialog_start_dir(
+        body.initial_dir,
+        body.prefer_home,
+        str(project_dir) if project_dir else None,
+        _last_used_directory,
+    )
 
     system = platform.system()
     try:

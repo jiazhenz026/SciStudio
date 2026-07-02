@@ -137,3 +137,80 @@ class TestNativeDialogNoTimeout:
             _native_dialog_linux("file", None)
 
         self._assert_no_timeout(mock_run)
+
+
+class TestResolveDialogStartDir:
+    """#1915: load/save dialogs default to the active project root, not $HOME.
+
+    Project-scope dialogs (the default) prefer ``project_root``; home-scope
+    dialogs (``prefer_home`` — create/open project, diagnostic export) keep
+    opening at last-used / home.
+    """
+
+    def test_explicit_initial_dir_wins(self, tmp_path) -> None:
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        chosen = tmp_path / "chosen"
+        chosen.mkdir()
+        project = tmp_path / "project"
+        project.mkdir()
+        # Explicit, valid initial_dir beats project root regardless of scope.
+        assert _resolve_dialog_start_dir(str(chosen), False, str(project), None) == str(chosen)
+        assert _resolve_dialog_start_dir(str(chosen), True, str(project), None) == str(chosen)
+
+    def test_project_scope_defaults_to_project_root(self, tmp_path) -> None:
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        project = tmp_path / "project"
+        project.mkdir()
+        assert _resolve_dialog_start_dir(None, False, str(project), None) == str(project)
+
+    def test_project_root_beats_last_used(self, tmp_path) -> None:
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        project = tmp_path / "project"
+        project.mkdir()
+        last_used = tmp_path / "elsewhere"
+        last_used.mkdir()
+        # Project-scope: project root is the reliable default, above last-used.
+        assert _resolve_dialog_start_dir(None, False, str(project), str(last_used)) == str(project)
+
+    def test_prefer_home_ignores_project_root(self, tmp_path) -> None:
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        project = tmp_path / "project"
+        project.mkdir()
+        last_used = tmp_path / "picked-before"
+        last_used.mkdir()
+        # Home-scope: project root is skipped; last-used is honored.
+        assert _resolve_dialog_start_dir(None, True, str(project), str(last_used)) == str(last_used)
+
+    def test_prefer_home_falls_back_to_home(self, tmp_path) -> None:
+        from pathlib import Path
+
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        project = tmp_path / "project"
+        project.mkdir()
+        # Home-scope with no last-used: home, never the project root.
+        assert _resolve_dialog_start_dir(None, True, str(project), None) == str(Path.home())
+
+    def test_no_active_project_falls_back_to_last_used_then_home(self, tmp_path) -> None:
+        from pathlib import Path
+
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        last_used = tmp_path / "last"
+        last_used.mkdir()
+        assert _resolve_dialog_start_dir(None, False, None, str(last_used)) == str(last_used)
+        assert _resolve_dialog_start_dir(None, False, None, None) == str(Path.home())
+
+    def test_nonexistent_candidates_are_skipped(self, tmp_path) -> None:
+        from pathlib import Path
+
+        from scistudio.api.routes.filesystem import _resolve_dialog_start_dir
+
+        missing_initial = str(tmp_path / "does-not-exist")
+        missing_project = str(tmp_path / "also-missing")
+        # An invalid initial_dir and a stale project_root both degrade to home.
+        assert _resolve_dialog_start_dir(missing_initial, False, missing_project, None) == str(Path.home())

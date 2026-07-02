@@ -88,6 +88,9 @@ describe("frontend logger (#1741)", () => {
 
     // Native save dialog is requested FIRST, then the bundle is written to the path.
     expect(calls[0].url).toContain("/api/filesystem/native-dialog");
+    // #1915: a diagnostic bundle is a machine artifact, so its save dialog opts
+    // out of the project-root default and opens at home.
+    expect(JSON.parse(calls[0].init!.body as string).prefer_home).toBe(true);
     const bundleCall = calls.find((c) => c.url.includes("/api/diagnostics/bundle"));
     expect(bundleCall).toBeDefined();
     expect(JSON.parse(bundleCall!.init!.body as string).path).toBe("/home/u/report.zip");
