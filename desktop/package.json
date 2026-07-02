@@ -10,6 +10,7 @@
     "build:frontend": "npm --prefix ../frontend run build",
     "build:python": "powershell -ExecutionPolicy Bypass -File ./scripts/build-python-runtime.ps1",
     "build:python:mac": "bash ./scripts/build-python-runtime-macos.sh",
+    "build:python:linux": "bash ./scripts/build-python-runtime-linux.sh",
     "stage": "powershell -ExecutionPolicy Bypass -File ./scripts/stage-resources.ps1",
     "stage:sh": "sh ./scripts/stage-resources.sh",
     "start": "node scripts/start-electron.js",
@@ -17,7 +18,8 @@
     "test": "node --test test/*.test.js",
     "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir",
     "dist:win": "powershell -ExecutionPolicy Bypass -Command \"if (Test-Path 'dist\\win-unpacked') { Remove-Item -LiteralPath 'dist\\win-unpacked' -Recurse -Force }; if (Test-Path 'dist') { Get-ChildItem -Path 'dist' -Filter '*.exe' -File -ErrorAction SilentlyContinue | Remove-Item -Force }\" && electron-builder --win nsis --x64",
-    "dist:dmg": "electron-builder --mac dmg --arm64"
+    "dist:dmg": "electron-builder --mac dmg --arm64",
+    "dist:linux": "electron-builder --linux AppImage"
   },
   "dependencies": {},
   "devDependencies": {
@@ -72,6 +74,19 @@
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "icon.png",
+      "category": "Science",
+      "synopsis": "AI-native workflow runtime for multimodal scientific data",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "SciStudio"
+        }
+      }
     }
   }
 }
