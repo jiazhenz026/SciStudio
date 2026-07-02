@@ -39,7 +39,7 @@ workflow:                            # REQUIRED top-level key
       block_type: save_data          # core Save — configured by core_type
       config:
         core_type: Image
-        path: data/derived/mask.tif
+        path: data/processed/mask.tif
   edges:                             # connections between node ports
     - source: "load:data"            # MUST be "<node_id>:<port_name>" — colon, not dot
       target: "thr:image"
@@ -173,7 +173,7 @@ workflow:
       block_type: save_data
       config:
         core_type: Image
-        path: data/derived/beads_mask.tif
+        path: data/processed/beads_mask.tif
   edges:
     - source: "load:data"
       target: "thr:image"
@@ -251,7 +251,7 @@ workflow:
     - id: stats
       block_type: imaging.intensity_stats
       config:
-        output_path: data/derived/microplastics_stats.csv
+        output_path: data/processed/microplastics_stats.csv
   edges:
     - source: "load:data"
       target: "pre:image"
