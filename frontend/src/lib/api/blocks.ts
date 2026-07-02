@@ -14,6 +14,15 @@ import { apiFetch, JSON_HEADERS } from "./core";
 
 export const blocksApi = {
   listBlocks: () => apiFetch<BlockListResponse>("/api/blocks/"),
+  // #1910: trigger a real backend re-scan of file-based (drop-in) blocks so an
+  // in-place source edit (e.g. changing a block's base class) is picked up. The
+  // backend emits ``blocks.reloaded``; the caller still re-fetches the catalog
+  // for an immediate, WS-independent update.
+  reloadBlocks: () =>
+    apiFetch<{ reloaded: number; added: string[]; removed: string[] }>("/api/blocks/reload", {
+      method: "POST",
+      headers: JSON_HEADERS,
+    }),
   getBlockSchema: (blockType: string) =>
     apiFetch<BlockSchemaResponse>(`/api/blocks/${encodeURIComponent(blockType)}/schema`),
   // #1758: read-only source for a selected block (core / package / custom),

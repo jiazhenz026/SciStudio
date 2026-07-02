@@ -36,6 +36,7 @@ export interface WorkflowSyncDeps {
 export interface WorkflowSync {
   refreshProjects: () => Promise<void>;
   refreshBlocks: () => Promise<void>;
+  reloadBlocks: () => Promise<void>;
   saveWorkflow: () => Promise<void>;
   saveWorkflowAs: () => Promise<void>;
 }
@@ -88,6 +89,22 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
       setBlocks(payload.blocks);
     });
   }, [setBlocks, setBlockSchema]);
+
+  // #1910: the palette "Reload" button. Unlike ``refreshBlocks`` (which only
+  // re-fetches the cached catalog and is also fired by the WS ``blocks.reloaded``
+  // handler — so it must NOT itself trigger a reload, or it would loop), this
+  // first POSTs ``/api/blocks/reload`` to force a backend re-scan of drop-in
+  // block sources, then re-fetches so an in-place edit (e.g. a changed base
+  // class → new colour/icon) shows up immediately without waiting on the WS
+  // echo. Errors surface in the shared error banner rather than being swallowed.
+  const reloadBlocks = useCallback(async () => {
+    try {
+      await api.reloadBlocks();
+      await refreshBlocks();
+    } catch (error) {
+      setLastError((error as Error).message);
+    }
+  }, [refreshBlocks, setLastError]);
 
   // #1421: stable identity across renders.
   const saveWorkflow = useCallback(async () => {
@@ -167,5 +184,5 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
     }
   }, [currentProject, saveWorkflow, workflowId, workflowPayload, setLastError]);
 
-  return { refreshProjects, refreshBlocks, saveWorkflow, saveWorkflowAs };
+  return { refreshProjects, refreshBlocks, reloadBlocks, saveWorkflow, saveWorkflowAs };
 }

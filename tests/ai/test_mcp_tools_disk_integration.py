@@ -111,6 +111,16 @@ workflow:
 """
 
 
+def _wf_yaml(workflow_id: str) -> str:
+    """Return ``_VALID_WF_YAML`` with its internal id set to *workflow_id*.
+
+    #1910: ``write_workflow`` now requires the file-name stem to equal the
+    workflow's internal ``id``, so a test that writes to a distinctly named path
+    must supply a YAML whose id matches that path's stem.
+    """
+    return _VALID_WF_YAML.replace("integration_test", workflow_id, 1)
+
+
 # ---------------------------------------------------------------------------
 # Case 1+2: relative path resolves against project_dir, not CWD.
 # ---------------------------------------------------------------------------
@@ -124,14 +134,14 @@ def test_write_workflow_relative_path_resolves_against_project_dir(
     result = _run(
         tools_workflow.write_workflow(
             path="workflows/main.yaml",
-            yaml=_VALID_WF_YAML,
+            yaml=_wf_yaml("main"),
         )
     )
 
     expected = (project_root / "workflows" / "main.yaml").resolve()
     # The file is on disk at the resolved location.
     assert expected.is_file(), f"file not found at {expected}; got result {result}"
-    assert expected.read_text(encoding="utf-8") == _VALID_WF_YAML
+    assert expected.read_text(encoding="utf-8") == _wf_yaml("main")
     # The response envelope returns the absolute resolved path, not the
     # user-supplied relative one. result is a WriteWorkflowResult Pydantic model.
     assert Path(result.path).resolve() == expected
@@ -157,7 +167,7 @@ def test_write_workflow_ignores_backend_cwd(
     result = _run(
         tools_workflow.write_workflow(
             path="workflows/cwd_test.yaml",
-            yaml=_VALID_WF_YAML,
+            yaml=_wf_yaml("cwd_test"),
         )
     )
 
@@ -208,7 +218,7 @@ def test_write_workflow_absolute_under_project_dir_succeeds(
     project_root: Path,
 ) -> None:
     target = project_root / "workflows" / "abs.yaml"
-    result = _run(tools_workflow.write_workflow(path=str(target), yaml=_VALID_WF_YAML))
+    result = _run(tools_workflow.write_workflow(path=str(target), yaml=_wf_yaml("abs")))
     assert target.resolve().is_file()
     assert Path(result.path).resolve() == target.resolve()
 
@@ -222,7 +232,7 @@ def test_write_then_get_round_trip(
     ctx_with_project: _StubRuntime,
     project_root: Path,
 ) -> None:
-    _run(tools_workflow.write_workflow(path="workflows/roundtrip.yaml", yaml=_VALID_WF_YAML))
+    _run(tools_workflow.write_workflow(path="workflows/roundtrip.yaml", yaml=_wf_yaml("roundtrip")))
     data = _run(tools_workflow.get_workflow(path="workflows/roundtrip.yaml"))
     # data is a WorkflowDefinitionEnvelope Pydantic model.
     # The workflow id comes from the workflow dict inside the YAML.
@@ -233,7 +243,7 @@ def test_write_then_get_round_trip(
 def test_write_then_validate_round_trip(
     ctx_with_project: _StubRuntime,
 ) -> None:
-    _run(tools_workflow.write_workflow(path="workflows/validate.yaml", yaml=_VALID_WF_YAML))
+    _run(tools_workflow.write_workflow(path="workflows/validate.yaml", yaml=_wf_yaml("validate")))
     result = _run(tools_workflow.validate_workflow(yaml_or_path="workflows/validate.yaml"))
     # result is a ValidateWorkflowResult Pydantic model.
     assert result.valid is True
@@ -249,7 +259,7 @@ def test_write_then_run_workflow_uses_resolved_stem(
     ctx_with_project: _StubRuntime,
     project_root: Path,
 ) -> None:
-    _run(tools_workflow.write_workflow(path="workflows/run_me.yaml", yaml=_VALID_WF_YAML))
+    _run(tools_workflow.write_workflow(path="workflows/run_me.yaml", yaml=_wf_yaml("run_me")))
     result = _run(tools_workflow.run_workflow(path="workflows/run_me.yaml"))
     # result is a RunWorkflowResult Pydantic model.
     assert result.status in ("queued", "started")
@@ -265,7 +275,7 @@ def test_write_then_run_workflow_uses_resolved_stem(
 _COMMENTED_WF = """\
 # Top-level comment preserved by ruamel
 workflow:
-  id: commented_wf
+  id: commented
   # version comment preserved
   version: 1.0.0
   nodes:
@@ -405,7 +415,7 @@ def test_concurrent_edit_workflow_serialises(
 def test_write_tools_return_absolute_paths(
     ctx_with_project: _StubRuntime,
 ) -> None:
-    w_out = _run(tools_workflow.write_workflow(path="workflows/abs1.yaml", yaml=_VALID_WF_YAML))
+    w_out = _run(tools_workflow.write_workflow(path="workflows/abs1.yaml", yaml=_wf_yaml("abs1")))
     assert Path(w_out.path).is_absolute()
 
     u_out = _run(
@@ -441,10 +451,12 @@ def test_concurrent_write_workflow_serialises(
         except BaseException as exc:
             errors.append(exc)
 
-    t1 = threading.Thread(target=_worker, args=(_VALID_WF_YAML,))
+    # #1910: both payloads must carry id == the "concurrent" path stem. Keep the
+    # two writes distinct by their backend value rather than by id.
+    t1 = threading.Thread(target=_worker, args=(_wf_yaml("concurrent"),))
     t2 = threading.Thread(
         target=_worker,
-        args=(_VALID_WF_YAML.replace("integration_test", "second"),),
+        args=(_wf_yaml("concurrent").replace("backend: csv", "backend: parquet"),),
     )
     t1.start()
     t2.start()
@@ -501,7 +513,7 @@ def test_resolved_path_uses_realpath_not_string_compare(
     result = _run(
         tools_workflow.write_workflow(
             path="workflows/./subdir/../redundant.yaml",
-            yaml=_VALID_WF_YAML,
+            yaml=_wf_yaml("redundant"),
         )
     )
     expected = (project_root / "workflows" / "redundant.yaml").resolve()

@@ -247,17 +247,18 @@ export default function App() {
   // API-backed sync: project list refresh, block catalog refresh, workflow
   // save / save-as. Wrapped in a hook so identity stability is owned in one
   // place rather than being scattered across App.tsx.
-  const { refreshProjects, refreshBlocks, saveWorkflow, saveWorkflowAs } = useWorkflowSync({
-    currentProject,
-    setCurrentProject,
-    setBlocks,
-    setBlockSchema,
-    setProjects,
-    markWorkflowSaved,
-    setLastError,
-    workflowPayload,
-    workflowId,
-  });
+  const { refreshProjects, refreshBlocks, reloadBlocks, saveWorkflow, saveWorkflowAs } =
+    useWorkflowSync({
+      currentProject,
+      setCurrentProject,
+      setBlocks,
+      setBlockSchema,
+      setProjects,
+      markWorkflowSaved,
+      setLastError,
+      workflowPayload,
+      workflowId,
+    });
 
   // Project / workflow / file CRUD actions live in their own hook to keep
   // App.tsx focused on lifecycle + JSX.
@@ -431,7 +432,7 @@ export default function App() {
             onStop={() => void cancelWorkflow()}
             onReset={() => resetExecution()}
             onDelete={() => selectedNodeId && removeNode(selectedNodeId)}
-            onReloadBlocks={() => void refreshBlocks()}
+            onReloadBlocks={() => void reloadBlocks()}
             onStartFromSelected={() => void startFromSelected()}
             onAddAnnotation={() =>
               addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
@@ -450,7 +451,7 @@ export default function App() {
               paletteSearch={paletteSearch}
               setPaletteSearch={setPaletteSearch}
               onAddBlockFromPalette={handleAddBlockFromPalette}
-              onReloadBlocks={() => void refreshBlocks()}
+              onReloadBlocks={() => void reloadBlocks()}
               onLoadWorkflowById={(id, displayName) => void loadWorkflowById(id, displayName)}
               tabs={tabs as AnyTab[]}
               activeTabId={activeTabId}

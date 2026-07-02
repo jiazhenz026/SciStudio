@@ -95,6 +95,27 @@ async def write_workflow(
     block_type_warnings = _reconcile_node_block_types(wf_file)
 
     p = _resolve_project_path(path)
+
+    # #1910: enforce the filename-stem == internal-id invariant. The runtime
+    # resolves a workflow by its internal id to the canonical path
+    # ``workflows/{id}.yaml`` (see ``api/runtime/_workflows.py`` —
+    # ``workflow_path`` and ``find_workflow_id_conflict``). If the file-name
+    # stem and the internal ``id`` diverge, ``run_workflow``/``load_workflow``
+    # miss the file ("Workflow not found: <id>") and save/import raise a
+    # duplicate-id conflict, even for a single file. Refuse the write with an
+    # actionable message rather than persist a divergent pair. We do not
+    # auto-rename: the author chooses whether to fix the path or the id.
+    internal_id = wf_file.workflow.id
+    if p.stem != internal_id:
+        raise ValueError(
+            "write_workflow: refusing to write — the file-name stem "
+            f"({p.stem!r}) must exactly equal the workflow's internal id "
+            f"({internal_id!r}). SciStudio resolves a workflow by its id to "
+            "workflows/{id}.yaml, so a divergent name breaks run, save, and "
+            f"import. Fix this by writing to path 'workflows/{internal_id}.yaml' "
+            f"or by setting the workflow id to {p.stem!r}."
+        )
+
     lock_path = str(p) + ".lock"
     version_context = _workflow_change_context()
     version: int | None = None
