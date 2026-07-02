@@ -585,3 +585,45 @@ def test_summary_node_visual_hints_default_to_none() -> None:
     summary = _summary(BlockSpec(name="PlainBlock", type_name="plain_block"))
     assert summary.ui_color is None
     assert summary.ui_icon is None
+
+
+def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_path: Path) -> None:
+    """#1910: POST /api/blocks/reload re-scans drop-in blocks, unlike GET /api/blocks/.
+
+    The palette "Reload" button previously only re-fetched the cached catalog, so
+    an in-place drop-in edit (e.g. a changed base class → new colour/icon) stayed
+    stale. This endpoint calls ``registry.hot_reload()``: a drop-in the initial
+    scan never saw becomes visible only after the POST, proving a real re-scan.
+    """
+    registry = client.app.state.runtime.block_registry
+
+    drop_dir = tmp_path / "dropins"
+    drop_dir.mkdir()
+    (drop_dir / "reload_probe_block.py").write_text(
+        "from scistudio.blocks.process.process_block import ProcessBlock\n"
+        "\n"
+        "\n"
+        "class ReloadProbeBlock(ProcessBlock):\n"
+        "    name = 'Reload Probe'\n"
+        "    type_name = 'reload_probe'\n",
+        encoding="utf-8",
+    )
+    registry.add_scan_dir(drop_dir)
+
+    # Not visible yet: the registry has not re-scanned since the dir was added.
+    before = client.get("/api/blocks/")
+    assert before.status_code == 200
+    assert not any(b["type_name"] == "reload_probe" for b in before.json()["blocks"])
+
+    resp = client.post("/api/blocks/reload")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body) == {"reloaded", "added", "removed"}
+    assert body["reloaded"] >= 1
+    assert body["removed"] == []
+    assert any(added == "Reload Probe" or "reload_probe" in added for added in body["added"])
+
+    # Now the palette exposes it, with the ProcessBlock category derived at scan.
+    after = client.get("/api/blocks/")
+    probe = next(b for b in after.json()["blocks"] if b["type_name"] == "reload_probe")
+    assert probe["base_category"] == "process"

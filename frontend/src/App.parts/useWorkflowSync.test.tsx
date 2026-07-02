@@ -11,6 +11,7 @@ const apiMocks = vi.hoisted(() => ({
   listBlocks: vi.fn(),
   listProjects: vi.fn(),
   openProject: vi.fn(),
+  reloadBlocks: vi.fn(),
   updateWorkflow: vi.fn(),
 }));
 
@@ -158,6 +159,40 @@ describe("useWorkflowSync", () => {
     expect(apiMocks.updateWorkflow).not.toHaveBeenCalled();
     expect(apiMocks.createWorkflow).not.toHaveBeenCalled();
     expect(deps.markWorkflowSaved).not.toHaveBeenCalled();
+  });
+
+  it("reloadBlocks forces a backend re-scan before re-fetching the catalog (#1910)", async () => {
+    // The palette Reload button must POST /api/blocks/reload (backend re-scan)
+    // and only then re-fetch, so an in-place drop-in edit shows up. refreshBlocks
+    // alone would just re-read the stale cached catalog.
+    apiMocks.reloadBlocks.mockResolvedValueOnce({ reloaded: 1, added: [], removed: [] });
+    apiMocks.listBlocks.mockResolvedValueOnce({ blocks: [] });
+    const { deps, hook } = renderSync();
+
+    await act(async () => {
+      await hook.result.current.reloadBlocks();
+    });
+
+    expect(apiMocks.reloadBlocks).toHaveBeenCalledTimes(1);
+    // The re-scan happens before the re-fetch.
+    expect(apiMocks.reloadBlocks.mock.invocationCallOrder[0]).toBeLessThan(
+      apiMocks.listBlocks.mock.invocationCallOrder[0],
+    );
+    expect(deps.setBlocks).toHaveBeenCalledWith([]);
+    expect(deps.setLastError).not.toHaveBeenCalled();
+  });
+
+  it("reloadBlocks surfaces a re-scan failure in the error banner (#1910)", async () => {
+    apiMocks.reloadBlocks.mockRejectedValueOnce(new Error("reload boom"));
+    const { deps, hook } = renderSync();
+
+    await act(async () => {
+      await hook.result.current.reloadBlocks();
+    });
+
+    expect(deps.setLastError).toHaveBeenCalledWith("reload boom");
+    // A failed re-scan must not attempt the catalog re-fetch.
+    expect(apiMocks.listBlocks).not.toHaveBeenCalled();
   });
 
   it("falls back to create only when update returns 404", async () => {

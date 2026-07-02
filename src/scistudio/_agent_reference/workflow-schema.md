@@ -34,6 +34,13 @@ workflow:                            # REQUIRED top-level key
 
 ## Rules
 
+- **File name MUST equal the `id`.** Always write to `workflows/{id}.yaml`.
+  `write_workflow` rejects a mismatch (e.g. file `foo_bar.yaml` holding
+  `id: foo-bar`) because the runtime resolves a workflow by its id to
+  `workflows/{id}.yaml`; a divergent name breaks `run_workflow` ("Workflow not
+  found"), save, and import (duplicate-id conflict). Pick one convention for the
+  id and let the file follow it — do not use snake_case for the file and
+  kebab-case for the id.
 - **Edge shape is two strings.** Not the canvas 4-field `{source, source_port,
   target, target_port}` form. Separator is a single colon (`load:data`), not
   `.`/`/`/`-`.

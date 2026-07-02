@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
+### Added
+
+- [#1910] `POST /api/blocks/reload` — a backend block re-scan endpoint the
+  palette "Reload" button now calls. It runs `registry.hot_reload()` and
+  broadcasts `blocks.reloaded`, so an in-place drop-in edit (e.g. changing a
+  block's base class to `ProcessBlock`) is picked up — with the correct colour
+  and icon — without saving the file through the app or restarting the backend.
+  (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
+
+### Fixed
+
+- [#1910] Workflow file name and internal `id` may no longer diverge:
+  `write_workflow` now refuses any write whose file-name stem differs from the
+  workflow's `id` (e.g. `collagen_srs_pipeline.yaml` holding
+  `id: collagen-srs-pipeline`). The divergence made the agent's `run_workflow`
+  fail with "Workflow not found" and save/import raise a duplicate-id conflict,
+  because the runtime resolves a workflow by its id to `workflows/{id}.yaml`.
+  (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
+- [#1910] The palette "Reload" button now triggers a real backend re-scan
+  instead of only re-fetching the cached catalog, so an edited custom block's
+  colour and icon refresh on reload. (@claude, 2026-07-02, branch:
+  guided/1910-workflow-id-filename-palette-reload)
 
 ## [0.3.2] - 2026-06-28
 

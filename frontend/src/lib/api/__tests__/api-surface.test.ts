@@ -21,6 +21,7 @@ const EXPECTED_API_KEYS = [
   "getProjectTree",
   // blocks
   "listBlocks",
+  "reloadBlocks",
   "getBlockSchema",
   "validateConnection",
   // workflows
