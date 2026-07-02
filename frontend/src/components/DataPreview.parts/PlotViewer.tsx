@@ -7,6 +7,34 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+// Canonical order the Save-as menu offers plot export formats in.
+const PLOT_EXPORT_FORMAT_ORDER = ["svg", "pdf", "png", "jpeg"] as const;
+
+// Formats the plot run actually rendered (approach B, #1918): the backend
+// surfaces one sibling file per allowed format, so Save can produce a valid
+// png/pdf/svg/jpeg without re-rendering. Falls back to the primary format when
+// the list is absent (older runs / non-plot artifacts).
+function availableFormats(payload: PreviewEnvelope["payload"]): string[] {
+  const raw = payload?.available_formats;
+  const found = new Set<string>();
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (typeof entry === "string" && entry) found.add(entry === "jpg" ? "jpeg" : entry);
+    }
+  }
+  const primary = asString(payload?.format, "");
+  if (primary) found.add(primary === "jpg" ? "jpeg" : primary);
+  const ordered = PLOT_EXPORT_FORMAT_ORDER.filter((f) => found.has(f));
+  return ordered.length > 0 ? ordered : primary ? [primary] : [];
+}
+
+// Build the export resource for a chosen format by overriding the descriptor's
+// `format` param. The backend export resource resolves the sibling file for
+// that format and returns valid bytes (or a clean error if it was not rendered).
+function exportResourceForFormat(base: PreviewResource, format: string): PreviewResource {
+  return { ...base, params: { ...(base.params ?? {}), format } };
+}
+
 // The surface sizes to the figure (no fixed height) so the plot fills the width
 // with no large empty top/bottom margins, capped by max-height. A single
 // overflow here handles pan when zoomed; the parent preview panel already
@@ -107,6 +135,21 @@ export function PlotViewer({
   const hasRenderable = Boolean((format === "svg" && svg) || (format === "pdf" && src) || src);
   const svgRatio = format === "svg" && svg ? svgAspectRatio(svg) : null;
 
+  const formats = availableFormats(payload);
+  // The format the user chose to save in. Defaults to the preview (preferred)
+  // format so a plain Save keeps today's behaviour; the menu lets the user pick
+  // any format the run rendered (approach B, #1918).
+  const [saveFormat, setSaveFormat] = useState(format || formats[0] || "svg");
+  const effectiveSaveFormat = formats.includes(saveFormat)
+    ? saveFormat
+    : formats[0] || format || "svg";
+  const canSave = Boolean(exportResource) && formats.length > 0;
+
+  const handleSave = () => {
+    if (!exportResource || !onExport) return;
+    onExport(exportResourceForFormat(exportResource, effectiveSaveFormat));
+  };
+
   const [zoom, setZoom] = useState(1);
   // Clamp to a sensible range and snap to 25% steps.
   const applyZoom = (next: number) => setZoom(Math.min(4, Math.max(0.5, Math.round(next * 4) / 4)));
@@ -199,18 +242,35 @@ export function PlotViewer({
             </Button>
           </div>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="plot-export-button"
-          aria-label={`Save plot as ${format || "file"}`}
-          disabled={!exportResource}
-          onClick={() => (exportResource && onExport ? onExport(exportResource) : undefined)}
-          className="ml-auto h-7"
-        >
-          Save
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          {formats.length > 1 ? (
+            <select
+              data-testid="plot-format-select"
+              aria-label="Save format"
+              value={effectiveSaveFormat}
+              onChange={(e) => setSaveFormat(e.target.value)}
+              className="h-7 rounded border border-ink/20 bg-white px-1 text-xs uppercase tracking-wider text-ink/70"
+            >
+              {formats.map((f) => (
+                <option key={f} value={f}>
+                  {f.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="plot-export-button"
+            aria-label={`Save plot as ${effectiveSaveFormat || "file"}`}
+            disabled={!canSave}
+            onClick={handleSave}
+            className="h-7"
+          >
+            Save
+          </Button>
+        </div>
       </div>
       <PlotMetadataBadges envelope={envelope} />
     </div>

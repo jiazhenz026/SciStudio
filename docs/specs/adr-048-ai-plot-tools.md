@@ -275,6 +275,23 @@ Acceptance Scenarios:
   must be updated for the new plot tools and skill.
 - FR-035: The tool workflow must be documented separately from block authoring:
   plot jobs are preview-only artifacts, not reusable block definitions.
+- FR-036: When a render returns a figure object, plot execution must render one
+  sibling artifact file per manifest `allowed_formats` value up front
+  (`current.svg` + `current.pdf` + `current.png` + `current.jpg`), because the
+  figure is closed immediately after render and cannot be re-rendered at
+  save/export time. The preferred-format file is the canonical preview primary;
+  the siblings exist so the previewer's Save/Export can produce a valid file in
+  any rendered format. A render that returns an artifact *path* (not a figure)
+  stays single-format — the author already chose that format. When the extra
+  formats would exceed the output-byte or file-count caps, the run degrades
+  gracefully to the preferred format per figure and warns, rather than failing.
+- FR-037: The `PlotPreviewer` export resource must resolve the sibling file that
+  matches the format the caller requested (via the `format` param derived from
+  the user's Save-as choice or destination extension) rather than the primary
+  bytes. The PLOT envelope must advertise the rendered formats
+  (`payload.available_formats`) so the frontend can offer a Save-as format
+  choice. Requesting a format that was not rendered must return a clear error,
+  never a corrupt file written under a mismatched extension.
 
 ### Key Entities
 
@@ -536,4 +553,7 @@ manifests imply an output exists until validation or run confirms it.
 - R execution may be optional in CI but must be supported by the runtime when R
   and required packages are available.
 - Preview cache paths are not scientific result paths; users must explicitly
-  save or export plot artifacts they want to keep.
+  save or export plot artifacts they want to keep. A figure is rendered to every
+  manifest-allowed format up front so an explicit save can produce a valid file
+  in the user's chosen format without re-rendering (the figure is already
+  closed); see FR-036 / FR-037.

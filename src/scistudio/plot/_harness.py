@@ -453,23 +453,44 @@ def _apply_default_matplotlib_style(matplotlib):
     )
 
 
-def _artifact_name(index, preferred):
-    suffix = "jpg" if preferred == "jpeg" else preferred
+def _artifact_name(index, fmt):
+    suffix = "jpg" if fmt == "jpeg" else fmt
     return "figure." + suffix if index == 0 else "figure_" + str(index) + "." + suffix
+
+
+def _export_formats(preferred, allowed):
+    """Ordered export formats for a returned figure: the preferred format first,
+    then the rest of the manifest ``allowed`` set (deduped). With no ``allowed``
+    set only the preferred format is rendered.
+
+    Re-render-on-save is impossible (the figure is closed right after render),
+    so every allowed format is saved to a sibling file up front and the
+    previewer resolves the file matching the user's chosen export format (#1918).
+    """
+    order = [preferred]
+    for fmt in allowed:
+        if fmt and fmt not in order:
+            order.append(fmt)
+    return order
 
 
 def _save_matplotlib_figure(fig, out_dir, preferred, allowed, index):
     _check_allowed("figure." + preferred, allowed)
-    out = Path(out_dir) / _artifact_name(index, preferred)
-    fmt = "jpg" if preferred == "jpeg" else preferred
-    fig.savefig(out, format=fmt)
+    primary = None
+    for fmt in _export_formats(preferred, allowed):
+        _check_allowed("figure." + fmt, allowed)
+        out = Path(out_dir) / _artifact_name(index, fmt)
+        save_fmt = "jpg" if fmt == "jpeg" else fmt
+        fig.savefig(out, format=save_fmt)
+        if primary is None:
+            primary = out.name
     try:
         import matplotlib.pyplot as plt
 
         plt.close(fig)
     except Exception:
         pass
-    return out.name
+    return primary
 
 
 def _collect_path(value, out_dir, allowed):
@@ -823,17 +844,34 @@ safe_artifact_path <- function(path) {
   basename(resolved)
 }
 
+# Ordered export formats for a returned ggplot: preferred first, then the rest
+# of the manifest allowed set (deduped). Re-render-on-save is impossible, so
+# every allowed format is ggsave'd to a sibling file up front and the previewer
+# resolves the file matching the user's chosen export format (#1918).
+export_formats <- function() {
+  order <- preferred
+  for (fmt in allowed) {
+    if (nzchar(fmt) && !(fmt %in% order)) order <- c(order, fmt)
+  }
+  order
+}
+
 save_ggplot <- function(plot, index) {
-  ext <- check_format(paste0("figure.", preferred))
-  suffix <- if (preferred == "jpeg") "jpg" else preferred
-  filename <- if (index == 0) paste0("figure.", suffix) else paste0("figure_", index, ".", suffix)
-  out <- file.path(out_dir, filename)
+  check_format(paste0("figure.", preferred))
+  primary <- NULL
   fig <- resolve_fig()
-  ggplot2::ggsave(
-    out, plot = plot, device = if (ext == "jpeg") "jpeg" else ext,
-    width = fig[["width"]], height = fig[["height"]], units = "in"
-  )
-  basename(out)
+  for (fmt in export_formats()) {
+    ext <- check_format(paste0("figure.", fmt))
+    suffix <- if (fmt == "jpeg") "jpg" else fmt
+    filename <- if (index == 0) paste0("figure.", suffix) else paste0("figure_", index, ".", suffix)
+    out <- file.path(out_dir, filename)
+    ggplot2::ggsave(
+      out, plot = plot, device = if (ext == "jpeg") "jpeg" else ext,
+      width = fig[["width"]], height = fig[["height"]], units = "in"
+    )
+    if (is.null(primary)) primary <- basename(out)
+  }
+  primary
 }
 
 collect_returned <- function(value) {

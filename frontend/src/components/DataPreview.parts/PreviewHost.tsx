@@ -565,19 +565,35 @@ function mergeResourceParams(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+// Map an export format to the file extension the default save filename uses.
+// jpeg is conventionally saved as .jpg to match the on-disk artifact (#1918).
+function extensionForFormat(format: string): string {
+  return format === "jpeg" ? "jpg" : format;
+}
+
 function defaultResourceFilename(
   envelope: PreviewEnvelope,
   params?: Record<string, unknown>,
 ): string {
+  // When the caller requested a specific export format (the plot Save-as menu,
+  // #1918), the default filename must carry that format's extension so the
+  // native dialog defaults to the right type instead of the preview's format.
+  const requested =
+    typeof params?.format === "string" && params.format ? extensionForFormat(params.format) : "";
   const payloadPath = envelope.payload?.path;
   if (typeof payloadPath === "string" && payloadPath) {
     const normalized = payloadPath.replace(/[\\/]+$/, "");
     const parts = normalized.split(/[\\/]/);
     const name = parts[parts.length - 1];
-    if (name) return name;
+    if (name) {
+      if (requested) {
+        const base = name.replace(/\.[A-Za-z0-9]+$/, "");
+        return `${base}.${requested}`;
+      }
+      return name;
+    }
   }
-  const format = typeof params?.format === "string" && params.format ? params.format : "bin";
-  return `${envelope.previewer_id}.${format}`;
+  return `${envelope.previewer_id}.${requested || "bin"}`;
 }
 
 function fileFilterForFilename(filename: string): string {

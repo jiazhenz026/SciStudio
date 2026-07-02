@@ -771,6 +771,38 @@ def _parse_harness_stdout(stdout: str) -> dict[str, Any] | None:
     return None
 
 
+_PLOT_EXTS = frozenset({"svg", "pdf", "png", "jpeg", "jpg"})
+
+
+def _norm_ext(path: Path) -> str:
+    """Canonical single-word format for a plot file (``jpg`` folds to ``jpeg``)."""
+    ext = path.suffix.lower().lstrip(".")
+    return "jpeg" if ext == "jpg" else ext
+
+
+def _figure_group_stem(name: str) -> str:
+    """Return the figure-group stem for a produced/on-disk artifact filename.
+
+    A single returned figure is now saved to one sibling file per allowed format
+    (``figure.svg`` / ``figure.pdf`` / ``figure.png`` / ``figure.jpg``); a second
+    figure uses ``figure_1.*`` and so on (#1918). Every sibling of one figure
+    shares the same stem, so grouping by stem folds the format siblings back into
+    one figure. The dot-suffix is stripped; ``jpg`` and ``jpeg`` already share a
+    stem because the stem excludes the extension.
+    """
+    return Path(name).stem
+
+
+def _cache_name(cache_stem: str, ext: str) -> str:
+    """Cache filename for a promoted artifact: ``current.<ext>`` for the first
+    figure, ``current_<n>.<ext>`` for each additional figure. The ``.jpg``
+    on-disk suffix is preserved so the browser/native dialog and MIME lookup
+    stay consistent.
+    """
+    suffix = "jpg" if ext == "jpeg" else ext
+    return f"{cache_stem}.{suffix}"
+
+
 def _promote_artifacts(
     work_dir: Path,
     cache_dir: Path,
@@ -779,55 +811,93 @@ def _promote_artifacts(
     max_files: int,
     manifest: PlotManifest,
 ) -> tuple[list[PlotArtifact], list[str], list[str]]:
-    """Move produced artifacts into the cache as current.* (FR-026, FR-027, FR-029)."""
+    """Move produced artifacts into the cache as current.* (FR-026, FR-027, FR-029).
+
+    Each returned figure is rendered to one sibling file per manifest-allowed
+    format so the previewer can export/save a valid file in the user's chosen
+    format without re-rendering (#1918, approach B). The siblings of one figure
+    are promoted together under a shared cache stem: the preferred-format file of
+    the first figure stays the canonical ``current.<preferred>`` primary (the
+    preview artifact), and the other formats land as ``current.<ext>`` siblings.
+    The byte/file caps are enforced against everything written; when the extra
+    formats would exceed a cap the run degrades gracefully to the primary of each
+    figure and warns, rather than failing.
+    """
     warnings: list[str] = []
     errors: list[str] = []
 
     # Re-scan the work dir for ALL produced output files to enforce the
     # file-count + byte caps against what the script actually wrote, not just
     # what it declared.
-    on_disk = [
-        p
-        for p in sorted(work_dir.iterdir())
-        if p.is_file() and p.suffix.lower().lstrip(".") in {"svg", "pdf", "png", "jpeg", "jpg"}
-    ]
-    if len(on_disk) > max_files:
-        errors.append(f"plot wrote {len(on_disk)} files; max_files cap is {max_files}.")
+    on_disk = [p for p in sorted(work_dir.iterdir()) if p.is_file() and _norm_ext(p) in _PLOT_EXTS]
+    if not on_disk:
+        errors.append("render returned success but wrote no recognised artifact.")
         return [], warnings, errors
-    total = sum(p.stat().st_size for p in on_disk)
-    if total > max_bytes:
-        errors.append(f"plot output is {total} bytes; max_output_bytes cap is {max_bytes}.")
-        return [], warnings, errors
+
+    # Group the on-disk files back into figures by shared stem, preserving a
+    # stable per-figure order: figures named by the harness declarations first
+    # (``produced`` carries each figure's primary/preferred file), then any extra
+    # figures discovered on disk.
+    by_stem: dict[str, list[Path]] = {}
+    for p in on_disk:
+        by_stem.setdefault(_figure_group_stem(p.name), []).append(p)
+
+    ordered_stems: list[str] = []
+    for name in produced:
+        stem = _figure_group_stem(name)
+        if stem in by_stem and stem not in ordered_stems:
+            ordered_stems.append(stem)
+    for stem in by_stem:
+        if stem not in ordered_stems:
+            ordered_stems.append(stem)
+
+    preferred = manifest.outputs.preferred_format
+
+    def _sibling_sort_key(path: Path) -> tuple[int, str]:
+        # Preferred format first within a figure so it becomes the primary; the
+        # rest keep a stable alphabetical order.
+        return (0 if _norm_ext(path) == preferred else 1, _norm_ext(path))
+
+    # Full plan: every format sibling of every figure. Enforce the caps against
+    # this first; degrade to primaries-only if it would exceed them.
+    full_plan: list[tuple[str, Path]] = []
+    primary_plan: list[tuple[str, Path]] = []
+    for idx, stem in enumerate(ordered_stems):
+        cache_stem = "current" if idx == 0 else f"current_{idx}"
+        siblings = sorted(by_stem[stem], key=_sibling_sort_key)
+        for sib_i, src in enumerate(siblings):
+            full_plan.append((cache_stem, src))
+            if sib_i == 0:
+                primary_plan.append((cache_stem, src))
+
+    def _plan_bytes(plan: list[tuple[str, Path]]) -> int:
+        return sum(src.stat().st_size for _, src in plan)
+
+    plan = full_plan
+    if len(full_plan) > max_files or _plan_bytes(full_plan) > max_bytes:
+        # Degrade gracefully: keep one file (the preferred/primary) per figure so
+        # the preview and at least one export format still work, and tell the user
+        # the extra formats were dropped (rather than failing the whole run).
+        plan = primary_plan
+        if len(primary_plan) > max_files:
+            errors.append(f"plot wrote {len(primary_plan)} figures; max_files cap is {max_files}.")
+            return [], warnings, errors
+        if _plan_bytes(primary_plan) > max_bytes:
+            errors.append(f"plot output is {_plan_bytes(primary_plan)} bytes; max_output_bytes cap is {max_bytes}.")
+            return [], warnings, errors
+        warnings.append(
+            "extra export formats exceeded the output caps; only the preferred format was kept per figure. "
+            "Saving in another format is unavailable for this run."
+        )
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     # Current-overwrite: clear previous current.* before writing new ones (FR-027).
     _clear_current_artifacts(cache_dir)
 
-    # Order: declared artifacts first, then any extras found on disk.
-    ordered: list[Path] = []
-    for name in produced:
-        candidate = work_dir / Path(name).name
-        if candidate.is_file() and candidate not in ordered:
-            ordered.append(candidate)
-    for p in on_disk:
-        if p not in ordered:
-            ordered.append(p)
-    if not ordered:
-        errors.append("render returned success but wrote no recognised artifact.")
-        return [], warnings, errors
-
     artifacts: list[PlotArtifact] = []
-    for idx, src in enumerate(ordered):
-        ext = src.suffix.lower().lstrip(".")
-        if ext == "jpg":
-            ext = "jpeg"
-        # First artifact is the canonical current.<ext>; extras get an index.
-        dest_name = (
-            "current." + (src.suffix.lower().lstrip("."))
-            if idx == 0
-            else f"current_{idx}.{src.suffix.lower().lstrip('.')}"
-        )
-        dest = cache_dir / dest_name
+    for cache_stem, src in plan:
+        ext = _norm_ext(src)
+        dest = cache_dir / _cache_name(cache_stem, ext)
         shutil.copy2(src, dest)
         artifacts.append(
             PlotArtifact(filename=dest.name, format=ext, path=str(dest), size_bytes=dest.stat().st_size)  # type: ignore[arg-type]

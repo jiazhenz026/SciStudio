@@ -351,4 +351,57 @@ describe("PlotViewer", () => {
     expect(screen.getByTestId("plot-zoom-level").textContent).toBe("100%");
     expect(screen.getByTestId("plot-zoom-layer").style.transform).toBe("scale(1)");
   });
+
+  it("offers a Save-as format menu and passes the chosen format on export (#1918)", () => {
+    const onExport = vi.fn();
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "svg",
+          mime_type: "image/svg+xml",
+          svg: '<svg width="1600" height="1000" viewBox="0 0 1600 1000"></svg>',
+          available_formats: ["svg", "pdf", "png", "jpeg"],
+        })}
+        onExport={onExport}
+      />,
+    );
+
+    const select = screen.getByTestId("plot-format-select") as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(["svg", "pdf", "png", "jpeg"]);
+
+    // Default Save keeps the preview (preferred) format.
+    fireEvent.click(screen.getByTestId("plot-export-button"));
+    expect(onExport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        resource_id: "export",
+        params: expect.objectContaining({ format: "svg" }),
+      }),
+    );
+
+    // Choosing pdf sends the pdf format so the backend resolves the pdf sibling.
+    fireEvent.change(select, { target: { value: "pdf" } });
+    fireEvent.click(screen.getByTestId("plot-export-button"));
+    expect(onExport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        resource_id: "export",
+        params: expect.objectContaining({ format: "pdf" }),
+      }),
+    );
+  });
+
+  it("hides the format menu when only one format is available", () => {
+    render(
+      <PlotViewer
+        envelope={plotEnvelope({
+          format: "svg",
+          mime_type: "image/svg+xml",
+          svg: '<svg width="1600" height="1000" viewBox="0 0 1600 1000"></svg>',
+          available_formats: ["svg"],
+        })}
+        onExport={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("plot-format-select")).toBeNull();
+    expect(screen.getByTestId("plot-export-button")).toBeTruthy();
+  });
 });
