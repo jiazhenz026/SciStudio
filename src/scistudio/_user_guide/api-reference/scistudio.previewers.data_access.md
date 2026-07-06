@@ -80,7 +80,7 @@ The slot inventory of a composite target, with no child rendered.
 
 ```python
 class DataFramePage
-DataFramePage(columns: 'list[str]', rows: 'list[dict[str, Any]]', total_rows: 'int', page: 'int', page_size: 'int', total_pages: 'int', sort_by: 'str | None', sort_dir: 'str | None', truncated: 'bool') -> None
+DataFramePage(columns: 'list[str]', rows: 'list[dict[str, Any]]', total_rows: 'int', page: 'int', page_size: 'int', total_pages: 'int', sort_by: 'str | None', sort_dir: 'str | None') -> None
 ```
 
 One bounded page of a table, returned by `PreviewDataAccess.dataframe_page`.

@@ -1,0 +1,243 @@
+{
+  "branch": "guided/1920-table-badge",
+  "check_events": [
+    {
+      "at": "2026-07-06T18:28:02.425607Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-06T18:28:06.459541Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-06T18:28:06.497102Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/fallbacks.py",
+      "tests/previewers/test_preview_data_access.py",
+      "tests/api/test_previewers.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-06T18:26:26.871538Z",
+      "owner_directive": "Part 1 of #1886 only: remove misleading truncated/incomplete flags from the complete-but-paginated DataFrame preview path; backend-only; frontend badges vanish once flags are honest.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-06T18:26:26.871687Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-06T18:26:26.871855Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-048 \u00a77 defines the sampled/truncated/complete flag contract, which is preserved; no spec change \u2014 the DataFrame path now reports the existing flags honestly (paginated=complete), matching spec intent.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-06T18:28:06.519999Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.529136Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.537979Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.546627Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.555146Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.563582Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.571993Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.580300Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.588644Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-06T18:28:06.598083Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1920,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "179fad61",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "179fad61",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix only Part 1 of #1886: remove the misleading truncated/incomplete badge for complete-but-paginated DataFrame tables. One focused PR. New issue #1920 opened for this scope; #1886 stays as the Part 2 umbrella.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-07-06T18:28:06.598144Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1920-guided-1920-table-badge",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "6bb763a9-652e-4fd2-b34d-a9ff0d80e0a8",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-06T18:26:26.871863Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_data_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-06T18:26:26.871867Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
