@@ -38,6 +38,7 @@ import { gitApi } from "./api/git";
 import { lineageApi } from "./api/lineage";
 import { packagesApi } from "./api/packages";
 import { projectsApi } from "./api/projects";
+import { tutorialsApi } from "./api/tutorials";
 import { workflowsApi } from "./api/workflows";
 
 export { ApiError } from "./api/core";
@@ -63,4 +64,5 @@ export const api = {
   ...lineageApi,
   ...packagesApi,
   ...gitApi,
+  ...tutorialsApi,
 };

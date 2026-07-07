@@ -83,6 +83,8 @@ const EXPECTED_API_KEYS = [
   "updatePackage",
   "rollbackPackage",
   "deletePackage",
+  // tutorials
+  "bootstrapRunFirstWorkflowTutorial",
 ] as const;
 
 describe("api public surface (#1422 split)", () => {

@@ -6,6 +6,10 @@ interface WelcomeScreenProps {
   onOpenProject: () => void;
   onOpenRecent: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
+  tutorialPromptVisible?: boolean;
+  onStartTutorial?: () => void;
+  onDismissTutorial?: () => void;
+  onSuppressTutorial?: () => void;
 }
 
 export function WelcomeScreen({
@@ -14,6 +18,10 @@ export function WelcomeScreen({
   onOpenProject,
   onOpenRecent,
   onDeleteProject,
+  tutorialPromptVisible = false,
+  onStartTutorial,
+  onDismissTutorial,
+  onSuppressTutorial,
 }: WelcomeScreenProps) {
   function handleDeleteProject(event: React.MouseEvent, projectId: string, projectName: string) {
     event.stopPropagation();
@@ -34,6 +42,41 @@ export function WelcomeScreen({
               <p className="mt-4 max-w-2xl text-lg leading-8 text-stone-600">
                 Every tool. Every format. One workflow.
               </p>
+              {tutorialPromptVisible ? (
+                <div className="mt-6 rounded-lg border border-ember/30 bg-white/85 p-4 shadow-sm">
+                  <p className="text-[0.65rem] uppercase tracking-[0.24em] text-ember">Tutorial</p>
+                  <h2 className="mt-1 text-base font-semibold text-ink">
+                    Run Your First SciStudio Workflow
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">
+                    Create a sample project, normalize fluorescence data, build a workflow, create a
+                    plot card, and review history.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      className="rounded-full bg-ink px-4 py-2 text-xs font-medium text-white transition hover:bg-pine"
+                      onClick={onStartTutorial}
+                      type="button"
+                    >
+                      Start tutorial
+                    </button>
+                    <button
+                      className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-pine hover:text-pine"
+                      onClick={onDismissTutorial}
+                      type="button"
+                    >
+                      Not now
+                    </button>
+                    <button
+                      className="rounded-full px-3 py-2 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-ink"
+                      onClick={onSuppressTutorial}
+                      type="button"
+                    >
+                      Don&apos;t show again
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-3 pt-8">
               <button

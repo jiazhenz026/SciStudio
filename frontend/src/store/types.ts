@@ -86,6 +86,49 @@ export interface ProjectSlice {
   updateProjectDialog: (patch: Partial<ProjectDialogState>) => void;
 }
 
+export type RunFirstWorkflowTutorialStep =
+  | "inspect-data"
+  | "create-custom-block"
+  | "build-workflow"
+  | "configure-controls"
+  | "run-workflow"
+  | "create-plot-card"
+  | "view-history"
+  | "finish";
+
+export interface RunFirstWorkflowTutorialInstance {
+  tutorialId: "run-first-scistudio-workflow";
+  projectId: string;
+  datasetPath: string;
+  workflowId: string;
+  customBlockPath: string;
+  customBlockType: string;
+  customBlockName: string;
+  plotId: string;
+  plotTitle: string;
+  negativeControl: string;
+  positiveControl: string;
+}
+
+export interface RunFirstWorkflowTutorialPrefs {
+  completedAt?: string;
+  dismissedAt?: string;
+  suppressAutoStart?: boolean;
+}
+
+export interface TutorialSlice {
+  runFirstWorkflowTutorialActive: boolean;
+  runFirstWorkflowTutorialStep: RunFirstWorkflowTutorialStep;
+  runFirstWorkflowTutorialInstance: RunFirstWorkflowTutorialInstance | null;
+  runFirstWorkflowTutorialPrefs: RunFirstWorkflowTutorialPrefs;
+  startRunFirstWorkflowTutorial: (instance: RunFirstWorkflowTutorialInstance) => void;
+  setRunFirstWorkflowTutorialStep: (step: RunFirstWorkflowTutorialStep) => void;
+  exitRunFirstWorkflowTutorial: () => void;
+  completeRunFirstWorkflowTutorial: () => void;
+  dismissRunFirstWorkflowTutorialPrompt: () => void;
+  suppressRunFirstWorkflowTutorialPrompt: () => void;
+}
+
 export interface WorkflowSlice {
   workflowId: string | null;
   workflowName: string;
@@ -718,6 +761,7 @@ export interface LineageSlice {
 }
 
 export type AppStore = ProjectSlice &
+  TutorialSlice &
   WorkflowSlice &
   ExecutionSlice &
   UISlice &

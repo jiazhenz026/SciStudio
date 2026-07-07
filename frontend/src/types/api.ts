@@ -108,6 +108,24 @@ export interface ProjectResponse {
   current_workflow_id?: string | null;
 }
 
+export interface RunFirstWorkflowBootstrapRequest {
+  parent_path?: string | null;
+}
+
+export interface RunFirstWorkflowBootstrapResponse {
+  tutorial_id: "run-first-scistudio-workflow";
+  project: ProjectResponse;
+  dataset_path: string;
+  workflow_id: string;
+  custom_block_path: string;
+  custom_block_type: string;
+  custom_block_name: string;
+  plot_id: string;
+  plot_title: string;
+  negative_control: string;
+  positive_control: string;
+}
+
 export interface BlockPortResponse {
   name: string;
   direction: string;

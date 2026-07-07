@@ -1105,6 +1105,7 @@ def test_python_tests_check_does_not_set_scistudio_dev(git_repo: Path, monkeypat
     # ``_with_check_env`` no longer injects ``SCISTUDIO_DEV=1``; plugin
     # packages are discovered through their installed ``scistudio.*`` entry
     # points and the local check env matches CI without extra flags.
+    monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
     seen_env: list[str | None] = []
 
     def _fake_run(
