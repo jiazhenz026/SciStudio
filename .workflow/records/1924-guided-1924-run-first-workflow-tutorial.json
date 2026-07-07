@@ -1,0 +1,1318 @@
+{
+  "branch": "guided/1924-run-first-workflow-tutorial",
+  "check_events": [
+    {
+      "at": "2026-07-07T21:04:58.590354Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:05:03.144142Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:05:03.189849Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:05:23.057389Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:05:27.000904Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:05:27.019534Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:06:32.021869Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:06:35.902093Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:06:40.036044Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:06:40.564738Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:06:40.581201Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:09:10.943713Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:11:33.641073Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:11:41.042217Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-07-07T21:12:57.584349Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:13:01.520782Z",
+      "command": "(cd frontend && npm run lint)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:13:05.802155Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:13:05.929600Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:13:05.946168Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T21:14:37.386709Z",
+      "command": "pytest -n auto --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:17:00.916492Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T21:17:01.412466Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:035b5ff3f4ae5bcd6d97895cd7d6e17217d8f7c071c89c3fbe4c4d2079a7acf4",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "e26baab08b17be88dea744644951dbe89cf3e683",
+    "shas": [
+      "e26baab08b17be88dea744644951dbe89cf3e683"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      "src/scistudio/api/**",
+      "tests/**",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-07T20:05:44.498682Z",
+      "owner_directive": "Proceed with welcome-screen tutorial entry. The tutorial must create an instance project; when the user creates the plot card and custom block, automatically fill the required plot and normalization content rather than creating a selectable template.",
+      "reason": "Owner confirmed concrete tutorial implementation details before edits"
+    },
+    {
+      "at": "2026-07-07T20:14:40.905370Z",
+      "owner_directive": "Implement first-run onboarding tutorial with real tutorial project bootstrap, welcome-screen entry, guided panel, and auto-filled normalization block and plot card.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-07T20:54:04.461726Z",
+      "owner_directive": "Change the configure step so users click the Load block and choose the data filepath instead of configuring normalization controls.",
+      "reason": "Owner found the tutorial configure step blocks progress and redirected it to selecting the Load block file path."
+    },
+    {
+      "at": "2026-07-07T21:04:08.594223Z",
+      "owner_directive": "Prepare the completed Run Your First SciStudio Workflow onboarding tutorial for PR.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-07T21:18:20.530522Z",
+      "owner_directive": "Prepare PR and fix blocking local gate self-test flake encountered during PR readiness.",
+      "reason": "Local pre-PR finalize exposed an xdist environment leak in the gate evaluator self-test; harden the test so it isolates ambient SCISTUDIO_DEV before asserting gate behavior."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-07T20:14:24.047473Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/getting-started.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:40.905628Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/getting-started.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:04:08.594604Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/getting-started.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-07T21:03:42.763339Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.774436Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.785664Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.797141Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.808671Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.819483Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.830165Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.840942Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.852788Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:03:42.864019Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.218500Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.229761Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.241084Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.252416Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.263622Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.275284Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.286792Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.298332Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.310009Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:03.322079Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.044427Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.056170Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.067737Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.079392Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.090897Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.102311Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.113666Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.124779Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.136265Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:05:27.147805Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.090923Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.102417Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.113710Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.125003Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.136245Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.147364Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.158598Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.171886Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.183271Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:11:41.200470Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.465870Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.477406Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.488961Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.500744Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.512391Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.523901Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.535617Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.547503Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.559202Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:01.576516Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.426870Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.438123Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.449199Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.460619Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.471440Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.482795Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.493937Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.505308Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.516486Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T21:17:56.533281Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1924,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "647ad26e30a727112228d8e067fca92f800562d9",
+    "base_sha": "647ad26e",
+    "changed_files": [
+      ".workflow/records/1924-guided-1924-run-first-workflow-tutorial.json",
+      "frontend/src/App.parts/AppDialogs.tsx",
+      "frontend/src/App.parts/WelcomePane.tsx",
+      "frontend/src/App.parts/useRunFirstWorkflowTutorial.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/TutorialPanel.tsx",
+      "frontend/src/components/WelcomeScreen.test.tsx",
+      "frontend/src/components/WelcomeScreen.tsx",
+      "frontend/src/lib/api.ts",
+      "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "frontend/src/lib/api/tutorials.ts",
+      "frontend/src/store/index.ts",
+      "frontend/src/store/tutorialSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/testUtils.ts",
+      "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "frontend/src/tutorials/runFirstWorkflow/content.ts",
+      "frontend/src/types/api.ts",
+      "src/scistudio/_user_guide/getting-started.md",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "tests/api/test_tutorials.py"
+    ],
+    "diff_fingerprint": "sha256:9013e8b5d09d952ea385910604e95ed6e3217ee6ac54104291f0b50d35183e6a",
+    "head": "HEAD",
+    "head_sha": "e26baab0",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 17,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 20,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 21,
+      "test": 4,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement Run Your First SciStudio Workflow onboarding tutorial with welcome-screen entry, real tutorial project bootstrap, and auto-filled normalization custom block and plot card content.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1924
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-07-07T21:03:42.864070Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-07T21:05:03.322139Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-07-07T21:05:27.147887Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-07T21:11:41.200504Z",
+      "diff_fingerprint": "sha256:9013e8b5d09d952ea385910604e95ed6e3217ee6ac54104291f0b50d35183e6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-07T21:17:01.576554Z",
+      "diff_fingerprint": "sha256:9013e8b5d09d952ea385910604e95ed6e3217ee6ac54104291f0b50d35183e6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-07T21:17:56.533315Z",
+      "diff_fingerprint": "sha256:9013e8b5d09d952ea385910604e95ed6e3217ee6ac54104291f0b50d35183e6a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1924-guided-1924-run-first-workflow-tutorial",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "codex:gpt-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:05:44.498845Z",
+      "pattern": "frontend/src/**",
+      "reason": "Owner confirmed concrete tutorial implementation details before edits"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:05:44.498851Z",
+      "pattern": "src/scistudio/api/**",
+      "reason": "Owner confirmed concrete tutorial implementation details before edits"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:05:44.498854Z",
+      "pattern": "tests/**",
+      "reason": "Owner confirmed concrete tutorial implementation details before edits"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:24.047324Z",
+      "pattern": "src/scistudio/_user_guide/getting-started.md",
+      "reason": "Document welcome-screen onboarding behavior"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:40.905506Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:40.905511Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:40.905513Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:40.905514Z",
+      "pattern": "tests/api/test_tutorials.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:14:40.905516Z",
+      "pattern": "src/scistudio/_user_guide/getting-started.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:54:04.461858Z",
+      "pattern": "frontend/src/tutorials/runFirstWorkflow/content.ts",
+      "reason": "Owner found the tutorial configure step blocks progress and redirected it to selecting the Load block file path."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:54:04.461864Z",
+      "pattern": "frontend/src/components/TutorialPanel.tsx",
+      "reason": "Owner found the tutorial configure step blocks progress and redirected it to selecting the Load block file path."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594464Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594469Z",
+      "pattern": "frontend/src/App.parts/AppDialogs.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594471Z",
+      "pattern": "frontend/src/App.parts/WelcomePane.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594472Z",
+      "pattern": "frontend/src/App.parts/useRunFirstWorkflowTutorial.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594473Z",
+      "pattern": "frontend/src/components/TutorialPanel.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594474Z",
+      "pattern": "frontend/src/components/WelcomeScreen.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594476Z",
+      "pattern": "frontend/src/lib/api.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594476Z",
+      "pattern": "frontend/src/lib/api/tutorials.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594477Z",
+      "pattern": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594478Z",
+      "pattern": "frontend/src/store/index.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594479Z",
+      "pattern": "frontend/src/store/tutorialSlice.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594480Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594481Z",
+      "pattern": "frontend/src/testUtils.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594482Z",
+      "pattern": "frontend/src/tutorials/runFirstWorkflow/content.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594483Z",
+      "pattern": "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594484Z",
+      "pattern": "frontend/src/types/api.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594485Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594486Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594487Z",
+      "pattern": "tests/api/test_tutorials.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:04:08.594488Z",
+      "pattern": "src/scistudio/_user_guide/getting-started.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T21:18:20.530685Z",
+      "pattern": "tests/qa/test_gate_evaluator.py",
+      "reason": "Local pre-PR finalize exposed an xdist environment leak in the gate evaluator self-test; harden the test so it isolates ambient SCISTUDIO_DEV before asserting gate behavior."
+    }
+  ],
+  "session_id": "5312befa-cf7b-4381-ade7-1f47df16cb3f",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-07T20:14:24.047494Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:24.047501Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WelcomeScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:24.047503Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:24.047504Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:40.905643Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:40.905645Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WelcomeScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:40.905646Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:14:40.905647Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:54:04.462006Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:04:08.594610Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:04:08.594612Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WelcomeScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:04:08.594613Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:04:08.594614Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T21:18:20.530808Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

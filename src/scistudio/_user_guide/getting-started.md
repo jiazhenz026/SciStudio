@@ -23,6 +23,13 @@ start screen (or open an existing one). Inside, you will find:
 | **Preview** | Shows the data on any port you click. |
 | **AI chat** | The embedded assistant — ask it to build, fix, or explain things. |
 
+If you are new to SciStudio, the start screen can also show **Run Your First
+SciStudio Workflow**. It creates a real tutorial project with a small
+fluorescence table, then walks you through creating a normalization custom
+block, building and running the workflow, creating a plot card, and reviewing
+run history. You can dismiss the prompt, hide it permanently, or restart the
+tutorial later from the start screen when the prompt is available.
+
 ## 2. Build a small workflow
 
 A workflow is a graph of blocks. Let's build the simplest useful one: **load a

@@ -31,8 +31,10 @@ import type { AnyTab } from "./store/types";
 import type { ProjectResponse, WorkflowResponse } from "./types/api";
 
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
+import { AppDialogs } from "./App.parts/AppDialogs";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
 import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
+import { WelcomePane } from "./App.parts/WelcomePane";
 import { useActiveTab } from "./App.parts/useActiveTab";
 import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
 import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
@@ -43,14 +45,12 @@ import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
+import { useRunFirstWorkflowTutorial } from "./App.parts/useRunFirstWorkflowTutorial";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
-import { ProjectDialog } from "./components/ProjectDialog";
-import { PromptDialog } from "./components/PromptDialog";
-import { WorkflowConflictDialog } from "./components/WorkflowConflictDialog";
+import { TutorialPanel } from "./components/TutorialPanel";
 import { Toolbar } from "./components/Toolbar";
-import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 function emptyWorkflow(id = "main"): WorkflowResponse {
@@ -104,8 +104,42 @@ function AppErrorBanner({ message, onDismiss }: { message: string | null; onDism
   );
 }
 
+function useWorkflowPayload({
+  workflowDescription,
+  workflowEdges,
+  workflowId,
+  workflowMetadata,
+  workflowNodes,
+  workflowVersion,
+}: {
+  workflowDescription: string;
+  workflowEdges: WorkflowResponse["edges"];
+  workflowId: string | null;
+  workflowMetadata: WorkflowResponse["metadata"];
+  workflowNodes: WorkflowResponse["nodes"];
+  workflowVersion: string;
+}): WorkflowResponse {
+  return useMemo<WorkflowResponse>(
+    () => ({
+      id: workflowId ?? "main",
+      version: workflowVersion,
+      description: workflowDescription,
+      metadata: workflowMetadata,
+      nodes: workflowNodes,
+      edges: workflowEdges,
+    }),
+    [
+      workflowDescription,
+      workflowEdges,
+      workflowId,
+      workflowMetadata,
+      workflowNodes,
+      workflowVersion,
+    ],
+  );
+}
+
 export default function App() {
-  // --- Zustand selectors -------------------------------------------------
   const currentProject = useAppStore((state) => state.currentProject);
   const recentProjects = useAppStore((state) => state.recentProjects);
   const projectDialogOpen = useAppStore((state) => state.projectDialogOpen);
@@ -115,7 +149,6 @@ export default function App() {
   const openProjectDialog = useAppStore((state) => state.openProjectDialog);
   const closeProjectDialog = useAppStore((state) => state.closeProjectDialog);
   const updateProjectDialog = useAppStore((state) => state.updateProjectDialog);
-
   const workflowId = useAppStore((state) => state.workflowId);
   const workflowDescription = useAppStore((state) => state.workflowDescription);
   const workflowVersion = useAppStore((state) => state.workflowVersion);
@@ -134,13 +167,10 @@ export default function App() {
   const removeEdge = useAppStore((state) => state.removeEdge);
   const addAnnotationNode = useAppStore((state) => state.addAnnotationNode);
   const markWorkflowSaved = useAppStore((state) => state.markWorkflowSaved);
-  // #1891: surfaced by the canvas conflict dialog when a remote write collides
-  // with unsaved local edits; autosave is frozen until the user resolves it.
   const workflowConflict = useAppStore((state) => state.workflowConflict);
   const resolveWorkflowConflict = useAppStore((state) => state.resolveWorkflowConflict);
   const undoWorkflow = useAppStore((state) => state.undoWorkflow);
   const redoWorkflow = useAppStore((state) => state.redoWorkflow);
-
   const blockStates = useAppStore((state) => state.blockStates);
   const blockOutputs = useAppStore((state) => state.blockOutputs);
   const blockErrors = useAppStore((state) => state.blockErrors);
@@ -148,7 +178,6 @@ export default function App() {
   const logEntries = useAppStore((state) => state.logEntries);
   const isRunning = useAppStore((state) => state.isRunning);
   const resetExecution = useAppStore((state) => state.resetExecution);
-
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const activeBottomTab = useAppStore((state) => state.activeBottomTab);
   const unreadLogsCount = useAppStore((state) => state.unreadLogsCount);
@@ -164,37 +193,27 @@ export default function App() {
   const toggleMinimap = useAppStore((state) => state.toggleMinimap);
   const setPanelSize = useAppStore((state) => state.setPanelSize);
   const setLastError = useAppStore((state) => state.setLastError);
-
   const blocks = useAppStore((state) => state.blocks);
   const blockSchemas = useAppStore((state) => state.blockSchemas);
   const paletteSearch = useAppStore((state) => state.paletteSearch);
   const setBlocks = useAppStore((state) => state.setBlocks);
   const setBlockSchema = useAppStore((state) => state.setBlockSchema);
   const setPaletteSearch = useAppStore((state) => state.setPaletteSearch);
-
   const tabs = useAppStore((state) => state.tabs);
   const activeTabId = useAppStore((state) => state.activeTabId);
   const openTab = useAppStore((state) => state.openTab);
   const switchTab = useAppStore((state) => state.switchTab);
   const closeTab = useAppStore((state) => state.closeTab);
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
-  // ADR-036 §3.10 / §3.7 — file tab actions.
   const saveFileTab = useAppStore((state) => state.saveFileTab);
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
   const openFileTab = useAppStore((state) => state.openFileTab);
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
-
-  // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap.
   const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
-
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
-  // #1799 — toolbar "New plot" opens the in-panel picker via the UI slice.
   const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
-  // Promise-based replacement for window.prompt (unsupported in Electron).
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
-
-  // Bottom-panel imperative controls + cross-component callbacks.
   const {
     bottomPanelRef,
     handleCanvasPaneClick,
@@ -206,8 +225,7 @@ export default function App() {
     setSelectedNodeId,
     setActiveBottomTab,
   });
-  const readability = useCanvasReadability(handleNodeSelect); // ADR-050 §3 wiring.
-
+  const readability = useCanvasReadability(handleNodeSelect);
   const { connected: wsConnected, status: wsStatus } = useWorkflowWebSocket(
     Boolean(currentProject),
   );
@@ -215,7 +233,6 @@ export default function App() {
     workflowId,
     activeBottomTab === "logs" ? selectedNodeId : null,
   );
-
   const selectedNode = useMemo(
     () => workflowNodes.find((node) => node.id === selectedNodeId) ?? null,
     [selectedNodeId, workflowNodes],
@@ -224,29 +241,14 @@ export default function App() {
     blocks.find((block) => block.type_name === selectedNode?.block_type)?.name ??
     selectedNode?.block_type ??
     "";
-
-  const workflowPayload = useMemo<WorkflowResponse>(
-    () => ({
-      id: workflowId ?? "main",
-      version: workflowVersion,
-      description: workflowDescription,
-      metadata: workflowMetadata,
-      nodes: workflowNodes,
-      edges: workflowEdges,
-    }),
-    [
-      workflowDescription,
-      workflowEdges,
-      workflowId,
-      workflowMetadata,
-      workflowNodes,
-      workflowVersion,
-    ],
-  );
-
-  // API-backed sync: project list refresh, block catalog refresh, workflow
-  // save / save-as. Wrapped in a hook so identity stability is owned in one
-  // place rather than being scattered across App.tsx.
+  const workflowPayload = useWorkflowPayload({
+    workflowDescription,
+    workflowEdges,
+    workflowId,
+    workflowMetadata,
+    workflowNodes,
+    workflowVersion,
+  });
   const { refreshProjects, refreshBlocks, reloadBlocks, saveWorkflow, saveWorkflowAs } =
     useWorkflowSync({
       currentProject,
@@ -259,9 +261,6 @@ export default function App() {
       workflowPayload,
       workflowId,
     });
-
-  // Project / workflow / file CRUD actions live in their own hook to keep
-  // App.tsx focused on lifecycle + JSX.
   const projectActions = useProjectActions({
     currentProject,
     setCurrentProject,
@@ -286,8 +285,16 @@ export default function App() {
     createNewNote,
     importWorkflow,
   } = projectActions;
-
-  // Workflow execution callbacks (run / pause / resume / cancel / per-block).
+  const {
+    tutorialPromptVisible,
+    startTutorial,
+    dismissRunFirstWorkflowTutorialPrompt,
+    suppressRunFirstWorkflowTutorialPrompt,
+  } = useRunFirstWorkflowTutorial({
+    openProject,
+    setBusy,
+    setLastError,
+  });
   const {
     runWorkflow,
     pauseWorkflow,
@@ -306,8 +313,6 @@ export default function App() {
     workflowNodes,
     blockSchemas,
   });
-
-  // Canvas / toolbar handlers (palette add, edge connect, view source, save).
   const { handleAddBlockFromPalette, handleCanvasConnect, handleViewSource, handleSave } =
     useCanvasHandlers({
       currentProject,
@@ -325,11 +330,7 @@ export default function App() {
       setLastError,
       schemas: blockSchemas,
     });
-
-  // #2/#8/#9: keep the block catalog in sync with the canvas (custom / agent-added blocks).
   useBlockCatalogSync(refreshBlocks);
-
-  // App-level lifecycle effects (boot, workflow autosave, tab snapshot sync).
   useAppLifecycleEffects({
     currentProject,
     workflowDirty,
@@ -347,15 +348,11 @@ export default function App() {
     workflowEdges,
     syncActiveTab,
   });
-
-  // ADR-036 §3.9 — per-tab autosave loop.
   useFileTabsAutosave({
     currentProject,
     tabs: tabs as AnyTab[],
     saveFileTab,
   });
-
-  // Global keyboard shortcuts.
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -374,7 +371,6 @@ export default function App() {
     togglePreview,
     undoWorkflow,
   });
-
   return (
     <ReactFlowProvider>
       <TooltipProvider delayDuration={300}>
@@ -415,9 +411,6 @@ export default function App() {
             onNewPlot={
               currentProject
                 ? () => {
-                    // #1799 — save first so freshly-added blocks appear as
-                    // targets, then open the in-panel picker (which expands the
-                    // bottom panel + switches to the Plots tab).
                     void saveWorkflow().then(() => openNewPlotPicker());
                   }
                 : undefined
@@ -443,92 +436,98 @@ export default function App() {
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
 
           {currentProject ? (
-            <ProjectWorkspace
-              currentProject={currentProject}
-              leftTab={leftTab}
-              onLeftTabChange={setLeftTab}
-              blocks={blocks}
-              paletteSearch={paletteSearch}
-              setPaletteSearch={setPaletteSearch}
-              onAddBlockFromPalette={handleAddBlockFromPalette}
-              onReloadBlocks={() => void reloadBlocks()}
-              onLoadWorkflowById={(id, displayName) => void loadWorkflowById(id, displayName)}
-              tabs={tabs as AnyTab[]}
-              activeTabId={activeTabId}
-              activeFileTab={activeFileTab}
-              switchTab={switchTab}
-              closeTab={closeTab}
-              onNewWorkflowTab={newWorkflow}
-              updateFileTabContent={updateFileTabContent}
-              saveFileTab={saveFileTab}
-              blockStates={blockStates}
-              blockOutputs={blockOutputs}
-              blockErrors={blockErrors}
-              blockErrorSummaries={blockErrorSummaries}
-              blockSchemas={blockSchemas}
-              workflowNodes={workflowNodes}
-              workflowEdges={workflowEdges}
-              selectedNodeId={selectedNodeId}
-              minimapVisible={minimapVisible}
-              onCanvasAddNode={addNode}
-              onCanvasConnect={handleCanvasConnect}
-              onCanvasDeleteEdge={removeEdge}
-              onCanvasDeleteNode={removeNode}
-              onErrorClick={handleErrorClick}
-              onCanvasPaneClick={handleCanvasPaneClick}
-              onRunBlock={handleRunBlock}
-              onRestartBlock={handleRestartBlock}
-              onSelectNode={handleNodeSelect}
-              onUpdateNodeConfig={updateNodeConfig}
-              onUpdateNodePosition={updateNodeLayout}
-              onResizeNode={updateNodeSize}
-              onOpenSubworkflow={projectActions.openSubworkflow}
-              onLocateSubworkflow={projectActions.locateSubworkflow}
-              readability={readability}
-              bottomPanelRef={bottomPanelRef}
-              bottomPanelPinned={bottomPanelPinned}
-              toggleBottomPanelPinned={toggleBottomPanelPinned}
-              activeBottomTab={activeBottomTab}
-              onBottomTabChange={handleBottomTabChange}
-              logEntries={logEntries}
-              unreadLogsCount={unreadLogsCount}
-              selectedNode={selectedNode}
-              selectedSchema={selectedNode ? blockSchemas[selectedNode.block_type] : undefined}
-              selectedNodeLabel={selectedNodeLabel}
-              setPanelSize={setPanelSize}
-            />
-          ) : (
-            <div className="min-h-0 flex-1">
-              <WelcomeScreen
-                onDeleteProject={(projectId) => void deleteProject(projectId)}
-                onNewProject={() => openProjectDialog("new")}
-                onOpenProject={() => openProjectDialog("open")}
-                onOpenRecent={(projectId) => void openProject(projectId)}
-                recentProjects={recentProjects}
+            <>
+              <ProjectWorkspace
+                currentProject={currentProject}
+                leftTab={leftTab}
+                onLeftTabChange={setLeftTab}
+                blocks={blocks}
+                paletteSearch={paletteSearch}
+                setPaletteSearch={setPaletteSearch}
+                onAddBlockFromPalette={handleAddBlockFromPalette}
+                onReloadBlocks={() => void reloadBlocks()}
+                onLoadWorkflowById={(id, displayName) => void loadWorkflowById(id, displayName)}
+                tabs={tabs as AnyTab[]}
+                activeTabId={activeTabId}
+                activeFileTab={activeFileTab}
+                switchTab={switchTab}
+                closeTab={closeTab}
+                onNewWorkflowTab={newWorkflow}
+                updateFileTabContent={updateFileTabContent}
+                saveFileTab={saveFileTab}
+                blockStates={blockStates}
+                blockOutputs={blockOutputs}
+                blockErrors={blockErrors}
+                blockErrorSummaries={blockErrorSummaries}
+                blockSchemas={blockSchemas}
+                workflowNodes={workflowNodes}
+                workflowEdges={workflowEdges}
+                selectedNodeId={selectedNodeId}
+                minimapVisible={minimapVisible}
+                onCanvasAddNode={addNode}
+                onCanvasConnect={handleCanvasConnect}
+                onCanvasDeleteEdge={removeEdge}
+                onCanvasDeleteNode={removeNode}
+                onErrorClick={handleErrorClick}
+                onCanvasPaneClick={handleCanvasPaneClick}
+                onRunBlock={handleRunBlock}
+                onRestartBlock={handleRestartBlock}
+                onSelectNode={handleNodeSelect}
+                onUpdateNodeConfig={updateNodeConfig}
+                onUpdateNodePosition={updateNodeLayout}
+                onResizeNode={updateNodeSize}
+                onOpenSubworkflow={projectActions.openSubworkflow}
+                onLocateSubworkflow={projectActions.locateSubworkflow}
+                readability={readability}
+                bottomPanelRef={bottomPanelRef}
+                bottomPanelPinned={bottomPanelPinned}
+                toggleBottomPanelPinned={toggleBottomPanelPinned}
+                activeBottomTab={activeBottomTab}
+                onBottomTabChange={handleBottomTabChange}
+                logEntries={logEntries}
+                unreadLogsCount={unreadLogsCount}
+                selectedNode={selectedNode}
+                selectedSchema={selectedNode ? blockSchemas[selectedNode.block_type] : undefined}
+                selectedNodeLabel={selectedNodeLabel}
+                setPanelSize={setPanelSize}
               />
-            </div>
+              <TutorialPanel
+                onOpenFile={openFileTab}
+                onReloadBlocks={reloadBlocks}
+                onSaveWorkflow={saveWorkflow}
+                onShowBlocks={() => setLeftTab("blocks")}
+                onPaletteSearch={setPaletteSearch}
+              />
+            </>
+          ) : (
+            <WelcomePane
+              onDeleteProject={(projectId) => void deleteProject(projectId)}
+              onNewProject={() => openProjectDialog("new")}
+              onOpenProject={() => openProjectDialog("open")}
+              onOpenRecent={(projectId) => void openProject(projectId)}
+              recentProjects={recentProjects}
+              tutorialPromptVisible={tutorialPromptVisible}
+              onStartTutorial={() => void startTutorial()}
+              onDismissTutorial={dismissRunFirstWorkflowTutorialPrompt}
+              onSuppressTutorial={suppressRunFirstWorkflowTutorialPrompt}
+            />
           )}
 
-          <ProjectDialog
-            description={projectDialog.description}
-            mode={projectDialog.mode}
-            name={projectDialog.name}
-            onChange={updateProjectDialog}
-            onClose={closeProjectDialog}
+          <AppDialogs
+            projectDialog={projectDialog}
+            projectDialogOpen={projectDialogOpen}
+            promptRequest={promptRequest}
+            recentProjects={recentProjects}
+            workflowConflict={workflowConflict}
+            onProjectDialogChange={updateProjectDialog}
+            onProjectDialogClose={closeProjectDialog}
+            onProjectDialogSubmit={() => void submitProjectDialog()}
             onDeleteProject={(projectId) => void deleteProject(projectId)}
             onOpenRecent={(projectId) => void openProject(projectId)}
-            onSubmit={() => void submitProjectDialog()}
-            open={projectDialogOpen}
-            path={projectDialog.path}
-            recentProjects={recentProjects}
+            onPromptClose={clearPrompt}
+            onResolveWorkflowConflict={resolveWorkflowConflict}
           />
 
-          <PromptDialog request={promptRequest} onClose={clearPrompt} />
-
-          {/* #1891: version-conflict resolution for the open canvas workflow. */}
-          <WorkflowConflictDialog conflict={workflowConflict} onResolve={resolveWorkflowConflict} />
-
-          {/* #591/#594: Interactive block modals. */}
           <InteractiveModals />
 
           {busy ? (
@@ -537,7 +536,6 @@ export default function App() {
             </div>
           ) : null}
 
-          {/* ADR-039 §3.5 (#975) — MergeFlow modal lives at App level. */}
           <AppLevelMergeFlow />
         </div>
       </TooltipProvider>

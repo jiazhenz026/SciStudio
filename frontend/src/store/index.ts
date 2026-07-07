@@ -11,6 +11,7 @@ import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
+import { createTutorialSlice } from "./tutorialSlice";
 import type { AppStore, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
@@ -62,6 +63,7 @@ export const useAppStore = create<AppStore>()(
   persist(
     (...args) => ({
       ...createProjectSlice(...args),
+      ...createTutorialSlice(...args),
       ...createWorkflowSlice(...args),
       ...createExecutionSlice(...args),
       ...createUISlice(...args),
@@ -87,6 +89,10 @@ export const useAppStore = create<AppStore>()(
         // with synthetic exit code -1 so the user sees the Reopen button.
         terminalTabs: state.terminalTabs,
         activeTerminalTabId: state.activeTerminalTabId,
+        runFirstWorkflowTutorialActive: state.runFirstWorkflowTutorialActive,
+        runFirstWorkflowTutorialStep: state.runFirstWorkflowTutorialStep,
+        runFirstWorkflowTutorialInstance: state.runFirstWorkflowTutorialInstance,
+        runFirstWorkflowTutorialPrefs: state.runFirstWorkflowTutorialPrefs,
         // ADR-036 §3.11: persist file-tab METADATA only (not content).
         // Workflow tabs are NOT persisted here because their canvas state
         // re-derives from project open + workflow load.
@@ -104,7 +110,15 @@ export const useAppStore = create<AppStore>()(
         // anything not in the current union back to "lineage" — the
         // semantic replacement for the run-history surface Jobs used
         // to occupy. This also covers any future tab removals.
-        const validTabs = new Set<string>(["ai", "terminal", "config", "logs", "lineage", "git"]);
+        const validTabs = new Set<string>([
+          "ai",
+          "terminal",
+          "config",
+          "logs",
+          "plots",
+          "lineage",
+          "git",
+        ]);
         if (typeof state.activeBottomTab !== "string" || !validTabs.has(state.activeBottomTab)) {
           state.activeBottomTab = "lineage";
         }
