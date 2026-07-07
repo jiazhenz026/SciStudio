@@ -400,6 +400,11 @@
       "at": "2026-07-07T19:17:32.800595Z",
       "owner_directive": "Cancel Slack sending behavior as part of removing the alpha flow.",
       "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    },
+    {
+      "at": "2026-07-07T19:35:01.851266Z",
+      "owner_directive": "Open the PR directly with gh.",
+      "reason": "Owner instructed direct gh PR creation despite gate-aware wrapper refusing on python_tests."
     }
   ],
   "docs_events": [
@@ -985,7 +990,14 @@
     }
   ],
   "record_id": "1922-remove-alpha-registration-slack",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:bypass"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [
@@ -1168,6 +1180,12 @@
       "at": "2026-07-07T19:17:32.800786Z",
       "pattern": "tests/packaging/test_no_alpha_gate.py",
       "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:35:01.851420Z",
+      "pattern": ".workflow/records/1922-remove-alpha-registration-slack.json",
+      "reason": "Owner instructed direct gh PR creation despite gate-aware wrapper refusing on python_tests."
     }
   ],
   "session_id": "8b2bff94-410f-42c0-8031-99e60e8a783e",
