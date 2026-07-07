@@ -11,7 +11,6 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue.svg)](https://jiazhenz026.github.io/SciStudio/)
-[![Slack](https://img.shields.io/badge/Slack-join-4A154B.svg?logo=slack&logoColor=white)](https://join.slack.com/t/scistudioalph-mau9124/shared_invite/zt-42dsj9af8-lmEWPOwQRcqOkaYiULbABg)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/5b7kTRU2k)
 
 **English** | [简体中文](README.zh-CN.md)
@@ -110,7 +109,6 @@ To build and ship your own blocks (rather than change the core), follow the
 
 Questions, feedback, and bug reports are very welcome while SciStudio is in alpha:
 
-- [Slack](https://join.slack.com/t/scistudioalph-mau9124/shared_invite/zt-42dsj9af8-lmEWPOwQRcqOkaYiULbABg)
 - [Discord](https://discord.gg/5b7kTRU2k)
 - [GitHub Issues](https://github.com/jiazhenz026/SciStudio/issues)
 

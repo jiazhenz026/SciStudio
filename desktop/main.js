@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, clipboard } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -9,8 +9,6 @@ const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
-// #1848: alpha-only activation gate. Removed in beta (see issue #1848).
-const activation = require("./activation");
 
 // #1784: the in-app Package Manager stages a package update on disk (into the
 // scanned installed-packages dir) and then asks the main process to relaunch so
@@ -41,10 +39,6 @@ const OTA_MAX_REDIRECTS = 5;
 let mainWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
-// #1848: true from app-ready until the main window exists. The activation gate is
-// the only window during this span; closing it must NOT trigger the
-// window-all-closed quit before the main window is created.
-let startingUp = false;
 let cachedMacLoginShellEnv = null;
 
 // #1867: single-instance lock. A second launch must focus the existing window
@@ -776,36 +770,6 @@ function macLoginShellEnv() {
   return cachedMacLoginShellEnv;
 }
 
-// #1855: alpha-only launch check-in env. Reads the gitignored webhook URL from
-// resources/alpha-checkin.json and forwards it plus the already-computed machine
-// fingerprint (and the activated tester's name, if any) so the Python backend
-// check-in can report active machines. Best-effort: any failure yields no env
-// additions and never blocks runtime spawn. ALPHA-ONLY; removed in beta with the
-// #1848 gate (see docs/alpha-activation-gate.md).
-function alphaCheckinEnv() {
-  const out = {};
-  try {
-    const cfg = readJsonSafe(path.join(resourcesDir(), "alpha-checkin.json"));
-    const url = cfg && typeof cfg.url === "string" ? cfg.url.trim() : "";
-    if (!url) {
-      return out;
-    }
-    out.SCISTUDIO_ALPHA_CHECKIN_URL = url;
-    try {
-      out.SCISTUDIO_ALPHA_FP = activation.machineFingerprint();
-    } catch {
-      // Fingerprint is best-effort; the Python side recomputes it if absent.
-    }
-    const stored = readJsonSafe(activation.activationFilePath(app.getPath("userData")));
-    if (stored && typeof stored.name === "string" && stored.name) {
-      out.SCISTUDIO_ALPHA_NAME = stored.name;
-    }
-  } catch {
-    // Check-in wiring is purely a counting aid and must never affect launch.
-  }
-  return out;
-}
-
 function runtimeEnv() {
   const resources = resourcesDir();
   const stagedSrc = path.join(resources, "backend", "src");
@@ -848,9 +812,7 @@ function runtimeEnv() {
     SCISTUDIO_BUILD_NUMBER: String(effectiveBuild()),
     // #1741: route backend logs to the same directory as the desktop log so the
     // diagnostic bundle captures both the Electron and Python sides.
-    SCISTUDIO_LOG_DIR: desktopLogDir(),
-    // #1855: alpha-only check-in wiring (webhook URL + machine fingerprint).
-    ...alphaCheckinEnv()
+    SCISTUDIO_LOG_DIR: desktopLogDir()
   };
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
@@ -1215,111 +1177,6 @@ function stopRuntime() {
   }, 5000).unref();
 }
 
-// --------------------------------------------------------------------------- //
-// #1848: alpha activation gate. Block startup until a valid per-machine token is
-// present so a redistributed copy cannot be opened. ALPHA-ONLY; remove the gate
-// window, the IPC handlers, the ensureAlphaActivation() call, and the
-// ./activation + ./preload-gate + resources/alpha-gate.html files in beta.
-// --------------------------------------------------------------------------- //
-
-// Show the activation gate window and resolve true once the machine is
-// activated, or false if the user quits the gate. The IPC handlers are scoped to
-// the gate's lifetime and removed on close.
-function runActivationGate(ctx) {
-  return new Promise((resolve) => {
-    let settled = false;
-
-    const gateWindow = new BrowserWindow({
-      width: 640,
-      height: 600,
-      resizable: false,
-      fullscreenable: false,
-      maximizable: false,
-      title: "SciStudio — Alpha Activation",
-      icon: appIconPath(),
-      backgroundColor: "#f7f8fb",
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        preload: path.join(__dirname, "preload-gate.js")
-      }
-    });
-
-    const cleanup = () => {
-      ipcMain.removeHandler("scistudio:alpha-gate-info");
-      ipcMain.removeHandler("scistudio:alpha-activate");
-      ipcMain.removeHandler("scistudio:alpha-copy");
-      ipcMain.removeHandler("scistudio:alpha-quit");
-    };
-
-    const finish = (ok) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      if (!gateWindow.isDestroyed()) {
-        gateWindow.removeAllListeners("closed");
-        gateWindow.close();
-      }
-      resolve(ok);
-    };
-
-    ipcMain.handle("scistudio:alpha-gate-info", () => ({
-      fingerprint: ctx.fingerprint,
-      configured: Boolean(ctx.publicKeyPem)
-    }));
-
-    ipcMain.handle("scistudio:alpha-copy", (_event, text) => {
-      clipboard.writeText(String(text || ""));
-      return true;
-    });
-
-    ipcMain.handle("scistudio:alpha-quit", () => {
-      finish(false);
-      return true;
-    });
-
-    ipcMain.handle("scistudio:alpha-activate", (_event, token) => {
-      const result = activation.verifyToken(String(token || ""), ctx.fingerprint, ctx.publicKeyPem);
-      if (!result.ok) {
-        return { ok: false, reason: result.reason };
-      }
-      try {
-        activation.writeStoredToken(ctx.userDataDir, String(token).trim(), result.payload);
-      } catch (error) {
-        safeError(`[scistudio] failed to persist activation: ${error.message}`);
-      }
-      safeLog("[scistudio] alpha activation succeeded");
-      // Let the renderer paint the success message before tearing down.
-      setTimeout(() => finish(true), 500);
-      return { ok: true };
-    });
-
-    gateWindow.on("closed", () => finish(false));
-    gateWindow.loadFile(path.join(resourcesDir(), "alpha-gate.html"));
-  });
-}
-
-// Returns true when the app may proceed to launch. When the gate is enabled and
-// this machine is not yet activated, shows the gate window and waits.
-async function ensureAlphaActivation() {
-  if (!activation.gateEnabled(app.isPackaged)) {
-    return true;
-  }
-  const fingerprint = activation.machineFingerprint();
-  const publicKeyPem = activation.loadPublicKeyPem(resourcesDir(), app.isPackaged);
-  const userDataDir = app.getPath("userData");
-  const status = activation.checkActivation({ userDataDir, fingerprint, publicKeyPem });
-  if (status.activated) {
-    safeLog("[scistudio] alpha activation: valid token for this machine");
-    return true;
-  }
-  safeLog(`[scistudio] alpha activation required (${status.reason}); showing gate`);
-  return runActivationGate({ fingerprint, publicKeyPem, userDataDir });
-}
-
 app.whenReady().then(async () => {
   // #1867: a second instance never acquired the lock; it has already requested
   // quit and must not start a runtime or window.
@@ -1328,17 +1185,6 @@ app.whenReady().then(async () => {
   }
   try {
     safeLog("[scistudio] electron ready");
-    // #1848: alpha gate — do not start the runtime or main window until the
-    // machine is activated. Quitting the gate quits the app. Guard the
-    // window-all-closed quit until the main window exists, so closing the gate
-    // window after a successful activation does not race startup into a quit.
-    startingUp = true;
-    const activated = await ensureAlphaActivation();
-    if (!activated) {
-      safeLog("[scistudio] alpha activation not completed; quitting");
-      app.quit();
-      return;
-    }
     // #1868: enforce a mandatory OTA update before starting the runtime/window.
     // Fail-open: returns true (continue) unless a fetched manifest marks the
     // update mandatory and the user declines or it cannot be applied.
@@ -1356,7 +1202,6 @@ app.whenReady().then(async () => {
     const url = launchUrl(ready.url);
     safeLog(`[scistudio] creating window for ${url}`);
     createWindow(url);
-    startingUp = false;
     // #1775: check for an OTA update after the window is up so startup is never
     // blocked on the network. Fire-and-forget; failures are logged, not fatal.
     maybeCheckForUpdate().catch((error) => {
@@ -1380,12 +1225,6 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  // #1848: while the activation gate is up (before the main window exists),
-  // closing it must not quit the app — startup is still bringing the runtime and
-  // main window online.
-  if (startingUp) {
-    return;
-  }
   app.quit();
 });
 

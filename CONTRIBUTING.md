@@ -71,5 +71,4 @@ as a human contributor you don't need to run the gate yourself.
 
 ## Community
 
-- [Slack](https://join.slack.com/t/scistudioalph-mau9124/shared_invite/zt-42dsj9af8-lmEWPOwQRcqOkaYiULbABg)
 - [Discord](https://discord.gg/5b7kTRU2k)
