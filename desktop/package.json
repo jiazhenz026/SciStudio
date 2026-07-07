@@ -37,8 +37,6 @@
       "main.js",
       "ota.js",
       "preload.js",
-      "activation.js",
-      "preload-gate.js",
       "package.json",
       "assets/icon.png"
     ],

@@ -1,0 +1,645 @@
+{
+  "branch": "codex/remove-alpha-registration-slack",
+  "check_events": [
+    {
+      "at": "2026-07-07T19:16:38.779052Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T19:16:43.211948Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T19:16:43.254533Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T19:17:02.013819Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T19:17:05.888182Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T19:17:05.902599Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T19:17:37.063028Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-07T19:17:40.955223Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-07T19:17:40.971148Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/**",
+      "desktop/**",
+      "web/**",
+      "docs/**",
+      "tests/**",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-07T19:13:56.235114Z",
+      "owner_directive": "Completely remove the alpha activation/registration gate and alpha Slack check-in notification flow.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-07T19:17:32.800595Z",
+      "owner_directive": "Cancel Slack sending behavior as part of removing the alpha flow.",
+      "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-07T19:13:56.235463Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T19:13:56.235486Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.zh-CN.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T19:13:56.235488Z",
+      "class": null,
+      "kind": "path",
+      "path": "CONTRIBUTING.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-07T19:16:43.278198Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.289028Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.300098Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.311208Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.322702Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.334025Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.345278Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.392844Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.408456Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:16:43.418979Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.926045Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.936900Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.947666Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.958358Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.970271Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.981635Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:05.993465Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:06.005805Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:06.017318Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:06.028224Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:40.993904Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.004826Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.015611Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.026589Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.037419Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.048063Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.058243Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.068573Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.079463Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:17:41.090190Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1922,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "179fad61",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "179fad61",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Remove the temporary alpha registration code mechanism and Slack notification integration, then push a PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-07-07T19:16:43.419074Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.lint_format"
+      ]
+    },
+    {
+      "at": "2026-07-07T19:17:06.028274Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-07T19:17:41.090278Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1922-remove-alpha-registration-slack",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235296Z",
+      "pattern": "desktop/main.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235304Z",
+      "pattern": "desktop/package.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235306Z",
+      "pattern": "desktop/activation.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235307Z",
+      "pattern": "desktop/preload-gate.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235309Z",
+      "pattern": "desktop/resources/alpha-gate.html",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235310Z",
+      "pattern": "desktop/resources/alpha-public-key.pem",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235311Z",
+      "pattern": "desktop/test/activation.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235312Z",
+      "pattern": "desktop/test/alpha-token.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235313Z",
+      "pattern": "scripts/alpha-token.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235314Z",
+      "pattern": "scripts/alpha-token-gui.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235315Z",
+      "pattern": "scripts/alpha-token-issuer.command",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235316Z",
+      "pattern": "scripts/build-issuer-app.sh",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235317Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235318Z",
+      "pattern": "src/scistudio/telemetry/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235319Z",
+      "pattern": "tests/telemetry/test_checkin.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235320Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235321Z",
+      "pattern": "tests/packaging/test_no_alpha_gate.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235322Z",
+      "pattern": "README.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235323Z",
+      "pattern": "README.zh-CN.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235325Z",
+      "pattern": "CONTRIBUTING.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:13:56.235326Z",
+      "pattern": "docs/alpha-activation-gate.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:17:32.800778Z",
+      "pattern": "desktop/main.js",
+      "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:17:32.800783Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:17:32.800785Z",
+      "pattern": "src/scistudio/telemetry/**",
+      "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T19:17:32.800786Z",
+      "pattern": "tests/packaging/test_no_alpha_gate.py",
+      "reason": "Owner clarified Slack sending behavior must be cancelled, not just public Slack links."
+    }
+  ],
+  "session_id": "8b2bff94-410f-42c0-8031-99e60e8a783e",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-07T19:13:56.235495Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_no_alpha_gate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T19:17:32.800911Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_no_alpha_gate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
