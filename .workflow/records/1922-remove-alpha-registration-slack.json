@@ -373,9 +373,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "851c782f",
+    "sha": "c5442f26",
     "shas": [
-      "851c782f"
+      "c5442f26"
     ],
     "trailers": []
   },
@@ -860,6 +860,112 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.142309Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.153932Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.165819Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "requested_label": "admin-approved:bypass"
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "human_bypass_guard",
+          "git_evidence": null,
+          "id": "human_bypass_guard.requested-bypass-needs-provenance",
+          "line": null,
+          "message": "requested admin-approved:bypass must be present on the PR with maintainer provenance",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "human_bypass_guard.requested-bypass-needs-provenance",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "human_bypass_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-07T19:35:33.177006Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.188413Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.199996Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.211261Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.222702Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.233264Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-07T19:35:33.251103Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -872,7 +978,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "179fad61d1b640ca9e167cfd7e446cc68c711fb3",
     "base_sha": "179fad61",
     "changed_files": [
       ".workflow/records/1922-remove-alpha-registration-slack.json",
@@ -899,9 +1005,9 @@
       "tests/packaging/test_no_alpha_gate.py",
       "tests/telemetry/test_checkin.py"
     ],
-    "diff_fingerprint": "sha256:e71467d7205f7d5fff9160d315db4a78400fedca0cc3692f74f70635e1652120",
+    "diff_fingerprint": "sha256:87ccaf877851da3ff1edebfc018741a9c4ec71e65be695209c391b61fa586af1",
     "head": "HEAD",
-    "head_sha": "a08e7e08",
+    "head_sha": "c5442f26",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -922,8 +1028,8 @@
     "closes": [
       1922
     ],
-    "number": null,
-    "url": null
+    "number": 1923,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1923"
   },
   "reconcile_events": [
     {
@@ -987,6 +1093,16 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-07-07T19:35:33.251148Z",
+      "diff_fingerprint": "sha256:87ccaf877851da3ff1edebfc018741a9c4ec71e65be695209c391b61fa586af1",
+      "mode": "ci",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "guard.human_bypass_guard"
+      ]
     }
   ],
   "record_id": "1922-remove-alpha-registration-slack",
@@ -1000,15 +1116,7 @@
   ],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [
-      "format_check",
-      "full_audit",
-      "import_contracts",
-      "lint_format",
-      "python_tests",
-      "semantic_dup",
-      "type_check"
-    ],
+    "checks": [],
     "docs": [
       "docs_required_or_na"
     ],
