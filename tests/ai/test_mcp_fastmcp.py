@@ -265,10 +265,13 @@ def test_input_schema_rejects_malformed_call() -> None:
         f"get_block_schema inputSchema missing type_name property: {schema}"
     )
     # Calling with the wrong field name should fail validation at the boundary.
-    # FastMCP raises ToolError on input-schema validation failure.
-    from fastmcp.exceptions import ToolError
+    # FastMCP 3.x raises fastmcp.exceptions.ValidationError (a FastMCPError, not
+    # a ToolError/ValueError) for input-schema validation failures; older
+    # versions raised ToolError or a pydantic ValueError. Accept either so the
+    # boundary-rejection contract holds across the supported fastmcp range.
+    from fastmcp.exceptions import ToolError, ValidationError
 
-    with pytest.raises((ToolError, ValueError, TypeError)):
+    with pytest.raises((ValidationError, ToolError, ValueError, TypeError)):
         _run(mcp.call_tool("get_block_schema", {"not_a_param": "x"}))
 
 

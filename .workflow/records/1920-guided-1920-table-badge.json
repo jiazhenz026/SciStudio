@@ -214,6 +214,11 @@
       "at": "2026-07-06T18:26:26.871538Z",
       "owner_directive": "Part 1 of #1886 only: remove misleading truncated/incomplete flags from the complete-but-paginated DataFrame preview path; backend-only; frontend badges vanish once flags are honest.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-07-07T15:11:25.046898Z",
+      "owner_directive": "\u4feeCI \u2014 make the PR's CI green",
+      "reason": "Owner directive '\u4feeCI': fastmcp 3.3.1 drift raises fastmcp.exceptions.ValidationError (subclass of FastMCPError, not ToolError/ValueError) for malformed MCP calls, breaking test_input_schema_rejects_malformed_call on clean CI. Unrelated to #1920's previewer change but blocks this PR's CI; fold minimal test fix."
     }
   ],
   "docs_events": [
@@ -877,6 +882,12 @@
       "at": "2026-07-06T19:43:51.403176Z",
       "pattern": "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
       "reason": "ADR-052 generated API reference for scistudio.previewers.data_access regenerated because DataFramePage.truncated was removed; generated docs must stay generated (build_reference.py)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T15:11:25.047041Z",
+      "pattern": "tests/ai/test_mcp_fastmcp.py",
+      "reason": "Owner directive '\u4feeCI': fastmcp 3.3.1 drift raises fastmcp.exceptions.ValidationError (subclass of FastMCPError, not ToolError/ValueError) for malformed MCP calls, breaking test_input_schema_rejects_malformed_call on clean CI. Unrelated to #1920's previewer change but blocks this PR's CI; fold minimal test fix."
     }
   ],
   "session_id": "6bb763a9-652e-4fd2-b34d-a9ff0d80e0a8",
