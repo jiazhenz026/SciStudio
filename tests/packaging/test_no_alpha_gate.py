@@ -11,9 +11,16 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_desktop_bundle_excludes_alpha_activation_gate() -> None:
     package_json = json.loads((ROOT / "desktop/package.json").read_text(encoding="utf-8"))
     bundled_files = set(package_json["build"]["files"])
+    resource_sets = package_json["build"]["extraResources"]
 
     assert "activation.js" not in bundled_files
     assert "preload-gate.js" not in bundled_files
+    assert any(
+        item.get("from") == "resources"
+        and {"!alpha-checkin.json", "!**/alpha-checkin.json"}.issubset(set(item.get("filter", [])))
+        for item in resource_sets
+        if isinstance(item, dict)
+    )
 
     removed_paths = [
         "desktop/activation.js",

@@ -405,6 +405,11 @@
       "at": "2026-07-07T19:35:01.851266Z",
       "owner_directive": "Open the PR directly with gh.",
       "reason": "Owner instructed direct gh PR creation despite gate-aware wrapper refusing on python_tests."
+    },
+    {
+      "at": "2026-07-07T20:02:33.570399Z",
+      "owner_directive": "Exclude stale desktop/resources/alpha-checkin.json from packaged resources.",
+      "reason": "Review found stale gitignored alpha check-in resource could still be packaged via extraResources."
     }
   ],
   "docs_events": [
@@ -1294,6 +1299,18 @@
       "at": "2026-07-07T19:35:01.851420Z",
       "pattern": ".workflow/records/1922-remove-alpha-registration-slack.json",
       "reason": "Owner instructed direct gh PR creation despite gate-aware wrapper refusing on python_tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:02:33.570526Z",
+      "pattern": "desktop/package.json",
+      "reason": "Review found stale gitignored alpha check-in resource could still be packaged via extraResources."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-07T20:02:33.570530Z",
+      "pattern": "tests/packaging/test_no_alpha_gate.py",
+      "reason": "Review found stale gitignored alpha check-in resource could still be packaged via extraResources."
     }
   ],
   "session_id": "8b2bff94-410f-42c0-8031-99e60e8a783e",
@@ -1310,6 +1327,14 @@
     },
     {
       "at": "2026-07-07T19:17:32.800911Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_no_alpha_gate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-07T20:02:33.570575Z",
       "class": null,
       "kind": "path",
       "path": "tests/packaging/test_no_alpha_gate.py",

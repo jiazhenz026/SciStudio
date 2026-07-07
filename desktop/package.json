@@ -45,7 +45,9 @@
         "from": "resources",
         "to": ".",
         "filter": [
-          "**/*"
+          "**/*",
+          "!alpha-checkin.json",
+          "!**/alpha-checkin.json"
         ]
       }
     ],
