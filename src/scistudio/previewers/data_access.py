@@ -70,8 +70,6 @@ class DataFramePage:
     """Column the rows were sorted by, or ``None`` if unsorted."""
     sort_dir: str | None
     """Sort direction (``"asc"`` / ``"desc"``), or ``None`` if unsorted."""
-    truncated: bool
-    """True when the table has more rows than this page shows."""
 
 
 @provisional(since="0.3.1")
@@ -370,7 +368,6 @@ class PreviewDataAccess:
             total_pages=total_pages,
             sort_by=effective_sort_by,
             sort_dir=effective_sort_dir if effective_sort_by else None,
-            truncated=total_rows > effective_page_size,
         )
 
     @provisional(since="0.3.1")

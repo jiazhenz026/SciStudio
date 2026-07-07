@@ -289,6 +289,21 @@ def test_read_and_patch_session_repaginate(client: TestClient, opened_project: P
     assert len(patched.json()["payload"]["rows"]) == 37
 
 
+def test_paginated_dataframe_is_not_flagged_truncated(client: TestClient, opened_project: Path) -> None:
+    """#1920 (Part 1 of #1886): a complete-but-paginated table must not carry the
+    misleading truncated/incomplete flags. Every row is reachable by paging, so
+    the metadata stays truncated=False / complete=True (regression of #1052)."""
+    header = "idx\n"
+    body = "".join(f"{i}\n" for i in range(137))  # multi-page at the default page size
+    upload = client.post("/api/data/upload", files={"file": ("m.csv", (header + body).encode(), "text/csv")})
+    ref = upload.json()["ref"]
+    created = _create_session(client, ref=ref, recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"]).json()
+    meta = created["metadata"]
+    assert created["payload"]["total_pages"] > 1  # genuinely spans multiple pages
+    assert meta["truncated"] is False
+    assert meta["complete"] is True
+
+
 def test_patch_session_sorts_dataframe(client: TestClient, opened_project: Path) -> None:
     """#1604: sort flows through the routed session PATCH (was the legacy GET
     /api/data/{ref}/preview ?sort_by/sort_dir adapter, now removed)."""

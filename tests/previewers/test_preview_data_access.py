@@ -29,7 +29,10 @@ def test_dataframe_page_bounds_rows(tmp_path: Path) -> None:
     assert page.page_size == 200
     assert len(page.rows) == 200
     assert page.total_rows == 1000
-    assert page.truncated is True
+    # #1920: a bounded page is not "truncated" — every row stays reachable by
+    # paging. The page carries no truncation flag; reachability is total_pages.
+    assert page.total_pages == 5
+    assert not hasattr(page, "truncated")
 
 
 def test_dataframe_page_sort(tmp_path: Path) -> None:

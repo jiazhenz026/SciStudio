@@ -175,9 +175,13 @@ def dataframe_previewer(request: PreviewRequest) -> PreviewEnvelope:
             "sort_by": result.sort_by,
             "sort_dir": result.sort_dir,
         },
+        # A paginated table is complete and fully reachable: every row is
+        # available through total_rows/total_pages navigation. Never flag it as
+        # truncated/incomplete (#1920, Part 1 of #1886). truncated/incomplete is
+        # reserved for genuinely unavailable data (e.g. the failed read above).
         metadata=PreviewMetadata(
-            truncated=result.truncated,
-            complete=not result.truncated,
+            truncated=False,
+            complete=True,
             extra={"total_rows": result.total_rows},
         ),
     )
