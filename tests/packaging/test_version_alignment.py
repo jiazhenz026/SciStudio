@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
 
 from packaging.requirements import Requirement
+from packaging.version import Version
+
+from scistudio._version import BASE_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,6 +27,30 @@ def test_root_project_and_commitizen_versions_match() -> None:
     commitizen_version = pyproject["tool"]["commitizen"]["version"]
 
     assert project_version == commitizen_version
+
+
+def test_manifests_track_ssot_base_version() -> None:
+    """All packaging manifests must derive from the ``_version.py`` SSOT base.
+
+    Regression guard for version bumps (#1926): bumping ``BASE_VERSION`` without
+    re-running ``python scripts/version.py sync`` would silently leave
+    ``pyproject.toml`` and the desktop/frontend ``package.json`` files stranded
+    on the old version. The build-number suffix is a local, gitignored counter,
+    so this test pins only the base ``a.b.c`` release component -- the part a
+    bump actually changes.
+    """
+    base = Version(BASE_VERSION)
+
+    pyproject = _load_toml(REPO_ROOT / "pyproject.toml")
+    assert Version(pyproject["project"]["version"]).release == base.release
+
+    for rel in ("desktop/package.json", "frontend/package.json"):
+        data = json.loads((REPO_ROOT / rel).read_text(encoding="utf-8"))
+        semver = data["version"]
+        assert semver == BASE_VERSION or semver.startswith(f"{BASE_VERSION}-"), (
+            f"{rel} version {semver!r} must derive from BASE_VERSION {BASE_VERSION!r}; "
+            "run `python scripts/version.py sync` after bumping the SSOT"
+        )
 
 
 # NOTE (issue #1770): ``test_plugin_core_dependency_accepts_current_root_version``
