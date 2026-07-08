@@ -23,7 +23,6 @@ interface TutorialPanelProps {
   onReloadBlocks: () => Promise<void>;
   onSaveWorkflow: () => Promise<void>;
   onShowBlocks: () => void;
-  onPaletteSearch: (search: string) => void;
 }
 
 function nextStep(step: RunFirstWorkflowTutorialStep): RunFirstWorkflowTutorialStep {
@@ -43,7 +42,6 @@ export function TutorialPanel({
   onReloadBlocks,
   onSaveWorkflow,
   onShowBlocks,
-  onPaletteSearch,
 }: TutorialPanelProps) {
   const currentProject = useAppStore((state) => state.currentProject);
   const workflowId = useAppStore((state) => state.workflowId);
@@ -120,7 +118,9 @@ export function TutorialPanel({
         );
         await onReloadBlocks();
         onShowBlocks();
-        onPaletteSearch(instance.customBlockName);
+        // Do not pre-fill the block palette search: the next step asks the user
+        // to drag "Load" from the palette, and a lingering filter would hide it.
+        // Users find blocks from the palette themselves (#1929).
         onOpenFile(instance.customBlockPath);
         setStep("build-workflow");
       } else if (stepId === "create-plot-card") {
