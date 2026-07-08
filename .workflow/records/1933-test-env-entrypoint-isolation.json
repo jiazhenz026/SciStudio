@@ -1,0 +1,184 @@
+{
+  "branch": "guided/1933-test-env-entrypoint-isolation",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/conftest.py",
+      "tests/blocks/test_entry_point_isolation.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-08T23:47:37.630323Z",
+      "owner_directive": "Solve local test flakiness completely; harden repo so tests are immune to env pollution; do both layers; ship a PR. Extends to neutralizing platform user-data desktop package discovery, not only entry points.",
+      "reason": "Full-suite run revealed a second local leak channel beyond entry points: desktop Tier-3 source-package discovery (candidate_package_dirs) scans the platform user-data plugins dir where real domain packages (imaging/lcms/spectroscopy) are installed, failing domain-prefix/previewer tests locally while CI with a clean profile is green. Isolating it in conftest is part of the owner directive to make local tests robust to env pollution."
+    },
+    {
+      "at": "2026-07-08T23:53:33.678343Z",
+      "owner_directive": "Document local test-env setup + the conftest self-isolation so future devs know a dirty dev machine still matches CI.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-08T23:53:33.678528Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-08T23:39:52.936031Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1158/popen-gw10/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:39:53.768617Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1158/popen-gw10/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:48:45.483025Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1163/popen-gw8/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:48:46.406234Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1163/popen-gw8/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:50:01.984138Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1165/popen-gw8/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:50:02.760503Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1165/popen-gw8/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:51:30.169374Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1167/popen-gw4/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-08T23:51:30.993370Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1167/popen-gw4/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1933,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Solve local test flakiness once and for all: (Layer 1) clean the scistudio conda env of leaked domain packages and missing dev deps; (Layer 2) harden tests/conftest.py so the core suite is immune to ambient scistudio.blocks entry-point pollution (stale editable metadata + leaked domain packages). Submit a PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1933-test-env-entrypoint-isolation",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-08T23:47:37.630521Z",
+      "pattern": "tests/conftest.py",
+      "reason": "Full-suite run revealed a second local leak channel beyond entry points: desktop Tier-3 source-package discovery (candidate_package_dirs) scans the platform user-data plugins dir where real domain packages (imaging/lcms/spectroscopy) are installed, failing domain-prefix/previewer tests locally while CI with a clean profile is green. Isolating it in conftest is part of the owner directive to make local tests robust to env pollution."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-08T23:47:37.630528Z",
+      "pattern": "tests/blocks/test_entry_point_isolation.py",
+      "reason": "Full-suite run revealed a second local leak channel beyond entry points: desktop Tier-3 source-package discovery (candidate_package_dirs) scans the platform user-data plugins dir where real domain packages (imaging/lcms/spectroscopy) are installed, failing domain-prefix/previewer tests locally while CI with a clean profile is green. Isolating it in conftest is part of the owner directive to make local tests robust to env pollution."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-08T23:53:33.678513Z",
+      "pattern": "tests/README.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "ac24b992-c5d4-4fa1-8b18-72beff256aa0",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-08T23:53:33.678534Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_entry_point_isolation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
