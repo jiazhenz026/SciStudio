@@ -1,0 +1,80 @@
+{
+  "branch": "guided/1929-tutorial-palette-search",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/TutorialPanel.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/components/TutorialPanel.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-08T20:30:31.045863Z",
+      "owner_directive": "\u53bb\u6389 tutorial create-custom-block \u6b65\u9aa4\u5bf9 palette search \u7684\u81ea\u52a8\u586b\u5145;\u65b0\u589e TutorialPanel \u56de\u5f52\u6d4b\u8bd5\u3002",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-08T20:30:31.046037Z",
+      "class": "user_docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "UI-only behavior fix \u2014 removes an unintended palette-search pre-fill in the onboarding tutorial; no documented contract, schema, or workflow changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-08T20:30:31.046048Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No architectural decision; a one-line UI side-effect removal in a frontend component.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1929,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Tutorial \u62d6 block \u6b65\u9aa4\u4f1a\u81ea\u52a8\u586b\u5145 palette search \u4e3a\u81ea\u5b9a\u4e49 block \u540d(Normalize Fluorescence),\u5bfc\u81f4\u4e0b\u4e00\u6b65\u627e\u4e0d\u5230 Load;\u53bb\u6389\u8fd9\u4e2a\u81ea\u52a8\u586b\u5145,\u8ba9\u7528\u6237\u81ea\u5df1\u5728 palette \u91cc\u627e\u3002",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1929-guided-1929-tutorial-palette-search",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "5a717180-fa5c-4185-9ab8-7e722c1bb9e5",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-08T20:30:31.046055Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/TutorialPanel.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

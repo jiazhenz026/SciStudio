@@ -496,7 +496,6 @@ export default function App() {
                 onReloadBlocks={reloadBlocks}
                 onSaveWorkflow={saveWorkflow}
                 onShowBlocks={() => setLeftTab("blocks")}
-                onPaletteSearch={setPaletteSearch}
               />
             </>
           ) : (
