@@ -1,6 +1,86 @@
 {
   "branch": "guided/1929-tutorial-palette-search",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-07-08T20:31:35.269118Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-08T20:32:21.162939Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0c3a8a74b36b805c2743caa719b676b46f18123b4728d3ea4b20da298cbbd4d5",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:32:26.043634Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:77c97c69830b145e4623f4b8a266ed5702c186d6c87daabafd91909b0dc8b6df",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:32:26.125628Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-08T20:34:50.339574Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8afc3501bdb4221295bac8b2d3420236ffe65d8c6c18aa8f10351fd7d3e7e1f8",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -37,7 +117,90 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-07-08T20:34:50.384395Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.394065Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.404668Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.414164Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.423403Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.433061Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.442552Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.455077Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.465152Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:34:50.476342Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -47,25 +210,79 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "fc241476",
+    "changed_files": [
+      ".workflow/records/1929-guided-1929-tutorial-palette-search.json",
+      "frontend/src/App.tsx",
+      "frontend/src/components/TutorialPanel.test.tsx",
+      "frontend/src/components/TutorialPanel.tsx"
+    ],
+    "diff_fingerprint": "sha256:d696a92bd09eb1cd8d8b404511ccc549fd91976ad5f255391e83fd287f891eb8",
+    "head": "HEAD",
+    "head_sha": "e8f6debc",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 3,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 3,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 3,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Tutorial \u62d6 block \u6b65\u9aa4\u4f1a\u81ea\u52a8\u586b\u5145 palette search \u4e3a\u81ea\u5b9a\u4e49 block \u540d(Normalize Fluorescence),\u5bfc\u81f4\u4e0b\u4e00\u6b65\u627e\u4e0d\u5230 Load;\u53bb\u6389\u8fd9\u4e2a\u81ea\u52a8\u586b\u5145,\u8ba9\u7528\u6237\u81ea\u5df1\u5728 palette \u91cc\u627e\u3002",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-07-08T20:34:50.476388Z",
+      "diff_fingerprint": "sha256:d696a92bd09eb1cd8d8b404511ccc549fd91976ad5f255391e83fd287f891eb8",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1929-guided-1929-tutorial-palette-search",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "5a717180-fa5c-4185-9ab8-7e722c1bb9e5",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
   "test_events": [
     {
