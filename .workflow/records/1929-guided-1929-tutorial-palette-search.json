@@ -82,7 +82,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "0695425ced4158cba329dfea8e3595c9a47a339e",
+    "shas": [
+      "0695425ced4158cba329dfea8e3595c9a47a339e"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -199,6 +205,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.184291Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.194714Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.204745Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.214631Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.224054Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.234012Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.243972Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.253152Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.262177Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:35:15.272508Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -219,9 +307,9 @@
       "frontend/src/components/TutorialPanel.test.tsx",
       "frontend/src/components/TutorialPanel.tsx"
     ],
-    "diff_fingerprint": "sha256:d696a92bd09eb1cd8d8b404511ccc549fd91976ad5f255391e83fd287f891eb8",
+    "diff_fingerprint": "sha256:089b238edc243c1ea9f8d05eaed4f566c1154994e1dcaaeb0cd63ca70f08232a",
     "head": "HEAD",
-    "head_sha": "e8f6debc",
+    "head_sha": "0695425c",
     "surfaces": {
       "docs": 0,
       "frontend": 3,
@@ -237,12 +325,27 @@
   },
   "owner_directive": "Tutorial \u62d6 block \u6b65\u9aa4\u4f1a\u81ea\u52a8\u586b\u5145 palette search \u4e3a\u81ea\u5b9a\u4e49 block \u540d(Normalize Fluorescence),\u5bfc\u81f4\u4e0b\u4e00\u6b65\u627e\u4e0d\u5230 Load;\u53bb\u6389\u8fd9\u4e2a\u81ea\u52a8\u586b\u5145,\u8ba9\u7528\u6237\u81ea\u5df1\u5728 palette \u91cc\u627e\u3002",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1929
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-08T20:34:50.476388Z",
       "diff_fingerprint": "sha256:d696a92bd09eb1cd8d8b404511ccc549fd91976ad5f255391e83fd287f891eb8",
       "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-08T20:35:15.272538Z",
+      "diff_fingerprint": "sha256:089b238edc243c1ea9f8d05eaed4f566c1154994e1dcaaeb0cd63ca70f08232a",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
