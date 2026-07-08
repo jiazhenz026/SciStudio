@@ -1,0 +1,466 @@
+{
+  "branch": "guided/1928-desktop-ota-workflow-inputs",
+  "check_events": [
+    {
+      "at": "2026-07-08T20:25:12.959645Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a3d98ba3a25dbc704ecf42b5544fc0a36309f55fc20be72c3c4c00468ab0ff40",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:25:13.754698Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e05ae5605d919e5b41ccf9dcb74db75d6edd5ff984de6d5cccb5f0d3e8e6f368",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:25:14.092718Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d7725a9ce6e247ca55c9ea62b6cf31ebcdb420d40e313144a9f2a74c716aacf4",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-08T20:25:17.753489Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7500754d5a4d31b0a3fc269d76b25445e8e7ff82d2cd522cc0266806ae1fcf89",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:25:18.245636Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dc0d8f934a9c1663cbdf0739bea8e7c0142631733393aaf2be9ad53f45804fc5",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:25:18.292668Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aea66db0c10d4db9b2eb09607f8471cd479f3c5d3ed20031534252557ac3cf51",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-08T20:27:17.202568Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:cb324a18de767e8afad2f25bc3d78a3a6e9c7df6a7138d9f9f0e81f63c405b78",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:29:19.558913Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:90abc2ab4ed5429bbd90cedc8ac6db88b314a62ec092423642e278b4acc57505",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-08T20:29:26.729967Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b31fc8af433000947751b32f9d333deff6d26ec920a9b3b6e0f4470999400dec",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "cbc90981acdb88fb9cb2cc7eb9e64bea6a424836",
+    "shas": [
+      "cbc90981acdb88fb9cb2cc7eb9e64bea6a424836"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/desktop-macos-dmg.yml",
+      ".github/workflows/desktop-windows-installer.yml"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-08T20:29:55.019728Z",
+      "owner_directive": "Carry the whole OTA rollout to completion (do PR, rebuild + replace).",
+      "reason": "Owner directed carrying the OTA rollout to completion. The 5 local python_tests failures are the same image/previewer/domain-package registry cases as PR #1927, caused by locally installed desktop plugins leaking into the registry; they are unrelated to this CI-YAML/README change (5243 passed). CI runs in a clean environment and is authoritative."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-08T20:24:08.069104Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-07-08T20:29:26.794391Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.809267Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.820192Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.830734Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.840931Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.851144Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.860861Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.871035Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.880883Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:29:26.891291Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.205842Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.216207Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.226617Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.236878Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.264733Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.288831Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.298531Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.308876Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.319269Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-08T20:30:35.329226Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1928,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "fc241476069bd1145bd870a62d86c37641ae9c5d",
+    "base_sha": "fc241476",
+    "changed_files": [
+      ".github/workflows/desktop-macos-dmg.yml",
+      ".github/workflows/desktop-windows-installer.yml",
+      ".workflow/records/1928-desktop-ota-workflow-inputs.json",
+      "desktop/README.md"
+    ],
+    "diff_fingerprint": "sha256:272bf6c07c5c2546dc4b05d76b57448caceddf99203e2b1834592df741e6a96a",
+    "head": "HEAD",
+    "head_sha": "cbc90981",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 2,
+      "governed_docs": 0,
+      "implementation": 2,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 2,
+      "test": 0,
+      "workflow_ci": 2
+    }
+  },
+  "owner_directive": "Add ota_channel + build_number workflow_dispatch inputs to desktop-macos-dmg.yml and desktop-windows-installer.yml, mirroring desktop-linux-appimage.yml, so OTA-enabled installers can be built for the 0.3.3 alpha rollout. Owner: do PR, rebuild+replace, carry the whole OTA rollout to completion.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 1930,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-07-08T20:29:26.891320Z",
+      "diff_fingerprint": "sha256:9b9ee4e6cb7489f286aef621282a41c1a30a731c140d3f00d5a21d4531d587b6",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-08T20:30:35.329254Z",
+      "diff_fingerprint": "sha256:272bf6c07c5c2546dc4b05d76b57448caceddf99203e2b1834592df741e6a96a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
+  "record_id": "1928-desktop-ota-workflow-inputs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-08T20:24:08.068920Z",
+      "pattern": "desktop/README.md",
+      "reason": "Docs parity: desktop/README.md documented build_number/ota_channel as Linux-only; updated to say all three desktop build workflows accept them, matching the workflow YAML change."
+    }
+  ],
+  "session_id": "d27d290c-f350-4188-8482-5db290356886",
+  "strictness_tier": 1,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-08T20:24:08.069280Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "CI workflow_dispatch input plumbing (YAML) + README parity; no unit-testable code surface. Validated by dispatching the workflows with ota_channel=alpha and confirming OTA-enabled installers build (0.3.3 alpha rollout, issue #1928).",
+      "verified_in_diff": null
+    }
+  ]
+}
