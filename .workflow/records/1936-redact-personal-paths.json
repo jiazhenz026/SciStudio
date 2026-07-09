@@ -1,0 +1,62 @@
+{
+  "branch": "docs/1936-redact-personal-paths",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-07-09T22:26:43.514910Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/embedded-coding-agent-spec.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1936,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Scan remote repo for leaked personal info / API keys; redact owner OS-username and real name from committed local paths (item 1 of the scan findings).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1936-redact-personal-paths",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "bac489b4-0202-4156-8f06-652752cc255c",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-07-09T22:26:43.515347Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "privacy-only redaction of hard-coded local paths (OS username + real name -> placeholders); no code behavior changes; affected test/script fixtures are manual-only paths that skip in CI.",
+      "verified_in_diff": null
+    }
+  ]
+}

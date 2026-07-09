@@ -51,7 +51,7 @@ ADR-043 is being implemented concurrently by another manager. ADR-041 agents mus
 
 ## Phase 0 - Manager Preflight
 
-- [x] Independent manager worktree created at `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-manager`.
+- [x] Independent manager worktree created at `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-manager`.
 - [x] Tracking branch created: `track/adr-041/codeblock-v2`.
 - [x] Umbrella issue opened: [#1222](https://github.com/zjzcpj/SciStudio/issues/1222).
 - [x] Gate workflow started: `20260519-181608-adr-041-codeblock-v2-implementation-casc`.
@@ -136,7 +136,7 @@ Tasks:
 - [x] Use Track A interpreter/provenance helpers and Track B exchange helpers to run scripts through the shared file-exchange runtime, with Python `.py` as the first backend. Evidence: commit `08cc5bc3`; `test_codeblock_execution.py` covers exchange execution.
 - [x] Preserve backend ownership of graph/runtime truth; frontend remains editor/viewer only. Evidence: commit `08cc5bc3`; runtime state/provenance stay in backend `CodeBlock` surfaces.
 - [x] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec. Evidence: commit `08cc5bc3`; tests cover typed `Collection[Text]` output, missing output diagnostics, nonzero exit, and timeout.
-- [x] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41c\src python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/blocks/test_code_block.py tests/blocks/code/test_codeblock_python_integration.py tests/blocks/code/test_codeblock_r_integration.py --timeout=30 --no-cov` passed with 47 tests.
+- [x] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording. Evidence: `PYTHONPATH=C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41c\src python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/blocks/test_code_block.py tests/blocks/code/test_codeblock_python_integration.py tests/blocks/code/test_codeblock_r_integration.py --timeout=30 --no-cov` passed with 47 tests.
 - [x] Add migration diagnostics for unsupported legacy inline/function mode. Evidence: commit `08cc5bc3`; legacy CodeBlock tests now assert `CodeBlockMigrationError`.
 - [x] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files. Evidence: PR #1239 adds `CodeBlockBackend`, `CodeBlockRuntimeContext`, register/list/resolve backend helpers, and a `src/scistudio/blocks/code/backends/` module loader so C2-C5 can add one backend module each without editing `CodeBlock` dispatch logic.
 - [x] Do not mark ADR-041 runtime complete in Track C1; C2-C5 remain required sibling backend tracks. Evidence: checklist retains C2-C5 rows after rebase onto manager commit `9a8710dc`.
@@ -189,7 +189,7 @@ Tasks:
 - [x] Add `.Rmd` rendered-document support where R Markdown tooling is available. Evidence: commit `81c0c6c9`; tests cover R Markdown command construction and missing `rmarkdown` dependency diagnostics.
 - [x] Add `.qmd` execution/rendering support through Quarto where available. Evidence: commit `81c0c6c9`; tests cover Quarto command construction and declared output folder collection.
 - [x] Add deterministic command construction and exchange-directory environment passing. Evidence: commit `81c0c6c9`; tests assert argv, cwd, and `SCISTUDIO_*` exchange environment values.
-- [x] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41r\src python -m pytest tests/blocks/code/test_codeblock_execution.py tests/blocks/code/test_codeblock_r_quarto.py --timeout=30 --no-cov` passed with 14 tests and 1 optional Rscript skip; Ruff passed for touched Python files.
+- [x] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41r\src python -m pytest tests/blocks/code/test_codeblock_execution.py tests/blocks/code/test_codeblock_r_quarto.py --timeout=30 --no-cov` passed with 14 tests and 1 optional Rscript skip; Ruff passed for touched Python files.
 
 Exit Criteria:
 
@@ -236,7 +236,7 @@ Tasks:
 - [x] Add `.m` execution through MATLAB or Octave when available. Evidence: commit `ce9ca4c8`; backend selects MATLAB first in auto mode and falls back to Octave for `.m`.
 - [x] Add `.mlx` handling through MATLAB where available, with clear unsupported diagnostics when not available. Evidence: commit `ce9ca4c8`; tests cover `.mlx` MATLAB requirement and Octave rejection.
 - [x] Add deterministic command construction, exchange-directory environment passing, and output collection. Evidence: commit `ce9ca4c8`; backend reuses shared CodeBlock process execution and tests assert argv/cwd/env/timeout handoff.
-- [x] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41m\src python -m pytest tests/blocks/code/test_codeblock_matlab.py --timeout=30 --no-cov` passed with 10 tests and 1 optional Octave skip; Ruff passed for touched Python files.
+- [x] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41m\src python -m pytest tests/blocks/code/test_codeblock_matlab.py --timeout=30 --no-cov` passed with 10 tests and 1 optional Octave skip; Ruff passed for touched Python files.
 
 Exit Criteria:
 
@@ -339,13 +339,13 @@ Exit Criteria:
 
 ## Dispatch Log
 
-- [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
-- [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
-- [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
-- [x] I41n dispatched for #1235. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41n`, branch `feat/issue-1235/adr041-notebook-runtime`, gate session `20260519-195008-adr-041-track-c2-notebook-runtime-and-ex`.
-- [x] I41r dispatched for #1238. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41r`, branch `feat/issue-1238/adr041-r-quarto-runtime`, gate session `20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su`, commit `81c0c6c9`.
-- [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
-- [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
-- [x] I41d dispatched for #1226. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41d`, branch `feat/issue-1226/adr041-codeblock-validation`, gate session `20260519-202734-adr-041-track-d-codeblock-v2-workflow-va`, PR #1256.
-- [x] I41e dispatched for #1227. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-I41e`, branch `feat/issue-1227/adr041-codeblock-editor`, gate session `20260519-202747-adr-041-track-e-codeblock-v2-frontend-ed`, PR #1255.
-- [x] A41/F41 dispatched for #1228. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciStudio-adr041-F41`, branch `feat/issue-1228/adr041-final-audit`, gate session `20260519-205708-adr-041-final-docs-reconciliation-and-au`.
+- [x] I41a dispatched for #1223. Worktree: `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
+- [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
+- [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
+- [x] I41n dispatched for #1235. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41n`, branch `feat/issue-1235/adr041-notebook-runtime`, gate session `20260519-195008-adr-041-track-c2-notebook-runtime-and-ex`.
+- [x] I41r dispatched for #1238. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41r`, branch `feat/issue-1238/adr041-r-quarto-runtime`, gate session `20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su`, commit `81c0c6c9`.
+- [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
+- [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
+- [x] I41d dispatched for #1226. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41d`, branch `feat/issue-1226/adr041-codeblock-validation`, gate session `20260519-202734-adr-041-track-d-codeblock-v2-workflow-va`, PR #1256.
+- [x] I41e dispatched for #1227. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-I41e`, branch `feat/issue-1227/adr041-codeblock-editor`, gate session `20260519-202747-adr-041-track-e-codeblock-v2-frontend-ed`, PR #1255.
+- [x] A41/F41 dispatched for #1228. Evidence: worktree `C:\Users\<user>\Desktop\workspace\SciStudio-adr041-F41`, branch `feat/issue-1228/adr041-final-audit`, gate session `20260519-205708-adr-041-final-docs-reconciliation-and-au`.

@@ -564,7 +564,7 @@ The same pattern applies to LC-MS tests that touch external tools
 
 ### Q6. E2E test image access pattern
 
-The four test images live at ``C:\Users\jiazh\Desktop\workspace\
+The four test images live at ``C:\Users\<user>\Desktop\workspace\
 Example\images\``. Filenames contain spaces and parentheses.
 
 **Decision**: Constants in ``tests/fixtures/test_images.py`` (a new
@@ -572,7 +572,7 @@ file owned by T-TRK-003 alongside the ``noop_block`` move):
 
     from pathlib import Path
 
-    TEST_IMAGES_DIR = Path(r"C:\Users\jiazh\Desktop\workspace\Example\images")
+    TEST_IMAGES_DIR = Path(r"C:\Users\<user>\Desktop\workspace\Example\images")
 
     K562_L_2845_TIF = TEST_IMAGES_DIR / "K562_L_2845 (uV).tif"
     K562_L_SPECTRA_TIF = TEST_IMAGES_DIR / "K562_L_spectra (uV).tif"
@@ -3256,10 +3256,10 @@ verified.
 Per Phase 11 master plan §8 and Q6 (this document), the four test
 images live at::
 
-    C:\Users\jiazh\Desktop\workspace\Example\images\K562_L_2845 (uV).tif       (105 KB)
-    C:\Users\jiazh\Desktop\workspace\Example\images\K562_L_spectra (uV).tif    (2.0 MB)
-    C:\Users\jiazh\Desktop\workspace\Example\images\K562_UL_2845 (uV).tif      (105 KB)
-    C:\Users\jiazh\Desktop\workspace\Example\images\K562_UL_spectra (uV).tif   (2.0 MB)
+    C:\Users\<user>\Desktop\workspace\Example\images\K562_L_2845 (uV).tif       (105 KB)
+    C:\Users\<user>\Desktop\workspace\Example\images\K562_L_spectra (uV).tif    (2.0 MB)
+    C:\Users\<user>\Desktop\workspace\Example\images\K562_UL_2845 (uV).tif      (105 KB)
+    C:\Users\<user>\Desktop\workspace\Example\images\K562_UL_spectra (uV).tif   (2.0 MB)
 
 Filenames contain spaces and parentheses; tests import from
 ``tests/fixtures/test_images.py`` (T-TRK-003) which centralises the
@@ -3387,7 +3387,7 @@ the **must-pass** acceptance criterion for Sprint C completion.
 
 ## 12. References
 
-- Phase 11 master plan: ``C:\Users\jiazh\.claude\projects\C--Users-jiazh-Desktop-workspace\memory\phase11_master_plan.md``
+- Phase 11 master plan: ``C:\Users\<user>\.claude\projects\C--Users-jiazh-Desktop-workspace\memory\phase11_master_plan.md``
 - ADR-028 (IOBlock refactor): ``docs/adr/ADR.md`` — search for
   ``## ADR-028:``
 - ADR-028 Addendum 1 (dynamic ports + GUI): ``docs/adr/ADR.md`` —

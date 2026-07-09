@@ -98,7 +98,7 @@
       "source_sha": "",
       "findings": [],
       "summary": {
-        "repo_root": "C:/Users/jiazh/Desktop/workspace/SciStudio-desktop-mvp",
+        "repo_root": "C:/Users/<user>/Desktop/workspace/SciStudio-desktop-mvp",
         "findings": 0
       },
       "child_reports": []
@@ -170,7 +170,7 @@
       "source_sha": "6c02c6ede8ebd4d40bde0d9b15086d3cbdbae5f278166d1141802d84d56071dc",
       "findings": [],
       "summary": {
-        "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-desktop-mvp/docs/architecture/ARCHITECTURE.md",
+        "architecture_path": "C:/Users/<user>/Desktop/workspace/SciStudio-desktop-mvp/docs/architecture/ARCHITECTURE.md",
         "symbols_available": 2437,
         "fences_checked": 6,
         "fences_skipped": 1,

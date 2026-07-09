@@ -103,7 +103,7 @@ For each numbered step in Section 5:
    looked right" — quote the observed value.
 4. Capture the artifacts named in **Capture**. Screenshots use the
    recipe in `references/screenshot-recipes.md`. Save to
-   `C:\Users\jiazh\Downloads\scistudio-e2e-<session-id>-step<N>.png` so
+   `C:\Users\<user>\Downloads\scistudio-e2e-<session-id>-step<N>.png` so
    they can be sent to the user's phone via `SendUserFile` if the user
    is remote.
 5. Evaluate the regression sentinels in Section 6 immediately after

@@ -15,7 +15,7 @@ at the top of the test module after a path-existence check.
 
 from pathlib import Path
 
-TEST_IMAGES_DIR = Path(r"C:\Users\jiazh\Desktop\workspace\Example\images")
+TEST_IMAGES_DIR = Path(r"C:\Users\<user>\Desktop\workspace\Example\images")
 
 K562_L_2845_TIF = TEST_IMAGES_DIR / "K562_L_2845 (uV).tif"
 K562_L_SPECTRA_TIF = TEST_IMAGES_DIR / "K562_L_spectra (uV).tif"

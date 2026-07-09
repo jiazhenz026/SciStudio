@@ -69,7 +69,7 @@ $gr.CopyFromScreen($bounds.X, $bounds.Y, 0, 0, $bounds.Size)
 
 $sessionId = "<session-id-from-frontmatter>"
 $step = "<step-N>"
-$path = "C:\Users\jiazh\Downloads\scistudio-e2e-$sessionId-$step.png"
+$path = "C:\Users\<user>\Downloads\scistudio-e2e-$sessionId-$step.png"
 $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
 $gr.Dispose(); $bmp.Dispose()
 $path
@@ -108,7 +108,7 @@ saw without manually pulling the file:
 
 ```
 SendUserFile(
-  files=["C:/Users/jiazh/Downloads/scistudio-e2e-<session-id>-step<N>.png"],
+  files=["C:/Users/<user>/Downloads/scistudio-e2e-<session-id>-step<N>.png"],
   status="proactive",
   caption="<step label> — <pass/fail> — <observed state>"
 )
@@ -167,7 +167,7 @@ $src.Dispose(); $cropped.Dispose()
 Downloads piles up across sessions. At end of session:
 
 ```powershell
-Remove-Item C:\Users\jiazh\Downloads\scistudio-e2e-<session-id>-*.png
+Remove-Item C:\Users\<user>\Downloads\scistudio-e2e-<session-id>-*.png
 ```
 
 Skip this if any screenshot was pushed to the user's phone — the user

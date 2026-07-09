@@ -23,7 +23,7 @@ These are the manager-recorded dispatch prompts for the 2026-06-11 repair pass.
 - Issue: #1574
 - Umbrella PR: #1577 `[DO NOT MERGE] ADR-048 SPEC 1: extensible preview system`
 - Branch: `track/adr-048-spec1-preview-system`
-- Worktree: `C:\Users\jiazh\Desktop\workspace\sci-wt\spec1-mgr`
+- Worktree: `C:\Users\<user>\Desktop\workspace\sci-wt\spec1-mgr`
 - Gate record: `.workflow/records/1574-track-adr-048-spec1-preview-system.json`
 - Checklist: `docs/planning/adr-048-pr-fix-dispatch-checklist.md`
 
@@ -74,7 +74,7 @@ Stop if local hooks are blocked by issue #1584; do not use `--no-verify`.
 - Issue: #1575
 - Umbrella PR: #1580 `[DO NOT MERGE] ADR-048 SPEC 2: AI plot tools + preview-side plot jobs`
 - Branch: `track/adr-048-spec2-plot-tools`
-- Worktree: `C:\Users\jiazh\Desktop\workspace\sci-wt\spec2-mgr`
+- Worktree: `C:\Users\<user>\Desktop\workspace\sci-wt\spec2-mgr`
 - Gate record: `.workflow/records/1575-track-adr-048-spec2-plot-tools.json`
 - Checklist: `docs/planning/adr-048-pr-fix-dispatch-checklist.md`
 
@@ -120,7 +120,7 @@ Stop if local hooks are blocked by issue #1584; do not use `--no-verify`.
 - Issue: #1576
 - Umbrella PR: #1581 `[DO NOT MERGE] ADR-048 SPEC 3: developer docs delete-and-rewrite`
 - Branch: `track/adr-048-spec3-docs`
-- Worktree: `C:\Users\jiazh\Desktop\workspace\sci-wt\spec3-mgr`
+- Worktree: `C:\Users\<user>\Desktop\workspace\sci-wt\spec3-mgr`
 - Gate record: `.workflow/records/1576-track-adr-048-spec3-docs.json`
 - Checklist: `docs/planning/adr-048-pr-fix-dispatch-checklist.md`
 

@@ -26,9 +26,9 @@ language_source: en
   - `.workflow/records/1575-track-adr-048-spec2-plot-tools.json`
   - `.workflow/records/1576-track-adr-048-spec3-docs.json`
 - Branch/worktree plan:
-  - SPEC 1: `track/adr-048-spec1-preview-system`, `C:\Users\jiazh\Desktop\workspace\sci-wt\spec1-mgr`
-  - SPEC 2: `track/adr-048-spec2-plot-tools`, `C:\Users\jiazh\Desktop\workspace\sci-wt\spec2-mgr`
-  - SPEC 3: `track/adr-048-spec3-docs`, `C:\Users\jiazh\Desktop\workspace\sci-wt\spec3-mgr`
+  - SPEC 1: `track/adr-048-spec1-preview-system`, `C:\Users\<user>\Desktop\workspace\sci-wt\spec1-mgr`
+  - SPEC 2: `track/adr-048-spec2-plot-tools`, `C:\Users\<user>\Desktop\workspace\sci-wt\spec2-mgr`
+  - SPEC 3: `track/adr-048-spec3-docs`, `C:\Users\<user>\Desktop\workspace\sci-wt\spec3-mgr`
 - Protected branch: `main`
 - Umbrella PRs:
   - #1577 `[DO NOT MERGE] ADR-048 SPEC 1: extensible preview system`

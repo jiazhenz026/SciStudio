@@ -10,13 +10,13 @@
 - Umbrella PR: #1577 `[DO NOT MERGE]` · Protected branch: main
 - Umbrella branch: track/adr-048-spec1-preview-system
 - Agent branch: feat/adr-048-preview-frontend (ALREADY CREATED by the manager)
-- Agent worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s1-frontend (ALREADY CREATED; `frontend/node_modules` is a junction to the main checkout — do NOT run npm install)
+- Agent worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s1-frontend (ALREADY CREATED; `frontend/node_modules` is a junction to the main checkout — do NOT run npm install)
 - Gate record (manager-owned, single ledger): .workflow/records/1574-track-adr-048-spec1-preview-system.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 
 ## Setup (worktree already provisioned by manager)
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s1-frontend/frontend"
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s1-frontend/frontend"
 node -v && ls node_modules/.bin/vitest*   # junction already present; do NOT npm install/ci
 ```
 Work only in this worktree, only under `frontend/**`. Do NOT use `pip install -e .`.
@@ -65,7 +65,7 @@ Core fallback previewer ids you will route to by `envelope.kind`: `core.datafram
 
 ## Required checks (run from the worktree's `frontend/` dir; all must pass)
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s1-frontend/frontend"
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s1-frontend/frontend"
 npm run test          # vitest run
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint .

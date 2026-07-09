@@ -26,7 +26,7 @@ language_source: en
   `.workflow/records/1502-adr-037-desktop-mvp-manager.json`
 - Branch/worktree plan: manager integrates on
   `adr-037-desktop-mvp-manager` in
-  `C:\Users\jiazh\Desktop\workspace\SciStudio-desktop-mvp`; agents use
+  `C:\Users\<user>\Desktop\workspace\SciStudio-desktop-mvp`; agents use
   sibling worktrees off `desktop`.
 - Protected branch: `main`
 - Desktop integration branch: `desktop`

@@ -8,7 +8,7 @@
 > - Issue: #1661 `[claudecode]`
 > - Integration branch: `claudecode/spectroscopy-package` (umbrella; PR → main closes #1661)
 > - Gate ledger: `.workflow/records/1661-spectroscopy-package.json` (feature, manager, Tier-1)
-> - Contract reference (out-of-repo, read-only): `C:/Users/jiazh/desktop/workspace/spectro-contract-digest.md`
+> - Contract reference (out-of-repo, read-only): `C:/Users/<user>/desktop/workspace/spectro-contract-digest.md`
 > - Independent of #1660 `[codex]`; ignore that effort.
 
 ## Conventions

@@ -108,7 +108,7 @@ Bypass by going direct to the API and then clicking the resulting
 recent-card to open the project in the running GUI:
 
 ```powershell
-$body = @{ name = "e2e-test-project"; path = "C:\Users\jiazh\Downloads\e2e-tmp" } | ConvertTo-Json
+$body = @{ name = "e2e-test-project"; path = "C:\Users\<user>\Downloads\e2e-tmp" } | ConvertTo-Json
 curl -X POST -H "Content-Type: application/json" -d $body http://localhost:8000/api/projects/
 ```
 

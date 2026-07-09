@@ -38,7 +38,7 @@ language_source: en
 - Spec: `docs/specs/adr-051-interactive-blocks.md`
 - Gate record: `.workflow/records/1781-feat-1781-adr-051-interactive-blocks.json`
 - Branch/worktree: `feat/1781-adr-051-interactive-blocks` in
-  `C:/Users/jiazh/Desktop/workspace/sci-wt/adr-051-interactive` (off `origin/main`
+  `C:/Users/<user>/Desktop/workspace/sci-wt/adr-051-interactive` (off `origin/main`
   @ 8154e12f).
 - Protected branch: `main`
 - Final PR target: `main`

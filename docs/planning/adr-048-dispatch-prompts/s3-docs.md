@@ -9,15 +9,15 @@
 - Issue: #1576 — https://github.com/zjzcpj/SciStudio/issues/1576
 - Umbrella PR: (SPEC 3, stacked on SPEC 2) — manager opens it; base = `track/adr-048-spec2-plot-tools`
 - Protected branch: main · Umbrella branch: track/adr-048-spec3-docs
-- Agent branch: feat/adr-048-docs · Agent worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s3-docs (ALREADY CREATED)
+- Agent branch: feat/adr-048-docs · Agent worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s3-docs (ALREADY CREATED)
 - Gate record (manager-owned): .workflow/records/1576-track-adr-048-spec3-docs.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 
 ## Setup
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s3-docs"
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s3-docs"
 ```
-Your base branch already contains all of SPEC 1 + SPEC 2 (previewers + plot tools). Do NOT use `pip install -e .`. For any test run: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/jiazh/Desktop/workspace/sci-wt/s3-docs/src" python -m pytest ...`.
+Your base branch already contains all of SPEC 1 + SPEC 2 (previewers + plot tools). Do NOT use `pip install -e .`. For any test run: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/<user>/Desktop/workspace/sci-wt/s3-docs/src" python -m pytest ...`.
 
 ## Required Rules
 - AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/personas/implementer.md, docs/ai-developer/specific_rules/docs-change.md
@@ -56,7 +56,7 @@ Your base branch already contains all of SPEC 1 + SPEC 2 (previewers + plot tool
 
 ## Required checks (run from worktree; green) — SCISTUDIO_DEV=1 + PYTHONPATH
 ```bash
-WT="C:/Users/jiazh/Desktop/workspace/sci-wt/s3-docs"
+WT="C:/Users/<user>/Desktop/workspace/sci-wt/s3-docs"
 SCISTUDIO_DEV=1 PYTHONPATH="$WT/src" python -m pytest tests/cli/test_new_block_package.py tests/api/test_blocks_template.py tests/blocks/test_registry_package_layout.py tests/integration/test_block_sdk_e2e.py tests/packaging/test_wheel_skills.py tests/agent_provisioning/test_skills.py tests/cli/test_install.py tests/docs/test_block_development_docs.py -q --no-cov -p no:cacheprovider
 ruff check src/scistudio/cli/templates tests/docs/test_block_development_docs.py   # do NOT mask failures (no `|| true`); fix any lint error
 python scripts/audit/generate_facts.py --check 2>&1 | tail -3   # if generated facts reference these docs

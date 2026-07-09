@@ -24,7 +24,7 @@ language_source: en
 - Gate record: `.workflow/records/1644-pr1577-adr048-final-blockers.json`
 - Branch/worktree plan:
   `fix/pr1577-adr048-final-blockers` at
-  `C:/Users/jiazh/Desktop/workspace/sci-wt/fix-pr1577-adr048-blockers`
+  `C:/Users/<user>/Desktop/workspace/sci-wt/fix-pr1577-adr048-blockers`
 - Protected branch: `main`
 - Integration target branch: `track/adr-048-spec1-preview-system` (PR #1577)
 - Final PR target: `track/adr-048-spec1-preview-system`

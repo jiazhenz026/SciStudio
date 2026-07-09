@@ -9,17 +9,17 @@
 - Issue: #1574 · Umbrella PR: #1577 `[DO NOT MERGE]` · Protected branch: main
 - Umbrella branch: track/adr-048-spec1-preview-system
 - Agent branch: feat/adr-048-preview-imaging (ALREADY CREATED by manager)
-- Agent worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging (ALREADY CREATED)
+- Agent worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging (ALREADY CREATED)
 - Gate record (manager-owned): .workflow/records/1574-track-adr-048-spec1-preview-system.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 
 ## Setup
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging"
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging"
 ```
 The package `scistudio_blocks_imaging` is NOT pip-installed in this env. To run anything, set BOTH paths (Windows pathsep `;`):
 ```bash
-export PP="C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging/src;C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging/packages/scistudio-blocks-imaging/src"
+export PP="C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging/src;C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging/packages/scistudio-blocks-imaging/src"
 PYTHONPATH="$PP" python -c "import scistudio, scistudio_blocks_imaging; from scistudio.previewers.models import PreviewerSpec; print('ok')"
 ```
 Do NOT use `pip install -e .`. Work ONLY in this worktree.
@@ -71,7 +71,7 @@ Read these in the umbrella (present in your worktree):
 
 ## Required checks (run from worktree; all green)
 ```bash
-PP="C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging/src;C:/Users/jiazh/Desktop/workspace/sci-wt/s1-imaging/packages/scistudio-blocks-imaging/src"
+PP="C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging/src;C:/Users/<user>/Desktop/workspace/sci-wt/s1-imaging/packages/scistudio-blocks-imaging/src"
 PYTHONPATH="$PP" python -m pytest packages/scistudio-blocks-imaging/tests/test_previewer_registration.py -q --no-cov -p no:cacheprovider
 ruff check packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers
 ruff format --check packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/previewers

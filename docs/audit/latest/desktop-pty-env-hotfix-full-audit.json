@@ -98,7 +98,7 @@
       "source_sha": "",
       "findings": [],
       "summary": {
-        "repo_root": "C:/Users/jiazh/Desktop/workspace/SciStudio-desktop-pty-hotfix",
+        "repo_root": "C:/Users/<user>/Desktop/workspace/SciStudio-desktop-pty-hotfix",
         "findings": 0
       },
       "child_reports": []
@@ -170,7 +170,7 @@
       "source_sha": "75a32abeb4c9edea418781c12f82c00a4b85a11c4bdbd1dcf80178d6d3b83fb1",
       "findings": [],
       "summary": {
-        "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-desktop-pty-hotfix/docs/architecture/ARCHITECTURE.md",
+        "architecture_path": "C:/Users/<user>/Desktop/workspace/SciStudio-desktop-pty-hotfix/docs/architecture/ARCHITECTURE.md",
         "symbols_available": 2437,
         "fences_checked": 6,
         "fences_skipped": 1,

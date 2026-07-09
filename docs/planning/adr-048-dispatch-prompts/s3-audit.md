@@ -6,7 +6,7 @@
 - Repository: SciStudio · Persona: audit_reviewer · Audit mode: with-context
 - Issue: #1576 · Owner request: Fully implement ADR-048 SPEC 3 (developer docs delete-and-rewrite), no v1 reductions.
 - Umbrella PR: #1581 `[DO NOT MERGE]` (stacked on SPEC 2) · Umbrella branch: track/adr-048-spec3-docs
-- Audit branch: audit/adr-048-spec3 · Audit worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s3-audit (ALREADY CREATED)
+- Audit branch: audit/adr-048-spec3 · Audit worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s3-audit (ALREADY CREATED)
 - Gate record: .workflow/records/1576-track-adr-048-spec3-docs.json
 - Audit report path: docs/audit/2026-06-10-adr-048-spec3.md
 
@@ -16,7 +16,7 @@
 - AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/personas/audit-reviewer.md. Codex review on PR #1581.
 
 ## Setup
-Read-only on the repo; you WRITE only `docs/audit/2026-06-10-adr-048-spec3.md`. Do NOT `pip install -e .`. For checks: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/jiazh/Desktop/workspace/sci-wt/s3-audit/src" python -m pytest ...`.
+Read-only on the repo; you WRITE only `docs/audit/2026-06-10-adr-048-spec3.md`. Do NOT `pip install -e .`. For checks: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/<user>/Desktop/workspace/sci-wt/s3-audit/src" python -m pytest ...`.
 
 ## Audit Goal & Scope
 Independently verify SPEC 3 against the spec. Owner FORBADE scope reduction. Verify specifically:

@@ -32,7 +32,7 @@ desktop branch. It is not a stable public release.
 - Protected integration branch: `desktop`
 - Manager branch/worktree:
   - branch: `adr-037-desktop-mvp-manager`
-  - worktree: `C:\Users\jiazh\Desktop\workspace\SciStudio-desktop-mvp`
+  - worktree: `C:\Users\<user>\Desktop\workspace\SciStudio-desktop-mvp`
 - Gate record:
   `.workflow/records/1502-adr-037-desktop-mvp-manager.json`
 - Final target for this overnight run: push commits to remote `desktop`.

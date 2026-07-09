@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: umbrella/backend-god-file-refactor
 - Agent branch: refactor/issue-1433/gate-record (pre-created off origin/umbrella/backend-god-file-refactor)
-- Agent worktree: C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\refactor-b1-gate-record
+- Agent worktree: C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\refactor-b1-gate-record
 - Gate record: .workflow/records/1433-gate-record-refactor.json
 - Checklist: docs/planning/backend-god-file-refactor-checklist.md (read-only)
 

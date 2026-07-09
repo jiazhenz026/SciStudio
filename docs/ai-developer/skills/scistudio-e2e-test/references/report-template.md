@@ -62,9 +62,9 @@ One bullet per hit. If none, write `None.` and move on.
 Absolute paths, one per line. Group by step if there are many.
 
 ```markdown
-- C:\Users\jiazh\Downloads\scistudio-e2e-2026-05-20-pr-1300-step1.png
-- C:\Users\jiazh\Downloads\scistudio-e2e-2026-05-20-pr-1300-step3.png
-- C:\Users\jiazh\Downloads\scistudio-e2e-2026-05-20-pr-1300-console.log
+- C:\Users\<user>\Downloads\scistudio-e2e-2026-05-20-pr-1300-step1.png
+- C:\Users\<user>\Downloads\scistudio-e2e-2026-05-20-pr-1300-step3.png
+- C:\Users\<user>\Downloads\scistudio-e2e-2026-05-20-pr-1300-console.log
 ```
 
 ### 7.5 Follow-Ups

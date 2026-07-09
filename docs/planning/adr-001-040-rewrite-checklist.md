@@ -24,7 +24,7 @@ language_source: en
 - Gate record: `.workflow/records/1289-adr-001-040-rewrite.json` (pending)
 - Branch/worktree plan:
   `hotfix/rewrite-adr-001-040` at
-  `C:/Users/jiazh/Desktop/workspace/SciStudio.wt/hotfix-rewrite-adr-001-040`
+  `C:/Users/<user>/Desktop/workspace/SciStudio.wt/hotfix-rewrite-adr-001-040`
 - Protected branch: `main`
 - Umbrella branch: `hotfix/rewrite-adr-001-040`
 - Umbrella PR: pending dedicated ADR rewrite PR

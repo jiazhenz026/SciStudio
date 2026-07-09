@@ -24,7 +24,7 @@ language_source: en
 - Issue: `#1467`
 - Gate record: `.workflow/records/1467-test-engineer-persona-implementation.json`
 - Branch/worktree plan: manager worktree
-  `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-manager`; agent branches
+  `C:/Users/<user>/Desktop/workspace/SciStudio-issue1467-manager`; agent branches
   are based on `track/issue-1467/test-engineer-persona`.
 - Protected branch: `main`
 - Umbrella branch: `track/issue-1467/test-engineer-persona`
@@ -77,7 +77,7 @@ language_source: en
 
 - [x] Dedicated manager branch and worktree created ->
   `track/issue-1467/test-engineer-persona` in
-  `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-manager`.
+  `C:/Users/<user>/Desktop/workspace/SciStudio-issue1467-manager`.
 - [x] Existing issue linked -> `#1467`.
 - [x] Gate record started ->
   `.workflow/records/1467-test-engineer-persona-implementation.json`.
@@ -113,8 +113,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A-code-guard` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md` | Persona policy and test-engineer scope guard | `feat/issue-1467/test-engineer-scope-guard` | `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-agent-a` | `src/scistudio/qa/governance/persona_policy.py`, `src/scistudio/qa/governance/test_engineer_scope_guard.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_test_engineer_scope_guard.py` | gate_record files, AI docs, product code | `#1467`, commit `5546fdfd` cherry-picked as `653ff611` | `[x]` |
-| `B-gate-record` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md` | Gate-record persona schema, CLI, and validation integration | `feat/issue-1467/gate-record-persona` | `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-agent-b` | `src/scistudio/qa/governance/gate_record/**`, `tests/qa/test_gate_record.py`, `tests/qa/test_gate_record_ci.py`, `tests/qa/test_gate_record_hooks.py` | persona_policy, scope guard implementation, AI docs, product code | `#1467`, commit `7c6e9c0e` cherry-picked as `408e5dec` | `[x]` |
+| `A-code-guard` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md` | Persona policy and test-engineer scope guard | `feat/issue-1467/test-engineer-scope-guard` | `C:/Users/<user>/Desktop/workspace/SciStudio-issue1467-agent-a` | `src/scistudio/qa/governance/persona_policy.py`, `src/scistudio/qa/governance/test_engineer_scope_guard.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_test_engineer_scope_guard.py` | gate_record files, AI docs, product code | `#1467`, commit `5546fdfd` cherry-picked as `653ff611` | `[x]` |
+| `B-gate-record` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md` | Gate-record persona schema, CLI, and validation integration | `feat/issue-1467/gate-record-persona` | `C:/Users/<user>/Desktop/workspace/SciStudio-issue1467-agent-b` | `src/scistudio/qa/governance/gate_record/**`, `tests/qa/test_gate_record.py`, `tests/qa/test_gate_record_ci.py`, `tests/qa/test_gate_record_hooks.py` | persona_policy, scope guard implementation, AI docs, product code | `#1467`, commit `7c6e9c0e` cherry-picked as `408e5dec` | `[x]` |
 
 ## 7. Track: Governance Code
 

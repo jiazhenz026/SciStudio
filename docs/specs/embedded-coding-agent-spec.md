@@ -1025,7 +1025,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 
 ## 8.5. Phase 5 — End-to-end acceptance test
 
-**Goal**: Empirically validate that the embedded coding agent can autonomously reproduce a real-world scientific analysis. The acceptance target is the microplastics SRS spectrum-extraction notebook at `{box}/Jiazhen Zhang/04 Data/microplastics/processed/scripts/sample.ipynb`. The SciStudio agent (post-Phase-4 stack) must read the ipynb, build a SciStudio workflow with built-in blocks (hot-loading custom Tier-1 blocks under `{project}/blocks/` if needed), and run it. The test passes when the workflow's outputs match the ipynb's reference numerical outputs within tolerance.
+**Goal**: Empirically validate that the embedded coding agent can autonomously reproduce a real-world scientific analysis. The acceptance target is the microplastics SRS spectrum-extraction notebook at `{box}/04 Data/microplastics/processed/scripts/sample.ipynb`. The SciStudio agent (post-Phase-4 stack) must read the ipynb, build a SciStudio workflow with built-in blocks (hot-loading custom Tier-1 blocks under `{project}/blocks/` if needed), and run it. The test passes when the workflow's outputs match the ipynb's reference numerical outputs within tolerance.
 
 **Hard operating constraint**: the dispatcher author (human or higher-level agent) is FORBIDDEN from touching the workflow canvas, editing the workflow YAML, writing or repairing custom blocks, or otherwise intervening in the agent's work product during the test. The only mutable input is the test prompt (T-ECA-504). If the agent fails despite prompt iteration, that is the test's signal that ADR-033's agent design has gaps — record gaps in the audit report.
 
@@ -1070,7 +1070,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 
 **Implementation requirements**:
 
-- Run the source ipynb manually (or via `papermill`) on the user's machine. Source path: `C:\Users\jiazh\Box\Jiazhen Zhang\04 Data\microplastics\processed\scripts\sample.ipynb` (or the user-confirmed equivalent).
+- Run the source ipynb manually (or via `papermill`) on the user's machine. Source path: `C:\Users\<user>\Box\<owner>\04 Data\microplastics\processed\scripts\sample.ipynb` (or the user-confirmed equivalent).
 - Capture all intermediate dataframes, plot data, and final numerical outputs (peak tables, classification results, etc.) and serialise them deterministically (sort columns, round to 6 sig figs for float arrays where exact-equality is not meaningful).
 - Store under `tests/e2e/microplastics/golden/` with a `README.md` documenting each file's source cell in the ipynb.
 - Numerical comparator: write a small `assert_numerically_equal(actual, golden, rtol=1e-3, atol=1e-6)` helper in `tests/e2e/microplastics/_compare.py`. Document the per-field tolerance choices in the README.
