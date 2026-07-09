@@ -24,7 +24,7 @@ language_source: en
 - Gate record: `.workflow/records/841-888-891-1329-709-manager-bugfix-batch.json`
 - Branch/worktree plan:
   `manager/bugfix-batch-841-888-891-1329-709` in
-  `C:\Users\jiazh\Desktop\workspace\SciStudio-manager-bugfix-batch-20260522`
+  `C:\Users\<user>\Desktop\workspace\SciStudio-manager-bugfix-batch-20260522`
 - Protected branch: `main`
 - Umbrella branch: `manager/bugfix-batch-841-888-891-1329-709`
 - Umbrella PR: `#1451`

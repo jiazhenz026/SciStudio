@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: umbrella/backend-god-file-refactor
 - Agent branch: refactor/issue-1432/api-ai-pty (pre-created off origin/umbrella/backend-god-file-refactor)
-- Agent worktree: C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a3-ai-pty
+- Agent worktree: C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a3-ai-pty
 - Gate record: .workflow/records/1432-api-ai-pty.json
 - Checklist: docs/planning/backend-god-file-refactor-checklist.md (read-only)
 

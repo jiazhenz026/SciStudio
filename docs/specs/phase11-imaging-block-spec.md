@@ -6277,7 +6277,7 @@ installer.
 ## 11. Integration test (E2E workflow)
 
 The end-to-end test validates the full imaging plugin against the four
-test images at `C:\Users\jiazh\Desktop\workspace\Example\images\` per
+test images at `C:\Users\<user>\Desktop\workspace\Example\images\` per
 master plan §8:
 
 - `K562_L_2845 (uV).tif` — segmentation image 1
@@ -6302,7 +6302,7 @@ from scistudio_blocks_imaging import (
     LoadImage, Denoise, CellposeSegment, SaveImage,
 )
 
-IMAGES_DIR = Path(r"C:\Users\jiazh\Desktop\workspace\Example\images")
+IMAGES_DIR = Path(r"C:\Users\<user>\Desktop\workspace\Example\images")
 SEG_GLOB = "K562_*_2845 (uV).tif"
 SPECTRA_GLOB = "K562_*_spectra (uV).tif"
 

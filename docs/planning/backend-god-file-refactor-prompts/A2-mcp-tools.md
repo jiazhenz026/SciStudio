@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: umbrella/backend-god-file-refactor
 - Agent branch: refactor/issue-1431/mcp-tools-pair (pre-created off origin/umbrella/backend-god-file-refactor)
-- Agent worktree: C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a2-mcp-tools
+- Agent worktree: C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a2-mcp-tools
 - Gate record: .workflow/records/1431-mcp-tools-pair.json (you create this with `gate_record start`)
 - Checklist: docs/planning/backend-god-file-refactor-checklist.md (read-only for you; manager edits)
 

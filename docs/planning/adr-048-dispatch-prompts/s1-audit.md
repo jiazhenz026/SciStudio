@@ -7,7 +7,7 @@
 - Issue: #1574 — https://github.com/zjzcpj/SciStudio/issues/1574
 - Owner request: Fully implement ADR-048 SPEC 1 (extensible preview system); verify completeness, scope, correctness, spec-conformance.
 - Umbrella PR: #1577 `[DO NOT MERGE]` · Protected branch: main · Umbrella branch: track/adr-048-spec1-preview-system
-- Audit branch: audit/adr-048-spec1 · Audit worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s1-audit (ALREADY CREATED by manager)
+- Audit branch: audit/adr-048-spec1 · Audit worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s1-audit (ALREADY CREATED by manager)
 - Gate record: .workflow/records/1574-track-adr-048-spec1-preview-system.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 - PRs/commits to audit: PR #1577 (merge commits f961170f backend, 6d57fb9c frontend, fb1489f1 imaging, + manager integration/CI-fix commits)

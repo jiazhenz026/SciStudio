@@ -251,7 +251,7 @@ describe("CollectionViewer", () => {
               metadata: {
                 framework: {
                   source:
-                    "C:/Users/jiazh/Desktop/workspace/Example/array/random_10x30x30x30_float32.npy",
+                    "C:/Users/<user>/Desktop/workspace/Example/array/random_10x30x30x30_float32.npy",
                 },
               },
             },

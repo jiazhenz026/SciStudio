@@ -10,15 +10,15 @@
 - Umbrella PR: (SPEC 2, stacked on SPEC 1) — manager opens it; base = `track/adr-048-spec1-preview-system`
 - Protected branch: main · Umbrella branch: track/adr-048-spec2-plot-tools
 - Agent branch: feat/adr-048-plot-tools (ALREADY CREATED by manager)
-- Agent worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s2-impl (ALREADY CREATED)
+- Agent worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s2-impl (ALREADY CREATED)
 - Gate record (manager-owned): .workflow/records/1575-track-adr-048-spec2-plot-tools.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 
 ## Setup
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s2-impl"
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s2-impl"
 # editable install points at the MAIN checkout; test YOUR code with PYTHONPATH + SCISTUDIO_DEV=1 (CI parity):
-export PP="C:/Users/jiazh/Desktop/workspace/sci-wt/s2-impl/src"
+export PP="C:/Users/<user>/Desktop/workspace/sci-wt/s2-impl/src"
 SCISTUDIO_DEV=1 PYTHONPATH="$PP" python -c "import scistudio; from scistudio.previewers import models; print('ok')"
 ```
 Do NOT use `pip install -e .`. Work ONLY in this worktree. Your base branch already contains SPEC 1 (`src/scistudio/previewers/**`).
@@ -61,7 +61,7 @@ Do NOT use `pip install -e .`. Work ONLY in this worktree. Your base branch alre
 
 ## Required checks (run from worktree; all green) — use SCISTUDIO_DEV=1 + PYTHONPATH for CI parity
 ```bash
-WT="C:/Users/jiazh/Desktop/workspace/sci-wt/s2-impl"
+WT="C:/Users/<user>/Desktop/workspace/sci-wt/s2-impl"
 SCISTUDIO_DEV=1 PYTHONPATH="$WT/src" python -m pytest tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_plot.py tests/integration/test_phase2_mcp_end_to_end.py tests/ai/test_system_prompt.py tests/api/test_preview_plot_jobs.py tests/packaging/test_wheel_skills.py tests/agent_provisioning/test_skills.py tests/agent_provisioning/test_orchestrate.py tests/cli/test_install.py -q --no-cov -p no:cacheprovider -m "not requires_r"
 ruff check src/scistudio/ai/agent/mcp/tools_plot src/scistudio/agent_provisioning src/scistudio/cli tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py
 ruff format --check src/scistudio/ai/agent/mcp/tools_plot tests/ai/test_mcp_tools_plot.py tests/api/test_preview_plot_jobs.py

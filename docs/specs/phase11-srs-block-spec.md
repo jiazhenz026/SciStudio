@@ -73,7 +73,7 @@ The spec covers:
   component analysis (5), spectral extraction (2).
 - One **package skeleton** ticket (entry-points, layout, smoke tests).
 - One **end-to-end integration** ticket that consumes the four real test
-  images at `C:\Users\jiazh\Desktop\workspace\Example\images\` and exercises
+  images at `C:\Users\<user>\Desktop\workspace\Example\images\` and exercises
   the imaging plugin's `CellposeSegment` alongside the SRS plugin's
   `ExtractSpectrum` to produce per-cell spectra.
 
@@ -1753,7 +1753,7 @@ together with this plugin's `SRSCalibrate` / `ExtractSpectrum`.
 `tests/integration/conftest.py` declares two pytest fixtures
 (`segmentation_image_paths` and `spectra_image_paths`) that point at
 the four test images via an `EXAMPLE_DIR =
-Path(r"C:\Users\jiazh\Desktop\workspace\Example\images")` constant.
+Path(r"C:\Users\<user>\Desktop\workspace\Example\images")` constant.
 
 `tests/integration/test_e2e_with_imaging.py` is gated by
 `pytestmark = pytest.mark.requires_imaging` and starts with
@@ -1858,7 +1858,7 @@ SRS plugin and is referenced by both this spec and the imaging spec
 
 ### Test images
 
-The four test images live at `C:\Users\jiazh\Desktop\workspace\Example\images\`
+The four test images live at `C:\Users\<user>\Desktop\workspace\Example\images\`
 with the following filenames:
 
 | Filename                       | Purpose                   |

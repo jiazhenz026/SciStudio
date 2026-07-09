@@ -13,7 +13,7 @@
 - Protected branch: main
 - Umbrella branch: track/adr-048-spec1-preview-system
 - Agent branch: feat/adr-048-preview-backend
-- Agent worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s1-backend
+- Agent worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s1-backend
 - Gate record (manager-owned, single ledger): .workflow/records/1574-track-adr-048-spec1-preview-system.json
 - Checklist: docs/planning/adr-048-implementation-checklist.md
 
@@ -31,17 +31,17 @@
 You MUST work in a dedicated worktree, not the main checkout:
 
 ```bash
-cd "C:/Users/jiazh/Desktop/workspace/SciStudio"
+cd "C:/Users/<user>/Desktop/workspace/SciStudio"
 git fetch origin --quiet
-git worktree add -b feat/adr-048-preview-backend "C:/Users/jiazh/Desktop/workspace/sci-wt/s1-backend" origin/track/adr-048-spec1-preview-system
-cd "C:/Users/jiazh/Desktop/workspace/sci-wt/s1-backend"
+git worktree add -b feat/adr-048-preview-backend "C:/Users/<user>/Desktop/workspace/sci-wt/s1-backend" origin/track/adr-048-spec1-preview-system
+cd "C:/Users/<user>/Desktop/workspace/sci-wt/s1-backend"
 ```
 
 CRITICAL — the package is editable-installed to the MAIN checkout, so to test
 YOUR worktree code you MUST prefix python/pytest with PYTHONPATH:
 
 ```bash
-PYTHONPATH="C:/Users/jiazh/Desktop/workspace/sci-wt/s1-backend/src" python -m pytest ...
+PYTHONPATH="C:/Users/<user>/Desktop/workspace/sci-wt/s1-backend/src" python -m pytest ...
 ```
 
 Do NOT use `pip install -e .`. Do NOT run `npm`/frontend tooling (frontend is a different agent).
@@ -126,7 +126,7 @@ Tests (add/extend — implementation work REQUIRES test changes):
 From your worktree root, with PYTHONPATH set:
 
 ```bash
-WT="C:/Users/jiazh/Desktop/workspace/sci-wt/s1-backend"
+WT="C:/Users/<user>/Desktop/workspace/sci-wt/s1-backend"
 PYTHONPATH="$WT/src" python -m pytest tests/previewers tests/api/test_previewers.py tests/api/test_data.py tests/api/test_runtime_import_surface.py tests/ai/test_mcp_tools_inspection.py -x -q -p no:cacheprovider --no-cov -m "not requires_imaging and not requires_r and not requires_fiji"
 ruff check src/scistudio/previewers src/scistudio/api tests/previewers tests/api/test_previewers.py
 ruff format --check src/scistudio/previewers tests/previewers

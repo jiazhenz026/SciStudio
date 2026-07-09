@@ -26,7 +26,7 @@ language_source: en
 - Protected branch: main
 - Umbrella branch: track/issue-1467/test-engineer-persona
 - Agent branch: feat/issue-1467/test-engineer-scope-guard
-- Agent worktree: C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-agent-a
+- Agent worktree: C:/Users/<user>/Desktop/workspace/SciStudio-issue1467-agent-a
 - Gate record: .workflow/records/1467-test-engineer-persona-implementation.json
 - Checklist: docs/planning/adr-042-test-engineer-persona-implementation-checklist.md
 

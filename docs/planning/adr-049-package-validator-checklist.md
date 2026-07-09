@@ -25,7 +25,7 @@ language_source: en
   `.workflow/records/design-package-validator-contract-survey-design-package-validator-contract-survey.json`
 - Branch/worktree plan: manager branch
   `design/package-validator-contract-survey` in
-  `C:/Users/jiazh/Desktop/workspace/sci-wt/package-validator-design`;
+  `C:/Users/<user>/Desktop/workspace/sci-wt/package-validator-design`;
   subagents write disjoint JSON tables only.
 - Protected branch: `main`
 - Umbrella branch: local manager branch for ADR/design PR submission.

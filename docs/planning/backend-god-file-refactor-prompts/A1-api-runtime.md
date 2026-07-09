@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: umbrella/backend-god-file-refactor
 - Agent branch: refactor/issue-1430/api-runtime (pre-created off origin/umbrella/backend-god-file-refactor)
-- Agent worktree: C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a1-api-runtime
+- Agent worktree: C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\refactor-a1-api-runtime
 - Gate record: .workflow/records/1430-api-runtime.json (you create this with `gate_record start`)
 - Checklist: docs/planning/backend-god-file-refactor-checklist.md (read-only for you; manager edits)
 

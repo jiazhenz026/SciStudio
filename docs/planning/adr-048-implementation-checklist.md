@@ -26,7 +26,7 @@ language_source: en
   - SPEC 2: `.workflow/records/1575-track-adr-048-spec2-plot-tools.json` (pending)
   - SPEC 3: `.workflow/records/1576-track-adr-048-spec3-docs.json` (pending)
 - Branch/worktree plan: manager works in dedicated worktrees under
-  `C:/Users/jiazh/Desktop/workspace/sci-wt/`; each implementer agent uses its
+  `C:/Users/<user>/Desktop/workspace/sci-wt/`; each implementer agent uses its
   own `feat/adr-048-*` branch + worktree off the umbrella branch.
 - Protected branch: `main`
 - Umbrella branches (stacked):

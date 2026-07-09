@@ -7,7 +7,7 @@
 - Issue: #1575 — https://github.com/zjzcpj/SciStudio/issues/1575
 - Owner request: Fully implement ADR-048 SPEC 2 (AI plot tools + preview-side plot jobs); verify completeness/scope/correctness/spec-conformance, no v1 reductions.
 - Umbrella PR: #1580 `[DO NOT MERGE]` (stacked on SPEC 1) · Umbrella branch: track/adr-048-spec2-plot-tools
-- Audit branch: audit/adr-048-spec2 · Audit worktree: C:/Users/jiazh/Desktop/workspace/sci-wt/s2-audit (ALREADY CREATED)
+- Audit branch: audit/adr-048-spec2 · Audit worktree: C:/Users/<user>/Desktop/workspace/sci-wt/s2-audit (ALREADY CREATED)
 - Gate record: .workflow/records/1575-track-adr-048-spec2-plot-tools.json
 - Audit report path: docs/audit/2026-06-10-adr-048-spec2.md
 
@@ -19,7 +19,7 @@
 
 ## Setup
 - Read-only on implementation; you only WRITE `docs/audit/2026-06-10-adr-048-spec2.md`. Do NOT `pip install -e .`.
-- For python checks: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/jiazh/Desktop/workspace/sci-wt/s2-audit/src" python -m pytest ... -m "not requires_r"`. (The sci-stack pandas/tifffile/matplotlib may be absent in this minimal venv → those tests skip locally; note it. CI installs them via [dev].)
+- For python checks: `SCISTUDIO_DEV=1 PYTHONPATH="C:/Users/<user>/Desktop/workspace/sci-wt/s2-audit/src" python -m pytest ... -m "not requires_r"`. (The sci-stack pandas/tifffile/matplotlib may be absent in this minimal venv → those tests skip locally; note it. CI installs them via [dev].)
 
 ## Audit Goal & Scope
 Independently verify SPEC 2 against the spec. Owner FORBADE scope reduction — hunt for hidden V1/MVP cuts, unimplemented FRs, placeholder modules, untracked TODOs, contract gaps. Specifically check:

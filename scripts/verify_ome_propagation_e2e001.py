@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-FIXTURE = Path(r"C:/Users/jiazh/Desktop/workspace/scistudio-e2e-microplastic/data/raw/50nm_2800-3200-40.tif")
+FIXTURE = Path(r"C:/Users/<user>/Desktop/workspace/scistudio-e2e-microplastic/data/raw/50nm_2800-3200-40.tif")
 
 WAVENUMBERS = [2800.0 + i * (3200.0 - 2800.0) / 39 for i in range(40)]
 

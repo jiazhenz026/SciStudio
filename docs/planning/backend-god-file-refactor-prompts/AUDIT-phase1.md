@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: umbrella/backend-god-file-refactor
 - Audit branch: audit/issue-1427/phase1-review (pre-created off origin/umbrella/backend-god-file-refactor)
-- Audit worktree: C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\audit-1427-phase1
+- Audit worktree: C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\audit-1427-phase1
 - Manager gate record: .workflow/records/1427-backend-god-file-refactor.json
 - Checklist: docs/planning/backend-god-file-refactor-checklist.md
 - PRs to audit: #1441, #1442, #1444, #1445
@@ -74,7 +74,7 @@ Only edit the audit report file and the audit checklist rows in `docs/planning/b
 ## Coordination
 
 - MUST work only on branch `audit/issue-1427/phase1-review`.
-- MUST work only in worktree `C:\Users\jiazh\Desktop\workspace\SciStudio\.claude\worktrees\audit-1427-phase1`.
+- MUST work only in worktree `C:\Users\<user>\Desktop\workspace\SciStudio\.claude\worktrees\audit-1427-phase1`.
 - MUST NOT `pip install -e .`. Use `PYTHONPATH=src python ...`.
 - MUST NOT merge any PR.
 - MUST NOT fix implementation code. If you find a P1 that requires a code fix, report it; the manager will dispatch a fix agent or fix it directly.

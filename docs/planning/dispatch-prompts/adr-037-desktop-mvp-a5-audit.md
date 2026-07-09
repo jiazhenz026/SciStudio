@@ -18,7 +18,7 @@ language_source: en
 - Protected branch: main
 - Desktop integration branch: desktop
 - Agent branch: adr-037-mvp-a5-audit
-- Agent worktree: C:\Users\jiazh\Desktop\workspace\SciStudio-desktop-a5
+- Agent worktree: C:\Users\<user>\Desktop\workspace\SciStudio-desktop-a5
 - Gate record: .workflow/records/1502-adr-037-desktop-mvp-manager.json
 - Checklist: docs/planning/adr-037-desktop-mvp-checklist.md
 
