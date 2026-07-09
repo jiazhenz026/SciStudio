@@ -28,11 +28,7 @@
 
 ## What is SciStudio?
 
-SciStudio is an **AI-native workflow runtime for multimodal scientific data**.
-Microscopy, LC-MS, spectroscopy, tables, instrument files — each modality usually
-needs its own software and format. SciStudio brings that scattered desktop of
-separate apps, scripts, and files onto a single workbench, where typed **blocks**
-wire into one workflow.
+SciStudio is an **AI-native workflow runtime for multimodal scientific data**. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
 
 - **Every modality, one graph** — imaging, LC-MS, spectroscopy, tables, and files
   share typed data and flow through the same workflow.
