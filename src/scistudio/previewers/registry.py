@@ -22,8 +22,6 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 from scistudio.desktop.paths import (
@@ -42,12 +40,6 @@ logger = logging.getLogger(__name__)
 
 PREVIEWER_ENTRY_POINT_GROUP = "scistudio.previewers"
 COMPANION_ENTRY_POINT_GROUPS = ("scistudio.blocks", "scistudio.types")
-
-
-def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
-    if os.environ.get("SCISTUDIO_BUNDLED") != "1":
-        return ()
-    return tuple(candidate_package_dirs())
 
 
 @internal()
@@ -213,8 +205,14 @@ class PreviewerRegistry:
                     break
 
     def _scan_package_src_dirs(self) -> None:
-        """Discover bundled desktop source-package previewers via ``get_previewers()``."""
-        package_dirs = _bundled_candidate_package_dirs()
+        """Discover desktop/installed source-package previewers via ``get_previewers()``."""
+        # Issue #1885: scan candidate_package_dirs() unconditionally — matching
+        # block/type discovery — so a plugin's previewers register from the same
+        # module-glob pass as its blocks. This used to be gated behind
+        # SCISTUDIO_BUNDLED, which dropped plugin previewers in a non-bundled
+        # desktop run. Explicit entry-point registrations still win because
+        # registration below uses skip_existing=True.
+        package_dirs = candidate_package_dirs()
         registered_roots: set[str] = set()
         candidates = iter_source_package_module_candidates(package_dirs, module_suffixes=("previewers",))
         for root_name, module_name, import_roots in candidates:

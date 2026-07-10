@@ -42,7 +42,6 @@ import importlib
 import importlib.metadata
 import importlib.util
 import logging
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,12 +57,6 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-
-
-def _bundled_candidate_package_dirs() -> tuple[Path, ...]:
-    if os.environ.get("SCISTUDIO_BUNDLED") != "1":
-        return ()
-    return tuple(candidate_package_dirs())
 
 
 @dataclass
@@ -486,7 +479,14 @@ class TypeRegistry:
 
     def _scan_package_src_dirs(self) -> None:
         """Discover desktop source-package types through conventional ``get_types()``."""
-        package_dirs = [*self._package_src_dirs, *_bundled_candidate_package_dirs()]
+        # Issue #1885: scan candidate_package_dirs() unconditionally — matching
+        # BlockRegistry._scan_package_src_dirs — so a plugin's types register
+        # from the same module-glob pass as its blocks. This used to be gated
+        # behind SCISTUDIO_BUNDLED, which left plugin types unregistered in a
+        # non-bundled desktop run whenever the entry-point pass could not see
+        # the plugin's .dist-info on sys.path. Entry-point registrations still
+        # win: the loop below skips any cls.__name__ already registered.
+        package_dirs = [*self._package_src_dirs, *candidate_package_dirs()]
         for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
             try:
                 with prepended_sys_paths(import_roots):
