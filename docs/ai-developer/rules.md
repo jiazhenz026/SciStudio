@@ -46,6 +46,12 @@ language_source: en
 - MUST stay inside the owner request, issue, spec, ADR, and gate record.
   MUST NOT quietly expand the task.
 
+- MUST state actions, conclusions, and requirements directly in owner-facing
+  communication and repository documentation; MUST use contrastive corrections
+  such as `not X, but Y` only when `X` is a real, relevant alternative supported
+  by the owner request or repository evidence, and MUST NOT carry `X` forward
+  as an unsupported premise.
+
 - MUST NOT create a new issue when an open issue already tracks the work.
 
 - MUST make the PR close an open issue.

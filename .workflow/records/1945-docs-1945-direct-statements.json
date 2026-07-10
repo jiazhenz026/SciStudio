@@ -1,0 +1,316 @@
+{
+  "branch": "docs/1945-direct-statements",
+  "check_events": [
+    {
+      "at": "2026-07-10T19:46:19.075109Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "AGENTS.md",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/docs-change.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-10T19:44:23.015414Z",
+      "owner_directive": "State intended actions and conclusions directly. Permit contrastive corrections only when the rejected alternative is evidenced and the contrast materially clarifies the decision. Prevent rejected alternatives from becoming unsupported premises in later reasoning.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-10T19:52:06.855291Z",
+      "owner_directive": "Keep the communication constraint to one rule; stop the long check and PR flow.",
+      "reason": "Owner requested one concise rule per policy surface and stopped the PR workflow."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-10T19:44:23.015598Z",
+      "class": null,
+      "kind": "path",
+      "path": "AGENTS.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015617Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015618Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/docs-change.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015627Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Focused, owner-directed wording policy update does not introduce an architectural decision.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015631Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "No product or runtime contract changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015634Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Internal AI governance wording only; no user-facing product behavior changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:44:23.015636Z",
+      "class": "checklist",
+      "kind": "na",
+      "path": null,
+      "rationale": "No separate checklist artifact is needed for this focused three-file policy update.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:45:32.424339Z",
+      "class": null,
+      "kind": "path",
+      "path": "AGENTS.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:45:32.424485Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:45:32.424487Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/docs-change.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-07-10T19:46:19.101583Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.112791Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.124806Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.136740Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.148376Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.159767Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.171125Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.182563Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.194953Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:46:19.219999Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:49:31.179388Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1188/popen-gw5/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-07-10T19:49:32.456203Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1188/popen-gw5/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1945,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "46641582",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "46641582",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Add a repository-wide constraint against unsupported not-X-but-Y contrastive phrasing, especially in owner communication and repository documentation.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-07-10T19:46:19.220082Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1945-docs-1945-direct-statements",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:44:23.015577Z",
+      "pattern": "AGENTS.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:44:23.015583Z",
+      "pattern": "docs/ai-developer/rules.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:44:23.015585Z",
+      "pattern": "docs/ai-developer/specific_rules/docs-change.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "56ca489e-4ba7-4329-b9cd-abbd3f7e9edd",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-07-10T19:44:23.015639Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only governance change with no executable behavior.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:45:32.424495Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only governance change with no executable behavior.",
+      "verified_in_diff": null
+    }
+  ]
+}

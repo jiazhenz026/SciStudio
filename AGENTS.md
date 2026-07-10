@@ -125,6 +125,12 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
 
 ### 3.7 AI Agent Rules
 
+- In owner-facing communication and repository documentation, state actions,
+  conclusions, and requirements directly; use contrastive corrections such as
+  `not X, but Y` only when `X` is a real, relevant alternative supported by the
+  owner request or repository evidence, and never carry `X` forward as an
+  unsupported premise.
+
 - AI agents must read `docs/ai-developer/rules.md`.
 
 - AI agents must use the matching task rule in

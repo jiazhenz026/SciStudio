@@ -32,6 +32,15 @@ language_source: en
 
 ## 3. Document Type Rules
 
+### 3.1 Direct Writing Rules
+
+- MUST state decisions, requirements, actions, and conclusions directly; MUST
+  use contrastive corrections such as `not X, but Y` only when `X` is a real,
+  relevant alternative supported by the owner request or repository evidence,
+  and MUST NOT carry `X` forward as an unsupported premise.
+
+### 3.2 Document Placement And Structure
+
 - MUST follow the required structure for the document type being edited.
 
 - MUST use `docs/ai-developer/specific_rules/document-standards.md` as the
