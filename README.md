@@ -30,14 +30,13 @@
 
 SciStudio is an **AI-native workflow runtime for multimodal scientific data**. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
 
-- **Every modality, one graph** — imaging, LC-MS, spectroscopy, tables, and files
+- **Every modality, one graph** — imaging, spectroscopy, tables, and files
   share typed data and flow through the same workflow.
-- **Bring your existing tools, don't replace them** — run R or Python scripts and
+- **View your data in your way** - Customize the way you preview your data, customize your figure with plot cards.
+- **Bring your existing tools** — run R or Python scripts and
   launch desktop apps like Fiji as ordinary blocks in the flow.
 - **AI-native** — a built-in assistant (Claude Code or Codex) helps you build
   workflows, author new blocks, and inspect your data.
-- **Manual steps are first-class** — review, annotation, and approval are real
-  workflow steps, not workarounds.
 - **Extensible** — add your own blocks, data types, and plots, and share them as
   installable packages.
 
