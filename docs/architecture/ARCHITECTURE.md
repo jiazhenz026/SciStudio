@@ -2307,7 +2307,11 @@ means they survive app upgrades and never modify the bundled runtime.
 setuptools entry points (§12.4). Instead the registry scans the user package
 directories (plus any bundled or development package directories) and imports
 each source package through the package protocol (a get_block_package() entry
-point, with get_blocks as a fallback). After an install the runtime refreshes the registry and
+point, with get_blocks as a fallback). A package's blocks, its DataObject types
+(get_types()), and its previewers (get_previewers()) are all resolved from this
+same package-directory scan, so a package's types and previewers register
+alongside its blocks rather than depending on installed entry-point metadata
+being on the import path. After an install the runtime refreshes the registry and
 invalidates import caches so discovery is immediate.
 
 **How dependencies are injected.** A package's dependencies are installed with
