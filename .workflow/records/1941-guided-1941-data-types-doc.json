@@ -67,7 +67,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "b8723981e6ec6b9d0f78de1c7e5731b701a41d64",
+    "shas": [
+      "b8723981e6ec6b9d0f78de1c7e5731b701a41d64"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -294,6 +300,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.138020Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.149083Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.161517Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.173600Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.186947Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.200877Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.214092Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.227249Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.239770Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:39:08.255041Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -313,9 +401,9 @@
       "src/scistudio/_user_guide/README.md",
       "src/scistudio/_user_guide/data-types.md"
     ],
-    "diff_fingerprint": "sha256:df3648e62cb916205daddd82eb1f91c002429e886cddc9effa23340fe3a06946",
+    "diff_fingerprint": "sha256:91a054c42985b76a4c4316c66d8339a2b0ed0ae50f6faa0c8696140bb4faac35",
     "head": "HEAD",
-    "head_sha": "12868883",
+    "head_sha": "b8723981",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -331,7 +419,14 @@
   },
   "owner_directive": "Add a one-page Data Types concept page to the user guide. Table-driven, concept-first for bench scientists. Cover the core container types + Collection; introduce the two-layer model (core containers vs plugin domain types) using Image and Spectrum only as illustrative examples (no exhaustive list, no SRSImage). Register it in the user-guide README ahead of custom-types.md.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1941
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-10T18:37:14.636813Z",
@@ -348,6 +443,14 @@
     {
       "at": "2026-07-10T18:38:02.608879Z",
       "diff_fingerprint": "sha256:df3648e62cb916205daddd82eb1f91c002429e886cddc9effa23340fe3a06946",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T18:39:08.255084Z",
+      "diff_fingerprint": "sha256:91a054c42985b76a4c4316c66d8339a2b0ed0ae50f6faa0c8696140bb4faac35",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
