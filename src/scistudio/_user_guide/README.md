@@ -18,6 +18,7 @@ from an empty project to your first run in five steps.
 | Page | What it covers |
 |---|---|
 | [getting-started.md](getting-started.md) | The five-minute tour: project → workflow → run → preview |
+| [how-scistudio-works.md](how-scistudio-works.md) | The short architecture map: data, blocks, lineage, AI agents, plots, and extensions |
 | [using-the-gui.md](using-the-gui.md) | The canvas in depth: building workflows, running them, previewing data |
 | [built-in-blocks.md](built-in-blocks.md) | Every block that ships with SciStudio and what it does |
 | [history-and-branches.md](history-and-branches.md) | Re-run past work; keep pipeline variants on branches |

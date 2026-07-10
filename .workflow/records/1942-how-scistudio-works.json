@@ -1,0 +1,1381 @@
+{
+  "branch": "guided/1942-how-scistudio-works",
+  "check_events": [
+    {
+      "at": "2026-07-10T18:49:21.971517Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T18:49:26.446841Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T18:49:26.495158Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:05:10.403066Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:05:14.865397Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:05:14.879944Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:09:45.786877Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:09:50.013280Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:09:50.031564Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:15:29.184307Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:15:33.460153Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:15:33.477530Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:18:35.451939Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:18:39.837856Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:18:39.854989Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:24:02.397496Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:24:06.466437Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:24:06.480238Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:24:27.745091Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:24:31.696035Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:24:31.713670Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:25:13.612332Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-10T19:25:17.621339Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-10T19:25:17.636610Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/user/how-scistudio-works.md",
+      "mkdocs.site.yml"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-10T18:41:58.487177Z",
+      "owner_directive": "Create a concise, user-oriented architecture map with the same 15 top-level sections as the canonical architecture reference; link it from the user-guide index. Rely on the existing site staging and src-triggered Pages workflow for deployment.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-10T18:56:46.855577Z",
+      "owner_directive": "Remove Scope and sections 11, 13, 14, and 15; keep section 12; explain the six basic data types in a table, explain the basic block types in a table, and use a table in section 12 to show what users can extend.",
+      "reason": "Owner requested a substantial content restructure after reviewing the first draft."
+    },
+    {
+      "at": "2026-07-10T19:08:00.158559Z",
+      "owner_directive": "In section 4, split the closing explanation into canonical zone and inheritance, and add canonical-zone storage formats to the six-type table using the architecture document. Remove Custom block as a block type; replace the engine-state closing sentence with block extensibility. Expand Plot System with an architecture table. Remove not-but and similar contrastive negative phrasing throughout; use direct declarative statements.",
+      "reason": "Owner refined the data, block, plot, and writing-style requirements after reviewing the second draft."
+    },
+    {
+      "at": "2026-07-10T19:12:32.132694Z",
+      "owner_directive": "Expand AI Agents to explain MCP tools, skills, and AIBlock, preferably with a table.",
+      "reason": "Owner requested a more detailed AI Agents section after reviewing the current draft."
+    },
+    {
+      "at": "2026-07-10T19:13:11.922395Z",
+      "owner_directive": "Remove sections 6, 8, and 9, and remove Layer x prefixes from all section headings.",
+      "reason": "Owner simplified the chapter set and heading style while expanding AI Agents."
+    },
+    {
+      "at": "2026-07-10T19:13:50.623228Z",
+      "owner_directive": "Rename MCP tools to MCP server and state that SciStudio has 33 MCP tools.",
+      "reason": "Owner corrected the AI Agents terminology and requested an explicit MCP tool count."
+    },
+    {
+      "at": "2026-07-10T19:14:46.742716Z",
+      "owner_directive": "Rewrite the Plot System table for users: explain what it is, what it is for, its features, and why it is designed that way. Remove overly technical contract details.",
+      "reason": "Owner redirected Plot System from implementation contracts to a user-facing conceptual introduction."
+    },
+    {
+      "at": "2026-07-10T19:16:05.247292Z",
+      "owner_directive": "Add a chapter explaining the lineage system and reproducibility.",
+      "reason": "Owner added a new user-facing architecture topic after reviewing the AI and plot sections."
+    },
+    {
+      "at": "2026-07-10T19:16:35.391184Z",
+      "owner_directive": "Make the Plot System table use the same Surface and Role writing style as the other sections.",
+      "reason": "Owner aligned the Plot System table style with the rest of the user-facing architecture article."
+    },
+    {
+      "at": "2026-07-10T19:17:04.232881Z",
+      "owner_directive": "Remove section 1 Introduction. Directly tell readers to see the architecture document for full detail.",
+      "reason": "Owner removed the introductory chapter and simplified the opening."
+    },
+    {
+      "at": "2026-07-10T19:18:08.595142Z",
+      "owner_directive": "Open with: this is a user-facing overview, followed by the link for full architectural detail. Treat the length limit as non-blocking when it is only a default.",
+      "reason": "Owner clarified the exact opening tone and deprioritized the default length ceiling when readability benefits."
+    },
+    {
+      "at": "2026-07-10T19:18:54.250911Z",
+      "owner_directive": "Correct the Git and lineage description using the architecture document; the current Git positioning is factually inaccurate.",
+      "reason": "Owner identified an inaccurate simplification of the Git and lineage responsibility split; the canonical architecture section 4.6 defines the correct relationship."
+    },
+    {
+      "at": "2026-07-10T19:20:31.530376Z",
+      "owner_directive": "Position Git purely as convenient branching for workflow variants. Position lineage as the reproducibility system.",
+      "reason": "Owner corrected the user-facing product role of Git: branching convenience for parallel workflow variants, while lineage owns reproducibility."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-10T18:40:13.042777Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:40:13.042934Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487481Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487500Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487509Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "The canonical architecture contract is the source being summarized and does not change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487512Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No architectural decision changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487514Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "No product contract or behavior changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487517Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only discoverability change with no release behavior change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:56:46.855734Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:08:00.158722Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:12:32.132840Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:13:11.922572Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:13:50.623389Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:14:26.418452Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:14:46.742894Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:16:05.247467Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:16:35.391337Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:17:04.233056Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:18:08.595388Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:18:54.251056Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T19:20:31.530524Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-10T18:49:26.524254Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.535398Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.546674Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.558389Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.569618Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.581038Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.592368Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.603820Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.614964Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T18:49:26.626314Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.904063Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.914944Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.926368Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.937527Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.948474Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.959752Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.970875Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.981941Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:14.992951Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:05:15.004020Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.056021Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.067706Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.078976Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.090619Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.101788Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.113931Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.125252Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.136786Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.148264Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:09:50.160155Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.501597Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.512985Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.524218Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.535583Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.546765Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.558300Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.569467Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.580915Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.592522Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:15:33.604177Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.879037Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.891135Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.913693Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.929969Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.941600Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.953189Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.964667Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.976511Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.987800Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:18:39.999384Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.501452Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.511222Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.521087Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.530906Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.540567Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.551624Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.562524Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.573305Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.584085Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:06.594929Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.738906Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.752579Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.764863Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.776917Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.788508Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.800276Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.811643Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.823714Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.841838Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:24:31.853987Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.658673Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.669067Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.679019Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.688822Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.698494Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.708344Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.718019Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.727761Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.737729Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-10T19:25:17.748059Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1942,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "300ffc65",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "300ffc65",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Add a user-facing how-scistudio-works document as a concise version of the canonical architecture document, keep essentially the same section structure, and include it in the deployed documentation set.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-07-10T18:49:26.626382Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:05:15.004078Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:09:50.160222Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:15:33.604272Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:18:39.999451Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:24:06.595017Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:24:31.854051Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-10T19:25:17.748137Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1942-how-scistudio-works",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex:gpt-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-10T18:40:13.042478Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Repository inspection showed that the canonical hand-authored and deployed user guide lives under src/scistudio/_user_guide; the site build already stages that entire tree and the docs workflow already watches src."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T18:40:13.042761Z",
+      "pattern": "src/scistudio/_user_guide/README.md",
+      "reason": "Repository inspection showed that the canonical hand-authored and deployed user guide lives under src/scistudio/_user_guide; the site build already stages that entire tree and the docs workflow already watches src."
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-07-10T18:40:13.042765Z",
+      "pattern": "docs/user/how-scistudio-works.md",
+      "reason": "Repository inspection showed that the canonical hand-authored and deployed user guide lives under src/scistudio/_user_guide; the site build already stages that entire tree and the docs workflow already watches src."
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-07-10T18:40:13.042768Z",
+      "pattern": "mkdocs.site.yml",
+      "reason": "Repository inspection showed that the canonical hand-authored and deployed user guide lives under src/scistudio/_user_guide; the site build already stages that entire tree and the docs workflow already watches src."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T18:41:58.487344Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T18:41:58.487351Z",
+      "pattern": "src/scistudio/_user_guide/README.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T18:56:46.855726Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner requested a substantial content restructure after reviewing the first draft."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:08:00.158713Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner refined the data, block, plot, and writing-style requirements after reviewing the second draft."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:12:32.132832Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner requested a more detailed AI Agents section after reviewing the current draft."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:13:11.922562Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner simplified the chapter set and heading style while expanding AI Agents."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:13:50.623382Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner corrected the AI Agents terminology and requested an explicit MCP tool count."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:14:46.742885Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner redirected Plot System from implementation contracts to a user-facing conceptual introduction."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:16:05.247458Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner added a new user-facing architecture topic after reviewing the AI and plot sections."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:16:35.391328Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner aligned the Plot System table style with the rest of the user-facing architecture article."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:17:04.233047Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner removed the introductory chapter and simplified the opening."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:18:08.595380Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner clarified the exact opening tone and deprioritized the default length ceiling when readability benefits."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:18:54.251047Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner identified an inaccurate simplification of the Git and lineage responsibility split; the canonical architecture section 4.6 defines the correct relationship."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-10T19:20:31.530517Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "Owner corrected the user-facing product role of Git: branching convenience for parallel workflow variants, while lineage owns reproducibility."
+    }
+  ],
+  "session_id": "7fa4de08-63d1-4c41-97ff-495313b9b3c8",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-10T18:40:13.042945Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only Markdown change; deployment inclusion is verified by the existing strict site build rather than a behavioral test change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-10T18:41:58.487523Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only Markdown change; the existing strict site build verifies staging, navigation, link resolution, and renderability.",
+      "verified_in_diff": null
+    }
+  ]
+}
