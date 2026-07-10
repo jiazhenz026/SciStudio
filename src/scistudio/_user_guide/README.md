@@ -27,6 +27,7 @@ from an empty project to your first run in five steps.
 
 | Page | What it covers |
 |---|---|
+| [data-types.md](data-types.md) | The data types that flow between blocks, and which one fits your data |
 | [writing-blocks.md](writing-blocks.md) | Write a custom block from scratch |
 | [custom-types.md](custom-types.md) | Make your own data type when the built-in ones do not fit |
 | [writing-plots.md](writing-plots.md) | Write a quick preview-only plot of a result |
