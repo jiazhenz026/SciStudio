@@ -40,6 +40,8 @@ SciStudio is an **AI-native workflow runtime for multimodal scientific data**. S
 - **Extensible** — add your own blocks, data types, and plots, and share them as
   installable packages.
 
+See [architecture doc](https://github.com/jiazhenz026/SciStudio/blob/main/docs/architecture/ARCHITECTURE.md) for detailed philosophy.
+
 ## Install
 
 ### For users
