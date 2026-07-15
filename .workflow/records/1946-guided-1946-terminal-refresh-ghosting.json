@@ -1,0 +1,86 @@
+{
+  "branch": "guided/1946-terminal-refresh-ghosting",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/AIChat/TerminalView.tsx",
+      "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-15T15:04:32.291300Z",
+      "owner_directive": "Direction B implemented in TerminalView.tsx: delayed settle full-refresh after resize/re-show to clear alt-screen ghost residue; immediate last-good-frame repaint on re-show to kill the black gap; plus a manual refresh (\u21bb) button. Tests updated. CHANGELOG entry added.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-15T15:04:32.291469Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T15:04:32.291493Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Behavioural bugfix + small UI affordance in an existing component (ADR-034 terminal); no architectural decision. spec:No contract/schema/API change; the fix is host-side render timing. user-docs:No user-facing doc covers terminal internals; the \u21bb button is self-describing via its tooltip.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1946,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix embedded PTY terminal ghosting + black-screen (regressed under Claude Code fullscreen/alt-screen mode) via Direction B: keep xterm DOM renderer, fix resize-settle + re-show repaint timing; and add a manual refresh button in the terminal GUI so users can self-unstick.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1946-guided-1946-terminal-refresh-ghosting",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-15T15:04:32.291457Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "3371b650-6ce9-4e9d-98c4-9e396a830a81",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-15T15:04:32.291497Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

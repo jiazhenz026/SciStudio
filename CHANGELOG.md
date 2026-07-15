@@ -35,6 +35,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1946] Embedded PTY terminal (AI Chat / Terminal) no longer leaves ghosted
+  glyphs or a black gap when panel widths are dragged or the bottom panel
+  collapses and re-expands under Claude Code's fullscreen (alternate-screen)
+  mode. xterm's DOM renderer only repaints dirty cells, so the alt-screen TUI's
+  reflow left stale cells (previously cleared only by selecting the text) or an
+  unpainted frame. The view now repaints the last-good frame immediately on
+  re-show (killing the black gap) and schedules one delayed full refresh after a
+  resize/re-show settles to clear ghost residue. A manual **↻ refresh** button
+  in the terminal's upper-right corner lets users force a redraw if the screen
+  still looks garbled. WebGL (the precise renderer noted in #1711) is
+  intentionally not adopted here; this is the incremental DOM-renderer fix.
+  Tests: `frontend/src/components/AIChat/__tests__/TerminalView.test.tsx`.
+  (@claude, 2026-07-15, branch: guided/1946-terminal-refresh-ghosting)
 - [#1918] Plot preview **Save** can now produce a valid `png` / `pdf` / `svg` /
   `jpeg` file. Previously Save only ever wrote the single preferred (SVG)
   artifact, and changing the destination extension yielded a broken file because
