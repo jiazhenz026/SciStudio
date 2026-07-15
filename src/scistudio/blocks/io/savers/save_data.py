@@ -449,8 +449,15 @@ class SaveData(IOBlock):
         """Return the input port retyped to the configured ``core_type``.
 
         Reads ``self.config['core_type']`` and tightens the ``data`` input port's
-        accepted type to the matching core type. An unknown value falls back to
-        :class:`DataFrame` (the documented default).
+        accepted type to the matching core type. A value that does not resolve to
+        a registered type falls back to the permissive :class:`DataObject`,
+        mirroring :meth:`LoadData.get_effective_output_ports`. During validation
+        the API process resolves project-local types to ``None`` (it has no
+        ``SCISTUDIO_PROJECT_DIR`` scan path), so a strict :class:`DataFrame`
+        fallback here would falsely reject a valid ``<registered type> -> save``
+        edge that the same type validates fine on the load side; falling back to
+        :class:`DataObject` keeps the two sides symmetric. :meth:`save` still
+        raises for a truly unknown ``core_type`` at run time.
 
         Returns:
             A one-element list holding the effective ``data`` input port.
@@ -460,7 +467,7 @@ class SaveData(IOBlock):
         if cls is None:
             from scistudio.blocks.io._unified_dispatch import resolve_type_class
 
-            cls = resolve_type_class(str(type_name)) or DataFrame
+            cls = resolve_type_class(str(type_name)) or DataObject
         return [InputPort(name="data", accepted_types=[cls], required=True)]
 
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:

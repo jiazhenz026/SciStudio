@@ -1,0 +1,467 @@
+{
+  "branch": "guided/1950-save-data-type-validation",
+  "check_events": [
+    {
+      "at": "2026-07-15T20:07:07.323415Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b4766aff03a99f73d7d460c09b7047f945b18095f1f371414c1b55b419b2c57d",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:07:08.113572Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c7f7a2a175f68c250a3893ac5d5543480d92768d9882b0e11f6b55f45bfbe4ee",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:07:08.457037Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:4976105b72c07b95a9cceb7583226c61807862d7b9f1a0301d5c2eef6bbe7d07",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T20:07:12.074132Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:79ddacf81ea25a6d4037d7072e5701bb63427ce10befd8c2041a3ba7ea94fb93",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:07:12.576656Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e9285eab35b2c7904cca4624b7e0314801a6714bc2fb02d13662a7688c43860a",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:07:12.618932Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0ad4424c5cc62b2d9bc1da97f0a158d4e1d40f529df921ba9bbeb6553363a323",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T20:09:11.529694Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5b5bcba3ca7511e8e9a647b1d3c165fc82c744bb14354adcfed10fc0599f8e6a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:11:08.042314Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:30a52db8c445ee1c170532ccacc69f0cf35d493949d0b83516706fb1721779fa",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T20:11:15.165126Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:92527c7de3164cf98fe14be78b247ee432a4c1e57d2d4656cf208e9772ecad4a",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/io/savers/save_data.py",
+      "src/scistudio/blocks/base/ports.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-15T20:00:28.813671Z",
+      "owner_directive": "Approach A + secondary by-path identity bug in one PR; core-change authorized by owner.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-15T20:05:26.656553Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "No spec change; save_data unresolvable-core_type fallback and runtime same-name type tolerance are internal validation details, not part of a documented contract.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T20:05:26.656706Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No architectural decision; bugfix aligns runtime type check with the existing static validator and load_data fallback.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T20:05:26.656711Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Internal bugfix, no user-facing surface change; config_schema core_type default remains DataFrame.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T20:05:26.656714Z",
+      "class": "user_docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "No user-facing behavior doc describes this validation fallback.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-15T20:11:15.209620Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/ports.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/ports.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/savers/save_data.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/savers/save_data.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.218862Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.228022Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.237245Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.245973Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.255096Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.263827Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.272433Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.281212Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T20:11:15.291609Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1950,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "302fe419",
+    "changed_files": [
+      ".workflow/records/1950-guided-1950-save-data-type-validation.json",
+      "src/scistudio/blocks/base/ports.py",
+      "src/scistudio/blocks/io/savers/save_data.py",
+      "tests/blocks/io/test_save_data.py",
+      "tests/blocks/test_ports.py"
+    ],
+    "diff_fingerprint": "sha256:75c95dd9910f19289a03a6198af45ba11f1abf962316cc7a67f21770ed71967a",
+    "head": "HEAD",
+    "head_sha": "2f9c9245",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 2,
+      "packaging": 0,
+      "protected_core": 2,
+      "sentrux": 4,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix save_data validation bug: (A) align get_effective_input_ports fallback to DataObject to match load_data, removing false rejection of non-core registered types during validate_workflow; and (B) fix the secondary by-path type-identity mismatch so runtime port_accepts_type accepts same-registered-name types that static validate_connection already accepts. Approach A + secondary bug in one PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-07-15T20:11:15.291653Z",
+      "diff_fingerprint": "sha256:75c95dd9910f19289a03a6198af45ba11f1abf962316cc7a67f21770ed71967a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
+        "scope.out-of-scope"
+      ]
+    }
+  ],
+  "record_id": "1950-guided-1950-save-data-type-validation",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-15T20:00:28.813853Z",
+      "pattern": "src/scistudio/blocks/io/savers/save_data.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T20:00:28.813859Z",
+      "pattern": "src/scistudio/blocks/base/ports.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T20:11:56.827118Z",
+      "pattern": "tests/blocks/io/test_save_data.py",
+      "reason": "Include the test files exercising both fixes; they are the required test evidence for this implementation change."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T20:11:56.827250Z",
+      "pattern": "tests/blocks/test_ports.py",
+      "reason": "Include the test files exercising both fixes; they are the required test evidence for this implementation change."
+    }
+  ],
+  "session_id": "e668f5fb-ac76-4f03-ad72-38dd972965e0",
+  "strictness_tier": 1,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-15T20:00:28.813874Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/io/test_save_data.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T20:00:28.814045Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_ports.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

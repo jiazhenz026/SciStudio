@@ -88,6 +88,36 @@ class TestPortAcceptsType:
         assert port_accepts_type(port, DataFrame)
         assert port_accepts_type(port, Spectrum)
 
+    def test_same_registered_name_different_identity_accepted(self) -> None:
+        """#1950: a by-path import yields a distinct class object with the same
+        ``__name__``; the runtime check treats it as the same registered type,
+        matching what the static workflow validator accepts."""
+        # ``type(...)`` fabricates a class whose ``__name__`` collides with the
+        # module-level ``Image`` fixture but whose identity differs — exactly the
+        # shape a by-path import produces at run time.
+        by_path_image = type("Image", (Array,), {})
+        assert by_path_image is not Image
+        assert not issubclass(by_path_image, Image)
+        port = InputPort(name="in", accepted_types=[Image])
+        assert port_accepts_type(port, by_path_image)
+
+    def test_different_name_still_rejected(self) -> None:
+        """The name fallback must not blanket-accept unrelated types: a class
+        with a different ``__name__`` that is not a subtype is still rejected."""
+        by_path_spectrum = type("Spectrum", (Series,), {})
+        port = InputPort(name="in", accepted_types=[Image])
+        assert not port_accepts_type(port, by_path_spectrum)
+
+    def test_same_registered_name_collection_item_accepted(self) -> None:
+        """#1950: the Collection ``item_type`` branch applies the same
+        same-registered-name tolerance."""
+        from scistudio.core.types.collection import Collection
+
+        by_path_image = type("Image", (Array,), {})
+        coll = Collection([], item_type=by_path_image)
+        port = InputPort(name="in", accepted_types=[Image])
+        assert port_accepts_type(port, coll)
+
 
 class TestPortAcceptsSignature:
     """port_accepts_signature — TypeSignature matching."""

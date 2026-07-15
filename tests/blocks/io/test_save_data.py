@@ -140,14 +140,21 @@ def test_save_data_instantiates_with_each_core_type(
     assert port.accepted_types == [expected_cls]
 
 
-def test_get_effective_input_ports_falls_back_to_dataframe_for_unknown(
+def test_get_effective_input_ports_falls_back_to_dataobject_for_unresolvable(
     tmp_path: Path,
 ) -> None:
-    """An unknown ``core_type`` value falls back to DataFrame (the
-    documented default in config_schema)."""
+    """#1950: a ``core_type`` that does not resolve to a registered type falls
+    back to the permissive :class:`DataObject`, mirroring
+    :meth:`LoadData.get_effective_output_ports`.
+
+    A strict :class:`DataFrame` fallback here would make ``validate_workflow``
+    (API process, no ``SCISTUDIO_PROJECT_DIR`` scan path) falsely reject a valid
+    ``<registered type> -> save`` edge that the same type validates fine on the
+    load side. :meth:`SaveData.save` still raises for a truly unknown
+    ``core_type`` at run time, so the error is not swallowed."""
     block = SaveData(config={"params": {"core_type": "NotAType", "path": str(tmp_path / "out.bin")}})
     effective = block.get_effective_input_ports()
-    assert effective[0].accepted_types == [DataFrame]
+    assert effective[0].accepted_types == [DataObject]
 
 
 # ---------------------------------------------------------------------------
