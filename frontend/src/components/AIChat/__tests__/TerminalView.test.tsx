@@ -2,7 +2,7 @@
  * Tests for TerminalView. We replace @xterm/xterm and addons with vi.mock so
  * the test does not depend on canvas / DOM measurement in jsdom.
  */
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TerminalView } from "../TerminalView";
@@ -497,6 +497,48 @@ describe("TerminalView", () => {
 
     xtermState.onScrollCb?.(5);
 
+    expect(term.refreshCount).toBe(refreshesBefore + 1);
+  });
+
+  // --- manual refresh button ------------------------------------------------
+  // Escape hatch (#1946): when the alt-screen TUI leaves ghost residue the user
+  // can force a full host-side repaint (mirrors selecting the text) without
+  // tearing down the PTY.
+  it("renders a manual refresh button for the tab", async () => {
+    render(
+      <TerminalView
+        tabId="t1"
+        projectDir="/p"
+        provider="claude-code"
+        dangerous={false}
+        onExit={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+    await waitForTerm();
+    expect(screen.getByTestId("terminal-refresh-t1")).toBeInTheDocument();
+  });
+
+  it("refits and repaints when the manual refresh button is clicked", async () => {
+    render(
+      <TerminalView
+        tabId="t1"
+        projectDir="/p"
+        provider="claude-code"
+        dangerous={false}
+        onExit={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+    await waitForTerm();
+    const term = xtermState.lastInstance!;
+    const fitsBefore = fitState.fitCalls;
+    const refreshesBefore = term.refreshCount;
+
+    fireEvent.click(screen.getByTestId("terminal-refresh-t1"));
+
+    // Refit (layout may have drifted while garbled) + one full host-side repaint.
+    expect(fitState.fitCalls).toBe(fitsBefore + 1);
     expect(term.refreshCount).toBe(refreshesBefore + 1);
   });
 });

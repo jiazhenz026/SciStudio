@@ -35,6 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1946] Embedded PTY terminal (AI Chat / Terminal) now reflows correctly when
+  a panel is resized under Claude Code's fullscreen (alternate-screen) mode.
+  Previously the agent stayed stuck at its spawn-time size and rendered ghosted
+  at the wrong width (and left a black gap on collapse/re-expand). Root cause:
+  the PTY child was spawned with `start_new_session=True`, which only calls
+  `setsid()` — it never made the slave PTY the child's **controlling terminal**.
+  Without a controlling terminal the kernel has no foreground process group to
+  deliver `SIGWINCH` to, so a resize (`TIOCSWINSZ`) never reached the agent. The
+  agent still read its initial winsize (`TIOCGWINSZ` needs no ctty) so the first
+  paint looked right, but fullscreen TUIs that repaint only on `SIGWINCH` then
+  never learned about resizes. Fix: the spawn's `preexec_fn` now does `setsid()`
+  + `TIOCSCTTY` so the agent owns the controlling terminal and receives
+  `SIGWINCH`. Also adds a manual **↻ refresh** button in the terminal's
+  upper-right corner — a host-side redraw escape hatch for the residual case
+  where the agent leaves its own paint artifacts on resize (a known upstream
+  claude-code limitation, #1711). Tests: `tests/ai/test_terminal.py`
+  (`test_pty_child_owns_controlling_terminal`),
+  `frontend/src/components/AIChat/__tests__/TerminalView.test.tsx`.
+  (@claude, 2026-07-15, branch: guided/1946-terminal-refresh-ghosting)
 - [#1918] Plot preview **Save** can now produce a valid `png` / `pdf` / `svg` /
   `jpeg` file. Previously Save only ever wrote the single preferred (SVG)
   artifact, and changing the destination extension yielded a broken file because

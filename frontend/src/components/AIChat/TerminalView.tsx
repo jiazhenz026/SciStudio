@@ -20,19 +20,26 @@
  * the PTY viewport and makes the TUI repaint continuously; one fit + SIGWINCH
  * on the settled size lets it repaint cleanly a single time.
  *
+ * Resize delivery: for the TUI to actually reflow on that SIGWINCH the agent
+ * must own the slave PTY as its controlling terminal — otherwise the kernel has
+ * no foreground process group to signal and the agent stays stuck at its
+ * spawn-time size (the root cause of #1946 fullscreen-mode ghosting). That fix
+ * lives in the backend spawn (src/scistudio/ai/agent/terminal.py), not here.
+ *
  * Known upstream limitation (NOT a SciStudio bug): claude-code leaves ghosted
  * horizontal rules and drops its "thinking" spinner when its window is resized
  * mid-stream. This reproduces in a plain macOS terminal (Terminal.app / iTerm)
  * and does NOT happen with codex in this same component — it is claude-code's
  * own SIGWINCH redraw behaviour, which we cannot fix from the host terminal.
- * See #1711.
+ * See #1711. The manual refresh (↻) button gives the user an explicit escape
+ * hatch to force a host-side redraw when that upstream residue appears.
  *
  * UTF-8 strings flow over the WS in both directions (xterm.js write() and
  * onData() use strings, never Buffers — confirmed by xterm docs).
  */
 import "@xterm/xterm/css/xterm.css";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
@@ -377,11 +384,53 @@ export function TerminalView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Manual escape hatch (#1946): "unstick" a garbled / ghosted terminal without
+  // tearing down the PTY (a full renderer reload would drop the running agent
+  // session). The stuck-size root cause is fixed in the backend PTY spawn (the
+  // agent now owns a controlling terminal, so SIGWINCH reaches it). This button
+  // is a belt-and-braces host-side redraw for the residual case where the agent
+  // leaves its own paint artifacts (a known upstream claude-code limitation,
+  // #1711): drop the container out of layout, force a synchronous reflow so its
+  // paint records are discarded, restore it, then repaint the rows from the
+  // (correct) buffer — the programmatic equivalent of selecting the text.
+  const handleRefresh = useCallback(() => {
+    const term = termRef.current as {
+      refresh?: (start: number, end: number) => void;
+      rows: number;
+    } | null;
+    const container = containerRef.current;
+    if (container) {
+      const previousDisplay = container.style.display;
+      container.style.display = "none";
+      // Read a layout property to force the hide to flush before we restore it;
+      // toggling display in one synchronous pass would otherwise coalesce and
+      // never repaint.
+      void container.offsetHeight;
+      container.style.display = previousDisplay;
+    }
+    try {
+      fitRef.current?.fit();
+      term?.refresh?.(0, Math.max(0, term.rows - 1));
+    } catch {
+      // Ignore transient layout glitches.
+    }
+  }, []);
+
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#1e1e1e]"
+      className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#1e1e1e]"
       data-testid={`terminal-view-${tabId}`}
     >
+      <button
+        type="button"
+        onClick={handleRefresh}
+        title="Refresh display — redraw the terminal if the screen looks garbled or ghosted"
+        aria-label="Refresh terminal display"
+        data-testid={`terminal-refresh-${tabId}`}
+        className="absolute right-2 top-2 z-50 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs leading-none text-stone-300 opacity-60 transition hover:bg-white/20 hover:opacity-100"
+      >
+        ↻
+      </button>
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden"

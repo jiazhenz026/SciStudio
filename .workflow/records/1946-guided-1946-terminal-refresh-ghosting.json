@@ -1,0 +1,1058 @@
+{
+  "branch": "guided/1946-terminal-refresh-ghosting",
+  "check_events": [
+    {
+      "at": "2026-07-15T15:07:05.032530Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T15:07:42.580388Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0ab38ad3fb81ce37ad712779be9ff66d04cb1db5a549a865241d0a771d30c18e",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T15:07:46.611291Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:759d27e0f4650f1da720d19d779ec12649bef022fa6abca117084c304e6050f0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T15:07:46.695701Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T15:09:53.767370Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7b36e6b6f322bba4d7aeada531b0bf58f33a0b268d6a0540b66f8d8b57bb70f0",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:01:22.140677Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a361bd1781aa379b2ce6faf89f5e0c123207b27a580fa71f0e54f2a9fecafcdc",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T17:02:02.290191Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6510bc9607df13a8e77ea79b039ae40ea3f084d577e95d61f8ea8f242a39f52f",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:02:06.351830Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9b01e2035f526ab55bb18afdf988c5c607c4bf57307e6d30ffbaf56e8d06e3c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:02:06.807976Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ef8dedeccd73e55e5df8f8c93bcf5ef79bafff0bc10be4b36c5f41a4fa76707c",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:02:06.857973Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7291fd097a29c51c828d7916cc2f36025df2855e195196ec41b800a1e23f509b",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-07-15T17:04:11.113686Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ba0429c0e56a22ca6f349ef8ec6bdbce03c5c7f05b3559b9cd2e132ce26d0f6a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:06:19.979833Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f1aac68d25734f77ccc50ac995f7176a841561da9e5b24263d30677cc76b60aa",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:06:27.509860Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:49c72ef5ca8557f576f56d36d52a69c67345181f6ae3c069d47acdd6fbf0b644",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-07-15T17:08:53.578938Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ba0429c0e56a22ca6f349ef8ec6bdbce03c5c7f05b3559b9cd2e132ce26d0f6a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-07-15T17:10:48.509646Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ba0429c0e56a22ca6f349ef8ec6bdbce03c5c7f05b3559b9cd2e132ce26d0f6a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "37e611c2424f1f790386ca68ec0abd13881ee714",
+    "shas": [
+      "37e611c2424f1f790386ca68ec0abd13881ee714"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/AIChat/TerminalView.tsx",
+      "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-15T15:04:32.291300Z",
+      "owner_directive": "Direction B implemented in TerminalView.tsx: delayed settle full-refresh after resize/re-show to clear alt-screen ghost residue; immediate last-good-frame repaint on re-show to kill the black gap; plus a manual refresh (\u21bb) button. Tests updated. CHANGELOG entry added.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-07-15T15:25:52.443959Z",
+      "owner_directive": "\u5237\u65b0\u6309\u94ae\u6ca1\u53cd\u5e94\uff1b\u628a\u5237\u65b0\u6539\u6210\u771f\u6b63\u80fd\u5f3a\u5236\u91cd\u7ed8\uff08\u6296\u52a8\u89c6\u53e3/\u6a21\u62df\u62d6\u52a8\uff09\uff0c\u786e\u4fdd\u6e05\u6389\u6b8b\u5f71\u3002",
+      "reason": "Owner live-tested: manual refresh button appears to do nothing. term.refresh() re-emits identical pixels so Chromium skips re-raster of the stale compositor tile (only text selection, which forces re-raster, cleared the ghost). Strengthen the button to a 1-row viewport wobble (resize down + restore next frame, mirrors dragging the panel \u2014 the known-good fix in #1711) forcing a real xterm re-render + SIGWINCH TUI repaint."
+    },
+    {
+      "at": "2026-07-15T16:39:55.266431Z",
+      "owner_directive": "\u653e\u5927\u540e claude \u5c3a\u5bf8\u4e0d\u53d8\u3001\u5237\u65b0\u4e5f\u4e0d refit\u2014\u2014\u6392\u67e5\u5230\u540e\u7aef/PTY\uff0c\u786e\u8ba4 resize \u6709\u6ca1\u6709\u771f\u6b63\u751f\u6548\u3002",
+      "reason": "Live diagnosis: host (TerminalView) refit is proven correct via renderer logs (xterm 101x12 -> 185x22, resize frame sent); backend WS handler + pty.resize/TIOCSWINSZ path reviewed and correct. Real symptom is claude-code not reflowing to the new size. Temporarily instrumenting backend PTY resize (src/scistudio/ai/agent/terminal.py) with a winsize readback to determine whether the resize reaches the PTY (host/backend fix) or claude ignores SIGWINCH in fullscreen mode (upstream). Diagnostic logs will be reverted before merge."
+    },
+    {
+      "at": "2026-07-15T16:45:31.703085Z",
+      "owner_directive": "\u786e\u8ba4\u6839\u56e0\uff1aPTY \u5b50\u8fdb\u7a0b\u65e0\u63a7\u5236\u7ec8\u7aef\u5bfc\u81f4 SIGWINCH \u6536\u4e0d\u5230\uff1b\u4fee spawn \u8ba9 slave \u6210\u4e3a\u63a7\u5236\u7ec8\u7aef\u3002",
+      "reason": "ROOT CAUSE CONFIRMED via ps: the PTY-spawned agent (claude pid 74572) has NO controlling terminal (tty=??). start_new_session=True calls setsid() but never TIOCSCTTY, so the slave PTY is not the child's controlling terminal; the kernel has no foreground process group to deliver SIGWINCH to on TIOCSWINSZ. The agent reads the initial winsize (TIOCGWINSZ, no ctty needed) but never receives resize SIGWINCH \u2014 fullscreen/alt-screen TUIs (Claude Code) then stay stuck at spawn-time size and render ghosted at the wrong width. Fix in src/scistudio/ai/agent/terminal.py: preexec_fn does setsid() + TIOCSCTTY so SIGWINCH reaches the agent."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-15T15:04:32.291469Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T15:04:32.291493Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Behavioural bugfix + small UI affordance in an existing component (ADR-034 terminal); no architectural decision. spec:No contract/schema/API change; the fix is host-side render timing. user-docs:No user-facing doc covers terminal internals; the \u21bb button is self-describing via its tooltip.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-07-15T15:09:53.816315Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.827289Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.837984Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.848182Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.858521Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.868838Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.878746Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.889525Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.899798Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:09:53.912197Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.947562Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.959414Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.971275Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.982344Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.992180Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.002078Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.012075Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.022315Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.032465Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.043655Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.413362Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.422189Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.431082Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.439667Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.448033Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.456521Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.465014Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.473825Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.482476Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:11:59.492940Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.609571Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.619280Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.629011Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.638407Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.647348Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.656369Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.664898Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.674815Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.684541Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:12:12.696328Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.561101Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.570350Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.579523Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.588019Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.596479Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.604933Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.613890Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.629142Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.640174Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:06:27.654762Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.655351Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.667156Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.696118Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.721952Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.735348Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.760234Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.777864Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.793139Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.816454Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:08:53.839858Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.559914Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.569219Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.578549Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.587560Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.596407Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.605544Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.615026Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.626638Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.636096Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T17:10:48.647584Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1946,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "6a3e563c",
+    "changed_files": [
+      ".workflow/records/1946-guided-1946-terminal-refresh-ghosting.json",
+      "CHANGELOG.md",
+      "frontend/src/components/AIChat/TerminalView.tsx",
+      "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
+      "src/scistudio/ai/agent/terminal.py",
+      "tests/ai/test_terminal.py"
+    ],
+    "diff_fingerprint": "sha256:0e087c46389adc8718313cda9c7f4cd8febd9a5b84fcf7d985e887d90e3933ea",
+    "head": "HEAD",
+    "head_sha": "56064c35",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 2,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 3,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 4,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix embedded PTY terminal ghosting + black-screen (regressed under Claude Code fullscreen/alt-screen mode) via Direction B: keep xterm DOM renderer, fix resize-settle + re-show repaint timing; and add a manual refresh button in the terminal GUI so users can self-unstick.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1946
+    ],
+    "number": 1948,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/1948"
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-07-15T15:09:53.912232Z",
+      "diff_fingerprint": "sha256:2ce0ded55c75a2dcabb77d6ad3d82491e42d7cccf8349414b23d4989be0af42e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-15T15:10:09.043693Z",
+      "diff_fingerprint": "sha256:f159e6e8af96db368aaa15babfed7a76d883a77a7204939b87dc76535dc1b5f7",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-15T15:11:59.492970Z",
+      "diff_fingerprint": "sha256:d41405d0026944ad432bce308fecfb4e52dfbe9681484495c4b37e062c06ec1f",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-15T15:12:12.696361Z",
+      "diff_fingerprint": "sha256:d41405d0026944ad432bce308fecfb4e52dfbe9681484495c4b37e062c06ec1f",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-15T17:06:27.654891Z",
+      "diff_fingerprint": "sha256:0e087c46389adc8718313cda9c7f4cd8febd9a5b84fcf7d985e887d90e3933ea",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-15T17:08:53.839895Z",
+      "diff_fingerprint": "sha256:0e087c46389adc8718313cda9c7f4cd8febd9a5b84fcf7d985e887d90e3933ea",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-07-15T17:10:48.647617Z",
+      "diff_fingerprint": "sha256:0e087c46389adc8718313cda9c7f4cd8febd9a5b84fcf7d985e887d90e3933ea",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
+  "record_id": "1946-guided-1946-terminal-refresh-ghosting",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-15T15:04:32.291457Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T16:45:31.703225Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "ROOT CAUSE CONFIRMED via ps: the PTY-spawned agent (claude pid 74572) has NO controlling terminal (tty=??). start_new_session=True calls setsid() but never TIOCSCTTY, so the slave PTY is not the child's controlling terminal; the kernel has no foreground process group to deliver SIGWINCH to on TIOCSWINSZ. The agent reads the initial winsize (TIOCGWINSZ, no ctty needed) but never receives resize SIGWINCH \u2014 fullscreen/alt-screen TUIs (Claude Code) then stay stuck at spawn-time size and render ghosted at the wrong width. Fix in src/scistudio/ai/agent/terminal.py: preexec_fn does setsid() + TIOCSCTTY so SIGWINCH reaches the agent."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T16:59:18.174325Z",
+      "pattern": "tests/ai/test_terminal.py",
+      "reason": "Cleanup + real fix landed: removed all diagnostic instrumentation and the speculative auto-repaint tweaks (owner: keep only the manual refresh button). Real fix is the backend controlling-terminal (TIOCSCTTY) in terminal.py; added regression test tests/ai/test_terminal.py::test_pty_child_owns_controlling_terminal."
+    }
+  ],
+  "session_id": "3371b650-6ce9-4e9d-98c4-9e396a830a81",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-15T15:04:32.291497Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T16:59:18.174450Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_terminal.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

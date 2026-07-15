@@ -240,6 +240,30 @@ class PtyProcess:
             # Set initial winsize before spawning so the TUI lays out
             # correctly on the very first paint.
             fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+            def _preexec() -> None:
+                # Child side (post-fork, pre-exec), async-signal-safe syscalls
+                # only. setsid() starts a fresh session/process group so
+                # kill_tree can killpg the whole subtree. TIOCSCTTY then makes
+                # the slave PTY the child's CONTROLLING terminal.
+                #
+                # #1946: without a controlling terminal the kernel has no
+                # foreground process group to deliver SIGWINCH to, so a
+                # subsequent TIOCSWINSZ resize on the master never reaches the
+                # agent's process at all. The
+                # agent still reads the initial winsize (TIOCGWINSZ needs no
+                # ctty) so its first paint is correct, but fullscreen /
+                # alt-screen TUIs (Claude Code's fullscreen mode) that repaint
+                # only on SIGWINCH then stay stuck at the spawn-time size and
+                # render ghosted at the wrong width on every panel resize.
+                # start_new_session=True only does setsid(); it never sets the
+                # controlling terminal, which is why this regressed silently.
+                os.setsid()
+                # Best-effort: never fail the spawn over ctty acquisition
+                # (already-a-ctty / EPERM).
+                with contextlib.suppress(OSError):  # pragma: no cover
+                    fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+
             popen = subprocess.Popen(
                 argv,
                 cwd=str(cwd),
@@ -247,7 +271,7 @@ class PtyProcess:
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,
-                start_new_session=True,  # fresh process group for killpg
+                preexec_fn=_preexec,  # setsid + controlling tty (see above)
                 close_fds=True,
             )
             os.close(slave_fd)
