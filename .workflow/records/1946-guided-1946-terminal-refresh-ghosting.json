@@ -82,7 +82,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "ec74fd8e75d92c4df857d626ff2aa3603ab537c6",
+    "shas": [
+      "ec74fd8e75d92c4df857d626ff2aa3603ab537c6"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -198,6 +204,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.947562Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.959414Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.971275Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.982344Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:08.992180Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.002078Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.012075Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.022315Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.032465Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-07-15T15:10:09.043655Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -211,16 +299,16 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "46641582",
+    "base_sha": "6a3e563c",
     "changed_files": [
       ".workflow/records/1946-guided-1946-terminal-refresh-ghosting.json",
       "CHANGELOG.md",
       "frontend/src/components/AIChat/TerminalView.tsx",
       "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx"
     ],
-    "diff_fingerprint": "sha256:2ce0ded55c75a2dcabb77d6ad3d82491e42d7cccf8349414b23d4989be0af42e",
+    "diff_fingerprint": "sha256:f159e6e8af96db368aaa15babfed7a76d883a77a7204939b87dc76535dc1b5f7",
     "head": "HEAD",
-    "head_sha": "7b625ace",
+    "head_sha": "ec74fd8e",
     "surfaces": {
       "docs": 0,
       "frontend": 2,
@@ -236,11 +324,26 @@
   },
   "owner_directive": "Fix embedded PTY terminal ghosting + black-screen (regressed under Claude Code fullscreen/alt-screen mode) via Direction B: keep xterm DOM renderer, fix resize-settle + re-show repaint timing; and add a manual refresh button in the terminal GUI so users can self-unstick.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1946
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-07-15T15:09:53.912232Z",
       "diff_fingerprint": "sha256:2ce0ded55c75a2dcabb77d6ad3d82491e42d7cccf8349414b23d4989be0af42e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-07-15T15:10:09.043693Z",
+      "diff_fingerprint": "sha256:f159e6e8af96db368aaa15babfed7a76d883a77a7204939b87dc76535dc1b5f7",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
