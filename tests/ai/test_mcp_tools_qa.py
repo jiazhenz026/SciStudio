@@ -7,7 +7,7 @@ use ``asyncio.run()`` directly against the async-decorated callables, which
 is the same pattern used by ``test_mcp_fastmcp.py``.
 
 Tools under test: ``search_docs``, ``get_doc``, ``list_data``,
-``get_project_info``.
+``get_project_info``, ``open_gui`` (#1947).
 """
 
 from __future__ import annotations
@@ -154,3 +154,30 @@ def test_get_project_info_no_project_raises(tmp_path: Path) -> None:
             _run(tools_qa.get_project_info())
     finally:
         _context.set_context(None)
+
+
+# --- open_gui (#1947) ------------------------------------------------------
+
+
+def test_open_gui_happy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Returns the running GUI URL published by the backend on startup.
+
+    open_gui reads the canonical ``SCISTUDIO_ENGINE_API_URL`` (ADR-035 §3.10);
+    it needs no project context. A trailing slash is stripped so the agent
+    gets a clean base URL to open in a browser.
+    """
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:54321/")
+    out = _run(tools_qa.open_gui())
+    assert out.url == "http://127.0.0.1:54321"
+    assert out.hint  # non-empty usage guidance
+
+
+def test_open_gui_no_server_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raises when no GUI server is running (e.g. MCP bridge standalone mode).
+
+    With ``SCISTUDIO_ENGINE_API_URL`` unset there is no live frontend URL to
+    hand back, so the tool must fail loudly rather than return a bogus URL.
+    """
+    monkeypatch.delenv("SCISTUDIO_ENGINE_API_URL", raising=False)
+    with pytest.raises(RuntimeError, match="No running SciStudio GUI"):
+        _run(tools_qa.open_gui())

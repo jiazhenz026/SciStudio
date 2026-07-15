@@ -68,7 +68,7 @@ Four project agent surfaces:
 | Surface | Role |
 |---|---|
 | Agent session | Interactive project help in Claude Code or Codex |
-| MCP server | 34 tools for blocks, types, workflows, runs, data, lineage, plots, and project information |
+| MCP server | 35 tools for blocks, types, workflows, runs, data, lineage, plots, project information, and opening the live GUI in a browser |
 | Skills | Task guidance for workflows, block authoring, debugging, data inspection, and project QA |
 | `AIBlock` | Bounded graph node with typed inputs, outputs, and completion |
 
