@@ -1321,7 +1321,7 @@ state, and event bus context that the backend uses. This is why MCP calls can
 validate workflows, reload blocks, start runs, inspect lineage, and reflect live
 runtime state instead of operating as disconnected file edits.
 
-The production MCP surface contains 34 tools:
+The production MCP surface contains 35 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
@@ -1359,6 +1359,7 @@ The production MCP surface contains 34 tools:
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;get_doc</code> | Read a selected documentation page or section. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;list_data</code> | List project data files and references. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;get_project_info</code> | Read project metadata, paths, and high-level state. | Read |
+| Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;open_gui</code> | Return the running GUI's URL so the agent can open the live frontend in a browser and self-debug plots, previewers, and interactive block panels. | Read |
 
 The important architectural rule is not the exact tool list. The rule is that
 agent actions touching **blocks**, **workflows**, **runs**, **data**, or

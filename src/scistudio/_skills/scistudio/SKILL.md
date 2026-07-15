@@ -98,7 +98,7 @@ plugins). Trust the rendered values; do not invent project metadata.
 ## Tool catalog
 
 The injected block below is replaced at prompt-composition time with
-the live MCP tool catalog (34 tools across workflow / authoring /
+the live MCP tool catalog (35 tools across workflow / authoring /
 inspection / qa / plot). Use tool names and descriptions from the rendered
 catalog; do not type from memory if uncertain.
 
@@ -114,7 +114,7 @@ skill (`scistudio-build-workflow`, `scistudio-write-block`,
 `scistudio-write-plot`) for the documented call sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (34 tools — Codex sees this; Claude sees the live
+**Static fallback (35 tools — Codex sees this; Claude sees the live
 catalog re-spliced from FastMCP at compose time).**
 
 - **Workflow (12)** — `list_blocks`, `get_block_schema`, `list_types`,
@@ -131,9 +131,11 @@ catalog re-spliced from FastMCP at compose time).**
   `get_block_output`, `get_lineage`, `get_block_logs`,
   `get_block_config`, `update_block_config`. Walk data refs, logs,
   block configuration, and lineage without materialising arrays.
-- **QA / project (4)** — `get_project_info`, `list_data`,
-  `search_docs`, `get_doc`. Project structure, raw-asset listing,
-  doc search.
+- **QA / project (5)** — `get_project_info`, `list_data`,
+  `search_docs`, `get_doc`, `open_gui`. Project structure, raw-asset
+  listing, doc search; `open_gui` returns the running GUI's URL so you
+  can open the live frontend in a browser and self-debug plots,
+  previewers, and interactive block panels.
 - **Plot (6)** — `list_plot_targets`, `scaffold_plot`,
   `list_plot_examples`, `read_plot_source`, `validate_plot`,
   `run_plot_job`. Author and run PREVIEW-ONLY plots (matplotlib /

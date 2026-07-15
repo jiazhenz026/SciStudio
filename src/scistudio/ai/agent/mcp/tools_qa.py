@@ -1,15 +1,18 @@
-"""Category (d) MCP tools — documentation and project Q&A (4 tools).
+"""Category (d) MCP tools — documentation and project Q&A (5 tools).
 
 ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
 
-The 4 tools (all read-class) are:
+The 5 tools (all read-class) are:
 
-``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``.
+``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``,
+``open_gui`` (the last added for #1947 so the agent can open the running
+GUI in a browser and self-debug plots / previewers / interactive blocks).
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import warnings
 from pathlib import Path
 from typing import Any
@@ -85,6 +88,17 @@ class GetProjectInfoResult(BaseModel):
     recent_runs: list[RecentRunEntry] = Field(
         default_factory=list,
         description="Best-effort recent run listing via MetadataStore.",
+    )
+
+
+class OpenGuiResult(BaseModel):
+    """Result envelope for ``open_gui`` (#1947)."""
+
+    url: str = Field(
+        description="Base URL of the running SciStudio GUI. Open this in a browser tab.",
+    )
+    hint: str = Field(
+        description="How to use the URL to inspect the live GUI.",
     )
 
 
@@ -381,4 +395,50 @@ async def get_project_info() -> GetProjectInfoResult:
         path=str(root),
         workflows=workflows,
         recent_runs=recent_runs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# (d.5) open_gui  (#1947)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(name="open_gui", tags={"category:qa", "read"})
+async def open_gui() -> OpenGuiResult:
+    """Return the URL of the running SciStudio GUI so you can open it in a browser.
+
+    Use when:
+      - You need to SEE the live rendered frontend — a plot, a previewer,
+        or an interactive block panel — to debug how it renders or behaves.
+      - You want to drive the GUI yourself with your own browser tooling.
+
+    Do NOT use to:
+      - Read a data payload — use ``inspect_data`` / ``preview_data``.
+      - Render a plot artifact headlessly — use ``run_plot_job``.
+
+    Open the returned URL in a browser tab (the frontend renders the same
+    in a plain browser as in the desktop app) and use your own browser
+    tools from there. SciStudio does not drive the browser for you.
+
+    The URL is read from the ``SCISTUDIO_ENGINE_API_URL`` the backend
+    publishes on startup (ADR-035 §3.10); the SciStudio SPA is served at
+    that server's root. Raises ``RuntimeError`` when no GUI server is
+    running for this session — for example when the MCP bridge is in
+    standalone mode with no backend behind it.
+    """
+    url = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "No running SciStudio GUI is available for this session. The GUI "
+            "URL is published only while the backend/API server is running "
+            "(via `scistudio gui` / `scistudio serve`). If you are connected "
+            "through the MCP bridge in standalone mode, start the GUI first."
+        )
+    return OpenGuiResult(
+        url=url.rstrip("/"),
+        hint=(
+            "Open this URL in a browser tab and use your own browser tools to "
+            "inspect plots, previewers, and interactive block panels. "
+            "SciStudio does not control the browser for you."
+        ),
     )

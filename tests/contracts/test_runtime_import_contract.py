@@ -15,8 +15,8 @@ the other contract files in tests/contracts/:
    contract break.
 
 3. **MCP tool registry contract**: The MCP server must always expose
-   exactly 34 tools (ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
-   tools). This is a separate
+   exactly 35 tools (ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
+   + open_gui #1947 tools). This is a separate
    invariant from the parity test in test_mcp_fastmcp.py — it ensures
    the contract is also enforced from the contracts test suite so that
    CI failure is clearly labelled as an architecture regression.
@@ -202,7 +202,7 @@ def test_api_ai_routes_are_registered(app_routes: set[str]) -> None:
 # 3. MCP tool registry contract.
 # ---------------------------------------------------------------------------
 
-# ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2 + edit_workflow (#1912): 34 tools total.
+# ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): 35 tools total.
 _MCP_EXPECTED_TOOL_NAMES = {
     # category (a) workflow (11 + 1 addendum5)
     "list_blocks",
@@ -231,11 +231,12 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "get_block_config",
     "update_block_config",
     "get_block_logs",
-    # category (d) qa (4)
+    # category (d) qa (5)
     "search_docs",
     "get_doc",
     "list_data",
     "get_project_info",
+    "open_gui",  # #1947
     # category (e) plot (6) — ADR-048 SPEC 2
     "list_plot_targets",
     "scaffold_plot",
@@ -244,11 +245,11 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "validate_plot",
     "run_plot_job",
 }
-_MCP_EXPECTED_COUNT = 34
+_MCP_EXPECTED_COUNT = 35
 
 
-def test_mcp_server_exposes_34_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912): MCP server must expose 34 tools.
+def test_mcp_server_exposes_35_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): MCP server must expose 35 tools.
 
     This contract test mirrors the parity check in test_mcp_fastmcp.py but
     lives in the contracts suite so a regression is flagged as an

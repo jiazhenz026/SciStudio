@@ -129,9 +129,10 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     Verifies:
 
     * Bridge exits 0 (clean EOF).
-    * Stdout contains a JSON-RPC response with ``result.tools`` of 26
-      entries — the registered tool count (25 pre-ADR-035 +
-      ``finish_ai_block`` added by PR #861 / ADR-035 §3.5 path a).
+    * Stdout contains a JSON-RPC response with ``result.tools`` of 35
+      entries — the full registered tool count (26 baseline +
+      get_active_workflow_context + 6 ADR-048 plot tools + edit_workflow
+      #1912 + open_gui #1947).
     """
     project = _make_project(tmp_path)
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
@@ -148,9 +149,9 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 34, (
-        f"expected 34 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
-        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912), got {len(tools)}"
+    assert len(tools) == 35, (
+        f"expected 35 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
+        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947), got {len(tools)}"
     )
 
 
@@ -219,8 +220,8 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
         assert (
-            isinstance(tools, list) and len(tools) == 34
-        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
+            isinstance(tools, list) and len(tools) == 35
+        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912 + open_gui #1947
     finally:
         _shutdown.set()
         if server_thread is not None:

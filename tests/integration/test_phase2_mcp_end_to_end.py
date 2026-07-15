@@ -4,7 +4,7 @@ Drives the JSON-RPC dispatcher over the actual transport (Unix socket
 on POSIX, TCP loopback on Windows). Verifies:
 
 * ``initialize`` handshake returns server info.
-* ``tools/list`` enumerates all 34 tools (25 baseline + finish_ai_block + ADR-040 Addendum 5 get_active_workflow_context + 6 ADR-048 SPEC 2 plot tools).
+* ``tools/list`` enumerates all 35 tools (25 baseline + finish_ai_block + ADR-040 Addendum 5 get_active_workflow_context + 6 ADR-048 SPEC 2 plot tools + open_gui #1947).
 * ``tools/call`` for a read-only tool (``list_types``) round-trips.
 * Graceful start / stop, no orphan socket files on POSIX.
 """
@@ -76,12 +76,13 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         assert "result" in init
         assert init["result"]["serverInfo"]["name"] == "scistudio-mcp"
 
-        # tools/list — expect all 34 (25 baseline + finish_ai_block from ADR-035
+        # tools/list — expect all 35 (25 baseline + finish_ai_block from ADR-035
         # + get_active_workflow_context from ADR-040 Addendum 5
-        # + 6 plot tools from ADR-048 SPEC 2 + edit_workflow from #1912).
+        # + 6 plot tools from ADR-048 SPEC 2 + edit_workflow from #1912
+        # + open_gui from #1947).
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
-        assert len(tools) == 34
+        assert len(tools) == 35
         names = {t["name"] for t in tools}
         assert "list_blocks" in names and "preview_data" in names and "search_docs" in names
         assert "edit_workflow" in names
