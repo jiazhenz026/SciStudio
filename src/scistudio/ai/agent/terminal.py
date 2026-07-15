@@ -248,8 +248,9 @@ class PtyProcess:
                 # the slave PTY the child's CONTROLLING terminal.
                 #
                 # #1946: without a controlling terminal the kernel has no
-                # foreground process group to deliver SIGWINCH to, so a later
-                # TIOCSWINSZ resize on the master never reaches the agent. The
+                # foreground process group to deliver SIGWINCH to, so a
+                # subsequent TIOCSWINSZ resize on the master never reaches the
+                # agent's process at all. The
                 # agent still reads the initial winsize (TIOCGWINSZ needs no
                 # ctty) so its first paint is correct, but fullscreen /
                 # alt-screen TUIs (Claude Code's fullscreen mode) that repaint
