@@ -41,6 +41,28 @@ def _python_sleep_argv(seconds: float) -> list[str]:
     return [sys.executable, "-c", f"import time; print('hi', flush=True); time.sleep({seconds})"]
 
 
+def _python_ctty_probe_argv() -> list[str]:
+    """A child that reports whether it owns a controlling terminal.
+
+    Opening ``/dev/tty`` succeeds only when the process has a controlling
+    terminal, so this prints ``CTTY_OK`` in that case and ``NO_CTTY`` otherwise.
+    """
+    return [
+        sys.executable,
+        "-c",
+        (
+            "import os, sys\n"
+            "try:\n"
+            "    fd = os.open('/dev/tty', os.O_RDWR)\n"
+            "    os.close(fd)\n"
+            "    sys.stdout.write('CTTY_OK')\n"
+            "except OSError:\n"
+            "    sys.stdout.write('NO_CTTY')\n"
+            "sys.stdout.flush()\n"
+        ),
+    ]
+
+
 def test_pty_process_lifecycle(tmp_path: Path) -> None:
     """Spawn → read banner → kill_tree leaves no live subprocess."""
     pty = PtyProcess(_python_sleep_argv(60.0), cwd=tmp_path, cols=80, rows=24)
@@ -73,6 +95,30 @@ def test_pty_process_resize_does_not_raise(tmp_path: Path) -> None:
         # Defensive clamps: zero / huge values should not raise.
         pty.resize(cols=0, rows=0)
         pty.resize(cols=99999, rows=99999)
+    finally:
+        pty.kill_tree()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX controlling-terminal semantics")
+def test_pty_child_owns_controlling_terminal(tmp_path: Path) -> None:
+    """The spawned child must own the slave PTY as its controlling terminal.
+
+    Regression for #1946: ``start_new_session=True`` only calls ``setsid()``;
+    without a subsequent ``TIOCSCTTY`` the child has no controlling terminal,
+    so the kernel has no foreground process group to deliver ``SIGWINCH`` to
+    when the master is resized. The child then reads its initial winsize fine
+    (``TIOCGWINSZ`` needs no ctty) but never learns about later resizes —
+    fullscreen / alt-screen TUIs (Claude Code's fullscreen mode) stay stuck at
+    their spawn-time size and render ghosted at the wrong width. Opening
+    ``/dev/tty`` succeeds only when a controlling terminal exists.
+    """
+    pty = PtyProcess(_python_ctty_probe_argv(), cwd=tmp_path, cols=80, rows=24)
+    try:
+        buf = bytearray()
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and b"CTTY_OK" not in buf and b"NO_CTTY" not in buf:
+            buf.extend(pty.read(0.1))
+        assert b"CTTY_OK" in buf, f"child lacked a controlling terminal; got {bytes(buf)!r}"
     finally:
         pty.kill_tree()
 

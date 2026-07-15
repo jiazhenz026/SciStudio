@@ -101,6 +101,21 @@
       "at": "2026-07-15T15:04:32.291300Z",
       "owner_directive": "Direction B implemented in TerminalView.tsx: delayed settle full-refresh after resize/re-show to clear alt-screen ghost residue; immediate last-good-frame repaint on re-show to kill the black gap; plus a manual refresh (\u21bb) button. Tests updated. CHANGELOG entry added.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-07-15T15:25:52.443959Z",
+      "owner_directive": "\u5237\u65b0\u6309\u94ae\u6ca1\u53cd\u5e94\uff1b\u628a\u5237\u65b0\u6539\u6210\u771f\u6b63\u80fd\u5f3a\u5236\u91cd\u7ed8\uff08\u6296\u52a8\u89c6\u53e3/\u6a21\u62df\u62d6\u52a8\uff09\uff0c\u786e\u4fdd\u6e05\u6389\u6b8b\u5f71\u3002",
+      "reason": "Owner live-tested: manual refresh button appears to do nothing. term.refresh() re-emits identical pixels so Chromium skips re-raster of the stale compositor tile (only text selection, which forces re-raster, cleared the ghost). Strengthen the button to a 1-row viewport wobble (resize down + restore next frame, mirrors dragging the panel \u2014 the known-good fix in #1711) forcing a real xterm re-render + SIGWINCH TUI repaint."
+    },
+    {
+      "at": "2026-07-15T16:39:55.266431Z",
+      "owner_directive": "\u653e\u5927\u540e claude \u5c3a\u5bf8\u4e0d\u53d8\u3001\u5237\u65b0\u4e5f\u4e0d refit\u2014\u2014\u6392\u67e5\u5230\u540e\u7aef/PTY\uff0c\u786e\u8ba4 resize \u6709\u6ca1\u6709\u771f\u6b63\u751f\u6548\u3002",
+      "reason": "Live diagnosis: host (TerminalView) refit is proven correct via renderer logs (xterm 101x12 -> 185x22, resize frame sent); backend WS handler + pty.resize/TIOCSWINSZ path reviewed and correct. Real symptom is claude-code not reflowing to the new size. Temporarily instrumenting backend PTY resize (src/scistudio/ai/agent/terminal.py) with a winsize readback to determine whether the resize reaches the PTY (host/backend fix) or claude ignores SIGWINCH in fullscreen mode (upstream). Diagnostic logs will be reverted before merge."
+    },
+    {
+      "at": "2026-07-15T16:45:31.703085Z",
+      "owner_directive": "\u786e\u8ba4\u6839\u56e0\uff1aPTY \u5b50\u8fdb\u7a0b\u65e0\u63a7\u5236\u7ec8\u7aef\u5bfc\u81f4 SIGWINCH \u6536\u4e0d\u5230\uff1b\u4fee spawn \u8ba9 slave \u6210\u4e3a\u63a7\u5236\u7ec8\u7aef\u3002",
+      "reason": "ROOT CAUSE CONFIRMED via ps: the PTY-spawned agent (claude pid 74572) has NO controlling terminal (tty=??). start_new_session=True calls setsid() but never TIOCSCTTY, so the slave PTY is not the child's controlling terminal; the kernel has no foreground process group to deliver SIGWINCH to on TIOCSWINSZ. The agent reads the initial winsize (TIOCGWINSZ, no ctty needed) but never receives resize SIGWINCH \u2014 fullscreen/alt-screen TUIs (Claude Code) then stay stuck at spawn-time size and render ghosted at the wrong width. Fix in src/scistudio/ai/agent/terminal.py: preexec_fn does setsid() + TIOCSCTTY so SIGWINCH reaches the agent."
     }
   ],
   "docs_events": [
@@ -568,6 +583,18 @@
       "at": "2026-07-15T15:04:32.291457Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T16:45:31.703225Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "ROOT CAUSE CONFIRMED via ps: the PTY-spawned agent (claude pid 74572) has NO controlling terminal (tty=??). start_new_session=True calls setsid() but never TIOCSCTTY, so the slave PTY is not the child's controlling terminal; the kernel has no foreground process group to deliver SIGWINCH to on TIOCSWINSZ. The agent reads the initial winsize (TIOCGWINSZ, no ctty needed) but never receives resize SIGWINCH \u2014 fullscreen/alt-screen TUIs (Claude Code) then stay stuck at spawn-time size and render ghosted at the wrong width. Fix in src/scistudio/ai/agent/terminal.py: preexec_fn does setsid() + TIOCSCTTY so SIGWINCH reaches the agent."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-15T16:59:18.174325Z",
+      "pattern": "tests/ai/test_terminal.py",
+      "reason": "Cleanup + real fix landed: removed all diagnostic instrumentation and the speculative auto-repaint tweaks (owner: keep only the manual refresh button). Real fix is the backend controlling-terminal (TIOCSCTTY) in terminal.py; added regression test tests/ai/test_terminal.py::test_pty_child_owns_controlling_terminal."
     }
   ],
   "session_id": "3371b650-6ce9-4e9d-98c4-9e396a830a81",
@@ -579,6 +606,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-15T16:59:18.174450Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_terminal.py",
       "rationale": null,
       "verified_in_diff": null
     }

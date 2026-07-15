@@ -18,31 +18,21 @@
  * Resize policy: freeze the terminal during a bottom-panel drag and refit ONCE
  * when it settles (RESIZE_DEBOUNCE_MS). Refitting on every drag frame churns
  * the PTY viewport and makes the TUI repaint continuously; one fit + SIGWINCH
- * on the settled size lets it repaint cleanly a single time. AFTER the reflow
- * settles we schedule ONE delayed full refresh (SETTLE_REPAINT_MS) — not an
- * immediate one — to clear ghost residue the dirty-cell DOM renderer leaves
- * behind. The delay is what keeps us off a mid-update buffer: by the time it
- * fires the SIGWINCH redraw round-trip has landed. See #1946.
+ * on the settled size lets it repaint cleanly a single time.
  *
- * Alt-screen / fullscreen TUIs (#1946): claude-code's fullscreen mode owns the
- * alternate screen buffer and only repaints on its own cadence / on SIGWINCH.
- * Two host-side artifacts follow from that + the dirty-cell DOM renderer:
- *   - ghosting on resize / re-show — stale cells survive the reflow until a
- *     full repaint (which is why selecting text, an xterm full render, clears
- *     it manually). Countered by the delayed settle refresh above and a manual
- *     refresh button.
- *   - a black gap when the panel is collapsed (container -> display:none, size
- *     0) and re-expanded, until the TUI happens to repaint. Countered by
- *     repainting the last-good frame immediately on re-show (buffer is stable
- *     there) before the reflow.
+ * Resize delivery: for the TUI to actually reflow on that SIGWINCH the agent
+ * must own the slave PTY as its controlling terminal — otherwise the kernel has
+ * no foreground process group to signal and the agent stays stuck at its
+ * spawn-time size (the root cause of #1946 fullscreen-mode ghosting). That fix
+ * lives in the backend spawn (src/scistudio/ai/agent/terminal.py), not here.
  *
  * Known upstream limitation (NOT a SciStudio bug): claude-code leaves ghosted
  * horizontal rules and drops its "thinking" spinner when its window is resized
  * mid-stream. This reproduces in a plain macOS terminal (Terminal.app / iTerm)
  * and does NOT happen with codex in this same component — it is claude-code's
  * own SIGWINCH redraw behaviour, which we cannot fix from the host terminal.
- * See #1711. The manual refresh button gives the user an explicit escape hatch
- * when that upstream residue appears.
+ * See #1711. The manual refresh (↻) button gives the user an explicit escape
+ * hatch to force a host-side redraw when that upstream residue appears.
  *
  * UTF-8 strings flow over the WS in both directions (xterm.js write() and
  * onData() use strings, never Buffers — confirmed by xterm docs).
@@ -58,12 +48,6 @@ import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
 // PTY. Long enough that dragging the bottom-panel splitter does not refit on
 // every frame, short enough to feel responsive once the drag stops.
 const RESIZE_DEBOUNCE_MS = 100;
-
-// Delay before the post-settle full refresh fires. Longer than
-// RESIZE_DEBOUNCE_MS so it lands AFTER fit() + the SIGWINCH redraw round-trip,
-// clearing the DOM renderer's ghost residue without stamping a mid-update
-// buffer. See the resize/alt-screen policy note in the file header (#1946).
-const SETTLE_REPAINT_MS = 120;
 
 export interface TerminalViewProps {
   tabId: string;
@@ -172,9 +156,6 @@ export function TerminalView({
     // is dragged and refits once the drag settles. Cleared on unmount so the
     // callback never touches a disposed terminal.
     let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-    // Delayed full-repaint handle scheduled once a resize / re-show settles.
-    // Cleared on unmount so it never touches a disposed terminal.
-    let postSettleRepaint: ReturnType<typeof setTimeout> | null = null;
 
     const rememberInitialSize = () => {
       if (!term || term.cols <= 0 || term.rows <= 0) return;
@@ -201,23 +182,6 @@ export function TerminalView({
         term.refresh(0, Math.max(0, term.rows - 1));
       } catch {
         // Ignore transient layout glitches.
-      }
-    };
-
-    // Schedule ONE delayed full repaint after a resize / re-show settles. The
-    // alt-screen TUI redraws on its own cadence (SIGWINCH); the dirty-cell DOM
-    // renderer can leave ghost residue from the reflow that no write clears.
-    // The delay (vs. an immediate refresh) lets the SIGWINCH round-trip land
-    // first so we do not stamp a mid-update buffer. See file header (#1946).
-    const scheduleSettleRepaint = () => {
-      if (postSettleRepaint) clearTimeout(postSettleRepaint);
-      if (typeof setTimeout === "function") {
-        postSettleRepaint = setTimeout(() => {
-          postSettleRepaint = null;
-          repaintVisible();
-        }, SETTLE_REPAINT_MS);
-      } else {
-        repaintVisible();
       }
     };
 
@@ -330,9 +294,6 @@ export function TerminalView({
         } catch {
           // Ignore transient zero-size layout frames.
         }
-        // Clear ghost residue the reflow left behind, once the SIGWINCH redraw
-        // has had time to land (#1946).
-        scheduleSettleRepaint();
       };
 
       // Freeze during the drag, refit once it settles.
@@ -369,20 +330,13 @@ export function TerminalView({
           if (entry.isIntersecting && !wasVisible) {
             wasVisible = true;
             if (cancelled || !term) return;
-            // Repaint the last-good frame FIRST so the user never sees the
-            // black gap while the alt-screen TUI catches up. The buffer is
-            // stable on re-show (no mid-update), so an immediate refresh here
-            // is safe (#1946, bug#8).
-            repaintVisible();
             try {
               fit.fit();
               sendResizeIfChanged();
             } catch {
               // Ignore transient layout glitches.
             }
-            // Then clear any ghost residue once the reflow / SIGWINCH redraw
-            // settles.
-            scheduleSettleRepaint();
+            repaintVisible();
           } else if (!entry.isIntersecting) {
             wasVisible = false;
           }
@@ -396,10 +350,6 @@ export function TerminalView({
       if (resizeDebounce) {
         clearTimeout(resizeDebounce);
         resizeDebounce = null;
-      }
-      if (postSettleRepaint) {
-        clearTimeout(postSettleRepaint);
-        postSettleRepaint = null;
       }
       try {
         onDataDisposable?.dispose();
@@ -434,37 +384,37 @@ export function TerminalView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Manual escape hatch (#1946): force a full host-side repaint of the
-  // terminal. Mirrors what selecting the text does — the user's current manual
-  // workaround for alt-screen ghost residue — so it "unsticks" a garbled
-  // screen without tearing down the PTY. Refits first in case the layout
-  // drifted while garbled, notifies the PTY only if the fitted size actually
-  // changed, then repaints every visible row.
+  // Manual escape hatch (#1946): "unstick" a garbled / ghosted terminal without
+  // tearing down the PTY (a full renderer reload would drop the running agent
+  // session). The stuck-size root cause is fixed in the backend PTY spawn (the
+  // agent now owns a controlling terminal, so SIGWINCH reaches it). This button
+  // is a belt-and-braces host-side redraw for the residual case where the agent
+  // leaves its own paint artifacts (a known upstream claude-code limitation,
+  // #1711): drop the container out of layout, force a synchronous reflow so its
+  // paint records are discarded, restore it, then repaint the rows from the
+  // (correct) buffer — the programmatic equivalent of selecting the text.
   const handleRefresh = useCallback(() => {
     const term = termRef.current as {
       refresh?: (start: number, end: number) => void;
-      cols: number;
       rows: number;
     } | null;
-    if (!term) return;
+    const container = containerRef.current;
+    if (container) {
+      const previousDisplay = container.style.display;
+      container.style.display = "none";
+      // Read a layout property to force the hide to flush before we restore it;
+      // toggling display in one synchronous pass would otherwise coalesce and
+      // never repaint.
+      void container.offsetHeight;
+      container.style.display = previousDisplay;
+    }
     try {
       fitRef.current?.fit();
-    } catch {
-      // Ignore zero-size layout frames.
-    }
-    if (ptyOpenRef.current && term.cols > 0 && term.rows > 0) {
-      const previous = lastSentResizeRef.current;
-      if (!previous || previous.cols !== term.cols || previous.rows !== term.rows) {
-        lastSentResizeRef.current = { cols: term.cols, rows: term.rows };
-        send({ type: "resize", cols: term.cols, rows: term.rows });
-      }
-    }
-    try {
-      term.refresh?.(0, Math.max(0, term.rows - 1));
+      term?.refresh?.(0, Math.max(0, term.rows - 1));
     } catch {
       // Ignore transient layout glitches.
     }
-  }, [send]);
+  }, []);
 
   return (
     <div
@@ -477,7 +427,7 @@ export function TerminalView({
         title="Refresh display — redraw the terminal if the screen looks garbled or ghosted"
         aria-label="Refresh terminal display"
         data-testid={`terminal-refresh-${tabId}`}
-        className="absolute right-2 top-2 z-20 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs leading-none text-stone-300 opacity-40 transition hover:bg-white/20 hover:opacity-100"
+        className="absolute right-2 top-2 z-50 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs leading-none text-stone-300 opacity-60 transition hover:bg-white/20 hover:opacity-100"
       >
         ↻
       </button>

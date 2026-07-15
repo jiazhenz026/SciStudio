@@ -146,13 +146,6 @@ function waitForDebounce(): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, RESIZE_DEBOUNCE_WAIT_MS));
 }
 
-// After the debounced fit runs, the component schedules ONE delayed full
-// refresh (SETTLE_REPAINT_MS=120) to clear alt-screen ghost residue (#1946).
-// Wait comfortably past that so the settle repaint has fired.
-function waitForSettleRepaint(): Promise<void> {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, 200));
-}
-
 beforeEach(() => {
   xtermState.lastInstance = null;
   xtermState.loadedAddons = [];
@@ -343,15 +336,13 @@ describe("TerminalView", () => {
   });
 
   // --- resize behaviour -----------------------------------------------------
-  // Freeze during a drag, refit ONCE when it settles. No IMMEDIATE refresh() at
-  // resize time (the buffer is mid-update); the TUI repaints itself via
-  // SIGWINCH. A single DELAYED full refresh then clears the DOM renderer's
-  // ghost residue once the reflow settles (#1946).
+  // Freeze during a drag, refit ONCE when it settles. No refresh() at resize
+  // time (the buffer is mid-update); the TUI repaints itself via SIGWINCH.
   async function waitForResizeObserver() {
     await waitFor(() => expect(FakeResizeObserver.instances.length).toBe(1));
   }
 
-  it("refits once after the drag settles, without an immediate repaint", async () => {
+  it("refits once after the drag settles, without repainting", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -373,33 +364,8 @@ describe("TerminalView", () => {
     await waitForDebounce();
 
     expect(fitState.fitCalls).toBe(fitsBeforeResize + 1);
-    // The refresh is NOT immediate at fit time (buffer mid-update); it is
-    // deferred until the reflow settles.
+    // No manual repaint on resize — the TUI redraws itself via SIGWINCH.
     expect(term.refreshCount).toBe(0);
-  });
-
-  it("clears ghost residue with a single delayed repaint after resize settles", async () => {
-    render(
-      <TerminalView
-        tabId="t1"
-        projectDir="/p"
-        provider="claude-code"
-        dangerous={false}
-        onExit={vi.fn()}
-        onError={vi.fn()}
-      />,
-    );
-    await waitForTerm();
-    await waitForResizeObserver();
-    const term = xtermState.lastInstance!;
-
-    FakeResizeObserver.instances[0].trigger();
-    await waitForDebounce(); // fit has run; delayed repaint still pending
-    expect(term.refreshCount).toBe(0);
-
-    await waitForSettleRepaint();
-    // Exactly one full repaint clears the alt-screen ghost residue.
-    expect(term.refreshCount).toBe(1);
   });
 
   it("coalesces a burst of resize callbacks into a single fit", async () => {
@@ -455,15 +421,13 @@ describe("TerminalView", () => {
 
   // --- visibility repaint ---------------------------------------------------
   // Switching the bottom panel away (display:none) and back left the DOM
-  // renderer showing a stale/blank frame (bug#8) — and under Claude Code
-  // fullscreen mode, a black gap while the alt-screen TUI caught up (#1946).
-  // On return-to-view we repaint the last-good frame IMMEDIATELY (kills the
-  // black gap), refit, then a delayed repaint clears any ghost residue.
+  // renderer showing a stale/blank frame (bug#8). On return-to-view we refit
+  // and force a full repaint.
   async function waitForIntersectionObserver() {
     await waitFor(() => expect(FakeIntersectionObserver.instances.length).toBe(1));
   }
 
-  it("repaints immediately when the terminal returns to view, then again after settle", async () => {
+  it("repaints when the terminal returns to view", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -483,12 +447,7 @@ describe("TerminalView", () => {
     io.trigger(false); // hidden (panel collapsed / tab switched away)
     io.trigger(true); // shown again
 
-    // Immediate repaint of the last-good frame — no black gap.
     expect(term.refreshCount).toBe(1);
-
-    // A second, delayed repaint clears ghost residue after the reflow settles.
-    await waitForSettleRepaint();
-    expect(term.refreshCount).toBe(2);
   });
 
   it("does not repaint on the initial visible observation", async () => {
