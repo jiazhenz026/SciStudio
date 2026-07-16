@@ -272,3 +272,29 @@ def test_persisted_codeblock_config_strips_engine_enrichment_fields() -> None:
     # falls back to the CodeBlockConfig defaults (project root, no timeout).
     assert "working_directory" not in cleaned
     assert "timeout_seconds" not in cleaned
+
+
+def test_persisted_codeblock_config_strips_variadic_port_keys() -> None:
+    """Fix #1957 regression guard: ``_persisted_codeblock_config`` MUST strip the
+    ADR-029 variadic canvas-port keys ``input_ports`` / ``output_ports``. The
+    port editor persists them into the same node config blob, but they are not
+    script-config fields, so ``CodeBlockConfig(extra='forbid')`` would reject
+    them and fail validate/run of the whole workflow."""
+    from scistudio.blocks.code.code_block import _persisted_codeblock_config
+    from scistudio.blocks.code.config import CodeBlockConfig
+
+    raw = {
+        "script_path": "script.py",
+        "inputs": [],
+        "outputs": [],
+        # ADR-029 variadic canvas-port definitions written by the port editor:
+        "input_ports": [{"name": "data", "types": ["DataObject"]}],
+        "output_ports": [{"name": "result", "types": ["DataObject"]}],
+    }
+    cleaned = _persisted_codeblock_config(raw)
+    assert "input_ports" not in cleaned, "must strip input_ports (fix #1957)"
+    assert "output_ports" not in cleaned, "must strip output_ports (fix #1957)"
+    # User-authored script-config fields must survive.
+    assert cleaned["script_path"] == "script.py"
+    # The cleaned mapping must construct a CodeBlockConfig without extra_forbidden.
+    assert CodeBlockConfig(**cleaned).script_path == "script.py"
