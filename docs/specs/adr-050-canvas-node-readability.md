@@ -341,6 +341,11 @@ Acceptance Scenarios:
   package-provided blocks carry the same metadata shape as core blocks, the
   frontend node/config tests that exercise that metadata cover package blocks by
   construction; this frontend ADR adds no backend or package contract tests.
+- FR-034: Tidy layout MUST NOT reposition annotation notes
+  (`block_type === "_annotation"`). Annotation notes are free-floating,
+  user-placed canvas pseudo-nodes with no ports or edges; the layout adapter
+  MUST exclude them so their `node.layout` stays where the user put it and the
+  note keeps its spatial relationship to the block it describes.
 
 ### Key Entities
 

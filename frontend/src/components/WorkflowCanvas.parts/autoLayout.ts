@@ -102,8 +102,15 @@ export async function computeAutoLayout(input: AutoLayoutInput): Promise<LayoutP
   const nodeSize = input.nodeSize ?? NODE_SIZE;
   const scope = input.scopeNodeIds;
 
+  // Annotation notes (`block_type === "_annotation"`) are free-floating canvas
+  // pseudo-nodes with no ports or edges. ELK would treat each as a disconnected
+  // component and reflow it into the layered grid, tearing the note away from
+  // the block it describes (#1954). Tidy lays out real workflow nodes only and
+  // leaves annotation positions untouched.
+  //
   // Filter + sort nodes by id for a stable ELK input order (SC-006).
   const scopedNodes = input.nodes
+    .filter((node) => node.block_type !== "_annotation")
     .filter((node) => (scope ? scope.has(node.id) : true))
     .slice()
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

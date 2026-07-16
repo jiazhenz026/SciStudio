@@ -135,3 +135,52 @@ describe("computeAutoLayout — scope (focus-scoped tidy, ADR-050 §3.2)", () =>
     expect(Object.keys(positions)).toEqual(["b"]);
   });
 });
+
+describe("computeAutoLayout — annotations are not laid out (#1954)", () => {
+  function annotation(id: string): WorkflowNode {
+    return {
+      id,
+      block_type: "_annotation",
+      config: { params: { text: "Note" }, style: { width: 240, height: 120 } },
+      layout: { x: 111, y: 222 },
+    };
+  }
+
+  it("omits annotation nodes from the output so their positions stay pinned", async () => {
+    const positions = await computeAutoLayout({
+      nodes: [...LINEAR_NODES, annotation("note-1")],
+      edges: LINEAR_EDGES,
+    });
+    // The note is never assigned a layout position; the caller leaves its
+    // persisted `layout` untouched.
+    expect(positions["note-1"]).toBeUndefined();
+    expect(Object.keys(positions).sort()).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("does not let an annotation perturb the layout of real nodes", async () => {
+    const withoutNote = await computeAutoLayout({ nodes: LINEAR_NODES, edges: LINEAR_EDGES });
+    const withNote = await computeAutoLayout({
+      nodes: [...LINEAR_NODES, annotation("note-1")],
+      edges: LINEAR_EDGES,
+    });
+    expect(withNote).toEqual(withoutNote);
+  });
+
+  it("returns an empty map when the graph is annotations only", async () => {
+    const positions = await computeAutoLayout({
+      nodes: [annotation("note-1"), annotation("note-2")],
+      edges: [],
+    });
+    expect(positions).toEqual({});
+  });
+
+  it("excludes an annotation even when it is inside the focus scope", async () => {
+    const positions = await computeAutoLayout({
+      nodes: [...LINEAR_NODES, annotation("note-1")],
+      edges: LINEAR_EDGES,
+      scopeNodeIds: new Set(["b", "note-1"]),
+    });
+    expect(Object.keys(positions).sort()).toEqual(["b"]);
+    expect(positions["note-1"]).toBeUndefined();
+  });
+});
