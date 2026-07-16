@@ -53,6 +53,7 @@ from scistudio.blocks.io.savers._helpers import (
     _PICKLE_EXTENSIONS,  # noqa: F401  re-export for backward compat
     _check_pickle_gate,
     _dataframe_to_arrow_table,
+    _matches_target_type,
     _require_path,
     _resolve_core_type_name,
     _slot_path_for,
@@ -137,7 +138,7 @@ def _save_collection(
     if not items:
         raise ValueError("SaveData received an empty Collection; nothing to save.")
     for item in items:
-        if not isinstance(item, target_cls):
+        if not _matches_target_type(item, target_cls):
             raise ValueError(
                 f"SaveData(core_type={target_cls.__name__}) received a "
                 f"Collection item of type {type(item).__name__}; all items must match the configured core_type."
@@ -269,7 +270,7 @@ def _delegate_save_collection(
     if not items:
         raise ValueError("SaveData received an empty Collection; nothing to save.")
     for item in items:
-        if not isinstance(item, target_cls):
+        if not _matches_target_type(item, target_cls):
             raise ValueError(
                 f"SaveData(core_type={target_cls.__name__}) received a "
                 f"Collection item of type {type(item).__name__}; all items must match the configured core_type."

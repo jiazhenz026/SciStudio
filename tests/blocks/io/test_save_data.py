@@ -157,6 +157,30 @@ def test_get_effective_input_ports_falls_back_to_dataobject_for_unresolvable(
     assert effective[0].accepted_types == [DataObject]
 
 
+def test_save_path_type_gate_tolerates_by_path_same_name_type() -> None:
+    """#1950: the save-path type gate accepts a by-path-imported class (distinct
+    identity, same ``__name__``), matching what the workflow validator accepts.
+
+    A project-local/package type reconstructed under a different class identity
+    than the one ``SaveData.save`` resolves from the registry would otherwise
+    pass validation and then fail immediately in ``save()`` with
+    ``received a Collection item of type <T>``. The gate now falls back to the
+    same logical-type comparison the validator uses."""
+    from scistudio.blocks.io.savers._helpers import _matches_target_type, _unwrap_for_save
+
+    # A registry-resolved target type and a by-path twin sharing its __name__.
+    target_cls = type("ProjectImage", (Array,), {})
+    by_path_twin = type("ProjectImage", (Array,), {})
+    assert target_cls is not by_path_twin
+
+    twin_obj = object.__new__(by_path_twin)
+    assert _matches_target_type(twin_obj, target_cls)
+    # A single-item Collection of the twin unwraps without raising.
+    assert _unwrap_for_save(Collection([twin_obj]), target_cls) is twin_obj
+    # A genuinely different-named type is still rejected.
+    assert not _matches_target_type(object.__new__(type("Other", (Series,), {})), target_cls)
+
+
 # ---------------------------------------------------------------------------
 # Round-trip tests for each core type
 # ---------------------------------------------------------------------------

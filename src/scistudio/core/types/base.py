@@ -643,3 +643,26 @@ class DataObject:
             A JSON-serialisable dict merged into the saved metadata.
         """
         return {}
+
+
+def same_registered_type(a: object, b: object) -> bool:
+    """Whether two classes denote the same registered :class:`DataObject` type.
+
+    A by-path import (loading a module from a file path rather than through the
+    package) yields a **distinct class object** that shares the logical type's
+    ``__name__``. The type registry keys types by ``__name__``
+    (``TypeRegistry.register_class``), so name-equality between two
+    ``DataObject`` subclasses mirrors registry identity. Runtime type gates —
+    both the workflow validator's port check and the ``SaveData`` save path —
+    use this so a value reconstructed under a different class identity than the
+    one the block resolved from the registry is still treated as its declared
+    type, instead of failing on a strict ``isinstance``/``issubclass`` identity
+    comparison for a logically identical type.
+    """
+    return (
+        isinstance(a, type)
+        and isinstance(b, type)
+        and issubclass(a, DataObject)
+        and issubclass(b, DataObject)
+        and a.__name__ == b.__name__
+    )

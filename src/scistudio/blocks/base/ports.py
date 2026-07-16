@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from scistudio.core.types.base import DataObject, TypeSignature
+from scistudio.core.types.base import TypeSignature, same_registered_type
 from scistudio.stability import stable
 
 
@@ -85,30 +85,6 @@ class OutputPort(Port):
     """
 
 
-def _same_registered_type(a: Any, b: Any) -> bool:
-    """Whether two classes denote the same registered ``DataObject`` type.
-
-    A by-path import (loading a module from a file path rather than through the
-    package) yields a **distinct class object** that shares the logical type's
-    ``__name__``. The type registry keys types by ``__name__``
-    (:meth:`TypeRegistry.register_class`), so name-equality between two
-    ``DataObject`` subclasses mirrors registry identity. This keeps the runtime
-    check consistent with the static workflow validator, which resolves both
-    edge endpoints through the same registry and therefore treats same-named
-    types as compatible. Without this, a value whose class was imported by path
-    would fail ``issubclass`` against the registry-resolved accepted type and
-    raise ``<Type> not compatible with ['<Type>']`` for a logically identical
-    type.
-    """
-    return (
-        isinstance(a, type)
-        and isinstance(b, type)
-        and issubclass(a, DataObject)
-        and issubclass(b, DataObject)
-        and a.__name__ == b.__name__
-    )
-
-
 def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     """Check whether *port* accepts *data_type* (isinstance-based, inheritance-aware).
 
@@ -122,7 +98,7 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     instance directly (not ``type(collection)``).
 
     A by-path-imported class with a distinct identity but the same registered
-    name is treated as compatible via :func:`_same_registered_type`, so runtime
+    name is treated as compatible via :func:`same_registered_type`, so runtime
     validation matches what the static workflow validator accepts.
     """
     if not port.accepted_types:
@@ -133,9 +109,9 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
 
     if isinstance(data_type, Collection):
         item_type = data_type.item_type
-        return any(issubclass(item_type, t) or _same_registered_type(item_type, t) for t in port.accepted_types)
+        return any(issubclass(item_type, t) or same_registered_type(item_type, t) for t in port.accepted_types)
 
-    return any(issubclass(data_type, t) or _same_registered_type(data_type, t) for t in port.accepted_types)
+    return any(issubclass(data_type, t) or same_registered_type(data_type, t) for t in port.accepted_types)
 
 
 def port_accepts_signature(port: Port, signature: TypeSignature) -> bool:
