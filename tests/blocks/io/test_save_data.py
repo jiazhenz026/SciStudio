@@ -140,14 +140,45 @@ def test_save_data_instantiates_with_each_core_type(
     assert port.accepted_types == [expected_cls]
 
 
-def test_get_effective_input_ports_falls_back_to_dataframe_for_unknown(
+def test_get_effective_input_ports_falls_back_to_dataobject_for_unresolvable(
     tmp_path: Path,
 ) -> None:
-    """An unknown ``core_type`` value falls back to DataFrame (the
-    documented default in config_schema)."""
+    """#1950: a ``core_type`` that does not resolve to a registered type falls
+    back to the permissive :class:`DataObject`, mirroring
+    :meth:`LoadData.get_effective_output_ports`.
+
+    A strict :class:`DataFrame` fallback here would make ``validate_workflow``
+    (API process, no ``SCISTUDIO_PROJECT_DIR`` scan path) falsely reject a valid
+    ``<registered type> -> save`` edge that the same type validates fine on the
+    load side. :meth:`SaveData.save` still raises for a truly unknown
+    ``core_type`` at run time, so the error is not swallowed."""
     block = SaveData(config={"params": {"core_type": "NotAType", "path": str(tmp_path / "out.bin")}})
     effective = block.get_effective_input_ports()
-    assert effective[0].accepted_types == [DataFrame]
+    assert effective[0].accepted_types == [DataObject]
+
+
+def test_save_path_type_gate_tolerates_by_path_same_name_type() -> None:
+    """#1950: the save-path type gate accepts a by-path-imported class (distinct
+    identity, same ``__name__``), matching what the workflow validator accepts.
+
+    A project-local/package type reconstructed under a different class identity
+    than the one ``SaveData.save`` resolves from the registry would otherwise
+    pass validation and then fail immediately in ``save()`` with
+    ``received a Collection item of type <T>``. The gate now falls back to the
+    same logical-type comparison the validator uses."""
+    from scistudio.blocks.io.savers._helpers import _matches_target_type, _unwrap_for_save
+
+    # A registry-resolved target type and a by-path twin sharing its __name__.
+    target_cls = type("ProjectImage", (Array,), {})
+    by_path_twin = type("ProjectImage", (Array,), {})
+    assert target_cls is not by_path_twin
+
+    twin_obj = object.__new__(by_path_twin)
+    assert _matches_target_type(twin_obj, target_cls)
+    # A single-item Collection of the twin unwraps without raising.
+    assert _unwrap_for_save(Collection([twin_obj]), target_cls) is twin_obj
+    # A genuinely different-named type is still rejected.
+    assert not _matches_target_type(object.__new__(type("Other", (Series,), {})), target_cls)
 
 
 # ---------------------------------------------------------------------------

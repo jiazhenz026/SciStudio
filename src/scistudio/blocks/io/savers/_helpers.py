@@ -28,7 +28,7 @@ from typing import Any
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
-from scistudio.core.types.base import DataObject
+from scistudio.core.types.base import DataObject, same_registered_type
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
@@ -98,6 +98,19 @@ def _check_pickle_gate(path: Path, config: BlockConfig) -> bool:
     return True
 
 
+def _matches_target_type(obj: object, target_cls: type[DataObject]) -> bool:
+    """Whether *obj* is a *target_cls* instance, tolerant of by-path identity.
+
+    ``isinstance`` fails when *obj*'s class was reconstructed under a different
+    class identity than the registry-resolved ``target_cls`` — a by-path import
+    yields a distinct class object with the same ``__name__``. #1950: the save
+    path must accept the same logical types the workflow validator does (see
+    ``port_accepts_type``), so it falls back to :func:`same_registered_type` on
+    the object's class instead of failing right after validation passes.
+    """
+    return isinstance(obj, target_cls) or same_registered_type(type(obj), target_cls)
+
+
 def _unwrap_for_save(
     obj: DataObject | Collection,
     target_cls: type[DataObject],
@@ -120,15 +133,15 @@ def _unwrap_for_save(
                 "core SaveData writes one file at the configured path. "
                 "Iterate over the Collection upstream and call SaveData per item."
             )
-        only = items[0]
-        if not isinstance(only, target_cls):
+        only: DataObject = items[0]
+        if not _matches_target_type(only, target_cls):
             raise ValueError(
                 f"SaveData(core_type={target_cls.__name__}) received a "
                 f"Collection item of type {type(only).__name__}; mixed-type "
                 "Collections are out-of-scope per ADR-028 Addendum 1 §C9."
             )
         return only
-    if not isinstance(obj, target_cls):
+    if not _matches_target_type(obj, target_cls):
         raise ValueError(
             f"SaveData(core_type={target_cls.__name__}) received an instance of "
             f"{type(obj).__name__}; the input must be a {target_cls.__name__} "
