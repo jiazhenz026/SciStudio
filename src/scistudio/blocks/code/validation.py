@@ -44,6 +44,15 @@ _RUNTIME_ONLY_CONFIG_KEYS = {
     "materialise_adapter",
     "reconstruct_adapter",
 }
+# Fix #1957: ``input_ports`` / ``output_ports`` are the ADR-029 variadic
+# canvas-port definitions (CodeBlock is variadic, so its effective ports come
+# from these via ``Block.get_effective_input_ports``). The frontend port editor
+# persists them into the same node config blob, but they are NOT script-config
+# fields, so ``CodeBlockConfig(extra="forbid")`` rejects them and validation
+# fails the whole workflow. Strip them alongside the runtime-only keys before
+# building ``CodeBlockConfig``. Mirrors ``code_block._persisted_codeblock_config``.
+_GRAPH_PORT_CONFIG_KEYS = {"input_ports", "output_ports"}
+_NON_SCRIPT_CONFIG_KEYS = _RUNTIME_ONLY_CONFIG_KEYS | _GRAPH_PORT_CONFIG_KEYS
 
 
 @provisional(since="0.3.1")
@@ -85,9 +94,11 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
     """Extract just the saved Code Block settings from a raw config mapping.
 
     A config may arrive with its fields at the top level or nested under a
-    ``params`` key, and may carry runtime-only keys the runtime injects (such as
-    the project directory). This returns the script settings only, flattened and
-    with those runtime-only keys removed.
+    ``params`` key, and may carry keys that are not part of the script config:
+    runtime-only keys the runtime injects (such as the project directory) and
+    the ADR-029 variadic canvas-port keys (``input_ports`` / ``output_ports``)
+    the port editor persists. This returns the script settings only, flattened
+    and with those non-script keys removed.
 
     Args:
         config: The raw configuration mapping.
@@ -104,7 +115,7 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
                 raw[key] = value
     else:
         raw = dict(config)
-    return {key: value for key, value in raw.items() if key not in _RUNTIME_ONLY_CONFIG_KEYS}
+    return {key: value for key, value in raw.items() if key not in _NON_SCRIPT_CONFIG_KEYS}
 
 
 @provisional(since="0.3.1")

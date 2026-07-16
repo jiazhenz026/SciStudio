@@ -474,6 +474,14 @@ def _persisted_codeblock_config(raw_config: Mapping[str, Any]) -> dict[str, Any]
     # ``subprocess.run(timeout=None)``) and the project root as the script cwd
     # ("."), even if a legacy workflow persisted other values.
     dropped = runtime_only | {"timeout_seconds", "working_directory"}
+    # Fix #1957: ``input_ports`` / ``output_ports`` are the ADR-029 variadic
+    # canvas-port definitions (CodeBlock is variadic, so its effective ports come
+    # from these via ``Block.get_effective_input_ports``). They are persisted by
+    # the frontend port editor into the same node config blob but are NOT
+    # script-config fields, so ``CodeBlockConfig(extra="forbid")`` rejects them
+    # and the whole workflow fails validate/run. Strip them here, exactly like
+    # the runtime-injected keys above.
+    dropped |= {"input_ports", "output_ports"}
     return {key: value for key, value in raw_config.items() if key not in dropped}
 
 

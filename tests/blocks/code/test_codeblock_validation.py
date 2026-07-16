@@ -99,6 +99,25 @@ def test_valid_codeblock_v2_config_has_no_diagnostics(tmp_path: Path) -> None:
     assert _messages(_config("scripts/script.py"), tmp_path) == []
 
 
+def test_variadic_port_keys_do_not_trigger_extra_forbidden(tmp_path: Path) -> None:
+    """Fix #1957 regression guard: a CodeBlock config carrying the ADR-029
+    variadic canvas-port keys (``input_ports`` / ``output_ports``, persisted by
+    the port editor) must validate cleanly. Before the fix, ``codeblock_config_payload``
+    left them in and ``CodeBlockConfig(extra='forbid')`` reported
+    ``input_ports: Extra inputs are not permitted``, failing the whole workflow."""
+    _script(tmp_path)
+    config = _config(
+        "scripts/script.py",
+        input_ports=[{"name": "data", "types": ["DataObject"]}],
+        output_ports=[{"name": "result", "types": ["DataObject"]}],
+    )
+
+    messages = _messages(config, tmp_path)
+
+    assert messages == []
+    assert not any("Extra inputs are not permitted" in message for message in messages)
+
+
 def test_rejects_script_path_outside_project(tmp_path: Path) -> None:
     outside = tmp_path.parent / "outside.py"
     outside.write_text("print('outside')\n", encoding="utf-8")
