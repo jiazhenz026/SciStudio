@@ -51,7 +51,7 @@ jobs:
         run: python3 scripts/version.py sync
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
