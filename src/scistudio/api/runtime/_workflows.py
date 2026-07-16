@@ -154,6 +154,31 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
         raise WorkflowIdConflictError(definition.id, conflict)
 
     path = self.workflow_path(definition.id)
+    # #1953: register a *pending* first-party write signature BEFORE the atomic
+    # rename inside ``save_yaml``. ``save_yaml`` writes a tempfile then
+    # ``os.replace``s it onto ``path``; on Linux/inotify that rename surfaces to
+    # the watchdog observer thread immediately, before the route layer's
+    # ``_emit_workflow_changed`` runs its post-write ``mark_workflow_first_party_write``.
+    # The observer thread then races ahead of the signature and emits a phantom
+    # ``source=external`` event, which the canvas surfaces as a spurious
+    # "Workflow changed elsewhere" dialog. A pending signature is path-only
+    # matched (``exists is None`` -> match) so it suppresses the echo regardless
+    # of the race, mtime, or event kind. This mirrors the already-correct pattern
+    # in ``routes/projects.py`` (file write) and the agent MCP ``write_workflow``
+    # tool.
+    kind = "modified" if path.exists() else "created"
+    # Import the entity-class constant lazily: ``runtime/__init__`` imports this
+    # module during its own initialisation, so a top-level import would cycle.
+    from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS
+
+    self.mark_entity_first_party_write(
+        WORKFLOW_ENTITY_CLASS,
+        definition.id,
+        self.current_workflow_version(definition.id),
+        path=path,
+        kind=kind,
+        pending=True,
+    )
     save_yaml(definition, path)
     # ADR-034 Phase 2: tell the FS watcher this write came from us so it
     # does not echo a workflow.changed event back to the canvas.

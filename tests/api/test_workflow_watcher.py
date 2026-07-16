@@ -21,7 +21,7 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -38,6 +38,9 @@ from scistudio.api.routes.workflow_watcher import (
     WorkflowWatcher,
     _WorkflowFileHandler,
 )
+
+if TYPE_CHECKING:
+    from scistudio.api.runtime import ApiRuntime
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -382,3 +385,135 @@ def _isolate_module_singleton() -> Any:
     watcher_module.set_active_watcher(None)
     yield
     watcher_module.set_active_watcher(None)
+
+
+# ---------------------------------------------------------------------------
+# #1953: canvas-save atomic-rename race — pending first-party signature
+# ---------------------------------------------------------------------------
+#
+# Prior coverage tested post-write ``FileModifiedEvent`` suppression and a plain
+# (un-suppressed) ``FileMovedEvent`` separately, but never the canvas save's
+# atomic rename: ``save_yaml`` writes a tempfile then ``os.replace``s it, which
+# on Linux/inotify surfaces to the watchdog observer thread *the instant the
+# rename lands* — before the route layer's post-write ``mark_workflow_first_party_write``
+# runs. The observer thread then won the race and emitted a phantom
+# ``source=external`` event, surfaced by the canvas as a spurious "Workflow
+# changed elsewhere" dialog (Bug 1, 2026-07-16 Linux report). The fix registers a
+# *pending* first-party signature BEFORE the rename inside ``save_workflow``.
+
+
+def test_save_workflow_registers_pending_signature_before_atomic_rename(
+    runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first-party signature must exist BEFORE ``save_yaml`` renames.
+
+    We spy on ``save_yaml`` (which performs the ``os.replace``) and assert that,
+    at the moment the rename happens, the runtime already reports a pending
+    first-party write for the workflow — the exact ordering guarantee that
+    lets the FS watcher suppress the atomic-rename echo. The check uses
+    ``kind="created"`` because the watcher relabels a ``FileMovedEvent`` on the
+    destination to ``created``.
+    """
+    from scistudio.api.runtime import _workflows as workflows_mod
+
+    payload = {
+        "id": "race_wf",
+        "nodes": [
+            {"id": "A", "block_type": "loader"},
+            {"id": "B", "block_type": "writer"},
+        ],
+        "edges": [{"source": "A:out", "target": "B:in"}],
+    }
+    wf_path = runtime.workflow_path("race_wf")
+    real_save_yaml = workflows_mod.save_yaml
+    observed: dict[str, bool] = {}
+
+    def spy_save_yaml(definition: Any, path: Any) -> Any:
+        observed["pending_before_rename"] = runtime.is_recent_workflow_first_party_write(
+            "race_wf", path=Path(path), kind="created"
+        )
+        return real_save_yaml(definition, path)
+
+    monkeypatch.setattr(workflows_mod, "save_yaml", spy_save_yaml)
+    runtime.save_workflow(payload)
+
+    assert observed.get("pending_before_rename") is True
+    assert wf_path.exists()
+
+
+def test_pending_signature_suppresses_relabeled_move_created(runtime: ApiRuntime, opened_project: Path) -> None:
+    """A relabeled-``created`` move is suppressed by a ``modified`` pending mark.
+
+    The canvas save registers the first-party write with ``kind="modified"``, but
+    the atomic rename surfaces to the watcher as a ``FileMovedEvent`` relabeled to
+    ``kind="created"``. A pending signature is path-only matched, so it suppresses
+    the echo regardless of the kind or mtime mismatch — the race-proof property
+    the fix relies on.
+    """
+    project = opened_project
+    wf_path = runtime.workflow_path("demo")
+    wf_path.parent.mkdir(parents=True, exist_ok=True)
+    wf_path.write_text("id: demo\nnodes: []\nedges: []\n", encoding="utf-8")
+    # Seed the cached disk version then advance the file, so ADR-045's
+    # delayed-echo guard would *pass* the event through — isolating the pending
+    # first-party signature as the only thing that can suppress it.
+    version = runtime.current_workflow_version("demo")
+    time.sleep(0.02)
+    wf_path.write_text("id: demo\nnodes: []\nedges: []\n# saved\n", encoding="utf-8")
+
+    captured: list[dict[str, Any]] = []
+    handler = _WorkflowFileHandler(
+        project_dir=project,
+        broadcast=captured.append,
+        loop=None,
+        runtime=runtime,
+    )
+    runtime.mark_entity_first_party_write(
+        "workflow",
+        "demo",
+        version,
+        path=wf_path,
+        kind="modified",
+        pending=True,
+    )
+
+    tmp = wf_path.with_name(".demo.yaml.tmp")
+    handler.on_any_event(FileMovedEvent(str(tmp), str(wf_path)))
+
+    assert captured == []
+
+
+def test_move_created_emits_without_pending_signature(runtime: ApiRuntime, opened_project: Path) -> None:
+    """Contrast: with no pending signature, a genuinely external move still emits.
+
+    Guards against the pending suppression becoming unconditional — a real
+    external atomic rename (no first-party mark) must still reach the canvas.
+    We seed the runtime's cached disk version at the file's original mtime and
+    then advance the file, so ADR-045's delayed-echo guard passes and the
+    *only* thing that could silence the event is a first-party signature (which
+    this test deliberately does not register).
+    """
+    project = opened_project
+    wf_path = runtime.workflow_path("ext")
+    wf_path.parent.mkdir(parents=True, exist_ok=True)
+    wf_path.write_text("id: ext\nnodes: []\nedges: []\n", encoding="utf-8")
+    # Seed the cached disk version at the current (older) mtime.
+    runtime.current_workflow_version("ext")
+    # Advance the file so the upcoming event is newer than the cached version.
+    time.sleep(0.02)
+    wf_path.write_text("id: ext\nnodes: []\nedges: []\n# external edit\n", encoding="utf-8")
+
+    captured: list[dict[str, Any]] = []
+    handler = _WorkflowFileHandler(
+        project_dir=project,
+        broadcast=captured.append,
+        loop=None,
+        runtime=runtime,
+    )
+
+    tmp = wf_path.with_name(".ext.yaml.tmp")
+    handler.on_any_event(FileMovedEvent(str(tmp), str(wf_path)))
+
+    assert len(captured) == 1
+    assert captured[0]["kind"] == "created"
+    assert captured[0]["source"] == "external"
