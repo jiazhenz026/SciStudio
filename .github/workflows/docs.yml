@@ -47,7 +47,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: pyproject.toml
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: uv pip install --system -e ".[docs]"
