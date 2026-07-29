@@ -531,3 +531,71 @@ def test_resolved_path_uses_realpath_not_string_compare(
     assert expected.is_file()
     # ``..`` should NOT have escaped (still inside workflows/).
     assert os.path.commonpath([str(expected), str(project_root)]) == str(project_root)
+
+
+# ---------------------------------------------------------------------------
+# Case 12: validate_workflow resolves a CodeBlock script_path against
+# project_dir, not the backend CWD (#1969).
+# ---------------------------------------------------------------------------
+
+
+_CODEBLOCK_WF_YAML = """\
+workflow:
+  id: codeblock_wf
+  version: 1.0.0
+  nodes:
+    - id: code1
+      block_type: code_block
+      config:
+        script_path: scripts/analyse.py
+  edges: []
+"""
+
+
+def test_validate_workflow_resolves_codeblock_script_path_against_project_dir(
+    ctx_with_project: _StubRuntime,
+    project_root: Path,
+    other_cwd: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1969: a project-relative ``script_path`` validates through the MCP tool
+    even when the backend CWD is elsewhere.
+
+    This tool reads the YAML directly, so it never benefits from the runtime's
+    load-time path absolutification — it has to pass ``ctx.project_dir`` to the
+    validator itself. Otherwise the agent's own dry-run check rejects a workflow
+    that run start accepts.
+    """
+    script = project_root / "scripts" / "analyse.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("print('ok')\n", encoding="utf-8")
+    (project_root / "workflows").mkdir(parents=True, exist_ok=True)
+    (project_root / "workflows" / "codeblock_wf.yaml").write_text(_CODEBLOCK_WF_YAML, encoding="utf-8")
+
+    monkeypatch.chdir(other_cwd)
+    assert Path.cwd().resolve() == other_cwd  # sanity
+
+    result = _run(tools_workflow.validate_workflow(yaml_or_path="workflows/codeblock_wf.yaml"))
+
+    assert [error for error in result.errors if "script_path" in error] == []
+    assert result.valid is True
+
+
+def test_validate_workflow_inline_yaml_also_resolves_against_project_dir(
+    ctx_with_project: _StubRuntime,
+    project_root: Path,
+    other_cwd: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1969: the inline-YAML branch carries no project root of its own either,
+    so it depends on the same ``ctx.project_dir`` hand-off."""
+    script = project_root / "scripts" / "analyse.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("print('ok')\n", encoding="utf-8")
+
+    monkeypatch.chdir(other_cwd)
+
+    result = _run(tools_workflow.validate_workflow(yaml_or_path=_CODEBLOCK_WF_YAML))
+
+    assert [error for error in result.errors if "script_path" in error] == []
+    assert result.valid is True

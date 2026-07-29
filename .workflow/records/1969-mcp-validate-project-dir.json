@@ -1,0 +1,91 @@
+{
+  "branch": "guided/1969-mcp-validate-project-dir",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "tests/ai/test_mcp_tools_disk_integration.py",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-29T20:58:32.124376Z",
+      "owner_directive": "\u5f00 \u2014 land the Codex P1 fix that missed the #1968 merge",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-29T20:58:32.124652Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1969,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u5f00 \u2014 land the Codex P1 fix that missed the #1968 merge: pass ctx.project_dir from the MCP validate_workflow tool",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1969-mcp-validate-project-dir",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-29T20:58:32.124528Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-29T20:58:32.124535Z",
+      "pattern": "tests/ai/test_mcp_tools_disk_integration.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-29T20:58:32.124537Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4fef6690-bbac-4e60-83e6-db3989ba74ce",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-29T20:58:32.124669Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_disk_integration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
