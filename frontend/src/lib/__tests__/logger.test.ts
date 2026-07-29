@@ -6,6 +6,10 @@ describe("frontend logger (#1741)", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    // trackDownloads() spies on document.createElement and calls through to the
+    // original. Without a restore between tests, the next spyOn on the same key
+    // re-wraps the live spy, so calling through recurses into itself.
+    vi.restoreAllMocks();
   });
 
   it("buffers emitted records in the ring buffer", () => {
