@@ -53,8 +53,17 @@ locate its matching `BlockErrorEntry` in `errors`.
 
 ## 3. `get_block_logs` patterns
 
-`get_block_logs(run_id, block_id)` returns `{stdout: str, stderr: str}`.
-Read both. Common signatures:
+`get_block_logs(run_id, block_id)` returns `{stdout: str, stderr: str,
+source: str}`. Read both streams and check `source`, which says which
+artifact answered:
+
+- `codeblock_exchange` — a Code Block's per-run script logs. A true
+  stdout/stderr split; `stdout` holds whatever the script printed.
+- `run_log` — the per-run engine log filtered to this block. Everything
+  the block wrote arrives in `stderr`; `stdout` is empty by design,
+  because the engine routes block output onto one stream.
+
+Common signatures:
 
 - **`Traceback (most recent call last):`** — Python exception. Find
   the bottom-most line; that names the exception and the offending

@@ -1,0 +1,135 @@
+{
+  "branch": "guided/1971-block-log-observability",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/engine/runners/worker.py",
+      "src/scistudio/blocks/code/code_block.py",
+      "src/scistudio/ai/agent/mcp/tools_inspection/read.py",
+      "tests/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-29T21:55:48.467567Z",
+      "owner_directive": "\u8c03\u67e5\u7ed3\u8bba\u786e\u8ba4\u540e\u5b9e\u73b0\uff1a\u4e09\u4e2a\u7f3a\u9677\u4e00\u6761\u94fe\uff0c\u5408\u6210\u4e00\u4e2a PR",
+      "reason": "The fix chain reaches past the three files planned at init: the run-log naming rule is shared with the reader, the tool result gains a source field, and the debug skill plus the observability spec document the new behaviour."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-29T21:55:48.467766Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:55:48.467980Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/alpha-observability-logging.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1971,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1972,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1973,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u540c\u610f \u2014 fix the three chained block-observability defects (print breaks the run, CodeBlock discards script output, get_block_logs reads a layout nothing writes) in one PR",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1971-block-log-observability",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-07-29T21:55:48.467746Z",
+      "pattern": "src/scistudio/engine/run_logging.py",
+      "reason": "The fix chain reaches past the three files planned at init: the run-log naming rule is shared with the reader, the tool result gains a source field, and the debug skill plus the observability spec document the new behaviour."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-29T21:55:48.467753Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_inspection/_models.py",
+      "reason": "The fix chain reaches past the three files planned at init: the run-log naming rule is shared with the reader, the tool result gains a source field, and the debug skill plus the observability spec document the new behaviour."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-29T21:55:48.467754Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md",
+      "reason": "The fix chain reaches past the three files planned at init: the run-log naming rule is shared with the reader, the tool result gains a source field, and the debug skill plus the observability spec document the new behaviour."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-07-29T21:55:48.467756Z",
+      "pattern": "docs/specs/alpha-observability-logging.md",
+      "reason": "The fix chain reaches past the three files planned at init: the run-log naming rule is shared with the reader, the tool result gains a source field, and the debug skill plus the observability spec document the new behaviour."
+    }
+  ],
+  "session_id": "1c2e7898-ace7-45dd-8ab9-b1014ce8c142",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-07-29T21:55:48.467989Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_worker.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:55:48.467993Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/code/test_codeblock_execution.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:55:48.467994Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_inspection.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

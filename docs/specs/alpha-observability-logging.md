@@ -200,6 +200,22 @@ containing log files and an environment manifest.
   the file handler persists them (no separate sink).
 - **FR-015**: Logs MUST record metadata only (path/type/size/hash) for scientific
   payloads and MUST support redaction of configured sensitive config fields.
+- **FR-016** (#1971): The block worker's stdout is reserved for the JSON result
+  envelope. The worker MUST claim a private duplicate of it and redirect its own
+  fd 1 to stderr before running anything block-controlled, so a block that
+  writes to stdout — via `print`, a native extension, or an inherited child
+  process — cannot corrupt the envelope. That output MUST reach the per-run log
+  through the stderr the engine already forwards, satisfying FR-008's "worker
+  output" for the stdout half.
+- **FR-017** (#1972): A Code Block MUST persist its script's captured stdout and
+  stderr into the per-run exchange `logs/` folder on success and on failure, and
+  a non-zero exit MUST carry a tail of the script's stderr in the raised error
+  message. Only the message reaches `get_run_status().errors` and the GUI, so an
+  exit status alone is not a reportable failure.
+- **FR-018** (#1973): `get_block_logs` MUST read artifacts the runtime actually
+  produces — the Code Block exchange logs, or the per-run log filtered to the
+  block — and MUST report which one answered. Tests for it MUST exercise a real
+  producer rather than writing the expected files themselves.
 
 ### Key Entities
 
