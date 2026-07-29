@@ -1,5 +1,5 @@
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 const apiProxyTarget = process.env.SCISTUDIO_API_PROXY ?? "http://localhost:8000";
