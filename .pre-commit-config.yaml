@@ -42,8 +42,8 @@ repos:
       - id: detect-private-key
 
   # ADR-042 Addendum 6 §6.2/§7.10: pin ruff/mypy to the CI-resolved versions so
-  # local pre-commit matches CI. CI installs unpinned `ruff` and `.[dev]` mypy,
-  # which currently resolve ruff 0.15.15 and mypy 2.1.0.
+  # local pre-commit matches CI. ci.yml pins the same ruff version explicitly —
+  # bump both together. mypy comes from `.[dev]`, which resolves 2.1.0.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.15
     hooks:
