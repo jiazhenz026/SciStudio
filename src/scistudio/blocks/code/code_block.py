@@ -198,7 +198,19 @@ class CodeBlock(Block):
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            "script_path": {"type": "string", "title": "Project Script", "ui_priority": 1},
+            # ``ui_widget: file_browser`` (#1967) is what opts ``script_path`` into
+            # the #506 path-portability pass: ``relativify_paths`` rewrites it to a
+            # project-relative path on save and ``absolutify_paths`` restores an
+            # absolute one on load. Without it a GUI-picked absolute path was
+            # persisted verbatim (breaking the workflow on any other machine) while
+            # an authored project-relative path was never resolved. The frontend
+            # CodeBlock editor already renders this field as a file browser.
+            "script_path": {
+                "type": "string",
+                "title": "Project Script",
+                "ui_widget": "file_browser",
+                "ui_priority": 1,
+            },
             "language": {
                 "type": "string",
                 "enum": ["python", "r", "julia"],

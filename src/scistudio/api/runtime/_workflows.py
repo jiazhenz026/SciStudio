@@ -140,7 +140,17 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
     # the editor from throwing "Field required" while the user is still wiring up
     # a freshly dropped node. The route layer maps raised ``ValueError`` to HTTP
     # 422 (api/routes/workflows.py create/update handlers).
-    diagnostics = validate_workflow(definition, registry=self.block_registry, mode="draft")
+    # ``project_dir`` (#1967): node configs were just relativified above, so any
+    # project-relative path in them (CodeBlock ``script_path``) needs the active
+    # project root to resolve. Passing it keeps the validator off its
+    # process-working-directory fallback, which in the packaged desktop app is
+    # the app's ``Resources`` directory rather than the user's project.
+    diagnostics = validate_workflow(
+        definition,
+        registry=self.block_registry,
+        mode="draft",
+        project_dir=project_dir,
+    )
     warnings = [d for d in diagnostics if str(d).startswith("Warning:")]
     hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
     if warnings:

@@ -324,6 +324,12 @@ Acceptance Scenarios:
 - FR-034: CodeBlock v2 MUST preserve AppBlock's file-exchange security
   posture, including project-root path validation and controlled process
   command construction.
+- FR-035: `script_path` MUST persist as a project-relative path and MUST be
+  resolved against the active project root, never against the process working
+  directory. The block config schema declares `script_path` as a path field
+  (`ui_widget: file_browser`) so the #506 portability pass relativises it on
+  save and absolutises it on load, and every validation caller that knows the
+  active project MUST pass it to `validate_workflow(project_dir=...)` (#1967).
 
 ### Non-Functional Requirements
 
@@ -618,6 +624,10 @@ reviewers can distinguish intentional removals from accidental regressions.
 - AC-013: Block-development documentation includes CodeBlock v2 script usage,
   path adaptation examples, and migration guidance.
 - AC-014: Existing AppBlock capability and materialisation tests remain green.
+- AC-015: A workflow whose `script_path` is project-relative validates and runs
+  when the process working directory is not the project directory, and a
+  GUI-picked absolute `script_path` inside the project persists as a relative
+  path, so the workflow stays portable across machines.
 
 ## 6. Risks And Rollback
 

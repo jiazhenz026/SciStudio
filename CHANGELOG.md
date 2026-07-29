@@ -35,6 +35,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1967] CodeBlock: a project-relative `script_path` no longer fails workflow
+  validation at run start. The persisted graph carries no project root — the
+  scheduler injects one at dispatch, after validation — so
+  `_project_dir_for_workflow` fell back to the process working directory, which
+  in the packaged desktop app is `SciStudio.app/Contents/Resources`. Every run
+  of an agent-authored CodeBlock (`script_path: scripts/foo.py`) was rejected
+  with `CodeBlock script_path: [Errno 2] No such file or directory`, while the
+  editor save that produced it passed (Check 9 is skipped in draft mode).
+  `validate_workflow` now takes an explicit `project_dir`, which
+  `start_workflow` and `save_workflow` pass from the active project. Separately,
+  `script_path` was missing `ui_widget: "file_browser"` in the backend config
+  schema, so it was excluded from the #506 path-portability pass that the
+  frontend editor already assumed: a GUI-picked absolute path was persisted
+  verbatim and broke on any other machine. It is now relativised on save and
+  absolutised on load, so existing workflows storing an absolute `script_path`
+  are rewritten to a project-relative one on their next editor save. Tests:
+  `tests/api/test_runtime_workflow_validation_gate.py`,
+  `tests/workflow/test_validator_codeblock_v2.py`,
+  `tests/workflow/test_path_portability.py`,
+  `tests/blocks/test_block_config_schema.py`. (@claude, 2026-07-29, branch:
+  guided/1967-codeblock-script-path)
+
 - [#1946] Embedded PTY terminal (AI Chat / Terminal) now reflows correctly when
   a panel is resized under Claude Code's fullscreen (alternate-screen) mode.
   Previously the agent stayed stuck at its spawn-time size and rendered ghosted

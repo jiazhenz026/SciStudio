@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scistudio.blocks.code.code_block import CodeBlock
 from scistudio.blocks.registry import BlockRegistry, _spec_from_class
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
@@ -164,3 +166,102 @@ def test_validate_workflow_preserves_unknown_block_warning() -> None:
 
     assert any("Warning: block type 'not_registered_source' not in registry" in error for error in errors)
     assert not any("CodeBlock" in error for error in errors)
+
+
+def _persisted_node_config(script_path: str) -> dict[str, object]:
+    """A node config in its persisted shape: no runtime-injected ``project_dir``.
+
+    The scheduler injects ``project_dir`` at dispatch, so the graph the
+    validator sees at run start never carries one (#1967).
+    """
+
+    return {
+        "script_path": script_path,
+        "inputs": [],
+        "outputs": [],
+    }
+
+
+def test_validate_workflow_resolves_script_path_against_caller_project_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1967: a project-relative ``script_path`` validates when the caller
+    supplies the project root, even though the process working directory is
+    somewhere else entirely (the app's ``Resources`` directory in the packaged
+    desktop build)."""
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    _script(project_dir)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    registry = _CodeBlockValidationRegistry()
+    workflow = WorkflowDefinition(
+        nodes=[
+            NodeDef(
+                id="code1",
+                block_type="code_block",
+                config=_persisted_node_config("scripts/script.py"),
+            )
+        ],
+    )
+
+    assert validate_workflow(workflow, registry=registry, project_dir=str(project_dir)) == []
+
+
+def test_validate_workflow_script_path_falls_back_to_cwd_without_project_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without a caller-supplied project root the validator still falls back to
+    the working directory — the documented last resort for callers with no
+    project context, and the #1967 failure mode when the API forgot to pass one."""
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    _script(project_dir)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    registry = _CodeBlockValidationRegistry()
+    workflow = WorkflowDefinition(
+        nodes=[
+            NodeDef(
+                id="code1",
+                block_type="code_block",
+                config=_persisted_node_config("scripts/script.py"),
+            )
+        ],
+    )
+
+    errors = validate_workflow(workflow, registry=registry)
+
+    assert any("CodeBlock script_path" in error for error in errors)
+
+
+def test_validate_workflow_node_project_dir_outranks_caller_project_dir(tmp_path: Path) -> None:
+    """Node-level ``project_dir`` still wins: a flattened subworkflow node may
+    carry its own root that differs from the parent's."""
+
+    node_project = tmp_path / "node-project"
+    node_project.mkdir()
+    _script(node_project)
+    caller_project = tmp_path / "caller-project"
+    caller_project.mkdir()
+
+    registry = _CodeBlockValidationRegistry()
+    workflow = WorkflowDefinition(
+        nodes=[
+            NodeDef(
+                id="code1",
+                block_type="code_block",
+                config=_node_config(node_project, "scripts/script.py"),
+            )
+        ],
+    )
+
+    assert validate_workflow(workflow, registry=registry, project_dir=str(caller_project)) == []

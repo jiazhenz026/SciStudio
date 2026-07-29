@@ -102,3 +102,65 @@ def test_start_workflow_rejects_cycle_on_disk(runtime: ApiRuntime, opened_projec
 
     with pytest.raises(ValueError, match="validation failed"):
         runtime.start_workflow("sneaky_wf")
+
+
+class _StopBeforeDispatchError(Exception):
+    """Sentinel raised by the validation spy to halt ``start_workflow``."""
+
+
+def test_start_workflow_validates_relative_script_path_against_the_project(
+    runtime: ApiRuntime,
+    opened_project: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1967: a CodeBlock whose ``script_path`` is project-relative must validate
+    at run start even when the process working directory is not the project.
+
+    This is the packaged-desktop shape: the backend runs with its working
+    directory inside ``SciStudio.app/Contents/Resources``, and the persisted
+    graph carries no ``project_dir`` (the scheduler injects one at dispatch,
+    after validation). The agent's ``write_workflow`` tool writes exactly this
+    graph, so before #1967 every such run was rejected with
+    ``CodeBlock script_path: [Errno 2] No such file or directory``.
+    """
+    import scistudio.workflow.validator as validator_module
+
+    script = opened_project / "scripts" / "analyse.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("print('ok')\n", encoding="utf-8")
+
+    runtime.workflow_path("codeblock_wf").parent.mkdir(parents=True, exist_ok=True)
+    runtime.workflow_path("codeblock_wf").write_text(
+        "workflow:\n"
+        "  id: codeblock_wf\n"
+        "  nodes:\n"
+        "    - id: code1\n"
+        "      block_type: code_block\n"
+        "      config:\n"
+        "        script_path: scripts/analyse.py\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+
+    elsewhere = tmp_path / "not-the-project"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    # Run the real validator, capture its verdict, and stop before dispatch so
+    # the test never schedules an actual run.
+    captured: list[list[str]] = []
+    real_validate = validator_module.validate_workflow
+
+    def _spy(*args: object, **kwargs: object) -> list[str]:
+        diagnostics = real_validate(*args, **kwargs)  # type: ignore[arg-type]
+        captured.append(list(diagnostics))
+        raise _StopBeforeDispatchError
+
+    monkeypatch.setattr(validator_module, "validate_workflow", _spy)
+
+    with pytest.raises(_StopBeforeDispatchError):
+        runtime.start_workflow("codeblock_wf")
+
+    assert captured, "start_workflow did not run workflow validation"
+    assert not [d for d in captured[-1] if "script_path" in d]
