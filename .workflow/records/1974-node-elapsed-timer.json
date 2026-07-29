@@ -1,0 +1,107 @@
+{
+  "branch": "feature/1974-node-elapsed-timer",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/nodes/BlockNode.parts/NodeStatusSurface.tsx",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/statusSurface.test.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "frontend/src/store/executionSlice.ts",
+      "frontend/src/store/executionSlice.parts/eventReducer.ts",
+      "frontend/src/store/executionSlice.parts/eventReducer.test.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/types/ui.ts",
+      "frontend/src/testUtils.ts",
+      "CHANGELOG.md",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-07-29T21:45:58.896272Z",
+      "owner_directive": "Plan: keep the run start instant in the execution store, sourced from the backend block_running event timestamp (backend is the source of runtime truth per AGENTS 3.5; the event already carries an ISO timestamp so no backend change is needed, and a store-held start survives node/component remounts that would reset a component-local stamp). eventReducer gains nextBlockRunStarts + resolveRunStartedAt; executionSlice gains blockRunStartedAt; WorkflowCanvas reads it from the store directly (same precedent as highlightedNodeId) and threads runStartedAt through useFlowNodes -> flowNodeBuilder -> BlockNodeData -> NodeStatusSurface. NodeStatusSurface renders a transient, absolutely-positioned elapsed counter beside the running spinner (zero geometry impact, ADR-050 FR-004/FR-011) that unmounts on any non-running state; no final duration, no run history.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-07-29T21:45:58.896573Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:45:58.896597Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-050 \u00a72.5 keeps its decision unchanged - the counter is a transient zero-geometry overlay beside the running glyph, not a status footer, inline text row, or warning chip inside the node body, and nothing is persisted after the run ends. Prior node UI additions of the same size (#1799 highlight ring, #1887 hover detail popover) were CHANGELOG-only.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:45:58.896601Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "adr-050-canvas-node-readability FR-004/FR-011 are unchanged - node width/height are untouched and runtime state is still represented through the single NodeStatusSurface.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1974,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Issue #1974: while a block is running, show an elapsed-time counter next to the spinner on the block node. The counter appears when the block enters the running state, counts up, and disappears when the block finishes - no final duration left on the node, no history of previous runs. Owner-decided behaviour; do not redesign. Main file: frontend/src/components/nodes/BlockNode.parts/NodeStatusSurface.tsx. Pick a start-time source (backend block_running started_at kept in the store vs frontend-stamped transition) and justify it in the PR body.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1974-node-elapsed-timer",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "ee48d89e-65b2-4b87-997b-96472eb81c92",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-07-29T21:45:58.896605Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/executionSlice.parts/eventReducer.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-07-29T21:45:58.896609Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/statusSurface.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

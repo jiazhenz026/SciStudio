@@ -183,6 +183,8 @@ interface BlockOpts {
   summary?: BlockSummary;
   schema?: BlockSchemaResponse;
   status: string;
+  /** #1974 — epoch-ms start of the current run; undefined unless running. */
+  runStartedAt?: number;
   errorMessage: string | undefined;
   errorSummary: string | undefined;
   callbacks: BlockNodeCallbacks;
@@ -201,6 +203,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
     summary,
     schema,
     status,
+    runStartedAt,
     errorMessage,
     errorSummary,
     callbacks,
@@ -248,6 +251,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
         schema,
       ),
       status,
+      runStartedAt,
       errorMessage,
       errorSummary,
       problemSeverity,

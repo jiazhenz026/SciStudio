@@ -10,9 +10,11 @@ import {
   extractBlockError,
   maybeAppendErrorLog,
   nextBlockOutputs,
+  nextBlockRunStarts,
   nextBlockStates,
   nextErrorMaps,
   nextIsRunning,
+  resolveRunStartedAt,
   summarizeErrorText,
 } from "./eventReducer";
 
@@ -101,6 +103,75 @@ describe("eventReducer helpers", () => {
     it("returns current when no block_id", () => {
       const current = { existing: "running" };
       expect(nextBlockStates(makeEvent({ block_id: null }), current)).toBe(current);
+    });
+  });
+
+  // #1974 — the node's elapsed counter is anchored to the engine's
+  // block_running timestamp and must vanish the moment the block stops.
+  describe("resolveRunStartedAt", () => {
+    it("uses the engine event timestamp as the run start", () => {
+      const now = Date.parse("2026-05-22T00:00:30Z");
+      expect(resolveRunStartedAt("2026-05-22T00:00:00Z", now)).toBe(
+        Date.parse("2026-05-22T00:00:00Z"),
+      );
+    });
+
+    it("falls back to the client clock when the timestamp is missing or unparsable", () => {
+      const now = 1_700_000_000_000;
+      expect(resolveRunStartedAt(undefined, now)).toBe(now);
+      expect(resolveRunStartedAt("not-a-timestamp", now)).toBe(now);
+    });
+
+    it("falls back to the client clock when the engine clock reads ahead", () => {
+      const now = Date.parse("2026-05-22T00:00:00Z");
+      expect(resolveRunStartedAt("2026-05-22T01:00:00Z", now)).toBe(now);
+    });
+  });
+
+  describe("nextBlockRunStarts", () => {
+    it("stamps the run start from the block_running event timestamp", () => {
+      const now = Date.parse("2026-05-22T00:00:05Z");
+      const result = nextBlockRunStarts(makeEvent({ type: "block_running" }), {}, now);
+      expect(result).toEqual({ "block-1": Date.parse("2026-05-22T00:00:00Z") });
+    });
+
+    it("re-stamps the start when the block enters running again", () => {
+      const now = Date.parse("2026-05-22T00:10:00Z");
+      const result = nextBlockRunStarts(
+        makeEvent({ type: "block_running", timestamp: "2026-05-22T00:09:00Z" }),
+        { "block-1": Date.parse("2026-05-22T00:00:00Z") },
+        now,
+      );
+      expect(result).toEqual({ "block-1": Date.parse("2026-05-22T00:09:00Z") });
+    });
+
+    it("drops the entry when the block finishes so no duration is retained", () => {
+      const started = { "block-1": Date.parse("2026-05-22T00:00:00Z") };
+      for (const type of [
+        "block_done",
+        "block_error",
+        "block_cancelled",
+        "block_skipped",
+        "block_paused",
+      ]) {
+        expect(nextBlockRunStarts(makeEvent({ type }), started)).toEqual({});
+      }
+    });
+
+    it("leaves other blocks' run starts untouched", () => {
+      const started = { "block-2": 1_700_000_000_000 };
+      expect(nextBlockRunStarts(makeEvent({ type: "block_done" }), started)).toBe(started);
+      expect(
+        nextBlockRunStarts(makeEvent({ type: "block_done", block_id: "block-2" }), started),
+      ).toEqual({});
+    });
+
+    it("returns current when the event carries no block_id", () => {
+      const current = { "block-1": 1_700_000_000_000 };
+      expect(
+        nextBlockRunStarts(makeEvent({ type: "workflow_completed", block_id: null }), current),
+      ).toBe(current);
+      expect(nextBlockRunStarts(makeEvent({ block_id: null }), current)).toBe(current);
     });
   });
 

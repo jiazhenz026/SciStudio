@@ -217,6 +217,11 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   // through ProjectWorkspace. The canvas rings the node (via useFlowNodes) and
   // pans it into view above the bottom panel.
   const highlightedNodeId = useAppStore((s) => s.highlightedNodeId);
+  // #1974 — per-block run start instants (engine clock), read straight from the
+  // store for the same reason as `highlightedNodeId`: it is transient run state
+  // consumed only by the node's status surface, so it does not need to be
+  // threaded down through ProjectWorkspace.
+  const blockRunStartedAt = useAppStore((s) => s.blockRunStartedAt);
   const {
     blocks,
     schemas,
@@ -272,6 +277,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     blocks,
     schemas,
     blockStates,
+    blockRunStartedAt,
     blockErrors,
     blockErrorSummaries,
     selectedNodeId,
