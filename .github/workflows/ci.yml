@@ -34,7 +34,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: uv pip install --system ruff
+      # Pinned to the version .pre-commit-config.yaml pins so CI and local
+      # pre-commit agree on formatting. An unpinned install adopts every new
+      # upstream formatter release: ruff 0.16.0 reflowed trailing comments
+      # repo-wide, which failed this job on main and on every open PR.
+      # Bump both pins together.
+      - run: uv pip install --system ruff==0.15.15
       - run: ruff check .
       - run: ruff format --check .
 
