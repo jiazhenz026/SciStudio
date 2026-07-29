@@ -132,3 +132,35 @@ class TestAbsolutifyPaths:
 
         assert Path(restored["path"]).resolve() == data_file.resolve()
         assert Path(restored["output_dir"]).resolve() == (project_dir / "results").resolve()
+
+
+class TestCodeBlockScriptPathPortability:
+    """#1967: ``script_path`` participates in the #506 portability pass.
+
+    The real ``CodeBlock.config_schema`` is used rather than the sample
+    ``SCHEMA`` above, so the test fails if the ``ui_widget`` marker is dropped.
+    """
+
+    def test_save_relativises_script_path(self, tmp_path: Path) -> None:
+        from scistudio.blocks.code.code_block import CodeBlock
+
+        project_dir = tmp_path / "project"
+        script = project_dir / "scripts" / "analyse.py"
+        script.parent.mkdir(parents=True)
+        script.touch()
+
+        config = {"script_path": str(script.resolve())}
+        result = relativify_paths(config, str(project_dir), CodeBlock.config_schema)
+
+        assert result["script_path"] == "scripts/analyse.py"
+
+    def test_load_absolutises_script_path(self, tmp_path: Path) -> None:
+        from scistudio.blocks.code.code_block import CodeBlock
+
+        project_dir = tmp_path / "project"
+        (project_dir / "scripts").mkdir(parents=True)
+
+        config = {"script_path": "scripts/analyse.py"}
+        result = absolutify_paths(config, str(project_dir), CodeBlock.config_schema)
+
+        assert result["script_path"] == str((project_dir / "scripts" / "analyse.py").resolve())

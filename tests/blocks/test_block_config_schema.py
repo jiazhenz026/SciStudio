@@ -37,6 +37,16 @@ class TestBlockConfigSchema:
         assert "language" in schema["properties"]
         assert "python" in schema["properties"]["language"]["enum"]
 
+    def test_code_block_script_path_is_a_file_browser_path_field(self) -> None:
+        """#1967: ``ui_widget`` is what opts ``script_path`` into the #506
+        relativify-on-save / absolutify-on-load pass. Without it a GUI-picked
+        absolute path is persisted verbatim and an authored project-relative
+        path is never resolved against the project root."""
+        from scistudio.blocks.code.code_block import CodeBlock
+
+        props = CodeBlock.config_schema["properties"]
+        assert props["script_path"]["ui_widget"] == "file_browser"
+
     def test_spec_from_class_includes_config_schema(self) -> None:
         class MyBlock(Block):
             name: ClassVar[str] = "Test Block"

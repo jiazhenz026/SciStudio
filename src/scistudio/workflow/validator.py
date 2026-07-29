@@ -91,8 +91,22 @@ def _is_codeblock_spec(spec: BlockSpec) -> bool:
     )
 
 
-def _project_dir_for_workflow(workflow: WorkflowDefinition, node: NodeDef) -> Path:
-    """Resolve workflow/node project directory metadata for CodeBlock validation."""
+def _project_dir_for_workflow(
+    workflow: WorkflowDefinition,
+    node: NodeDef,
+    project_dir: str | Path | None = None,
+) -> Path:
+    """Resolve workflow/node project directory metadata for CodeBlock validation.
+
+    *project_dir* is the caller-supplied project root. It ranks below the
+    per-node and per-workflow metadata (a flattened subworkflow node may carry
+    its own) and above the ``Path.cwd()`` fallback. Passing it matters
+    (#1967): a persisted workflow never carries ``project_dir`` — the scheduler
+    injects it at dispatch, which is *after* run-start validation — so without
+    it a project-relative ``script_path`` resolved against the process working
+    directory. In the packaged desktop app that is the app's ``Resources``
+    directory, so every relative ``script_path`` failed to validate.
+    """
 
     params = node.config.get("params")
     if isinstance(params, dict) and params.get("project_dir"):
@@ -101,6 +115,8 @@ def _project_dir_for_workflow(workflow: WorkflowDefinition, node: NodeDef) -> Pa
         return Path(str(node.config["project_dir"])).resolve()
     if workflow.metadata.get("project_dir"):
         return Path(str(workflow.metadata["project_dir"])).resolve()
+    if project_dir:
+        return Path(str(project_dir)).resolve()
     return Path.cwd().resolve()
 
 
@@ -173,6 +189,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     registry: BlockRegistry | None = None,
     *,
     mode: str = "strict",
+    project_dir: str | Path | None = None,
 ) -> list[str]:
     """Validate a workflow definition and return a list of diagnostic messages.
 
@@ -213,6 +230,12 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         spurious errors. Structural, edge, cycle, type, cardinality, extension,
         and boundary checks still run. Run start re-validates in strict mode,
         so an incomplete graph still cannot execute.
+    project_dir:
+        Project root used to resolve project-relative config paths (currently
+        the CodeBlock ``script_path`` of Check 9). Callers that know the active
+        project MUST pass it; node/workflow ``project_dir`` metadata still wins
+        when present, and the process working directory remains the last-resort
+        fallback for callers with no project context (#1967).
 
     Returns
     -------
@@ -489,7 +512,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
             continue
         diagnostics = validate_codeblock_config(
             node.config,
-            project_dir=_project_dir_for_workflow(workflow, node),
+            project_dir=_project_dir_for_workflow(workflow, node, project_dir),
             registry=registry,
         )
         errors.extend(

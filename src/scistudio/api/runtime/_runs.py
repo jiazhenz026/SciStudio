@@ -373,7 +373,16 @@ def start_workflow(
     # any ``subworkflow_broken`` marker left by an unresolved reference.
     from scistudio.workflow.validator import validate_workflow
 
-    diagnostics = validate_workflow(workflow, registry=self.block_registry)
+    # ``project_dir`` (#1967): the persisted graph never carries a project root —
+    # the scheduler injects one at dispatch, well after this call — so without it
+    # the validator resolved a project-relative CodeBlock ``script_path`` against
+    # the process working directory (the app's ``Resources`` directory in the
+    # packaged desktop build) and rejected every run.
+    diagnostics = validate_workflow(
+        workflow,
+        registry=self.block_registry,
+        project_dir=str(self.active_project.path) if self.active_project else None,
+    )
     hard_errors = [d for d in diagnostics if not str(d).startswith("Warning:")]
     if hard_errors:
         raise ValueError("Cannot start workflow; validation failed: " + "; ".join(str(e) for e in hard_errors))
