@@ -159,6 +159,54 @@ raise SystemExit(3)
     assert "boom" in exc_info.value.stderr
 
 
+def test_codeblock_failure_message_carries_the_script_error(tmp_path: Path) -> None:
+    """#1972: the exit status alone tells a reader nothing.
+
+    Only the exception *message* survives into ``get_run_status().errors`` and
+    the GUI, so the script's own traceback has to be in it — otherwise the file
+    and line that failed are unreachable without opening a log by hand.
+    """
+    _write_script(tmp_path, "x = 1 / 0\n")
+    block = CodeBlock(config=_block_config(tmp_path, "scripts/script.py"))
+
+    with pytest.raises(CodeBlockExecutionError) as exc_info:
+        block.run({}, block.config)
+
+    message = str(exc_info.value)
+    assert "exited with status 1" in message
+    assert "ZeroDivisionError: division by zero" in message
+    assert "script.py" in message
+
+
+def test_codeblock_writes_script_logs_into_the_exchange_folder(tmp_path: Path) -> None:
+    """#1972: the exchange layout already allocates ``logs/``; fill it."""
+    _write_script(
+        tmp_path,
+        "import sys\nprint('rows: 12')\nprint('a warning', file=sys.stderr)\n",
+    )
+    block = CodeBlock(config=_block_config(tmp_path, "scripts/script.py"))
+
+    block.run({}, block.config)
+
+    assert block.last_exchange_manifest is not None
+    logs_dir = block.last_exchange_manifest.layout.logs_dir
+    assert (logs_dir / "stdout.log").read_text(encoding="utf-8").strip() == "rows: 12"
+    assert "a warning" in (logs_dir / "stderr.log").read_text(encoding="utf-8")
+
+
+def test_codeblock_writes_script_logs_even_when_the_script_fails(tmp_path: Path) -> None:
+    """A failed run is exactly when the output matters most."""
+    _write_script(tmp_path, "import sys\nprint('got here')\nsys.exit(2)\n")
+    block = CodeBlock(config=_block_config(tmp_path, "scripts/script.py"))
+
+    with pytest.raises(CodeBlockExecutionError):
+        block.run({}, block.config)
+
+    assert block.last_exchange_manifest is not None
+    logs_dir = block.last_exchange_manifest.layout.logs_dir
+    assert "got here" in (logs_dir / "stdout.log").read_text(encoding="utf-8")
+
+
 # NOTE: ``test_codeblock_timeout_raises_structured_error`` removed — CodeBlock
 # no longer enforces a wall-clock timeout (``timeout_seconds`` is stripped in
 # ``_persisted_codeblock_config`` so the run always uses ``timeout=None``).

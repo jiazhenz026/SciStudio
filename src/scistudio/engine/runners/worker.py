@@ -26,6 +26,11 @@ Protocol:
     4. Import block class, instantiate, call block.run(inputs, config).
     5. Serialize outputs to wire format and write JSON result to stdout.
     6. On error: serialize traceback, return error payload, exit with code 1.
+
+Stdout is reserved for that JSON envelope, so :func:`main` claims a private
+duplicate of it and redirects the process's own fd 1 to stderr before running
+anything block-controlled (#1971). A block is free to ``print()``; its output
+joins the worker's stderr, which the engine forwards into the per-run log.
 """
 
 from __future__ import annotations
@@ -34,10 +39,11 @@ import importlib
 import importlib.util
 import json
 import logging
+import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 from scistudio.core.storage.errors import StorageReferenceInvalidError
@@ -49,6 +55,42 @@ logger = logging.getLogger(__name__)
 # Bump on a non-backward-compatible change to the engine<->worker JSON contract
 # and pair it with a migration/compat step; stamping is the cheap half done now.
 WIRE_FORMAT_VERSION = 1
+
+# #1971: the private duplicate of the real stdout the envelope is written to.
+# ``main`` installs it; helpers fall back to ``sys.__stdout__`` so a direct
+# in-process call (unit tests) still writes somewhere sensible.
+_ENVELOPE_STREAM: TextIO | None = None
+
+
+def _claim_result_channel() -> TextIO:
+    """Take stdout private for the envelope and point block output at stderr.
+
+    The engine parses this process's stdout as one JSON document
+    (``LocalRunner._spawn_worker``), so anything a block prints lands in front
+    of the envelope and fails the parse — a ``print()`` in ``run()`` used to
+    fail the whole run with ``Failed to parse worker output`` (#1971).
+
+    We duplicate fd 1 for our own use and then point fd 1 itself at fd 2, so
+    output escapes to stderr no matter which layer produced it: Python
+    ``print``, a C extension writing to fd 1, or a child process that inherited
+    it. ``sys.stdout`` is rebound as well so Python-level writes share stderr's
+    buffering instead of racing it. The engine already forwards worker stderr
+    into the per-run log, so block output becomes visible for free.
+    """
+    envelope_fd = os.dup(1)
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
+    return os.fdopen(envelope_fd, "w", encoding="utf-8")
+
+
+def _emit_envelope(payload: dict[str, Any]) -> None:
+    """Write one JSON envelope to the engine on the private result channel."""
+    stream = _ENVELOPE_STREAM if _ENVELOPE_STREAM is not None else sys.__stdout__
+    if stream is None:  # pragma: no cover - only when the process has no stdout at all
+        raise RuntimeError("worker has no stdout to write its result envelope to")
+    stream.write(json.dumps(payload))
+    stream.write("\n")
+    stream.flush()
 
 
 def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
@@ -121,13 +163,11 @@ def _emit_storage_error(
     block_id: str | None,
 ) -> None:
     port_name, upstream_block = _storage_error_context(inputs or {}, exc.ref)
-    print(
-        json.dumps(
-            exc.to_payload(
-                block_id=block_id,
-                port_name=port_name,
-                upstream_block=upstream_block,
-            )
+    _emit_envelope(
+        exc.to_payload(
+            block_id=block_id,
+            port_name=port_name,
+            upstream_block=upstream_block,
         )
     )
 
@@ -435,6 +475,13 @@ def main() -> None:
         7. Serialize outputs via the typed wire format.
         8. On exception: write {"error": traceback_str} to stdout, exit 1.
     """
+    global _ENVELOPE_STREAM
+
+    # #1971: claim the result channel before anything the block controls can
+    # run. Everything after this line — imports of block modules included —
+    # writes to stderr if it writes to "stdout" at all.
+    _ENVELOPE_STREAM = _claim_result_channel()
+
     payload: dict[str, Any] = {}
     inputs: dict[str, Any] = {}
     block_id: str | None = None
@@ -543,7 +590,7 @@ def main() -> None:
                 # replayed (skipping the dialog) on a subsequent run.
                 "input_signature": interactive_input_signature(inputs),
             }
-            print(json.dumps(prompt_envelope))
+            _emit_envelope(prompt_envelope)
             return
 
         # #1518 (DSN-2): enforce the documented Block.validate() contract on
@@ -578,7 +625,7 @@ def main() -> None:
                 "environment": env_snapshot.to_dict(),
                 "final_state": "cancelled",
             }
-            print(json.dumps(envelope))
+            _emit_envelope(envelope)
             return
 
         # #1330/#1811: enforce ADR-020 §3 transport contract — wrap bare
@@ -610,12 +657,12 @@ def main() -> None:
         result = serialise_outputs(outputs, output_dir) if isinstance(outputs, dict) else {"_result": str(outputs)}
 
         envelope = {"wire_version": WIRE_FORMAT_VERSION, "outputs": result, "environment": env_snapshot.to_dict()}
-        print(json.dumps(envelope))
+        _emit_envelope(envelope)
     except StorageReferenceInvalidError as exc:
         _emit_storage_error(exc, inputs=inputs, block_id=block_id)
         sys.exit(1)
     except Exception:
-        print(json.dumps({"error": traceback.format_exc()}))
+        _emit_envelope({"error": traceback.format_exc()})
         sys.exit(1)
 
 

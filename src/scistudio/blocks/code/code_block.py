@@ -19,6 +19,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import logging
 import subprocess
 import uuid
 from collections.abc import Mapping
@@ -94,6 +95,45 @@ from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
 from scistudio.stability import provisional
+
+logger = logging.getLogger(__name__)
+
+# #1972: file names for the script's captured output inside the per-run
+# exchange ``logs/`` folder, and how much of stderr is quoted back in the
+# failure message before the reader is pointed at the file.
+SCRIPT_STDOUT_LOG_NAME = "stdout.log"
+SCRIPT_STDERR_LOG_NAME = "stderr.log"
+_SCRIPT_ERROR_TAIL_CHARS = 4000
+
+
+def _write_script_logs(logs_dir: Path, *, stdout: str | None, stderr: str | None) -> None:
+    """Persist a script run's captured output into the exchange ``logs/`` folder.
+
+    Written on success as well as failure: a script that "succeeds wrongly"
+    needs its output just as much as one that crashes. Best-effort — a logging
+    failure never fails a run that otherwise worked.
+    """
+    try:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / SCRIPT_STDOUT_LOG_NAME).write_text(stdout or "", encoding="utf-8")
+        (logs_dir / SCRIPT_STDERR_LOG_NAME).write_text(stderr or "", encoding="utf-8")
+    except OSError:
+        logger.warning("Could not write CodeBlock script logs to %s", logs_dir, exc_info=True)
+
+
+def _script_error_tail(stderr: str | None) -> str:
+    """Return the tail of *stderr*, formatted for a failure message.
+
+    #1972: the exit status alone says nothing. The script's traceback — file,
+    line, exception type — is the one thing a reader needs, so it travels with
+    the error instead of waiting in a file nobody knows to open.
+    """
+    text = (stderr or "").strip()
+    if not text:
+        return ""
+    if len(text) > _SCRIPT_ERROR_TAIL_CHARS:
+        text = "...\n" + text[-_SCRIPT_ERROR_TAIL_CHARS:]
+    return f"\n--- script stderr ---\n{text}"
 
 
 @provisional(since="0.3.1")
@@ -391,11 +431,27 @@ class CodeBlock(Block):
         completed_at: str | None = None
 
         try:
-            completed = backend.run(runtime_context, resolved_interpreter)
+            try:
+                completed = backend.run(runtime_context, resolved_interpreter)
+            except CodeBlockTimeoutError as timeout_exc:
+                # #1972: a timed-out script produced output right up to the
+                # deadline, and that output is usually where the hang shows.
+                _write_script_logs(
+                    manifest.layout.logs_dir,
+                    stdout=timeout_exc.stdout,
+                    stderr=timeout_exc.stderr,
+                )
+                raise
             self.last_process = completed
+            _write_script_logs(
+                manifest.layout.logs_dir,
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+            )
             if completed.returncode != 0:
                 raise CodeBlockExecutionError(
-                    f"CodeBlock script exited with status {completed.returncode}.",
+                    f"CodeBlock script exited with status {completed.returncode}."
+                    f"{_script_error_tail(completed.stderr)}",
                     returncode=completed.returncode,
                     stdout=completed.stdout,
                     stderr=completed.stderr,

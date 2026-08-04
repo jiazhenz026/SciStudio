@@ -208,6 +208,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
         {/* Unified status surface — corner glyph, zero geometry impact. */}
         <NodeStatusSurface
           status={data.status}
+          runStartedAt={data.runStartedAt}
           problemSeverity={data.problemSeverity}
           errorSummary={data.errorSummary}
           errorMessage={data.errorMessage}

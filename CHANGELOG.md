@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#1974] Canvas block nodes now show how long a block has been running: a
+  compact elapsed-time counter appears beside the spinner on the node's status
+  surface the moment the block enters the running state, counts up (`7s`,
+  `1:05`, `1:04:09`), and disappears when the block finishes — no final duration
+  is left on the node and no previous run is shown. The start instant comes from
+  the engine's `block_running` event timestamp, which the execution store keeps
+  in a new `blockRunStartedAt` map (`nextBlockRunStarts` / `resolveRunStartedAt`)
+  for exactly as long as the block runs, so the counter is anchored to when the
+  block actually started rather than to when this client rendered the
+  transition, and it survives a node re-render or remount mid-run. The counter
+  is an absolutely-positioned overlay like the status badge itself: node width
+  and height are unchanged (ADR-050 FR-004/FR-011), and it is bound to the
+  spinner, so an error or warning surface that replaces the running glyph shows
+  no timer. Tests: `frontend/src/store/executionSlice.parts/eventReducer.test.ts`,
+  `frontend/src/components/nodes/__tests__/BlockNode/statusSurface.test.tsx`.
+  (@claude, 2026-07-29, branch: feature/1974-node-elapsed-timer)
+
 - [#1912] `edit_workflow` MCP tool — a surgical partial-edit path for existing
   workflow YAML. The agent previously had to re-emit a whole workflow through
   `write_workflow` (full-file replace) for any structural change, which dropped
@@ -47,6 +64,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/ai/test_mcp_tools_disk_integration.py` covers both branches of the tool
   (file path and inline YAML) with the working directory outside the project.
   (@claude, 2026-07-29, branch: guided/1969-mcp-validate-project-dir)
+- [#1971] A `print()` inside a block's `run()` no longer breaks the run. The
+  worker writes its JSON result envelope to stdout and the engine parses that
+  stream, so anything a block printed landed in front of the envelope and the
+  run failed with `Failed to parse worker output` — pointing at the transport
+  rather than at the print. The worker now claims a private duplicate of stdout
+  for the envelope and redirects its own fd 1 to stderr before running anything
+  block-controlled, which covers `print`, native extensions writing to fd 1, and
+  inherited child processes alike. Block output joins the worker stderr the
+  engine already forwards, so it lands in `run-<run_id>.log` as
+  `worker[<block_id>] ...`. Tests:
+  `tests/engine/test_worker.py::TestWorkerBlockOutputIsolation`.
+  (@claude, 2026-07-29, branch: guided/1971-block-log-observability)
+
+- [#1972] A failing CodeBlock script now reports its own error. The script's
+  captured stdout/stderr were attached to `CodeBlockExecutionError` and read by
+  nothing, so a `ZeroDivisionError` at a known file and line surfaced as
+  `CodeBlock script exited with status 1.` — the only string that reaches
+  `get_run_status().errors` and the GUI. The failure message now carries a tail
+  of the script's stderr, and both streams are persisted to the per-run exchange
+  `logs/` folder (allocated since ADR-041 and empty until now) on success as
+  well as failure. Tests: `tests/blocks/code/test_codeblock_execution.py`.
+  (@claude, 2026-07-29, branch: guided/1971-block-log-observability)
+
+- [#1973] `get_block_logs` returns logs instead of always raising. It read
+  `<project>/logs/<run_id>/<block_id>.stdout`, a layout no code has ever
+  written, so every call raised `KeyError` — while the debug skill instructs the
+  agent to call it for any failed block. Its test wrote the files itself, which
+  is why CI stayed green. It now reads the real artifacts: a Code Block's
+  per-run script logs, or the per-run engine log filtered to the block, with a
+  new `source` field naming which one answered. `run_log_path` is exported from
+  `scistudio.engine.run_logging` so reader and writer share one naming rule.
+  Tests: `tests/ai/test_mcp_tools_inspection.py` now runs a real block and reads
+  its logs back. Docs: the `scistudio-debug-run` skill and
+  `docs/specs/alpha-observability-logging.md` (FR-016 to FR-018).
+  (@claude, 2026-07-29, branch: guided/1971-block-log-observability)
 
 - [#1967] CodeBlock: a project-relative `script_path` no longer fails workflow
   validation at run start. The persisted graph carries no project root — the

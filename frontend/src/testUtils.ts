@@ -17,6 +17,7 @@ export function resetAppStore() {
     workflowHistory: [],
     workflowFuture: [],
     blockStates: {},
+    blockRunStartedAt: {},
     blockOutputs: {},
     executionMessages: [],
     logEntries: [],

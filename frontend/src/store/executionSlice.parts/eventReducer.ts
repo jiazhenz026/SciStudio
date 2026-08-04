@@ -67,6 +67,50 @@ export function nextBlockStates(
   };
 }
 
+/**
+ * Resolve the instant a block entered the running state (#1974).
+ *
+ * The engine stamps every event with its own clock (`EngineEvent.timestamp`,
+ * serialised by `api/ws.py`), so the backend stays the source of runtime truth
+ * and the node's elapsed counter is anchored to when the block ACTUALLY
+ * started, not to when this client happened to render the transition.
+ *
+ * Falls back to the client's receive time when the payload carries no parsable
+ * timestamp, or when the engine clock reads ahead of this client's (a remote
+ * engine with skewed clocks would otherwise produce a negative elapsed time).
+ */
+export function resolveRunStartedAt(rawTimestamp: string | undefined, now: number): number {
+  if (!rawTimestamp) return now;
+  const parsed = Date.parse(rawTimestamp);
+  if (Number.isNaN(parsed) || parsed > now) return now;
+  return parsed;
+}
+
+/**
+ * Track the start instant of the CURRENT run of each block (#1974).
+ *
+ * The map holds an entry only while a block is running: `block_running` stamps
+ * it, and any later event for that block (done / error / cancelled / skipped /
+ * paused / ready / interactive prompt) drops it. That keeps the entry in
+ * lockstep with `nextBlockStates` — an entry exists exactly while the node's
+ * status surface shows the running spinner — so no final duration and no run
+ * history survive on the node.
+ */
+export function nextBlockRunStarts(
+  event: ExecutionEvent,
+  current: Record<string, number>,
+  now: number = Date.now(),
+): Record<string, number> {
+  if (!event.block_id) return current;
+  if (event.type === "block_running") {
+    return { ...current, [event.block_id]: resolveRunStartedAt(event.timestamp, now) };
+  }
+  if (!(event.block_id in current)) return current;
+  const next = { ...current };
+  delete next[event.block_id];
+  return next;
+}
+
 /** Merge an outputs payload into the existing per-block outputs map. */
 export function nextBlockOutputs(
   event: ExecutionEvent,

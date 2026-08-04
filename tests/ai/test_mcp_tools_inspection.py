@@ -316,12 +316,60 @@ def test_get_block_logs_no_logs_raises(ctx: _StubRuntime, tmp_path: Path) -> Non
         _run(tools_inspection.get_block_logs(run_id="run-x", block_id="block-y"))
 
 
-def test_get_block_logs_happy(ctx: _StubRuntime, tmp_path: Path) -> None:
-    logs = tmp_path / "logs" / "run-1"
-    logs.mkdir(parents=True)
-    (logs / "b1.stdout").write_text("hello\n", encoding="utf-8")
-    (logs / "b1.stderr").write_text("warn\n", encoding="utf-8")
-    out = _run(tools_inspection.get_block_logs(run_id="run-1", block_id="b1"))
-    # out is a GetBlockLogsResult Pydantic model.
-    assert "hello" in out.stdout
-    assert "warn" in out.stderr
+def test_get_block_logs_reads_what_a_code_block_actually_wrote(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#1973: producer and reader must agree.
+
+    The previous version of this test wrote ``<project>/logs/<run>/<block>.stdout``
+    itself — a layout nothing in the runtime has ever produced — so the tool
+    passed here while raising ``KeyError`` on every real call. This runs a real
+    Code Block and reads its logs back through the tool.
+    """
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.blocks.code.code_block import CodeBlock
+
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "chatty.py").write_text(
+        "import sys\nprint('rows: 12')\nprint('a warning', file=sys.stderr)\n",
+        encoding="utf-8",
+    )
+    config = BlockConfig(
+        params={"script_path": "scripts/chatty.py", "project_dir": str(tmp_path)},
+        block_id="code_block-1",
+        workflow_id="main",
+    )
+    CodeBlock().run({}, config)
+
+    run_id = next((tmp_path / "exchange" / "codeblock-code_block-1").iterdir()).name
+    out = _run(tools_inspection.get_block_logs(run_id=run_id, block_id="code_block-1"))
+
+    assert out.source == "codeblock_exchange"
+    assert "rows: 12" in out.stdout
+    assert "a warning" in out.stderr
+
+
+def test_get_block_logs_falls_back_to_the_per_run_engine_log(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """A non-Code block's output reaches the reader through the run log."""
+    import logging
+
+    from scistudio.engine.run_logging import run_log_context
+
+    with run_log_context("run-77", project_root=tmp_path):
+        logging.getLogger("scistudio.test").warning("worker[%s] %s", "segment-1", "loaded 12 rows")
+
+    out = _run(tools_inspection.get_block_logs(run_id="run-77", block_id="segment-1"))
+
+    assert out.source == "run_log"
+    assert "loaded 12 rows" in out.stderr
+
+
+def test_get_block_logs_unknown_block_in_a_real_run_raises(ctx: _StubRuntime, tmp_path: Path) -> None:
+    import logging
+
+    from scistudio.engine.run_logging import run_log_context
+
+    with run_log_context("run-78", project_root=tmp_path):
+        logging.getLogger("scistudio.test").warning("worker[%s] %s", "segment-1", "hello")
+
+    with pytest.raises(KeyError, match="no log lines for block"):
+        _run(tools_inspection.get_block_logs(run_id="run-78", block_id="not-a-block"))

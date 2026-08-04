@@ -67,6 +67,12 @@ export interface UseFlowNodesOpts {
   blocks: BlockSummary[];
   schemas: Record<string, BlockSchemaResponse>;
   blockStates: Record<string, string>;
+  /**
+   * #1974 — epoch-ms start instant of each block's CURRENT run, keyed like
+   * `blockStates`. Present only while the block runs; drives the node's
+   * transient elapsed-time counter. OPTIONAL so existing call sites compile.
+   */
+  blockRunStartedAt?: Record<string, number>;
   blockErrors: Record<string, string>;
   blockErrorSummaries: Record<string, string>;
   selectedNodeId: string | null;
@@ -112,6 +118,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     blocks,
     schemas,
     blockStates,
+    blockRunStartedAt,
     blockErrors,
     blockErrorSummaries,
     selectedNodeId,
@@ -191,6 +198,9 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         // ADR-044 — in an expanded child canvas the run keys carry the parent
         // prefix; runScopePrefix is "" for a top-level workflow.
         status: blockStates[`${runScopePrefix}${node.id}`] ?? "idle",
+        // #1974 — set only while this block is running; the node clears its
+        // elapsed counter as soon as the entry disappears.
+        runStartedAt: blockRunStartedAt?.[`${runScopePrefix}${node.id}`],
         errorMessage: blockErrors[`${runScopePrefix}${node.id}`],
         errorSummary: blockErrorSummaries[`${runScopePrefix}${node.id}`],
         label: resolveLabel(node, summary, schema),
@@ -212,6 +222,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
   }, [
     blocks,
     blockStates,
+    blockRunStartedAt,
     blockErrors,
     blockErrorSummaries,
     blockOutputs,
