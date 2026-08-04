@@ -352,6 +352,78 @@ class TestWorkerFinalState:
         assert "final_state" not in parsed
 
 
+class _PrintingStubBlock:
+    """Block that debug-prints from ``run()``, the way a block author would.
+
+    #1971: stdout is the engine's result channel, so an unguarded ``print``
+    used to land in front of the JSON envelope and fail the whole run.
+    """
+
+    def __init__(self, config: object = None) -> None:
+        pass
+
+    def run(self, inputs: dict, config: object) -> dict:
+        import sys
+
+        print("loaded 12 rows")
+        print("about to finish", file=sys.stderr)
+        return {"result": "ok"}
+
+
+class TestWorkerBlockOutputIsolation:
+    """#1971: a block may print; the envelope stays parseable."""
+
+    def _run_worker(self, block_class_path: str) -> tuple[str, str]:
+        """Return ``(stdout, stderr)`` from a real worker subprocess."""
+        import json
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        payload = json.dumps(
+            {
+                "block_class": block_class_path,
+                "inputs": {},
+                "config": {},
+                "output_dir": "",
+            }
+        )
+        env = os.environ.copy()
+        repo_src = Path(__file__).resolve().parents[2] / "src"
+        if repo_src.is_dir():
+            env["PYTHONPATH"] = str(repo_src) + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        return result.stdout, result.stderr
+
+    def test_printing_block_still_produces_a_parseable_envelope(self) -> None:
+        import json
+
+        stdout, _stderr = self._run_worker("tests.engine.test_worker._PrintingStubBlock")
+        parsed = dict(json.loads(stdout))
+        assert "error" not in parsed, parsed
+        assert parsed["outputs"] == {"result": "ok"}
+
+    def test_block_stdout_is_diverted_to_stderr(self) -> None:
+        """The print is not lost — it joins the stream the engine forwards.
+
+        ``LocalRunner._spawn_worker`` logs every worker stderr line as
+        ``worker[<block_id>] ...``, which is what lands in ``run-<run_id>.log``.
+        """
+        stdout, stderr = self._run_worker("tests.engine.test_worker._PrintingStubBlock")
+        assert "loaded 12 rows" not in stdout, "block output must not pollute the result channel"
+        assert "loaded 12 rows" in stderr
+        # A block writing to stderr directly keeps working as before.
+        assert "about to finish" in stderr
+
+
 class TestWorkerStorageErrors:
     def test_missing_storage_ref_emits_structured_payload(self, tmp_path: Path) -> None:
         import json

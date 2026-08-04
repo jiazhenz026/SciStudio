@@ -42,6 +42,15 @@ class _RunFilter(logging.Filter):
         return current == self._run_id
 
 
+def run_log_path(run_id: object, *, project_root: str | Path | None = None) -> Path:
+    """Return the per-run log file for *run_id* (whether or not it exists yet).
+
+    #1973: readers need the same answer the writer uses, so the naming rule
+    lives here rather than being restated at every call site.
+    """
+    return resolve_log_dir(project_root=project_root) / f"run-{_safe_run_id(run_id)}.log"
+
+
 def attach_run_logger(
     run_id: object,
     *,
@@ -50,9 +59,8 @@ def attach_run_logger(
 ) -> logging.Handler | None:
     """Install a per-run file handler on the root logger; return it (or None)."""
     try:
-        log_dir = resolve_log_dir(project_root=project_root)
-        log_dir.mkdir(parents=True, exist_ok=True)
-        path = log_dir / f"run-{_safe_run_id(run_id)}.log"
+        path = run_log_path(run_id, project_root=project_root)
+        path.parent.mkdir(parents=True, exist_ok=True)
         handler = logging.FileHandler(path, encoding="utf-8")
         handler.setLevel(level)
         handler.setFormatter(HumanFormatter())
@@ -99,4 +107,4 @@ def run_log_context(
         run_id_var.reset(token)
 
 
-__all__ = ["attach_run_logger", "detach_run_logger", "run_log_context"]
+__all__ = ["attach_run_logger", "detach_run_logger", "run_log_context", "run_log_path"]

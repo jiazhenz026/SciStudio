@@ -102,6 +102,14 @@ class GetBlockLogsResult(BaseModel):
     truncated: bool = Field(description="True if either stream was truncated.")
     started_at: str = Field(default="", description="ISO timestamp when the block started.")
     finished_at: str | None = Field(default=None, description="ISO timestamp when the block finished.")
+    source: str = Field(
+        default="",
+        description=(
+            "Which artifact was read: 'codeblock_exchange' for a Code Block's per-run "
+            "script logs (a true stdout/stderr split), or 'run_log' for the per-run "
+            "engine log filtered to this block (delivered in stderr)."
+        ),
+    )
 
 
 __all__ = [

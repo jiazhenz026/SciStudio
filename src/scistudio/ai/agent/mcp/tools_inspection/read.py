@@ -346,21 +346,55 @@ async def get_block_config(
 # ---------------------------------------------------------------------------
 
 
+def _read_tail(path: Path) -> str:
+    """Return the last ``_BLOCK_LOG_TRUNCATE_BYTES`` of *path* as text."""
+    if not path.exists():
+        return ""
+    size = path.stat().st_size
+    if size <= _BLOCK_LOG_TRUNCATE_BYTES:
+        return path.read_text(encoding="utf-8", errors="replace")
+    with path.open("rb") as fh:
+        fh.seek(size - _BLOCK_LOG_TRUNCATE_BYTES)
+        tail = fh.read()
+    return "...\n" + tail.decode("utf-8", errors="replace")
+
+
+def _codeblock_script_logs(project_dir: Path, run_id: str, block_id: str) -> Path | None:
+    """Locate a Code Block's per-run script log folder, if this block is one.
+
+    The exchange layout is ``<exchange_root>/<slug>-<block_id>/<run_id>/logs``
+    (``scistudio.blocks.code.exchange``). ``exchange_root`` defaults to
+    ``<project>/exchange`` and is per-block configurable, so we match any root
+    one level under the project rather than reading every block's config back.
+    """
+    from scistudio.blocks.code.exchange import safe_exchange_name
+
+    safe_block = safe_exchange_name(block_id, fallback="block")
+    safe_run = safe_exchange_name(run_id, fallback="run")
+    for candidate in project_dir.glob(f"*/*-{safe_block}/{safe_run}/logs"):
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 @mcp.tool(name="get_block_logs", tags={"category:inspection", "read"})
 async def get_block_logs(
     run_id: str = Field(description="Run identifier from run_workflow."),
     block_id: str = Field(description="Block id within the workflow."),
 ) -> GetBlockLogsResult:
-    """Return captured stdout/stderr from a block's execution.
+    """Return captured output from a block's execution.
 
     Use when:
       - A run has failed and the ``errors`` list in ``get_run_status``
         is not enough — you need the block's print/log output.
       - You're diagnosing slow blocks via their stderr.
 
-    Do NOT use to:
-      - Get tracebacks — ``get_run_status`` carries the full traceback
-        in its ``errors`` list.
+    Two artifacts back this, and ``source`` says which one you got. A Code
+    Block's script output is captured per run under the exchange folder and
+    comes back as a true stdout/stderr split (``codeblock_exchange``). Every
+    other block writes into the per-run engine log, which is filtered to this
+    block and returned in ``stderr`` (``run_log``) — the engine routes block
+    output there, so there is no separate stdout stream to report.
 
     Tails are truncated to 16 KiB per stream to keep MCP frames small.
     """
@@ -369,34 +403,45 @@ async def get_block_logs(
     if project_dir is None:
         raise RuntimeError("No project is currently open")
 
-    log_root = project_dir / "logs" / run_id
-    stdout_path = log_root / f"{block_id}.stdout"
-    stderr_path = log_root / f"{block_id}.stderr"
-    if not log_root.exists():
-        raise KeyError(f"No log directory for run '{run_id}'")
+    script_logs = _codeblock_script_logs(project_dir, run_id, block_id)
+    if script_logs is not None:
+        from scistudio.blocks.code.code_block import (
+            SCRIPT_STDERR_LOG_NAME,
+            SCRIPT_STDOUT_LOG_NAME,
+        )
 
-    def _read_tail(p: Path) -> str:
-        if not p.exists():
-            return ""
-        size = p.stat().st_size
-        if size <= _BLOCK_LOG_TRUNCATE_BYTES:
-            return p.read_text(encoding="utf-8", errors="replace")
-        with p.open("rb") as fh:
-            fh.seek(size - _BLOCK_LOG_TRUNCATE_BYTES)
-            tail = fh.read()
-        return "...\n" + tail.decode("utf-8", errors="replace")
+        stdout_path = script_logs / SCRIPT_STDOUT_LOG_NAME
+        stderr_path = script_logs / SCRIPT_STDERR_LOG_NAME
+        truncated = any(
+            path.exists() and path.stat().st_size > _BLOCK_LOG_TRUNCATE_BYTES for path in (stdout_path, stderr_path)
+        )
+        return GetBlockLogsResult(
+            stdout=_read_tail(stdout_path),
+            stderr=_read_tail(stderr_path),
+            truncated=truncated,
+            source="codeblock_exchange",
+        )
 
-    truncated = (stdout_path.exists() and stdout_path.stat().st_size > _BLOCK_LOG_TRUNCATE_BYTES) or (
-        stderr_path.exists() and stderr_path.stat().st_size > _BLOCK_LOG_TRUNCATE_BYTES
-    )
+    from scistudio.engine.run_logging import run_log_path
 
-    return GetBlockLogsResult(
-        stdout=_read_tail(stdout_path),
-        stderr=_read_tail(stderr_path),
-        truncated=truncated,
-        started_at="",
-        finished_at=None,
-    )
+    log_path = run_log_path(run_id, project_root=project_dir)
+    if not log_path.exists():
+        raise KeyError(
+            f"No log found for run '{run_id}'. The run log is written while the run "
+            f"executes; check the run id from run_workflow, or use get_run_status "
+            f"for the failure itself."
+        )
+
+    lines = [line for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines() if block_id in line]
+    if not lines:
+        raise KeyError(f"Run '{run_id}' has no log lines for block '{block_id}'")
+
+    text = "\n".join(lines)
+    truncated = len(text.encode("utf-8")) > _BLOCK_LOG_TRUNCATE_BYTES
+    if truncated:
+        text = "...\n" + text.encode("utf-8")[-_BLOCK_LOG_TRUNCATE_BYTES:].decode("utf-8", errors="replace")
+
+    return GetBlockLogsResult(stdout="", stderr=text, truncated=truncated, source="run_log")
 
 
 __all__ = [
