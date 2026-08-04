@@ -227,6 +227,14 @@ export interface InteractivePrompt {
 
 export interface ExecutionSlice {
   blockStates: Record<string, string>;
+  /**
+   * #1974 — epoch-ms instant at which each block entered the running state,
+   * taken from the `block_running` event's engine timestamp. An entry exists
+   * ONLY while the block is running (any later event for that block drops it),
+   * so the node's elapsed counter vanishes when the run ends and no previous
+   * run's duration is retained.
+   */
+  blockRunStartedAt: Record<string, number>;
   blockOutputs: Record<string, Record<string, unknown>>;
   blockErrors: Record<string, string>;
   blockErrorSummaries: Record<string, string>;

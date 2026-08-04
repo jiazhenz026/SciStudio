@@ -30,6 +30,14 @@ export interface BlockNodeData extends Record<string, unknown> {
   inputPorts: BlockPortResponse[];
   outputPorts: BlockPortResponse[];
   status?: string;
+  /**
+   * #1974 — epoch-ms instant at which this block entered the running state,
+   * sourced from the `block_running` engine event. Set ONLY while the block is
+   * running; `NodeStatusSurface` renders a transient elapsed-time counter
+   * beside the running spinner and drops it as soon as this is undefined.
+   * Never persisted, never a final duration, never a run history.
+   */
+  runStartedAt?: number;
   /** Short error message populated when status is 'error'. Sourced from the
    *  BLOCK_ERROR WebSocket event's \`data.error\` field. Surfaced ONLY through
    *  the unified `NodeStatusSurface` (ADR-050 §2.5); never rendered as inline

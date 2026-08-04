@@ -9,7 +9,7 @@
 //     Config).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { NodeStatusSurface } from "../../BlockNode.parts/NodeStatusSurface";
 import { openNativeDialogMock, renderNode } from "./test-utils";
@@ -137,6 +137,106 @@ describe("NodeStatusSurface — activation (FR-012 / FR-013)", () => {
     expect(button.getAttribute("title")).toBe("Division by zero");
     // The detail text is not present as a standalone text node.
     expect(screen.queryByText("Division by zero")).toBeNull();
+  });
+});
+
+// #1974 — transient elapsed-time counter beside the running spinner. It is
+// owner-decided that the counter exists ONLY while the block runs: no final
+// duration is left on the node and no previous run is shown.
+describe("NodeStatusSurface — running elapsed counter (#1974)", () => {
+  const START = Date.parse("2026-05-22T00:00:00Z");
+
+  function withFakeClock(elapsedMs: number, body: () => void) {
+    vi.useFakeTimers();
+    vi.setSystemTime(START + elapsedMs);
+    try {
+      body();
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("shows an elapsed counter next to the spinner while the block is running", () => {
+    withFakeClock(7_000, () => {
+      render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("7s");
+    });
+  });
+
+  it("counts up once a second while running", () => {
+    withFakeClock(0, () => {
+      render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("0s");
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("3s");
+    });
+  });
+
+  it("switches to m:ss and h:mm:ss as the run gets longer", () => {
+    withFakeClock(65_000, () => {
+      const { unmount } = render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("1:05");
+      unmount();
+    });
+    withFakeClock(3_849_000, () => {
+      render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("1:04:09");
+    });
+  });
+
+  it("removes the counter when the block finishes, leaving no final duration", () => {
+    withFakeClock(9_000, () => {
+      const { rerender } = render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      expect(screen.getByTestId("node-status-elapsed")).toBeInTheDocument();
+      // The store drops `runStartedAt` with the running state (see
+      // `nextBlockRunStarts`), so the done node carries no timer at all.
+      rerender(<NodeStatusSurface status="done" />);
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+      expect(screen.getByTestId("node-status-surface").getAttribute("data-icon")).toBe("check");
+    });
+  });
+
+  it("shows no counter for non-running states or when no start time is known", () => {
+    withFakeClock(5_000, () => {
+      const { unmount } = render(<NodeStatusSurface status="idle" runStartedAt={START} />);
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+      unmount();
+      render(<NodeStatusSurface status="running" />);
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+    });
+  });
+
+  it("shows no counter when an error or warning replaces the running glyph", () => {
+    withFakeClock(5_000, () => {
+      const { unmount } = render(
+        <NodeStatusSurface status="running" problemSeverity="error" runStartedAt={START} />,
+      );
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+      unmount();
+      render(<NodeStatusSurface status="running" problemSeverity="warning" runStartedAt={START} />);
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+    });
+  });
+
+  it("renders the counter as a zero-geometry overlay, not a body text row", () => {
+    withFakeClock(2_000, () => {
+      render(<NodeStatusSurface status="running" runStartedAt={START} />);
+      const pill = screen.getByTestId("node-status-elapsed");
+      expect(pill.className).toContain("absolute");
+      expect(pill.className).toContain("pointer-events-none");
+    });
+  });
+
+  it("renders the counter on a running BlockNode and drops it when done", () => {
+    withFakeClock(4_000, () => {
+      const { unmount } = renderNode({ status: "running", runStartedAt: START });
+      expect(screen.getByTestId("node-status-elapsed").textContent).toBe("4s");
+      unmount();
+      renderNode({ status: "done" });
+      expect(screen.queryByTestId("node-status-elapsed")).toBeNull();
+    });
   });
 });
 

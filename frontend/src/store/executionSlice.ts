@@ -5,6 +5,7 @@ import {
   extractBlockError,
   maybeAppendErrorLog,
   nextBlockOutputs,
+  nextBlockRunStarts,
   nextBlockStates,
   nextErrorMaps,
   nextIsRunning,
@@ -12,6 +13,7 @@ import {
 
 export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice> = (set) => ({
   blockStates: {},
+  blockRunStartedAt: {},
   blockOutputs: {},
   blockErrors: {},
   blockErrorSummaries: {},
@@ -39,6 +41,7 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
 
       return {
         blockStates: nextBlockStates(event, state.blockStates),
+        blockRunStartedAt: nextBlockRunStarts(event, state.blockRunStartedAt),
         blockOutputs: nextBlockOutputs(event, state.blockOutputs),
         blockErrors: nextErrors,
         blockErrorSummaries: nextSummaries,
@@ -66,6 +69,7 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
   resetExecution: () =>
     set({
       blockStates: {},
+      blockRunStartedAt: {},
       blockOutputs: {},
       blockErrors: {},
       blockErrorSummaries: {},

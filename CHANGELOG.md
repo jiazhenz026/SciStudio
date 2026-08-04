@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#1974] Canvas block nodes now show how long a block has been running: a
+  compact elapsed-time counter appears beside the spinner on the node's status
+  surface the moment the block enters the running state, counts up (`7s`,
+  `1:05`, `1:04:09`), and disappears when the block finishes — no final duration
+  is left on the node and no previous run is shown. The start instant comes from
+  the engine's `block_running` event timestamp, which the execution store keeps
+  in a new `blockRunStartedAt` map (`nextBlockRunStarts` / `resolveRunStartedAt`)
+  for exactly as long as the block runs, so the counter is anchored to when the
+  block actually started rather than to when this client rendered the
+  transition, and it survives a node re-render or remount mid-run. The counter
+  is an absolutely-positioned overlay like the status badge itself: node width
+  and height are unchanged (ADR-050 FR-004/FR-011), and it is bound to the
+  spinner, so an error or warning surface that replaces the running glyph shows
+  no timer. Tests: `frontend/src/store/executionSlice.parts/eventReducer.test.ts`,
+  `frontend/src/components/nodes/__tests__/BlockNode/statusSurface.test.tsx`.
+  (@claude, 2026-07-29, branch: feature/1974-node-elapsed-timer)
+
 - [#1912] `edit_workflow` MCP tool — a surgical partial-edit path for existing
   workflow YAML. The agent previously had to re-emit a whole workflow through
   `write_workflow` (full-file replace) for any structural change, which dropped
