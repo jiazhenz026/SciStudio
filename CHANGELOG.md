@@ -122,6 +122,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/blocks/test_block_config_schema.py`. (@claude, 2026-07-29, branch:
   guided/1967-codeblock-script-path)
 
+- [#1980] `Block.persist_array` now requests zarr auto-chunking with
+  `chunks=None` instead of `chunks=True`, restoring the CI `Test (Python 3.13)`
+  job. zarr accepted `True` up to 3.1 and rejects it from 3.2 on
+  (`ValueError: True is not a valid chunk input`); because zarr 3.2 also raised
+  its floor to Python 3.12, the 3.11 matrix leg stayed pinned to zarr 3.1.6 and
+  kept passing while every 3.13 run — on `main` and on every open PR — failed
+  `tests/blocks/io/test_load_data_capabilities.py::TestBackwardCompatLoadRoundtrip::test_array_npy_load_round_trip`.
+  `None` is the one auto-chunk input valid across the supported zarr range
+  (`zarr>=3.0`); both versions route it to the same `guess_chunks()` heuristic,
+  so the chunk grid, streaming-write path, and existing `.zarr` artifacts are
+  unchanged. The `"auto"` spelling suggested by zarr 3.3's own error message
+  does not work through `open_array` on either version. Tests:
+  `tests/blocks/test_block_base.py` (`TestPersistArrayChunking`).
+  (@claude, 2026-08-05, branch: guided/1980-zarr-auto-chunks)
 - [#1946] Embedded PTY terminal (AI Chat / Terminal) now reflows correctly when
   a panel is resized under Claude Code's fullscreen (alternate-screen) mode.
   Previously the agent stayed stuck at its spawn-time size and rendered ghosted
