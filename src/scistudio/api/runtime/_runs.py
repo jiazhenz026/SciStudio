@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import os
 from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -239,6 +240,90 @@ def _finalize_lineage_run(
         scheduler.dispose()
     except Exception:
         logger.debug("#1517: scheduler dispose failed", exc_info=True)
+    if status == "completed":
+        try:
+            _schedule_artifact_retention(self)
+        except Exception:
+            # A done-callback that raises is logged by asyncio and can mask the
+            # run's own teardown; retention is never worth that.
+            logger.debug("#1983: artifact retention could not start", exc_info=True)
+
+
+# Set to ``0``/``false``/``off`` to keep every run's artifacts on disk. The
+# manual ``scistudio storage gc`` command still works when retention is off.
+_RETENTION_ENV_VAR = "SCISTUDIO_ARTIFACT_RETENTION"
+_RETENTION_OFF_VALUES = {"0", "false", "off", "no"}
+
+# Strong references to in-flight sweep tasks; see _schedule_artifact_retention.
+_RETENTION_TASKS: set[asyncio.Task[None]] = set()
+
+
+def _artifact_retention_enabled() -> bool:
+    """Whether a successful run should reclaim superseded artifacts."""
+    raw = os.environ.get(_RETENTION_ENV_VAR)
+    return raw is None or raw.strip().lower() not in _RETENTION_OFF_VALUES
+
+
+def _reclaim_artifacts_blocking(project_dir: str) -> None:
+    """Run one retention sweep. Executed off the event loop."""
+    from scistudio.core.lineage.retention import apply_retention, plan_retention
+    from scistudio.core.lineage.store import LineageStore
+
+    store = LineageStore(str(Path(project_dir) / ".scistudio" / "lineage.db"))
+    try:
+        plan = plan_retention(store, project_dir)
+        if plan.is_blocked:
+            logger.debug("#1983: artifact retention skipped — %s", plan.blocked_reason)
+            return
+        if not plan.candidates:
+            return
+        removed, freed = apply_retention(plan)
+        logger.info(
+            "#1983: artifact retention reclaimed %d artifacts (%.2f GB) after a successful run",
+            removed,
+            freed / 1e9,
+        )
+    finally:
+        store.close()
+
+
+def _schedule_artifact_retention(self: ApiRuntime) -> None:
+    """Reclaim superseded artifacts after a successful run (#1983).
+
+    Nothing removed artifacts before this hook, so ``data/zarr`` grew without
+    bound — a real project reached 16 GB of intermediates from 634 MB of source
+    images. A successful run is exactly the moment the retention rule ("keep
+    the most recent successful run per workflow") has a new run to keep, which
+    makes it the natural trigger; a scientist should not have to remember to
+    run a cleanup command.
+
+    The sweep runs in a worker thread because deleting thousands of chunked
+    zarr stores is filesystem-bound and must not block the event loop.
+    :func:`~scistudio.core.lineage.retention.plan_retention` refuses to sweep
+    while any run is still executing, so a concurrent run is safe.
+    """
+    if not _artifact_retention_enabled():
+        return
+    project = getattr(self, "active_project", None)
+    if project is None:
+        return
+    project_dir = str(project.path)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop (synchronous caller / test harness): sweep inline.
+        _reclaim_artifacts_blocking(project_dir)
+        return
+    try:
+        task = loop.create_task(asyncio.to_thread(_reclaim_artifacts_blocking, project_dir))
+    except Exception:
+        logger.debug("#1983: artifact retention could not be scheduled", exc_info=True)
+        return
+    # The event loop holds only a weak reference to a task, so an unreferenced
+    # sweep can be garbage-collected mid-flight and silently reclaim nothing
+    # (RUF006). Hold it until it completes.
+    _RETENTION_TASKS.add(task)
+    task.add_done_callback(_RETENTION_TASKS.discard)
 
 
 def start_workflow(

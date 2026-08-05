@@ -17,9 +17,11 @@ app = typer.Typer(name="scistudio", help="SciStudio -- AI-native scientific work
 # See PR #794 for original integration context.
 from scistudio.cli import install as _install_cli  # noqa: E402
 from scistudio.cli import mcp_bridge as _mcp_bridge_cli  # noqa: E402
+from scistudio.cli import storage as _storage_cli  # noqa: E402
 
 _install_cli.register(app)
 _mcp_bridge_cli.register(app)
+_storage_cli.register(app)
 
 
 def _version_callback(value: bool) -> None:

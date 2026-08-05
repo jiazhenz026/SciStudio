@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.server import mcp
+from scistudio.core.lineage.store import artifact_size_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -324,11 +325,14 @@ async def list_data(
                 stat = entry.stat()
             except OSError:
                 continue
+            # #1983: zarr/parquet datasets are directories, and reporting the
+            # directory inode size (64-128 bytes) made a 16 GB artifact tree
+            # read as ~0 bytes here. Report the recursive total instead.
             out[kind].append(
                 DataAssetEntry(
                     name=entry.name,
                     path=str(entry),
-                    size_bytes=stat.st_size if entry.is_file() else 0,
+                    size_bytes=artifact_size_bytes(str(entry)) or 0,
                     modified_at=stat.st_mtime,
                     is_directory=entry.is_dir(),
                 )

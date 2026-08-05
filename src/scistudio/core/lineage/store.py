@@ -33,7 +33,7 @@ import contextlib
 import json
 import logging
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -69,11 +69,14 @@ def hash_artifact_file(storage_path: str | None) -> str | None:
     does not exist), or cannot be read — lineage hashing is best-effort and
     must never break a workflow. Directory-backed backends are intentionally
     not walked here; their integrity check is deferred (see TODO below).
+    :func:`artifact_size_bytes` *does* handle directories, so #1983's retention
+    accounting works for zarr stores even while their digest stays ``None``.
 
-    TODO(#1517): hash directory-backed artifacts (zarr / parquet datasets)
-      by digesting their constituent files. Out of scope for #1529, which
-      targets single-file intermediates.
-      Followup: https://github.com/zjzcpj/SciStudio/issues/1517.
+    TODO(#1984): hash directory-backed artifacts (zarr / parquet datasets)
+      by digesting their constituent files. Out of scope for #1529 (which
+      targeted single-file intermediates) and for #1983 (which needs sizes,
+      not digests).
+      Followup: https://github.com/jiazhenz026/SciStudio/issues/1984.
     """
     if not storage_path:
         return None
@@ -90,6 +93,49 @@ def hash_artifact_file(storage_path: str | None) -> str | None:
         return hasher.hexdigest()
     except Exception:
         logger.debug("lineage: content hash failed for %s", storage_path, exc_info=True)
+        return None
+
+
+def artifact_size_bytes(storage_path: str | None) -> int | None:
+    """Return the on-disk size of the artifact at *storage_path*, or ``None``.
+
+    #1983: the dominant artifact backend (zarr) stores each array as a
+    *directory* of chunk files, so a bare ``Path.stat().st_size`` reports the
+    directory inode size (typically 64 to 128 bytes) rather than the payload.
+    Retention accounting and any "how much disk is this project using" surface
+    need the recursive total, so directories are walked and their file sizes
+    summed.
+
+    Returns ``None`` (rather than raising) when *storage_path* is falsy, does
+    not exist, or cannot be read — lineage accounting is best-effort and must
+    never break a workflow.
+
+    Args:
+        storage_path: Path to a file-backed or directory-backed artifact.
+
+    Returns:
+        Total bytes, or ``None`` when the size cannot be determined.
+    """
+    if not storage_path:
+        return None
+    path = Path(storage_path)
+    try:
+        if path.is_file():
+            return path.stat().st_size
+        if not path.is_dir():
+            return None
+        total = 0
+        for entry in path.rglob("*"):
+            try:
+                if entry.is_file():
+                    total += entry.stat().st_size
+            except OSError:
+                # A chunk file vanishing mid-walk (concurrent GC, or a store
+                # still being written) must not fail the whole measurement.
+                continue
+        return total
+    except Exception:
+        logger.debug("lineage: size measurement failed for %s", storage_path, exc_info=True)
         return None
 
 
@@ -624,14 +670,16 @@ class LineageStore:
         if row.storage_path:
             path = Path(row.storage_path)
             try:
-                if path.is_file():
-                    if content_hash is None:
-                        content_hash = hash_artifact_file(row.storage_path)
-                    stat = path.stat()
+                if path.is_file() and content_hash is None:
+                    content_hash = hash_artifact_file(row.storage_path)
+                # #1983: size/mtime are recorded for directory-backed stores
+                # (zarr) as well, not only regular files. Hashing still skips
+                # directories — see TODO(#1984) on ``hash_artifact_file``.
+                if path.exists():
                     if size_bytes is None:
-                        size_bytes = stat.st_size
+                        size_bytes = artifact_size_bytes(row.storage_path)
                     if mtime_at_write is None:
-                        mtime_at_write = str(stat.st_mtime)
+                        mtime_at_write = str(path.stat().st_mtime)
             except Exception:
                 logger.debug(
                     "lineage: stat/hash failed for data_object %s at %s",
@@ -847,6 +895,156 @@ class LineageStore:
             )
             columns = [d[0] for d in cur.description]
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Artifact retention support (#1983)
+    # ------------------------------------------------------------------
+
+    def backfill_storage_fields(self) -> int:
+        """Recover NULL ``storage_path`` / ``backend`` / ``size_bytes`` columns.
+
+        #1983: before the ``_extract_storage_fields`` fix, every row recorded
+        ``storage_path=NULL`` because the recorder read the key from the wrong
+        nesting level. The path was never actually lost — it is still in the
+        row's ``wire_payload`` JSON — so existing projects can be repaired
+        rather than losing their artifact mapping.
+
+        Idempotent: rows that already carry a ``storage_path`` are untouched.
+        Rows whose ``wire_payload`` has no path (in-memory objects, scalar
+        pass-throughs) stay NULL.
+
+        Returns:
+            The number of rows updated.
+        """
+        updated = 0
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT object_id, wire_payload FROM data_objects
+                WHERE storage_path IS NULL AND wire_payload <> '{}'
+                """
+            )
+            pending: list[tuple[str, str, int | None, str]] = []
+            for object_id, payload_json in cur.fetchall():
+                try:
+                    payload = json.loads(payload_json)
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                metadata = payload.get("metadata")
+                nested = metadata if isinstance(metadata, dict) else {}
+                path = next(
+                    (v for v in (payload.get("path"), nested.get("path")) if isinstance(v, str) and v),
+                    None,
+                )
+                if path is None:
+                    continue
+                backend = next(
+                    (v for v in (payload.get("backend"), nested.get("backend")) if isinstance(v, str) and v),
+                    None,
+                )
+                pending.append((path, backend or "", artifact_size_bytes(path), object_id))
+
+            for path, backend, size_bytes, object_id in pending:
+                conn.execute(
+                    """
+                    UPDATE data_objects
+                    SET storage_path = ?,
+                        backend = COALESCE(backend, NULLIF(?, '')),
+                        size_bytes = COALESCE(size_bytes, ?)
+                    WHERE object_id = ?
+                    """,
+                    (path, backend, size_bytes, object_id),
+                )
+                updated += 1
+            conn.commit()
+        return updated
+
+    def runs_in_progress(self) -> list[str]:
+        """Return the ids of runs that have not reached a terminal status.
+
+        #1983: artifact retention refuses to sweep while any run is still
+        executing, because an in-flight run's outputs are not yet recorded in
+        ``data_objects`` and would look unreferenced.
+        """
+        with self._connect() as conn:
+            cur = conn.execute("SELECT run_id FROM runs WHERE status = 'running'")
+            return [row[0] for row in cur.fetchall()]
+
+    def latest_successful_run_per_workflow(self) -> dict[str, tuple[str, str]]:
+        """Map each ``workflow_id`` to its most recent clean ``completed`` run.
+
+        #1983: this is the retention root set. A workflow whose runs all failed
+        or were cancelled is absent from the mapping, which the caller treats
+        as "no retained run" rather than as "retain nothing" — see
+        :func:`scistudio.core.lineage.retention.plan_retention`.
+
+        Runs with ``provenance_degraded=1`` are excluded. #1527 sets that flag
+        when a block or data-object lineage write failed, so such a run's
+        recorded output set is known to be incomplete. Trusting it as the
+        retention root would produce a *partially* populated live set — enough
+        to satisfy the "retained run recorded something" guard, while the
+        previous clean run's artifacts were reclaimed as superseded. Falling
+        back to the last clean run keeps a complete set on disk; the degraded
+        run's own outputs are still protected because they were written after
+        that older run started.
+
+        Returns:
+            ``workflow_id`` → ``(run_id, started_at)``. The start timestamp
+            bounds which artifacts retention may reclaim: anything written
+            since the retained run began belongs to that run however long it
+            took, so the bound holds for a run of any duration.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT workflow_id, run_id, started_at FROM runs AS r
+                WHERE status = 'completed'
+                  AND COALESCE(provenance_degraded, 0) = 0
+                  AND started_at = (
+                      SELECT MAX(started_at) FROM runs
+                      WHERE workflow_id = r.workflow_id
+                        AND status = 'completed'
+                        AND COALESCE(provenance_degraded, 0) = 0
+                  )
+                """
+            )
+            return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+
+    def artifact_paths_produced_by(self, run_ids: Iterable[str]) -> set[str]:
+        """Return the storage paths of artifacts produced by the given runs.
+
+        #1983 (owner directive): liveness is "produced by the retained run",
+        deliberately **not** "referenced by" it. A partial re-run
+        (``runs.execute_from_block_id``) therefore does not extend protection
+        to the upstream artifacts it consumed from an earlier run; those are
+        reclaimed and the workflow must be re-run end to end. The owner chose
+        this rule for its simplicity over inherited-input protection.
+
+        Args:
+            run_ids: The retained run ids.
+
+        Returns:
+            The set of non-NULL ``storage_path`` values those runs produced.
+        """
+        ids = [rid for rid in run_ids if rid]
+        if not ids:
+            return set()
+        placeholders = ",".join("?" * len(ids))
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"""
+                SELECT DISTINCT do.storage_path
+                FROM data_objects do
+                JOIN block_executions be
+                  ON do.produced_by_execution = be.block_execution_id
+                WHERE be.run_id IN ({placeholders})
+                  AND do.storage_path IS NOT NULL
+                """,
+                tuple(ids),
+            )
+            return {row[0] for row in cur.fetchall()}
 
     # ------------------------------------------------------------------
     # Test / introspection helpers
