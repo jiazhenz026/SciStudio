@@ -973,12 +973,22 @@ class LineageStore:
             return [row[0] for row in cur.fetchall()]
 
     def latest_successful_run_per_workflow(self) -> dict[str, tuple[str, str]]:
-        """Map each ``workflow_id`` to its most recent ``completed`` run.
+        """Map each ``workflow_id`` to its most recent clean ``completed`` run.
 
         #1983: this is the retention root set. A workflow whose runs all failed
         or were cancelled is absent from the mapping, which the caller treats
         as "no retained run" rather than as "retain nothing" — see
         :func:`scistudio.core.lineage.retention.plan_retention`.
+
+        Runs with ``provenance_degraded=1`` are excluded. #1527 sets that flag
+        when a block or data-object lineage write failed, so such a run's
+        recorded output set is known to be incomplete. Trusting it as the
+        retention root would produce a *partially* populated live set — enough
+        to satisfy the "retained run recorded something" guard, while the
+        previous clean run's artifacts were reclaimed as superseded. Falling
+        back to the last clean run keeps a complete set on disk; the degraded
+        run's own outputs are still protected because they were written after
+        that older run started.
 
         Returns:
             ``workflow_id`` → ``(run_id, started_at)``. The start timestamp
@@ -991,9 +1001,12 @@ class LineageStore:
                 """
                 SELECT workflow_id, run_id, started_at FROM runs AS r
                 WHERE status = 'completed'
+                  AND COALESCE(provenance_degraded, 0) = 0
                   AND started_at = (
                       SELECT MAX(started_at) FROM runs
-                      WHERE workflow_id = r.workflow_id AND status = 'completed'
+                      WHERE workflow_id = r.workflow_id
+                        AND status = 'completed'
+                        AND COALESCE(provenance_degraded, 0) = 0
                   )
                 """
             )

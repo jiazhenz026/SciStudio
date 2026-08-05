@@ -869,6 +869,11 @@
       "at": "2026-08-05T20:09:05.810951Z",
       "owner_directive": "\u4e0d\u540c\u610f\u5728\u67b6\u6784\u6587\u6863\u6709\u4efb\u4f55\u53d8\u66f4\u3002\u4f60\u653echangelog\u91cc",
       "reason": "owner rejected any change to the architecture doc; documentation lands in CHANGELOG.md instead"
+    },
+    {
+      "at": "2026-08-05T20:35:42.304167Z",
+      "owner_directive": "CI\u662f\u6302\u7684\uff0c\u8fd8\u6709codex\u76842\u4e2aaudit\u8981\u89e3\u51b3",
+      "reason": "address Codex review: P1 degraded-provenance runs must not be retention roots; P2 filesystem-dependent directory-size assertion breaks CI on ext4"
     }
   ],
   "docs_events": [

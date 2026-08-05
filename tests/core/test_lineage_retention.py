@@ -123,11 +123,16 @@ def _seed_run(
 
 
 def test_artifact_size_bytes_sums_directory_backed_store(tmp_path: Path) -> None:
-    store_dir = _make_zarr_store(tmp_path, "wf", "load", "a", b"x" * 4096)
+    payload = b"x" * 1_048_576
+    store_dir = _make_zarr_store(tmp_path, "wf", "load", "a", payload)
+    expected = len(payload) + len(b'{"zarr_format":3}')
 
-    assert artifact_size_bytes(str(store_dir)) == 4096 + len(b'{"zarr_format":3}')
-    # The inode size a naive stat() would have reported is much smaller.
-    assert store_dir.stat().st_size < 4096
+    assert artifact_size_bytes(str(store_dir)) == expected
+    # A naive stat() reports the directory inode size, which is orders of
+    # magnitude smaller than the payload. Comparing against the payload rather
+    # than a fixed byte count keeps this independent of the filesystem's inode
+    # size (ext4 reports exactly 4096, APFS reports far less).
+    assert store_dir.stat().st_size < expected
 
 
 def test_artifact_size_bytes_handles_files_and_missing_paths(tmp_path: Path) -> None:
@@ -302,6 +307,50 @@ def test_plan_reclaims_a_failed_run_once_a_newer_success_moves_the_bar(tmp_path:
 
     assert plan.retained_runs == {"wf": "run-newest"}
     assert sorted(c.path for c in plan.candidates) == sorted([good, broken])
+    store.close()
+
+
+def test_plan_skips_a_degraded_run_and_retains_the_last_clean_one(tmp_path: Path) -> None:
+    """A run whose lineage writes failed must not define what is live.
+
+    #1527 sets ``runs.provenance_degraded`` when a block or data-object write
+    failed, so such a run's recorded output set is known to be incomplete. Were
+    it the retention root, its partial live set would still satisfy the
+    "recorded something" guard while the previous clean run's artifacts were
+    reclaimed as superseded — leaving only an incomplete run on disk.
+    """
+    clean = _make_zarr_store(tmp_path, "wf", "load", "clean", b"c" * 512)
+    partial = _make_zarr_store(tmp_path, "wf", "load", "partial", b"p" * 512)
+    store = LineageStore(str(tmp_path / "lineage.db"))
+    _seed_run(
+        store,
+        run_id="run-clean",
+        workflow_id="wf",
+        status="completed",
+        started_at="2026-06-10T00:00:00",
+        artifacts={"obj-clean": clean},
+    )
+    _seed_run(
+        store,
+        run_id="run-degraded",
+        workflow_id="wf",
+        status="completed",
+        started_at="2026-06-11T00:00:00",
+        artifacts={"obj-partial": partial},
+    )
+    store.finalize_run(
+        "run-degraded",
+        finished_at="2026-06-11T01:00:00",
+        status="completed",
+        provenance_degraded=True,
+    )
+
+    plan = plan_retention(store, tmp_path)
+
+    assert plan.retained_runs == {"wf": "run-clean"}
+    assert plan.candidates == ()
+    assert clean.exists()
+    assert partial.exists()
     store.close()
 
 
