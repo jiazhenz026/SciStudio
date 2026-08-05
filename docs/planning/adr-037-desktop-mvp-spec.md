@@ -112,7 +112,12 @@ manual dependencies into a shared user-scoped dependency runtime.
   - locates a Python executable from `SCISTUDIO_DESKTOP_PYTHON`, staged
     `desktop/resources/python/python(.exe)`, or `python`/`py` fallback for
     developer MVP;
-  - launches `python -m scistudio.cli.main gui --port 0 --bundled`;
+  - launches `python -m scistudio.cli.main gui --port <port> --bundled`, where
+    `<port>` is the port remembered from the previous launch in
+    `userData/runtime-port.json` when it is still free, and `0` (ephemeral)
+    otherwise. #1986 added the remembered port: the renderer origin is
+    `http://127.0.0.1:<port>`, and an origin that changes on every launch
+    discards the whole `localStorage`-backed UI state;
   - sets `PYTHONPATH` to include `desktop/resources/app/src` or repo `src`;
   - sets `SCISTUDIO_BUNDLED=1`;
   - sets `SCISTUDIO_DESKTOP_RESOURCES=<resources dir>`;

@@ -52,6 +52,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1986] The desktop app now remembers which port its backend bound and prefers
+  that port on the next launch, so the renderer keeps a stable
+  `http://127.0.0.1:<port>` origin across restarts. Previously the backend was
+  always started with `--port 0`, so every launch produced a new origin, and
+  because `localStorage` is origin-scoped, the persisted `scistudio-studio-ui`
+  snapshot was silently unreachable each time. The user-visible symptom was the
+  "Run Your First SciStudio Workflow" prompt returning on every launch even after
+  "Don't show again" or completing the tutorial, but the same reset hit panel
+  sizes, open file tabs, terminal tabs, and the active bottom tab. The port is
+  stored in `userData/runtime-port.json`, probed for availability before reuse,
+  and the launch falls back to an ephemeral port — retrying once if the backend
+  loses a bind race — so a port taken by another process cannot stop the app from
+  starting. An explicit `SCISTUDIO_DESKTOP_RUNTIME_PORT` still wins and is never
+  written back. Separately, `startRunFirstWorkflowTutorial` no longer clears
+  `runFirstWorkflowTutorialPrefs`, which used to erase an earlier "Don't show
+  again" or completion the moment the tutorial was started, and
+  `completeRunFirstWorkflowTutorial` now merges rather than replaces those prefs.
+  Tests: `desktop/test/runtime-port.test.js`,
+  `frontend/src/store/tutorialSlice.test.ts`. Note: `desktop/main.js` is outside
+  the OTA payload, so the port half of this fix reaches users only through a new
+  installer build. (@claude, 2026-08-05, branch: guided/1986-stable-runtime-port)
+
 - [#1969] The `validate_workflow` MCP tool now resolves a CodeBlock
   `script_path` against the active project root instead of the backend process
   working directory. #1967 threaded an explicit `project_dir` through

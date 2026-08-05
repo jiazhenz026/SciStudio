@@ -36,6 +36,7 @@
     "files": [
       "main.js",
       "ota.js",
+      "runtime-port.js",
       "preload.js",
       "package.json",
       "assets/icon.png"
