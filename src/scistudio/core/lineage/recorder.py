@@ -368,13 +368,14 @@ class LineageRecorder:
 
         if wire_dict is not None:
             type_name = _extract_type_name(wire_dict)
+            backend, storage_path = _extract_storage_fields(wire_dict)
             row = DataObjectRow(
                 object_id=object_id,
                 type_name=type_name,
                 wire_payload=wire_dict,
                 created_at=datetime.now().isoformat(),
-                backend=wire_dict.get("backend") if isinstance(wire_dict.get("backend"), str) else None,
-                storage_path=wire_dict.get("path") if isinstance(wire_dict.get("path"), str) else None,
+                backend=backend,
+                storage_path=storage_path,
                 derived_from=(wire_dict.get("metadata") or {}).get("framework", {}).get("derived_from"),
                 produced_by_execution=block_execution_id if direction == "output" else None,
             )
@@ -500,3 +501,42 @@ def _extract_type_name(wire_dict: dict[str, Any]) -> str:
     if isinstance(explicit, str):
         return explicit
     return "DataObject"
+
+
+def _extract_storage_fields(wire_dict: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Return ``(backend, storage_path)`` from a wire-format payload.
+
+    #1983: a block output reaches the recorder in one of two shapes, and only
+    one of them carries these keys at the top level.
+
+    * The raw worker form written by ``serialise_outputs`` has
+      ``{"backend": ..., "path": ..., "metadata": {...}}``.
+    * The ApiRuntime data-catalog form has
+      ``{"data_ref": ..., "type_name": ..., "metadata": {"backend": ...,
+      "path": ...}}`` — ``register_output_payload`` rewrites the BLOCK_DONE
+      event's ``outputs`` in place, nesting both keys under ``metadata``.
+
+    The recorder runs off that same event, so by the time it reads the payload
+    the catalog form is the usual one. Reading only the top level recorded
+    ``backend``/``storage_path`` as NULL for every artifact, which left
+    ``data_objects`` with no record of where anything lives — and with it no
+    basis for size accounting, integrity checks, or retention. This is the same
+    dual-shape hazard #1757 fixed for the Collection wrapper.
+
+    Args:
+        wire_dict: One wire-format payload for a single data object.
+
+    Returns:
+        The backend name and storage path, each ``None`` when absent.
+    """
+    metadata = wire_dict.get("metadata")
+    nested = metadata if isinstance(metadata, dict) else {}
+
+    def _first_str(key: str) -> str | None:
+        for source in (wire_dict, nested):
+            candidate = source.get(key)
+            if isinstance(candidate, str) and candidate:
+                return candidate
+        return None
+
+    return _first_str("backend"), _first_str("path")
