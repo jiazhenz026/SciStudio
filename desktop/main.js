@@ -4,11 +4,13 @@ const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
+const net = require("net");
 const os = require("os");
 const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
+const runtimePortModule = require("./runtime-port");
 
 // #1784: the in-app Package Manager stages a package update on disk (into the
 // scanned installed-packages dir) and then asks the main process to relaunch so
@@ -818,27 +820,91 @@ function runtimeEnv() {
   return env;
 }
 
-function runtimePort() {
-  const requested = process.env.SCISTUDIO_DESKTOP_RUNTIME_PORT;
-  if (!requested) {
-    return "0";
-  }
-  const parsed = Number.parseInt(requested, 10);
-  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 65535) {
-    return String(parsed);
-  }
-  safeError(`[scistudio] Ignoring invalid SCISTUDIO_DESKTOP_RUNTIME_PORT=${requested}`);
-  return "0";
+// #1986: the file that carries the bound port from one launch to the next, so
+// the renderer origin (and with it every localStorage-backed UI preference)
+// survives a restart. See desktop/runtime-port.js for why.
+function runtimePortPath() {
+  return path.join(app.getPath("userData"), "runtime-port.json");
 }
 
-function runtimeArgs(candidate) {
+function envRuntimePort() {
+  const requested = process.env.SCISTUDIO_DESKTOP_RUNTIME_PORT;
+  if (!requested) {
+    return null;
+  }
+  const parsed = runtimePortModule.normalizeEnvPort(requested);
+  if (parsed === null) {
+    safeError(`[scistudio] Ignoring invalid SCISTUDIO_DESKTOP_RUNTIME_PORT=${requested}`);
+  }
+  return parsed;
+}
+
+function rememberedRuntimePort() {
+  return runtimePortModule.parseRememberedPort(readJsonSafe(runtimePortPath()));
+}
+
+// Probe rather than assume: a remembered port can be taken by anything between
+// two launches, and handing the backend an occupied port would leave the app
+// unable to start at all.
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", () => resolve(false));
+    probe.once("listening", () => probe.close(() => resolve(true)));
+    probe.listen(port, "127.0.0.1");
+  });
+}
+
+async function resolveRuntimePort() {
+  const envPort = envRuntimePort();
+  if (envPort !== null) {
+    return runtimePortModule.selectRuntimePort({ envPort });
+  }
+  const rememberedPort = rememberedRuntimePort();
+  const rememberedPortFree = rememberedPort !== null ? await isPortFree(rememberedPort) : false;
+  if (rememberedPort !== null && !rememberedPortFree) {
+    safeError(
+      `[scistudio] remembered runtime port ${rememberedPort} is in use; falling back to an ephemeral port`
+    );
+  }
+  return runtimePortModule.selectRuntimePort({ envPort, rememberedPort, rememberedPortFree });
+}
+
+function rememberRuntimePort(boundPort) {
+  const decision = {
+    envPort: envRuntimePort(),
+    boundPort,
+    rememberedPort: rememberedRuntimePort()
+  };
+  if (!runtimePortModule.shouldRememberPort(decision)) {
+    return;
+  }
+  try {
+    writeJsonAtomic(runtimePortPath(), { port: boundPort });
+    safeLog(`[scistudio] remembered runtime port ${boundPort}`);
+  } catch (error) {
+    // Best-effort: failing to remember the port costs the next launch its
+    // persisted UI state, which must not stop this one from running.
+    safeError(`[scistudio] failed to remember runtime port: ${error.message}`);
+  }
+}
+
+function forgetRuntimePort() {
+  try {
+    fs.rmSync(runtimePortPath(), { force: true });
+  } catch {
+    // Best-effort; a stale remembered port is re-probed on the next launch.
+  }
+}
+
+function runtimeArgs(candidate, port) {
   return [
     ...candidate.argsPrefix,
     "-m",
     "scistudio.cli.main",
     "gui",
     "--port",
-    runtimePort(),
+    port,
     "--bundled"
   ];
 }
@@ -894,8 +960,8 @@ function verifyPtyCapablePython(candidate) {
   });
 }
 
-function spawnRuntimeCandidate(candidate) {
-  return spawn(candidate.command, runtimeArgs(candidate), {
+function spawnRuntimeCandidate(candidate, port) {
+  return spawn(candidate.command, runtimeArgs(candidate, port), {
     cwd: repoRoot(),
     env: runtimeEnv(),
     windowsHide: true,
@@ -915,10 +981,35 @@ function parseReadyLine(line) {
   return null;
 }
 
-function startRuntime() {
+// #1986: prefer the port the previous launch bound so the renderer origin — and
+// therefore every localStorage-backed UI preference — stays stable. The port can
+// be lost to another process between the free-port probe and the backend's own
+// bind, so a failure on a remembered port is retried once on an ephemeral one
+// rather than being surfaced as "SciStudio failed to start".
+async function startRuntime() {
+  const port = await resolveRuntimePort();
+  try {
+    return await startRuntimeOnPort(port);
+  } catch (error) {
+    if (
+      port === "0" ||
+      envRuntimePort() !== null ||
+      !runtimePortModule.isPortUnavailableFailure(error.message)
+    ) {
+      throw error;
+    }
+    safeError(
+      `[scistudio] runtime did not start on remembered port ${port}; retrying on an ephemeral port: ${error.message}`
+    );
+    forgetRuntimePort();
+    return startRuntimeOnPort("0");
+  }
+}
+
+function startRuntimeOnPort(port) {
   const candidates = pythonCandidates();
   const stderrLines = [];
-  safeLog("[scistudio] starting runtime");
+  safeLog(`[scistudio] starting runtime on port ${port === "0" ? "auto" : port}`);
 
   return new Promise((resolve, reject) => {
     let index = 0;
@@ -958,7 +1049,7 @@ function startRuntime() {
         tryNext();
         return;
       }
-      const child = spawnRuntimeCandidate(candidate);
+      const child = spawnRuntimeCandidate(candidate, port);
       let sawOutput = false;
       runtimeProcess = child;
 
@@ -1195,6 +1286,9 @@ app.whenReady().then(async () => {
     const { ready } = await startRuntimeWithRollback();
     safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
     await waitForHttpReady(ready.url);
+    // #1986: the runtime answered on this port, so it is worth reusing next
+    // launch to keep the renderer origin (and its persisted UI state) stable.
+    rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
     // #1775: the runtime reached ready, so whatever patch is active booted
     // cleanly; remember it as the rollback target for future launches.
     recordKnownGood(effectiveBuild());
