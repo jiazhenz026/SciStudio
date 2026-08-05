@@ -587,3 +587,66 @@ class TestVariadicPortCountLimits:
             }
         )
         assert block.validate(inputs) is True
+
+
+class TestPersistArrayChunking:
+    """Block.persist_array — the zarr chunk argument it forwards (#1980).
+
+    ``persist_array`` used to request auto-chunking with ``chunks=True``, which
+    zarr accepted up to 3.1 and rejects from 3.2 on. Because zarr 3.2 raised its
+    floor to Python 3.12, the CI 3.11 job stayed pinned to the old API and only
+    the 3.13 job broke. These tests pin the auto-chunk call so a chunk input
+    that any supported zarr version rejects fails here directly, on every
+    interpreter in the matrix.
+    """
+
+    def test_auto_chunks_round_trip(self, tmp_path: Path) -> None:
+        """Omitting ``chunks`` writes a readable store with a real chunk grid."""
+        import numpy as np
+        import zarr
+
+        data = np.arange(400 * 500, dtype="float64").reshape(400, 500)
+        block = _DummyBlock()
+
+        ref = block.persist_array(data, shape=data.shape, dtype=data.dtype, output_dir=str(tmp_path))
+
+        z = zarr.open_array(ref.path, mode="r")
+        assert z.chunks is not None
+        assert len(z.chunks) == data.ndim
+        # zarr's guess_chunks subdivides an array this size, so an auto-chunked
+        # store is distinguishable from a single-chunk one.
+        assert z.chunks != data.shape
+        assert all(c <= s for c, s in zip(z.chunks, data.shape, strict=True))
+        np.testing.assert_array_equal(z[:], data)
+
+    def test_explicit_chunks_are_honored(self, tmp_path: Path) -> None:
+        """An explicit chunk shape reaches zarr unchanged."""
+        import numpy as np
+        import zarr
+
+        data = np.arange(400 * 500, dtype="float64").reshape(400, 500)
+        block = _DummyBlock()
+
+        ref = block.persist_array(data, shape=data.shape, dtype=data.dtype, output_dir=str(tmp_path), chunks=(100, 125))
+
+        z = zarr.open_array(ref.path, mode="r")
+        assert z.chunks == (100, 125)
+        np.testing.assert_array_equal(z[:], data)
+
+    def test_auto_chunks_streaming_write(self, tmp_path: Path) -> None:
+        """The streaming ``(index, chunk)`` path also auto-chunks."""
+        import numpy as np
+        import zarr
+
+        pages = [np.full((8, 8), i, dtype="uint16") for i in range(4)]
+        block = _DummyBlock()
+
+        ref = block.persist_array(
+            ((i, page) for i, page in enumerate(pages)),
+            shape=(4, 8, 8),
+            dtype="uint16",
+            output_dir=str(tmp_path),
+        )
+
+        z = zarr.open_array(ref.path, mode="r")
+        np.testing.assert_array_equal(z[:], np.stack(pages))
