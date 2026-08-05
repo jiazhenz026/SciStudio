@@ -36,9 +36,7 @@ def test_retention_can_be_switched_off(monkeypatch: pytest.MonkeyPatch, value: s
     assert _runs._artifact_retention_enabled() is False
 
 
-def test_schedule_sweeps_inline_without_a_running_loop(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: object
-) -> None:
+def test_schedule_sweeps_inline_without_a_running_loop(monkeypatch: pytest.MonkeyPatch, tmp_path: object) -> None:
     monkeypatch.delenv(_runs._RETENTION_ENV_VAR, raising=False)
     seen: list[str] = []
     monkeypatch.setattr(_runs, "_reclaim_artifacts_blocking", lambda project_dir: seen.append(project_dir))
