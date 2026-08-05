@@ -1967,52 +1967,6 @@ my_project/
 under `notes/` when that directory exists, and otherwise falls back to creating
 the note at the project root.
 
-#### Artifact retention
-
-Every block output is persisted, so `data/zarr/` and `data/parquet/` accumulate
-one full-size artifact per block per run. Left unbounded that dominates project
-size: intermediates are typically larger than the raw inputs that produced them,
-because a calibration step that promotes `uint16` to `float32` doubles the
-payload and compresses far less well.
-
-Artifacts are therefore retained per workflow, keeping those **produced by** the
-workflow's most recent successful run and reclaiming the rest. Two properties of
-that rule are deliberate:
-
-- Retention keys on the most recent *successful* run, so a run that fails partway
-  never makes the last good run's artifacts reclaimable.
-- Liveness is *produced by* rather than *referenced by*. A partial re-run
-  (run-from-here) produces only its downstream nodes, so the upstream artifacts
-  it inherited are reclaimed and that workflow needs a full re-run. The simpler
-  rule is preferred over inherited-input protection because its outcome is
-  predictable from the run list alone.
-
-Reclaiming is bounded so that a run's own outputs can never be swept out from
-under it. Lineage rows are written from an asynchronous event handler and can
-fail individually (`runs.provenance_degraded`), so liveness alone is not a
-sufficient guarantee. An artifact written since the retained run *started* is
-kept whatever lineage says about it. Anchoring to the run's start rather than to
-wall-clock recency is what makes the bound hold for a run of any duration — an
-artifact written in a run's first minute is covered even when the run takes
-hours. The cost is that a failed run occurring after the last success keeps its
-leftovers until the next success moves the bound forward, which is bounded by
-one run's output and self-clearing.
-
-Above that sits a floor invariant: a sweep never empties a workflow's artifact
-directory. A plan that would reclaim every artifact a workflow has is evidence
-that the liveness computation is wrong rather than that the workflow is
-genuinely all garbage, so retention keeps the workflow whole. Together these
-guarantee at least one complete run stays on disk.
-
-A sweep runs after each successful run, off the event loop. It refuses to act
-while any run is still executing, when the lineage database records no runs, and
-for any workflow whose retained run has no recorded artifact present on disk —
-the last of which also covers a project that was copied or moved, where recorded
-absolute paths no longer resolve. `scistudio storage gc` performs the same sweep
-on demand and previews unless given `--apply`; `scistudio storage usage` reports
-per-workflow artifact size. Setting `SCISTUDIO_ARTIFACT_RETENTION=off` disables
-the automatic sweep and leaves the manual command available.
-
 ### 11.2 Runtime State Under `.scistudio`
 
 The `.scistudio/` directory is for local runtime coordination. It is excluded by

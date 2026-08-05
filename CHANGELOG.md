@@ -9,6 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#1983] Persisted block artifacts are now reclaimed instead of accumulating
+  forever. Every block output is written as a full-size store under
+  `data/zarr/<workflow_id>/<block_id>/`, and nothing ever removed one: a real
+  project reached **16 GB of intermediates from 634 MB of source images** (16
+  runs of one pipeline at ~0.69 GB each; one node held 102 persisted arrays for
+  a workflow that reads 6 input files). Retention now keeps the artifacts
+  **produced by** each workflow's most recent **successful** run and reclaims
+  the rest. Both qualifiers are load-bearing: keying on *successful* means a run
+  that fails partway cannot make the last good run's artifacts reclaimable, and
+  *produced by* (rather than *referenced by*) means a partial re-run
+  (`execute_from_block_id`) does not extend protection to the upstream artifacts
+  it inherited — that workflow then needs a full re-run. Two bounds keep a run's
+  own outputs safe when lineage is incomplete: any artifact written since the
+  retained run *started* is kept whatever lineage says (anchored to the run's
+  start rather than to wall-clock recency, so the bound holds for a run of any
+  duration), and a sweep never empties a workflow's artifact directory — a plan
+  covering everything a workflow has is treated as a wrong liveness computation
+  rather than as an all-garbage workflow. Together they guarantee at least one
+  complete run stays on disk; the cost is that a failed run occurring after the
+  last success keeps its leftovers until the next success moves the bound
+  forward, which is bounded by one run's output and self-clearing. A sweep runs
+  after each successful run off the event loop, and refuses to act while any run
+  is executing, when the lineage database records no runs, or for a workflow
+  whose retained run has no recorded artifact present on disk (which also covers
+  a project that was copied or moved, where recorded absolute paths no longer
+  resolve). New `scistudio storage gc` runs the same sweep on demand and
+  previews unless given `--apply`; `scistudio storage usage` reports
+  per-workflow artifact size. `SCISTUDIO_ARTIFACT_RETENTION=off` disables the
+  automatic sweep and leaves the manual command available. Storage layout is
+  unchanged. Verified on the 16 GB project: retains 1.09 GB, reclaims 15.92 GB.
+  Tests: `tests/core/test_lineage_retention.py`, `tests/cli/test_storage_gc.py`,
+  `tests/api/test_runtime_artifact_retention.py`. (@claude, 2026-08-05, branch:
+  guided/1983-artifact-retention-gc)
+
+- [#1983] `data_objects` rows now record where an artifact actually lives.
+  `LineageRecorder` read `backend` / `path` from the top level of the wire
+  payload, but the shape that reaches it — the ApiRuntime data-catalog form
+  produced when `register_output_payload` rewrites the BLOCK_DONE event's
+  outputs — nests both keys under `metadata`, so every row recorded
+  `storage_path=NULL` (confirmed on a real project: 2393 rows, 0 with a path).
+  This is the same dual-shape hazard [#1757] fixed for the Collection wrapper.
+  `_extract_storage_fields` now reads either shape, and
+  `LineageStore.backfill_storage_fields` repairs existing NULL columns from each
+  row's `wire_payload`, so projects recorded before this fix keep their artifact
+  mapping. Relatedly, `upsert_data_object` only `stat()`ed regular files, so
+  directory-backed zarr stores never recorded a `size_bytes`, and `list_data`
+  reported `size_bytes=0` for any directory — which is why 16 GB accumulated
+  with no surface showing it. New `artifact_size_bytes()` measures directories
+  recursively and both call sites use it. Directory *hashing* remains
+  unimplemented and is now tracked by [#1984] (the previous `TODO(#1517)`
+  pointer named an unrelated issue). (@claude, 2026-08-05, branch:
+  guided/1983-artifact-retention-gc)
+
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 

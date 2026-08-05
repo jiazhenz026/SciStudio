@@ -723,6 +723,11 @@
       "at": "2026-08-05T20:00:52.930902Z",
       "owner_directive": "\u6700\u8fd1 5 \u5206\u949f\u5185\u5199\u5165\u7684\u4e00\u5f8b\u4fdd\u7559\u8fd9\u4e2a\u6211\u89c9\u5f97\u4e0d\u592a\u884c\uff0c\u5982\u679c\u8dd1\u592a\u6162\uff0c\u4f1a\u76f4\u63a5\u628a\u521a\u8dd1\u5b8c\u7684\u6570\u636e\u7ed9\u5220\u4e86\uff1f\u6709\u6ca1\u6709\u6c38\u8fdc\u4fdd\u75591\u4e2a\u7684\u4fdd\u62a4\uff1f",
       "reason": "owner rejected the wall-clock grace window as unsafe for long runs and asked for an always-keep-one guarantee"
+    },
+    {
+      "at": "2026-08-05T20:09:05.810951Z",
+      "owner_directive": "\u4e0d\u540c\u610f\u5728\u67b6\u6784\u6587\u6863\u6709\u4efb\u4f55\u53d8\u66f4\u3002\u4f60\u653echangelog\u91cc",
+      "reason": "owner rejected any change to the architecture doc; documentation lands in CHANGELOG.md instead"
     }
   ],
   "docs_events": [
@@ -732,6 +737,22 @@
       "kind": "path",
       "path": "docs/architecture/ARCHITECTURE.md",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-05T20:09:05.811461Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-05T20:09:05.811610Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner directed that docs/architecture/ARCHITECTURE.md stay unchanged; retention rules are documented in CHANGELOG.md and in the scistudio.core.lineage.retention module docstring",
       "verified_in_diff": null
     }
   ],
@@ -3674,6 +3695,18 @@
       "at": "2026-08-05T17:45:57.336697Z",
       "pattern": "tests/api/test_runtime_artifact_retention.py",
       "reason": "test files for the retention work were declared as test-paths but not as scope includes"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-05T20:09:05.811449Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "owner rejected any change to the architecture doc; documentation lands in CHANGELOG.md instead"
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-08-05T20:09:05.811456Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "owner rejected any change to the architecture doc; documentation lands in CHANGELOG.md instead"
     }
   ],
   "session_id": "32b4c1ff-9152-46b5-8769-3c1be197e910",
