@@ -587,12 +587,13 @@ class Block(ABC):
         Path(store_path).parent.mkdir(parents=True, exist_ok=True)
 
         np_dtype = np.dtype(dtype)
-        if chunks is None:
-            zarr_chunks: tuple[int, ...] | bool = True  # let zarr auto-chunk
-        else:
-            zarr_chunks = chunks
-
-        z = zarr.open_array(store_path, mode="w", shape=shape, dtype=np_dtype, chunks=zarr_chunks)
+        # ``chunks=None`` is the auto-chunking input that holds across the
+        # supported zarr range (#1980). zarr <=3.1 also accepted ``True`` and
+        # zarr >=3.2 rejects it; both route ``None`` to the same
+        # ``guess_chunks()`` heuristic, so the chunk grid is unchanged. The
+        # ``"auto"`` spelling the zarr 3.3 error message suggests does not work
+        # through ``open_array`` on either version.
+        z = zarr.open_array(store_path, mode="w", shape=shape, dtype=np_dtype, chunks=chunks)
 
         if isinstance(data_or_iterator, np.ndarray):
             z[:] = data_or_iterator
