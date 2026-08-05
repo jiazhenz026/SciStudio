@@ -627,9 +627,7 @@ class TestPersistArrayChunking:
         data = np.arange(400 * 500, dtype="float64").reshape(400, 500)
         block = _DummyBlock()
 
-        ref = block.persist_array(
-            data, shape=data.shape, dtype=data.dtype, output_dir=str(tmp_path), chunks=(100, 125)
-        )
+        ref = block.persist_array(data, shape=data.shape, dtype=data.dtype, output_dir=str(tmp_path), chunks=(100, 125))
 
         z = zarr.open_array(ref.path, mode="r")
         assert z.chunks == (100, 125)
