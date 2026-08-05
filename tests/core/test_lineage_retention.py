@@ -35,7 +35,6 @@ from scistudio.core.lineage.retention import (
 )
 from scistudio.core.lineage.store import LineageStore, artifact_size_bytes
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

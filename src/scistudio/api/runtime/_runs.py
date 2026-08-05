@@ -254,6 +254,9 @@ def _finalize_lineage_run(
 _RETENTION_ENV_VAR = "SCISTUDIO_ARTIFACT_RETENTION"
 _RETENTION_OFF_VALUES = {"0", "false", "off", "no"}
 
+# Strong references to in-flight sweep tasks; see _schedule_artifact_retention.
+_RETENTION_TASKS: set[asyncio.Task[None]] = set()
+
 
 def _artifact_retention_enabled() -> bool:
     """Whether a successful run should reclaim superseded artifacts."""
@@ -312,9 +315,15 @@ def _schedule_artifact_retention(self: ApiRuntime) -> None:
         _reclaim_artifacts_blocking(project_dir)
         return
     try:
-        loop.create_task(asyncio.to_thread(_reclaim_artifacts_blocking, project_dir))
+        task = loop.create_task(asyncio.to_thread(_reclaim_artifacts_blocking, project_dir))
     except Exception:
         logger.debug("#1983: artifact retention could not be scheduled", exc_info=True)
+        return
+    # The event loop holds only a weak reference to a task, so an unreferenced
+    # sweep can be garbage-collected mid-flight and silently reclaim nothing
+    # (RUF006). Hold it until it completes.
+    _RETENTION_TASKS.add(task)
+    task.add_done_callback(_RETENTION_TASKS.discard)
 
 
 def start_workflow(

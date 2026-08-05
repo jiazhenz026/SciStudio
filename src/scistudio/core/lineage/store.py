@@ -101,7 +101,7 @@ def artifact_size_bytes(storage_path: str | None) -> int | None:
 
     #1983: the dominant artifact backend (zarr) stores each array as a
     *directory* of chunk files, so a bare ``Path.stat().st_size`` reports the
-    directory inode size (typically 64–128 bytes) rather than the payload.
+    directory inode size (typically 64 to 128 bytes) rather than the payload.
     Retention accounting and any "how much disk is this project using" surface
     need the recursive total, so directories are walked and their file sizes
     summed.
