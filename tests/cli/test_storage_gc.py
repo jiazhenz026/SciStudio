@@ -6,6 +6,8 @@ without ``--apply`` nothing may be removed.
 
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -17,6 +19,7 @@ from scistudio.core.lineage.record import (
     DataObjectRow,
     RunRecord,
 )
+from scistudio.core.lineage.retention import RECENT_WRITE_GRACE_SECONDS
 from scistudio.core.lineage.store import LineageStore
 
 runner = CliRunner()
@@ -32,6 +35,15 @@ def _artifact(root: Path, block: str, name: str, payload: bytes) -> Path:
     store_dir.mkdir(parents=True, exist_ok=True)
     (store_dir / "chunk").write_bytes(payload)
     return store_dir
+
+
+def _age(*paths: Path) -> None:
+    """Age artifacts past the recent-write grace so they are sweep-eligible."""
+    stamp = time.time() - RECENT_WRITE_GRACE_SECONDS * 2
+    for path in paths:
+        for entry in sorted(path.rglob("*"), reverse=True):
+            os.utime(entry, (stamp, stamp))
+        os.utime(path, (stamp, stamp))
 
 
 def _seed(root: Path, *, old: Path, newer: Path) -> None:
@@ -90,6 +102,7 @@ def test_gc_previews_without_deleting(tmp_path: Path) -> None:
     old = _artifact(root, "load", "old", b"o" * 4096)
     newer = _artifact(root, "load", "new", b"n" * 1024)
     _seed(root, old=old, newer=newer)
+    _age(old, newer)
 
     result = runner.invoke(app, ["storage", "gc", "--project", str(root)])
 
@@ -105,6 +118,7 @@ def test_gc_apply_removes_superseded_artifacts(tmp_path: Path) -> None:
     old = _artifact(root, "load", "old", b"o" * 4096)
     newer = _artifact(root, "load", "new", b"n" * 1024)
     _seed(root, old=old, newer=newer)
+    _age(old, newer)
 
     result = runner.invoke(app, ["storage", "gc", "--project", str(root), "--apply"])
 

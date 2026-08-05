@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -46,6 +47,15 @@ ARTIFACT_ROOTS = ("data/zarr", "data/parquet")
 # one: a zarr store is a directory full of chunk files, and those chunks are
 # not independently reclaimable.
 ARTIFACT_SUFFIXES = (".zarr", ".parquet")
+
+# An artifact written this recently is kept whatever lineage says about it.
+# Artifacts are recorded from an asynchronous event handler, so a sweep fired
+# on run completion can observe an output set that is still being written to
+# ``data_objects``. Bounding by write age makes that race cost disk space until
+# the next sweep rather than data. Runs still executing are excluded separately
+# (``plan_retention`` refuses outright), so this only has to cover the gap
+# between a run finishing and its last lineage row landing.
+RECENT_WRITE_GRACE_SECONDS = 300.0
 
 
 @dataclass(frozen=True)
@@ -91,6 +101,18 @@ class RetentionPlan:
         return self.blocked_reason is not None
 
 
+def _written_recently(entry: Path, *, now: float) -> bool:
+    """Whether *entry* was written within :data:`RECENT_WRITE_GRACE_SECONDS`.
+
+    An unreadable entry answers ``True`` so the caller keeps it; retention errs
+    toward retaining.
+    """
+    try:
+        return (now - entry.stat().st_mtime) < RECENT_WRITE_GRACE_SECONDS
+    except OSError:
+        return True
+
+
 def _iter_artifact_entries(root: Path) -> list[tuple[str, str, Path]]:
     """Yield ``(workflow_id, block_id, path)`` for each artifact under *root*.
 
@@ -126,10 +148,14 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
       recorded and would read as unreferenced.
     * An empty ``runs`` table blocks the whole plan — a fresh or reset lineage
       database must not be read as "nothing is live".
-    * A workflow whose retained run recorded **no** artifact paths protects
-      that workflow's directory entirely. That pattern means lineage recording
-      failed for the run, and sweeping on it would delete every artifact the
-      workflow has.
+    * A workflow whose retained run has **no** recorded artifact still present
+      on disk protects that workflow's directory entirely. That pattern means
+      lineage recording failed for the run, or the project was copied and its
+      recorded absolute paths no longer resolve; sweeping in either state would
+      delete every artifact the workflow has.
+    * An artifact written within :data:`RECENT_WRITE_GRACE_SECONDS` is kept
+      whatever lineage says about it, covering the gap between a run finishing
+      and its last asynchronously-recorded lineage row landing.
 
     Args:
         store: The project's lineage store.
@@ -164,14 +190,22 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
     live_resolved = {str(Path(p).resolve()) for p in live_paths}
 
     # Group live paths by the workflow directory they sit in
-    # (``.../<workflow_id>/<block_id>/<artifact>``) so the "retained run
-    # recorded nothing" guard can be evaluated per workflow.
+    # (``.../<workflow_id>/<block_id>/<artifact>``) so the "nothing recorded is
+    # actually on disk" guard can be evaluated per workflow.
+    #
+    # Only paths that exist count. Lineage stores the absolute path captured at
+    # write time, so a project that was copied or moved has a live set that
+    # matches nothing under the current root. Counting recorded-but-absent
+    # paths would let that case look like a healthy plan whose retained
+    # artifacts are all reclaimable — the one failure mode that loses data the
+    # rule promises to keep.
     per_workflow_live: dict[str, set[str]] = {wf: set() for wf in retained_runs}
     for path in live_resolved:
         parts = Path(path).parts
-        if len(parts) >= 3:
+        if len(parts) >= 3 and Path(path).exists():
             per_workflow_live.setdefault(parts[-3], set()).add(path)
 
+    now = time.time()
     protected: dict[str, str] = {}
     candidates: list[ReclaimCandidate] = []
     for artifact_root in ARTIFACT_ROOTS:
@@ -185,11 +219,13 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
             if not per_workflow_live.get(workflow_id):
                 protected.setdefault(
                     workflow_id,
-                    f"retained run {retained_runs[workflow_id][:8]} recorded no artifact paths; "
+                    f"retained run {retained_runs[workflow_id][:8]} has no recorded artifact on disk; "
                     "keeping everything rather than sweeping on incomplete lineage",
                 )
                 continue
             if str(entry.resolve()) in live_resolved:
+                continue
+            if _written_recently(entry, now=now):
                 continue
             candidates.append(
                 ReclaimCandidate(

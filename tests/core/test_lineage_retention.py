@@ -17,6 +17,8 @@ Covers:
 
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 
 from scistudio.core.lineage.record import (
@@ -26,7 +28,11 @@ from scistudio.core.lineage.record import (
     RunRecord,
 )
 from scistudio.core.lineage.recorder import _extract_storage_fields
-from scistudio.core.lineage.retention import apply_retention, plan_retention
+from scistudio.core.lineage.retention import (
+    RECENT_WRITE_GRACE_SECONDS,
+    apply_retention,
+    plan_retention,
+)
 from scistudio.core.lineage.store import LineageStore, artifact_size_bytes
 
 
@@ -42,6 +48,27 @@ def _make_zarr_store(root: Path, workflow: str, block: str, name: str, payload: 
     (store_dir / "zarr.json").write_bytes(b'{"zarr_format":3}')
     (store_dir / "c" / "0" / "0").write_bytes(payload)
     return store_dir
+
+
+def _age(path: Path, seconds: float) -> None:
+    """Backdate *path* by *seconds* so it is outside the recent-write grace.
+
+    Retention keeps anything written within
+    :data:`~scistudio.core.lineage.retention.RECENT_WRITE_GRACE_SECONDS`, so a
+    test artifact created moments ago is protected unless it is aged first.
+    """
+    if not path.exists():
+        return
+    timestamp = time.time() - seconds
+    for entry in sorted(path.rglob("*"), reverse=True):
+        os.utime(entry, (timestamp, timestamp))
+    os.utime(path, (timestamp, timestamp))
+
+
+def _age_all(*paths: Path) -> None:
+    """Age every path well past the recent-write grace."""
+    for path in paths:
+        _age(path, RECENT_WRITE_GRACE_SECONDS * 2)
 
 
 def _seed_run(
@@ -207,6 +234,7 @@ def test_plan_keeps_latest_successful_run_and_reclaims_the_rest(tmp_path: Path) 
         started_at="2026-06-11T00:00:00",
         artifacts={"obj-new": newer},
     )
+    _age_all(old, newer)
 
     plan = plan_retention(store, tmp_path)
 
@@ -237,6 +265,7 @@ def test_plan_ignores_a_later_failed_run(tmp_path: Path) -> None:
         started_at="2026-06-11T00:00:00",
         artifacts={"obj-broken": broken},
     )
+    _age_all(good, broken)
 
     plan = plan_retention(store, tmp_path)
 
@@ -280,10 +309,71 @@ def test_plan_reclaims_upstream_artifacts_a_partial_rerun_inherited(tmp_path: Pa
             position=0,
         )
     )
+    _age_all(upstream, downstream)
 
     plan = plan_retention(store, tmp_path)
 
     assert [c.path for c in plan.candidates] == [upstream]
+    store.close()
+
+
+def test_plan_keeps_an_unrecorded_artifact_written_during_the_retained_run(tmp_path: Path) -> None:
+    """A sweep racing lineage recording must cost disk space, not data.
+
+    Artifacts are recorded from an asynchronous event handler, so a sweep fired
+    right after a run can observe a partially-recorded output set. Anything
+    written since the retained run began is kept regardless.
+    """
+    old = _make_zarr_store(tmp_path, "wf", "load", "old", b"o" * 512)
+    recorded = _make_zarr_store(tmp_path, "wf", "load", "recorded", b"r" * 512)
+    unrecorded = _make_zarr_store(tmp_path, "wf", "proj", "unrecorded", b"u" * 512)
+    store = LineageStore(str(tmp_path / "lineage.db"))
+    _seed_run(
+        store,
+        run_id="run-old",
+        workflow_id="wf",
+        status="completed",
+        started_at="2026-06-10T00:00:00",
+        artifacts={"obj-old": old},
+    )
+    _seed_run(
+        store,
+        run_id="run-new",
+        workflow_id="wf",
+        status="completed",
+        started_at="2026-06-11T00:00:00",
+        artifacts={"obj-recorded": recorded},
+    )
+    _age_all(old, recorded)
+    # `unrecorded` keeps its just-written mtime: produced by the retained run
+    # but not yet flushed to data_objects when the sweep fires.
+
+    plan = plan_retention(store, tmp_path)
+
+    assert [c.path for c in plan.candidates] == [old]
+    assert unrecorded.exists()
+    store.close()
+
+
+def test_plan_protects_a_workflow_whose_recorded_paths_are_all_absent(tmp_path: Path) -> None:
+    """A copied/moved project records paths that no longer resolve."""
+    present = _make_zarr_store(tmp_path, "wf", "load", "present", b"p" * 512)
+    store = LineageStore(str(tmp_path / "lineage.db"))
+    _seed_run(
+        store,
+        run_id="run-1",
+        workflow_id="wf",
+        status="completed",
+        started_at="2026-06-10T00:00:00",
+        artifacts={"obj-elsewhere": tmp_path / "old-location" / "data" / "zarr" / "wf" / "load" / "gone.zarr"},
+    )
+    _age_all(present)
+
+    plan = plan_retention(store, tmp_path)
+
+    assert "wf" in plan.protected_workflows
+    assert plan.candidates == ()
+    assert present.exists()
     store.close()
 
 
@@ -329,6 +419,7 @@ def test_plan_protects_a_workflow_whose_retained_run_recorded_no_paths(tmp_path:
         started_at="2026-06-10T00:00:00",
         artifacts={},
     )
+    _age_all(orphan)
 
     plan = plan_retention(store, tmp_path)
 
@@ -366,6 +457,7 @@ def test_plan_protects_a_workflow_with_no_successful_run(tmp_path: Path) -> None
         started_at="2026-06-11T00:00:00",
         artifacts={},
     )
+    _age_all(kept, reclaimable, *(tmp_path / "data" / "zarr" / "wf" / "load").iterdir())
 
     plan = plan_retention(store, tmp_path)
 
@@ -400,6 +492,7 @@ def test_apply_removes_exactly_the_planned_artifacts(tmp_path: Path) -> None:
         started_at="2026-06-11T00:00:00",
         artifacts={"obj-new": newer},
     )
+    _age_all(old, newer)
     old_size = artifact_size_bytes(str(old))
     plan = plan_retention(store, tmp_path)
 

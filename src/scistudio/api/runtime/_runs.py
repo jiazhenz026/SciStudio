@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import os
 from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -240,7 +241,12 @@ def _finalize_lineage_run(
     except Exception:
         logger.debug("#1517: scheduler dispose failed", exc_info=True)
     if status == "completed":
-        _schedule_artifact_retention(self)
+        try:
+            _schedule_artifact_retention(self)
+        except Exception:
+            # A done-callback that raises is logged by asyncio and can mask the
+            # run's own teardown; retention is never worth that.
+            logger.debug("#1983: artifact retention could not start", exc_info=True)
 
 
 # Set to ``0``/``false``/``off`` to keep every run's artifacts on disk. The
@@ -251,8 +257,6 @@ _RETENTION_OFF_VALUES = {"0", "false", "off", "no"}
 
 def _artifact_retention_enabled() -> bool:
     """Whether a successful run should reclaim superseded artifacts."""
-    import os
-
     raw = os.environ.get(_RETENTION_ENV_VAR)
     return raw is None or raw.strip().lower() not in _RETENTION_OFF_VALUES
 
