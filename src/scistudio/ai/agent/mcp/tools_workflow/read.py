@@ -238,7 +238,13 @@ async def validate_workflow(
     except Exception as exc:
         return ValidateWorkflowResult(valid=False, errors=[f"parse failure: {exc}"])
 
-    errors = _validate(definition, registry=ctx.block_registry)
+    # ``project_dir`` (#1967 FR-035, landed here by #1969): this tool reads the
+    # YAML through ``load_yaml`` (or parses inline text), so it never sees the
+    # runtime's load-time path absolutification. Without the active project root
+    # the validator falls back to the backend process's working directory and
+    # falsely rejects a valid project-relative CodeBlock ``script_path`` that run
+    # start accepts.
+    errors = _validate(definition, registry=ctx.block_registry, project_dir=ctx.project_dir)
     return ValidateWorkflowResult(valid=not errors, errors=list(errors))
 
 

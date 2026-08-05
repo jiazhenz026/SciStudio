@@ -52,6 +52,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1969] The `validate_workflow` MCP tool now resolves a CodeBlock
+  `script_path` against the active project root instead of the backend process
+  working directory. #1967 threaded an explicit `project_dir` through
+  `validate_workflow` and pinned FR-035 — every caller that knows the active
+  project must pass its root — but missed this third caller, which loads the
+  YAML itself and so never sees the runtime's load-time path absolutification.
+  Users were unaffected (run start already passed the project root); the agent
+  was not: the dry-run self-check it is told to run after writing a workflow
+  falsely reported a valid project-relative script as invalid. Tests:
+  `tests/ai/test_mcp_tools_disk_integration.py` covers both branches of the tool
+  (file path and inline YAML) with the working directory outside the project.
+  (@claude, 2026-07-29, branch: guided/1969-mcp-validate-project-dir)
 - [#1971] A `print()` inside a block's `run()` no longer breaks the run. The
   worker writes its JSON result envelope to stdout and the engine parses that
   stream, so anything a block printed landed in front of the envelope and the
