@@ -30,8 +30,8 @@ from __future__ import annotations
 
 import logging
 import shutil
-import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from scistudio.core.lineage.store import LineageStore, artifact_size_bytes
@@ -48,14 +48,11 @@ ARTIFACT_ROOTS = ("data/zarr", "data/parquet")
 # not independently reclaimable.
 ARTIFACT_SUFFIXES = (".zarr", ".parquet")
 
-# An artifact written this recently is kept whatever lineage says about it.
-# Artifacts are recorded from an asynchronous event handler, so a sweep fired
-# on run completion can observe an output set that is still being written to
-# ``data_objects``. Bounding by write age makes that race cost disk space until
-# the next sweep rather than data. Runs still executing are excluded separately
-# (``plan_retention`` refuses outright), so this only has to cover the gap
-# between a run finishing and its last lineage row landing.
-RECENT_WRITE_GRACE_SECONDS = 300.0
+# Clock skew tolerance when comparing an artifact's mtime against the retained
+# run's recorded start time. The two come from different clocks (filesystem vs.
+# the recorder's wall clock), so a strict comparison could drop an artifact
+# written in the first moments of the run.
+START_TIME_SKEW_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -101,14 +98,33 @@ class RetentionPlan:
         return self.blocked_reason is not None
 
 
-def _written_recently(entry: Path, *, now: float) -> bool:
-    """Whether *entry* was written within :data:`RECENT_WRITE_GRACE_SECONDS`.
-
-    An unreadable entry answers ``True`` so the caller keeps it; retention errs
-    toward retaining.
-    """
+def _parse_timestamp(value: str | None) -> float | None:
+    """Return *value* as a POSIX timestamp, or ``None`` when unparseable."""
+    if not value:
+        return None
     try:
-        return (now - entry.stat().st_mtime) < RECENT_WRITE_GRACE_SECONDS
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.timestamp()
+    return parsed.astimezone().timestamp()
+
+
+def _written_since_run_start(entry: Path, since: float | None) -> bool:
+    """Whether *entry* was written after the retained run began.
+
+    Anchoring to the run's own start rather than to wall-clock recency is what
+    makes the bound hold for a run of any duration: an artifact written in a
+    run's first minute is covered even when the run takes hours to finish.
+
+    An unknown start time or an unreadable entry answers ``True`` so the caller
+    keeps the artifact; retention errs toward retaining.
+    """
+    if since is None:
+        return True
+    try:
+        return entry.stat().st_mtime >= (since - START_TIME_SKEW_SECONDS)
     except OSError:
         return True
 
@@ -153,9 +169,13 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
       lineage recording failed for the run, or the project was copied and its
       recorded absolute paths no longer resolve; sweeping in either state would
       delete every artifact the workflow has.
-    * An artifact written within :data:`RECENT_WRITE_GRACE_SECONDS` is kept
-      whatever lineage says about it, covering the gap between a run finishing
-      and its last asynchronously-recorded lineage row landing.
+    * An artifact written since the retained run started is kept whatever
+      lineage says about it. Lineage rows are written from an asynchronous
+      event handler and can fail individually (``runs.provenance_degraded``),
+      so the run's own start time — rather than wall-clock recency — is what
+      bounds the sweep; that holds for a run of any duration.
+    * A plan that would reclaim *every* artifact a workflow has protects that
+      workflow instead. Retention always leaves one complete run on disk.
 
     Args:
         store: The project's lineage store.
@@ -183,7 +203,9 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
     if repaired:
         logger.info("retention: recovered storage_path for %d lineage rows (#1983)", repaired)
 
-    retained_runs = store.latest_successful_run_per_workflow()
+    latest = store.latest_successful_run_per_workflow()
+    retained_runs = {workflow_id: run_id for workflow_id, (run_id, _) in latest.items()}
+    retained_since = {workflow_id: _parse_timestamp(started) for workflow_id, (_, started) in latest.items()}
     live_paths = store.artifact_paths_produced_by(retained_runs.values())
     # Compare resolved paths: lineage records absolute paths captured at write
     # time, while the sweep walks the project root it was handed.
@@ -205,11 +227,12 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
         if len(parts) >= 3 and Path(path).exists():
             per_workflow_live.setdefault(parts[-3], set()).add(path)
 
-    now = time.time()
     protected: dict[str, str] = {}
     candidates: list[ReclaimCandidate] = []
+    scanned_per_workflow: dict[str, int] = {}
     for artifact_root in ARTIFACT_ROOTS:
         for workflow_id, block_id, entry in _iter_artifact_entries(root / artifact_root):
+            scanned_per_workflow[workflow_id] = scanned_per_workflow.get(workflow_id, 0) + 1
             if workflow_id not in retained_runs:
                 protected.setdefault(
                     workflow_id,
@@ -225,7 +248,7 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
                 continue
             if str(entry.resolve()) in live_resolved:
                 continue
-            if _written_recently(entry, now=now):
+            if _written_since_run_start(entry, retained_since.get(workflow_id)):
                 continue
             candidates.append(
                 ReclaimCandidate(
@@ -238,6 +261,23 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
 
     # A workflow protected by the guards above must not contribute candidates,
     # even if some of its entries were scanned before the guard tripped.
+    if protected:
+        candidates = [c for c in candidates if c.workflow_id not in protected]
+
+    # Floor invariant: a sweep never empties a workflow's artifact directory.
+    # Reaching this point means the guards above were all satisfied, so a plan
+    # that still covers every artifact a workflow has is evidence that the
+    # liveness computation is wrong rather than that the workflow is genuinely
+    # all-garbage. Keep the workflow whole and let a human look.
+    reclaim_counts: dict[str, int] = {}
+    for candidate in candidates:
+        reclaim_counts[candidate.workflow_id] = reclaim_counts.get(candidate.workflow_id, 0) + 1
+    for workflow_id, count in reclaim_counts.items():
+        if count >= scanned_per_workflow.get(workflow_id, 0):
+            protected[workflow_id] = (
+                "sweep would reclaim every artifact this workflow has; keeping them all, "
+                "because retention must always leave one complete run on disk"
+            )
     if protected:
         candidates = [c for c in candidates if c.workflow_id not in protected]
 

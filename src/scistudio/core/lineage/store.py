@@ -972,18 +972,24 @@ class LineageStore:
             cur = conn.execute("SELECT run_id FROM runs WHERE status = 'running'")
             return [row[0] for row in cur.fetchall()]
 
-    def latest_successful_run_per_workflow(self) -> dict[str, str]:
-        """Map each ``workflow_id`` to its most recent ``completed`` run id.
+    def latest_successful_run_per_workflow(self) -> dict[str, tuple[str, str]]:
+        """Map each ``workflow_id`` to its most recent ``completed`` run.
 
         #1983: this is the retention root set. A workflow whose runs all failed
         or were cancelled is absent from the mapping, which the caller treats
         as "no retained run" rather than as "retain nothing" — see
         :func:`scistudio.core.lineage.retention.plan_retention`.
+
+        Returns:
+            ``workflow_id`` → ``(run_id, started_at)``. The start timestamp
+            bounds which artifacts retention may reclaim: anything written
+            since the retained run began belongs to that run however long it
+            took, so the bound holds for a run of any duration.
         """
         with self._connect() as conn:
             cur = conn.execute(
                 """
-                SELECT workflow_id, run_id FROM runs AS r
+                SELECT workflow_id, run_id, started_at FROM runs AS r
                 WHERE status = 'completed'
                   AND started_at = (
                       SELECT MAX(started_at) FROM runs
@@ -991,7 +997,7 @@ class LineageStore:
                   )
                 """
             )
-            return {row[0]: row[1] for row in cur.fetchall()}
+            return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
 
     def artifact_paths_produced_by(self, run_ids: Iterable[str]) -> set[str]:
         """Return the storage paths of artifacts produced by the given runs.
