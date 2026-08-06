@@ -245,7 +245,7 @@ workflow:
     - id: seg
       block_type: ai.assisted_segmenter   # an AI Agent block
       config:
-        provider: claude-code             # or "codex"
+        provider: claude-code             # see the provider list below
         initial_prompt: "Segment each microplastic particle."
         timeout_sec: 600
     - id: stats
@@ -264,12 +264,32 @@ workflow:
 ```
 
 The `ai.assisted_segmenter` block is an AI Agent block. When the
-runtime hits it, the engine spawns an embedded agent (claude-code or
-codex) inside a PTY tab in the GUI. The embedded agent uses the same
-MCP tool surface and terminates cleanly via
+runtime hits it, the engine spawns an embedded agent CLI inside a PTY
+tab in the GUI. The embedded agent uses the same MCP tool surface and
+terminates cleanly via
 `mcp__scistudio__finish_ai_block(run_id, output_refs)`. See
 `scistudio-debug-run` for the full `finish_ai_block` operational
 contract.
+
+The `provider` config accepts any agent CLI SciStudio supports:
+
+| Value | Label | Binary |
+|---|---|---|
+| `claude-code` | Claude Code (default) | `claude` |
+| `codex` | Codex | `codex` |
+| `kimi-code` | Kimi Code | `kimi` |
+| `qoder` | Qoder CLI — international channel | `qodercli` |
+| `qoder-cn` | Qoder CLI (China) — China channel | `qoderclicn` |
+
+The two Qoder channels are separate providers, not aliases: they have
+separate binaries, config roots, and credentials, and a user may have
+both installed. Picking one never falls back to the other.
+
+Do not treat this table as the authority. The enum is generated from
+`scistudio.ai.agent.providers_registry`, so
+`get_block_schema("ai.assisted_segmenter")` is always current and this
+table may lag a newly added provider. Existing workflows using
+`provider: claude-code` are unaffected — the enum only widened.
 
 ## 4. Canonical tool-call sequence
 

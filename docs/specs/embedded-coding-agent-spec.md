@@ -51,19 +51,33 @@ date: 2026-05-12
 > ADR-034.  This document is retained as historical reference until
 > Phase 3 of the ADR-034 cascade rewrites it.
 >
-> The locked API contracts shipped by **Phase 1.2** (issue #816) are:
+> The locked API contracts shipped by **Phase 1.2** (issue #816), as amended by
+> ADR-034 Amendment 1 and `docs/specs/adr-034-multi-provider-agent-chat.md`
+> (issue #1994, verified 2026-08-06), are:
 >
 > * `GET /api/ai/status` →
->   `{providers: [{name, available, version, logged_in}, ...]}` for
->   `name ∈ {"claude-code", "codex"}`.
-> * `WS /api/ai/pty/{tab_id}?project_dir=<abs>&provider=<claude-code|codex>&dangerous=<true|false>`
->   carrying JSON frames:
+>   `{providers: [{name, label, available, version, logged_in}, ...]}` for
+>   `name ∈ {"claude-code", "codex", "kimi-code", "qoder", "qoder-cn"}`.
+>   The provider set and each entry's `label` are derived from
+>   `scistudio.ai.agent.providers_registry`, not from a literal list in the
+>   route or in this document; a sixth provider appears here from a registry row
+>   alone. `label` was added by ADR-034 Amendment 1. The original four fields are
+>   unchanged, so consumers that read fields by name are unaffected — the
+>   addition is what keeps this note's "locked" claim honest rather than broken.
+> * `WS /api/ai/pty/{tab_id}?project_dir=<abs>&provider=<provider key>&dangerous=<true|false>`
+>   where the accepted provider keys are the registry's five agent keys plus the
+>   `user-terminal` pseudo-provider, and the rejection message enumerates the
+>   accepted set. Frames are unchanged:
 >     - client → server: `{type:"stdin",data}`, `{type:"resize",cols,rows}`
 >     - server → client: `{type:"stdout",data}`, `{type:"exit",code}`,
 >       `{type:"error",message}`
-> * Resource cap: max 16 concurrent PTY tabs per backend.
+> * Resource cap: max 16 concurrent PTY tabs per backend. Unchanged and
+>   provider-agnostic.
 >
-> Implementation: `src/scistudio/ai/agent/terminal.py`,
+> Implementation: `src/scistudio/ai/agent/providers_registry.py` (the single
+> source of truth for every per-CLI fact),
+> `src/scistudio/ai/agent/terminal.py` (one descriptor-driven `spawn_agent`;
+> the former `spawn_claude` / `spawn_codex` factories are removed),
 > `src/scistudio/ai/agent/system_prompt.py`,
 > `src/scistudio/api/routes/ai_pty/` (sub-package split per issue #1432),
 > `src/scistudio/api/routes/ai.py` (`provider_status`).

@@ -1,7 +1,7 @@
 ---
 spec_id: adr-034-multi-provider-agent-chat
 title: "ADR-034 Multi-Provider Agent Chat Implementation Specification"
-status: Draft
+status: Planned
 feature_branch: docs/1992-adr-034-multi-provider-spec
 created: 2026-08-06
 input: "Owner request: add Kimi Code and Qoder CLI support to AI chat, covering every feature surface including AI Block, with the provider set driven by one registry instead of scattered per-provider branches. Qoder must support both its international and China channel CLIs simultaneously."
@@ -9,8 +9,6 @@ owners:
   - "@jiazhenz026"
 related_adrs:
   - 34
-  - 35
-  - 40
 related_specs:
   - embedded-coding-agent-spec
 scope:
@@ -27,7 +25,7 @@ scope:
     - Replace the SetupScreen provider radio list with a registry-driven dropdown that lists every supported agent and enables only the installed ones.
     - Add a zero-install guidance state that tells the user to install an agent CLI when none is detected.
     - Reword the permission-mode picker to plain user language with no CLI flag names.
-    - Pin the SetupScreen action bar so Launch is reachable at every bottom-panel height without scrolling.
+    - WITHDRAWN 2026-08-06 - Pin the SetupScreen action bar so Launch is reachable at every bottom-panel height without scrolling. See User Story 6 for the measurements that withdrew it.
     - Collapse the three duplicated frontend provider union types into one source.
     - Fix the orphaned system-prompt temp file leak on the AI Block spawn path.
     - Replace the invalid `scistudio install --target claude-code` hint emitted by AI Block validate-time errors with a message that does not suggest a command incapable of installing the provider CLI.
@@ -45,14 +43,22 @@ scope:
     - Adding per-provider install instructions to the normal Setup screen flow outside the zero-install state.
 governs:
   modules:
+    - scistudio.ai.agent.providers_registry
     - scistudio.ai.agent.terminal
     - scistudio.api.routes.ai
     - scistudio.api.routes.ai_pty
     - scistudio.blocks.ai.ai_block
     - scistudio.engine.pty_control
   contracts:
-    - scistudio.ai.agent.terminal.spawn_claude
-    - scistudio.ai.agent.terminal.spawn_codex
+    - scistudio.ai.agent.providers_registry.CredentialProbe
+    - scistudio.ai.agent.providers_registry.McpInjection
+    - scistudio.ai.agent.providers_registry.ProviderDescriptor
+    - scistudio.ai.agent.providers_registry.ProviderKind
+    - scistudio.ai.agent.providers_registry.ProviderRegistry
+    - scistudio.ai.agent.providers_registry.REGISTRY
+    - scistudio.ai.agent.providers_registry.SystemPromptInjection
+    - scistudio.ai.agent.providers_registry.resolve_binary
+    - scistudio.ai.agent.terminal.spawn_agent
     - scistudio.ai.agent.terminal.resolve_windows_executable
     - scistudio.api.routes.ai_pty.engine.open_engine_initiated_tab
     - scistudio.api.routes.ai.provider_status
@@ -64,6 +70,7 @@ governs:
     - docs/adr/ADR-034.md
     - docs/specs/adr-034-multi-provider-agent-chat.md
     - docs/specs/embedded-coding-agent-spec.md
+    - src/scistudio/ai/agent/providers_registry.py
     - src/scistudio/ai/agent/terminal.py
     - src/scistudio/api/routes/ai.py
     - src/scistudio/api/routes/ai_pty/__init__.py
@@ -75,13 +82,12 @@ governs:
     - src/scistudio/engine/pty_control.py
     - src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md
     - frontend/src/components/AIChat/SetupScreen.tsx
+    - frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/types.ts
     - frontend/src/components/AIChat/hooks/usePtyWebSocket.ts
-    - frontend/src/components/AIChat/TerminalTabs.tsx
     - frontend/src/components/AIChat/blockPtyHandlers.ts
-    - frontend/src/components/BottomPanel.tsx
     - frontend/src/hooks/useWebSocket.parts/handleBlockPty.ts
     - frontend/src/store/types.ts
     - frontend/src/store/terminalTabsSlice.ts
@@ -94,21 +100,26 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/ai/agent/providers_registry.py
-    - frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx
+  files: []
   excludes: []
 tests:
   - tests/ai/test_providers_registry.py
+  - tests/ai/test_provider_mcp_write_atomicity.py
   - tests/ai/test_windows_executable_resolution.py
   - tests/api/test_provider_discovery.py
+  - tests/api/test_provider_discovery_agreement.py
+  - tests/api/test_provider_propagation_chain.py
+  - tests/api/test_provider_registry_extensibility.py
   - tests/api/test_ai_pty.py
   - tests/api/test_ai_pty_engine_spawn.py
   - tests/api/routes/ai_pty/test_engine.py
+  - tests/architecture/test_adr_034_provider_single_source.py
   - tests/blocks/ai/test_ai_block_skeleton.py
+  - tests/cli/test_install.py
   - tests/engine/test_pty_control.py
   - frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx
   - frontend/src/components/AIChat/__tests__/TerminalTab.test.tsx
+  - frontend/src/components/AIChat/__tests__/ProviderExtensibility.test.tsx
 acceptance_source: adr
 language_source: en
 ---
@@ -206,37 +217,57 @@ Three consequences shape the whole design:
    directories rather than globbing for `qodercli*.exe` anywhere under the home
    directory, or SciStudio will offer a stale, unauthenticated agent.
 
-### Governance alignment — open item blocking `Planned` status
+### Governance alignment — how the gap was closed (2026-08-06)
 
-This spec is `status: Draft`, not `Planned`, for one specific reason that the
-owner must resolve before implementation starts.
+This spec was authored as `status: Draft` because the
+`doc-drift.missing-adr-governance` rule requires every ADR listed in a `Planned`
+or `Implemented` spec's `related_adrs` to cover every surface the spec governs,
+and this spec's surface is wider than what ADR-034 governed. That item is now
+closed and the spec is `Planned`. The resolution is recorded here because two of
+its three parts are non-obvious and a future reader who re-derives them from
+scratch will waste the same time.
 
-The `doc-drift.missing-adr-governance` rule requires that every ADR listed in a
-`Planned` or `Implemented` spec's `related_adrs` covers every surface the spec
-governs, as a strict conjunction across all listed ADRs. This spec's surface is
-wider than what ADR-034 currently governs. ADR-034 governs
-`scistudio.api.routes.ai_pty`, `scistudio.engine.pty_control`,
-`src/scistudio/ai/agent/terminal.py`, and `frontend/src/components/AIChat/**`.
-It does not govern `src/scistudio/api/routes/ai.py`,
-`src/scistudio/blocks/ai/ai_block.py`, `src/scistudio/cli/install.py`,
-`frontend/src/store/**`, or `frontend/src/components/BottomPanel.tsx`, all of
-which this change must touch. ADR-035 and ADR-040 cover parts of that remainder,
-but the rule is a conjunction, so listing them does not close the gap.
+**1. The addendum option does not work.** The Draft text offered two options:
+expand ADR-034's `governs`, or author an ADR-034 addendum. The manager verified
+during dispatch preflight that they are not equivalent — the second is silently
+ineffective. `doc_drift._check_adr_spec_alignment` builds its ADR lookup as
+`{frontmatter.adr: document}` over all `docs/adr/ADR-*.md`;
+`ADRAddendumFrontmatter` subclasses `ADRFrontmatter` and carries the *parent*
+ADR number; and `sorted()` orders `ADR-034-addendum1.md` before `ADR-034.md`. The
+base ADR therefore overwrites the addendum in that dict and the addendum's
+`governs` is never read. An addendum would have looked like governance and
+provided none. That tooling defect is tracked as issue **#2004** and was
+deliberately not fixed inside this dispatch.
 
-This is a real architectural finding rather than a paperwork obstacle: the
-provider registry widens what the embedded-agent decision governs, and ADR-034
-is an Accepted document in `phase: legacy` marked `agent_editable: false`. The
-resolution is an owner decision between two options:
+**2. The owner authorized editing ADR-034 directly.** ADR-034 is Accepted,
+`phase: legacy`, and marked `agent_editable: false`. On 2026-08-06 the owner
+authorized amending it. The expansion is expressed as a fenced block whose info
+string is exactly `yaml adr042-governance-amendment`, in ADR-034 section 3.4 —
+the same ADR-042 mechanism ADR-041 Addendum 1 and ADR-043 Addendum 1 use — which
+`scistudio.qa.audit._util._apply_governance_amendments` merges into ADR-034's
+`governs` at load time. The frontmatter of ADR-034 is byte-identical to before,
+so the original accepted record is intact. ADR-034 section 3 also records the
+registry decision itself and the verified adapter matrix, so the amendment is a
+decision record rather than a metadata edit.
 
-1. Expand ADR-034's `governs` to cover the registry, status endpoint, AI Block
-   integration, and the frontend store surfaces this spec touches.
-2. Author an ADR-034 addendum that records the multi-provider registry decision
-   and governs the new surfaces, leaving the original ADR untouched.
+**3. `related_adrs` narrowed from `[34, 35, 40]` to `[34]`.** The rule is a
+strict conjunction: *each* listed ADR must independently cover *every* spec
+surface. With ADR-034 amended and the other two still listed, flipping to
+`Planned` yields 75 `missing-adr-governance` errors — 0 against ADR-034, 33
+against ADR-035, 42 against ADR-040 — because ADR-035 does not govern
+`scistudio.ai.agent.terminal` and ADR-040 does not govern
+`scistudio.engine.pty_control` or `scistudio.api.routes.ai_pty`. Closing them
+would have required amending three Accepted legacy ADRs to each govern the
+others' surfaces, which is worse governance, not better. Every other active spec
+in this repository lists exactly one ADR, which is the convention the conjunction
+forces. ADR-035 (AI Block as a PTY-tab variant) and ADR-040 (agent
+provisioning) remain genuinely related and are cited throughout this document;
+they are simply not co-governors of this surface.
 
-Until one of those lands, this spec stays `Draft` and declares the two
-not-yet-existing files under `planned_governs`. Moving it to `Planned` without
-the ADR alignment would either fail the audit or require under-declaring the
-spec's real surface, and neither is acceptable.
+The two files declared under `planned_governs` in the Draft —
+`src/scistudio/ai/agent/providers_registry.py` and
+`frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx` — now
+exist and have moved to `governs.files`. `planned_governs` is empty.
 
 ## 2. User Scenarios & Testing
 
@@ -395,29 +426,125 @@ Acceptance Scenarios:
   it is unchanged from the existing `safe` / `dangerous` frontend values, so
   this is a presentation change only.
 
-### User Story 6 - Reach Launch At Any Panel Height (Priority: P1)
+### User Story 6 - Reach Launch At Any Panel Height — WITHDRAWN (2026-08-06)
 
-As a SciStudio user, I can always see and click Launch regardless of how tall
-the bottom panel is, without discovering that the panel scrolls.
+**Status: withdrawn by the owner on 2026-08-06 after measurement. FR-021g and
+FR-021h are withdrawn with it. Task T-011c is not delivered.
+`frontend/src/components/BottomPanel.tsx` and
+`frontend/src/components/AIChat/TerminalTabs.tsx` are not touched by this
+change and no longer appear in `governs.files` or section 4.2.**
 
-Why this priority: the owner reports that at the default bottom-panel height the
-Launch button is below the fold. A user who does not think to scroll can never
-start a chat, which makes the whole feature unreachable.
+The original story read: *As a SciStudio user, I can always see and click Launch
+regardless of how tall the bottom panel is, without discovering that the panel
+scrolls.* It was P1 on the strength of an owner report that Launch sat below the
+fold at the default bottom-panel height.
 
-Independent Test: drive a real browser at several bottom-panel heights,
-including the smallest the panel allows, and assert the Launch control is within
-the visible viewport of the panel without scrolling.
+The report was real and reproducible. The **explanation** in section 4.1 was
+wrong, and the **fix** it prescribed was measurably inert. No follow-up issue is
+being opened, deliberately, so this subsection is the only surviving record of
+what was measured. It is written so a future reader who hits the same symptom
+can pick it up without re-measuring.
 
-Acceptance Scenarios:
+#### 6.1 What was originally claimed, and what is now disproven
 
-- Given the bottom panel is at its default height, when the Setup screen
-  renders, then Launch and Cancel are visible without scrolling.
-- Given the bottom panel is dragged to its minimum height, when the Setup screen
-  renders, then Launch remains visible and clickable.
-- Given the setup body has more content than fits, when the user scrolls the
-  body, then the action bar stays fixed and does not scroll away.
-- Given the action bar overlays scrolled content, when content passes behind it,
-  then the action bar is fully opaque so the buttons stay legible.
+Section 4.1 argued that two `h-full` block wrappers — one in `BottomPanel` that
+CSS-hides the inactive surface, one in `TerminalTabs` that CSS-hides inactive
+tabs — lose a definite height, that `BottomPanel`'s `overflow-y-auto` wrapper
+then scrolls the whole chat surface including the footer, and that the fix was
+to convert both wrappers to definite-height flex containers *and* pin the action
+bar with `sticky bottom-0` plus an opaque background.
+
+Both halves of that fix were isolated one variable at a time in a real browser:
+
+- **The percentage-height chain resolves correctly.** Converting the two
+  wrappers produced **byte-identical geometry**, identical scrollability, and an
+  identical `Floor(visible)` of **176 px**. The conversion buys nothing. The
+  hypothesis required an ancestor with an indefinite height; there is none,
+  because the bottom panel is a flex item with a resolved pixel height.
+- **`sticky bottom-0` is inert at every panel height.** Measured on
+  `origin/main` with and without it, clipping at panel heights 150 px / 120 px /
+  minimum is **20 / 9 / 46 px in both cases**. This is not a measurement
+  artifact: a sticky box may not be moved outside its containing block, and
+  below the floor the containing block is already shorter than the bar, so there
+  is nowhere for `sticky` to move it to.
+
+An earlier manager hypothesis — that the wrapper conversion *regressed* the
+failure mode from scroll-reachable to clipped — was also falsified by the same
+harness: `canScroll` is identical at every panel height on both branches, and
+`afterScroll` is false below the floor on both.
+
+#### 6.2 What the mechanism actually is
+
+It is a **crush**, not a lost height. The chat setup surface has a fixed pixel
+floor:
+
+- **176 px** — below this the Launch button is no longer fully visible.
+- **192 px** — below this something in the surface is clipped, with no
+  scrollable ancestor able to reveal it.
+
+That floor is a sum of fixed chrome, not a percentage:
+
+| Contribution | Height |
+|---|---|
+| `BottomPanel` tab strip | 61 px |
+| `BottomPanel` content-wrapper padding | 16 px |
+| `TerminalTabs` tab strip | 37 px |
+| `SetupScreen` padding | 24 px |
+| Action bar | 55 px |
+| **Total** | **176 px** |
+
+Roughly 98 px of that is the two tab strips, ~17 px is padding, and ~61 px is
+the action bar itself, which is irreducible. Nothing in the CSS of `SetupScreen`
+or its wrappers can shrink a sum of fixed chrome.
+
+Three further measured facts complete the picture:
+
+- **The panel's `minSize` is a percentage while the floor is fixed pixels**, so
+  no single percentage expresses it. Covering 1280x720 needs about **29 %**,
+  which on a 2560x1440 display would impose a **385 px** minimum panel height.
+  A correct fix is a **pixel** `minSize`, not a CSS change in the chat surface.
+- **Below the floor the button is partially visible and clickable but never
+  reachable by scrolling.** At 1280x520, `visible` is false while `clickable` is
+  true, with **20.2 of 36 px** on screen and `elementFromPoint` hitting the
+  button. The setup body genuinely scrolls, and below ~120 px the `BottomPanel`
+  wrapper scrolls too — but `SetupScreen`'s `overflow-hidden` root clips the bar
+  before the overflow can ever reach `BottomPanel`'s scrollable wrapper. So both
+  of the owner's seemingly contradictory reports ("it is below the fold" and "I
+  can find it by scrolling") are true simultaneously. What is never true is that
+  scrolling brings the button *fully* into view.
+- **Why History / Lineage does not show this.** `RunDetail` is rendered directly
+  into `BottomPanel`'s content wrapper, skipping the 37 px `TerminalTabs` strip
+  and `SetupScreen`'s 24 px padding, so its floor is about 61 px lower.
+  `RunDetail`'s root also has no `overflow-hidden`. Section 4.1 originally used
+  `RunDetail` as evidence that a *weaker* implementation works while a stronger
+  one fails, and concluded the defect was in the host chain. The comparison was
+  sound; the conclusion drawn from it was not. `RunDetail` works because it pays
+  61 px less chrome, not because the wrapper chain treats it differently.
+
+The symptom is viewport-dependent, with a crossover near **558 CSS px** of
+window height. Real configurations below the crossover include a 1366x768 laptop
+at 150 % scaling (512 CSS px) and 1920x1080 at 200 % (540 CSS px). An early
+round that measured only at 1280x720 saw it pass; the blind spot was the
+viewport, not the analysis.
+
+#### 6.3 Why the owner withdrew it
+
+The owner tested the real application at panel heights below the floor and
+judged it a non-issue: **below that threshold nothing in the panel is clickable
+at all**, so a user in that state drags the tab bar up rather than hunting for a
+Launch button. The remaining honest fix — converting the panel's percentage
+`minSize` to pixels — is a bottom-panel resize change, which this spec's
+`scope.out` explicitly excludes ("Redesigning the bottom panel, its resize
+behavior, its default height, or its existing pin-open toggle").
+
+Carrying the two inert changes anyway was rejected on the grounds that neither
+is a regression but both would leave a **disproven rationale** in PTY-critical
+files, inviting the next reader to believe it. The action-bar pin that A5 had
+already landed was reverted for the same reason.
+
+The one change from this area that *was* real is not part of the withdrawn work:
+the entire measured delta between baseline and the pinned version came from a
+`pb-1` padding change, not from `sticky` or the wrapper conversion.
 
 ### User Story 7 - Add A Sixth Provider Cheaply (Priority: P2)
 
@@ -485,12 +612,16 @@ Acceptance Scenarios:
   complete the CLI's own login flow inside the PTY.
 - The status fetch is still in flight. The zero-install notice must not flash
   before availability is known.
-- The bottom panel is at its collapsed height where even a pinned action bar
-  cannot fit. The action bar must degrade predictably rather than being clipped
-  with no way to reach it.
-- A persisted panel height from an earlier session is smaller than the current
-  default. The pinned action bar must hold at that height too, because the
-  panel size is restored from the store rather than reset.
+- ~~The bottom panel is at its collapsed height where even a pinned action bar
+  cannot fit.~~ Withdrawn with User Story 6. Measured answer, kept because it is
+  the fact the case was groping for: below a 176 px fixed chrome floor the
+  action bar is clipped by `SetupScreen`'s own `overflow-hidden` root before any
+  ancestor scroll can reach it, and no CSS change in the chat surface can alter
+  a sum of fixed chrome.
+- ~~A persisted panel height from an earlier session is smaller than the current
+  default.~~ Withdrawn with User Story 6. The restored-height case behaves
+  identically to the dragged case; the floor is a function of chrome, not of how
+  the height was arrived at.
 
 ## 3. Requirements
 
@@ -591,11 +722,15 @@ Acceptance Scenarios:
   `Bypass Permission`, and the picker MUST NOT display any CLI flag name.
 - FR-021f: The permission-mode change MUST be presentational; the stored values
   and the launch payload MUST be unchanged.
-- FR-021g: The Setup screen action bar containing Cancel and Launch MUST remain
-  visible at every bottom-panel height the panel permits, without requiring the
-  user to scroll any ancestor container.
-- FR-021h: The action bar MUST render on an opaque background when content can
-  pass behind it.
+- FR-021g: **WITHDRAWN 2026-08-06.** Previously: "The Setup screen action bar
+  containing Cancel and Launch MUST remain visible at every bottom-panel height
+  the panel permits, without requiring the user to scroll any ancestor
+  container." Withdrawn by the owner after measurement showed the prescribed fix
+  is inert and the real constraint is a fixed 176 px chrome floor against a
+  percentage panel `minSize`. See User Story 6.
+- FR-021h: **WITHDRAWN 2026-08-06.** Previously: "The action bar MUST render on
+  an opaque background when content can pass behind it." Withdrawn with FR-021g;
+  content cannot pass behind a bar that is never pinned. See User Story 6.
 - FR-022: The engine-initiated terminal tab MUST record the provider reported by
   the engine rather than a hardcoded value.
 - FR-023: The WebSocket query contract MUST accept every registry provider key,
@@ -644,9 +779,11 @@ what keeps the security-scan sidecar copy out of the provider list.
 
 `terminal.py` keeps `PtyProcess` unchanged and replaces `spawn_claude` /
 `spawn_codex` with a single descriptor-driven `spawn_agent(descriptor, ...)`.
-The existing names may remain as thin registry lookups only if tests depend on
-them; otherwise they are removed. `resolve_windows_executable` gains an explicit
-well-known-directory parameter sourced from the descriptor, replacing
+The draft allowed the old names to survive as thin registry lookups if tests
+depended on them; **as delivered they are removed**, and `governs.contracts`
+lists `spawn_agent` instead. Anything that looks like a transitional shim in
+this area is a defect, not a plan. `resolve_windows_executable` gains an
+explicit well-known-directory parameter sourced from the descriptor, replacing
 `_windows_user_cli_dirs()`.
 
 MCP injection becomes a strategy dispatch with three observed shapes: an
@@ -723,43 +860,18 @@ values and the `safe` / `bypass` backend values are untouched, so no contract
 moves. For consistency the AI Block config schema's `ui_enum_labels` is updated
 to the same two phrases, since it is the same choice presented on the canvas.
 
-The pinned action bar is the one change whose root cause was located by
-comparison rather than by reading `SetupScreen` alone. `SetupScreen` already
-implements the textbook pinned-footer layout — root
-`flex h-full min-h-0 flex-col overflow-hidden`, body
-`min-h-0 flex-1 overflow-y-auto`, actions `shrink-0` — and a test in
-`SetupScreen.test.tsx` asserts exactly that structure and passes, yet the button
-is below the fold in the real app.
-
-The working precedent is `Lineage/RunDetail.tsx`, the run-history detail pane.
-It has the same shape — root `flex h-full flex-col`, body
-`min-h-0 flex-1 overflow-y-auto`, bottom `footer` with a `border-t` — and its
-Restore / Export methods bar stays pinned. Notably `RunDetail` is *less*
-defensive than `SetupScreen`: its root has neither `min-h-0` nor
-`overflow-hidden`, and its footer has no `shrink-0`. A weaker implementation
-working while a stronger one fails localises the defect outside both components.
-
-The difference is the host chain. `BottomPanel` renders `LineageTab` directly
-into its content wrapper, so `RunDetail` sits two levels below a flex item with
-a definite height. The chat surface inserts two additional `h-full` block
-wrappers — one in `BottomPanel` to CSS-hide the inactive surface, one in
-`TerminalTabs` to CSS-hide inactive tabs — both of which exist because
-`TerminalTabs` must stay mounted so PTY subprocesses survive a tab switch. The
-result is a percentage-height chain threaded through several non-flex block
-wrappers, which is where a definite height is most easily lost; once it is, the
-`BottomPanel` wrapper's `overflow-y-auto` scrolls the entire surface including
-the footer.
-
-The implementation therefore converts those two wrappers from percentage-height
-blocks into flex containers that pass a definite height down
-(`flex min-h-0 flex-1 flex-col` on the visible wrapper), preserving the
-CSS-hiding behavior that keeps PTYs alive, and additionally makes the action bar
-`sticky bottom-0` with an opaque background so it survives if a future ancestor
-reintroduces a scroll context. Keeping both is deliberate: the structural repair
-is the real fix, and the sticky rule is the guard that stops this from silently
-regressing a fourth time. The opaque background contradicts the existing
-assertion that the action bar has no `bg-white`; that assertion is updated, and
-FR-021h records why an opaque background is now required.
+**The action-bar subsection that stood here is withdrawn and its analysis is
+disproven.** It argued that two `h-full` CSS-hiding wrappers lose a definite
+height, that `BottomPanel`'s `overflow-y-auto` wrapper then scrolls the whole
+surface including the footer, and that the fix was to convert both wrappers and
+pin the bar with `sticky bottom-0` plus an opaque background. Single-variable
+isolation in a real browser showed the wrapper conversion produces
+byte-identical geometry and `sticky bottom-0` is inert at every panel height.
+The real mechanism is a fixed 176 px chrome floor measured against a percentage
+panel `minSize`. The full measurement record, including why `Lineage/RunDetail`
+appears to work and why the button is clickable but never fully scrollable into
+view, is in **User Story 6**, which is the surviving record. `BottomPanel.tsx`
+and `TerminalTabs.tsx` are not modified by this change.
 
 ### 4.2 Affected Files
 
@@ -783,16 +895,16 @@ FR-021h records why an opaque background is now required.
 | `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | modify | Replace radio list with a status-driven select using backend-supplied labels; available-first ordering; `Choose provider…` placeholder |
 | `frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx` | modify | Relabel to Manual Approve / Bypass Permission; strip CLI flag names |
 | `frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx` | create | Zero-install guidance panel naming every supported agent |
-| `frontend/src/components/AIChat/SetupScreen.tsx` | modify | Pass the status array instead of named per-provider props; branch to the zero-install notice; sticky opaque action bar |
-| `frontend/src/components/BottomPanel.tsx` | modify | Convert the surface-hiding wrapper from a percentage-height block to a flex container that passes a definite height down |
-| `frontend/src/components/AIChat/TerminalTabs.tsx` | modify | Same conversion for the per-tab hiding wrapper, preserving CSS-hiding so PTYs stay mounted |
+| `frontend/src/components/AIChat/SetupScreen.tsx` | modify | Pass the status array instead of named per-provider props; branch to the zero-install notice |
 | `frontend/src/store/terminalTabsSlice.ts` | modify | Record engine-reported provider on engine-initiated tabs |
 | `frontend/src/hooks/useWebSocket.parts/handleBlockPty.ts` | modify | Carry `provider` from the `block_pty_opened` payload |
 | `tests/ai/test_providers_registry.py` | create | Descriptor completeness and registry-derivation tests |
 | `tests/api/test_provider_discovery.py` | modify | Replace the exact two-provider set assertion |
 | `tests/api/test_ai_pty_engine_spawn.py` | modify | Replace the argv-sniffing test with explicit-provider tests |
 | `tests/blocks/ai/test_ai_block_skeleton.py` | modify | Cover registry-derived enum and no-temp-file-leak |
-| `docs/adr/ADR-034.md` | modify | Addendum recording the provider registry and adapter matrix |
+| `src/scistudio/cli/install.py` | modify | Make `_atomic_write_json` concurrency-safe (see section 4.6) |
+| `src/scistudio/ai/agent/mcp/tools_inspection/_preview.py` | modify | One-line import-form change that returns the cycle count to its baseline (see section 4.6); not a governed surface of this spec |
+| `docs/adr/ADR-034.md` | modify | Section 3 records the provider registry decision, the verified adapter matrix and its verification date, and an `adr042-governance-amendment` block expanding `governs`. Not an addendum file — see section 1 |
 | `docs/specs/embedded-coding-agent-spec.md` | modify | Update the locked-contract note's provider set |
 
 ### 4.3 Implementation Sequence
@@ -812,10 +924,10 @@ FR-021h records why an opaque background is now required.
 | T-011 | T-010, T-005 | Replace the provider radio list with a status-driven select: backend-supplied labels, available-first ordering, `Choose provider…` placeholder | SetupScreen tests assert one select, disabled/annotation states, group ordering, and that Launch stays disabled until a provider is chosen |
 | T-011a | T-011 | Add the zero-install guidance notice and its render branch | Tests for all-unavailable, in-flight, and status-error render paths |
 | T-011b | none | Relabel the permission picker and strip CLI flag names; align AI Block `ui_enum_labels` | Rendered text contains no `--` flag; stored values unchanged |
-| T-011c | none | Convert the two CSS-hiding wrappers to definite-height flex containers and pin the action bar with `sticky bottom-0` plus opaque background | Real-browser check at default, minimum, and restored-persisted panel heights; PTY survives a tab switch and a surface switch |
+| ~~T-011c~~ | — | **WITHDRAWN 2026-08-06 with User Story 6, FR-021g, and FR-021h.** Both prescribed changes were measured inert; see User Story 6 | Not delivered. No file under `frontend/src/components/BottomPanel.tsx` or `frontend/src/components/AIChat/TerminalTabs.tsx` is modified |
 | T-012 | T-007, T-010 | Thread the provider through all four links: `block_pty_opened` payload, `handleBlockPty.ts` dispatch, `blockPtyHandlers.handleBlockPtyOpened`, and `addAiBlockTerminalTab` | Tests assert an engine-initiated Kimi or Qoder tab records that provider end to end and that no link substitutes a default |
 | T-013 | T-005 | Extend `scistudio install` targets from the registry | CLI accepts existing and new targets; unknown target still errors |
-| T-014 | T-001 to T-013 | Update ADR-034 addendum, the embedded-agent spec note, and SKILL.md | Docs checks pass; adapter matrix records the verification date |
+| T-014 | T-001 to T-013 | Add the ADR-034 body amendment (registry decision, adapter matrix, `adr042-governance-amendment` block), flip this spec to `Planned` and reconcile its governed surface, update the embedded-agent spec note and SKILL.md | `full_audit` is error-free, including its `generate_facts`, `doc_drift`, and `closure` children; adapter matrix records the 2026-08-06 verification date. `docs/facts/generated.yaml` is gitignored, so `scripts/audit/generate_facts.py --check` is meaningful only after a local `--write`; `full_audit`'s `generate_facts` child is the authoritative equivalent |
 
 ### 4.4 Verification Plan
 
@@ -859,16 +971,16 @@ FR-021h records why an opaque background is now required.
 - Add an end-to-end provider-propagation test for the engine-initiated path
   covering all four links, so a future refactor cannot reintroduce a default at
   any single hop.
-- **Verify the pinned action bar in a real browser, not in jsdom.** The existing
-  test `keeps Cancel and Launch outside the scrollable setup body` asserts the
-  class strings `overflow-hidden`, `overflow-y-auto`, and `shrink-0` and passes
-  today, while the button is demonstrably below the fold in the running app.
-  jsdom performs no layout, so every assertion of this kind is structural only
-  and gives false confidence. The acceptance evidence for User Story 6 must be a
-  browser check at the default panel height, the minimum panel height, and a
-  restored persisted height, confirming the Launch control is inside the visible
-  panel viewport. Keep the structural test as a regression guard, but do not
-  treat it as proof.
+- **The pinned-action-bar browser check is withdrawn with User Story 6.** The
+  methodological point that produced it still stands and is worth keeping: the
+  existing test `keeps Cancel and Launch outside the scrollable setup body`
+  asserts the class strings `overflow-hidden`, `overflow-y-auto`, and
+  `shrink-0`, passes today, and told us nothing, because jsdom performs no
+  layout. Structural class assertions are not layout evidence. That test remains
+  as a structural regression guard only. The real-browser measurement that this
+  bullet originally demanded *was* performed, and it is what disproved the
+  section 4.1 analysis and led to the withdrawal; the result is recorded in
+  User Story 6 rather than encoded as an acceptance check.
 - Perform a manual smoke launch of each of the five providers against a scratch
   project, confirming the agent can call one SciStudio MCP tool. This is the
   only check that validates the MCP injection strategies end to end; unit tests
@@ -906,25 +1018,20 @@ FR-021h records why an opaque background is now required.
   `--append-system-prompt`, which risks command-line length limits on Windows.
   Mitigation: measure the composed prompt length during the smoke launch before
   committing to either mechanism.
-- **Touching the CSS-hiding wrappers risks unmounting live PTYs.** Those
-  wrappers exist so `TerminalTabs` stays mounted across tab and surface
-  switches; unmounting fires the WS cleanup hook and kills the agent
-  subprocess, losing the conversation. Mitigation: the change must alter only
-  layout classes, never the mount structure or the `hidden` toggle, and the
-  browser check must include switching surfaces and tabs with a live agent
-  running.
-- **The action-bar root cause is localised but not yet reproduced by the
-  implementer.** The `RunDetail` comparison isolates the defect to the chat
-  surface's extra wrappers, but the exact failing link was not confirmed at a
-  breakpoint. Mitigation: the fix is deliberately belt-and-braces — convert the
-  wrappers *and* pin with `sticky bottom-0` — so it holds whichever link is at
-  fault. The browser check, not the unit test, is the acceptance gate.
-- **Changing `BottomPanel`'s content wrapper affects every bottom tab.** Config,
-  Logs, Plots, Lineage, and Git all render inside the same wrapper. Mitigation:
-  scope the change to restoring a definite height rather than removing the
-  scroll affordance, and visually check each tab at default and minimum panel
-  heights before merge. `Lineage` is the reference that currently works, so any
-  regression there is the clearest signal the change went too far.
+- ~~**Touching the CSS-hiding wrappers risks unmounting live PTYs.**~~ Retired
+  with T-011c. The wrappers are not touched, so the risk does not arise. The
+  underlying fact remains true and is worth carrying forward for anyone who
+  revisits this area: those wrappers exist so `TerminalTabs` stays mounted
+  across tab and surface switches, and unmounting fires the WS cleanup hook and
+  kills the agent subprocess, losing the conversation.
+- ~~**The action-bar root cause is localised but not yet reproduced by the
+  implementer.**~~ Retired. The risk materialised: the root cause was *not*
+  correctly localised, and the belt-and-braces mitigation it proposed was
+  measured inert on both belts. The lesson is recorded in User Story 6 —
+  proposing two fixes because you are unsure which link is at fault is not a
+  mitigation; measuring which link is at fault is.
+- ~~**Changing `BottomPanel`'s content wrapper affects every bottom tab.**~~
+  Retired with T-011c; `BottomPanel.tsx` is not modified.
 - **Writing into a provider-owned config file is destructive if done wrong.**
   `.kimi-code/mcp.json` belongs to Kimi, not SciStudio, and a clobbering write
   destroys user configuration with no recovery path. Mitigation: FR-017a/FR-017b
@@ -938,9 +1045,79 @@ FR-021h records why an opaque background is now required.
   still type-checked.
 - **Rollback**: the registry is additive until T-005 switches the whitelists
   over. Reverting the frontend dropdown and the two new descriptors restores the
-  previous two-provider behavior without touching the PTY transport. The three
-  GUI changes are independent of the registry work and can be reverted
-  individually.
+  previous two-provider behavior without touching the PTY transport. The GUI
+  changes are independent of the registry work and can be reverted individually.
+
+### 4.6 Verified Deviations From The Authored Plan (2026-08-06)
+
+Three things changed between this spec as authored and this spec as
+implemented. Each was measured before it was decided, and each is recorded here
+rather than in a commit message so the reasoning survives.
+
+#### 4.6.1 User Story 6, FR-021g, FR-021h, and T-011c withdrawn
+
+Recorded in full under User Story 6. Summary: the prescribed fix was measured
+inert on both of its halves, the root-cause analysis in section 4.1 was
+disproven, and the owner judged the residual symptom a non-issue because below
+the 176 px floor nothing in the panel is clickable anyway. No follow-up issue
+was opened; User Story 6 is the record.
+
+#### 4.6.2 `_atomic_write_json` made concurrency-safe
+
+The spec's Edge Case list required that "two SciStudio processes inject into the
+same provider-owned config file concurrently" must be atomic so the file is
+never observed half-written. Implementation review found that
+`scistudio.cli.install._atomic_write_json` — the helper both the install CLI and
+the new Kimi project-scope MCP write go through — staged every write through a
+**single shared temp path**, `path.with_suffix(path.suffix + ".tmp")`. The
+`os.replace` is atomic, but the staging file is not per-writer, so overlapping
+writers corrupt or destroy each other's staged bytes before either rename.
+
+This was measured, not inferred: **227 of 240 overlapping calls failed**. The
+user-visible consequence is specific and silent — a Kimi agent starts without
+SciStudio tools, with no error surfaced anywhere, because the merged config it
+was supposed to read never landed.
+
+The owner approved fixing it inside this dispatch rather than deferring, on the
+grounds that the spec already required the property and the helper simply did
+not deliver it. The fix gives each writer a unique staging path.
+
+**`_ensure_mcp_config` was deliberately left alone.** It writes
+`<project>/.scistudio/mcp.json` with a plain `write_text` and no atomic rename
+at all. That is a real and known asymmetry, and it is intentional on three
+grounds: the exposure is milder because there is no shared staging file to
+corrupt, only a torn read window on a file every writer writes identical bytes
+to; the Edge Case is worded for **provider-owned** files, and `.scistudio/` is
+SciStudio-owned, which is the same distinction FR-017a already draws when it
+permits `_ensure_mcp_config` to keep clobbering that path; and widening the fix
+would have pulled an unrelated write path into a dispatch already at its scope
+limit. Anyone hardening this later should treat it as known, not overlooked.
+
+#### 4.6.3 The import-cycle ratchet was not raised
+
+FR-012's deletion of `AIBlock._build_spawn_argv` and the registry's placement as
+a shared leaf split the 30-module strongly connected component that had welded
+`scistudio.ai.agent` to all of `scistudio.blocks.*`. Splitting one large SCC
+raises the *count* of SCCs while improving every metric that matters: the
+largest SCC went **30 -> 20** and modules-in-cycles went **37 -> 30**, while the
+cycle count went **3 -> 5**.
+
+`MAX_PYTHON_CYCLES` in `tests/architecture/test_no_new_cycles.py` was
+**deliberately not raised**; it is still 4, the same value as on `main`. Raising
+a ratchet to accommodate an improvement teaches the ratchet to lie.
+
+The count was brought back to 4 by a one-line import-form change in
+`src/scistudio/ai/agent/mcp/tools_inspection/_preview.py`:
+`from scistudio.ai.agent.mcp.tools_inspection import _helpers` became
+`import scistudio.ai.agent.mcp.tools_inspection._helpers as _helpers`. The two
+bind the same module object at runtime and are interchangeable for the
+monkeypatch contract, but they are **not** equivalent to import-graph analysis:
+`_collect_imports` records a package edge for `from pkg import sub` — it is an
+attribute access on `pkg` — and records only the submodule edge for
+`import pkg.sub as sub`. The `from` form was reinstating a child-to-parent
+package-facade cycle. Both the module docstring and the function docstring now
+say so, because the change reads as a stylistic regression and will otherwise be
+"simplified" back.
 
 ## 5. Success Criteria
 
@@ -972,9 +1149,17 @@ FR-021h records why an opaque background is now required.
   dropdown of disabled options.
 - The permission picker shows `Manual Approve` and `Bypass Permission` and no
   CLI flag names.
-- Launch is visible without scrolling at the default panel height, the minimum
-  panel height, and a restored persisted height, confirmed in a real browser.
+- ~~Launch is visible without scrolling at the default panel height, the minimum
+  panel height, and a restored persisted height, confirmed in a real browser.~~
+  Withdrawn 2026-08-06 with User Story 6. The real-browser measurement was
+  performed and is recorded there; it disproved the prescribed fix rather than
+  confirming it.
 - An AI Block run creates no file that no component deletes.
+- Concurrent writes to a provider-owned MCP config file never leave the file
+  half-written or lose a writer's content, including when two SciStudio
+  processes write the same path at the same time.
+- The Python import-cycle ratchet is not raised: `MAX_PYTHON_CYCLES` is
+  unchanged, the largest SCC shrinks, and modules-in-cycles falls.
 - The validate-time missing-binary error names the provider and its expected
   binary and suggests no command that cannot install that binary.
 - No test asserts a hardcoded two-provider set.
@@ -1043,14 +1228,15 @@ FR-021h records why an opaque background is now required.
 - Available-first ordering is assumed not to need a visible group separator. If
   the supported set grows enough that a flat ordered list becomes hard to scan,
   option groups are a presentation-only follow-up.
-- The ADR governance gap described in section 1 is assumed to be resolved by the
-  owner before implementation begins. This spec does not assume which of the two
-  options is chosen, and its content is unaffected by that choice; only its
-  `status` and `related_adrs` change once the ADR side lands.
-- `src/scistudio/ai/agent/providers_registry.py` and
+- ~~The ADR governance gap described in section 1 is assumed to be resolved by
+  the owner before implementation begins.~~ Resolved 2026-08-06. It was closed
+  by an `adr042-governance-amendment` block in ADR-034's body, not by an
+  addendum file, and `related_adrs` narrowed to `[34]`. Section 1 records why
+  each of those was necessary rather than stylistic.
+- ~~`src/scistudio/ai/agent/providers_registry.py` and
   `frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx` are
-  declared under `planned_governs` because they do not exist yet. They move to
-  `governs` when the implementation creates them.
+  declared under `planned_governs` because they do not exist yet.~~ Both exist
+  and have moved to `governs.files`; `planned_governs` is empty.
 - The three module-private names this spec discusses by name —
   `_VALID_PROVIDERS`, `_PROVIDER_SPAWNERS`, and `_spawn` — are deliberately not
   listed in `governs.contracts`. They are internal implementation details rather
