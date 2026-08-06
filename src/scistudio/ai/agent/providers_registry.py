@@ -42,10 +42,18 @@ sibling channel's binary, which FR-026 forbids.
 **Sidecar rejection.** The Qoder security-scan plugin ships its own pinned CLI
 copy at ``~/.qodersec/bin/qodercli.exe`` (observed at 1.1.12). It is an
 internal dependency of the scanner, not a user-facing chat CLI, and it is stale
-relative to the real install. :func:`resolve_binary` therefore matches an exact
-binary name inside a *registered* well-known directory and never globs under
-the home directory, which is what keeps the sidecar out of the provider list
-(FR-027).
+relative to the real install. FR-027's promise is unconditional, so keeping it
+takes **two** rules, not one:
+
+1. :func:`resolve_binary` matches an exact binary name inside a *registered*
+   well-known directory and never globs under the home directory, so a stray
+   copy is not discovered.
+2. :attr:`ProviderDescriptor.excluded_dirs` names subtrees a resolution may
+   never come from, checked against the resolved path whichever source found
+   it. Rule 1 alone constrains only the well-known-directory scan; ``which``
+   searches whatever the user put on PATH, so a user whose PATH includes
+   ``~/.qodersec/bin`` would otherwise be handed the sidecar despite rule 1
+   holding.
 """
 
 from __future__ import annotations
@@ -221,6 +229,23 @@ class ProviderDescriptor:
     bypass_argv: tuple[str, ...]
     """Argv fragment appended when the user opts into bypass permission mode."""
 
+    excluded_dirs: tuple[tuple[str, ...], ...] = ()
+    """Directory subtrees a resolution must never come from, as path segments.
+
+    Vendor sidecar copies of a provider binary: real files, with the right
+    name, that are nonetheless not the user-facing CLI. The Qoder security-scan
+    plugin ships its own pinned build at ``~/.qodersec/bin/qodercli.exe``,
+    stale relative to the real install and unauthenticated.
+
+    Resolved like :attr:`well_known_dirs` (home-relative, or config-root
+    relative behind the :data:`CONFIG_ROOT` sentinel) and applied to the
+    **whole subtree**, so the entry names ``~/.qodersec`` rather than every
+    directory under it. The exclusion is checked against the resolved path
+    whichever source produced it — PATH or a well-known directory — because a
+    user who puts the sidecar directory on PATH must not thereby be offered the
+    sidecar (FR-027).
+    """
+
     def resolve_config_root(
         self,
         *,
@@ -236,6 +261,24 @@ class ProviderDescriptor:
         base = Path.home() if home is None else home
         return base.joinpath(*self.config_root)
 
+    def _resolve_dirs(
+        self,
+        segment_lists: tuple[tuple[str, ...], ...],
+        *,
+        home: Path | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> tuple[Path, ...]:
+        """Resolve segment lists against the home dir or the config root."""
+        base = Path.home() if home is None else home
+        config_root = self.resolve_config_root(home=home, env=env)
+        resolved: list[Path] = []
+        for segments in segment_lists:
+            if segments and segments[0] == CONFIG_ROOT:
+                resolved.append(config_root.joinpath(*segments[1:]))
+            else:
+                resolved.append(base.joinpath(*segments))
+        return tuple(resolved)
+
     def well_known_directories(
         self,
         *,
@@ -243,15 +286,16 @@ class ProviderDescriptor:
         env: Mapping[str, str] | None = None,
     ) -> tuple[Path, ...]:
         """Resolve :attr:`well_known_dirs` to absolute directories."""
-        base = Path.home() if home is None else home
-        config_root = self.resolve_config_root(home=home, env=env)
-        resolved: list[Path] = []
-        for segments in self.well_known_dirs:
-            if segments and segments[0] == CONFIG_ROOT:
-                resolved.append(config_root.joinpath(*segments[1:]))
-            else:
-                resolved.append(base.joinpath(*segments))
-        return tuple(resolved)
+        return self._resolve_dirs(self.well_known_dirs, home=home, env=env)
+
+    def excluded_directories(
+        self,
+        *,
+        home: Path | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> tuple[Path, ...]:
+        """Resolve :attr:`excluded_dirs` to absolute directory subtrees."""
+        return self._resolve_dirs(self.excluded_dirs, home=home, env=env)
 
     def credential_file(
         self,
@@ -386,6 +430,13 @@ def _qoder_channel(
             auth_status_argv=(),
         ),
         bypass_argv=("--dangerously-skip-permissions",),
+        # The security-scan plugin's pinned internal copy, observed at 1.1.12
+        # with ``{"channel": "global"}`` beside ``qodersec.exe``. Both channels
+        # exclude it: it carries the international channel's binary name, so
+        # only ``qoder`` can match it by name today, but the two descriptors
+        # differ solely in identity fields and a China-channel sidecar would
+        # otherwise be an asymmetry waiting to be missed.
+        excluded_dirs=((".qodersec",),),
     )
 
 
@@ -570,11 +621,27 @@ def provider_keys() -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
+def _is_inside(path: Path, directory: Path) -> bool:
+    """Whether *path* lies anywhere inside the *directory* subtree.
+
+    Compares fully resolved, case-normalised paths, so a symlinked or
+    differently-cased spelling of an excluded directory cannot walk around the
+    check on Windows or macOS.
+    """
+    try:
+        candidate = Path(os.path.normcase(os.path.realpath(path)))
+        root = Path(os.path.normcase(os.path.realpath(directory)))
+    except OSError:  # pragma: no cover - realpath is non-raising on all supported OSes
+        return False
+    return candidate == root or root in candidate.parents
+
+
 def resolve_executable(
     name: str,
     *,
     which: Callable[[str], str | None] | None = None,
     well_known_dirs: Sequence[Path] = (),
+    excluded_dirs: Sequence[Path] = (),
 ) -> str | None:
     """Resolve *name* to a concrete executable path, or ``None``.
 
@@ -587,38 +654,63 @@ def resolve_executable(
     2. **Registered well-known directories**, for CLIs that are not on PATH at
        all (Kimi Code and both Qoder channels never are).
 
-    Matching is by **exact** binary name (plus a Windows launcher extension)
-    inside a *registered* directory. There is deliberately no globbing and no
-    broad home-directory search, which is what keeps the Qoder security-scan
-    sidecar copy at ``~/.qodersec/bin/qodercli.exe`` from ever being offered as
-    a chat provider (FR-027).
+    PATH is consulted first on purpose: a CLI genuinely on PATH is the one the
+    user's own shell would run, and preferring a copy in a well-known directory
+    over it would be surprising.
+
+    Two separate rules keep a vendor sidecar copy out (FR-027), and both are
+    needed:
+
+    *Exact names, registered directories only.* Matching is by exact binary
+    name plus a Windows launcher extension inside a directory the registry
+    named. There is no globbing and no broad home-directory search, so a stray
+    ``qodercli.exe`` somewhere under ``$HOME`` is never discovered.
+
+    *Excluded subtrees.* That first rule is not sufficient on its own, because
+    it constrains only the well-known-directory scan. ``which`` searches
+    whatever the user put on PATH, so a user whose PATH includes
+    ``~/.qodersec/bin`` would otherwise be handed the security scanner's stale,
+    pinned copy — FR-027's promise is unconditional and does not carve out that
+    case. ``excluded_dirs`` is therefore checked against the resolved path
+    whichever source produced it, and rejecting a candidate does not fall back
+    to a sibling provider's binary: it simply removes that candidate.
 
     The well-known-directory scan runs on every platform, not just Windows:
     Kimi Code and Qoder are off PATH everywhere, and FR-005 requires the chat
     path and the AI Block path to agree on the result on every OS.
     """
     resolver = shutil.which if which is None else which
-    on_path = resolver(name)
     directories = tuple(well_known_dirs)
+    excluded = tuple(excluded_dirs)
+
+    def permitted(candidate: str | None) -> str | None:
+        """Drop a candidate that resolves inside an excluded subtree."""
+        if candidate is None:
+            return None
+        if any(_is_inside(Path(candidate), directory) for directory in excluded):
+            return None
+        return candidate
+
+    on_path = permitted(resolver(name))
 
     if sys.platform != "win32":
         if on_path:
             return on_path
         for directory in directories:
             candidate = directory / name
-            if candidate.is_file():
+            if candidate.is_file() and permitted(str(candidate)):
                 return str(candidate)
         return None
 
     extensioned: list[str] = []
     for suffix in WINDOWS_EXECUTABLE_SUFFIXES:
-        candidate_on_path = resolver(name + suffix)
+        candidate_on_path = permitted(resolver(name + suffix))
         if candidate_on_path:
             extensioned.append(candidate_on_path)
     for directory in directories:
         for suffix in WINDOWS_EXECUTABLE_SUFFIXES:
             candidate_path = directory / f"{name}{suffix}"
-            if candidate_path.is_file():
+            if candidate_path.is_file() and permitted(str(candidate_path)):
                 extensioned.append(str(candidate_path))
 
     if extensioned:
@@ -641,12 +733,22 @@ def resolve_binary(
     its own binary name and its own well-known directory, a missing channel
     binary can never resolve to the sibling channel's binary (FR-026).
 
+    Sidecar exclusion is descriptor data (:attr:`ProviderDescriptor.excluded_dirs`)
+    rather than a special case in the resolver, so a future vendor that ships a
+    pinned internal copy of its own CLI is one registry row, not a code change.
+
     ``home`` and ``env`` exist so tests can drive a fake home directory without
     depending on the CLIs installed on the developer's machine.
     """
     directories = descriptor.well_known_directories(home=home, env=env)
+    excluded = descriptor.excluded_directories(home=home, env=env)
     for name in descriptor.binary_candidates:
-        resolved = resolve_executable(name, which=which, well_known_dirs=directories)
+        resolved = resolve_executable(
+            name,
+            which=which,
+            well_known_dirs=directories,
+            excluded_dirs=excluded,
+        )
         if resolved:
             return Path(resolved)
     return None
