@@ -8,10 +8,24 @@ so previews never intentionally load a whole large payload.
 
 The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
 ``_helpers`` leaf module at call time so tests that monkeypatch it reach
-the real call sites. Reading it from ``_helpers`` (rather than back through
-the parent ``tools_inspection`` package) keeps this module off the
-child -> parent import edge that previously closed a package-facade cycle
+the real call sites. Reading it from ``_helpers`` rather than back through
+the parent ``tools_inspection`` package keeps this module off the
+child -> parent import edge that closes a package-facade cycle
 (round-4 no-cycles).
+
+Import form matters here, and not only stylistically (#1994). This module
+must reach ``_helpers`` with ``import ...tools_inspection._helpers as
+_helpers``, never with ``from ...tools_inspection import _helpers``. The
+two bind the same module object at runtime, but they are **not**
+equivalent to import-graph analysis: ``from pkg import submodule`` is an
+attribute access on ``pkg``, so it registers an edge to the parent
+package as well as to the submodule, while ``import pkg.submodule as
+submodule`` registers only the submodule edge. The ``from`` form was what
+kept ``tools_inspection`` in a package-facade cycle even though this
+module already intended to stay out of one. Do not "simplify" the import
+below back to the ``from`` form; ``tests/architecture/
+test_no_new_cycles.py`` will fail, and its ``_collect_imports`` is where
+the asymmetry is implemented.
 """
 
 from __future__ import annotations
@@ -35,8 +49,14 @@ def _max_preview_bytes() -> int:
     exercise the cap on small fixtures; the late-bound lookup on the
     ``_helpers`` leaf keeps that contract without importing the parent
     package back (round-4 no-cycles).
+
+    The ``import ... as`` form is required, not preferred — see the module
+    docstring. ``from ...tools_inspection import _helpers`` binds the same
+    module object, so the monkeypatch contract is identical either way,
+    but it also registers a child -> parent package edge that reinstates
+    the cycle this module is written to avoid.
     """
-    from scistudio.ai.agent.mcp.tools_inspection import _helpers
+    import scistudio.ai.agent.mcp.tools_inspection._helpers as _helpers
 
     return int(_helpers._MAX_PREVIEW_BYTES)
 

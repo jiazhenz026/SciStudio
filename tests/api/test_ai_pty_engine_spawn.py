@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes import ai_pty
 from scistudio.api.routes.ai_pty import (
@@ -82,7 +83,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def _spec_kw(tmp_path: Path, run_id: str = "rid-1", permission_mode: str = "safe") -> dict[str, Any]:
     return {
         "title": "🤖 demo",
-        "spawn_argv": ["claude", "--append-system-prompt", "@/tmp/p"],
+        "provider": "claude-code",
         "cwd": str(tmp_path),
         "initial_stdin": "Hello agent\n",
         "block_run_id": run_id,
@@ -115,7 +116,7 @@ def test_open_engine_tab_rejects_relative_cwd() -> None:
     with pytest.raises(RuntimeError, match="absolute"):
         open_engine_initiated_tab(
             title="x",
-            spawn_argv=["claude"],
+            provider="claude-code",
             cwd="rel/path",
             initial_stdin="",
             block_run_id="rid",
@@ -127,7 +128,7 @@ def test_open_engine_tab_rejects_unknown_permission_mode(tmp_path: Path) -> None
     with pytest.raises(RuntimeError, match="permission_mode"):
         open_engine_initiated_tab(
             title="x",
-            spawn_argv=["claude"],
+            provider="claude-code",
             cwd=str(tmp_path),
             initial_stdin="",
             block_run_id="rid",
@@ -135,7 +136,20 @@ def test_open_engine_tab_rejects_unknown_permission_mode(tmp_path: Path) -> None
         )
 
 
-def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("provider", agent_keys())
+def test_open_engine_tab_spawns_the_explicitly_supplied_provider(
+    provider: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-034 FR-010: the engine spawns the provider it was told to.
+
+    Replaces ``test_open_engine_tab_picks_codex_provider_from_argv``,
+    which asserted the opposite contract — that the engine sniffed
+    ``argv[0]``. Every registry agent key must reach ``_spawn`` verbatim,
+    including the three that did not exist when argv sniffing was written
+    and which its ``claude-code`` fallback would have silently swallowed.
+    """
     captured: dict[str, Any] = {}
 
     def fake(
@@ -153,14 +167,95 @@ def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypa
     monkeypatch.setattr(ai_pty._state, "_spawn", fake)
     open_engine_initiated_tab(
         title="x",
-        spawn_argv=["codex", "--dangerously-bypass-approvals-and-sandbox"],
+        provider=provider,
         cwd=str(tmp_path),
         initial_stdin="",
-        block_run_id="rid-codex",
+        block_run_id=f"rid-{provider}",
         permission_mode="bypass",
     )
-    assert captured["provider"] == "codex"
+    assert captured["provider"] == provider
     assert captured["dangerous"] is True
+
+
+def test_open_engine_tab_ignores_argv_entirely(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-011: nothing argv-shaped can influence the spawned provider.
+
+    ``open_engine_initiated_tab`` accepts no argv at all now, so the
+    proof the inference is gone is that the signature rejects an argv
+    while the explicit key alone decides the spawn.
+    """
+    captured: dict[str, Any] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+        prompt: str = "",
+    ) -> PtyProcess:
+        captured["provider"] = provider
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    with pytest.raises(TypeError):
+        open_engine_initiated_tab(
+            title="x",
+            provider="codex",
+            spawn_argv=["claude"],  # type: ignore[call-arg]
+            cwd=str(tmp_path),
+            initial_stdin="",
+            block_run_id="rid-no-argv",
+            permission_mode="safe",
+        )
+
+    open_engine_initiated_tab(
+        title="x",
+        provider="codex",
+        cwd=str(tmp_path),
+        initial_stdin="",
+        block_run_id="rid-no-argv",
+        permission_mode="safe",
+    )
+    assert captured["provider"] == "codex"
+
+
+def test_block_pty_opened_payload_carries_the_spawned_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-020c: the emitted payload names the provider the engine spawned.
+
+    Asserted for a non-default provider so a regression to the frontend's
+    previously hardcoded ``claude-code`` cannot pass on the emit side.
+    """
+    received: list[dict[str, Any]] = []
+
+    def cb(msg: dict[str, Any]) -> None:
+        received.append(msg)
+
+    async def drive() -> None:
+        open_engine_initiated_tab(
+            title="🤖 kimi block",
+            provider="kimi-code",
+            cwd=str(tmp_path),
+            initial_stdin="",
+            block_run_id="rid-emit",
+            permission_mode="safe",
+        )
+        # The broadcast is scheduled on the running loop; yield to it.
+        await asyncio.sleep(0.05)
+
+    register_ai_pty_subscriber(cb)
+    try:
+        asyncio.run(drive())
+    finally:
+        unregister_ai_pty_subscriber(cb)
+
+    opened = next(m for m in received if m["type"] == "block_pty_opened")
+    assert opened["provider"] == "kimi-code"
+    assert opened["block_run_id"] == "rid-emit"
 
 
 def test_open_engine_tab_respects_pty_cap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -255,7 +350,7 @@ def test_internal_request_tab_happy_path(client: TestClient, opened_project: Pat
             "type": "request_pty_tab",
             "spec": {
                 "title": "🤖 t",
-                "spawn_argv": ["claude"],
+                "provider": "claude-code",
                 "cwd": str(opened_project),
                 "initial_stdin": "hi\n",
                 "block_run_id": "rid-http-1",
@@ -309,7 +404,7 @@ def test_internal_request_tab_cap_returns_503(
             "type": "request_pty_tab",
             "spec": {
                 "title": "t",
-                "spawn_argv": ["claude"],
+                "provider": "claude-code",
                 "cwd": str(opened_project),
                 "initial_stdin": "",
                 "block_run_id": "rid-cap",
@@ -339,7 +434,7 @@ def test_internal_request_tab_soft_failure_returns_error_envelope(
             "type": "request_pty_tab",
             "spec": {
                 "title": "t",
-                "spawn_argv": ["claude"],
+                "provider": "claude-code",
                 "cwd": str(opened_project),
                 "initial_stdin": "",
                 "block_run_id": "rid-soft",
@@ -362,7 +457,7 @@ def test_internal_notify_happy_path(client: TestClient, opened_project: Path, _i
             "type": "request_pty_tab",
             "spec": {
                 "title": "🤖 t",
-                "spawn_argv": ["claude"],
+                "provider": "claude-code",
                 "cwd": str(opened_project),
                 "initial_stdin": "",
                 "block_run_id": "rid-notify-1",
@@ -442,7 +537,7 @@ def test_ws_forwards_block_pty_opened(client: TestClient, opened_project: Path, 
                 "type": "request_pty_tab",
                 "spec": {
                     "title": "🤖 ws-test",
-                    "spawn_argv": ["claude"],
+                    "provider": "claude-code",
                     "cwd": str(opened_project),
                     "initial_stdin": "",
                     "block_run_id": "rid-ws",

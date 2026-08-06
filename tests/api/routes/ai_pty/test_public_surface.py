@@ -157,9 +157,12 @@ def test_open_engine_initiated_tab_signature_unchanged() -> None:
     from scistudio.api.routes.ai_pty import open_engine_initiated_tab
 
     sig = inspect.signature(open_engine_initiated_tab)
+    # ADR-034 FR-010: ``spawn_argv`` became ``provider`` in the same slot.
+    # The IPC contract still pins the parameter list, because a worker
+    # subprocess serialises this call across a process boundary.
     assert list(sig.parameters) == [
         "title",
-        "spawn_argv",
+        "provider",
         "cwd",
         "initial_stdin",
         "block_run_id",
@@ -174,7 +177,6 @@ def test_open_engine_initiated_tab_signature_unchanged() -> None:
     ("submodule_name", "expected_symbol"),
     [
         ("engine", "open_engine_initiated_tab"),
-        ("engine", "_provider_from_argv"),
         ("internal_routes", "_ensure_ipc_token"),
         ("internal_routes", "_check_ipc_token"),
         ("subscribers", "broadcast_ai_pty_message"),

@@ -151,7 +151,7 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
     # 1. Pre-spawn engine-initiated PTY.
     tab_id = open_engine_initiated_tab(
         title="🤖 demo",
-        spawn_argv=["claude"],
+        provider="claude-code",
         cwd=str(opened_project),
         initial_stdin="HELLO-AGENT\n",
         block_run_id="rid-join-1",
@@ -208,7 +208,7 @@ def test_1789_engine_passes_prompt_to_spawn_not_stdin(
 
     tab_id = open_engine_initiated_tab(
         title="🤖 demo",
-        spawn_argv=["claude"],
+        provider="claude-code",
         cwd=str(opened_project),
         initial_stdin="infer a metadata table from filenames",
         block_run_id="rid-1789-prompt",
@@ -253,7 +253,7 @@ def test_1789_engine_pty_resized_to_client_viewport_on_join(
 
     tab_id = open_engine_initiated_tab(
         title="🤖 demo",
-        spawn_argv=["claude"],
+        provider="claude-code",
         cwd=str(opened_project),
         initial_stdin="",
         block_run_id="rid-1789-size",
@@ -299,7 +299,7 @@ def test_p1e_block_user_marked_done_writes_signal_file(client: TestClient, opene
     # block_run_id → run_dir.
     tab_id = open_engine_initiated_tab(
         title="🤖 demo",
-        spawn_argv=["claude"],
+        provider="claude-code",
         cwd=str(opened_project),
         initial_stdin="",
         block_run_id=run_id,
@@ -332,7 +332,7 @@ def test_p1e_block_user_cancel_writes_signal_file(client: TestClient, opened_pro
 
     tab_id = open_engine_initiated_tab(
         title="🤖 demo",
-        spawn_argv=["claude"],
+        provider="claude-code",
         cwd=str(opened_project),
         initial_stdin="",
         block_run_id=run_id,
@@ -372,38 +372,31 @@ def test_p1e_unknown_block_run_id_is_swallowed(client: TestClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# P1-A: AIBlock bootstrap failure must surface as a real error.
+# P1-A: REMOVED by ADR-034 (#1994), not lost coverage.
+#
+# ``test_p1a_bootstrap_failure_propagates`` asserted that
+# ``AIBlock._build_spawn_argv`` re-raised as "AIBlock bootstrap failed"
+# when ``_write_system_prompt_tempfile`` / ``_ensure_mcp_config`` failed,
+# instead of silently degrading the argv it composed.
+#
+# ADR-034 FR-012 deletes ``_build_spawn_argv`` outright: the AI Block
+# worker no longer composes provider argv, writes system-prompt files, or
+# writes MCP config. The engine's descriptor-driven spawn owns all of it.
+# There is therefore no worker-side bootstrap step left to fail, so the
+# behaviour this test guarded does not exist in any form — repairing the
+# test would have meant manufacturing a guard for deleted code.
+#
+# The failure mode P1-A actually cared about (a broken agent process that
+# cannot call ``finish_ai_block``, leaving the user with a hung block) is
+# now covered on the spawn side, which is the only side that writes those
+# files: ``tests/ai/test_providers_registry.py`` for the per-provider MCP
+# and system-prompt injection strategies, and
+# ``tests/api/test_ai_pty_engine_spawn.py::test_open_engine_tab_spawn_failure_propagates``
+# for spawn failure reaching the caller.
+#
+# Deleting ``_build_spawn_argv`` is also what fixes FR-013: it wrote a
+# system-prompt file into ``<project>/.scistudio/.tmp/`` whose path the
+# engine discarded, so nothing could ever delete it. That leak now has its
+# own regression guard,
+# ``tests/blocks/ai/test_ai_block_skeleton.py::test_run_leaves_no_orphaned_temp_file``.
 # ---------------------------------------------------------------------------
-
-
-def test_p1a_bootstrap_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Audit P1-A: failures in ``_write_system_prompt_tempfile`` /
-    ``_ensure_mcp_config`` must abort spawn with a RuntimeError carrying
-    a "bootstrap failed" message — not silently degrade the argv."""
-    import scistudio.ai.agent.terminal as terminal_mod
-    from scistudio.blocks.ai.ai_block import AIBlock
-    from scistudio.blocks.base.config import BlockConfig
-
-    # Force the helpers to raise.
-    def boom(*_args: Any, **_kwargs: Any) -> str:
-        raise OSError("disk full")
-
-    monkeypatch.setattr(terminal_mod, "_write_system_prompt_tempfile", boom)
-
-    # Pretend `claude` is on PATH so we get past the discoverability check.
-    monkeypatch.setattr(
-        "scistudio.blocks.ai.ai_block._discover_provider",
-        lambda _provider: "/usr/bin/claude",
-    )
-
-    block = AIBlock()
-    cfg = BlockConfig(
-        params={
-            "user_prompt": "do things",
-            "provider": "claude-code",
-            "permission_mode": "safe",
-            "project_dir": os.getcwd(),
-        }
-    )
-    with pytest.raises(RuntimeError, match="bootstrap failed"):
-        block._build_spawn_argv(cfg, manifest_path="/tmp/manifest.json")

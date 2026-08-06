@@ -17,9 +17,12 @@ def test_pty_tab_spec_has_expected_fields() -> None:
     # ``run_dir_path`` was added by the audit P1-E fix so user-mark-done /
     # user-cancel WS frames can be translated into ``signals/mark_done.json``
     # writes under the right run dir.
+    # ADR-034 FR-010/FR-011 replaced ``spawn_argv`` with ``provider``: the
+    # engine was reading only ``argv[0]`` to guess which agent to spawn, so
+    # the worker now states the provider key instead of composing an argv.
     assert set(fields) == {
         "title",
-        "spawn_argv",
+        "provider",
         "cwd",
         "initial_stdin",
         "block_run_id",
