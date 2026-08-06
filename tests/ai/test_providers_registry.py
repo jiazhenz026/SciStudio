@@ -29,6 +29,7 @@ from scistudio.ai.agent.providers_registry import (
     ProviderKind,
     SystemPromptStrategy,
 )
+from scistudio.cli import install
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -540,6 +541,153 @@ def test_kimi_mcp_write_is_idempotent(tmp_path: Path) -> None:
     first = terminal._merge_provider_mcp_config(kimi, tmp_path).read_text(encoding="utf-8")
     second = terminal._merge_provider_mcp_config(kimi, tmp_path).read_text(encoding="utf-8")
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# Concurrency: the read half of the Windows busy-file defect
+# ---------------------------------------------------------------------------
+
+
+def _seed_kimi_config(tmp_path: Path, body: str) -> Path:
+    config_path = tmp_path / ".kimi-code" / "mcp.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(body, encoding="utf-8")
+    return config_path
+
+
+def _fail_reads_of(
+    monkeypatch: pytest.MonkeyPatch,
+    target: Path,
+    *,
+    times: int,
+    error: BaseException,
+) -> dict[str, int]:
+    """Make the first *times* reads of *target* raise *error*.
+
+    Only that one path is affected; every other read (the MCP payload helpers
+    consult the filesystem too) delegates to the real implementation, so the
+    stub cannot mask an unrelated failure.
+    """
+    original = Path.read_text
+    state = {"reads": 0}
+
+    def patched(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self == target:
+            state["reads"] += 1
+            if state["reads"] <= times:
+                raise error
+        return original(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "read_text", patched)
+    return state
+
+
+def _record_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Capture the backoff schedule without actually waiting for it."""
+    slept: list[float] = []
+    monkeypatch.setattr(terminal.time, "sleep", slept.append)
+    return slept
+
+
+def test_kimi_mcp_read_retries_while_the_file_is_busy(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A transiently busy read must not fail the launch.
+
+    On Windows a concurrent writer's ``os.replace`` makes the destination
+    briefly unopenable, and ``open()`` does not pass ``FILE_SHARE_DELETE``, so
+    an innocent reader gets ``PermissionError``. Measured with 240 overlapping
+    merges against one file, this accounted for every residual failure once the
+    write-side fix had landed.
+    """
+    kimi = registry.get("kimi-code")
+    config_path = _seed_kimi_config(
+        tmp_path,
+        json.dumps({"mcpServers": {"user-owned": {"command": "x", "args": []}}}),
+    )
+    state = _fail_reads_of(monkeypatch, config_path, times=2, error=PermissionError("busy"))
+    slept = _record_sleeps(monkeypatch)
+
+    terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    assert state["reads"] == 3, "the read should have been retried until it succeeded"
+    # The schedule is A2's, imported rather than restated, so the two halves of
+    # one defect cannot drift to different budgets.
+    assert slept == list(install._REPLACE_RETRY_DELAYS[:2])
+    # The merge still did its real job.
+    servers = _read_servers(config_path)
+    assert set(servers) == {"user-owned", "scistudio"}
+
+
+def test_kimi_mcp_read_raises_when_the_file_stays_busy(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A persistently busy read must surface, never be swallowed.
+
+    Spending the budget and then giving up silently would be the failure mode
+    the write-side fix exists to remove: an agent launched with no SciStudio
+    tools and nothing telling the user why.
+    """
+    kimi = registry.get("kimi-code")
+    original = '{"mcpServers": {"user-owned": {"command": "x"}}}'
+    config_path = _seed_kimi_config(tmp_path, original)
+    state = _fail_reads_of(monkeypatch, config_path, times=1000, error=PermissionError("still busy"))
+    slept = _record_sleeps(monkeypatch)
+
+    with pytest.raises(PermissionError, match="still busy"):
+        terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    # Every delay is spent, then one final unguarded attempt.
+    assert slept == list(install._REPLACE_RETRY_DELAYS)
+    assert state["reads"] == len(install._REPLACE_RETRY_DELAYS) + 1
+    # ``read_bytes`` deliberately, so the assertion does not go through the
+    # still-patched ``read_text`` it is checking the aftermath of.
+    assert config_path.read_bytes().decode("utf-8") == original
+
+
+def test_kimi_mcp_read_does_not_retry_a_permanent_os_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Only ``PermissionError`` is transient; the rest must fail fast.
+
+    Waiting out an ``IsADirectoryError`` or a real I/O error cannot change the
+    outcome, so burning the retry budget on it would only delay the report.
+    """
+    kimi = registry.get("kimi-code")
+    config_path = _seed_kimi_config(tmp_path, "{}")
+    state = _fail_reads_of(monkeypatch, config_path, times=1000, error=OSError("device is gone"))
+    slept = _record_sleeps(monkeypatch)
+
+    with pytest.raises(OSError, match="device is gone"):
+        terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    assert state["reads"] == 1, "a permanent OSError must raise on the first attempt"
+    assert slept == []
+
+
+def test_a_corrupt_file_is_refused_immediately_and_never_retried(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A busy file and a corrupt file must stay separate code paths.
+
+    Retrying malformed JSON would delay an error that no amount of waiting can
+    clear, and — worse — blurring the two would invite a future "give up and
+    overwrite" fallback on the path that must never overwrite (FR-017b).
+    """
+    kimi = registry.get("kimi-code")
+    original = '{"mcpServers": {  <-- hand-edited'
+    config_path = _seed_kimi_config(tmp_path, original)
+    slept = _record_sleeps(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="malformed JSON"):
+        terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    assert slept == [], "a corrupt file must not be retried"
+    assert config_path.read_text(encoding="utf-8") == original
 
 
 def test_mcp_payload_is_identical_across_every_injection_strategy(

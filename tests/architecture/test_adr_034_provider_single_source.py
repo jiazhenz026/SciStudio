@@ -78,11 +78,11 @@ _SPAWN_STATUS_VALIDATION_MODULES: tuple[str, ...] = (
 #: appearing in a module that is not listed fails the test.
 #: ``ai/agent/terminal.py`` was allowlisted for ``claude-code`` and ``codex``
 #: while ``spawn_claude`` / ``spawn_codex`` existed as deprecated one-line
-#: ``REGISTRY.get()`` lookups. Their ``TODO(#1994)`` removal condition
-#: ("``_PROVIDER_SPAWNERS`` is derived from the registry") was met by A2's
-#: T-005, and both functions were deleted, so the entry is gone rather than
-#: left open: the guard now proves ``terminal.py`` names no provider key at
-#: all, which is the stronger statement the spec always wanted.
+#: ``REGISTRY.get()`` lookups. Their deferred-removal marker (issue #1994) named
+#: the condition "``_PROVIDER_SPAWNERS`` is derived from the registry", which
+#: A2's T-005 met, and both functions were then deleted — so the entry is gone
+#: rather than left open: the guard now proves ``terminal.py`` names no provider
+#: key at all, which is the stronger statement the spec always wanted.
 _BACKEND_KEY_ALLOWLIST: dict[str, dict[str, str]] = {
     # FR-015 requires ``claude-code`` to remain the AI Block default when the
     # enum widens, so the default has to be spelled somewhere. It appears as

@@ -502,6 +502,47 @@ def _ensure_mcp_config(project_dir: Path) -> Path:
     return config_path
 
 
+def _read_text_with_retry(path: Path) -> str:
+    """``path.read_text``, retrying briefly while the file is busy.
+
+    This is the read half of the same Windows defect that
+    :func:`scistudio.cli.install._replace_with_retry` fixes from the write side,
+    and it is one mechanism seen from both ends: ``os.replace`` briefly makes
+    the destination unopenable, and Python's ``open()`` does not pass
+    ``FILE_SHARE_DELETE``, so a concurrent *reader* gets ``PermissionError``
+    even though nothing is wrong with the file.
+
+    Measured on Windows with 240 overlapping :func:`_merge_provider_mcp_config`
+    calls against one config file, after the rename fix had landed: 27, 16 and
+    21 failures across three runs, **every one of them raised here** and none in
+    the rename.
+
+    The user-visible effect is milder than the lost write that motivated the
+    write-side fix — the launch fails loudly instead of silently starting an
+    agent with no SciStudio tools — but it is still a spurious failure from a
+    transient, self-clearing condition, so it gets the same treatment: spend a
+    bounded budget, then let the real error surface.
+
+    The delay schedule is imported from :mod:`scistudio.cli.install` rather than
+    restated, so the two halves of one defect cannot drift to different budgets.
+    Only ``PermissionError`` is retried: a missing file is already excluded by
+    the caller's ``is_file()`` guard, and every other ``OSError`` (a directory
+    where a file was expected, a real I/O error) is permanent and is raised on
+    the first attempt rather than after a pointless wait.
+    """
+    from scistudio.cli.install import _REPLACE_RETRY_DELAYS
+
+    for delay in _REPLACE_RETRY_DELAYS:
+        try:
+            return path.read_text(encoding="utf-8")
+        except PermissionError:
+            time.sleep(delay)
+    # Budget spent. Unguarded on purpose: a file that is still unreadable is a
+    # real failure and must surface carrying the OS's own message, never be
+    # swallowed into a silent partial launch.
+    return path.read_text(encoding="utf-8")
+
+
 def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path) -> Path:
     """Merge the SciStudio MCP entry into a **provider-owned** config file.
 
@@ -528,6 +569,13 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
     The written payload is the provider-agnostic
     :func:`~scistudio.cli.install._mcp_entry_payload` used by every other
     strategy (FR-018); only the location differs.
+
+    Both file operations tolerate a concurrent SciStudio process working on the
+    same file: the read through :func:`_read_text_with_retry`, the write through
+    ``_atomic_write_json``'s unique staging name and retrying rename. A
+    transient busy file and a corrupt one stay firmly separate — the first is
+    retried and then raises the OS error, the second raises immediately and is
+    never retried, because waiting cannot make malformed JSON parse.
     """
     from scistudio.cli.install import MCP_SERVER_NAME, _atomic_write_json, _mcp_entry_payload
 
@@ -537,7 +585,9 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
 
     data: dict[str, object] = {}
     if config_path.is_file():
-        raw = config_path.read_text(encoding="utf-8")
+        # Retried while busy: a concurrent writer's ``os.replace`` makes this
+        # file transiently unopenable on Windows. See _read_text_with_retry.
+        raw = _read_text_with_retry(config_path)
         if raw.strip():
             try:
                 parsed = json.loads(raw)

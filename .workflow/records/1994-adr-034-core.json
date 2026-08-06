@@ -1465,6 +1465,12 @@
       "at": "2026-08-06T18:15:19.468615Z",
       "pattern": "tests/architecture/test_adr_034_provider_single_source.py",
       "reason": "A2's registry-derived _PROVIDER_SPAWNERS landed, so the spawn_claude/spawn_codex shims are dead; spec section 4.1 requires their removal once no test depends on them"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T18:55:37.349601Z",
+      "pattern": "tests/ai/**",
+      "reason": "owner-approved concurrency fix covers the read half of the same defect; A2 attributed all residual failures to the read in _merge_provider_mcp_config"
     }
   ],
   "session_id": "9625bb2e-55e0-4f5e-89c4-267714620eda",
