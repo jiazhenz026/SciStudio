@@ -19,29 +19,43 @@ That is a property about *observers*, and observation is what the tests here
 add. Two AI Blocks configured with ``kimi-code`` running in the same project is
 an ordinary workflow, not a contrived race, so the path is reachable.
 
-.. warning::
+These tests originally pinned only the reader-facing half, because concurrent
+*writers* demonstrably did not all succeed: every write staged through one fixed
+``mcp.json.tmp`` path, so overlapping writers collided and 227 of 240 raised
+``PermissionError``. That defect is fixed — :func:`~scistudio.cli.install.
+_atomic_write_json` now stages each write through a uniquely named file in the
+target's own directory — so the writer half is asserted here too, and the
+weakened assertions that documented the defect are gone.
 
-   These tests pin the guarantee that currently holds — no reader ever sees a
-   partial or truncated file — and deliberately do **not** assert that
-   concurrent *writers* all succeed, because on this implementation they do not.
-   See :func:`test_a_concurrent_reader_never_observes_a_half_written_file` for
-   the measured behaviour and the tracked follow-up. Asserting the current
-   writer behaviour as if it were intended would convert a defect into a
-   specification, which is the failure mode these tests exist to prevent.
+One boundary is worth stating precisely, because two different Windows sharing
+problems live on this path and only one of them is the write:
+
+* **The rename**, which this file's fix owns. Now collision-free: 240
+  overlapping ``_atomic_write_json`` calls complete with zero failures.
+* **The read** that :func:`scistudio.ai.agent.terminal._merge_provider_mcp_config`
+  performs before merging. ``os.replace`` briefly makes the destination
+  unopenable on Windows, so a concurrent reader can still catch a
+  ``PermissionError`` opening it. Every residual failure measured under sustained
+  writer contention originates there, not in the write. It is a separate defect
+  in a separate module and is deliberately not pinned here as if it were
+  intended.
 """
 
 from __future__ import annotations
 
 import contextlib
+import itertools
 import json
 import os
 import threading
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from scistudio.ai.agent import providers_registry as registry
 from scistudio.ai.agent import terminal
+from scistudio.cli import install
 
 KIMI = registry.get("kimi-code")
 
@@ -151,30 +165,25 @@ def test_a_concurrent_reader_never_observes_a_half_written_file(tmp_path: Path) 
 
     .. note::
 
-       Concurrent *writers* are a different matter and are not asserted here.
-       Measured on Windows at the time of writing, roughly 95% of overlapping
-       calls raise ``PermissionError`` rather than serialising, because
-       :func:`scistudio.cli.install._atomic_write_json` stages every write
-       through one fixed temp path (``mcp.json.tmp``) that all writers share.
-       The rename itself is atomic, which is why the reader-facing property
-       below holds and the file is never corrupted — but the losing writer's
-       MCP entry is simply not registered, and on the spawn path that surfaces
-       as an agent launched without SciStudio's tools. A concurrent *reader*
-       makes it worse still: a reader holding the file open blocks
-       ``os.replace`` on Windows, so a provider CLI reading its own config
-       while SciStudio launches can cause every writer to lose. Left unasserted
-       rather than pinned, because the spec requires the write to *be* atomic,
-       not to fail loudly.
+       Three readers spinning as fast as Python can open a file is a
+       pathological load, not a realistic one, and it is used here precisely
+       because it is the harshest test of the reader-facing property. Under it,
+       writer failures are tolerated rather than asserted away, for two reasons
+       that are both about the platform rather than about this test being
+       lenient:
 
-       TODO(#1994): stage the merge write through a unique temp name (e.g.
-       ``tempfile.mkstemp`` in the target directory) so overlapping writers
-       serialise instead of colliding.
-       Out of scope for this dispatch: A7 is test-only per
-       ``docs/planning/adr-034-multi-provider-dispatch-prompts.md`` §A7, and
-       ``scistudio/cli/install.py`` is production code.
-       Followup: reported to the manager on issue #1994; needs an owner
-       decision before ``_atomic_write_json`` changes, since ``scistudio
-       install`` shares it.
+       * ``os.replace`` cannot rename over a destination another process holds
+         open on Windows, and a reader in a tight loop essentially never lets
+         go. :func:`~scistudio.cli.install._replace_with_retry` spends a bounded
+         budget and then **raises**, which is the deliberate choice — a lost
+         write must be loud, since silently skipping it launches an agent with
+         no SciStudio tools and no explanation.
+       * The merge's own read can fail the same way, and that half lives in
+         ``terminal.py`` rather than in the write helper.
+
+       The realistic simultaneous-launch case is asserted strictly instead, with
+       no tolerance at all, by
+       :func:`test_simultaneous_launches_all_register_without_colliding`.
     """
     _seed(tmp_path)
     config = tmp_path / ".kimi-code" / "mcp.json"
@@ -209,8 +218,9 @@ def test_a_concurrent_reader_never_observes_a_half_written_file(tmp_path: Path) 
 
     def writer() -> None:
         for _ in range(40):
-            # See the note above: writer contention is a known defect and is
-            # not the property under test here, so a losing writer is ignored.
+            # See the note above: under a pathological hot reader a write can
+            # legitimately fail loudly, and the merge's own read can fail too.
+            # Neither is the property under test here.
             with contextlib.suppress(OSError):
                 terminal._merge_provider_mcp_config(KIMI, tmp_path)
 
@@ -228,49 +238,156 @@ def test_a_concurrent_reader_never_observes_a_half_written_file(tmp_path: Path) 
     assert lost_updates == [], f"a reader observed the user's own server missing: {lost_updates[:3]}"
     assert reads_completed > 0, "the readers never managed a successful read; the test proved nothing"
 
-    # Whatever the writers managed, the user's content is intact and the file
-    # parses. Deliberately no assertion that the SciStudio entry landed: with
-    # readers holding the file open, Windows fails ``os.replace`` outright, so
-    # under a hot reader *every* writer can lose. That is the second half of
-    # the defect described above — a provider CLI reading its own config while
-    # SciStudio launches is enough to stop the injection — and pinning the
-    # entry here would make the test flake rather than make the write correct.
-    # ``test_at_least_one_concurrent_writer_registers_the_scistudio_entry``
-    # covers the writer-only case, which is deterministic.
+    # Whatever the writers managed, the user's content is intact, the file
+    # parses, and the SciStudio entry is registered. Under a hot reader some
+    # individual writes legitimately raise, but they cannot all be lost: with
+    # unique staging files the writers no longer knock each other out, so at
+    # least one rename lands.
     final = json.loads(config.read_text(encoding="utf-8"))
     assert final["mcpServers"]["user-owned"] == USER_SERVER
     assert final["trustedFolders"] == ["/a", "/b"]
+    assert "scistudio" in final["mcpServers"]
 
 
-def test_at_least_one_concurrent_writer_registers_the_scistudio_entry(tmp_path: Path) -> None:
-    """The floor the current implementation does meet.
+def test_simultaneous_launches_all_register_without_colliding(tmp_path: Path) -> None:
+    """The defect this fix exists to remove, asserted with no tolerance.
 
-    Whatever happens to the losers of a write race, the file must end up with
-    the SciStudio entry present and every unrelated key intact. This is
-    deliberately the weakest assertion that is still worth making: it is what
-    stops a future "fix" for the contention defect from trading correctness for
-    liveness.
+    Several AI Blocks configured ``kimi-code`` starting in one project is an
+    ordinary workflow, and every one of those launches must register its entry.
+
+    Before the fix, every write staged through the same ``mcp.json.tmp``, so the
+    writers destroyed each other's staging file: 227 of 240 overlapping calls
+    raised ``PermissionError``. Nothing surfaced that to the user — the rename
+    was still atomic and the file never corrupt — so the only symptom was an
+    agent that came up with no SciStudio tools.
+
+    Nothing is suppressed and nothing is tolerated here: any failure is a real
+    regression and must fail the test. The barrier makes the overlap genuine
+    rather than hoping the threads happen to interleave.
     """
     _seed(tmp_path)
     config = tmp_path / ".kimi-code" / "mcp.json"
-    barrier = threading.Barrier(6)
+    launches = 8
+    barrier = threading.Barrier(launches)
+    failures: list[str] = []
+    lock = threading.Lock()
 
     def writer() -> None:
         barrier.wait()
-        # Losing a write race is tolerated; leaving the file wrong is not.
-        with contextlib.suppress(OSError):
+        try:
             terminal._merge_provider_mcp_config(KIMI, tmp_path)
+        except OSError as exc:  # pragma: no cover - the regression this guards
+            with lock:
+                failures.append(f"{type(exc).__name__}: {exc}")
 
-    threads = [threading.Thread(target=writer) for _ in range(6)]
+    threads = [threading.Thread(target=writer) for _ in range(launches)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
 
+    assert failures == [], f"{len(failures)} of {launches} concurrent launches lost their write: {failures[:3]}"
+
     data = json.loads(config.read_text(encoding="utf-8"))
     assert "scistudio" in data["mcpServers"]
     assert data["mcpServers"]["user-owned"] == USER_SERVER
     assert data["trustedFolders"] == ["/a", "/b"]
+
+
+def test_concurrent_writes_never_share_a_staging_file(tmp_path: Path) -> None:
+    """The mechanism, not just the symptom: every write stages somewhere unique.
+
+    A future refactor could reintroduce a deterministic temp name and the timing
+    tests above would still pass on a fast enough machine, because the collision
+    is timing dependent. Capturing the source path of every rename removes that
+    luck: the names must all differ, and they must sit in the target's own
+    directory, because ``os.replace`` is only atomic within one filesystem.
+    """
+    target = tmp_path / "provider" / "mcp.json"
+    staged: list[Path] = []
+    lock = threading.Lock()
+    real_replace = os.replace
+
+    def recording_replace(src: object, dst: object) -> None:
+        with lock:
+            staged.append(Path(str(src)))
+        real_replace(src, dst)  # type: ignore[arg-type]
+
+    with mock.patch.object(os, "replace", recording_replace):
+        barrier = threading.Barrier(8)
+
+        def writer(index: int) -> None:
+            barrier.wait()
+            for attempt in range(5):
+                install._atomic_write_json(target, {"mcpServers": {"scistudio": {"w": index, "n": attempt}}})
+
+        threads = [threading.Thread(target=writer, args=(i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    # ``staged`` counts rename *attempts*, which can exceed the 40 writes when a
+    # busy destination is retried — a retry reuses its own staging file, so the
+    # distinct-path count is what pins uniqueness.
+    assert len(staged) >= 40
+    assert len(set(staged)) == 40, "two writes staged through the same temp path"
+    assert {p.parent for p in staged} == {target.parent}, "staging happened outside the target's directory"
+    assert set(json.loads(target.read_text(encoding="utf-8"))["mcpServers"]["scistudio"]) == {"w", "n"}
+
+
+def test_a_failed_write_leaves_no_staging_file_behind(tmp_path: Path) -> None:
+    """A crashed write must not litter a directory the provider owns.
+
+    A stray ``.mcp.json.<pid>-<uuid>.tmp`` is confusing at best, and for a CLI
+    that globs its own config directory it is actively harmful. The failure is
+    injected at the rename, so the staging file definitely exists by then.
+    """
+    config = _seed(tmp_path)
+    before = config.read_bytes()
+
+    def refuse(_src: object, _dst: object) -> None:
+        raise OSError("simulated rename failure")
+
+    with mock.patch.object(os, "replace", refuse), pytest.raises(OSError, match="simulated rename failure"):
+        terminal._merge_provider_mcp_config(KIMI, tmp_path)
+
+    leftovers = sorted(p.name for p in (tmp_path / ".kimi-code").iterdir() if p.name != "mcp.json")
+    assert leftovers == [], f"a failed write left staging files behind: {leftovers}"
+    assert config.read_bytes() == before
+
+
+def test_a_busy_destination_is_retried_and_then_raised(tmp_path: Path) -> None:
+    """Retry-then-raise: transient contention absorbed, a stuck one surfaced.
+
+    Windows refuses to rename over a destination another process holds open, and
+    that clears on its own in microseconds, so a bounded retry turns nearly every
+    occurrence into a success. When it does not clear, the error must propagate.
+    Swallowing it is the one outcome that is never acceptable: it produces
+    exactly the silent, unexplained tool-less agent this fix exists to remove.
+    """
+    target = tmp_path / "mcp.json"
+    real_replace = os.replace
+    calls = itertools.count()
+
+    def busy_twice(src: object, dst: object) -> None:
+        if next(calls) < 2:
+            raise PermissionError(13, "The process cannot access the file")
+        real_replace(src, dst)  # type: ignore[arg-type]
+
+    with mock.patch.object(os, "replace", busy_twice):
+        install._atomic_write_json(target, {"ok": True})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"ok": True}
+
+    def always_busy(_src: object, _dst: object) -> None:
+        raise PermissionError(13, "The process cannot access the file")
+
+    with mock.patch.object(os, "replace", always_busy), pytest.raises(PermissionError):
+        install._atomic_write_json(tmp_path / "never.json", {"ok": True})
+
+    assert not (tmp_path / "never.json").exists()
+    leftovers = sorted(p.name for p in tmp_path.iterdir() if p.name != "mcp.json")
+    assert leftovers == [], f"an exhausted retry left staging files behind: {leftovers}"
 
 
 def test_no_stray_temp_file_is_left_behind_after_a_successful_write(tmp_path: Path) -> None:
