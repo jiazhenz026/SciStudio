@@ -9,8 +9,6 @@
  * related is re-exported from there so Setup-screen consumers keep a local
  * import path without a second declaration drifting out of sync.
  */
-import type { TerminalProvider } from "../../../store/types";
-
 export type {
   AgentProviderKey,
   AiStatusResponse,
@@ -25,14 +23,5 @@ export {
   isUserTerminalProvider,
   USER_TERMINAL_PROVIDER,
 } from "../../../store/types";
-
-/**
- * @deprecated ADR-034 FR-020 — transitional alias for `TerminalProvider`.
- *
- * Kept only so the Setup-screen components keep compiling while they are
- * migrated to `TerminalProvider` in the same change set. It is an alias, not a
- * second declaration; delete it once no consumer references it.
- */
-export type ProviderName = TerminalProvider;
 
 export type PermissionMode = "safe" | "dangerous";
