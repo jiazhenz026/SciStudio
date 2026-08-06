@@ -556,7 +556,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T08:55:25.371128Z",
+      "pattern": "tests/ai/test_windows_executable_resolution.py",
+      "reason": "manager added the stale _binary_status test to A2 scope; FR-005 changed the helper signature from a binary name to a descriptor and the coverage is ported to tests/api/test_provider_discovery.py"
+    }
+  ],
   "session_id": "2c5b6584-f2b1-4d3a-9141-ab4d765cde15",
   "strictness_tier": 1,
   "task_kind": "feature",
