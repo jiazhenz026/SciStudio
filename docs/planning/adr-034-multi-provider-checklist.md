@@ -77,7 +77,7 @@ language_source: en
     `ADR-0NN.md`, so a base ADR always overwrites its addenda in that dict and an
     addendum's `governs` is never read. This dispatch works around it by using an
     `adr042-governance-amendment` block instead of an addendum, per owner decision.
-    A follow-up issue must be opened before this dispatch's PR merges.
+    Tracked by #2004; it must stay open and referenced when this dispatch's PR merges.
 
 ## 3. Conventions
 
@@ -259,7 +259,7 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| 2026-08-06 | manager | Spec section 1 presents "expand ADR-034 `governs`" and "author an ADR-034 addendum" as equivalent options. Verified they are not: `doc_drift._check_adr_spec_alignment` keys `adrs` by `frontmatter.adr`, `ADRAddendumFrontmatter` subclasses `ADRFrontmatter` with the parent number, and `sorted()` orders `ADR-0NN-addendumM.md` before `ADR-0NN.md`, so the base ADR overwrites the addendum and the addendum's `governs` is never read. | Presented the finding to the owner, who chose the `adr042-governance-amendment` block in ADR-034's body and authorized editing that `agent_editable: false` file. A8 carries it out. | Follow-up issue for the `doc_drift` defect must exist before merge. |
+| 2026-08-06 | manager | (follow-up #2004) Spec section 1 presents "expand ADR-034 `governs`" and "author an ADR-034 addendum" as equivalent options. Verified they are not: `doc_drift._check_adr_spec_alignment` keys `adrs` by `frontmatter.adr`, `ADRAddendumFrontmatter` subclasses `ADRFrontmatter` with the parent number, and `sorted()` orders `ADR-0NN-addendumM.md` before `ADR-0NN.md`, so the base ADR overwrites the addendum and the addendum's `governs` is never read. | Presented the finding to the owner, who chose the `adr042-governance-amendment` block in ADR-034's body and authorized editing that `agent_editable: false` file. A8 carries it out. | Follow-up issue for the `doc_drift` defect must exist before merge. |
 | 2026-08-06 | manager | Spec `governs.contracts` lists `scistudio.ai.agent.terminal.spawn_claude` and `spawn_codex`, but spec section 4.1 removes both in favour of `spawn_agent`. Leaving the spec as written would make it govern contracts that no longer exist once it flips to `Planned`. | A8 must reconcile `governs.contracts` against the post-implementation symbol set at the same time it flips the status. Recorded in the A8 prompt. | Tracked in this dispatch, no separate issue. |
 | 2026-08-06 | manager | Umbrella PR could not exist before the first planning commit, so the dispatch matrix was authored before the PR number was known. | Open the umbrella PR immediately after the planning commit, then update section 1 and the Manager Preflight rows before dispatching any agent. | N/A |
 
@@ -270,7 +270,7 @@ Append only.
 - [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
       evidence when needed, commit, and PR evidence.
 - [ ] PR closes every issue fixed by the dispatch.
-- [ ] Follow-up issue opened for the `doc_drift` addendum-shadowing defect.
+- [x] Follow-up issue opened for the `doc_drift` addendum-shadowing defect. -> #2004
 - [ ] `admin-approved:core-change` label applied by the owner if the protected-core guard
       fires on `src/scistudio/engine/pty_control.py`.
 - [ ] Owner five-provider smoke launch complete.
