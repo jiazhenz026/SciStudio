@@ -31,7 +31,7 @@ language_source: en
   `feat/1994-adr-034/<agent-slug>` and branch off the umbrella branch.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-034-multi-provider`
-- Umbrella PR: pending initial planning commit.
+- Umbrella PR: `#2003`
 - Umbrella PR title: `[DO NOT MERGE] ADR-034 multi-provider agent chat integration`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -100,15 +100,15 @@ language_source: en
 - [x] Gate record started. -> `.workflow/records/1994-adr-034-multi-provider.json`
 - [x] Scope include/exclude recorded in the gate record. -> gate `init`
 - [x] Umbrella branch created. -> `track/adr-034-multi-provider`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. -> https://github.com/jiazhenz026/SciStudio/pull/2003
+- [x] Umbrella PR title includes `[DO NOT MERGE]`. -> `[DO NOT MERGE] ADR-034 multi-provider agent chat integration`
+- [x] Protected branch and umbrella PR number recorded in this checklist. -> protected `main`, umbrella PR #2003
 - [x] No `pip install -e .` environment pollution found. -> agents run with
       `PYTHONPATH=src`; `scistudio` is not importable without it, confirming the shared
       environment is unpolluted.
 - [x] Dispatch checklist copied from the template and committed. -> this file
-- [ ] Dispatch prompts created from the correct prompt template and linked below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Dispatch prompts created from the correct prompt template and linked below. -> `docs/planning/adr-034-multi-provider-dispatch-prompts.md`
+- [x] Sentrux baseline recorded, or N/A reason recorded. -> Sentrux MCP is not connected in this manager session. Sentrux evidence is recorded automatically as a guard event inside `gate_record check`, which every agent and the manager run; no separate baseline command is available or required.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -181,13 +181,13 @@ manager summary.
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
+- [x] Prompt file created or dispatch prompt recorded. -> `docs/planning/adr-034-multi-provider-dispatch-prompts.md`
+- [x] Correct prompt template selected. -> work template for A1-A8; audit no-context template for A9
 - [x] Audit mode recorded when persona is `audit_reviewer`. -> A9 is `no-context`
 - [x] Agent branch/worktree assigned. -> Dispatch Matrix
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Write set and out-of-scope paths included in prompt. -> every prompt has explicit own/must-not-touch lists
+- [x] TODO rule included in prompt. -> A1 prompt body; inherited by A2-A8 via the shared structure
+- [x] Required checks included in prompt. -> per-agent test and `gate_record check` commands
 
 ### 7.3 Implementation
 
