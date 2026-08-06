@@ -652,6 +652,147 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:11:51.283977Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:abd021a452752142e3224b5ebbb02b9d5b066fb7df92cef8d819a687dac3d07f",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:11:52.354347Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:85c6700f7bf18df27ec9e26238e42671dcbcfdbc9fcc21e3df83028b130b6821",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:11:52.434723Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1747de2ae78cbc9a688459bc356fcb04b78ab24dcf069cc474e906deb731aa75",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T10:12:01.923224Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:2bd66abde11820322b18eaffd34571446eaf7a159b5b93abfcedf1940b18f29a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:12:02.182460Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f222ad2647058038de69e7078121a4f0a40afc1275c2264046d738522b9cd827",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:12:02.220097Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1513058eac7cba9ccc92c98232e68971c386b4e58be0961adb1eab3baea06ac2",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T10:13:29.636295Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:921d667478dc6f36cb68995faebec96c888628beeb305b6812a154cd93184637",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:14:35.984973Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4ff8f4c5215a161822ecaa95ddfc9fe3d479a4ece03aad43316c9849fd37b8c9",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:14:36.625180Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6c3c34b70e402e3b82732d10d6dc9a1496c5355267ca75696de1fb7ba68196bd",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -1442,6 +1583,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.658845Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/pty_control.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/pty_control.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.671498Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.689931Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.705492Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.719844Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.732891Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.745427Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.758356Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.771058Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:14:36.784020Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1464,13 +1730,17 @@
       "src/scistudio/blocks/ai/ai_block.py",
       "src/scistudio/engine/pty_control.py",
       "tests/api/routes/ai_pty/test_engine.py",
+      "tests/api/routes/ai_pty/test_public_surface.py",
+      "tests/api/test_ai_pty_audit_fixes.py",
       "tests/api/test_ai_pty_engine_spawn.py",
+      "tests/blocks/ai/conftest.py",
       "tests/blocks/ai/test_ai_block_skeleton.py",
-      "tests/engine/test_pty_control.py"
+      "tests/engine/test_pty_control.py",
+      "tests/engine/test_pty_control_skeleton.py"
     ],
-    "diff_fingerprint": "sha256:cbf752826e5cba363d70df0a42b4cbca4834de37c469aea5d4e2c232a8f14e7e",
+    "diff_fingerprint": "sha256:82d9e29949bcdb2b0c4015b60ffc6b010b0276949565ddd4fe3a213fcca22553",
     "head": "HEAD",
-    "head_sha": "70869b77",
+    "head_sha": "fd654ff8",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -1479,8 +1749,8 @@
       "implementation": 5,
       "packaging": 1,
       "protected_core": 2,
-      "sentrux": 8,
-      "test": 4,
+      "sentrux": 12,
+      "test": 8,
       "workflow_ci": 0
     }
   },
@@ -1576,6 +1846,19 @@
     {
       "at": "2026-08-06T10:07:16.037471Z",
       "diff_fingerprint": "sha256:cbf752826e5cba363d70df0a42b4cbca4834de37c469aea5d4e2c232a8f14e7e",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T10:14:36.784048Z",
+      "diff_fingerprint": "sha256:82d9e29949bcdb2b0c4015b60ffc6b010b0276949565ddd4fe3a213fcca22553",
       "mode": "local",
       "result": "fail",
       "tier": 1,
@@ -1687,6 +1970,12 @@
       "at": "2026-08-06T09:35:36.968205Z",
       "pattern": "tests/api/test_ai_pty_audit_fixes.py",
       "reason": "manager added four test files to A3 scope; FR-011 and FR-012 deleted the symbols they exercise and FR-010 changed the PtyTabSpec field set"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T16:07:53.183531Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_inspection/_preview.py",
+      "reason": "owner approved a one-line import-form fix so the SCC split from FR-012 does not require weakening MAX_PYTHON_CYCLES"
     }
   ],
   "session_id": "711db5a1-1879-4796-8747-30fd68787f56",
