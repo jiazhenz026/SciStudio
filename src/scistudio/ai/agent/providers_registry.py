@@ -274,21 +274,22 @@ class ProviderDescriptor:
     must explain the CLI's limitation rather than name an internal field.
     """
 
-    hook_trust_argv: tuple[str, ...] = ()
-    """Argv that lets SciStudio's own provisioned hooks actually run (#1994).
-
-    SciStudio writes the project's hook definitions itself, in files it owns,
-    from templates it ships. A CLI that gates hook execution behind an
-    interactive trust review is therefore asking the user to vouch for
-    SciStudio's own configuration — a prompt the embedded PTY tab never
-    surfaces, so the answer is never given and the hooks never fire. The user
-    ends up with an agent that has no data-protection and no tool-use
-    enforcement, and nothing anywhere says so.
-
-    Empty for every provider that runs project-scope hooks without a review
-    gate. Non-empty only where the CLI documents such a gate *and* the flag was
-    observed to lift it.
-    """
+    # There is deliberately no ``hook_trust_argv`` field here, and no provider
+    # passes ``--dangerously-bypass-hook-trust`` (#1994 finding 3).
+    #
+    # Codex 0.130+ gates hook *execution* behind an interactive trust review,
+    # and SciStudio's provisioned hooks sit behind it until the user answers.
+    # It is tempting to answer on their behalf: SciStudio wrote those hook
+    # files, so the review asks the user to vouch for SciStudio's own
+    # configuration. That reasoning does not survive contact with what the flag
+    # actually does — it disarms the review for the *whole* config file, user
+    # additions included, on every launch, including one where the user
+    # explicitly chose Manual Approve. Silently removing one user decision in
+    # the same breath as :attr:`manual_argv` restores another is incoherent.
+    #
+    # Codex renders the review panel inside the PTY and it is answerable there,
+    # so the control works as designed and the user makes the call. See the
+    # spec's "Corrections from the owner's live hand-test" section.
 
     excluded_dirs: tuple[tuple[str, ...], ...] = ()
     """Directory subtrees a resolution must never come from, as path segments.
@@ -580,20 +581,19 @@ _CODEX = ProviderDescriptor(
     # command set; ``on-request`` delegates the decision to the model, which is
     # not what "Manual Approve" promises the user.
     manual_argv=("--ask-for-approval", "untrusted"),
-    # #1994 finding 3. Codex 0.130+ gates project-scope hooks behind an
-    # interactive trust review: the TUI opens a panel reading
+    # #1994 finding 3. Codex 0.130+ gates project-scope hook *execution* behind
+    # an interactive trust review: the TUI opens a panel reading
     # ``SessionStart 2 0 2 … Press t to trust all; enter to review hooks``
-    # (declared / trusted / untrusted), and until the user answers it, none of
+    # (declared / trusted / untrusted), and until the user answers it none of
     # SciStudio's provisioned hooks run. Observed live at 0.139.0 against a
-    # project SciStudio had just provisioned — the declarations loaded and
+    # project SciStudio had just provisioned: the declarations loaded and
     # parsed, and fired nothing.
     #
-    # The trust decision is about SciStudio's *own* hook files, written from
-    # SciStudio's own templates, so this is precisely the "automation that
-    # already vets hook sources" case the flag is documented for. Without it a
-    # SciStudio-launched Codex tab runs with no data-protection and no
-    # tool-use enforcement at all, silently.
-    hook_trust_argv=("--dangerously-bypass-hook-trust",),
+    # No flag is passed to route around that. The panel is rendered into the
+    # PTY and is answerable there, so the user makes the trust decision, once
+    # per project, exactly as Codex designed it. See the spec section named in
+    # the ``hook_trust_argv`` note on ProviderDescriptor for why the tempting
+    # ``--dangerously-bypass-hook-trust`` shortcut was rejected.
 )
 
 _KIMI_CODE = ProviderDescriptor(

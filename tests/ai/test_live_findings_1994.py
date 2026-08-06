@@ -295,47 +295,40 @@ def test_parent_agent_session_markers_are_stripped_from_the_child(monkeypatch: p
     assert "CODEX_SANDBOX" not in env
 
 
-def test_codex_spawn_lifts_its_hook_trust_gate(
-    tmp_path: Path,
-    spawned_argv: list[list[str]],
-    stable_binary,
-) -> None:
-    """#1994 finding 3: SciStudio's hooks must actually run under Codex.
-
-    Observed live at 0.139.0: a Codex TUI opened in a SciStudio-provisioned
-    project shows a hook panel reading ``SessionStart 2 0 2 … Press t to trust
-    all; enter to review hooks`` — two hooks declared, zero trusted — and fires
-    none of them until the user answers. The embedded PTY tab never surfaces
-    that panel, so the answer never comes and the agent runs unguarded.
-    """
-    stable_binary("codex.CMD")
-    terminal.spawn_agent(get("codex"), project_dir=tmp_path, dangerous=False)
-
-    assert "--dangerously-bypass-hook-trust" in spawned_argv[0]
-
-
-@pytest.mark.parametrize(
-    "descriptor",
-    [d for d in _agents() if d.key != "codex"],
-    ids=lambda d: d.key,
-)
-def test_no_other_provider_bypasses_a_trust_gate(
+@pytest.mark.parametrize("descriptor", _agents(), ids=lambda d: d.key)
+@pytest.mark.parametrize("dangerous", [False, True], ids=["manual", "bypass"])
+def test_no_spawn_ever_answers_a_security_prompt_for_the_user(
     descriptor: ProviderDescriptor,
+    dangerous: bool,
     tmp_path: Path,
     spawned_argv: list[list[str]],
     stable_binary,
 ) -> None:
-    """A flag named ``--dangerously-*`` is opt-in per provider, never blanket.
+    """#1994 finding 3: SciStudio must not disarm a CLI's own trust review.
 
-    Claude Code and both Qoder channels honour project-scope hooks with no
-    review gate — verified for Qoder by running a blocking hook through
-    ``qoderclicn`` — so there is nothing here for them to lift.
+    Codex 0.130+ gates hook *execution* behind an interactive review, and
+    SciStudio's provisioned hooks sit behind it: a Codex TUI opened in a
+    provisioned project shows ``SessionStart 2 0 2 … Press t to trust all;
+    enter to review hooks`` — two declared, zero trusted — and fires none of
+    them until the user answers.
+
+    ``--dangerously-bypass-hook-trust`` would make them fire, and it is the
+    wrong answer. It disarms the review for the entire config file, user
+    additions included, on every launch — including one where the user chose
+    Manual Approve. Removing one user decision in the same spawn that
+    ``manual_argv`` exists to restore another cannot both be right, so the
+    trust decision stays with the user. The panel is rendered into the PTY and
+    is answerable there.
+
+    Asserted across both permission modes and every provider: a bypass that
+    crept in under ``dangerous`` only would be just as unauthorised, and the
+    next provider added must not inherit one silently.
     """
     stable_binary("agent.exe")
-    terminal.spawn_agent(descriptor, project_dir=tmp_path, dangerous=False)
+    terminal.spawn_agent(descriptor, project_dir=tmp_path, dangerous=dangerous)
 
-    assert not descriptor.hook_trust_argv
-    assert not [token for token in spawned_argv[0] if "hook-trust" in token]
+    leaked = [token for token in spawned_argv[0] if "hook-trust" in token or "bypass-hook" in token]
+    assert not leaked, f"{descriptor.key}: spawn answered a trust prompt for the user: {leaked}"
 
 
 def test_user_configuration_in_the_same_namespaces_survives(monkeypatch: pytest.MonkeyPatch) -> None:

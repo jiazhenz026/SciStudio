@@ -778,11 +778,7 @@ def spawn_agent(
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
-        # #1994 finding 3: SciStudio wrote the project's hooks, so a CLI that
-        # gates them behind a trust review is asking the user to vouch for
-        # SciStudio's own files — through a prompt the embedded tab never
-        # shows. Empty for every provider without such a gate.
-        argv = [_resolve_agent_binary(descriptor), *descriptor.hook_trust_argv, *prompt_argv, *mcp_argv]
+        argv = [_resolve_agent_binary(descriptor), *prompt_argv, *mcp_argv]
         # #1994 finding 2: state the permission mode in both directions. The
         # previous ``if dangerous:`` left safe mode flagless, which reads as
         # "no opinion" to every one of these CLIs and lets a persisted
