@@ -590,6 +590,68 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:05:22.092364Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:abd021a452752142e3224b5ebbb02b9d5b066fb7df92cef8d819a687dac3d07f",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:05:22.174248Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b246f5b09faf8fe68c35741f6da29f57c6505157a8fdc31e0bdf5eb4fa961fcf",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T10:05:32.406714Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:364cdf9943e8fb9c61959a2d37d586580cd6954c0f46b6d41abcd38e1dc08122",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T10:07:15.867808Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:479336b3c0bcbb420aa72d10e48e98f0fbadb20a321aebd84895d210fa977deb",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1255,6 +1317,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.916366Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/pty_control.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/pty_control.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.929281Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.941964Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.955294Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.970094Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.983439Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:15.996487Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:16.009800Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:16.023359Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T10:07:16.037439Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1281,9 +1468,9 @@
       "tests/blocks/ai/test_ai_block_skeleton.py",
       "tests/engine/test_pty_control.py"
     ],
-    "diff_fingerprint": "sha256:570103881291b390e2faa16356c1efcc3b74f846f47c444d16714ae53f5adb73",
+    "diff_fingerprint": "sha256:cbf752826e5cba363d70df0a42b4cbca4834de37c469aea5d4e2c232a8f14e7e",
     "head": "HEAD",
-    "head_sha": "754aa8fa",
+    "head_sha": "70869b77",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -1385,6 +1572,19 @@
         "checks.full_audit",
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-06T10:07:16.037471Z",
+      "diff_fingerprint": "sha256:cbf752826e5cba363d70df0a42b4cbca4834de37c469aea5d4e2c232a8f14e7e",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "1994-adr-034-engine",
@@ -1463,6 +1663,30 @@
       "at": "2026-08-06T09:17:51.636032Z",
       "pattern": "pyproject.toml",
       "reason": "ADR-034 FR-012 deleted AIBlock's lazy import of scistudio.ai.agent.terminal, which left three now-stale import-linter ignore_imports entries (import-linter fails on an unmatched ignore) and left the replacement lazy edge to scistudio.ai.agent.providers_registry unexempted. Retargeted the three existing carve-outs at the new, narrower read-only edge; no new exemption added and no contract weakened (13 kept, 0 broken)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T09:35:36.968183Z",
+      "pattern": "tests/blocks/ai/conftest.py",
+      "reason": "manager added four test files to A3 scope; FR-011 and FR-012 deleted the symbols they exercise and FR-010 changed the PtyTabSpec field set"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T09:35:36.968201Z",
+      "pattern": "tests/engine/test_pty_control_skeleton.py",
+      "reason": "manager added four test files to A3 scope; FR-011 and FR-012 deleted the symbols they exercise and FR-010 changed the PtyTabSpec field set"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T09:35:36.968203Z",
+      "pattern": "tests/api/routes/ai_pty/test_public_surface.py",
+      "reason": "manager added four test files to A3 scope; FR-011 and FR-012 deleted the symbols they exercise and FR-010 changed the PtyTabSpec field set"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T09:35:36.968205Z",
+      "pattern": "tests/api/test_ai_pty_audit_fixes.py",
+      "reason": "manager added four test files to A3 scope; FR-011 and FR-012 deleted the symbols they exercise and FR-010 changed the PtyTabSpec field set"
     }
   ],
   "session_id": "711db5a1-1879-4796-8747-30fd68787f56",

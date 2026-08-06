@@ -1,7 +1,7 @@
 """Shared fixtures for AIBlock tests (ADR-035 Phase 2A).
 
-This file provides a ``StubAgent`` fixture that simulates a claude/codex
-agent **without spawning a real subprocess**. Tests configure the stub
+This file provides a ``StubAgent`` fixture that simulates an agent CLI
+**without spawning a real subprocess**. Tests configure the stub
 to write the outputs the test expects and then write the
 ``finish_ai_block`` MCP signal — exactly mirroring what the real agent
 would do, but synchronously and on a thread the test owns.
@@ -11,9 +11,11 @@ The stub also monkeypatches:
     ``tab_id`` and triggers the stub's behaviour.
   * ``scistudio.engine.pty_control.notify_block_pty_event`` — recorded for
     assertions.
-  * ``scistudio.blocks.ai.ai_block._discover_provider`` — always returns a
-    fake binary path so tests don't depend on claude/codex being
-    installed in CI.
+  * ``scistudio.blocks.ai.ai_block._discover_provider_binary`` — always
+    returns a fake binary path so tests don't depend on any provider CLI
+    being installed in CI. ADR-034 FR-005 routed block-side discovery
+    through the provider registry's resolver, so the seam takes a
+    ``ProviderDescriptor`` rather than a provider-key string.
 
 Tests should NOT touch the real PTY subsystem; that's I35b's territory
 and gets its own integration tests.
@@ -190,7 +192,7 @@ def project_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def stub_agent(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> StubAgent:
-    """Wire a StubAgent into ``pty_control`` + ``_discover_provider``.
+    """Wire a StubAgent into ``pty_control`` + ``_discover_provider_binary``.
 
     Default behaviour: no outputs, ``finish_via="mcp"``. Tests modify
     ``stub_agent.outputs`` and ``stub_agent.finish_via`` before calling
@@ -205,10 +207,15 @@ def stub_agent(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> StubAgent:
     monkeypatch.setattr(pty_control, "request_pty_tab", stub.make_request_handler())
     monkeypatch.setattr(pty_control, "notify_block_pty_event", stub.make_notify_handler())
 
-    # Patch the discover lookup so tests don't depend on claude/codex
-    # being installed.
+    # Patch the discover lookup so tests don't depend on any provider CLI
+    # being installed. ADR-034 FR-005: the seam now receives the registry
+    # ``ProviderDescriptor`` the block resolved, not a bare provider key.
     from scistudio.blocks.ai import ai_block as ai_block_module
 
-    monkeypatch.setattr(ai_block_module, "_discover_provider", lambda provider: "/fake/bin/" + provider)
+    monkeypatch.setattr(
+        ai_block_module,
+        "_discover_provider_binary",
+        lambda descriptor: Path("/fake/bin") / descriptor.key,
+    )
 
     return stub
