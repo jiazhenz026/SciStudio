@@ -1,16 +1,18 @@
 /**
  * Tests for SetupScreen — ADR-034 FR-021 status-driven provider select,
- * FR-021c/FR-021d zero-install notice, FR-021e/FR-021f permission relabel,
- * FR-021g/FR-021h pinned opaque action bar.
+ * FR-021c/FR-021d zero-install notice, FR-021e/FR-021f permission relabel.
  *
  * These assertions exist because none of this fails loudly on its own: agent
  * provider keys are opaque strings (FR-020a), so a regression back to a
  * hardcoded two-provider picker would still typecheck.
  *
- * Honesty note on FR-021g: jsdom performs no layout, so nothing here proves the
- * action bar is actually on screen. `pins the action bar …` is a structural
- * regression guard only. The real proof is the Playwright check that owns the
- * host-chain half of T-011c.
+ * The action-bar suite predates this dispatch and is unchanged. User Story 6 /
+ * FR-021g / FR-021h were withdrawn by the owner after A6 measured the proposed
+ * `sticky bottom-0` rule to be inert (identical clipping at every panel height,
+ * because a sticky box cannot move outside a containing block that is already
+ * shorter than the box) and judged the small-viewport case a non-issue in real
+ * use. It asserts structure only; jsdom performs no layout and never proved
+ * anything about on-screen position.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -327,8 +329,8 @@ describe("SetupScreen permission picker (FR-021e / FR-021f)", () => {
   });
 });
 
-describe("SetupScreen action bar (FR-021g / FR-021h)", () => {
-  it("pins the action bar outside the scrollable body on an opaque background", async () => {
+describe("SetupScreen action bar", () => {
+  it("keeps Cancel and Launch outside the scrollable setup body", async () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
 
@@ -340,17 +342,9 @@ describe("SetupScreen action bar (FR-021g / FR-021h)", () => {
     expect(root.className).toContain("overflow-hidden");
     expect(scrollBody.className).toContain("overflow-y-auto");
     expect(actions.className).toContain("shrink-0");
+    expect(actions.className).not.toContain("bg-white");
     expect(scrollBody.contains(actions)).toBe(false);
     expect(actions.contains(screen.getByTestId("setup-cancel"))).toBe(true);
     expect(actions.contains(launch)).toBe(true);
-
-    // FR-021g: sticky guard so the bar survives an ancestor scroll context.
-    expect(actions.className).toContain("sticky");
-    expect(actions.className).toContain("bottom-0");
-    // FR-021h: content passes behind the bar, so the background MUST be opaque.
-    // This replaces the pre-ADR-034 assertion that the bar had no `bg-white`,
-    // which now contradicts the spec.
-    expect(actions.className).toContain("bg-white");
-    expect(actions.className).not.toMatch(/bg-white\/\d/);
   });
 });

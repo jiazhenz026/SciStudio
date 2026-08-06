@@ -382,7 +382,13 @@
       "frontend/src/components/AIChat/**"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-06T17:56:18.040302Z",
+      "owner_directive": "Revert the action-bar sticky and opaque background; keep the picker, zero-install notice, and permission relabel.",
+      "reason": "owner descoped User Story 6 / FR-021g / FR-021h after A6 measured the sticky rule inert and judged the small-viewport case a non-issue in real use"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-08-06T09:14:17.859765Z",

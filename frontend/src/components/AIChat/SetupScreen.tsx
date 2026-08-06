@@ -190,16 +190,8 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
         </div>
       </div>
 
-      {/* ADR-034 FR-021g / FR-021h — the action bar is pinned. `shrink-0` inside
-          the flex column is the structural pin; `sticky bottom-0` is the guard
-          that keeps Cancel / Launch reachable if a future ancestor reintroduces
-          a scroll context (the host-chain repair itself lives in BottomPanel and
-          TerminalTabs). The background MUST be fully opaque: scrolled content
-          passes behind the bar, and a translucent bar leaves the buttons
-          illegible. The earlier assertion that this bar carries no `bg-white`
-          predates FR-021h and was updated deliberately. */}
       <div
-        className="sticky bottom-0 z-10 flex shrink-0 items-center justify-end gap-2 border-t border-stone-200 bg-white pt-3 pb-1"
+        className="flex shrink-0 items-center justify-end gap-2 border-t border-stone-200 pt-3"
         data-testid="setup-actions"
       >
         <button
