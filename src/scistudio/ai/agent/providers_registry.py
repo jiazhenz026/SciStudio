@@ -641,8 +641,8 @@ _KIMI_CODE = ProviderDescriptor(
     manual_argv_absent_reason=(
         "kimi 0.33.0 exposes only the loosening flags -y/--yolo and --auto; it "
         "has no flag that asserts interactive approval, so Manual Approve is "
-        "expressed by passing neither. Revisit when Kimi Code gains an explicit "
-        "permission-mode flag."
+        "expressed by passing neither. ADR-034 spec §1 records this; revisit "
+        "when Kimi Code gains an explicit permission-mode flag."
     ),
     # ``kimi --help`` at 0.33.0 shows ``Usage: kimi [options] [command]`` with
     # no ``[prompt]`` positional; the prompt goes through ``-p/--prompt``, which
