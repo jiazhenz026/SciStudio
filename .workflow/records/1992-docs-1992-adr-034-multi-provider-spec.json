@@ -340,6 +340,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.095242Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.121135Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.141352Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.165490Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.186058Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.209363Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.229037Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.251862Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.271586Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T05:53:37.297730Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -358,9 +440,9 @@
       ".workflow/records/1992-docs-1992-adr-034-multi-provider-spec.json",
       "docs/specs/adr-034-multi-provider-agent-chat.md"
     ],
-    "diff_fingerprint": "sha256:39a8ef1d70408b220c01bdd16edff2c5e25f5eec46c0a6f0eeb0f5b02d012776",
+    "diff_fingerprint": "sha256:b92b18c491923356c272ab311f84e8b9a0fc26e570f631f76e4ee035dd204a9b",
     "head": "HEAD",
-    "head_sha": "27c9aadc",
+    "head_sha": "e1a556b6",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -406,6 +488,14 @@
     {
       "at": "2026-08-06T05:53:18.774257Z",
       "diff_fingerprint": "sha256:39a8ef1d70408b220c01bdd16edff2c5e25f5eec46c0a6f0eeb0f5b02d012776",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-06T05:53:37.297763Z",
+      "diff_fingerprint": "sha256:b92b18c491923356c272ab311f84e8b9a0fc26e570f631f76e4ee035dd204a9b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
