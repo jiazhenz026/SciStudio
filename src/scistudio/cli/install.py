@@ -5,23 +5,44 @@ Issue #787; cross-install + project-scope codex landed in I40d (ADR-040 §3.7
 against SciStudio projects with the full 25-tool MCP surface and SciStudio-aware
 skills installed.
 
+ADR-034 multi-provider (T-013) made the accepted ``--target`` set *derived* from
+the provider registry instead of the hand-maintained ``{"claude", "codex"}``
+literal: every agent provider key is a target, and the historical ``claude`` /
+``codex`` spellings survive as aliases so existing invocations, scripts, and
+``--all`` keep working unchanged. Adding a sixth provider adds a target with no
+edit here — see :func:`install_targets`.
+
 Layout of supported targets:
 
-| Target | Scope     | File(s) mutated                                                       |
-|--------|-----------|-----------------------------------------------------------------------|
-| claude | user      | ``~/.claude.json`` (top-level ``mcpServers``)                         |
-| claude | project   | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)                        |
-| codex  | user      | ``~/.codex/config.toml`` (``[mcp_servers.…]``)                        |
-| codex  | project   | ``<cwd>/.codex/config.toml`` (``[mcp_servers.…]``) — Codex 2026       |
-| skill  | user      | ``~/.claude/skills/scistudio/`` AND ``~/.agents/skills/scistudio/``       |
-| skill  | project   | ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/`` |
+| Target      | Scope   | File(s) mutated                                                          |
+|-------------|---------|--------------------------------------------------------------------------|
+| claude      | user    | ``~/.claude.json`` (top-level ``mcpServers``)                            |
+| claude      | project | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)                           |
+| codex       | user    | ``~/.codex/config.toml`` (``[mcp_servers.…]``)                           |
+| codex       | project | ``<cwd>/.codex/config.toml`` (``[mcp_servers.…]``) — Codex 2026          |
+| claude-code | both    | Registry-key alias of ``claude``                                        |
+| kimi-code   | project | ``<cwd>/.kimi-code/mcp.json`` (top-level ``mcpServers``)                 |
+| qoder       | project | ``<cwd>/.mcp.json`` (Qoder's own project-scope discovery location)       |
+| qoder-cn    | project | ``<cwd>/.mcp.json`` (same, per its identical adapter strategy)           |
+| skill       | user    | ``~/.claude/skills/scistudio/`` AND ``~/.agents/skills/scistudio/``       |
+| skill       | project | ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/`` |
 
 All operations are idempotent. ``--remove`` reverses any install.
 
 The exact file layouts above were determined empirically (not
 guessed): we inspected ``~/.claude.json`` to confirm Claude Code uses
 a top-level ``mcpServers`` map for user scope, and we ran
-``codex mcp add`` to observe the TOML mutation Codex performs.
+``codex mcp add`` to observe the TOML mutation Codex performs. The
+provider-scoped rows come from the registry's verified adapter matrix
+(ADR-034 spec §1, verified 2026-08-06).
+
+The three providers added by ADR-034 are **project scope only**, and that is a
+decision rather than an omission. Kimi Code's user-scope MCP file is
+``<KIMI_CODE_HOME>/mcp.json``, shared user state that ADR-034 §6 explicitly
+records SciStudio must never mutate; neither Qoder channel was observed to have
+a user-scope MCP config location at all. A user-scope request for those targets
+raises rather than guessing at a path — spec §1's verified facts are the only
+sanctioned source, and inventing one would write into a file the user owns.
 """
 
 from __future__ import annotations
@@ -32,16 +53,60 @@ import logging
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import typer
+
+from scistudio.ai.agent.providers_registry import (
+    REGISTRY,
+    McpStrategy,
+    ProviderDescriptor,
+    agent_keys,
+)
 
 logger = logging.getLogger(__name__)
 
 # The name we register under in each tool's MCP server map.
 # Prefixed-name in agent transcripts: ``mcp__scistudio__list_blocks`` etc.
 MCP_SERVER_NAME = "scistudio"
+
+#: Historical ``--target`` spellings, mapped onto their registry provider key.
+#: ADR-034 renamed nothing on the wire: ``claude`` and ``codex`` were always the
+#: *binary* names while the provider keys are ``claude-code`` and ``codex``.
+#: Keeping the aliases means every existing invocation, script, and ``--all``
+#: run keeps working while the accepted set becomes registry-derived (T-013).
+_LEGACY_TARGET_ALIASES = {"claude": "claude-code", "codex": "codex"}
+
+
+def install_targets() -> tuple[str, ...]:
+    """Every accepted ``--target`` value, legacy aliases first (T-013).
+
+    Derived from :data:`~scistudio.ai.agent.providers_registry.REGISTRY` rather
+    than hand-maintained, so a provider added to the registry becomes an install
+    target with no edit to this module. ``user-terminal`` is excluded because it
+    is a shell, not an agent CLI with an MCP config to wire.
+    """
+    return tuple(dict.fromkeys((*_LEGACY_TARGET_ALIASES, *agent_keys())))
+
+
+def _resolve_target(target: str) -> ProviderDescriptor:
+    """Map a ``--target`` value onto its registry descriptor.
+
+    Raises
+    ------
+    ValueError
+        When *target* is not an accepted target. The message enumerates the
+        accepted set, so a user who typed a stale or invented name is told what
+        to type instead rather than just that they were wrong.
+    """
+    key = _LEGACY_TARGET_ALIASES.get(target, target)
+    descriptor = REGISTRY.get(key) if key in REGISTRY else None
+    if descriptor is None or not descriptor.is_agent:
+        accepted = ", ".join(install_targets())
+        raise ValueError(f"unsupported target {target!r}; expected one of: {accepted}")
+    return descriptor
 
 
 @dataclass(frozen=True)
@@ -167,7 +232,7 @@ def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Claude target
+# JSON ``mcpServers`` targets — Claude Code, Kimi Code, both Qoder channels
 # ---------------------------------------------------------------------------
 
 
@@ -179,16 +244,55 @@ def _claude_project_config_path(cwd: Path) -> Path:
     return cwd / ".mcp.json"
 
 
-def _install_claude(scope: str, cwd: Path) -> InstallResult:
-    """Write the ``scistudio`` MCP entry into Claude's config (user|project)."""
+#: Providers whose *user-scope* MCP config file SciStudio is sanctioned to edit,
+#: keyed by provider key. Deliberately not registry data: the registry models
+#: what each CLI reads at spawn time, not which user-owned config file SciStudio
+#: may write into on the user's behalf, and those are different questions. A
+#: provider absent here is project scope only — see the module docstring for why
+#: Kimi Code and both Qoder channels are.
+_USER_SCOPE_JSON_CONFIG: dict[str, Callable[[], Path]] = {
+    "claude-code": _claude_user_config_path,
+}
+
+
+def _json_mcp_config_path(descriptor: ProviderDescriptor, scope: str, cwd: Path) -> Path:
+    """Resolve where *descriptor*'s ``mcpServers`` entry belongs, for *scope*.
+
+    Project scope prefers the provider's own declared project-scope config file
+    (``<cwd>/.kimi-code/mcp.json`` for Kimi Code) and otherwise falls back to the
+    generic ``<cwd>/.mcp.json`` that Claude Code and both Qoder channels
+    discover. Both come from the registry's verified adapter matrix.
+
+    User scope is allowed only for providers listed in
+    :data:`_USER_SCOPE_JSON_CONFIG`.
+    """
+    if scope == "project":
+        return descriptor.mcp.project_file_path(cwd) or _claude_project_config_path(cwd)
     if scope == "user":
-        path = _claude_user_config_path()
-        project_dir: Path | None = None  # user scope: bridge resolves cwd dynamically
-    elif scope == "project":
-        path = _claude_project_config_path(cwd)
-        project_dir = cwd
-    else:
-        raise ValueError(f"unsupported scope for claude: {scope!r}")
+        path_factory = _USER_SCOPE_JSON_CONFIG.get(descriptor.key)
+        if path_factory is None:
+            raise ValueError(
+                f"unsupported scope for {descriptor.key}: 'user' — no user-scope MCP config "
+                f"location is recorded for this provider, and SciStudio does not guess at one. "
+                f"Use --scope project."
+            )
+        return path_factory()
+    raise ValueError(f"unsupported scope for {descriptor.key}: {scope!r}")
+
+
+def _install_json_mcp(target: str, descriptor: ProviderDescriptor, scope: str, cwd: Path) -> InstallResult:
+    """Write the ``scistudio`` MCP entry into a provider's JSON config.
+
+    One merge-preserving writer for every provider whose config is a JSON file
+    with a top-level ``mcpServers`` map — Claude Code, Kimi Code, and both Qoder
+    channels. The file belongs to the provider (and often carries the user's own
+    servers), so this reads, merges only the SciStudio entry, and replaces
+    atomically; a malformed file raises rather than being overwritten.
+    """
+    path = _json_mcp_config_path(descriptor, scope, cwd)
+    # User scope leaves ``SCISTUDIO_PROJECT_DIR`` unset so the bridge resolves
+    # cwd dynamically; project scope pins it.
+    project_dir: Path | None = cwd if scope == "project" else None
 
     data: dict[str, object] = {}
     if path.is_file():
@@ -211,7 +315,7 @@ def _install_claude(scope: str, cwd: Path) -> InstallResult:
 
     _atomic_write_json(path, data)
     return InstallResult(
-        target="claude",
+        target=target,
         scope=scope,
         path=path,
         action=action,
@@ -219,16 +323,12 @@ def _install_claude(scope: str, cwd: Path) -> InstallResult:
     )
 
 
-def _remove_claude(scope: str, cwd: Path) -> InstallResult:
-    if scope == "user":
-        path = _claude_user_config_path()
-    elif scope == "project":
-        path = _claude_project_config_path(cwd)
-    else:
-        raise ValueError(f"unsupported scope for claude: {scope!r}")
+def _remove_json_mcp(target: str, descriptor: ProviderDescriptor, scope: str, cwd: Path) -> InstallResult:
+    """Reverse :func:`_install_json_mcp`, leaving every other entry intact."""
+    path = _json_mcp_config_path(descriptor, scope, cwd)
 
     if not path.is_file():
-        return InstallResult(target="claude", scope=scope, path=path, action="noop", detail="no config file")
+        return InstallResult(target=target, scope=scope, path=path, action="noop", detail="no config file")
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -236,15 +336,15 @@ def _remove_claude(scope: str, cwd: Path) -> InstallResult:
         raise RuntimeError(f"refusing to edit malformed JSON at {path}: {exc}") from exc
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     if not isinstance(servers, dict) or MCP_SERVER_NAME not in servers:
-        return InstallResult(target="claude", scope=scope, path=path, action="noop", detail="entry not present")
+        return InstallResult(target=target, scope=scope, path=path, action="noop", detail="entry not present")
     servers.pop(MCP_SERVER_NAME, None)
     # If we just emptied the mcpServers map at project scope, keep the
     # key as an empty object so users can see the file still belongs
-    # to Claude. At user scope ~/.claude.json is shared by many keys;
-    # we leave the empty map there too for consistency.
+    # to the provider. At user scope ~/.claude.json is shared by many
+    # keys; we leave the empty map there too for consistency.
     _atomic_write_json(path, data)
     return InstallResult(
-        target="claude",
+        target=target,
         scope=scope,
         path=path,
         action="removed",
@@ -729,11 +829,18 @@ def perform_install(
     and the ``--target codex --scope project`` combination now writes
     ``<cwd>/.codex/config.toml`` (Codex 2026 project-scope support).
 
+    ADR-034 T-013: the accepted target set is :func:`install_targets`, derived
+    from the provider registry. ``--all`` deliberately stays ``claude + codex +
+    skill``: it is a convenience for the two CLIs SciStudio can wire at user
+    scope, and widening it would make one flag write into every provider's
+    config file, which is not what a user asking for "the usual setup" means.
+
     Parameters
     ----------
     target
-        ``"claude"``, ``"codex"``, or ``None`` when only ``--skill`` /
-        ``--all`` was passed.
+        Any value in :func:`install_targets` — a registry provider key or one of
+        the legacy ``"claude"`` / ``"codex"`` aliases — or ``None`` when only
+        ``--skill`` / ``--all`` was passed.
     scope
         ``"user"`` or ``"project"``.
     skill
@@ -759,22 +866,28 @@ def perform_install(
         todo_targets.extend(["claude", "codex"])
         do_skill = True
     elif target:
-        if target not in {"claude", "codex"}:
-            raise ValueError(f"unsupported target {target!r}; expected 'claude' or 'codex'")
+        # Validates against the registry-derived set and raises with the
+        # accepted targets enumerated when the name is unknown.
+        _resolve_target(target)
         todo_targets.append(target)
 
     if not todo_targets and not do_skill:
-        raise ValueError("Nothing to do: pass --target {claude,codex}, --skill, or --all.")
+        raise ValueError(f"Nothing to do: pass --target {{{','.join(install_targets())}}}, --skill, or --all.")
 
     for tgt in todo_targets:
-        if tgt == "claude":
-            results.append(_remove_claude(scope, cwd) if remove else _install_claude(scope, cwd))
-        elif tgt == "codex":
-            # Per ADR-040 §3.7: Codex 2026 supports project-scope
-            # ``.codex/config.toml``, so we no longer force user-scope here.
-            # ``_install_codex`` / ``_remove_codex`` handle both scopes
-            # natively. The legacy "wrote to user scope" caveat is removed.
+        descriptor = _resolve_target(tgt)
+        if descriptor.mcp.strategy is McpStrategy.CODEX_OVERRIDES:
+            # Codex is the one provider whose config is TOML rather than a JSON
+            # ``mcpServers`` map. Per ADR-040 §3.7 it supports project-scope
+            # ``.codex/config.toml``, so we no longer force user-scope here;
+            # ``_install_codex`` / ``_remove_codex`` handle both scopes natively.
             results.append(_remove_codex(scope, cwd) if remove else _install_codex(scope, cwd))
+        else:
+            results.append(
+                _remove_json_mcp(tgt, descriptor, scope, cwd)
+                if remove
+                else _install_json_mcp(tgt, descriptor, scope, cwd)
+            )
     if do_skill:
         # ``_install_skill`` / ``_remove_skill`` return ``list[InstallResult]``
         # — two entries per call (Claude + Codex skill trees) per ADR-040 §3.9.
@@ -800,7 +913,9 @@ def _typer_command(
         None,
         "--target",
         "-t",
-        help="Which CLI to install for: 'claude' or 'codex'.",
+        # Registry-derived (ADR-034 T-013) so a new provider shows up in
+        # ``--help`` without an edit here.
+        help=f"Which CLI to install for: one of {', '.join(install_targets())}.",
     ),
     scope: str = typer.Option(
         "user",

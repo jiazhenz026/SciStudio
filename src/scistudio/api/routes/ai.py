@@ -11,6 +11,7 @@ PTY-tab embedded agent now replaces end-to-end.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 import subprocess
@@ -20,7 +21,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from scistudio.ai.agent.terminal import resolve_windows_executable
+from scistudio.ai.agent.providers_registry import ProviderDescriptor, agent_descriptors, resolve_binary
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
 
@@ -66,78 +67,95 @@ async def set_active_context(
     return ActiveContextResponse(workflow_id=runtime.active_workflow_id)
 
 
+#: Wall-clock budget for every provider-owned subprocess probe. A provider
+#: binary that exists but whose ``--version`` hangs must be reported
+#: ``available: false`` rather than stalling the endpoint (ADR-034 spec §2
+#: Edge Cases).
+_PROBE_TIMEOUT_SECONDS = 2
+
+
 @router.get("/status")
 async def provider_status() -> dict[str, Any]:
     """Return per-provider availability for the embedded coding agent.
 
-    ADR-034 Phase 1.2: the frontend's Setup screen needs to know which
-    CLI agents are installed and logged in so it can disable buttons
-    and surface install instructions.  The locked response shape::
+    ADR-034 Phase 1.2 + multi-provider (FR-008, FR-020b): the frontend's Setup
+    screen needs to know which CLI agents are installed and logged in so it can
+    order, disable, and annotate the provider dropdown.
+
+    One entry per **agent** provider, in registry order. The ``user-terminal``
+    pseudo-provider is excluded (FR-003) — it is launched from its own
+    bottom-panel surface, not from the chat Setup screen. Response shape::
 
         {
           "providers": [
-            {"name": "claude-code", "available": true,  "version": "2.1.141", "logged_in": true},
-            {"name": "codex",       "available": false, "version": null,      "logged_in": false}
+            {"name": "claude-code", "available": true,  "version": "2.1.141",
+             "logged_in": true,  "label": "Claude Code"},
+            {"name": "kimi-code",   "available": false, "version": null,
+             "logged_in": false, "label": "Kimi Code"}
           ]
         }
 
-    All probes are best-effort and bounded by a 2 s subprocess timeout
-    — the endpoint must never block the API or 500.
+    ``label`` is additive per FR-020b: display names come from the backend so
+    adding a provider needs no frontend edit. The other four fields keep their
+    original names, types, and meaning.
+
+    All probes are best-effort and bounded by a
+    :data:`_PROBE_TIMEOUT_SECONDS` subprocess timeout — the endpoint must never
+    block the API or 500. Probes run on worker threads and concurrently across
+    providers so the endpoint's latency stays flat as the registry grows rather
+    than scaling with the provider count; ``asyncio.gather`` preserves registry
+    order in the result.
     """
-    return {
-        "providers": [
-            _probe_claude(),
-            _probe_codex(),
-        ]
-    }
+    descriptors = agent_descriptors()
+    providers = await asyncio.gather(*(asyncio.to_thread(_probe_provider, d) for d in descriptors))
+    return {"providers": list(providers)}
 
 
-def _probe_claude() -> dict[str, Any]:
-    """Probe ``claude`` binary + credentials."""
-    binary, available, version = _binary_status("claude")
-    logged_in = _claude_logged_in(binary)
+def _probe_provider(descriptor: ProviderDescriptor) -> dict[str, Any]:
+    """Probe one registered agent provider's binary and login state.
+
+    Every per-CLI fact this needs — binary names, off-PATH install directories,
+    config root and its environment override, credential file, auth status
+    command — is read off ``descriptor``. There is no ``if provider == …``
+    chain, which is what makes a sixth provider a registry row (FR-001).
+    """
+    binary, available, version = _binary_status(descriptor)
     return {
-        "name": "claude-code",
+        "name": descriptor.key,
         "available": available,
         "version": version,
-        "logged_in": logged_in,
+        "logged_in": _provider_logged_in(descriptor, binary),
+        "label": descriptor.label,
     }
 
 
-def _probe_codex() -> dict[str, Any]:
-    """Probe ``codex`` binary + credentials.
+def _binary_status(descriptor: ProviderDescriptor) -> tuple[str | None, bool, str | None]:
+    """Return ``(binary, available, version_string_or_None)`` for *descriptor*.
 
-    Codex stores its auth in ``~/.codex/auth.json`` after
-    ``codex login`` when file-based storage is selected. Current Codex
-    builds may also store credentials in the OS keychain/keyring, so we
-    ask the provider-owned ``codex login status`` command before falling
-    back to file presence.
+    Available iff the registry resolver finds the binary AND
+    ``<binary> --version`` completes within :data:`_PROBE_TIMEOUT_SECONDS` with
+    non-empty output. Version is the trimmed stdout (stderr when stdout is
+    empty).
+
+    FR-005: discovery goes through :func:`~...providers_registry.resolve_binary`,
+    the same resolver the spawn path and the AI Block path use, so the three can
+    never disagree about whether a provider is installed. That matters most for
+    the CLIs that are never on PATH — Kimi Code and both Qoder channels live
+    only in their well-known install directories, which are descriptor data.
+    ``shutil.which`` and ``Path.home()`` are resolved here and passed in rather
+    than left to the registry's defaults, so this module stays the single
+    monkeypatch seam the status tests drive.
     """
-    binary, available, version = _binary_status("codex")
-    return {
-        "name": "codex",
-        "available": available,
-        "version": version,
-        "logged_in": _codex_logged_in(binary),
-    }
-
-
-def _binary_status(name: str) -> tuple[str | None, bool, str | None]:
-    """Return ``(binary, available, version_string_or_None)`` for ``name``.
-
-    Available iff ``shutil.which`` finds the binary AND ``<name> --version``
-    completes within 2 s with non-empty stdout.  Version is the trimmed
-    stdout.
-    """
-    binary = resolve_windows_executable(name, which=shutil.which)
-    if not binary:
+    resolved = resolve_binary(descriptor, which=shutil.which, home=Path.home())
+    if resolved is None:
         return None, False, None
+    binary = str(resolved)
     try:
         result = subprocess.run(
             [binary, "--version"],
             capture_output=True,
             text=True,
-            timeout=2,
+            timeout=_PROBE_TIMEOUT_SECONDS,
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):
@@ -148,32 +166,35 @@ def _binary_status(name: str) -> tuple[str | None, bool, str | None]:
     return binary, True, version
 
 
-def _claude_logged_in(binary: str | None) -> bool:
-    """Heuristic: does claude appear to have stored credentials?
+def _provider_logged_in(descriptor: ProviderDescriptor, binary: str | None) -> bool:
+    """Descriptor-driven login probe (FR-009).
 
-    Order of probes:
+    Two ordered steps, both declared by ``descriptor.credentials``:
 
-    1. ``~/.claude/.credentials.json`` exists — covers Linux / Windows
-       and the macOS file-fallback path.
-    2. ``claude auth status --json`` exits 0 — asks the provider CLI to
-       inspect its own auth state instead of probing macOS Keychain
-       directly from SciStudio.
+    1. **Credential file presence** under the provider's own resolved config
+       root. This covers Linux/Windows and the macOS file-fallback path, and it
+       is the only signal both Qoder channels expose — neither ships a
+       machine-readable auth status command, so login state comes from ``.auth``
+       under ``~/.qoder`` / ``~/.qoder-cn`` respectively. Each channel reads its
+       own root, so one logged-in channel never marks the other logged in.
+    2. **The provider-owned auth status command**, when the descriptor declares
+       one. Asking the CLI to inspect its own auth state is what lets SciStudio
+       detect keychain/keyring-stored credentials (current Codex builds) without
+       probing the macOS Keychain itself.
+
+    Absent both signals — or a descriptor with no credential probe at all — the
+    provider reports not logged in, which is selectable in the picker: the user
+    completes the CLI's own login flow inside the PTY.
     """
-    if (Path.home() / ".claude" / ".credentials.json").is_file():
-        return True
-    if not binary:
+    probe = descriptor.credentials
+    if probe is None:
         return False
-    return _auth_status_command_logged_in([binary, "auth", "status", "--json"])
-
-
-def _codex_logged_in(binary: str | None) -> bool:
-    """Heuristic: does codex appear to have stored credentials?"""
-    auth_file = Path.home() / ".codex" / "auth.json"
-    if auth_file.is_file():
+    credential_file = descriptor.credential_file(home=Path.home())
+    if credential_file is not None and credential_file.is_file():
         return True
-    if not binary:
+    if not binary or not probe.auth_status_argv:
         return False
-    return _auth_status_command_logged_in([binary, "login", "status"])
+    return _auth_status_command_logged_in([binary, *probe.auth_status_argv])
 
 
 def _auth_status_command_logged_in(argv: list[str]) -> bool:
@@ -183,7 +204,7 @@ def _auth_status_command_logged_in(argv: list[str]) -> bool:
             argv,
             capture_output=True,
             text=True,
-            timeout=2,
+            timeout=_PROBE_TIMEOUT_SECONDS,
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):

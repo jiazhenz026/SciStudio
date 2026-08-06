@@ -17,12 +17,14 @@ from unittest.mock import patch
 
 import pytest
 
+from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.cli.install import (
     MCP_SERVER_NAME,
     _mcp_bridge_pythonpath,
     _mcp_entry_payload,
     _render_codex_block,
     _strip_codex_block,
+    install_targets,
     perform_install,
 )
 
@@ -455,3 +457,157 @@ def test_perform_install_codex_no_longer_forces_user_scope(fake_home: Path, fake
     assert "wrote to user scope" not in detail
     # And the InstallResult's scope is "project" (not silently rewritten to "user").
     assert results[0].scope == "project"
+
+
+# ---------------------------------------------------------------------------
+# ADR-034 T-013 — registry-derived install targets
+# ---------------------------------------------------------------------------
+
+
+def test_install_targets_are_registry_derived(fake_home: Path) -> None:
+    """Every agent provider key is an install target, plus the legacy aliases.
+
+    Asserted against ``agent_keys()`` rather than a literal so a sixth provider
+    becomes an install target with no edit here — the whole point of the
+    registry (User Story 7). ``user-terminal`` is excluded: it is a shell, not an
+    agent CLI with an MCP config to wire.
+    """
+    targets = install_targets()
+
+    assert set(agent_keys()) <= set(targets)
+    assert "user-terminal" not in targets
+    # Legacy spellings survive so existing invocations and scripts keep working.
+    assert {"claude", "codex"} <= set(targets)
+    # Order is stable and legacy-first, since it is rendered into ``--help``.
+    assert targets[:2] == ("claude", "codex")
+    assert len(targets) == len(set(targets))
+
+
+@pytest.mark.parametrize("target", ["claude", "codex", "claude-code", "kimi-code", "qoder", "qoder-cn"])
+def test_perform_install_accepts_every_registry_target(target: str, fake_home: Path, fake_cwd: Path) -> None:
+    """Both legacy and registry-key targets install at project scope."""
+    results = perform_install(target=target, scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    assert len(results) == 1
+    assert results[0].target == target  # the requested spelling is echoed back
+    assert results[0].action == "installed"
+    assert results[0].path.is_file()
+
+
+def test_install_claude_code_alias_writes_the_same_file_as_claude(fake_home: Path, fake_cwd: Path) -> None:
+    """``--target claude-code`` is the registry key for ``--target claude``.
+
+    Different spelling, same file: the alias must not create a second config
+    location the user then has to keep in sync.
+    """
+    legacy = perform_install(target="claude", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    modern = perform_install(target="claude-code", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    assert legacy[0].path == modern[0].path == fake_home / ".claude.json"
+    # Second call is a no-op because the entry is already exactly right.
+    assert modern[0].action == "noop"
+
+
+def test_install_kimi_project_scope_writes_provider_owned_config(fake_home: Path, fake_cwd: Path) -> None:
+    """Kimi's project-scope location comes from its descriptor, not a literal."""
+    results = perform_install(
+        target="kimi-code", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd
+    )
+
+    expected = fake_cwd / ".kimi-code" / "mcp.json"
+    assert results[0].path == expected
+    data = json.loads(expected.read_text(encoding="utf-8"))
+    assert data["mcpServers"][MCP_SERVER_NAME]["env"]["SCISTUDIO_PROJECT_DIR"] == str(fake_cwd)
+
+
+@pytest.mark.parametrize("target", ["qoder", "qoder-cn"])
+def test_install_qoder_channels_use_project_scope_mcp_json(target: str, fake_home: Path, fake_cwd: Path) -> None:
+    """Both Qoder channels discover ``<project>/.mcp.json`` (spec section 1 table)."""
+    results = perform_install(target=target, scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    assert results[0].path == fake_cwd / ".mcp.json"
+    data = json.loads((fake_cwd / ".mcp.json").read_text(encoding="utf-8"))
+    assert MCP_SERVER_NAME in data["mcpServers"]
+
+
+def test_install_preserves_other_servers_in_a_provider_owned_file(fake_home: Path, fake_cwd: Path) -> None:
+    """A provider-owned config may already hold the user's own MCP servers.
+
+    ``.kimi-code/mcp.json`` belongs to Kimi, not SciStudio, so a clobbering write
+    would destroy configuration the user cannot recover.
+    """
+    target_file = fake_cwd / ".kimi-code" / "mcp.json"
+    target_file.parent.mkdir(parents=True)
+    target_file.write_text(
+        json.dumps({"mcpServers": {"user-owned": {"command": "keep-me"}}, "theme": "dark"}),
+        encoding="utf-8",
+    )
+
+    perform_install(target="kimi-code", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    data = json.loads(target_file.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["user-owned"] == {"command": "keep-me"}
+    assert data["theme"] == "dark"
+    assert MCP_SERVER_NAME in data["mcpServers"]
+
+
+@pytest.mark.parametrize("target", ["claude-code", "kimi-code", "qoder"])
+def test_remove_round_trips_every_registry_target(target: str, fake_home: Path, fake_cwd: Path) -> None:
+    """``--remove`` reverses a registry-derived install and is idempotent."""
+    perform_install(target=target, scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    removed = perform_install(target=target, scope="project", skill=False, do_all=False, remove=True, cwd=fake_cwd)
+    again = perform_install(target=target, scope="project", skill=False, do_all=False, remove=True, cwd=fake_cwd)
+
+    assert removed[0].action == "removed"
+    assert again[0].action == "noop"
+    data = json.loads(removed[0].path.read_text(encoding="utf-8"))
+    assert MCP_SERVER_NAME not in data["mcpServers"]
+
+
+@pytest.mark.parametrize("target", ["kimi-code", "qoder", "qoder-cn"])
+def test_user_scope_is_refused_where_no_location_is_verified(target: str, fake_home: Path, fake_cwd: Path) -> None:
+    """No user-scope MCP path is recorded for these providers, so we refuse.
+
+    Kimi's ``<KIMI_CODE_HOME>/mcp.json`` is shared user state the spec forbids
+    SciStudio from mutating, and no user-scope location was observed for either
+    Qoder channel. Guessing at a path would write into a file the user owns, so
+    the error names the provider and points at ``--scope project`` instead.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        perform_install(target=target, scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    message = str(excinfo.value)
+    assert target in message
+    assert "--scope project" in message
+
+
+def test_unknown_target_still_errors_and_names_the_accepted_set(fake_home: Path, fake_cwd: Path) -> None:
+    """An unknown target is rejected, with every accepted target enumerated."""
+    with pytest.raises(ValueError) as excinfo:
+        perform_install(target="bogus", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    message = str(excinfo.value)
+    assert "bogus" in message
+    for target in install_targets():
+        assert target in message
+    # Nothing was written before the rejection.
+    assert not (fake_home / ".claude.json").exists()
+
+
+def test_user_terminal_is_not_an_install_target(fake_home: Path, fake_cwd: Path) -> None:
+    """``user-terminal`` is a registry key but not an agent CLI (FR-003)."""
+    with pytest.raises(ValueError):
+        perform_install(target="user-terminal", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+
+def test_install_all_stays_scoped_to_claude_and_codex(fake_home: Path, fake_cwd: Path) -> None:
+    """``--all`` is unchanged by T-013 and does not fan out to every provider.
+
+    Widening it would make one flag write into five providers' config files,
+    which is not what "the usual setup" means — and three of them have no
+    user-scope location at all.
+    """
+    results = perform_install(target=None, scope="user", skill=False, do_all=True, remove=False, cwd=fake_cwd)
+
+    assert {r.target for r in results} == {"claude", "codex", "skill"}
+    assert not (fake_home / ".kimi-code").exists()

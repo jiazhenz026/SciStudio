@@ -22,6 +22,7 @@ sibling — that constraint is what makes it a safe cycle-breaking leaf.
 from __future__ import annotations
 
 import asyncio
+import functools
 import threading
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -29,7 +30,8 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from scistudio.ai.agent.terminal import PtyProcess, spawn_claude, spawn_codex, spawn_user_terminal
+from scistudio.ai.agent.providers_registry import REGISTRY, ProviderKind
+from scistudio.ai.agent.terminal import PtyProcess, spawn_agent, spawn_user_terminal
 
 # Public router shared by every sub-module's route decorators.
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -41,11 +43,30 @@ MAX_ACTIVE_PTYS = 16
 _active_ptys: dict[str, PtyProcess] = {}
 _active_lock = asyncio.Lock()
 
-_VALID_PROVIDERS = ("claude-code", "codex", "user-terminal")
-_PROVIDER_SPAWNERS = {
-    "claude-code": spawn_claude,
-    "codex": spawn_codex,
-    "user-terminal": spawn_user_terminal,
+_ProviderSpawner = Callable[..., PtyProcess]
+"""Uniform spawner signature: keyword-only ``project_dir``, ``dangerous``, ``cols``,
+``rows``, ``extra_env``, ``prompt``, and the ``_spawn_argv`` test seam."""
+
+# ADR-034 FR-006: both of these are *derived* from the provider registry rather
+# than hand-maintained. They used to be two literals that had to be edited in
+# lockstep with ``terminal.py``, ``routes/ai.py``, and the AI Block enum every
+# time a provider was added — the duplication ADR-034's registry exists to
+# remove. Adding a sixth provider is now a registry row and nothing here.
+#
+# ``_VALID_PROVIDERS`` is the WebSocket query whitelist (FR-023), so it spans the
+# *whole* registry including the ``user-terminal`` pseudo-provider; the agent-only
+# view (``agent_keys()``) is what ``GET /api/ai/status`` and the AI Block enum use.
+_VALID_PROVIDERS: tuple[str, ...] = REGISTRY.keys()
+
+# ``functools.partial`` binds the descriptor, leaving the uniform keyword-only
+# spawner signature ``_spawn`` calls. There is deliberately no
+# ``terminal.spawn_provider(key, …)`` helper to build this map: such a wrapper
+# would re-forward every keyword argument and duplicate ``_spawn`` verbatim.
+_PROVIDER_SPAWNERS: dict[str, _ProviderSpawner] = {
+    descriptor.key: (
+        spawn_user_terminal if descriptor.kind is ProviderKind.TERMINAL else functools.partial(spawn_agent, descriptor)
+    )
+    for descriptor in REGISTRY
 }
 
 # ADR-035 §3.10 — engine-initiated tab tracking.

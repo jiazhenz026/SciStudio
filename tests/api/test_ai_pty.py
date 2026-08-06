@@ -10,6 +10,7 @@ resource cap without depending on external binaries.
 from __future__ import annotations
 
 import contextlib
+import functools
 import sys
 import time
 from collections.abc import Iterator
@@ -18,6 +19,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from scistudio.ai.agent import providers_registry, terminal
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes import ai_pty
 from scistudio.api.routes.ai_pty import _active_ptys
@@ -265,6 +267,90 @@ def test_pty_ws_invalid_provider(client: TestClient, opened_project: Path) -> No
         frame = ws.receive_json()
         assert frame["type"] == "error"
         assert "Invalid provider" in frame["message"]
+
+
+def test_pty_ws_rejection_message_enumerates_every_registry_provider(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """FR-023: the rejection tells the caller the whole accepted set.
+
+    A message that only said "invalid" would leave a client guessing at the
+    spelling of five agent keys. Asserting against ``provider_keys()`` rather
+    than a literal keeps the guarantee true for a sixth provider too.
+    """
+    with client.websocket_connect(_ws_url("tab-bad-enum", opened_project, provider="bogus")) as ws:
+        message = ws.receive_json()["message"]
+
+    for key in providers_registry.provider_keys():
+        assert key in message, f"rejection message omits accepted provider {key!r}: {message}"
+    # The five *agent* providers specifically, since those are what a chat
+    # client would be trying to name.
+    assert len(providers_registry.agent_keys()) == 5
+
+
+def test_pty_ws_whitelist_is_registry_derived(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-006: every registry key is accepted and reaches ``_spawn`` verbatim.
+
+    The whitelist used to be a hand-maintained three-entry literal that had to be
+    edited in lockstep with the spawner map, the status endpoint, and the AI
+    Block enum. Driving this off ``provider_keys()`` means a provider added to
+    the registry is connectable with no edit to the route.
+    """
+    seen: list[str] = []
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        cols: int = 120,
+        rows: int = 30,
+        extra_env: dict[str, str] | None = None,
+        prompt: str = "",
+    ) -> PtyProcess:
+        seen.append(provider)
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+
+    expected = list(providers_registry.provider_keys())
+    for index, provider in enumerate(expected):
+        url = _ws_url(f"tab-registry-{index}", opened_project, provider=provider)
+        with client.websocket_connect(url) as ws:
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                frame = ws.receive_json()
+                assert frame["type"] != "error", frame
+                if frame["type"] == "stdout" and "READY" in frame.get("data", ""):
+                    break
+
+    assert seen == expected
+
+
+def test_pty_spawner_map_covers_the_registry_without_hand_maintained_entries() -> None:
+    """FR-006: ``_PROVIDER_SPAWNERS`` is derived, not enumerated by hand.
+
+    ``user-terminal`` routes to the shell spawner; every agent key binds its own
+    descriptor to the single generic ``spawn_agent``. A stale hand-written map
+    would show up here as a missing key or a spawner bound to the wrong
+    descriptor.
+    """
+    spawners = ai_pty._state._PROVIDER_SPAWNERS
+
+    assert tuple(spawners) == providers_registry.provider_keys()
+    assert tuple(ai_pty._state._VALID_PROVIDERS) == providers_registry.provider_keys()
+    assert spawners["user-terminal"] is terminal.spawn_user_terminal
+
+    for key in providers_registry.agent_keys():
+        bound = spawners[key]
+        assert isinstance(bound, functools.partial)
+        assert bound.func is terminal.spawn_agent
+        assert bound.args == (providers_registry.get(key),)
 
 
 def test_pty_ws_max_count(client: TestClient, opened_project: Path) -> None:
