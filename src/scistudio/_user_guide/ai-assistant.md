@@ -8,19 +8,27 @@ API.
 
 ## Before you start: install a provider
 
-SciStudio does not ship its own model. It drives one of two AI **providers**, and
-you pick which one to use:
+SciStudio does not ship its own model. It drives an AI **provider** — a small
+command-line tool (a "CLI") that runs on your computer and that SciStudio talks
+to. Five are supported:
 
-- **Claude Code** (Anthropic)
-- **Codex** (OpenAI)
+| Provider | Who makes it | Works in chat | Works in an AI Agent block |
+|---|---|---|---|
+| **Claude Code** | Anthropic | yes | yes |
+| **Codex** | OpenAI | yes | yes |
+| **Kimi Code** | Moonshot AI | yes | **no** — see below |
+| **Qoder CLI** | Qoder (international) | yes | yes |
+| **Qoder CLI (China)** | Qoder (China) | yes | yes |
 
-Both run as a small command-line tool (a "CLI") on your computer that SciStudio
-talks to. You only need **one** to get going, but you can install both and choose
-per chat or per AI Agent block. Install whichever you have an account for:
+You only need **one** to get going, but you can install several and choose per
+chat or per AI Agent block. Install whichever you have an account for:
 
 1. **Open the provider's official CLI install guide** to get its install command:
    - Claude Code — <https://code.claude.com/docs/en/quickstart#step-1-install-claude-code>
-   - Codex — <https://developers.openai.com/codex/quickstart?setup=cli>
+   - Codex — <https://learn.chatgpt.com/codex/cli>
+   - Kimi Code — <https://www.kimi.com/code/docs/en/kimi-code-cli/guides/getting-started.html>
+   - Qoder CLI — <https://docs.qoder.com/cli/installation>
+   - Qoder CLI (China) — <https://docs.qoder.cn/cli/qoder-cli-cn-get-started-quickly>
 2. **Copy the install command** shown there.
 3. **Paste it into a terminal and run it:**
    - **macOS / Linux:** open **Terminal** and paste the command.
@@ -31,9 +39,69 @@ per chat or per AI Agent block. Install whichever you have an account for:
    in your browser).
 
 Once a provider's CLI is installed and signed in, SciStudio detects it and the
-chat and the AI Agent block can use it. If the assistant says no provider is
-available, it means neither CLI is installed yet — come back here and install
-one.
+chat and the AI Agent block can use it.
+
+### The two Qoder CLIs are separate products
+
+Qoder ships an international CLI and a China CLI. They are **not** the same
+install and not the same account: different download, different sign-in,
+different available models. SciStudio treats them as two separate providers, so:
+
+- Installing one does **not** make the other appear. If you install the China
+  CLI, **Qoder CLI** stays greyed out as *(not installed)* — that is expected,
+  not a detection bug.
+- If you have both, they appear as two entries and you choose per chat. A chat
+  started on one never falls back to the other.
+
+### Kimi Code works in chat, not in an AI Agent block
+
+Kimi Code is fully supported as a **chat** provider. It cannot be used as the
+provider for an **AI Agent block**, and the block will tell you so when you try.
+
+The reason is in the CLI itself: `kimi` accepts no task as a plain argument, so
+an AI Agent block has no way to hand it the job it is supposed to do. Its one
+prompt option runs a single prompt, prints an answer, and exits — which is not
+the ongoing session a block needs in order to work through your inputs and write
+its outputs. Use Kimi Code for chat and pick another provider for AI Agent
+blocks.
+
+### If no provider is installed
+
+The chat's setup screen shows a notice naming every supported agent and telling
+you to install one. Once you have installed and signed in to a CLI, reopen the
+setup screen and the normal provider picker replaces the notice — no restart
+needed.
+
+The picker always lists **all five** providers, so you can see what is
+supported. Ones you have not installed appear greyed out and marked
+*(not installed)*; ones installed but not signed in are still selectable and
+marked *(not logged in)*, so you can launch them and complete the sign-in inside
+the terminal.
+
+### First launch with Codex: answer the hook-trust prompt
+
+SciStudio installs its own **hooks** into your project — small scripts that add
+data protection and keep tool use in bounds. Codex asks you to approve any hook
+configuration it has not seen before, so the first time you launch a Codex chat
+in a project, it stops with a menu like this:
+
+```
+Hooks need review
+10 hooks are new or changed.
+Hooks can run outside the sandbox after you trust them.
+› 1. Review hooks
+  2. Trust all and continue
+  3. Continue without trusting (hooks won't run)
+```
+
+This is Codex working as designed, and it is a one-time step per project. Answer
+it in the terminal with the arrow keys and Enter. Choose **Review hooks** to read
+them first, or **Trust all and continue** to accept them.
+
+Until you answer, SciStudio's hooks are inactive — that is what option 3's
+"hooks won't run" means. If you picked option 3 and later wonder why the
+protections seem silent, that is the cause; the prompt returns when the hook
+configuration next changes.
 
 ## The chat assistant
 
@@ -73,9 +141,12 @@ Add the **AI Agent** block from the palette like any other block. Its parameter
 panel has:
 
 - **User prompt** — the task, in plain language.
-- **Provider** — which assistant runs it (`claude-code` or `codex`).
-- **Permission mode** — *Ask* (the agent checks with you before sensitive
-  actions) or *Bypass* (full access, no prompts).
+- **Provider** — which assistant runs it: `claude-code`, `codex`, `qoder`, or
+  `qoder-cn`. `kimi-code` is not available here; see
+  [Kimi Code works in chat, not in an AI Agent block](#kimi-code-works-in-chat-not-in-an-ai-agent-block).
+- **Permission mode** — **Manual Approve** (the agent asks you before doing
+  anything sensitive) or **Bypass Permission** (it runs unattended with full
+  access and never asks).
 - **Input / output ports** — you declare these in the port editor: name each
   port and give it a type. Inputs are handed to the agent as files; for each
   output you say where the agent should write its result and what type it is.
