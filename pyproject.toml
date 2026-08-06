@@ -331,15 +331,19 @@ forbidden_modules = ["scistudio.engine", "scistudio.api", "scistudio.ai"]
 # below are lazy function-body imports executed only inside the per-run
 # AppBlock dispatch path.
 #
-# ADR-035 §3.8 (#1591): AIBlock.run() drives the agent runtime, lazily
-# importing `ai.agent.terminal` helpers (`_ensure_mcp_config`,
-# `_write_system_prompt_tempfile`) inside the per-run dispatch path. This
-# edge only became visible to grimp once `ai/agent/` gained its
-# `__init__.py` (#1591); the crossing is intentional and lazy, so it is
-# carved out here rather than restructured.
+# ADR-035 §3.8 (#1591) / ADR-034 (#1994): AIBlock lazily reaches the agent
+# layer inside its per-run dispatch path. The edge used to terminate at
+# `ai.agent.terminal` (`_ensure_mcp_config`, `_write_system_prompt_tempfile`)
+# because the block composed its own spawn argv; ADR-034 FR-012 deleted that,
+# so the block no longer writes MCP config or system-prompt files at all. What
+# remains is a narrower read-only edge to `ai.agent.providers_registry` for the
+# provider key set, descriptor lookup, and binary resolution (FR-005, FR-014,
+# FR-015). The registry deliberately imports neither `scistudio.api` nor
+# `scistudio.blocks` (spec §4.1) so both layers can depend on it. The crossing
+# is intentional and lazy, so it stays carved out here rather than restructured.
 ignore_imports = [
     "scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control",
-    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.providers_registry",
 ]
 
 [[tool.importlinter.contracts]]
@@ -349,14 +353,14 @@ source_modules = ["scistudio.engine"]
 forbidden_modules = ["scistudio.api", "scistudio.ai"]
 # ADR-035 §3.8 (#1591): the only engine->ai path is transitive through the
 # block-registry scan — `engine.scheduler -> blocks.registry -> _spec ->
-# blocks.ai.ai_block -> ai.agent.terminal`. The terminating edge is the same
+# blocks.ai.ai_block -> ai.agent.providers_registry`. The terminating edge is the same
 # accepted lazy AIBlock->agent import carved out in the Blocks contract above
 # (it became graph-visible once `ai/agent/` gained its `__init__.py`). Engine
 # does not depend on ai services directly; it scans every block (incl. the AI
 # block) via the registry. Carve out the same leaf edge here so the registry
 # scan does not transitively trip this contract.
 ignore_imports = [
-    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.providers_registry",
 ]
 
 # ---------------------------------------------------------------------------
@@ -397,11 +401,11 @@ source_modules = ["scistudio.workflow"]
 forbidden_modules = ["scistudio.ai", "scistudio.api"]
 # Same accepted lazy leaf edge carved out in the Blocks and Engine contracts
 # above: ``workflow.validator -> blocks.registry`` transitively reaches
-# ``blocks.ai.ai_block -> ai.agent.terminal`` through the registry's per-run
+# ``blocks.ai.ai_block -> ai.agent.providers_registry`` through the registry's per-run
 # block scan. Workflow does not depend on ai services directly; it validates
 # against the block registry, which scans every block (incl. the AI block).
 ignore_imports = [
-    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.terminal",
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.providers_registry",
 ]
 
 [[tool.importlinter.contracts]]

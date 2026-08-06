@@ -34,7 +34,7 @@ def _reset_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def _spec() -> PtyTabSpec:
     return PtyTabSpec(
         title="🤖 extract_metadata",
-        spawn_argv=["claude", "--append-system-prompt", "@/tmp/p", "--mcp-config", "/tmp/m.json"],
+        provider="claude-code",
         cwd="/tmp/proj",
         initial_stdin="Read manifest at .scistudio/...\n",
         block_run_id="20260514-001-extract-abc123",
@@ -240,12 +240,46 @@ def test_pty_tab_spec_fields() -> None:
     # ``run_dir_path`` was added by the audit P1-E fix so the engine can
     # locate the AI Block run dir when handling ``block_user_marked_done``
     # WS frames (ADR-035 §3.5 path c).
+    # ADR-034 FR-010/FR-011: ``spawn_argv`` was replaced by ``provider``.
     assert set(fields) == {
         "title",
-        "spawn_argv",
+        "provider",
         "cwd",
         "initial_stdin",
         "block_run_id",
         "permission_mode",
         "run_dir_path",
     }
+
+
+def test_pty_tab_spec_no_longer_carries_spawn_argv() -> None:
+    """FR-011 regression guard: no argv on the worker→engine wire.
+
+    While the spec carried a composed argv, the engine used only
+    ``argv[0]`` to guess the provider and the worker had to build a full
+    provider command line — including a system-prompt temp file nobody
+    deleted (FR-013). Re-adding the field would re-open both.
+    """
+    assert "spawn_argv" not in PtyTabSpec.__dataclass_fields__
+
+
+def test_request_pty_tab_puts_provider_on_the_wire() -> None:
+    """The IPC payload states the provider key explicitly (FR-010)."""
+    captured: dict[str, Any] = {}
+
+    def handler(payload: dict[str, Any]) -> dict[str, Any]:
+        captured.update(payload)
+        return {"tab_id": "tab-provider-1", "error": None}
+
+    set_in_process_handler(handler)
+    spec = PtyTabSpec(
+        title="🤖 kimi tab",
+        provider="kimi-code",
+        cwd="/tmp/proj",
+        initial_stdin="",
+        block_run_id="rid-kimi",
+        permission_mode="safe",
+    )
+    request_pty_tab(spec)
+    assert captured["spec"]["provider"] == "kimi-code"
+    assert "spawn_argv" not in captured["spec"]

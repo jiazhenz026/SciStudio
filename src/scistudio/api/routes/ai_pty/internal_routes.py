@@ -53,6 +53,27 @@ _HeaderToken = Annotated[str | None, Header(alias="X-SciStudio-IPC-Token")]
 _BodyDict = Annotated[dict[str, Any], Body()]
 
 
+def _tab_open_kwargs(spec: dict[str, Any]) -> dict[str, Any]:
+    """Map a wire ``PtyTabSpec`` dict onto ``open_engine_initiated_tab`` kwargs.
+
+    ADR-034 FR-010: ``provider`` crosses the wire as an explicit registry
+    key. No default is substituted here — an absent key becomes the empty
+    string, which ``open_engine_initiated_tab`` rejects against the
+    registry rather than silently spawning claude-code. That is the whole
+    point of the change: this boundary used to hand over a ``spawn_argv``
+    whose first element the engine sniffed for a provider name.
+    """
+    return {
+        "title": str(spec.get("title", "")),
+        "provider": str(spec.get("provider", "")),
+        "cwd": str(spec.get("cwd", "")),
+        "initial_stdin": str(spec.get("initial_stdin", "")),
+        "block_run_id": str(spec.get("block_run_id", "")),
+        "permission_mode": str(spec.get("permission_mode", "safe")),
+        "run_dir_path": (str(spec["run_dir_path"]) if spec.get("run_dir_path") else None),
+    }
+
+
 @_pkg.router.post("/pty/internal/request-tab")  # type: ignore[has-type]
 async def _internal_request_tab(
     payload: _BodyDict,
@@ -76,15 +97,7 @@ async def _internal_request_tab(
     try:
         # Late-bound lookup on the ``engine`` module so tests can
         # monkeypatch.setattr(ai_pty.engine, "open_engine_initiated_tab", ...).
-        tab_id = _engine.open_engine_initiated_tab(
-            title=str(spec.get("title", "")),
-            spawn_argv=list(spec.get("spawn_argv", [])),
-            cwd=str(spec.get("cwd", "")),
-            initial_stdin=str(spec.get("initial_stdin", "")),
-            block_run_id=str(spec.get("block_run_id", "")),
-            permission_mode=str(spec.get("permission_mode", "safe")),
-            run_dir_path=(str(spec["run_dir_path"]) if spec.get("run_dir_path") else None),
-        )
+        tab_id = _engine.open_engine_initiated_tab(**_tab_open_kwargs(spec))
     except RuntimeError as exc:
         msg = str(exc)
         if "cap" in msg.lower():
