@@ -317,7 +317,21 @@ The gate is real: a Codex TUI opened in a provisioned project shows a panel
 reading `SessionStart 2 0 2 … Press t to trust all; enter to review hooks` —
 two hooks declared, zero trusted — and fires none of them.
 
-The panel **is reachable and answerable inside SciStudio's PTY**. Spawning
+Codex actually presents **three** sequential startup gates on a fresh project,
+all rendered into the PTY and all answerable there. The first states the
+dependency outright:
+
+```
+Do you trust the contents of this directory?
+Working with untrusted contents comes with higher risk of prompt injection.
+Trusting the directory allows project-local config, hooks, and exec policies to load.
+› 1. Yes, continue   2. No, quit
+```
+
+An update prompt may follow, and then the hook-trust panel. Only after all
+three are answered do project-local hooks load and run.
+
+The hook panel **is reachable and answerable inside SciStudio's PTY**. Spawning
 Codex through the same `winpty` path the chat tab uses renders it verbatim into
 the terminal stream, as a blocking numbered menu:
 
@@ -375,15 +389,70 @@ only a POSIX shell executes, so its hooks depend on Git Bash being present on
 Windows. That is a latent exposure for a Windows user without Git for Windows,
 recorded here rather than fixed because no such failure has been observed.
 
-Separately, the interpreter path baked into these commands is whatever
-`sys.executable` was at provisioning time. In the owner's sample that was
-`.workflow/local/venv/Scripts/python.exe` — the gate's disposable parity venv —
-because provisioning happened to run under it. This is a **real but narrower
-exposure**: it breaks hooks whenever that interpreter moves or is deleted, and
-it is not new (the MCP `command` in the same file has always been captured the
-same way). It is left unfixed and unhidden here because the correct remedy —
-resolving a stable interpreter, or re-resolving at hook time — is a design
-decision beyond this bug fix.
+**With the command line fixed, Codex invoked the hooks — and all three exited
+1.** Two further causes, and the first is not the one the error text suggests.
+
+The interpreter baked into the config is **not** a uv trampoline. It carries no
+`UVUV` marker and runs correctly when executed directly; the observed
+`uv trampoline failed to canonicalize script path` is the output of
+`scistudio --version` — the command the *agent* ran — not of the hook. That
+line is an unrelated fault in the owner's environment: a `scistudio.exe`
+console-script trampoline whose venv has moved. Notably, once the deny hook
+works it blocks that command outright, so the trampoline error stops being
+reachable through this path.
+
+The hooks failed for their own reason. All seven read their payload through one
+`_read_payload` that guarded only `OSError`. When a CLI starts a hook with no
+usable stdin, Python sets `sys.stdin` to `None`, so `sys.stdin.read()` raised
+`AttributeError`, which nothing caught, and the process exited 1 before
+evaluating anything. Closing stdin reproduces it identically for all seven. A
+failed `PreToolUse` hook does not block, so the guard was not merely noisy — it
+was **absent**, which is why `scistudio --version` ran at all when
+`deny_scistudio_cli` exists precisely to stop it. An unreadable payload is
+indistinguishable from an empty one, so it now degrades to `{}` and allows,
+which is the behaviour an empty payload already had; blocking every tool call
+on a stdin quirk would be far worse than the exposure it removes.
+
+The interpreter is a real defect too, just not the reported one. It was
+captured from `sys.executable` at provisioning, which on the owner's machine
+was `.workflow/local/venv/Scripts/python.exe` — the gate's parity venv, built
+to be thrown away. **Decision: a stable absolute path resolved once at
+provisioning**, not re-resolution at hook time. Re-resolving means emitting a
+bare `python`, which is the PATH dependence an earlier fix removed and which
+frequently does not exist on Windows; an absolute path is also the only form
+that behaves identically in all three candidate shells. Stability then comes
+from *which* absolute path: when SciStudio runs inside a virtualenv the hook
+commands now pin the **base installation** that venv was built from. That is
+sound only because every hook script imports the standard library and nothing
+else — `ast`, `json`, `os`, `re`, `sys`, `pathlib` — so they gain nothing from
+site-packages, while the venv is the part that gets deleted. Verified by
+provisioning under the very uv-created venv that failed: the command comes out
+pinned to the base interpreter and blocks a `scistudio` call with exit 2.
+
+**The MCP `command` in the same file keeps `sys.executable` and cannot take this
+fix.** It runs `-m scistudio`, so it needs the environment SciStudio is
+installed in, where the hooks need no environment at all. Its exposure to a
+deleted provisioning environment is therefore real and unchanged, and is
+recorded here rather than hidden: the remedy is for provisioning to run under
+the application's own runtime — which it does in a packaged build — rather than
+under a scratch venv, and that is an owner-level decision about how
+provisioning is invoked, not something the writer can correct.
+
+**What remains unverified.** Every fix above is verified at the interface Codex
+uses — the generated command, run through the real interpreter with a
+`PreToolUse` payload, blocks a `scistudio` call with exit 2 in `cmd.exe`,
+PowerShell and `sh`. What could *not* be observed is a hook executing inside
+Codex itself: driving its TUI past all three startup gates with scripted
+keystrokes did not work reliably, so no scripted run ever reached a tool call.
+
+That leaves one open question with a real consequence. If Codex starts hooks
+without a usable stdin, the hardened reader now returns `{}` and the hook
+**allows** the call instead of exiting 1 — quieter, but still not enforcing.
+The owner can settle it in one interactive session: open a Codex tab in a
+provisioned project, answer the three gates, and ask it to run
+`scistudio --version`. Blocked with SciStudio's "use mcp__scistudio__* tools"
+message means the chain works end to end; silently allowed means Codex supplies
+no payload and hook enforcement under Codex needs a different mechanism.
 
 `--dangerously-bypass-hook-trust` would make the hooks fire with no prompt, and
 was **deliberately rejected**. It disarms the review for the whole config file —
