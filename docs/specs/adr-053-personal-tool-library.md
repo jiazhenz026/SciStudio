@@ -31,7 +31,7 @@ scope:
     - Extracting shared helpers between the Blocks and Types surfaces to prevent drift.
     - Consolidating the four independent drop-in registration points (API, agent, worker, IO dispatch) into one shared provisioning helper.
     - Registering project-level and user-level type directories in the agent runtime, which registers none today.
-    - Reload symmetry: package install/uninstall and branch switch refresh the type registry, not only the block registry.
+    - Reload symmetry — package install/uninstall and branch switch refresh the type registry, not only the block registry.
   out:
     - A user tier for previewers. Previewers keep core / package / project discovery only; `OwnerKind` is unchanged.
     - The palette tips strip (#1997), which moves to the Learning Center spec because it teaches features unrelated to the library.
