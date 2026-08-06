@@ -54,28 +54,8 @@ planned_governs:
   contracts: []
   entry_points: []
   files:
-    - src/scistudio/api/_block_source.py
     - src/scistudio/api/routes/types.py
-    - src/scistudio/api/routes/blocks.py
-    - src/scistudio/api/schemas.py
-    - src/scistudio/core/types/base.py
-    - src/scistudio/core/types/registry.py
-    - src/scistudio/api/runtime/_projects.py
-    - src/scistudio/blocks/io/_unified_dispatch.py
-    - src/scistudio/blocks/registry/_scan.py
-    - src/scistudio/ai/agent/mcp/runtime.py
-    - src/scistudio/core/types/serialization.py
-    - src/scistudio/api/routes/git.py
-    - src/scistudio/api/routes/packages.py
-    - frontend/src/App.tsx
-    - frontend/src/App.parts/ProjectWorkspace.tsx
-    - frontend/src/App.parts/useProjectActions.ts
-    - frontend/src/components/BlockPalette.tsx
-    - frontend/src/components/BlockPalette.parts/paletteModel.ts
-    - frontend/src/components/BlockDetailPopover.tsx
     - frontend/src/components/TypePalette.tsx
-    - frontend/src/lib/api/code.ts
-    - docs/specs/frontend-block-palette.md
   excludes: []
 tests:
   - tests/api/test_block_origin_tiers.py
@@ -791,7 +771,42 @@ promoted through the agent MUST become visible in the palette without a restart.
 
 **FR-048.** Backend tests MUST NOT rely on `pip install -e .`.
 
-## 12. Implementation Sequence
+## 12. Implementation Plan
+
+### 12.1 Affected Files
+
+Every file below already exists and is modified by the implementing issues, so
+none belongs in this spec's `planned_governs` (which carries only the two files
+that do not exist yet). This table is the machine-unreadable half of that
+contract and is the list an implementer works from.
+
+| File | Action | Why |
+|---|---|---|
+| `src/scistudio/api/_block_source.py` | modify | Split `map_block_origin` into `user` / `project` with fallback (FR-001, FR-002) |
+| `src/scistudio/api/routes/blocks.py` | modify | Carry resolved origin (FR-004); populate `ui_ring_color` (FR-050) |
+| `src/scistudio/api/routes/types.py` | create | Types listing and type template (§7) |
+| `src/scistudio/api/schemas.py` | modify | Type listing response, declared colours, extensions (§7) |
+| `src/scistudio/core/types/base.py` | modify | Colour class attributes on `DataObject` (FR-049) — protected core, needs `admin-approved:core-change` |
+| `src/scistudio/core/types/registry.py` | modify | Collect declared colours (FR-050); scan-order reconciliation (FR-061) |
+| `src/scistudio/api/runtime/_projects.py` | modify | Consume the shared provisioning helper (FR-057); reload symmetry (FR-062) |
+| `src/scistudio/ai/agent/mcp/runtime.py` | modify | Register type directories (FR-059); consume the helper (FR-057) |
+| `src/scistudio/core/types/serialization.py` | modify | Consume the helper instead of duplicating scan dirs (FR-057) |
+| `src/scistudio/blocks/io/_unified_dispatch.py` | modify | Consume the helper; single active-project decision (FR-057, FR-060) |
+| `src/scistudio/blocks/registry/_scan.py` | modify | Import roots for drop-in type resolution (FR-012, FR-013) |
+| `src/scistudio/api/routes/git.py` | modify | Branch switch refreshes the type registry (FR-064) |
+| `src/scistudio/api/routes/packages.py` | modify | Package install/uninstall refreshes the type registry (FR-063) |
+| `frontend/src/App.tsx` | modify | `leftTab` widens to include `types` (FR-039) |
+| `frontend/src/App.parts/ProjectWorkspace.tsx` | modify | Third tab, renamed first tab (FR-034, FR-039) |
+| `frontend/src/App.parts/useProjectActions.ts` | modify | New data type; new-file target choice (FR-029 – FR-033) |
+| `frontend/src/components/BlockPalette.tsx` | modify | Tier sections, empty states, interactive popover wiring (§9.1, §9.3) |
+| `frontend/src/components/BlockPalette.parts/paletteModel.ts` | modify | Origin-first grouping; extract shared helpers (FR-038, §10.1) |
+| `frontend/src/components/BlockDetailPopover.tsx` | modify | Becomes interactive and serves both surfaces (FR-044, FR-046) |
+| `frontend/src/components/TypePalette.tsx` | create | The Data types tab (§9.2) |
+| `frontend/src/config/typeColorMap.ts` | modify | Declared-colour precedence (FR-051, FR-052) |
+| `frontend/src/lib/api/code.ts` | modify | Type template and types listing clients (§7) |
+| `docs/specs/frontend-block-palette.md` | modify | Amend for the renamed tab, tier sections, grouping change, interactive popover |
+
+### 12.2 Sequence
 
 1. Shared registry provisioning helper and its four consumers (§10.3). First,
    because §5, the write path, and cascade all depend on every process resolving
