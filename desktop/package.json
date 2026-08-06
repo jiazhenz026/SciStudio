@@ -57,8 +57,7 @@
         "dir",
         "nsis"
       ],
-      "icon": "icon.ico",
-      "signAndEditExecutable": false
+      "icon": "icon.ico"
     },
     "nsis": {
       "oneClick": false,

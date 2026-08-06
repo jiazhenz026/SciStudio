@@ -3,12 +3,33 @@
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DESKTOP_DIR = REPO_ROOT / "desktop"
+
+
+def _ico_frame_sizes(path: Path) -> set[int]:
+    """Return the pixel widths declared in an ``.ico`` file's directory.
+
+    An ICONDIR is a 6-byte header (reserved, type, count) followed by ``count``
+    16-byte ICONDIRENTRY records whose first byte is the width. A stored width
+    of 0 means 256, which is how the 256x256 frame Windows wants for high-DPI
+    shells is encoded.
+    """
+    data = path.read_bytes()
+    reserved, image_type, count = struct.unpack("<HHH", data[:6])
+    assert reserved == 0, f"{path.name} is not a valid .ico (reserved != 0)"
+    assert image_type == 1, f"{path.name} is a cursor, not an icon"
+    sizes: set[int] = set()
+    for index in range(count):
+        offset = 6 + index * 16
+        width = data[offset]
+        sizes.add(width or 256)
+    return sizes
 
 
 def _desktop_package_json() -> dict[str, object]:
@@ -165,7 +186,6 @@ def test_desktop_has_windows_installer_builder() -> None:
     win_config = build["win"]
     assert isinstance(win_config, dict)
     assert "nsis" in win_config["target"]
-    assert win_config["signAndEditExecutable"] is False
     nsis_config = build["nsis"]
     assert isinstance(nsis_config, dict)
     assert nsis_config["oneClick"] is False
@@ -220,6 +240,16 @@ def test_desktop_declares_packaged_app_icons() -> None:
     assert isinstance(win_config, dict)
     assert win_config["icon"] == "icon.ico"
 
+    # #1990: declaring win.icon is not sufficient on Windows. electron-builder
+    # embeds the icon into SciStudio.exe with rcedit, and `signAndEditExecutable`
+    # gates that rcedit pass as well as code signing -- setting it to false makes
+    # `WinPackager.signApp()` return early, so the .exe keeps Electron's stock
+    # icon and version metadata (ProductName "Electron", OriginalFilename
+    # "electron.exe"). NSIS shortcuts point at the .exe, so the installed app
+    # then shows the default Electron icon. macOS/Linux are unaffected because
+    # they apply the icon from the bundle instead of via rcedit.
+    assert win_config.get("signAndEditExecutable") is not False
+
     mac_config = build["mac"]
     assert isinstance(mac_config, dict)
     assert mac_config["icon"] == "icon.icns"
@@ -229,6 +259,11 @@ def test_desktop_declares_packaged_app_icons() -> None:
         asset = assets_dir / filename
         assert asset.is_file()
         assert asset.stat().st_size > 0
+
+    # Windows uses the largest available frame for high-DPI shortcuts and the
+    # Alt-Tab switcher; an .ico that tops out below 256px renders as a blurry
+    # upscale even once rcedit runs.
+    assert _ico_frame_sizes(assets_dir / "icon.ico") >= {16, 32, 48, 256}
 
     source_svg = (assets_dir / "icon.svg").read_text(encoding="utf-8")
     assert "<svg" in source_svg

@@ -82,6 +82,20 @@ The packaged app uses the SciStudio icon assets in `desktop/assets`: `icon.svg`
 is the source, `icon.png` is the runtime window icon (and the Linux AppImage
 icon), and `icon.ico`/`icon.icns` are the Windows and macOS packaging icons.
 
+On Windows, declaring `build.win.icon` is necessary but **not** sufficient.
+electron-builder embeds the icon and the version metadata into `SciStudio.exe`
+with `rcedit`, and that pass is gated by `build.win.signAndEditExecutable` — the
+same flag that controls code signing. Setting it to `false` makes
+`WinPackager.signApp()` return early, so the packaged `.exe` silently keeps
+Electron's stock icon and metadata (`ProductName: Electron`,
+`OriginalFilename: electron.exe`). Because the NSIS Start Menu and Desktop
+shortcuts point at the `.exe`, the installed app then shows the default Electron
+icon. Do not set `signAndEditExecutable: false` to skip signing: signing already
+no-ops safely without a certificate (`signFile()` only signs when a `cscInfo` is
+resolved, and only `forceCodeSigning` turns an unsigned build into an error).
+macOS and Linux are unaffected because they take the icon from the app bundle
+rather than through `rcedit` (#1990).
+
 ## Runtime Python
 
 The ADR-037 MVP is expected to ship with a staged Python under
