@@ -7,6 +7,8 @@ import {
   handleBlockPtyClosed as dispatchBlockPtyClosed,
   handleBlockPtyOpened as dispatchBlockPtyOpened,
 } from "../../components/AIChat/blockPtyHandlers";
+import { isTerminalProviderKey } from "../../store/types";
+import type { TerminalProvider } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 export interface BlockPtyDeps {
@@ -30,10 +32,32 @@ export function handleBlockPtyOpened(payload: WorkflowEventMessage, deps: BlockP
     const top = payload as unknown as Record<string, unknown>;
     // Audit P2-A (Codex #866-2): backend emits ``permission_mode`` at the
     // top level. Mirror the resilience pattern used for tab_id / block_run_id.
+    //
+    // ADR-034 FR-020c: `provider` is read from whichever level carries it and
+    // forwarded verbatim. There is deliberately no `?? "claude-code"` here —
+    // this is the second of the four links and a default at any one of them
+    // recreates the FR-022 bug silently. A frame without a provider is a
+    // backend contract violation, so it surfaces as an error in the run log
+    // instead of quietly opening a mislabelled tab.
+    const provider = (top.provider ?? src.provider) as TerminalProvider | undefined;
+    if (!isTerminalProviderKey(provider)) {
+      console.error("[block_pty_opened] frame carries no provider; ignoring", payload);
+      deps.appendLog({
+        timestamp: payload.timestamp,
+        level: "error",
+        message:
+          "[AI Block] tab not opened: block_pty_opened carried no provider " +
+          "(ADR-034 FR-020c). Refusing to guess one.",
+        workflow_id: payload.workflow_id ?? null,
+        block_id: payload.block_id ?? null,
+      });
+      return;
+    }
     dispatchBlockPtyOpened({
       tab_id: (top.tab_id as string) ?? (src.tab_id as string),
       block_run_id:
         (top.block_run_id as string) ?? (src.block_run_id as string) ?? payload.block_id ?? "",
+      provider,
       block_name: src.block_name as string | undefined,
       title: (top.title as string) ?? (src.title as string | undefined),
       status: src.status as "running" | "paused" | "done" | "error" | "cancelled" | undefined,

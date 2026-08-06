@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
 import type { AiBlockStatus, TerminalTab as TerminalTabState } from "../../../store/types";
+import type { WorkflowEventMessage } from "../../../types/api";
 import { AiBlockStatusBadge, MarkDoneButton, TerminalTab } from "../TerminalTab";
 
 vi.mock("../../../hooks/useWebSocket", () => ({
@@ -137,5 +138,157 @@ describe("TerminalTab closed state", () => {
     expect(screen.getByTestId("terminal-tab-closed-closed-error").textContent).not.toContain(
       "page reload",
     );
+  });
+});
+
+/**
+ * ADR-034 FR-020c / FR-022 — the engine-initiated tab must record the provider
+ * the engine actually spawned, across all four links of the path:
+ *
+ *   1. the `block_pty_opened` payload type
+ *   2. the WS dispatch in `hooks/useWebSocket.parts/handleBlockPty.ts`
+ *   3. `handleBlockPtyOpened` in `components/AIChat/blockPtyHandlers.ts`
+ *   4. `addAiBlockTerminalTab` in `store/terminalTabsSlice.ts`
+ *
+ * These tests enter at link 2 (the real WS frame) so links 2-4 run for real,
+ * and additionally probe links 3 and 4 in isolation. The spec's point is that
+ * fixing only some links leaves the others able to substitute the old
+ * hardcoded `"claude-code"`, so every test here uses a NON-default provider
+ * and the negative tests assert an error rather than a silent fallback.
+ */
+describe("ADR-034 — provider threading on the engine-initiated tab path", () => {
+  const NOW = "2026-08-06T00:00:00Z";
+
+  function wsFrame(over: Record<string, unknown>): WorkflowEventMessage {
+    return {
+      type: "block_pty_opened",
+      block_id: "blk",
+      workflow_id: "wf",
+      data: {},
+      timestamp: NOW,
+      ...over,
+    } as WorkflowEventMessage;
+  }
+
+  it("records a kimi-code provider end to end, top-level on the frame", async () => {
+    const { handleBlockPtyOpened: wsHandleOpened } =
+      await import("../../../hooks/useWebSocket.parts/handleBlockPty");
+    const appendLog = vi.fn();
+    wsHandleOpened(
+      wsFrame({
+        tab_id: "e2e-kimi",
+        block_run_id: "run-kimi",
+        title: "extract",
+        provider: "kimi-code",
+        permission_mode: "bypass",
+      }),
+      { appendLog },
+    );
+    const tab = useAppStore.getState().terminalTabs.find((t) => t.id === "e2e-kimi");
+    expect(tab).toBeDefined();
+    expect(tab?.provider).toBe("kimi-code");
+    expect(tab?.source).toBe("ai-block");
+    expect(tab?.permissionMode).toBe("dangerous");
+  });
+
+  it("records a qoder provider end to end when the frame nests it under data", async () => {
+    const { handleBlockPtyOpened: wsHandleOpened } =
+      await import("../../../hooks/useWebSocket.parts/handleBlockPty");
+    const appendLog = vi.fn();
+    wsHandleOpened(
+      wsFrame({
+        data: {
+          tab_id: "e2e-qoder",
+          block_run_id: "run-qoder",
+          block_name: "fit",
+          provider: "qoder",
+        },
+      }),
+      { appendLog },
+    );
+    const tab = useAppStore.getState().terminalTabs.find((t) => t.id === "e2e-qoder");
+    expect(tab?.provider).toBe("qoder");
+  });
+
+  it("forwards a provider key the frontend has never heard of, unchanged", async () => {
+    // FR-020a: agent keys are opaque strings. A provider added to the backend
+    // registry alone must reach the tab without any frontend edit.
+    const { handleBlockPtyOpened: wsHandleOpened } =
+      await import("../../../hooks/useWebSocket.parts/handleBlockPty");
+    wsHandleOpened(
+      wsFrame({
+        tab_id: "e2e-future",
+        block_run_id: "run-future",
+        title: "x",
+        provider: "some-future-agent",
+      }),
+      { appendLog: vi.fn() },
+    );
+    expect(useAppStore.getState().terminalTabs.find((t) => t.id === "e2e-future")?.provider).toBe(
+      "some-future-agent",
+    );
+  });
+
+  it("link 2 (WS dispatch) errors on a frame with no provider instead of defaulting", async () => {
+    const { handleBlockPtyOpened: wsHandleOpened } =
+      await import("../../../hooks/useWebSocket.parts/handleBlockPty");
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const appendLog = vi.fn();
+    wsHandleOpened(wsFrame({ tab_id: "no-prov-ws", block_run_id: "run-np", title: "x" }), {
+      appendLog,
+    });
+    expect(errSpy).toHaveBeenCalled();
+    expect(appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", message: expect.stringContaining("no provider") }),
+    );
+    // The bug this replaces: a tab silently recorded as claude-code.
+    expect(useAppStore.getState().terminalTabs.find((t) => t.id === "no-prov-ws")).toBeUndefined();
+    errSpy.mockRestore();
+  });
+
+  it("link 3 (blockPtyHandlers) errors on a payload with no provider instead of defaulting", async () => {
+    const { handleBlockPtyOpened } = await import("../blockPtyHandlers");
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    handleBlockPtyOpened({
+      tab_id: "no-prov-h",
+      block_run_id: "run-np",
+      title: "x",
+      // Simulates an upstream link that dropped the field. Cast because the
+      // contract type makes it required — that is link 3's first line of
+      // defence; this asserts the runtime one behind it.
+    } as unknown as Parameters<typeof handleBlockPtyOpened>[0]);
+    expect(errSpy).toHaveBeenCalled();
+    expect(useAppStore.getState().terminalTabs.find((t) => t.id === "no-prov-h")).toBeUndefined();
+    errSpy.mockRestore();
+  });
+
+  it("link 4 (store) records exactly the provider it was handed, with no fallback", () => {
+    useAppStore.getState().addAiBlockTerminalTab({
+      tabId: "slice-direct",
+      title: "🤖 x",
+      blockRunId: "run-slice",
+      permissionMode: "safe",
+      provider: "qoder-cn",
+    });
+    const tab = useAppStore.getState().terminalTabs.find((t) => t.id === "slice-direct");
+    expect(tab?.provider).toBe("qoder-cn");
+    // Guard against the old hardcoded value creeping back in.
+    expect(tab?.provider).not.toBe("claude-code");
+  });
+
+  it("link 4 keeps the reported provider when the engine resends the open event", async () => {
+    const { handleBlockPtyOpened: wsHandleOpened } =
+      await import("../../../hooks/useWebSocket.parts/handleBlockPty");
+    const frame = wsFrame({
+      tab_id: "idem-kimi",
+      block_run_id: "run-idem",
+      title: "x",
+      provider: "kimi-code",
+    });
+    wsHandleOpened(frame, { appendLog: vi.fn() });
+    wsHandleOpened(frame, { appendLog: vi.fn() });
+    const tabs = useAppStore.getState().terminalTabs.filter((t) => t.id === "idem-kimi");
+    expect(tabs.length).toBe(1);
+    expect(tabs[0].provider).toBe("kimi-code");
   });
 });

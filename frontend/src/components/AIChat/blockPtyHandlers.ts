@@ -11,7 +11,8 @@
  * fired even though the WS message was correctly parsed and routed).
  */
 import { useAppStore } from "../../store";
-import type { AiBlockStatus } from "../../store/types";
+import { isTerminalProviderKey } from "../../store/types";
+import type { AiBlockStatus, TerminalProvider } from "../../store/types";
 
 /**
  * Handle the `block_pty_opened` WS event.
@@ -28,11 +29,23 @@ import type { AiBlockStatus } from "../../store/types";
  * accept either to keep the handler resilient against either backend choice.
  * Title prefix `🤖` is added here so I35a/I35b don't have to remember it.
  *
- * References: ADR-035 §3.9, §3.10
+ * ADR-034 FR-020c / FR-022: the frame carries the provider the engine actually
+ * spawned, and this handler forwards it verbatim to the store. It is the third
+ * of the four links on that path (engine emit -> `handleBlockPty.ts` -> here ->
+ * `addAiBlockTerminalTab`). No link substitutes a default: a frame without a
+ * usable provider is an error and no tab is created, because silently falling
+ * back to `claude-code` is precisely the FR-022 bug being removed.
+ *
+ * References: ADR-034 FR-020c, FR-022; ADR-035 §3.9, §3.10
  */
 export function handleBlockPtyOpened(payload: {
   tab_id: string;
   block_run_id: string;
+  /**
+   * ADR-034 FR-020c — provider key the engine spawned. Required; opaque string
+   * validated at runtime (FR-020a), never defaulted.
+   */
+  provider: TerminalProvider;
   /** Either field is accepted; `block_name` wins if both present. */
   block_name?: string;
   title?: string;
@@ -44,6 +57,17 @@ export function handleBlockPtyOpened(payload: {
   if (!tab_id || !block_run_id) {
     // eslint-disable-next-line no-console
     console.warn("[block_pty_opened] missing tab_id / block_run_id; ignoring", payload);
+    return;
+  }
+  if (!isTerminalProviderKey(payload.provider)) {
+    // ADR-034 FR-020c: an absent provider is an error, not a fallback. Creating
+    // the tab with a guessed provider would connect the TerminalView to the
+    // wrong PTY contract and re-introduce the hardcoded-provider bug.
+    console.error(
+      "[block_pty_opened] missing or invalid provider; refusing to create a tab " +
+        "rather than defaulting one (ADR-034 FR-020c)",
+      payload,
+    );
     return;
   }
   const rawName = payload.block_name ?? payload.title ?? "AI Block";
@@ -58,6 +82,7 @@ export function handleBlockPtyOpened(payload: {
     title,
     blockRunId: block_run_id,
     permissionMode,
+    provider: payload.provider,
   });
   if (payload.status && payload.status !== "paused") {
     useAppStore.getState().updateAiBlockStatus(tab_id, payload.status);
