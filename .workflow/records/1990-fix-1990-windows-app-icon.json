@@ -201,9 +201,9 @@
     }
   ],
   "commit": {
-    "sha": "7681aa974659b3a0d4751cf30998ea5872e7cd3e",
+    "sha": "5f3b76263bdd718839d82ee2253e48cbe9d43fbb",
     "shas": [
-      "7681aa974659b3a0d4751cf30998ea5872e7cd3e"
+      "5f3b76263bdd718839d82ee2253e48cbe9d43fbb"
     ],
     "trailers": []
   },
@@ -868,6 +868,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.463055Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.482481Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.502198Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.523375Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.543338Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.564574Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.584403Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.604778Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.624956Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:57:48.650805Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -880,7 +962,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "fbb361bfedc38ade7a35d20f4c82158b0c8cc9a6",
     "base_sha": "fbb361bf",
     "changed_files": [
       ".workflow/records/1990-fix-1990-windows-app-icon.json",
@@ -888,9 +970,9 @@
       "desktop/package.json",
       "tests/packaging/test_desktop_mvp_resources.py"
     ],
-    "diff_fingerprint": "sha256:fe77460f918280f35ea00ce223b57a8b270a7db5fbd0fcf5a4487bdb3b91680c",
+    "diff_fingerprint": "sha256:2322072c811f83195cb57d6329a72c652698b584abb623a93fa100fd127a70c2",
     "head": "HEAD",
-    "head_sha": "663f6f55",
+    "head_sha": "5f3b7626",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -911,7 +993,7 @@
     "closes": [
       1990
     ],
-    "number": null,
+    "number": 1991,
     "url": null
   },
   "reconcile_events": [
@@ -990,6 +1072,16 @@
     {
       "at": "2026-08-06T03:24:12.559300Z",
       "diff_fingerprint": "sha256:fe77460f918280f35ea00ce223b57a8b270a7db5fbd0fcf5a4487bdb3b91680c",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T03:57:48.650830Z",
+      "diff_fingerprint": "sha256:2322072c811f83195cb57d6329a72c652698b584abb623a93fa100fd127a70c2",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
