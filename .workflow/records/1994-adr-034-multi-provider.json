@@ -362,7 +362,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "187e641029e72f13e54b3a7deaee6e0d9addc417",
+    "shas": [
+      "187e641029e72f13e54b3a7deaee6e0d9addc417"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1095,6 +1101,131 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.135441Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/pty_control.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/pty_control.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.148566Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.161627Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.174923Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.187971Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.200559Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.213242Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.225770Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.238923Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T20:49:13.252001Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1107,7 +1238,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "5c7775b342f7933d7fc7adb3ab01a767e344a35e",
     "base_sha": "5c7775b3",
     "changed_files": [
       ".workflow/records/1994-adr-034-api.json",
@@ -1175,9 +1306,9 @@
       "tests/engine/test_pty_control_skeleton.py",
       "tests/qa/test_parity_venv_pins.py"
     ],
-    "diff_fingerprint": "sha256:58ecf5fca85fab567d6535597f3077a0786eefe16715d37cc094479f822d8b43",
+    "diff_fingerprint": "sha256:ece39064938f954a008e3ec21a35a9fd8d17d74c307c1dc0177f3f581c64b3ce",
     "head": "HEAD",
-    "head_sha": "7dd841a1",
+    "head_sha": "187e6410",
     "surfaces": {
       "docs": 6,
       "frontend": 16,
@@ -1193,7 +1324,12 @@
   },
   "owner_directive": "Owner: implement docs/specs/adr-034-multi-provider-agent-chat.md in full as agent-manager dispatch. No weakening, no downgrade, no temporary workarounds. Deliver one reviewable CI-green PR. Owner decided the ADR governance gap is closed by an adr042-governance-amendment block in ADR-034 body (authorizing edit despite agent_editable:false). Owner performs the five-provider manual smoke launch as a hard pre-merge gate.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2003,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-06T20:12:59.089940Z",
@@ -1243,6 +1379,16 @@
     {
       "at": "2026-08-06T20:27:49.856530Z",
       "diff_fingerprint": "sha256:58ecf5fca85fab567d6535597f3077a0786eefe16715d37cc094479f822d8b43",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T20:49:13.252031Z",
+      "diff_fingerprint": "sha256:ece39064938f954a008e3ec21a35a9fd8d17d74c307c1dc0177f3f581c64b3ce",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
