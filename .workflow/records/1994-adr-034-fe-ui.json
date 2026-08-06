@@ -372,6 +372,98 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T17:59:12.140500Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a117fa66a83465830660718cf1f55650d08547b4cc1422079eae83bca4bb317a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T17:59:12.329842Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T17:59:52.707219Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6cdc12aa153ddc0b226e6d8c1d108549ec9af67f2446aa9d0f7e87fef49a1606",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T18:00:04.678926Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:72367d5eccd526833d47be7cfff4bd9d1a4de21fc7788f0f9854bcefd930f890",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T18:02:06.632317Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T18:03:23.289460Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:76da14210ef30ca4b44b3d1b0549d9d8c33ad0113c4ea4906d31178923411a5b",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -715,6 +807,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.324506Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.337354Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.349465Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.361515Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.376208Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.388626Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.400363Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.412663Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.424745Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T18:03:23.437946Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -728,28 +902,24 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "track/adr-034-multi-provider",
-    "base_sha": "aa124b0a",
+    "base_sha": "94149cbd",
     "changed_files": [
       ".workflow/records/1994-adr-034-fe-ui.json",
-      "frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx",
-      "frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx",
-      "frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx",
-      "frontend/src/components/AIChat/SetupScreen.parts/types.ts",
       "frontend/src/components/AIChat/SetupScreen.tsx",
       "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx"
     ],
-    "diff_fingerprint": "sha256:4f9ef8bc6909fd6a9a31e0eeb26e3befef6aadd5b12c222b642ca62f8d10b4af",
+    "diff_fingerprint": "sha256:232c8c89b273a9299811e01f93e5995f49d76420aa19e013d7be32c5b2113228",
     "head": "HEAD",
-    "head_sha": "f6289dcb",
+    "head_sha": "aa8b496b",
     "surfaces": {
       "docs": 0,
-      "frontend": 6,
+      "frontend": 2,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 2,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 6,
+      "sentrux": 2,
       "test": 1,
       "workflow_ci": 0
     }
@@ -806,6 +976,18 @@
       "unsatisfied": [
         "checks.format_check",
         "checks.frontend",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T18:03:23.437969Z",
+      "diff_fingerprint": "sha256:232c8c89b273a9299811e01f93e5995f49d76420aa19e013d7be32c5b2113228",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.format_check",
         "checks.full_audit",
         "checks.python_tests"
       ]
