@@ -1,8 +1,8 @@
 ---
 spec_id: adr-034-multi-provider-agent-chat
 title: "ADR-034 Multi-Provider Agent Chat Implementation Specification"
-status: Planned
-feature_branch: docs/adr-034-multi-provider-agent-chat
+status: Draft
+feature_branch: docs/1992-adr-034-multi-provider-spec
 created: 2026-08-06
 input: "Owner request: add Kimi Code and Qoder CLI support to AI chat, covering every feature surface including AI Block, with the provider set driven by one registry instead of scattered per-provider branches. Qoder must support both its international and China channel CLIs simultaneously."
 owners:
@@ -54,9 +54,6 @@ governs:
     - scistudio.ai.agent.terminal.spawn_claude
     - scistudio.ai.agent.terminal.spawn_codex
     - scistudio.ai.agent.terminal.resolve_windows_executable
-    - scistudio.api.routes.ai_pty._state._VALID_PROVIDERS
-    - scistudio.api.routes.ai_pty._state._PROVIDER_SPAWNERS
-    - scistudio.api.routes.ai_pty._state._spawn
     - scistudio.api.routes.ai_pty.engine.open_engine_initiated_tab
     - scistudio.api.routes.ai.provider_status
     - scistudio.engine.pty_control.PtyTabSpec
@@ -67,7 +64,6 @@ governs:
     - docs/adr/ADR-034.md
     - docs/specs/adr-034-multi-provider-agent-chat.md
     - docs/specs/embedded-coding-agent-spec.md
-    - src/scistudio/ai/agent/providers_registry.py
     - src/scistudio/ai/agent/terminal.py
     - src/scistudio/api/routes/ai.py
     - src/scistudio/api/routes/ai_pty/__init__.py
@@ -79,7 +75,6 @@ governs:
     - src/scistudio/engine/pty_control.py
     - src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md
     - frontend/src/components/AIChat/SetupScreen.tsx
-    - frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/types.ts
@@ -91,6 +86,14 @@ governs:
     - desktop/dist/**
     - desktop/resources/backend/**
     - src/scistudio/api/static/**
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files:
+    - src/scistudio/ai/agent/providers_registry.py
+    - frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx
+  excludes: []
 tests:
   - tests/ai/test_providers_registry.py
   - tests/ai/test_windows_executable_resolution.py
@@ -198,6 +201,38 @@ Three consequences shape the whole design:
    install. Discovery must match exact binary names in registered well-known
    directories rather than globbing for `qodercli*.exe` anywhere under the home
    directory, or SciStudio will offer a stale, unauthenticated agent.
+
+### Governance alignment — open item blocking `Planned` status
+
+This spec is `status: Draft`, not `Planned`, for one specific reason that the
+owner must resolve before implementation starts.
+
+The `doc-drift.missing-adr-governance` rule requires that every ADR listed in a
+`Planned` or `Implemented` spec's `related_adrs` covers every surface the spec
+governs, as a strict conjunction across all listed ADRs. This spec's surface is
+wider than what ADR-034 currently governs. ADR-034 governs
+`scistudio.api.routes.ai_pty`, `scistudio.engine.pty_control`,
+`src/scistudio/ai/agent/terminal.py`, and `frontend/src/components/AIChat/**`.
+It does not govern `src/scistudio/api/routes/ai.py`,
+`src/scistudio/blocks/ai/ai_block.py`, `src/scistudio/cli/install.py`,
+`frontend/src/store/**`, or `frontend/src/components/BottomPanel.tsx`, all of
+which this change must touch. ADR-035 and ADR-040 cover parts of that remainder,
+but the rule is a conjunction, so listing them does not close the gap.
+
+This is a real architectural finding rather than a paperwork obstacle: the
+provider registry widens what the embedded-agent decision governs, and ADR-034
+is an Accepted document in `phase: legacy` marked `agent_editable: false`. The
+resolution is an owner decision between two options:
+
+1. Expand ADR-034's `governs` to cover the registry, status endpoint, AI Block
+   integration, and the frontend store surfaces this spec touches.
+2. Author an ADR-034 addendum that records the multi-provider registry decision
+   and governs the new surfaces, leaving the original ADR untouched.
+
+Until one of those lands, this spec stays `Draft` and declares the two
+not-yet-existing files under `planned_governs`. Moving it to `Planned` without
+the ADR alignment would either fail the audit or require under-declaring the
+spec's real surface, and neither is acceptable.
 
 ## 2. User Scenarios & Testing
 
@@ -904,5 +939,18 @@ FR-021h records why an opaque background is now required.
 - Available-first ordering is assumed not to need a visible group separator. If
   the supported set grows enough that a flat ordered list becomes hard to scan,
   option groups are a presentation-only follow-up.
+- The ADR governance gap described in section 1 is assumed to be resolved by the
+  owner before implementation begins. This spec does not assume which of the two
+  options is chosen, and its content is unaffected by that choice; only its
+  `status` and `related_adrs` change once the ADR side lands.
+- `src/scistudio/ai/agent/providers_registry.py` and
+  `frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx` are
+  declared under `planned_governs` because they do not exist yet. They move to
+  `governs` when the implementation creates them.
+- The three module-private names this spec discusses by name —
+  `_VALID_PROVIDERS`, `_PROVIDER_SPAWNERS`, and `_spawn` — are deliberately not
+  listed in `governs.contracts`. They are internal implementation details rather
+  than public contracts, and underscore-prefixed names do not resolve in the
+  generated symbol facts the closure audit checks against.
 - Existing workflow YAML using `provider: claude-code` remains valid; enum
   widening is backward compatible and no migration is required.
