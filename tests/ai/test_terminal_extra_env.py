@@ -146,15 +146,26 @@ def test_pty_process_does_not_inherit_electron_node_mode(tmp_path: Path, monkeyp
 
 
 def test_resolve_windows_executable_checks_user_cli_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Explorer-launched desktop sessions may miss user CLI dirs on PATH."""
-    import scistudio.ai.agent.terminal as terminal_mod
+    """Explorer-launched desktop sessions may miss user CLI dirs on PATH.
 
+    ADR-034 (#1994, FR-004): the well-known directory list used to be the
+    module-level ``_windows_user_cli_dirs()`` constant that this test
+    monkeypatched. It is now supplied per provider by the registry descriptor
+    and passed in explicitly, so the seam is the ``well_known_dirs`` argument
+    rather than a patched module attribute. The property under test is
+    unchanged: a launcher present only in a well-known directory and absent
+    from PATH must still be found.
+    """
     cli_dir = tmp_path / "AppData" / "Roaming" / "npm"
     cli_dir.mkdir(parents=True)
     launcher = cli_dir / "codex.cmd"
     launcher.write_text("@echo off\n", encoding="utf-8")
 
-    monkeypatch.setattr(terminal_mod.sys, "platform", "win32")
-    monkeypatch.setattr(terminal_mod, "_windows_user_cli_dirs", lambda: [cli_dir])
+    monkeypatch.setattr(sys, "platform", "win32")
 
-    assert resolve_windows_executable("codex", which=lambda _name: None) == str(launcher)
+    resolved = resolve_windows_executable(
+        "codex",
+        which=lambda _name: None,
+        well_known_dirs=[cli_dir],
+    )
+    assert resolved == str(launcher)

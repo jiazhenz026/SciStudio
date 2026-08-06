@@ -470,6 +470,53 @@ def test_kimi_mcp_write_refuses_a_non_object_document(tmp_path: Path) -> None:
     assert config_path.read_text(encoding="utf-8") == "[1, 2, 3]"
 
 
+@pytest.mark.parametrize(
+    ("servers_literal", "type_name"),
+    [('"stdio"', "str"), ("[1, 2]", "list"), ("7", "int")],
+)
+def test_kimi_mcp_write_refuses_a_non_object_mcp_servers_value(
+    tmp_path: Path,
+    servers_literal: str,
+    type_name: str,
+) -> None:
+    """FR-017a: the merge may change only the SciStudio server entry.
+
+    A parseable document whose ``mcpServers`` is not an object is the quietest
+    destructive case: coercing it to a fresh ``{}`` would drop a key SciStudio
+    does not own with no error and no trace. It must raise like the malformed
+    and non-object-document cases, and leave the file byte-for-byte intact.
+    """
+    kimi = registry.get("kimi-code")
+    config_path = tmp_path / ".kimi-code" / "mcp.json"
+    config_path.parent.mkdir(parents=True)
+    original = f'{{"mcpServers": {servers_literal}, "otherKey": {{"kept": true}}}}'
+    config_path.write_text(original, encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    message = str(excinfo.value)
+    assert "mcpServers" in message
+    assert type_name in message
+    assert str(config_path) in message
+    assert "Kimi Code" in message
+    assert config_path.read_text(encoding="utf-8") == original
+
+
+def test_kimi_mcp_write_accepts_a_document_without_an_mcp_servers_key(tmp_path: Path) -> None:
+    """A missing key is not a wrong key: it is created and other keys survive."""
+    kimi = registry.get("kimi-code")
+    config_path = tmp_path / ".kimi-code" / "mcp.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(json.dumps({"otherKey": {"kept": True}}), encoding="utf-8")
+
+    terminal._merge_provider_mcp_config(kimi, tmp_path)
+
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    assert data["otherKey"] == {"kept": True}
+    assert set(data["mcpServers"]) == {"scistudio"}
+
+
 def test_kimi_mcp_write_creates_the_file_when_absent(tmp_path: Path) -> None:
     kimi = registry.get("kimi-code")
     written = terminal._merge_provider_mcp_config(kimi, tmp_path)

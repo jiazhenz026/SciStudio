@@ -517,9 +517,16 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
     This function therefore reads, merges only the SciStudio server entry, and
     atomically replaces the file (FR-017a), following the merge-preserving
     precedent in :mod:`scistudio.cli.install` rather than the clobbering
-    helper. A file that exists but is unparseable raises instead of being
-    overwritten (FR-017b). A zero-byte or whitespace-only file carries no user
-    content to preserve and is treated as absent.
+    helper. A zero-byte or whitespace-only file carries no user content to
+    preserve and is treated as absent.
+
+    Three shapes raise instead of being overwritten (FR-017b), because each
+    would otherwise destroy content SciStudio does not own and the user cannot
+    recover: a document that does not parse as JSON, a document that parses to
+    something other than an object, and an ``mcpServers`` key whose value is
+    not an object. The last one is the quietest of the three — coercing it to
+    a fresh ``{}`` would change a key outside the SciStudio entry with no
+    error and no trace — so it is rejected on the same terms as the others.
 
     The written payload is the provider-agnostic
     :func:`~scistudio.cli.install._mcp_entry_payload` used by every other
@@ -552,8 +559,19 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
             data = parsed
 
     servers = data.get("mcpServers")
-    if not isinstance(servers, dict):
+    if servers is None:
         servers = {}
+    elif not isinstance(servers, dict):
+        # Parseable JSON whose ``mcpServers`` is a string, list, or number.
+        # Replacing it with a fresh object would silently discard a key
+        # SciStudio does not own — exactly the destruction FR-017a exists to
+        # prevent, which permits changing only the SciStudio server entry.
+        raise RuntimeError(
+            f"refusing to replace the non-object 'mcpServers' value at {config_path} "
+            f"(found {type(servers).__name__}). This file belongs to {descriptor.label}, "
+            "not to SciStudio. Fix or move it, then relaunch so SciStudio can register "
+            "its MCP server without discarding your own entries."
+        )
     data["mcpServers"] = servers
     servers[MCP_SERVER_NAME] = _mcp_entry_payload(project_dir)
 

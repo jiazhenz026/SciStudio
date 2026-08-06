@@ -985,6 +985,12 @@
       "at": "2026-08-06T07:33:45.442445Z",
       "pattern": "docs/planning/adr-034-multi-provider-checklist.md",
       "reason": "The dispatch prompt instructs agent A1 CORE to update its own row in the manager's dispatch checklist to report status back. That is the single docs path in scope; every other docs surface belongs to A8."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T07:54:41.607124Z",
+      "pattern": "tests/ai/test_terminal_extra_env.py",
+      "reason": "manager added the terminal extra-env test to A1 scope; FR-004 removed the _windows_user_cli_dirs seam it monkeypatched"
     }
   ],
   "session_id": "9625bb2e-55e0-4f5e-89c4-267714620eda",
