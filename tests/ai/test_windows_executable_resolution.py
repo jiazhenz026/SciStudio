@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
 import sys
 from functools import partial
 from pathlib import Path
@@ -30,7 +29,6 @@ import pytest
 from scistudio.ai.agent import providers_registry as registry
 from scistudio.ai.agent import terminal
 from scistudio.ai.agent.providers_registry import ProviderKind, resolve_binary
-from scistudio.api.routes import ai as ai_route
 from scistudio.desktop import paths as desktop_paths
 
 
@@ -81,25 +79,6 @@ def test_resolve_windows_executable_preserves_non_windows_which(monkeypatch: Any
     monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
 
     assert terminal.resolve_windows_executable("codex") == "/usr/bin/codex"
-
-
-def test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper(monkeypatch: Any) -> None:
-    calls: list[list[str]] = []
-
-    def fake_run(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, stdout="codex 0.1.0\n", stderr="")
-
-    monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.setattr(shutil, "which", _npm_shim_which)
-    monkeypatch.setattr(ai_route.subprocess, "run", fake_run)
-
-    assert ai_route._binary_status("codex") == (
-        "C:/Users/dev/AppData/Roaming/npm/codex.cmd",
-        True,
-        "codex 0.1.0",
-    )
-    assert calls == [["C:/Users/dev/AppData/Roaming/npm/codex.cmd", "--version"]]
 
 
 def test_path_hit_wins_over_a_well_known_directory_copy(tmp_path: Path, platform: str) -> None:

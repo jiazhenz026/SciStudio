@@ -2,7 +2,19 @@
 
 This package exposes a single endpoint:
 
-    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<claude-code|codex|user-terminal>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
+    ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<provider-key>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
+
+``provider`` accepts **every** key in the ADR-034 provider registry
+(:data:`scistudio.api.routes.ai_pty._state._VALID_PROVIDERS`, derived from
+:data:`scistudio.ai.agent.providers_registry.REGISTRY` per FR-006). At the
+2026-08-06 verification date that set is::
+
+    claude-code | codex | kimi-code | qoder | qoder-cn | user-terminal
+
+That list is documentation of the registry's current contents, not a second
+source of truth: a provider added to the registry is accepted here with no edit
+to this package. An unrecognised ``provider`` is rejected with an ``error``
+frame whose message enumerates the accepted set (FR-023).
 
 The route validates query parameters, spawns the appropriate PTY via
 :mod:`scistudio.ai.agent.terminal`, runs two concurrent pump tasks
