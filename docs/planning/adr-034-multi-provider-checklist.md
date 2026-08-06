@@ -198,8 +198,8 @@ umbrella branch.
 - [~] Wave 2a: A2 API integrated -> dispatched, branch `feat/1994-adr-034/api`
 - [~] Wave 2a: A3 ENGINE integrated -> dispatched, branch `feat/1994-adr-034/engine`
 - [x] Wave 2a: A4 FE-CONTRACT integrated -> merge `1b9a73d6`, agent head `b4f80ba5`. Manager verified: `tsc --noEmit` clean, 59 provider-propagation tests pass, and the no-default guards exist as named tests for link 2 and link 3.
-- [~] Wave 2b: A5 FE-UI integrated -> dispatched, branch `feat/1994-adr-034/fe-ui`
-- [ ] Wave 2b: A6 LAYOUT integrated -> pending
+- [x] Wave 2b: A5 FE-UI integrated -> merge `8cb3b46b`, agent head `a1625a29`, plus manager integration commit `a215d0b0`. Verified: scope clean, `ProviderName` alias gone, no `TODO(#1994)`, and an invented provider key in the status payload renders and launches, proving no hand-maintained list survives.
+- [~] Wave 2b: A6 LAYOUT integrated -> dispatched, branch `feat/1994-adr-034/layout`
 - [ ] Wave 3: A7 TESTS integrated -> pending
 - [ ] Wave 3: A8 DOCS integrated -> pending
 
@@ -268,6 +268,8 @@ Append only.
 | 2026-08-06 | manager | FR-020a makes agent provider keys opaque strings, so the Setup screen's hardcoded two-provider picker now compiles cleanly instead of failing type check. An A5 under-delivery would be silent rather than loud. | A5's acceptance criteria are written as assertions it must add, and A7 owns the independent guard that no hand-maintained agent provider key or label list survives in frontend source. Manager greps for it at integration. | N/A |
 | 2026-08-06 | A2 API | FR-005 changed `_binary_status` from taking a binary name to taking a descriptor, which broke `tests/ai/test_windows_executable_resolution.py::test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper`. That file is A1's, so A2 stopped rather than editing it. | Manager reproduced the failure (`AttributeError: 'str' object has no attribute 'well_known_directories'`) and diffed A2's replacement test against the doomed one: same npm shim, same `.cmd`-over-bare-wrapper assertion, same probe argv. Coverage is ported, not dropped. Amended A2's scope for that one test. Principle applied consistently with the A1 ruling: a test follows the function under test, not the file it happens to live in. | N/A, closed on rework |
 | 2026-08-06 | manager | `spawn_claude` / `spawn_codex` are dead as production code once A2's `_PROVIDER_SPAWNERS` lands, but they still live in `terminal.py` carrying `TODO(#1994)`, and A1's test at `tests/ai/test_windows_executable_resolution.py:354` still parametrises over them. Left unmanaged this becomes exactly the leftover temporary solution the owner forbade. | Tracked as a mandatory close-out below rather than left to a later agent's discretion. Sequenced after A3 lands, because A3's files still carry prose references and removing the shims mid-flight risks a merge-time break. Handed back to A1, which owns `terminal.py`. | Must close before the final PR |
+| 2026-08-06 | A5 FE-UI | FR-021's provider `select` collided with two bare `screen.getByRole("combobox")` queries in `frontend/src/components/BottomPanel.test.tsx`, which were unambiguous only by accident. `BottomPanel` keeps the chat surface mounted and CSS-hidden so PTYs survive, so both selects now share a tree. A5 verified by stash/unstash that the file goes 19/0 to 17/2, refused to edit a file in neither its scope nor A6's, and proposed a fix it explicitly had not run. | Manager applied A5's proposed fix in A5's worktree, confirmed 19/19, reverted that worktree, merged A5, then landed the fix as manager integration commit `a215d0b0` and re-verified 19/19 on the umbrella itself. Resolved by the manager rather than assigned onward because it is purely two agents' work colliding with no behavior change; assigning it to A6 would have left the umbrella red and mixed an unrelated fix into a layout task. | N/A |
+| 2026-08-06 | A5 FE-UI | A5 kept the existing `provider === "codex"` trust-hooks warning (#1859) rather than removing it, and flagged it so A7's guard would not treat it as a surviving provider list. | Accepted. It is one provider-specific UI warning, not a hand-maintained key or label list, and deleting shipped safety copy was outside A5's scope. Recorded here so A7 evaluates it knowingly instead of discovering it as an anomaly. | N/A |
 | 2026-08-06 | manager | Umbrella PR could not exist before the first planning commit, so the dispatch matrix was authored before the PR number was known. | Open the umbrella PR immediately after the planning commit, then update section 1 and the Manager Preflight rows before dispatching any agent. | N/A |
 
 ## 9.1 Mandatory Close-Outs
@@ -276,10 +278,10 @@ These are in-dispatch scaffolding, not accepted debt. Each must be closed before
 final PR, and the manager verifies each one directly rather than accepting an agent's
 report.
 
-- [ ] `export type ProviderName = TerminalProvider` deleted from
+- [x] `export type ProviderName = TerminalProvider` deleted from
       `frontend/src/components/AIChat/SetupScreen.parts/types.ts`. Left by A4 so the
       not-yet-migrated Setup components would compile; A5 owns the deletion.
-      Verify: `grep -rn "ProviderName" frontend/src` returns nothing.
+      Verify: `grep -rn "ProviderName" frontend/src` returns nothing. -> confirmed empty by the manager on the umbrella branch.
 - [ ] `spawn_claude` and `spawn_codex` removed from `src/scistudio/ai/agent/terminal.py`,
       and A1's parametrisation at `tests/ai/test_windows_executable_resolution.py:354`
       retargeted to `spawn_agent`. Sequenced after A3 lands; handed back to A1.
