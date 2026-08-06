@@ -76,18 +76,14 @@ _SPAWN_STATUS_VALIDATION_MODULES: tuple[str, ...] = (
 #:
 #: Every entry is a *named* exception. Nothing here is a wildcard, and a key
 #: appearing in a module that is not listed fails the test.
+#: ``ai/agent/terminal.py`` was allowlisted for ``claude-code`` and ``codex``
+#: while ``spawn_claude`` / ``spawn_codex`` existed as deprecated one-line
+#: ``REGISTRY.get()`` lookups. Their ``TODO(#1994)`` removal condition
+#: ("``_PROVIDER_SPAWNERS`` is derived from the registry") was met by A2's
+#: T-005, and both functions were deleted, so the entry is gone rather than
+#: left open: the guard now proves ``terminal.py`` names no provider key at
+#: all, which is the stronger statement the spec always wanted.
 _BACKEND_KEY_ALLOWLIST: dict[str, dict[str, str]] = {
-    # ``spawn_claude`` / ``spawn_codex`` are deprecated one-line registry
-    # lookups that add no branching. They carry a TODO(#1994) whose stated
-    # removal condition ("``_PROVIDER_SPAWNERS`` is derived from the registry")
-    # has since been met, so their remaining reason to exist is the spec's
-    # ``governs.contracts`` list and their own alias test — see this suite's
-    # report. Permitted here because a registry lookup is not per-provider
-    # knowledge; it is the absence of it.
-    "ai/agent/terminal.py": {
-        "claude-code": "spawn_claude deprecated alias: REGISTRY.get() lookup, no branching",
-        "codex": "spawn_codex deprecated alias: REGISTRY.get() lookup, no branching",
-    },
     # FR-015 requires ``claude-code`` to remain the AI Block default when the
     # enum widens, so the default has to be spelled somewhere. It appears as
     # the schema ``default`` and as the ``config.get`` fallback on the two read
@@ -419,3 +415,18 @@ def test_the_guards_above_are_not_vacuous() -> None:
     # rather than quietly becoming a hole.
     setup_screen = FRONTEND_SRC / "components" / "AIChat" / "SetupScreen.tsx"
     assert '"codex"' in _strip_ts_comments(setup_screen.read_text(encoding="utf-8"))
+
+    # Same rule for the backend allowlist, added when the ``terminal.py`` entry
+    # outlived the ``spawn_claude`` / ``spawn_codex`` shims it existed for
+    # (#1994). An allowlist entry whose literal is no longer present is a hole
+    # standing open, so require every entry to still be earned.
+    for relpath, allowed in _BACKEND_KEY_ALLOWLIST.items():
+        path = SRC_ROOT / relpath
+        assert path.is_file(), f"allowlisted module moved or was deleted: {relpath}"
+        present = {value for _lineno, value in _executable_string_constants(path)}
+        stale = sorted(set(allowed) - present)
+        assert stale == [], (
+            f"_BACKEND_KEY_ALLOWLIST[{relpath!r}] still permits {stale}, but the "
+            "literal is gone. Delete the entry so the guard tightens instead of "
+            "keeping an unused exception open."
+        )

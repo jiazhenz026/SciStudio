@@ -324,31 +324,50 @@ def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path
 
 
 # ---------------------------------------------------------------------------
-# Legacy aliases (TODO(#1994): removed once _state.py derives its spawner map)
+# Each descriptor spawns its own binary and no other's
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("alias", "expected_binary"),
-    [(terminal.spawn_claude, "claude"), (terminal.spawn_codex, "codex")],
-)
-def test_legacy_spawn_aliases_are_registry_lookups(
+@pytest.mark.parametrize("descriptor", registry.agent_descriptors(), ids=lambda d: d.key)
+def test_spawn_agent_uses_only_its_own_descriptors_binary(
     monkeypatch: Any,
     tmp_path: Path,
-    alias: Any,
-    expected_binary: str,
+    descriptor: Any,
 ) -> None:
-    """The aliases must add nothing — no branching, no divergent argv."""
+    """argv[0] is the descriptor's own declared binary, and no sibling's appears.
+
+    This replaces ``test_legacy_spawn_aliases_are_registry_lookups``, which
+    parametrised over the ``spawn_claude`` / ``spawn_codex`` shims deleted in
+    #1994 once A2's ``_PROVIDER_SPAWNERS`` became registry-derived. That test
+    asserted two things. The first — that a second, independently written call
+    path produced argv byte-identical to ``spawn_agent`` — was a property *of
+    the shims*: with no second call path left there is nothing to compare, so
+    it is not coverage that moved elsewhere, it is coverage of code that no
+    longer exists. The second — that a descriptor's declared binary reaches
+    argv[0] — is real provider-agnostic behaviour and is preserved here, and
+    widened from the two ex-alias providers to every agent in the registry, so
+    a sixth provider is covered the moment it is added.
+
+    The stub resolver deliberately returns ``binary_candidates[0]`` rather than
+    a fabricated path, keeping the original test's link between descriptor data
+    and spawned argv. The "no sibling binary" half is the argv-level companion
+    to :func:`test_a_missing_qoder_channel_never_resolves_to_its_sibling`: FR-026
+    is about resolution, this is about what actually gets executed.
+    """
     monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(terminal, "resolve_binary", lambda desc, **_k: Path(desc.binary_candidates[0]))
     monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda pd: pd / "prompt.md")
 
-    alias(project_dir=tmp_path, dangerous=True)
-    via_alias = _FakePtyProcess.spawned["argv"]
+    terminal.spawn_agent(descriptor, project_dir=tmp_path, dangerous=True)
+    argv = _FakePtyProcess.spawned["argv"]
 
-    key = "claude-code" if expected_binary == "claude" else "codex"
-    terminal.spawn_agent(registry.get(key), project_dir=tmp_path, dangerous=True)
-    via_spawn_agent = _FakePtyProcess.spawned["argv"]
+    assert argv[0] == descriptor.binary_candidates[0]
 
-    assert via_alias[0] == expected_binary
-    assert via_alias == via_spawn_agent
+    foreign_binaries = {
+        name
+        for other in registry.agent_descriptors()
+        if other.key != descriptor.key
+        for name in other.binary_candidates
+    } - set(descriptor.binary_candidates)
+    assert foreign_binaries, "the test would be vacuous if every provider shared a binary name"
+    assert not foreign_binaries & set(argv), f"{descriptor.key} argv names another provider's binary"
