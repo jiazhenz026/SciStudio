@@ -217,6 +217,140 @@ Three consequences shape the whole design:
    directories rather than globbing for `qodercli*.exe` anywhere under the home
    directory, or SciStudio will offer a stale, unauthenticated agent.
 
+### Corrections from the owner's live hand-test (2026-08-06, issue #1994)
+
+The owner ran the implementation on a real workstation with `claude`, `codex`,
+`kimi` and `qoderclicn` installed. Five defects surfaced, and three of them
+falsify or extend facts recorded above. Live observation beats the tables, so
+the tables are corrected here rather than the code being bent to match them.
+
+**Manual Approve was never expressed on the command line.** The tables record a
+bypass flag per provider and nothing for safe mode, and the implementation
+matched that: safe mode appended no argv at all. Every one of these CLIs
+persists a permission mode across sessions, so "no flag" does not mean "ask
+me" — it means "resume whatever was saved". The owner selected Manual Approve
+and got Claude Code in auto mode and Codex in YOLO mode. Manual mode is now
+stated explicitly, as a descriptor field symmetric with the bypass flag:
+
+| Fact | `claude-code` | `codex` | `kimi-code` | `qoder` / `qoder-cn` |
+|---|---|---|---|---|
+| Manual-approve flag | `--permission-mode manual` | `--ask-for-approval untrusted` | **none** | `--permission-mode default` |
+
+Each value was confirmed by running the binary: a bogus value is rejected
+(`claude` exits 1, `codex` exits 2, `qoderclicn` exits 1 listing its choices)
+while the value above is accepted. Kimi Code exposes only the *loosening* flags
+`-y/--yolo` and `--auto`, so manual mode is the absence of both; the registry
+records that as an explicit reason string rather than an empty field.
+
+**Kimi Code has no positional prompt.** The tables do not record how each CLI
+receives an AI Block's task, and the implementation assumed every provider takes
+one after a `--` separator. `kimi --help` at 0.33.0 shows
+`Usage: kimi [options] [command]` with no `[prompt]` argument, so a positional
+is parsed as a subcommand: `kimi -- "<task>"` exits 1 with
+`unknown command '<task>'`. Its only prompt flag, `-p/--prompt`, runs one prompt
+non-interactively and exits, which cannot seed the interactive session an AI
+Block needs. Kimi Code is therefore a chat-tab provider only, and the AI Block
+refuses it at config time with that explanation.
+
+This means **Success Criterion 2 is not met for `kimi-code`**, and that is
+recorded here rather than papered over. Two alternative delivery routes were
+examined before accepting the limitation:
+
+*Typing the prompt over PTY stdin.* No such route exists. `_engine_initial_stdin`
+is assigned `""` in `open_engine_initiated_tab` and read by nothing, on this
+branch and on `origin/main` alike — #1789 removed the consumer precisely because
+a raw-mode TUI ignored the trailing carriage return and the typed prompt sat
+unsubmitted for Claude Code and Codex. Rebuilding it is new mechanism, not
+reuse. Whether Kimi would behave differently from the two CLIs that motivated
+#1789 could **not** be determined on the owner's workstation: Kimi blocks at its
+own `Trust this folder?` gate on launch and exits without an answer, and the
+account needed to drive it past that point is not available. This is an open
+question, not a closed one.
+
+*Non-interactive mode.* `kimi -p "<task>"` would run the task with tools and MCP
+available and print the result, which the block's completion watcher could
+observe. It is rejected as an unreviewed substitution rather than as impossible:
+it replaces the visible, interruptible TUI session that ADR-035 describes with an
+unattended one-shot run, and it makes the block's own **Manual Approve** setting
+meaningless because there is no session in which to approve anything. Adopting
+it would change what an AI Block *is* for one provider, which is an owner
+decision and not one to take silently inside a bug fix.
+
+**A batch-launcher install truncates the AI Block prompt.** Codex installs from
+npm as `codex.cmd` with no `codex.exe` on PATH — the real binary sits under a
+hashed `node_modules` path — so `CreateProcess` runs it through `cmd.exe`, whose
+command line ends at the first line feed. The composed AI Block prompt is
+multi-line, so Codex received only its first line and the owner's own task never
+arrived. Claude Code resolves to `claude.exe` and was unaffected, which is why
+the defect looked Codex-specific. Prompts delivered to a `.cmd`/`.bat` launcher
+are now collapsed to a single line; providers resolving to a real executable
+keep their exact text.
+
+**Hook provisioning has no parity, and skills were never the problem.** The
+skills rows above are correct — the owner confirmed SciStudio's skills do take
+effect. What did not take effect are the data-protection and tool-use *hooks*, a
+separate per-CLI mechanism the tables never covered:
+
+| Fact | `claude-code` | `codex` | `kimi-code` | `qoder` / `qoder-cn` |
+|---|---|---|---|---|
+| Hook config location | `<project>/.claude/settings.json` | `<project>/.codex/config.toml` | **no hook system** | `<project>/.qoder/settings.json` |
+| Project-dir variable | `$CLAUDE_PROJECT_DIR` | `$(git rev-parse --show-toplevel)` | n/a | `$QODER_PROJECT_DIR` |
+| Provisioned before #1994 | yes | yes | n/a | **no** |
+| Extra gate | none | **interactive trust review, answered in the PTY** | n/a | none |
+
+Qoder's location and format were established by running
+`qoderclicn hooks migrate --from-claude` at 1.1.15 against a SciStudio-
+provisioned project: it wrote `<project>/.qoder/settings.json` holding
+SciStudio's seven hook entries with `$CLAUDE_PROJECT_DIR` rewritten to
+`$QODER_PROJECT_DIR`. `.qoder` — not `.qoder-cn` — is the project scope for both
+channels; the observation was made with the China-channel binary. A blocking
+hook placed in that file was then confirmed to stop a Bash tool call and surface
+the hook's stderr, so exit-code-2 blocking behaves as it does for Claude Code.
+
+Codex's declarations were already provisioned and do load — `--strict-config`
+accepts them, and a bogus key in the same file is rejected, proving the file is
+read — but Codex 0.130+ gates hook *execution* behind an interactive trust
+review. This is **documented Codex behaviour, not a SciStudio defect**, and it
+is left in place.
+
+The gate is real: a Codex TUI opened in a provisioned project shows a panel
+reading `SessionStart 2 0 2 … Press t to trust all; enter to review hooks` —
+two hooks declared, zero trusted — and fires none of them.
+
+The panel **is reachable and answerable inside SciStudio's PTY**. Spawning
+Codex through the same `winpty` path the chat tab uses renders it verbatim into
+the terminal stream, as a blocking numbered menu:
+
+```
+Hooks need review
+10 hooks are new or changed.
+Hooks can run outside the sandbox after you trust them.
+› 1. Review hooks
+  2. Trust all and continue
+  3. Continue without trusting (hooks won't run)
+Press enter to confirm or esc to go back
+```
+
+The WS route already forwards every keystroke to the PTY verbatim, so the user
+sees this on first launch in a project and answers it once. Option 3's
+parenthetical is Codex stating the consequence plainly, and it is why the
+owner's hooks did not run: the gate had not been answered.
+
+`--dangerously-bypass-hook-trust` would make the hooks fire with no prompt, and
+was **deliberately rejected**. It disarms the review for the whole config file —
+including anything a user later adds to it — on every launch, in whichever
+permission mode; Codex's own wording ("hooks can run outside the sandbox after
+you trust them") shows what the review protects. Answering a security prompt on
+the user's behalf, in the same change that adds `manual_argv` precisely so the
+user's Manual Approve is *not* overridden, would be self-contradictory. The
+expected first-run experience is therefore: the user answers the hook-trust menu
+once per project, and SciStudio's hooks run from then on.
+
+Kimi Code has no hook surface at all: `kimi --help` at 0.33.0 lists none, and
+its config root contains no hook file. The owner asked specifically whether Kimi
+has the same gap — it does not have the gap because it has no mechanism to
+provision, which is a permanent limitation rather than a missing feature.
+
 ### Governance alignment — how the gap was closed (2026-08-06)
 
 This spec was authored as `status: Draft` because the

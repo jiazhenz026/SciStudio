@@ -93,7 +93,45 @@ __all__ = [
     "spawn_user_terminal",
 ]
 
-_PTY_BLOCKED_ENV_VARS = frozenset({"ELECTRON_RUN_AS_NODE"})
+#: Environment variables never handed to a PTY-hosted agent CLI.
+#:
+#: ``ELECTRON_RUN_AS_NODE`` is the original entry: inherited from the desktop
+#: shell it would make a Node-based CLI re-exec as a bare Node process.
+#:
+#: The rest are **agent-session markers** (#1994 finding 1). SciStudio inherits
+#: the environment of whatever launched it, and when the backend is started
+#: from inside an agent CLI session — a developer running it from a Claude Code
+#: or Codex terminal — that parent session's private markers are still in the
+#: environment and get copied wholesale into the CLI we spawn. The child then
+#: believes it is a nested invocation of its own parent and silently degrades:
+#: the owner saw Claude Code announce ``Transcript saving is off — inherited
+#: CLAUDE_CODE_CHILD_SESSION marker``, meaning the spawned agent's conversation
+#: was not being recorded at all.
+#:
+#: The list is explicit rather than a ``CLAUDE_*`` / ``CODEX_*`` prefix sweep,
+#: because those namespaces also hold deliberate user configuration —
+#: ``CLAUDE_CONFIG_DIR`` and ``ANTHROPIC_*`` credentials among them — that the
+#: spawned CLI needs. Only per-session identity and nesting markers belong
+#: here; add a name when a CLI is observed to change behaviour because of it.
+_PTY_BLOCKED_ENV_VARS = frozenset(
+    {
+        "ELECTRON_RUN_AS_NODE",
+        # Claude Code session identity / nesting markers.
+        "CLAUDECODE",
+        "CLAUDE_CODE_CHILD_SESSION",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CLAUDE_CODE_EXECPATH",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_SSE_PORT",
+        "CLAUDE_AGENT_SDK_VERSION",
+        "CLAUDE_PID",
+        "CLAUDE_PLUGIN_DATA",
+        # Codex session identity / sandbox markers.
+        "CODEX_COMPANION_SESSION_ID",
+        "CODEX_SANDBOX",
+        "CODEX_SANDBOX_NETWORK_DISABLED",
+    }
+)
 
 # ADR-034 multi-provider (FR-004): the by-name executable resolver moved into
 # ``providers_registry`` so ``resolve_binary`` can call it without importing
@@ -672,8 +710,8 @@ def spawn_agent(
 
     Argv is assembled in a fixed order::
 
-        <binary> [<system-prompt flag> @<file>] [<mcp argv>] [<bypass argv>]
-                 [-- <prompt>]
+        <binary> [<system-prompt flag> @<file>] [<mcp argv>]
+                 [<bypass argv> | <manual argv>] [-- <prompt>]
 
     The ``--`` end-of-options separator before an AI Block prompt is required,
     not cosmetic (#1789): ``--mcp-config`` is variadic, so without it Claude
@@ -681,6 +719,16 @@ def spawn_agent(
     configuration") and exits. Ordering it after the MCP argv is what makes
     ask mode work, not only bypass mode where the bypass flag happened to
     separate them.
+
+    #1994 changed two things about the tail of that line:
+
+    * The permission fragment is now a *choice*, never an omission. Safe mode
+      appends ``descriptor.manual_argv`` instead of appending nothing, so the
+      CLI cannot fall back to a persisted auto-accept mode behind a user who
+      asked to approve every action.
+    * The prompt fragment is skipped entirely for a provider whose
+      ``prompt_argv_prefix`` is ``None``. Kimi Code has no positional prompt
+      argument, so appending one made it exit 1 before the TUI ever painted.
 
     Parameters
     ----------
@@ -692,8 +740,9 @@ def spawn_agent(
         Absolute project root. Becomes the PTY's working directory and anchors
         every MCP config path.
     dangerous
-        When ``True`` appends ``descriptor.bypass_argv``. Must be a deliberate
-        user opt-in upstream.
+        When ``True`` appends ``descriptor.bypass_argv``; when ``False``
+        appends ``descriptor.manual_argv``. Must be a deliberate user opt-in
+        upstream.
     cols, rows
         Initial viewport.
     extra_env
@@ -730,11 +779,14 @@ def spawn_agent(
         argv = list(_spawn_argv)
     else:
         argv = [_resolve_agent_binary(descriptor), *prompt_argv, *mcp_argv]
-        if dangerous:
-            argv.extend(descriptor.bypass_argv)
+        # #1994 finding 2: state the permission mode in both directions. The
+        # previous ``if dangerous:`` left safe mode flagless, which reads as
+        # "no opinion" to every one of these CLIs and lets a persisted
+        # auto-accept mode win over the user's Manual Approve selection.
+        argv.extend(descriptor.bypass_argv if dangerous else descriptor.manual_argv)
 
     if prompt:
-        argv.extend(["--", prompt])
+        argv.extend(_initial_prompt_argv(descriptor, prompt, argv[0] if argv else ""))
 
     return PtyProcess(
         argv,
@@ -744,6 +796,78 @@ def spawn_agent(
         cleanup_paths=cleanup_paths,
         extra_env=extra_env,
     )
+
+
+#: Windows launcher extensions that are *batch scripts*, not real executables.
+#: ``CreateProcess`` cannot run these directly; it silently re-launches them
+#: through ``cmd.exe``, whose command-line parser ends the command at the first
+#: line feed. Anything after it is discarded before the target program is
+#: reached, so an argument containing a newline arrives truncated.
+_BATCH_LAUNCHER_SUFFIXES = frozenset({".cmd", ".bat"})
+
+
+def _is_batch_launcher(binary: str) -> bool:
+    """Whether *binary* is a Windows batch launcher rather than a real exe.
+
+    Deliberately not gated on ``sys.platform``: a ``.cmd`` argv[0] only ever
+    occurs on Windows, and keying off the resolved name instead of the host
+    keeps the behaviour reproducible on a Linux CI runner.
+    """
+    return Path(binary).suffix.lower() in _BATCH_LAUNCHER_SUFFIXES
+
+
+def _initial_prompt_argv(descriptor: ProviderDescriptor, prompt: str, binary: str) -> list[str]:
+    """Render the trailing ``[-- <prompt>]`` fragment for *descriptor*.
+
+    Two #1994 live-test failures are handled here, both of which produced a
+    launch that looked like SciStudio's fault but was really a mismatch between
+    one fixed argv shape and two very different CLI surfaces.
+
+    **No positional prompt at all.** ``prompt_argv_prefix is None`` means the
+    CLI parses its first positional as a subcommand. Kimi Code does, so
+    ``kimi -- "<task>"`` exits 1 with ``unknown command`` before painting
+    anything. Appending nothing would launch a task-less agent that looks
+    healthy and does nothing, which is worse than the crash, so this raises
+    instead and lets the AI Block surface the descriptor's own explanation.
+
+    **Newline truncation through a batch launcher.** ``codex`` installs from
+    npm as ``codex.cmd``; there is no ``codex.exe`` on PATH (the real binary
+    lives under a hashed ``node_modules`` path). ``CreateProcess`` therefore
+    runs it via ``cmd.exe``, which terminates its command line at the first line
+    feed — so the AI Block's multi-line prompt reached codex cut off after its
+    first line, exactly the ``manifest at:`` cut the owner observed. Claude Code
+    resolves to ``claude.exe`` and was never affected, which is why this looked
+    codex-specific.
+
+    Collapsing the newlines is the only fix available at this layer: cmd.exe has
+    no escape for a literal line feed in a command line, and the real
+    ``codex.exe`` is not at a stable, registry-nameable path. Collapsing keeps
+    every word of the prompt — only the line structure is lost — where the
+    status quo silently dropped most of the text. Providers that resolve to a
+    real executable keep their exact multi-line prompt, so this changes nothing
+    for them.
+    """
+    prefix = descriptor.prompt_argv_prefix
+    if prefix is None:
+        raise ValueError(
+            f"provider {descriptor.key!r} cannot receive an initial prompt on its command line: "
+            f"{descriptor.prompt_unsupported_reason or 'no positional prompt argument.'}"
+        )
+    return [*prefix, _flatten_for_batch_launcher(prompt) if _is_batch_launcher(binary) else prompt]
+
+
+def _flatten_for_batch_launcher(prompt: str) -> str:
+    """Collapse newlines so a ``cmd.exe``-mediated spawn keeps the whole text.
+
+    Every run of CR/LF becomes a single space. Blank-line paragraph breaks and
+    indentation therefore disappear, which is a real loss of readability, and a
+    smaller one than the current behaviour of losing every line but the first.
+
+    ``str.splitlines`` is the splitter on purpose: it covers ``\\r\\n``, bare
+    ``\\r`` and the other control characters a command line cannot carry, so no
+    line terminator survives to reach ``cmd.exe``.
+    """
+    return " ".join(segment.strip() for segment in prompt.splitlines() if segment.strip())
 
 
 def _resolve_agent_binary(descriptor: ProviderDescriptor) -> str:

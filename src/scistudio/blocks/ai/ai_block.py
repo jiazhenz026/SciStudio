@@ -608,6 +608,18 @@ class AIBlock(Block):
                 f"directories. Install the {descriptor.label} CLI yourself, or change "
                 f"the block's provider config to an installed provider."
             )
+        if descriptor.prompt_argv_prefix is None:
+            # #1994 finding 5: an AI Block delivers its task as the agent's
+            # positional prompt argument. A CLI with no positional prompt — Kimi
+            # Code parses its first positional as a subcommand — exits 1 before
+            # painting anything, which is what the owner saw. Refuse at config
+            # time with the registry's own explanation rather than at spawn
+            # time with an opaque PTY exit code, and never launch a task-less
+            # agent that looks healthy and does nothing.
+            raise ValueError(
+                f"AIBlock: provider {provider!r} ({descriptor.label}) cannot run as an AI Block. "
+                f"{descriptor.prompt_unsupported_reason}"
+            )
         prompt = config.get("user_prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("AIBlock: 'user_prompt' must be a non-empty string.")

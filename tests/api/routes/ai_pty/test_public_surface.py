@@ -201,3 +201,91 @@ def test_sub_module_layout_resolves(submodule_name: str, expected_symbol: str) -
     assert hasattr(module, expected_symbol), (
         f"Expected {expected_symbol!r} in scistudio.api.routes.ai_pty.{submodule_name}"
     )
+
+
+# ---------------------------------------------------------------------------
+# #1994 finding 4 — the post-spawn repaint nudge.
+#
+# The owner saw the CLI's bottom input box intermittently missing from a freshly
+# opened codex or Qoder tab, with a single ↓ keypress making it appear: a TUI
+# that drew one frame and is waiting for an event before drawing another. The
+# PTY is created at the size the client asked for, so the frontend's
+# ResizeObserver — which only emits on a *change* — usually never sends a resize
+# frame, and nothing tells the CLI to paint again.
+# ---------------------------------------------------------------------------
+
+
+class _RecordingPty:
+    """Minimal PtyProcess stand-in that records resize calls."""
+
+    def __init__(self, *, alive: bool = True) -> None:
+        self.resizes: list[tuple[int, int]] = []
+        self._alive = alive
+
+    def is_alive(self) -> bool:
+        return self._alive
+
+    def resize(self, *, cols: int, rows: int) -> None:
+        self.resizes.append((cols, rows))
+
+
+def test_repaint_nudge_ends_at_the_clients_real_size(monkeypatch) -> None:
+    """The jiggle provokes a repaint and leaves the viewport exactly as it was.
+
+    Ending anywhere else would be a visible defect of its own: the CLI would
+    keep drawing into a grid one column narrower than the terminal it is
+    rendered in.
+    """
+    import asyncio
+
+    from scistudio.api.routes.ai_pty import websocket as ws_module
+
+    monkeypatch.setattr(ws_module, "_REPAINT_NUDGE_DELAY_S", 0)
+    pty = _RecordingPty()
+
+    asyncio.run(ws_module._nudge_initial_repaint(pty, 120, 30))
+
+    assert pty.resizes == [(119, 30), (120, 30)]
+
+
+def test_repaint_nudge_skips_a_dead_pty(monkeypatch) -> None:
+    """A CLI that already exited must not be resized on its way out."""
+    import asyncio
+
+    from scistudio.api.routes.ai_pty import websocket as ws_module
+
+    monkeypatch.setattr(ws_module, "_REPAINT_NUDGE_DELAY_S", 0)
+    pty = _RecordingPty(alive=False)
+
+    asyncio.run(ws_module._nudge_initial_repaint(pty, 120, 30))
+
+    assert pty.resizes == []
+
+
+def test_repaint_nudge_never_propagates_a_resize_failure(monkeypatch) -> None:
+    """The nudge is cosmetic; it must not be able to take the tab down."""
+    import asyncio
+
+    from scistudio.api.routes.ai_pty import websocket as ws_module
+
+    monkeypatch.setattr(ws_module, "_REPAINT_NUDGE_DELAY_S", 0)
+
+    class _Exploding(_RecordingPty):
+        def resize(self, *, cols: int, rows: int) -> None:
+            raise OSError("winpty backend rejected the resize")
+
+    asyncio.run(ws_module._nudge_initial_repaint(_Exploding(), 120, 30))
+
+
+def test_repaint_nudge_never_collapses_a_one_column_terminal(monkeypatch) -> None:
+    """``cols - 1`` must stay a legal viewport at the minimum width."""
+    import asyncio
+
+    from scistudio.api.routes.ai_pty import websocket as ws_module
+
+    monkeypatch.setattr(ws_module, "_REPAINT_NUDGE_DELAY_S", 0)
+    pty = _RecordingPty()
+
+    asyncio.run(ws_module._nudge_initial_repaint(pty, 1, 24))
+
+    assert all(cols >= 1 for cols, _rows in pty.resizes)

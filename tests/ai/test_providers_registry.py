@@ -370,7 +370,15 @@ def test_prompt_is_positional_after_an_end_of_options_separator(
     tmp_path: Path,
     descriptor: ProviderDescriptor,
 ) -> None:
-    """#1789: the AI Block prompt is the agent's positional argument."""
+    """#1789: the AI Block prompt is the agent's positional argument.
+
+    #1994 narrowed the claim to the providers that *have* a positional prompt.
+    Kimi Code does not — its first positional is parsed as a subcommand, so
+    appending one made it exit 1 — and it now declares that in the registry
+    instead of being handed an argument it cannot parse.
+    """
+    if descriptor.prompt_argv_prefix is None:
+        pytest.skip(f"{descriptor.key} has no positional prompt: {descriptor.prompt_unsupported_reason}")
     argv = _spawn_argv(monkeypatch, descriptor, tmp_path, prompt="do the task")
     assert argv[-2:] == ["--", "do the task"]
     if descriptor.mcp.strategy is McpStrategy.FLAG and descriptor.mcp.flag:

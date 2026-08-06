@@ -7,7 +7,7 @@ import tomllib
 from pathlib import Path
 
 from scistudio.agent_provisioning import codex_config as _cc
-from scistudio.agent_provisioning.codex_config import write_codex_config
+from scistudio.agent_provisioning.codex_config import _toml_escape, write_codex_config
 from scistudio.agent_provisioning.hooks import _HOOK_FILES, _build_settings_json
 
 
@@ -171,7 +171,11 @@ def test_existing_codex_config_upgrades_legacy_python_hook_command(tmp_project_d
 
     assert written == [".codex/config.toml"]
     upgraded = target.read_text(encoding="utf-8")
-    assert sys.executable in upgraded
+    # The interpreter path is embedded in a TOML basic string, so its
+    # backslashes are escaped. Asserting on ``sys.executable`` raw passed only
+    # on POSIX, where the path has none, and failed on every Windows run — the
+    # platform where the upgrade actually matters (#1994).
+    assert _toml_escape(sys.executable) in upgraded
     assert 'command = "python \\"$(git rev-parse' not in upgraded
 
 
