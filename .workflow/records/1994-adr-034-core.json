@@ -1,0 +1,86 @@
+{
+  "branch": "feat/1994-adr-034/core",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/**",
+      "tests/ai/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-06T07:13:24.485236Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "A8 owns every ADR-034 doc surface in this multi-agent dispatch (dispatch prompts section A8). The docs tree is outside agent A1 CORE's declared file scope, so this branch lands code and tests only; the ADR-034 addendum, embedded-agent spec note, and SKILL.md update land on A8's branch.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1994,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-034 A1 CORE: create the provider registry (T-001), make Windows/off-PATH binary discovery descriptor-driven with exact-name matching (T-002), replace spawn_claude/spawn_codex with one descriptor-driven spawn_agent (T-003), and implement the three MCP injection strategies including a merge-preserving atomic write for provider-owned config files (T-004).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1994-adr-034-core",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T07:13:24.485202Z",
+      "pattern": "src/scistudio/ai/agent/providers_registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T07:13:24.485223Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "9625bb2e-55e0-4f5e-89c4-267714620eda",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-06T07:13:24.485244Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_providers_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-06T07:13:24.485248Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_windows_executable_resolution.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
