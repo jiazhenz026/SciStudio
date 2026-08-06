@@ -1,0 +1,696 @@
+{
+  "branch": "guided/personal-tool-library-spec",
+  "check_events": [
+    {
+      "at": "2026-08-06T22:37:47.794201Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T22:37:58.019612Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T22:37:58.089441Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T22:43:34.160296Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T22:43:39.967172Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T22:46:44.720045Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/specs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-06T22:33:51.950942Z",
+      "owner_directive": "Personal tool library spec covers #1995 + #1996 + #1997. Previewers stay project-level only, no user tier. Block origin must distinguish user vs project. A write path to the user library must exist. The drop-in import defect is a bug and is fixed in this same spec rather than split out. Tips strip (#1997) moves to the Learning Center spec because it is part of learning.",
+      "reason": "Owner scoped the personal tool library spec across several live directives; recording them before authoring"
+    },
+    {
+      "at": "2026-08-06T22:34:00.872216Z",
+      "owner_directive": "Add a GUI entry for creating a new data type with a template, mirroring New custom block. Types must also support Save to My Library. Promotion must cascade: promoting a block carries the project-level types it depends on. Add a fourth entry point \u2014 when creating new, ask whether to save into the library or the project. Add a fifth \u2014 a Save to My Library button in the palette hover popover (preferred over a right-click menu).",
+      "reason": "Owner added GUI creation, a fourth and fifth promotion entry point, and cascade promotion"
+    },
+    {
+      "at": "2026-08-06T22:34:07.748528Z",
+      "owner_directive": "Rename the palette to Blocks and add a third tab, Types, between Blocks and Project. The Types tab mirrors the Blocks tab: search, filter chips, core pinned to the top, then library, project, package tiers. Every type gets a colour and a hover popover, using the same colours as canvas ports \u2014 solid fill plus ring. Implement types independently, modelled on the block implementation, and extract shared helpers wherever possible to prevent the two from drifting apart.",
+      "reason": "Owner specified the Types tab and the shared-helper requirement"
+    },
+    {
+      "at": "2026-08-06T22:37:17.254153Z",
+      "owner_directive": "Write the personal tool library spec in full",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-06T22:38:58.455714Z",
+      "owner_directive": "Rename the tab to Data types; 'Type' alone is too abstract. The type hover popover must show description, parent class, and which file extensions the type supports. Add a colour field for types in core, mirroring how blocks declare theirs, so users can set a custom colour instead of relying on the frontend hash fallback.",
+      "reason": "Owner refined the Types tab naming, popover contents, and asked for a backend-declared type colour"
+    },
+    {
+      "at": "2026-08-06T22:57:23.549640Z",
+      "owner_directive": "Investigate whether block and type registration, consumption, loading and saving paths are fully consistent under the new spec, and fold the findings into this spec rather than opening a separate one.",
+      "reason": "Investigation found three uncovered asymmetries between block and type lifecycles; owner directed folding them into this spec"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-06T22:37:17.254181Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-06T22:37:58.122913Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.136179Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.148639Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.161446Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing",
+          "line": null,
+          "message": "at least one linked issue is required",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-06T22:37:58.174744Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.192939Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.205826Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.219538Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.233224Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:37:58.247167Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.204416Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.219155Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.232800Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.246468Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing",
+          "line": null,
+          "message": "at least one linked issue is required",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-06T22:43:34.259558Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.272238Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.284602Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.298337Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.312023Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:34.325220Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.014138Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.029089Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.046009Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.060986Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing",
+          "line": null,
+          "message": "at least one linked issue is required",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-06T22:43:40.075192Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.090663Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.104246Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.117877Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.131176Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:43:40.146379Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.751283Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.763979Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.776160Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.788403Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing",
+          "line": null,
+          "message": "at least one linked issue is required",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-06T22:46:44.800823Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.812990Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.830426Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.842863Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.855330Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T22:46:44.867555Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.504564Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.517705Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.530560Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.543068Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.555430Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.573372Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.586656Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.600532Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.616314Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:00:33.629583Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2007,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "6579d9ce",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "6579d9ce",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Discuss ADR-053 in depth and write the specs it needs: one Learning Center system spec, one spec per tutorial scenario, and one spec each for the personal tool library and codebase import. Start with the personal tool library spec. Owner designs and controls scope; agent verifies facts.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-06T22:37:58.247201Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-08-06T22:43:34.325253Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-08-06T22:43:40.146414Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-08-06T22:46:44.867586Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-08-06T23:00:33.629626Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "guided-personal-tool-library-spec-guided-personal-tool-library-spec",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:33:51.950968Z",
+      "pattern": "docs/specs/**",
+      "reason": "Owner scoped the personal tool library spec across several live directives; recording them before authoring"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:34:00.872235Z",
+      "pattern": "docs/specs/**",
+      "reason": "Owner added GUI creation, a fourth and fifth promotion entry point, and cascade promotion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:34:07.748544Z",
+      "pattern": "docs/specs/**",
+      "reason": "Owner specified the Types tab and the shared-helper requirement"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:37:17.254171Z",
+      "pattern": "docs/specs/adr-053-personal-tool-library.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "a54d697a-9ea3-43a2-b597-ac3e527aed9d",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-06T22:37:17.254193Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Docs-only PR. This spec authors a design contract; no runtime code changes. Tests are declared in the spec's test plan and land with the implementing issues.",
+      "verified_in_diff": null
+    }
+  ]
+}
