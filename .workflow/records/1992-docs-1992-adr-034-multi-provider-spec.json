@@ -1,0 +1,77 @@
+{
+  "branch": "docs/1992-adr-034-multi-provider-spec",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/specs/adr-034-multi-provider-agent-chat.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-06T05:44:21.071493Z",
+      "owner_directive": "Spec-only PR: add docs/specs/adr-034-multi-provider-agent-chat.md. No code changes.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-06T05:44:21.071529Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1992,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner: write a standardized ADR-034 spec for multi-provider agent chat (Kimi Code + Qoder international/CN), covering registry, AI Block, and GUI changes; then submit it as a PR.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1992-docs-1992-adr-034-multi-provider-spec",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T05:44:21.071516Z",
+      "pattern": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "3b528084-86ee-4f0c-900b-ac8886bbafc7",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-08-06T05:44:21.071542Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Spec-authoring only; no source, schema, or runtime behavior changes in this PR. Implementation and its tests are tracked separately per the spec's section 4.3 sequence.",
+      "verified_in_diff": null
+    }
+  ]
+}
