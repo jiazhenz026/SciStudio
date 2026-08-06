@@ -216,6 +216,21 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T23:53:02.414421Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -378,6 +393,66 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.472414Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.487364Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.502887Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.518575Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.533450Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.549109Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.563791Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.577535Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.591107Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T23:53:02.605732Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -391,29 +466,21 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "track/adr-034-multi-provider",
-    "base_sha": "f5e8e570",
-    "changed_files": [
-      ".workflow/records/1994-terminal-clipboard-ux.json",
-      "frontend/src/components/AIChat/TerminalView.parts/TerminalContextMenu.tsx",
-      "frontend/src/components/AIChat/TerminalView.parts/clipboard.ts",
-      "frontend/src/components/AIChat/TerminalView.parts/useTerminalClipboard.ts",
-      "frontend/src/components/AIChat/TerminalView.tsx",
-      "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
-      "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx"
-    ],
-    "diff_fingerprint": "sha256:c015c0c78f7de42d13702011955b3281fd5ffbe6f0a4d2c1b7b9d564dd1b52a6",
+    "base_sha": "e81a05db",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "head": "HEAD",
-    "head_sha": "95593844",
+    "head_sha": "e81a05db",
     "surfaces": {
       "docs": 0,
-      "frontend": 6,
+      "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 6,
-      "test": 2,
+      "sentrux": 0,
+      "test": 0,
       "workflow_ci": 0
     }
   },
@@ -441,6 +508,16 @@
         "checks.python_tests",
         "scope.out-of-scope"
       ]
+    },
+    {
+      "at": "2026-08-06T23:53:02.605776Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "1994-terminal-clipboard-ux",
@@ -451,7 +528,6 @@
       "architecture_tests",
       "deferral_discipline",
       "format_check",
-      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -459,9 +535,7 @@
       "semantic_dup",
       "type_check"
     ],
-    "docs": [
-      "docs_required_or_na"
-    ],
+    "docs": [],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -474,9 +548,7 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": [
-      "changed_test_required"
-    ]
+    "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -504,6 +576,12 @@
       "at": "2026-08-06T21:58:14.444395Z",
       "pattern": "frontend/src/components/AIChat/TerminalView.parts/useTerminalClipboard.ts",
       "reason": "eslint max-lines-per-function (400) forced the clipboard state/handlers out of TerminalView into a dedicated hook; declaring the extra parts file"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T23:51:01.026009Z",
+      "pattern": "frontend/src/components/AIChat/TerminalView.parts/useTerminalScrollHint.ts",
+      "reason": "owner: the missing-input-box repaint defect still occurs intermittently; surface the recovery instead of leaving the user to discover it"
     }
   ],
   "session_id": "2b6e921e-bdac-4795-bc2a-796c41cded9f",
@@ -523,6 +601,22 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-06T23:51:01.026031Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalView.scrollHint.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-06T23:51:01.026036Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/xtermScrollContract.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
