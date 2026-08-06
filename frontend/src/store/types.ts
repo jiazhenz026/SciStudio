@@ -410,7 +410,99 @@ export interface PaletteSlice {
  * transitions and remain interactive.
  */
 export type AiBlockStatus = "running" | "paused" | "done" | "error" | "cancelled";
-export type TerminalProvider = "claude-code" | "codex" | "user-terminal";
+
+/**
+ * ADR-034 FR-020 / FR-020a — the single frontend declaration of a provider key.
+ *
+ * Every consumer imports from here. `SetupScreen.parts/types.ts` re-exports
+ * these names; nothing redeclares them.
+ *
+ * Agent provider keys (`claude-code`, `codex`, `kimi-code`, `qoder`, `qoder-cn`,
+ * …) are deliberately NOT a hand-maintained TypeScript literal union. The
+ * backend provider registry is the only place the supported set is declared; a
+ * literal union here would have to be edited for every new provider, which
+ * reintroduces exactly the duplication FR-001 removes and breaks the
+ * registry-only extension path of User Story 7 (ADR-034 §4.1). Agent keys are
+ * therefore opaque strings, validated at runtime against the
+ * `GET /api/ai/status` payload — see `isKnownAgentProvider`. The accepted
+ * tradeoff, recorded in the spec, is that agent keys lose compile-time
+ * exhaustiveness checking in TypeScript.
+ *
+ * For the same reason there is no frontend label map: display labels arrive on
+ * the status payload as `ProviderStatus.label` (FR-020b).
+ *
+ * `user-terminal` is the one exception and keeps a named literal type, because
+ * the frontend branches on it to route between the chat surface and the
+ * terminal surface. Branch sites compare against `USER_TERMINAL_PROVIDER` (or
+ * call `isUserTerminalProvider`) so a misspelling is a compile error rather
+ * than a silently dead branch.
+ */
+export const USER_TERMINAL_PROVIDER = "user-terminal";
+
+/** The pseudo-provider the frontend branches on for surface routing. */
+export type UserTerminalProvider = typeof USER_TERMINAL_PROVIDER;
+
+/**
+ * An agent provider key. Opaque by design (FR-020a) — validate at runtime with
+ * `isKnownAgentProvider` against the status payload rather than reaching for a
+ * literal union.
+ */
+export type AgentProviderKey = string;
+
+/** Any provider key a terminal tab can carry: an agent key or `user-terminal`. */
+export type TerminalProvider = UserTerminalProvider | AgentProviderKey;
+
+/**
+ * ADR-034 FR-020b — a single `GET /api/ai/status` entry.
+ *
+ * The backend emits one entry per agent provider, in registry order.
+ * `user-terminal` is not an agent provider and never appears here.
+ */
+export interface ProviderStatus {
+  name: TerminalProvider;
+  available: boolean;
+  version: string | null;
+  logged_in: boolean;
+  /** Backend-supplied display label. The frontend never maps keys to labels. */
+  label: string;
+}
+
+export interface AiStatusResponse {
+  providers: ProviderStatus[];
+}
+
+/** Type guard for the `user-terminal` pseudo-provider. */
+export function isUserTerminalProvider(value: unknown): value is UserTerminalProvider {
+  return value === USER_TERMINAL_PROVIDER;
+}
+
+/**
+ * Shape validation for a provider key that arrived over the wire.
+ *
+ * Used where no status payload is on hand (e.g. the `block_pty_opened` frame).
+ * A key that fails this check is an error at the call site — never a reason to
+ * substitute a default provider (FR-020c).
+ */
+export function isTerminalProviderKey(value: unknown): value is TerminalProvider {
+  return typeof value === "string" && value.length > 0;
+}
+
+/**
+ * ADR-034 FR-020a — runtime membership validation of an agent provider key
+ * against the `GET /api/ai/status` payload.
+ *
+ * This is the replacement for the literal union: the authoritative set of agent
+ * keys is whatever the backend registry reported, so adding a provider needs no
+ * frontend edit. `user-terminal` is rejected because it is not an agent
+ * provider and is never listed by the status endpoint.
+ */
+export function isKnownAgentProvider(
+  value: unknown,
+  providers: readonly Pick<ProviderStatus, "name">[] | null | undefined,
+): value is AgentProviderKey {
+  if (!isTerminalProviderKey(value) || isUserTerminalProvider(value)) return false;
+  return (providers ?? []).some((p) => p.name === value);
+}
 
 export interface TerminalTab {
   id: string;
@@ -472,6 +564,12 @@ export interface TerminalTabsSlice {
     title: string;
     blockRunId: string;
     permissionMode: "safe" | "dangerous";
+    /**
+     * ADR-034 FR-020c / FR-022 — the provider the engine actually spawned,
+     * forwarded from the `block_pty_opened` frame. Required: the store must
+     * never guess or default a provider onto an engine-initiated tab.
+     */
+    provider: TerminalProvider;
   }) => void;
   /**
    * ADR-035 §3.9 — update the AI Block status for a tab. No-op if the tab

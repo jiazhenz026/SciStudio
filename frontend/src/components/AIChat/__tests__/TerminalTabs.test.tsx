@@ -204,6 +204,7 @@ describe("TerminalTabs", () => {
           block_run_id: "run-1",
           block_name: "extract_metadata",
           permission_mode: "safe",
+          provider: "kimi-code",
         });
       });
       const tabs = useAppStore.getState().terminalTabs;
@@ -214,6 +215,9 @@ describe("TerminalTabs", () => {
       expect(tabs[0].blockStatus).toBe("paused");
       expect(tabs[0].blockRunId).toBe("run-1");
       expect(tabs[0].title).toBe("🤖 extract_metadata");
+      // ADR-034 FR-022: the tab records the provider the engine reported, not
+      // the former hardcoded "claude-code".
+      expect(tabs[0].provider).toBe("kimi-code");
     });
 
     it("handleBlockPtyOpened sets the new tab as active", async () => {
@@ -228,11 +232,13 @@ describe("TerminalTabs", () => {
           block_run_id: "run-2",
           block_name: "extract",
           permission_mode: "bypass",
+          provider: "qoder",
         });
       });
       expect(useAppStore.getState().activeTerminalTabId).toBe("blk-2");
       const blkTab = useAppStore.getState().terminalTabs.find((t) => t.id === "blk-2");
       expect(blkTab?.permissionMode).toBe("dangerous");
+      expect(blkTab?.provider).toBe("qoder");
     });
 
     it("handleBlockPtyOpened is idempotent on tab_id", async () => {
@@ -242,11 +248,13 @@ describe("TerminalTabs", () => {
           tab_id: "blk-3",
           block_run_id: "run-3",
           block_name: "x",
+          provider: "codex",
         });
         handleBlockPtyOpened({
           tab_id: "blk-3",
           block_run_id: "run-3",
           block_name: "x",
+          provider: "codex",
         });
       });
       expect(useAppStore.getState().terminalTabs.filter((t) => t.id === "blk-3").length).toBe(1);
@@ -259,6 +267,7 @@ describe("TerminalTabs", () => {
           tab_id: "blk-4",
           block_run_id: "run-4",
           block_name: "x",
+          provider: "kimi-code",
         });
       });
       act(() => {
@@ -275,6 +284,7 @@ describe("TerminalTabs", () => {
           tab_id: "blk-5",
           block_run_id: "run-5",
           block_name: "x",
+          provider: "qoder-cn",
         });
       });
       act(() => {
@@ -292,6 +302,7 @@ describe("TerminalTabs", () => {
           tab_id: "blk-6",
           block_run_id: "run-6",
           block_name: "x",
+          provider: "claude-code",
         });
       });
       act(() => {
@@ -320,6 +331,7 @@ describe("TerminalTabs", () => {
         handleBlockPtyOpened({
           tab_id: "",
           block_run_id: "run-x",
+          provider: "claude-code",
         });
       });
       expect(warnSpy).toHaveBeenCalled();
@@ -337,6 +349,7 @@ describe("TerminalTabs", () => {
           tab_id: "blk-confirm",
           block_run_id: "run-confirm",
           block_name: "x",
+          provider: "claude-code",
         });
       });
       // Click close on the AI Block tab.

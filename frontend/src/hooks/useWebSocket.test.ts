@@ -382,6 +382,10 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       block_run_id: "rid-bp",
       title: "🤖 demo",
       permission_mode: "bypass",
+      // ADR-034 FR-020c: `provider` is part of the frame contract now. A
+      // non-default key here also proves this route does not fall back to
+      // "claude-code".
+      provider: "kimi-code",
       timestamp: "2026-05-14T00:00:00Z",
     });
 
@@ -389,6 +393,7 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       expect.objectContaining({
         tabId: "tab-bp",
         permissionMode: "dangerous",
+        provider: "kimi-code",
       }),
     );
   });
