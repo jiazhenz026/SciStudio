@@ -266,7 +266,29 @@ Append only.
 | 2026-08-06 | A4 FE-CONTRACT | Typing `provider` as required on the `block_pty_opened` payload broke nine `handleBlockPtyOpened` call sites in `TerminalTabs.test.tsx` and one wire fixture in `useWebSocket.test.ts`, neither of which was in A4's declared write set. | Accepted. A4 amended its ledger before editing and reported the deviation unprompted. The alternative was an optional `provider` field, which would weaken the contract exactly where FR-020c is strictest. Neither file is owned by another agent. A6 is told A4 already touched `TerminalTabs.test.tsx`. | N/A |
 | 2026-08-06 | A4 FE-CONTRACT | A4 left `export type ProviderName = TerminalProvider` in `SetupScreen.parts/types.ts` as a transitional alias so the not-yet-migrated Setup components would compile. The owner forbade leaving temporary solutions in delivered work. | Accepted as in-dispatch scaffolding only. Deleting it is an explicit hard obligation in the A5 prompt, and the manager verifies its absence before the final PR rather than trusting the report. | N/A, must close in A5 |
 | 2026-08-06 | manager | FR-020a makes agent provider keys opaque strings, so the Setup screen's hardcoded two-provider picker now compiles cleanly instead of failing type check. An A5 under-delivery would be silent rather than loud. | A5's acceptance criteria are written as assertions it must add, and A7 owns the independent guard that no hand-maintained agent provider key or label list survives in frontend source. Manager greps for it at integration. | N/A |
+| 2026-08-06 | A2 API | FR-005 changed `_binary_status` from taking a binary name to taking a descriptor, which broke `tests/ai/test_windows_executable_resolution.py::test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper`. That file is A1's, so A2 stopped rather than editing it. | Manager reproduced the failure (`AttributeError: 'str' object has no attribute 'well_known_directories'`) and diffed A2's replacement test against the doomed one: same npm shim, same `.cmd`-over-bare-wrapper assertion, same probe argv. Coverage is ported, not dropped. Amended A2's scope for that one test. Principle applied consistently with the A1 ruling: a test follows the function under test, not the file it happens to live in. | N/A, closed on rework |
+| 2026-08-06 | manager | `spawn_claude` / `spawn_codex` are dead as production code once A2's `_PROVIDER_SPAWNERS` lands, but they still live in `terminal.py` carrying `TODO(#1994)`, and A1's test at `tests/ai/test_windows_executable_resolution.py:354` still parametrises over them. Left unmanaged this becomes exactly the leftover temporary solution the owner forbade. | Tracked as a mandatory close-out below rather than left to a later agent's discretion. Sequenced after A3 lands, because A3's files still carry prose references and removing the shims mid-flight risks a merge-time break. Handed back to A1, which owns `terminal.py`. | Must close before the final PR |
 | 2026-08-06 | manager | Umbrella PR could not exist before the first planning commit, so the dispatch matrix was authored before the PR number was known. | Open the umbrella PR immediately after the planning commit, then update section 1 and the Manager Preflight rows before dispatching any agent. | N/A |
+
+## 9.1 Mandatory Close-Outs
+
+These are in-dispatch scaffolding, not accepted debt. Each must be closed before the
+final PR, and the manager verifies each one directly rather than accepting an agent's
+report.
+
+- [ ] `export type ProviderName = TerminalProvider` deleted from
+      `frontend/src/components/AIChat/SetupScreen.parts/types.ts`. Left by A4 so the
+      not-yet-migrated Setup components would compile; A5 owns the deletion.
+      Verify: `grep -rn "ProviderName" frontend/src` returns nothing.
+- [ ] `spawn_claude` and `spawn_codex` removed from `src/scistudio/ai/agent/terminal.py`,
+      and A1's parametrisation at `tests/ai/test_windows_executable_resolution.py:354`
+      retargeted to `spawn_agent`. Sequenced after A3 lands; handed back to A1.
+      Verify: `grep -rn "spawn_claude\|spawn_codex" src tests` returns nothing.
+- [ ] No `TODO(#1994)` survives in the delivered diff, since every one of them marks
+      in-dispatch sequencing rather than genuinely deferred work.
+      Verify: `grep -rn "TODO(#1994)" src frontend tests` returns nothing.
+- [ ] No hand-maintained list of agent provider keys or labels survives in frontend
+      source. A7 owns the guard; the manager greps independently at integration.
 
 ## 10. Final Readiness
 
