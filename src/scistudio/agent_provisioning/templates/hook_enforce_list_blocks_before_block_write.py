@@ -47,11 +47,33 @@ _MESSAGE = (
 
 
 def _read_payload() -> dict:
-    try:
-        raw = sys.stdin.read()
-    except OSError:
+    """Read the hook payload, degrading to ``{}`` instead of ever crashing.
+
+    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    no usable stdin, Python sets ``sys.stdin`` to ``None``, so
+    ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
+    hook died with **exit 1** before evaluating anything, which the CLI reports
+    as a failed hook and then proceeds, so the guard silently did not guard.
+    It reproduced identically for all seven hooks, because they all share this
+    function.
+
+    An unreadable payload is indistinguishable from an empty one: in both cases
+    the hook cannot tell what the agent is about to do. It returns ``{}`` and
+    the caller allows the call, which is the behaviour an empty payload already
+    had — and blocking every tool call on a stdin quirk would be far worse than
+    the exposure it removes. ``BaseException`` is deliberately not caught; only
+    the ways reading a missing or closed stream can fail.
+    """
+    stream = sys.stdin
+    if stream is None:
         return {}
-    if not raw.strip():
+    try:
+        raw = stream.read()
+    except (OSError, ValueError, AttributeError):
+        # ValueError: reading a closed file. AttributeError: a replaced stdin
+        # that is not a stream at all.
+        return {}
+    if not isinstance(raw, str) or not raw.strip():
         return {}
     try:
         data = json.loads(raw)

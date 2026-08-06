@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scistudio.agent_provisioning import codex_config as _cc
 from scistudio.agent_provisioning.codex_config import _toml_escape, write_codex_config
-from scistudio.agent_provisioning.hooks import _HOOK_FILES, _build_settings_json
+from scistudio.agent_provisioning.hooks import _HOOK_FILES, _build_settings_json, hook_interpreter
 
 
 def test_every_provisioned_hook_is_wired_for_both_providers() -> None:
@@ -137,8 +137,11 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
                 # #1994: separator-agnostic for the same reason as above — the
                 # command now spells paths with forward slashes so one string
                 # parses in cmd.exe, PowerShell and sh alike.
-                assert sys.executable.replace("\\", "/") in cmd.replace("\\", "/"), (
-                    f"hook command should pin SciStudio Python, got: {cmd!r}"
+                # #1994: pinned to hook_interpreter(), the stable base
+                # interpreter, rather than whichever one ran provisioning —
+                # the owner's was a disposable gate venv.
+                assert hook_interpreter().replace("\\", "/") in cmd.replace("\\", "/"), (
+                    f"hook command should pin a stable Python, got: {cmd!r}"
                 )
         return names
 
@@ -190,7 +193,7 @@ def test_existing_codex_config_upgrades_legacy_python_hook_command(tmp_project_d
     # upgrade actually matters. It is now compared the way the upgraded command
     # actually spells a path: forward slashes, so one command string parses in
     # cmd.exe, PowerShell and sh alike.
-    assert sys.executable.replace("\\", "/") in upgraded.replace("\\\\", "/").replace("\\", "/")
+    assert hook_interpreter().replace("\\", "/") in upgraded.replace("\\\\", "/").replace("\\", "/")
     assert "$(git rev-parse" not in upgraded, "the POSIX-only substitution survived the upgrade"
 
 
