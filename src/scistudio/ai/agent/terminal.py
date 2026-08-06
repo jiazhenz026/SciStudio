@@ -75,7 +75,6 @@ from pathlib import Path
 from typing import Any
 
 from scistudio.ai.agent.providers_registry import (
-    REGISTRY,
     McpStrategy,
     ProviderDescriptor,
     ProviderKind,
@@ -91,8 +90,6 @@ __all__ = [
     "PtyProcess",
     "resolve_windows_executable",
     "spawn_agent",
-    "spawn_claude",
-    "spawn_codex",
     "spawn_user_terminal",
 ]
 
@@ -757,28 +754,6 @@ def _mcp_argv(descriptor: ProviderDescriptor, project_dir: Path) -> list[str]:
 # which stays registry-derived and needs no edit for a sixth provider (FR-006).
 
 
-def spawn_claude(**kwargs: Any) -> PtyProcess:
-    """Deprecated alias for ``spawn_agent(REGISTRY.get("claude-code"), …)``.
-
-    Zero branching: a registry lookup and a delegation, nothing more.
-
-    TODO(#1994): remove once ``_PROVIDER_SPAWNERS`` in
-    ``scistudio.api.routes.ai_pty._state`` is derived from the registry
-    (ADR-034 spec T-005). Kept only because that module still imports this name
-    by hand and it is outside this change's file scope; the spec's direction is
-    removal, not a permanent shim.
-    """
-    return spawn_agent(REGISTRY.get("claude-code"), **kwargs)
-
-
-def spawn_codex(**kwargs: Any) -> PtyProcess:
-    """Deprecated alias for ``spawn_agent(REGISTRY.get("codex"), …)``.
-
-    See :func:`spawn_claude` for why this still exists. TODO(#1994).
-    """
-    return spawn_agent(REGISTRY.get("codex"), **kwargs)
-
-
 def spawn_user_terminal(
     *,
     project_dir: Path,
@@ -842,8 +817,8 @@ def _codex_mcp_config_overrides(project_dir: Path) -> list[str]:
     Codex project-scope config loading has changed across 2026 CLI builds,
     and stale user-scope config can point at the wrong Python interpreter.
     The embedded SciStudio chat owns the process spawn, so pass the current
-    project MCP entry explicitly just like ``spawn_claude`` passes
-    ``--mcp-config``.
+    project MCP entry explicitly, just as the :attr:`McpStrategy.FLAG`
+    providers pass ``--mcp-config``.
     """
     from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
 
