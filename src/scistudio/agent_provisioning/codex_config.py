@@ -38,6 +38,8 @@ import os
 import sys
 from pathlib import Path
 
+from scistudio.agent_provisioning.hooks import hook_interpreter
+
 _TARGET_REL = ".codex/config.toml"
 
 # Codex 0.130 emits the user's shell-tool calls under the ``Bash`` tool
@@ -131,7 +133,7 @@ def _render_hook_command(project_dir: Path, script_name: str) -> str:
     ``SCISTUDIO_PROJECT_DIR`` and the interpreter, so a moved project already
     needed re-provisioning — which happens on project open.
     """
-    return f"{_shell_word(sys.executable)} {_shell_word(_hook_script_path(project_dir, script_name))}"
+    return f"{_shell_word(hook_interpreter())} {_shell_word(_hook_script_path(project_dir, script_name))}"
 
 
 def _quote_shell_path(path: str | Path) -> str:

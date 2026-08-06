@@ -51,7 +51,11 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     # Every entry references a python interpreter and a hook script path.
     for entry in pre + post:
         cmd = entry["hooks"][0]["command"]
-        assert sys.executable in cmd
+        # #1994: the pinned interpreter is now hook_interpreter(), not
+        # sys.executable. They differ when provisioning runs inside a
+        # virtualenv, which is precisely the case that shipped a dead
+        # command pointing into a disposable scratch venv.
+        assert hook_interpreter() in cmd
         assert "$CLAUDE_PROJECT_DIR" in cmd
         assert ".claude/hooks/" in cmd
 
@@ -184,7 +188,9 @@ def test_write_hooks_upgrades_legacy_python_commands(tmp_project_dir: Path) -> N
     assert ".claude/settings.json" in written
     data = json.loads(settings_path.read_text(encoding="utf-8"))
     cmd = data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-    assert cmd.startswith(f'"{sys.executable}" ')
+    # #1994: pinned to the stable base interpreter rather than whichever
+    # one happened to run provisioning.
+    assert cmd.startswith(f'"{hook_interpreter()}" ')
     assert 'python "$CLAUDE_PROJECT_DIR' not in cmd
     assert data["hooks"]["_custom"] == "user-added"
 
@@ -713,3 +719,114 @@ def test_existing_qoder_settings_are_topped_up_not_clobbered(tmp_project_dir: Pa
     assert "my-own-hook" in raw
     for name in _HOOK_NAMES:
         assert name in raw
+
+
+# ---------------------------------------------------------------------------
+# #1994 — the hook must RUN, not merely be well-formed.
+#
+# After the command-line fix Codex finally invoked the hooks, and all three
+# died with `hook exited with code 1` before evaluating anything. Two separate
+# causes, both invisible to a test that only inspects strings:
+#
+#   1. Every hook read stdin through a `_read_payload` that guarded only
+#      OSError. A CLI that starts a hook with no usable stdin leaves
+#      `sys.stdin is None`, so `sys.stdin.read()` raised AttributeError and the
+#      process exited 1. A failed PreToolUse hook does not block, so the guard
+#      silently stopped guarding.
+#   2. The interpreter was captured from `sys.executable` at provisioning time,
+#      which on the owner's machine was the gate's disposable parity venv.
+# ---------------------------------------------------------------------------
+
+from scistudio.agent_provisioning.hooks import hook_interpreter  # noqa: E402
+
+_BLOCKING_PAYLOAD = json.dumps(
+    {"session_id": "t", "cwd": ".", "tool_name": "Bash", "tool_input": {"command": "scistudio run wf.yaml"}}
+)
+
+
+def _deny_hook(project_dir: Path) -> Path:
+    return project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+
+
+def test_hook_interpreter_exists_and_is_executable(tmp_project_dir: Path) -> None:
+    """The interpreter baked into every hook command must actually run.
+
+    A path that merely looks plausible is what shipped: it pointed into a
+    scratch venv. Executing it is the only assertion that can tell the
+    difference.
+    """
+    interpreter = hook_interpreter()
+
+    assert Path(interpreter).is_file(), f"hook interpreter does not exist: {interpreter}"
+    result = subprocess.run([interpreter, "-c", "print('ok')"], capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, f"hook interpreter failed to run: {interpreter}\n{result.stderr}"
+
+
+def test_hook_interpreter_is_not_a_disposable_virtualenv() -> None:
+    """Prefer the base installation the venv was built from.
+
+    The hook scripts import only the standard library, so a venv buys them
+    nothing, while the venv itself is the part that gets deleted — the owner's
+    was ``.workflow/local/venv``, created by the gate and built to be thrown
+    away.
+    """
+    if sys.prefix == sys.base_prefix:
+        pytest.skip("not running inside a virtualenv; sys.executable is already the stable choice")
+
+    assert hook_interpreter() != sys.executable
+    assert Path(hook_interpreter()).is_file()
+
+
+def test_generated_hook_blocks_a_scistudio_call(tmp_project_dir: Path) -> None:
+    """End-to-end through the real interpreter: a blocked call exits 2.
+
+    Exercises interpreter, script and payload together, which is what the
+    reported defect broke and what no string comparison could have caught.
+    """
+    write_hooks(tmp_project_dir, force=True)
+
+    result = subprocess.run(
+        [hook_interpreter(), str(_deny_hook(tmp_project_dir))],
+        input=_BLOCKING_PAYLOAD,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 2, f"expected the hook to block (exit 2), got {result.returncode}: {result.stderr}"
+    assert "mcp__scistudio__" in result.stderr
+
+
+@pytest.mark.parametrize("script", _HOOK_NAMES)
+def test_hook_never_exits_one_when_stdin_is_unusable(script: str, tmp_project_dir: Path) -> None:
+    """No hook may crash because its payload could not be read.
+
+    ``stdin=DEVNULL`` stands in for the condition the owner hit: the hook is
+    started without a readable payload stream. Before the fix every one of the
+    seven raised ``AttributeError`` on ``sys.stdin.read()`` and exited 1, which
+    the CLI surfaced as a failed hook and then ignored — so the protection was
+    silently absent rather than loudly broken.
+
+    Exit 1 is the specific assertion: 0 (allow) and 2 (block) are both
+    legitimate answers, and 1 means the hook never reached an answer at all.
+    """
+    write_hooks(tmp_project_dir, force=True)
+    target = tmp_project_dir / ".claude" / "hooks" / script
+
+    # ``stdin=DEVNULL`` is NOT the failing condition: that still hands the hook
+    # a real stream which simply reads EOF, and the old code coped with it. The
+    # condition the owner hit is a *missing* stdin handle, where Python sets
+    # ``sys.stdin`` to None — reproduced here by running the script with stdin
+    # set to None, which is what makes this test fail on the pre-fix templates.
+    driver = "import sys, runpy; sys.stdin = None; runpy.run_path(sys.argv[1], run_name='__main__')"
+    result = subprocess.run(
+        [hook_interpreter(), "-c", driver, str(target)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode != 1, (
+        f"{script} crashed instead of degrading when stdin was unusable: exit 1\n{result.stderr}"
+    )
+    assert "AttributeError" not in result.stderr, f"{script} raised on a missing stdin:\n{result.stderr}"

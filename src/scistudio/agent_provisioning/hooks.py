@@ -111,7 +111,7 @@ def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJ
     names, event groups — is byte-identical, which is why one builder serves
     both and the two cannot drift apart as hooks are added (#1994 finding 3).
     """
-    py = _quote_shell_path(sys.executable)
+    py = _quote_shell_path(hook_interpreter())
     # Codex P1 reconcile (PR #1047): include MultiEdit in every Edit|Write
     # matcher so multi-edit operations are not a bypass path. Claude Code
     # treats MultiEdit as a distinct tool name.
@@ -150,6 +150,47 @@ def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJ
     }
 
 
+def hook_interpreter() -> str:
+    """Absolute path of the interpreter that should run the hook scripts.
+
+    Baked into every provider's hook command at provisioning time, so it has to
+    outlive the process that did the provisioning. ``sys.executable`` does not:
+    it is whatever interpreter happened to run, and on the owner's machine that
+    was the gate's parity venv under ``.workflow/local/venv`` — a scratch
+    directory built to be thrown away (#1994). A hook pointing into it dies the
+    moment it is cleaned up, and nothing announces that.
+
+    **Chosen: a stable absolute path, resolved once at provisioning**, rather
+    than re-resolving at hook time. Re-resolving would mean emitting a bare
+    ``python``, which is exactly the PATH dependence an earlier fix removed —
+    on Windows there is frequently no ``python`` on PATH at all, and when there
+    is it may be a Microsoft Store stub. An absolute path is also the only form
+    that behaves the same in all three shells the command may run under.
+
+    Stability then comes from *which* absolute path. When SciStudio is running
+    inside a virtual environment, this returns the **base** interpreter that
+    venv was created from. That is sound only because every one of the seven
+    hook scripts imports the standard library and nothing else — ``ast``,
+    ``json``, ``os``, ``re``, ``sys``, ``pathlib`` — so they gain nothing from
+    the venv's site-packages, while the base installation is strictly more
+    durable than a venv built on top of it.
+
+    Outside a venv — notably a packaged desktop build with a bundled runtime —
+    ``sys.prefix == sys.base_prefix`` and ``sys.executable`` is returned
+    unchanged, which is already the stable answer there.
+
+    This deliberately does **not** apply to the MCP server command in the same
+    generated files: that one runs ``-m scistudio``, so it needs the
+    environment SciStudio is installed in and cannot be moved to the base
+    interpreter. See the spec for that exposure.
+    """
+    if sys.prefix != sys.base_prefix:
+        base = getattr(sys, "_base_executable", None)
+        if base and Path(base).is_file():
+            return str(base)
+    return sys.executable
+
+
 def _quote_shell_path(path: str | Path) -> str:
     """Quote an executable path for hook command strings."""
     escaped = str(path).replace('"', '\\"')
@@ -174,7 +215,7 @@ def _upgrade_legacy_settings_commands(
     if not isinstance(hooks, dict):
         return False
     scripts = {dest for _template, dest in _HOOK_FILES}
-    py = _quote_shell_path(sys.executable)
+    py = _quote_shell_path(hook_interpreter())
     changed = False
     for groups in hooks.values():
         if not isinstance(groups, list):
