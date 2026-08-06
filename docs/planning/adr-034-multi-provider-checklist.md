@@ -200,8 +200,8 @@ umbrella branch.
 - [x] Wave 2a: A4 FE-CONTRACT integrated -> merge `1b9a73d6`, agent head `b4f80ba5`. Manager verified: `tsc --noEmit` clean, 59 provider-propagation tests pass, and the no-default guards exist as named tests for link 2 and link 3.
 - [x] Wave 2b: A5 FE-UI integrated -> merge `8cb3b46b`, agent head `a1625a29`, plus manager integration commit `a215d0b0`. Verified: scope clean, `ProviderName` alias gone, no `TODO(#1994)`, and an invented provider key in the status payload renders and launches, proving no hand-maintained list survives.
 - [!] Wave 2b: A6 LAYOUT integrated -> BLOCKED pending owner decision. Branch `feat/1994-adr-034/layout` head `f96ec321`, not merged. Two of the three spec-mandated action-bar changes are measured inert; see the drift log.
-- [~] Wave 3: A7 TESTS integrated -> dispatched, branch `feat/1994-adr-034/tests`. Layout and `frontend/e2e/**` deliberately excluded from its scope while A6's conclusions are contested.
-- [ ] Wave 3: A8 DOCS integrated -> pending
+- [x] Wave 3: A7 TESTS integrated -> merge `94149cbd`. 60 new tests, every Success-Criteria guard mutation-verified. Found that the internal IPC route's provider passthrough had no guard at all, and that `_atomic_write_json` was not concurrency-safe.
+- [x] Wave 3: A8 DOCS integrated -> merge `29208b7e`. `full_audit` 4 errors -> 0. ADR-034 governance amendment lands with frontmatter byte-identical.
 
 ### 7.4 Audit
 
@@ -287,14 +287,14 @@ report.
       `frontend/src/components/AIChat/SetupScreen.parts/types.ts`. Left by A4 so the
       not-yet-migrated Setup components would compile; A5 owns the deletion.
       Verify: `grep -rn "ProviderName" frontend/src` returns nothing. -> confirmed empty by the manager on the umbrella branch.
-- [ ] `spawn_claude` and `spawn_codex` removed from `src/scistudio/ai/agent/terminal.py`,
+- [x] `spawn_claude` and `spawn_codex` removed from `src/scistudio/ai/agent/terminal.py`,
       and A1's parametrisation at `tests/ai/test_windows_executable_resolution.py:354`
       retargeted to `spawn_agent`. Sequenced after A3 lands; handed back to A1.
       Verify: `grep -rn "spawn_claude\|spawn_codex" src tests` returns nothing.
-- [ ] No `TODO(#1994)` survives in the delivered diff, since every one of them marks
+- [x] No `TODO(#1994)` survives in the delivered diff, since every one of them marks
       in-dispatch sequencing rather than genuinely deferred work.
       Verify: `grep -rn "TODO(#1994)" src frontend tests` returns nothing.
-- [ ] No hand-maintained list of agent provider keys or labels survives in frontend
+- [x] No hand-maintained list of agent provider keys or labels survives in frontend
       source. A7 owns the guard; the manager greps independently at integration.
 
 ## 10. Final Readiness
