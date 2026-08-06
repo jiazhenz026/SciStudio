@@ -242,15 +242,27 @@ export function TerminalTabs({ surface = "mixed", active = true }: TerminalTabsP
         }}
       />
 
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Render every tab in this surface and hide non-active ones via CSS.
             Conditional rendering would unmount the inactive TerminalTab
             whenever the user switches tabs, which tears down the WS and kills
-            the PTY subprocess — every tab switch would lose the conversation. */}
+            the PTY subprocess — every tab switch would lose the conversation.
+
+            ADR-034 FR-021g — the host above is a flex COLUMN and each per-tab
+            wrapper is `flex min-h-0 flex-1 flex-col` rather than a `h-full`
+            block, so the tab content (SetupScreen / TerminalView) takes a
+            definite height from flexbox instead of from a percentage chain.
+            Measured in Chromium: the percentage chain was in fact resolving
+            correctly, so this is hardening, not the FR-021g fix — see
+            `frontend/e2e/specs/adr034-setup-action-bar.spec.ts` for what the
+            browser actually showed. Only layout classes changed here: the
+            mount structure and the `hidden` toggle are unchanged, because
+            unmounting a hidden tab would fire the WS cleanup hook and kill its
+            PTY (spec §4.5). */}
         {visibleTabs.map((tab) => (
           <div
             key={tab.id}
-            className={`h-full ${tab.id === visibleActiveTabId ? "" : "hidden"}`}
+            className={`flex min-h-0 flex-1 flex-col ${tab.id === visibleActiveTabId ? "" : "hidden"}`}
             data-testid={`terminal-tab-host-${tab.id}`}
           >
             <TerminalTab tabId={tab.id} />

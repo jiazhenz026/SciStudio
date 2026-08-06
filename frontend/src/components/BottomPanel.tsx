@@ -83,7 +83,13 @@ export function BottomPanel({
         onTogglePin={onTogglePin}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
+      {/* ADR-034 FR-021g — this wrapper is a flex COLUMN, not a plain block.
+          It still owns the scroll affordance (`overflow-y-auto`) that Config /
+          Logs / Plots / Lineage / Git rely on; the only addition is
+          `flex flex-col`, which lets its children size from flexbox instead of
+          from a `height: 100%` percentage chain. See the surface wrappers
+          below for why that matters. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2 scrollbar-thin">
         {/* TerminalTabs must stay MOUNTED across bottom-panel tab switches
             so PTY subprocesses survive (unmount fires the WS cleanup hook
             which kills the child process tree). Hide via CSS when another
@@ -96,11 +102,29 @@ export function BottomPanel({
             Hotfix #977: the inner white-card frame was removed so the
             active-tab body fills the available space without a nested
             scroll context. The lineage tab (ADR-038 §3.8) and git tab
-            (ADR-039 §3.5, #972) both render inside this flat container. */}
-        <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
+            (ADR-039 §3.5, #972) both render inside this flat container.
+
+            ADR-034 FR-021g / spec §4.1 — these two wrappers were `h-full`
+            blocks, and the spec expected a definite height to be lost in that
+            percentage chain. Measured in Chromium while implementing T-011c,
+            it is not: this conversion produces byte-identical geometry at
+            every panel height. It is kept because it takes the height from
+            flexbox rather than from percentage resolution, so the chain no
+            longer depends on every ancestor keeping a resolvable height — but
+            it is NOT what fixes FR-021g. The remaining defect is a crush below
+            ~193px of panel height, diagnosed in
+            `e2e/specs/adr034-setup-action-bar.spec.ts`.
+
+            The mount structure and the `hidden` toggle are deliberately
+            untouched: unmounting these wrappers fires the WS cleanup hook and
+            kills the live agent subprocess (spec §4.5). Note that `hidden` and
+            `flex` are both display utilities — `hidden` wins on Tailwind's
+            emission order, and the e2e spec asserts the resolved value rather
+            than trusting that. */}
+        <div className={`flex min-h-0 flex-1 flex-col ${activeTab === "ai" ? "" : "hidden"}`}>
           <TerminalTabs active={activeTab === "ai"} surface="chat" />
         </div>
-        <div className={`h-full ${activeTab === "terminal" ? "" : "hidden"}`}>
+        <div className={`flex min-h-0 flex-1 flex-col ${activeTab === "terminal" ? "" : "hidden"}`}>
           <TerminalTabs active={activeTab === "terminal"} surface="terminal" />
         </div>
         {activeTab === "config" ? (
