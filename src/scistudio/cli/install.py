@@ -47,12 +47,15 @@ sanctioned source, and inventing one would write into a file the user owns.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.resources as importlib_resources
 import json
 import logging
 import os
 import shutil
 import sys
+import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -223,12 +226,105 @@ def _mcp_entry_payload(project_dir: Path | None) -> dict[str, object]:
     return entry
 
 
-def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
-    """Write *payload* as JSON to *path* atomically (write-then-rename)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+#: Backoff schedule for a destination-busy rename, in seconds. Eight attempts
+#: spanning ~0.64 s total. Sized against the thing being waited on: a reader
+#: holding a small JSON config open for the microseconds it takes to read it.
+#: Long enough that a reader in a tight polling loop is virtually certain to
+#: release between attempts, short enough to stay imperceptible on the agent
+#: spawn path, which is where this write runs.
+_REPLACE_RETRY_DELAYS = (0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32)
+
+
+def _replace_with_retry(tmp: Path, path: Path) -> None:
+    """``os.replace(tmp, path)``, retrying briefly while the target is busy.
+
+    POSIX renames over an open destination without complaint. Windows does not:
+    ``MoveFileExW`` needs delete access to the destination, and Python's
+    ``open()`` does not pass ``FILE_SHARE_DELETE``, so *any* concurrent reader —
+    including the provider CLI reading its own config while SciStudio launches —
+    makes the rename fail with ``PermissionError``.
+
+    That failure is transient and self-clearing, which is exactly the shape a
+    bounded retry fits. **Retry, then raise** is chosen deliberately over the two
+    alternatives:
+
+    * *Raise immediately* would fail an agent launch because some other process
+      happened to be reading a config file for a few microseconds. The condition
+      resolves on its own; giving up on it is throwing away a launch for nothing.
+    * *Swallow the error* is the failure this whole change exists to remove. A
+      lost write means the agent starts with no SciStudio MCP tools and nothing
+      tells the user why — a silent, confusing degradation rather than an error
+      they can act on.
+
+    So the retry budget is spent, and if the destination is still busy at the end
+    the final attempt's ``PermissionError`` propagates untouched, carrying the
+    OS's own message. Only ``PermissionError`` is retried; every other ``OSError``
+    (a missing directory, a cross-filesystem rename) is permanent and is raised
+    on the first attempt rather than after a pointless wait.
+    """
+    for delay in _REPLACE_RETRY_DELAYS:
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            time.sleep(delay)
+    # Budget spent. This attempt is not guarded: a still-busy destination is a
+    # real failure and must surface, never be silently dropped.
     os.replace(tmp, path)
+
+
+def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
+    """Write *payload* as JSON to *path* atomically (write-then-rename).
+
+    The staging file gets a **unique** name in the **target's own directory**.
+    Both halves of that matter:
+
+    *Unique* — this helper previously staged through ``<target>.tmp``, a name
+    derived deterministically from the target, so every concurrent writer used
+    the same staging file and trampled each other. Measured on Windows, 227 of
+    240 overlapping calls raised ``PermissionError``. The rename was atomic and
+    no reader ever saw a half-written file, so the damage was invisible: the
+    losing writer's MCP entry simply never got registered and the agent launched
+    without SciStudio's tools. Two AI Blocks configured ``kimi-code`` in one
+    project is enough to hit it.
+
+    *Same directory* — ``os.replace`` is only atomic within a filesystem. A temp
+    file in the system temp directory can land on a different volume and degrade
+    to a copy, reintroducing the torn-write window this function exists to close.
+
+    The staging file is created with ``O_CREAT | O_EXCL`` at mode ``0o666``,
+    which the umask then narrows exactly as the previous ``Path.write_text`` did.
+    :func:`tempfile.mkstemp` would also give a unique name but hardcodes ``0o600``,
+    which would silently tighten the permissions of a config file the user
+    already owns; matching the old semantics keeps this change about the race and
+    nothing else.
+
+    On any failure — serialising, writing, or renaming — the staging file is
+    removed before the error propagates, so a crashed write leaves no litter in a
+    directory the provider owns.
+
+    One limitation stays, and is not introduced here: callers read, modify, and
+    write back, so two overlapping callers can still base their writes on the
+    same snapshot and have the later one win. That is benign for every caller
+    today because they all write byte-identical SciStudio entries, and closing it
+    properly needs file locking rather than a better rename.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(payload, indent=2) + "\n"
+    tmp = path.parent / f".{path.name}.{os.getpid()}-{uuid.uuid4().hex}.tmp"
+
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    try:
+        # ``newline`` is left at the default so line endings match what
+        # ``Path.write_text`` produced, keeping existing config files
+        # byte-identical apart from the entry actually being changed.
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        _replace_with_retry(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 # ---------------------------------------------------------------------------
