@@ -322,15 +322,36 @@ def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
     ``uv pip install --python <venv-python>`` targets the isolated env; the
     stdlib path uses the venv's own pip. The editable install makes ``scistudio``
     importable inside the venv (so mypy/pytest resolve it without PYTHONPATH).
+
+    The CI-resolved tool pins are then installed **explicitly, as a second
+    step**. This is load-bearing rather than belt-and-braces. ``[dev]`` declares
+    ``ruff>=0.11`` with no upper bound, so the resolver takes whatever is newest
+    at provisioning time, while CI pins an exact version in ``ci.yml`` and
+    ``.pre-commit-config.yaml``. Without this step the environment that exists
+    to be CI-equivalent drifts away from CI the moment a new release lands, and
+    it drifts *silently*: :func:`provisioning_marker` already hashes the resolved
+    pins, so a venv carrying the wrong version still matches its own marker and
+    is reused as warm rather than rebuilt. That is how this env came to run ruff
+    0.16.1 against CI's pinned 0.15.15, reporting format failures on files CI
+    formats cleanly.
     """
 
     py = venv_python(venv)
+    pins = [f"{tool}=={version}" for tool, version in sorted(resolve_ci_tool_versions(repo_root).items())]
+
     if _uv_available():
-        return _run(["uv", "pip", "install", "--python", str(py), "-e", ".[dev]"], cwd=repo_root)
+        ok, summary = _run(["uv", "pip", "install", "--python", str(py), "-e", ".[dev]"], cwd=repo_root)
+        if not ok or not pins:
+            return ok, summary
+        return _run(["uv", "pip", "install", "--python", str(py), *pins], cwd=repo_root)
+
     ok, summary = _run([str(py), "-m", "pip", "install", "--upgrade", "pip"], cwd=repo_root)
     if not ok:
         return ok, summary
-    return _run([str(py), "-m", "pip", "install", "-e", ".[dev]"], cwd=repo_root)
+    ok, summary = _run([str(py), "-m", "pip", "install", "-e", ".[dev]"], cwd=repo_root)
+    if not ok or not pins:
+        return ok, summary
+    return _run([str(py), "-m", "pip", "install", *pins], cwd=repo_root)
 
 
 def provision_venv(repo_root: Path, *, force: bool = False) -> ParityReport:

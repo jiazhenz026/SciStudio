@@ -237,6 +237,11 @@
       "at": "2026-08-06T15:51:10.541061Z",
       "owner_directive": "Owner reviewed both protected-core diffs and authorized admin-approved:core-change for src/scistudio/engine/pty_control.py (FR-010 PtyTabSpec.provider) and src/scistudio/blocks/ai/ai_block.py (FR-012 removal of _build_spawn_argv, _BYPASS_FLAG, _discover_provider). Owner applies the label to the final PR; CI verifies actor provenance.",
       "reason": "owner authorized admin-approved:core-change after reviewing the pty_control.py and ai_block.py diffs in chat on 2026-08-06"
+    },
+    {
+      "at": "2026-08-06T20:21:39.059434Z",
+      "owner_directive": "CI pins ruff 0.15.15; make the local parity venv resolve the same version.",
+      "reason": "owner directed aligning the parity venv's tool versions to CI. provisioning_marker hashes the resolved CI pins but _install_deps never installs them, so the venv that exists to guarantee CI equivalence silently carried ruff 0.16.1 against CI's pinned 0.15.15."
     }
   ],
   "docs_events": [
@@ -995,7 +1000,20 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T20:21:39.059452Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/parity.py",
+      "reason": "owner directed aligning the parity venv's tool versions to CI. provisioning_marker hashes the resolved CI pins but _install_deps never installs them, so the venv that exists to guarantee CI equivalence silently carried ruff 0.16.1 against CI's pinned 0.15.15."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T20:21:39.059458Z",
+      "pattern": "tests/qa/**",
+      "reason": "owner directed aligning the parity venv's tool versions to CI. provisioning_marker hashes the resolved CI pins but _install_deps never installs them, so the venv that exists to guarantee CI equivalence silently carried ruff 0.16.1 against CI's pinned 0.15.15."
+    }
+  ],
   "session_id": "12421c23-7434-4803-8e8b-1b19cb4c6a19",
   "strictness_tier": 1,
   "task_kind": "feature",
