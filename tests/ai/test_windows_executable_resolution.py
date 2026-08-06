@@ -18,8 +18,10 @@ and FR-005 requires the chat path and the AI Block path to agree on every OS.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -27,7 +29,7 @@ import pytest
 
 from scistudio.ai.agent import providers_registry as registry
 from scistudio.ai.agent import terminal
-from scistudio.ai.agent.providers_registry import resolve_binary
+from scistudio.ai.agent.providers_registry import ProviderKind, resolve_binary
 from scistudio.api.routes import ai as ai_route
 from scistudio.desktop import paths as desktop_paths
 
@@ -68,15 +70,15 @@ def _install_binary(directory: Path, name: str, platform: str) -> Path:
 
 
 def test_resolve_windows_executable_prefers_cmd_over_bare_npm_wrapper(monkeypatch: Any) -> None:
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
 
     assert terminal.resolve_windows_executable("codex") == "C:/Users/dev/AppData/Roaming/npm/codex.cmd"
 
 
 def test_resolve_windows_executable_preserves_non_windows_which(monkeypatch: Any) -> None:
-    monkeypatch.setattr(terminal.sys, "platform", "linux")
-    monkeypatch.setattr(terminal.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
 
     assert terminal.resolve_windows_executable("codex") == "/usr/bin/codex"
 
@@ -88,8 +90,8 @@ def test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper(monkeypatc
         calls.append(argv)
         return subprocess.CompletedProcess(argv, 0, stdout="codex 0.1.0\n", stderr="")
 
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
     monkeypatch.setattr(ai_route.subprocess, "run", fake_run)
 
     assert ai_route._binary_status("codex") == (
@@ -243,8 +245,8 @@ def test_spawn_agent_uses_cmd_when_windows_which_finds_bare_wrapper(
     tmp_path: Path,
 ) -> None:
     """The pywinpty CreateProcess path cannot execute the bare npm wrapper."""
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
     monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(
         terminal,
@@ -280,8 +282,8 @@ def test_spawn_agent_falls_back_to_the_bare_binary_name(monkeypatch: Any, tmp_pa
 
 
 def test_spawn_argv_seam_bypasses_binary_resolution(monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
     monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
 
     terminal.spawn_agent(
@@ -294,21 +296,31 @@ def test_spawn_argv_seam_bypasses_binary_resolution(monkeypatch: Any, tmp_path: 
     assert _FakePtyProcess.spawned["argv"] == [sys.executable, "-c", "pass"]
 
 
-def test_spawn_provider_dispatches_on_kind_not_on_key(monkeypatch: Any, tmp_path: Path) -> None:
+def test_a_registry_derived_spawner_map_covers_every_provider(monkeypatch: Any, tmp_path: Path) -> None:
+    """FR-006: the spawner map is built off the registry, not hand-maintained.
+
+    This is the shape ``_PROVIDER_SPAWNERS`` takes: dispatch on descriptor
+    *kind*, never on a provider key, so a sixth agent CLI needs no edit here.
+    """
     monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(terminal, "_user_shell_argv", lambda: ["shell"])
     monkeypatch.setattr(terminal, "resolve_binary", lambda desc, **_k: Path(desc.binary_candidates[0]))
 
-    terminal.spawn_provider("user-terminal", project_dir=tmp_path, dangerous=False)
+    spawners = {
+        descriptor.key: (
+            terminal.spawn_user_terminal
+            if descriptor.kind is ProviderKind.TERMINAL
+            else partial(terminal.spawn_agent, descriptor)
+        )
+        for descriptor in registry.REGISTRY
+    }
+    assert set(spawners) == set(registry.provider_keys())
+
+    spawners["user-terminal"](project_dir=tmp_path, dangerous=False)
     assert _FakePtyProcess.spawned["argv"][0] == "shell"
 
-    terminal.spawn_provider("qoder-cn", project_dir=tmp_path, dangerous=False)
+    spawners["qoder-cn"](project_dir=tmp_path, dangerous=False)
     assert _FakePtyProcess.spawned["argv"][0] == "qoderclicn"
-
-
-def test_spawn_provider_rejects_an_unknown_key(tmp_path: Path) -> None:
-    with pytest.raises(KeyError, match="unknown provider"):
-        terminal.spawn_provider("gemini-cli", project_dir=tmp_path, dangerous=False)
 
 
 def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path: Path) -> None:

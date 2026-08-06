@@ -65,13 +65,12 @@ import contextlib
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -94,34 +93,25 @@ __all__ = [
     "spawn_agent",
     "spawn_claude",
     "spawn_codex",
-    "spawn_provider",
     "spawn_user_terminal",
 ]
 
 _PTY_BLOCKED_ENV_VARS = frozenset({"ELECTRON_RUN_AS_NODE"})
 
-
-def resolve_windows_executable(
-    name: str,
-    *,
-    which: Callable[[str], str | None] | None = None,
-    well_known_dirs: Sequence[Path] = (),
-) -> str | None:
-    """Resolve an agent CLI to a concrete executable path.
-
-    ADR-034 multi-provider (FR-004): the well-known install directories are
-    now supplied per provider by the registry descriptor instead of being read
-    from a module-level constant list. Callers holding a descriptor should
-    prefer :func:`scistudio.ai.agent.providers_registry.resolve_binary`, which
-    passes ``descriptor.well_known_directories()`` for them; this function
-    stays as the by-name entry point for callers that only have a binary name.
-
-    Matching inside ``well_known_dirs`` is by exact binary name (plus a Windows
-    launcher extension) — never a glob — so vendor sidecar copies outside the
-    registered directories are never selected (FR-027).
-    """
-    which = shutil.which if which is None else which
-    return resolve_executable(name, which=which, well_known_dirs=well_known_dirs)
+# ADR-034 multi-provider (FR-004): the by-name executable resolver moved into
+# ``providers_registry`` so ``resolve_binary`` can call it without importing
+# this module (which would be an import cycle — ``terminal`` already imports the
+# registry). It is re-exported here unchanged, rather than wrapped, because
+# ``scistudio.api.routes.ai`` and the spec's ``governs.contracts`` both address
+# the name at this location, and a delegating wrapper would be pure duplication.
+#
+# The signature gained a keyword-only ``well_known_dirs``: the well-known
+# install directories are now supplied per provider by the registry descriptor
+# instead of read from a module-level constant list. Callers holding a
+# descriptor should prefer ``providers_registry.resolve_binary``, which passes
+# ``descriptor.well_known_directories()`` for them; this name stays for callers
+# that only have a binary name.
+resolve_windows_executable = resolve_executable
 
 
 def _build_child_env(extra_env: dict[str, str] | None = None) -> dict[str, str]:
@@ -738,48 +728,15 @@ def _mcp_argv(descriptor: ProviderDescriptor, project_dir: Path) -> list[str]:
     return []
 
 
-def spawn_provider(
-    provider: str,
-    *,
-    project_dir: Path,
-    dangerous: bool,
-    cols: int = 120,
-    rows: int = 30,
-    extra_env: dict[str, str] | None = None,
-    prompt: str = "",
-    _spawn_argv: list[str] | None = None,
-) -> PtyProcess:
-    """Spawn ``provider`` by registry key.
-
-    The only dispatch here is on descriptor *kind*, never on a provider key, so
-    a new agent CLI needs no edit. ``user-terminal`` routes to
-    :func:`spawn_user_terminal` because a login shell is not an agent CLI and
-    shares none of the adapter surface.
-
-    Raises ``KeyError`` (message enumerating the accepted set) for an unknown
-    provider key.
-    """
-    descriptor = REGISTRY.get(provider)
-    if descriptor.kind is ProviderKind.TERMINAL:
-        return spawn_user_terminal(
-            project_dir=project_dir,
-            dangerous=dangerous,
-            cols=cols,
-            rows=rows,
-            extra_env=extra_env,
-            prompt=prompt,
-            _spawn_argv=_spawn_argv,
-        )
-    return spawn_agent(
-        descriptor,
-        project_dir=project_dir,
-        dangerous=dangerous,
-        cols=cols,
-        rows=rows,
-        extra_env=extra_env,
-        prompt=prompt,
-        _spawn_argv=_spawn_argv,
-    )
+# There is deliberately no ``spawn_provider(key, …)`` convenience wrapper: it
+# would only re-forward every keyword argument, which is byte-for-byte the
+# duplication this change exists to remove. A caller holding a provider key
+# builds its own spawner map straight off the registry, e.g.
+#
+#     {d.key: (spawn_user_terminal if d.kind is ProviderKind.TERMINAL
+#              else functools.partial(spawn_agent, d)) for d in REGISTRY}
+#
+# which stays registry-derived and needs no edit for a sixth provider (FR-006).
 
 
 def spawn_claude(**kwargs: Any) -> PtyProcess:
