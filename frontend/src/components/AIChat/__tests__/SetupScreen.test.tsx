@@ -90,9 +90,7 @@ afterEach(() => {
 describe("SetupScreen provider select (FR-021)", () => {
   it("renders one select listing every agent provider and no per-provider radio", async () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
-    const { container } = render(
-      <SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />,
-    );
+    const { container } = render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
 
     const select = await screen.findByTestId("setup-provider-select");
     expect(select.tagName).toBe("SELECT");
@@ -106,9 +104,9 @@ describe("SetupScreen provider select (FR-021)", () => {
     }
 
     // FR-021: the radio list is gone, not merely hidden.
-    expect(
-      container.querySelectorAll('input[type="radio"][name^="setup-provider"]'),
-    ).toHaveLength(0);
+    expect(container.querySelectorAll('input[type="radio"][name^="setup-provider"]')).toHaveLength(
+      0,
+    );
     expect(screen.queryByTestId("setup-provider-claude-code")).not.toBeInTheDocument();
     expect(screen.queryByTestId("setup-provider-codex")).not.toBeInTheDocument();
 

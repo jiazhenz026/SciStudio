@@ -43,8 +43,8 @@ export function PermissionModePicker({
           className="mt-1"
         />
         <span>
-          <span className="font-medium">Manual Approve</span> — the agent asks you before it runs
-          a command or changes a file.
+          <span className="font-medium">Manual Approve</span> — the agent asks you before it runs a
+          command or changes a file.
           <span className="block text-xs">Recommended. You stay in control of every step.</span>
         </span>
       </label>
