@@ -146,12 +146,13 @@ def test_kimi_discovery_honours_kimi_code_home(tmp_path: Path, platform: str) ->
 # ---------------------------------------------------------------------------
 
 
-def test_qoder_security_scan_sidecar_is_never_offered_as_a_provider(tmp_path: Path, platform: str) -> None:
+def test_qoder_security_scan_sidecar_is_not_discovered_off_path(tmp_path: Path, platform: str) -> None:
     """``~/.qodersec/bin/qodercli.exe`` is the scanner's pinned internal copy.
 
-    It is stale relative to the real install and unauthenticated. Discovery
-    matches exact names inside *registered* directories and never globs under
-    the home directory, so it must never surface.
+    It is stale relative to the real install and unauthenticated. This covers
+    the *discovery* half: matching exact names inside registered directories,
+    with no globbing under the home directory, means the sidecar is never
+    found. Its companion below covers the case this rule does not reach.
     """
     fake_home = tmp_path / "home"
     sidecar = _install_binary(fake_home / ".qodersec" / "bin", "qodercli", platform)
@@ -163,11 +164,64 @@ def test_qoder_security_scan_sidecar_is_never_offered_as_a_provider(tmp_path: Pa
         assert resolved is None, f"{key} resolved to the security-scan sidecar: {resolved}"
 
 
-def test_sidecar_directory_is_not_a_registered_well_known_dir() -> None:
-    """Guards the data, not just the behaviour: no descriptor may register it."""
+def test_qoder_security_scan_sidecar_is_rejected_even_when_it_is_on_path(
+    tmp_path: Path,
+    platform: str,
+) -> None:
+    """FR-027 is unconditional, and PATH is where the previous rule ran out.
+
+    The no-globbing rule constrains only the well-known-directory scan.
+    ``which`` searches whatever the user put on PATH, so a user with
+    ``~/.qodersec/bin`` on PATH was handed the scanner's stale, unauthenticated
+    copy — and the sibling test above could never catch it, because it drives
+    ``which`` to return ``None``. FR-027 and its acceptance scenario carve out
+    no on-PATH case, so the descriptor excludes the subtree outright.
+    """
+    fake_home = tmp_path / "home"
+    sidecar_dir = fake_home / ".qodersec" / "bin"
+    sidecar = _install_binary(sidecar_dir, "qodercli", platform)
+    _install_binary(sidecar_dir, "qoderclicn", platform)
+    # No real Qoder install anywhere: the sidecar is the only candidate.
+
+    def sidecar_on_path(name: str) -> str | None:
+        candidate = sidecar_dir / name
+        return str(candidate) if candidate.is_file() else None
+
+    assert sidecar_on_path(sidecar.name) is not None, "the probe must really put the sidecar on PATH"
+
+    for key in ("qoder", "qoder-cn"):
+        resolved = resolve_binary(registry.get(key), which=sidecar_on_path, home=fake_home, env={})
+        assert resolved is None, f"{key} resolved to the on-PATH security-scan sidecar: {resolved}"
+
+
+def test_an_excluded_subtree_is_rejected_at_any_depth(tmp_path: Path, platform: str) -> None:
+    """The exclusion names ``~/.qodersec``, not every directory beneath it."""
+    fake_home = tmp_path / "home"
+    nested = fake_home / ".qodersec" / "vendor" / "1.1.12" / "bin"
+    _install_binary(nested, "qodercli", platform)
+
+    resolved = resolve_binary(
+        registry.get("qoder"),
+        which=lambda name: str(nested / name) if (nested / name).is_file() else None,
+        home=fake_home,
+        env={},
+    )
+    assert resolved is None
+
+
+def test_sidecar_directory_is_excluded_data_not_a_registered_well_known_dir() -> None:
+    """Guards the data, not just the behaviour.
+
+    Two halves, and the second is what stops the exclusion silently lapsing:
+    no descriptor may *register* the sidecar directory, and both Qoder channels
+    must actually *exclude* it.
+    """
     for descriptor in registry.REGISTRY:
         for segments in descriptor.well_known_dirs:
             assert ".qodersec" not in segments
+
+    for key in ("qoder", "qoder-cn"):
+        assert (".qodersec",) in registry.get(key).excluded_dirs, f"{key} stopped excluding the sidecar subtree"
 
 
 # ---------------------------------------------------------------------------
