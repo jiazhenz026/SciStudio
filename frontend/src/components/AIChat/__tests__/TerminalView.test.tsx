@@ -14,12 +14,22 @@ const xtermState: {
   written: string[];
   onDataCb: ((s: string) => void) | null;
   onScrollCb: ((ydisp: number) => void) | null;
-} = { lastInstance: null, loadedAddons: [], written: [], onDataCb: null, onScrollCb: null };
+  keyHandler: ((ev: KeyboardEvent) => boolean) | null;
+} = {
+  lastInstance: null,
+  loadedAddons: [],
+  written: [],
+  onDataCb: null,
+  onScrollCb: null,
+  keyHandler: null,
+};
 
 class FakeTerm {
   cols = 80;
   rows = 24;
   refreshCount = 0;
+  /** Current buffer selection, set by the clipboard tests. */
+  selection = "";
   constructor(public opts: unknown) {
     xtermState.lastInstance = this;
   }
@@ -45,7 +55,51 @@ class FakeTerm {
     void _end;
     this.refreshCount += 1;
   }
+  attachCustomKeyEventHandler(handler: (ev: KeyboardEvent) => boolean) {
+    xtermState.keyHandler = handler;
+  }
+  getSelection() {
+    return this.selection;
+  }
+  hasSelection() {
+    return this.selection.length > 0;
+  }
+  /** Real xterm routes paste() into the onData stream; so does the fake. */
+  paste(data: string) {
+    xtermState.onDataCb?.(data);
+  }
   dispose() {}
+}
+
+// --- clipboard fake ---------------------------------------------------------
+// jsdom ships no navigator.clipboard, so each test installs its own.
+interface FakeClipboard {
+  writeText?: (text: string) => Promise<void>;
+  readText?: () => Promise<string>;
+}
+
+function installClipboard(clipboard: FakeClipboard | null) {
+  Object.defineProperty(navigator, "clipboard", {
+    value: clipboard ?? undefined,
+    configurable: true,
+    writable: true,
+  });
+}
+
+/** Build a plain object good enough for the custom key-event handler. */
+function keyEvent(key: string, extra: Partial<KeyboardEvent> = {}) {
+  const preventDefault = vi.fn();
+  const ev = {
+    type: "keydown",
+    key,
+    ctrlKey: true,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    preventDefault,
+    ...extra,
+  };
+  return { ev: ev as unknown as KeyboardEvent, preventDefault };
 }
 
 vi.mock("@xterm/xterm", () => ({ Terminal: FakeTerm }));
@@ -152,6 +206,7 @@ beforeEach(() => {
   xtermState.written = [];
   xtermState.onDataCb = null;
   xtermState.onScrollCb = null;
+  xtermState.keyHandler = null;
   FakeWebSocket.instances = [];
   fitState.fitCalls = 0;
   FakeResizeObserver.instances = [];
@@ -164,6 +219,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   (global as unknown as { WebSocket: typeof WebSocket }).WebSocket = originalWs;
+  installClipboard(null);
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -540,5 +596,213 @@ describe("TerminalView", () => {
     // Refit (layout may have drifted while garbled) + one full host-side repaint.
     expect(fitState.fitCalls).toBe(fitsBefore + 1);
     expect(term.refreshCount).toBe(refreshesBefore + 1);
+  });
+
+  // --- clipboard UX (#1994) -------------------------------------------------
+  // Owner decision: Ctrl+C copies and Ctrl+V pastes. The terminal loses its
+  // interrupt gesture on purpose — closing a session is the tab's X button.
+  describe("clipboard", () => {
+    const STDIN_INTERRUPT = JSON.stringify({ type: "stdin", data: "\x03" });
+
+    async function mountRunningTerminal() {
+      render(
+        <TerminalView
+          tabId="t1"
+          projectDir="/p"
+          provider="claude-code"
+          dangerous={false}
+          onExit={vi.fn()}
+          onError={vi.fn()}
+        />,
+      );
+      await waitFor(() => expect(xtermState.lastInstance).not.toBeNull());
+      await waitFor(() => expect(xtermState.keyHandler).not.toBeNull());
+      await waitFor(() => expect(FakeWebSocket.instances[0]).toBeDefined());
+      const ws = FakeWebSocket.instances[0];
+      ws.open();
+      return { ws, term: xtermState.lastInstance! };
+    }
+
+    it("Ctrl+C copies the current selection instead of interrupting the PTY", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      installClipboard({ writeText, readText: vi.fn() });
+      const { ws, term } = await mountRunningTerminal();
+      term.selection = "measured peak at 532 nm";
+      const sentBefore = ws.sent.length;
+
+      const { ev, preventDefault } = keyEvent("c");
+      // Returning false is what stops xterm encoding the key as PTY bytes.
+      expect(xtermState.keyHandler!(ev)).toBe(false);
+      expect(preventDefault).toHaveBeenCalled();
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("measured peak at 532 nm"));
+      // The defining assertion of #1994: no interrupt, in fact no stdin at all.
+      expect(ws.sent.length).toBe(sentBefore);
+      expect(ws.sent).not.toContain(STDIN_INTERRUPT);
+      await waitFor(() =>
+        expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent("Copied"),
+      );
+    });
+
+    it("Ctrl+C with no selection is a hinted no-op, never an interrupt", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      installClipboard({ writeText, readText: vi.fn() });
+      const { ws, term } = await mountRunningTerminal();
+      term.selection = "";
+      const sentBefore = ws.sent.length;
+
+      expect(xtermState.keyHandler!(keyEvent("c").ev)).toBe(false);
+
+      // Nothing is written (we never clobber the clipboard with "") and
+      // nothing reaches the PTY — but the user is told why.
+      await waitFor(() =>
+        expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent(
+          "Nothing selected",
+        ),
+      );
+      expect(writeText).not.toHaveBeenCalled();
+      expect(ws.sent.length).toBe(sentBefore);
+      expect(ws.sent).not.toContain(STDIN_INTERRUPT);
+    });
+
+    it("Ctrl+V writes the clipboard text to the PTY stdin", async () => {
+      installClipboard({
+        writeText: vi.fn(),
+        readText: vi.fn().mockResolvedValue("import numpy as np\n"),
+      });
+      const { ws } = await mountRunningTerminal();
+
+      const { ev, preventDefault } = keyEvent("v");
+      expect(xtermState.keyHandler!(ev)).toBe(false);
+      expect(preventDefault).toHaveBeenCalled();
+
+      await waitFor(() =>
+        expect(ws.sent).toContain(JSON.stringify({ type: "stdin", data: "import numpy as np\n" })),
+      );
+      // A successful paste is its own feedback; no toast.
+      expect(screen.queryByTestId("terminal-clipboard-hint-t1")).toBeNull();
+    });
+
+    it("reports a denied clipboard permission instead of failing silently", async () => {
+      installClipboard({
+        writeText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+        readText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+      });
+      const { ws, term } = await mountRunningTerminal();
+      term.selection = "some text";
+
+      xtermState.keyHandler!(keyEvent("c").ev);
+      await waitFor(() =>
+        expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent(
+          "permission denied",
+        ),
+      );
+
+      xtermState.keyHandler!(keyEvent("v").ev);
+      await waitFor(() =>
+        expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent(
+          "could not paste",
+        ),
+      );
+      expect(ws.sent.some((f) => f.includes('"stdin"'))).toBe(false);
+    });
+
+    it("reports an absent Clipboard API (insecure origin) instead of throwing", async () => {
+      installClipboard(null);
+      const { term } = await mountRunningTerminal();
+      term.selection = "some text";
+
+      expect(xtermState.keyHandler!(keyEvent("c").ev)).toBe(false);
+      await waitFor(() =>
+        expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent("unavailable"),
+      );
+    });
+
+    it("leaves every other key to xterm, including the tab shortcuts", async () => {
+      installClipboard({ writeText: vi.fn(), readText: vi.fn() });
+      await mountRunningTerminal();
+      const handler = xtermState.keyHandler!;
+
+      // Ctrl+T / Ctrl+W / Ctrl+1 belong to TerminalTabs' window-level listener.
+      for (const key of ["t", "w", "1", "9", "a", "d", "l"]) {
+        expect(handler(keyEvent(key).ev)).toBe(true);
+      }
+      // Ctrl+Shift+C / Ctrl+Shift+V keep their conventional terminal meaning.
+      expect(handler(keyEvent("c", { shiftKey: true }).ev)).toBe(true);
+      expect(handler(keyEvent("v", { shiftKey: true }).ev)).toBe(true);
+      // Plain C / V type normally.
+      expect(handler(keyEvent("c", { ctrlKey: false }).ev)).toBe(true);
+      // keyup/keypress repeats of the same key must not double-fire.
+      expect(handler(keyEvent("c", { type: "keyup" } as Partial<KeyboardEvent>).ev)).toBe(true);
+    });
+
+    it("opens a context menu on right-click with Copy enabled when text is selected", async () => {
+      installClipboard({ writeText: vi.fn().mockResolvedValue(undefined), readText: vi.fn() });
+      const { term } = await mountRunningTerminal();
+      term.selection = "peak 532 nm";
+
+      expect(screen.queryByTestId("terminal-context-menu-t1")).toBeNull();
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"), {
+        clientX: 40,
+        clientY: 60,
+      });
+
+      expect(screen.getByTestId("terminal-context-menu-t1")).toBeInTheDocument();
+      expect(screen.getByTestId("terminal-context-copy-t1")).toBeEnabled();
+      expect(screen.getByTestId("terminal-context-paste-t1")).toBeEnabled();
+    });
+
+    it("disables the context-menu Copy item when nothing is selected", async () => {
+      installClipboard({ writeText: vi.fn(), readText: vi.fn() });
+      const { term } = await mountRunningTerminal();
+      term.selection = "";
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+
+      expect(screen.getByTestId("terminal-context-copy-t1")).toBeDisabled();
+      // Paste never depends on the selection.
+      expect(screen.getByTestId("terminal-context-paste-t1")).toBeEnabled();
+    });
+
+    it("copies from the context menu and closes it", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      installClipboard({ writeText, readText: vi.fn() });
+      const { term } = await mountRunningTerminal();
+      term.selection = "sample-042";
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+      fireEvent.click(screen.getByTestId("terminal-context-copy-t1"));
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("sample-042"));
+      expect(screen.queryByTestId("terminal-context-menu-t1")).toBeNull();
+    });
+
+    it("pastes from the context menu into the PTY and closes it", async () => {
+      installClipboard({ writeText: vi.fn(), readText: vi.fn().mockResolvedValue("/data/run7") });
+      const { ws } = await mountRunningTerminal();
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+      fireEvent.click(screen.getByTestId("terminal-context-paste-t1"));
+
+      await waitFor(() =>
+        expect(ws.sent).toContain(JSON.stringify({ type: "stdin", data: "/data/run7" })),
+      );
+      expect(screen.queryByTestId("terminal-context-menu-t1")).toBeNull();
+    });
+
+    it("dismisses the context menu on Escape and on an outside click", async () => {
+      installClipboard({ writeText: vi.fn(), readText: vi.fn() });
+      await mountRunningTerminal();
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+      expect(screen.getByTestId("terminal-context-menu-t1")).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(screen.queryByTestId("terminal-context-menu-t1")).toBeNull();
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+      expect(screen.getByTestId("terminal-context-menu-t1")).toBeInTheDocument();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByTestId("terminal-context-menu-t1")).toBeNull();
+    });
   });
 });
