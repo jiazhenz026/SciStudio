@@ -270,7 +270,7 @@ describe("BottomPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("combobox"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
       target: { value: "imaging.image.png.save" },
     });
 
@@ -318,7 +318,7 @@ describe("BottomPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("combobox"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
       target: { value: "" },
     });
 
