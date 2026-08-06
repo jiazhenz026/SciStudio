@@ -220,6 +220,11 @@
       "at": "2026-08-06T03:02:53.421067Z",
       "owner_directive": "Remove build.win.signAndEditExecutable=false from desktop/package.json so electron-builder runs rcedit and embeds desktop/assets/icon.ico plus SciStudio version metadata into SciStudio.exe. Update the packaging test that pins the broken value, and document the constraint in desktop/README.md so the flag is not re-disabled.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-06T03:56:43.874368Z",
+      "owner_directive": "\u76f4\u63a5\u63d0\u4ea4pr\uff0cskip\u672c\u5730 \u2014 owner authorized SCISTUDIO_SKIP_PREFLIGHT=1 for PR creation after reviewing that the 9 remaining local python_tests failures are repo-level Windows test-portability defects pre-existing on origin/main (verified identical on a clean baseline worktree) and unrelated to this diff.",
+      "reason": "Owner authorized opening the PR with the local pre-flight skipped; CI remains authoritative and runs the full evaluator."
     }
   ],
   "docs_events": [
@@ -781,6 +786,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.373283Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.393320Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.416318Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.439331Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.458975Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.478498Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.497609Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.517017Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.536895Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T03:24:12.559278Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -801,9 +888,9 @@
       "desktop/package.json",
       "tests/packaging/test_desktop_mvp_resources.py"
     ],
-    "diff_fingerprint": "sha256:24f7a77122d00c0017b1408f7ca93cacd0997e83a59f0cd97a5d1391042189df",
+    "diff_fingerprint": "sha256:fe77460f918280f35ea00ce223b57a8b270a7db5fbd0fcf5a4487bdb3b91680c",
     "head": "HEAD",
-    "head_sha": "7681aa97",
+    "head_sha": "663f6f55",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -893,6 +980,16 @@
     {
       "at": "2026-08-06T03:23:48.401117Z",
       "diff_fingerprint": "sha256:24f7a77122d00c0017b1408f7ca93cacd0997e83a59f0cd97a5d1391042189df",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T03:24:12.559300Z",
+      "diff_fingerprint": "sha256:fe77460f918280f35ea00ce223b57a8b270a7db5fbd0fcf5a4487bdb3b91680c",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
