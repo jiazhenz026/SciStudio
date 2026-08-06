@@ -374,8 +374,9 @@ def _qoder_channel(
                 "--append-system-prompt takes literal text with no @<file> "
                 "indirection; the composed SciStudio prompt is unbounded and "
                 "would land on the command line. Both Qoder channels receive "
-                "the prompt through .agents/skills like Codex does "
-                "(spec §4.1). Revisit if Qoder gains @<file> support."
+                "the prompt through .agents/skills like Codex does. "
+                "ADR-034 spec §4.1 records this as an assumption to revisit "
+                "if a later Qoder release gains @<file> indirection."
             ),
         ),
         credentials=CredentialProbe(

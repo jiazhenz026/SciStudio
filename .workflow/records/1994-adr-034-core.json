@@ -282,6 +282,68 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-06T07:40:19.079299Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b94901a3a0ba9b382c8d5b4f5999db67cf64a05513dbad6061639a81338c11fa",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T07:40:19.160412Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d4be00ac6866373871816ba185c2f2ec206ed53a38fa29bface4ab1a78245f0f",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-06T07:40:28.072195Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:399d6b5d4428b7bfb2d1c49f00c0e8990aad995e1835ad0c6ee1dd5476d58fb6",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-06T07:42:10.921180Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d8fd433c2f02787a39ac3da11241baf80b14008e54e2d33ca6b80ccab9200c57",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -469,6 +531,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:10.969088Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:10.981750Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:10.993933Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.006873Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.019201Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.031799Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.044864Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.057229Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.069555Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-06T07:42:11.087289Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -491,9 +635,9 @@
       "tests/ai/test_providers_registry.py",
       "tests/ai/test_windows_executable_resolution.py"
     ],
-    "diff_fingerprint": "sha256:0e11f2844d46e6c98ee3a3f958b1cb616701b2cb33ef25dd646265f614cb7e24",
+    "diff_fingerprint": "sha256:faceecefdff32f5fd9ea8d785340d788454529d492bb8a4410e704facdf077d9",
     "head": "HEAD",
-    "head_sha": "87fba4fe",
+    "head_sha": "fdf8237b",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -528,6 +672,19 @@
     {
       "at": "2026-08-06T07:36:50.230667Z",
       "diff_fingerprint": "sha256:0e11f2844d46e6c98ee3a3f958b1cb616701b2cb33ef25dd646265f614cb7e24",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.deferral_discipline",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-06T07:42:11.087310Z",
+      "diff_fingerprint": "sha256:faceecefdff32f5fd9ea8d785340d788454529d492bb8a4410e704facdf077d9",
       "mode": "local",
       "result": "fail",
       "tier": 1,
