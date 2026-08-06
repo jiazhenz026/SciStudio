@@ -36,6 +36,28 @@ from pathlib import Path
 _HOOKS_DIR_REL = ".claude/hooks"
 _SETTINGS_REL = ".claude/settings.json"
 
+#: Qoder CLI's project-scope settings file, and the project-root variable its
+#: hook command strings expand (#1994 finding 3).
+#:
+#: Qoder is a Claude Code fork and reads the *same* settings shape from its own
+#: directory. Both facts were established by running the installed CLI rather
+#: than inferred: ``qoderclicn hooks migrate --from-claude`` at 1.1.15, given a
+#: project SciStudio had just provisioned, wrote ``<project>/.qoder/settings.json``
+#: containing our seven hook entries verbatim with ``$CLAUDE_PROJECT_DIR``
+#: rewritten to ``$QODER_PROJECT_DIR``.
+#:
+#: ``.qoder`` — not ``.qoder-cn`` — is correct for **both** channels: the fact
+#: above was observed using the China-channel binary ``qoderclicn``, whose user
+#: config root is ``~/.qoder-cn`` but whose *project* scope is still ``.qoder``.
+#: One file therefore serves both descriptors.
+#:
+#: The hook scripts themselves are not duplicated. Qoder points at the same
+#: ``.claude/hooks/*.py`` files Claude Code and Codex use, which is what Qoder's
+#: own migration tool does.
+_QODER_SETTINGS_REL = ".qoder/settings.json"
+_CLAUDE_PROJECT_DIR_VAR = "CLAUDE_PROJECT_DIR"
+_QODER_PROJECT_DIR_VAR = "QODER_PROJECT_DIR"
+
 # (template_filename, destination_filename) — strip the "hook_" prefix.
 #
 # NOTE: ``hook_worktree_write_guard.py`` is intentionally NOT provisioned into
@@ -74,13 +96,20 @@ def _load_template(filename: str) -> str:
         raise
 
 
-def _build_settings_json(hooks_dir_rel: str) -> dict:
-    """Build the canonical ``.claude/settings.json`` content per ADR §3.6.
+def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR) -> dict:
+    """Build the canonical settings content per ADR §3.6.
 
     Hook command lines explicitly invoke the Python executable running
     SciStudio so they do not depend on a ``python`` shim being present on
-    PATH. Hook script paths are project-relative via ``$CLAUDE_PROJECT_DIR``
-    so the settings.json survives moving the project directory.
+    PATH. Hook script paths are project-relative via the caller's
+    ``project_dir_var`` so the settings file survives moving the project
+    directory.
+
+    ``project_dir_var`` is the only thing that differs between the Claude Code
+    file and the Qoder file: Claude Code expands ``$CLAUDE_PROJECT_DIR`` and
+    Qoder expands ``$QODER_PROJECT_DIR``. Everything else — matchers, script
+    names, event groups — is byte-identical, which is why one builder serves
+    both and the two cannot drift apart as hooks are added (#1994 finding 3).
     """
     py = _quote_shell_path(sys.executable)
     # Codex P1 reconcile (PR #1047): include MultiEdit in every Edit|Write
@@ -107,7 +136,7 @@ def _build_settings_json(hooks_dir_rel: str) -> dict:
     ]
 
     def _entry(matcher: str, script: str) -> dict:
-        cmd = f'{py} "$CLAUDE_PROJECT_DIR/{hooks_dir_rel}/{script}"'
+        cmd = f'{py} "${project_dir_var}/{hooks_dir_rel}/{script}"'
         return {
             "matcher": matcher,
             "hooks": [{"type": "command", "command": cmd}],
@@ -127,11 +156,15 @@ def _quote_shell_path(path: str | Path) -> str:
     return f'"{escaped}"'
 
 
-def _legacy_python_hook_command(script: str, hooks_dir_rel: str) -> str:
-    return f'python "$CLAUDE_PROJECT_DIR/{hooks_dir_rel}/{script}"'
+def _legacy_python_hook_command(script: str, hooks_dir_rel: str, project_dir_var: str) -> str:
+    return f'python "${project_dir_var}/{hooks_dir_rel}/{script}"'
 
 
-def _upgrade_legacy_settings_commands(settings: dict, hooks_dir_rel: str) -> bool:
+def _upgrade_legacy_settings_commands(
+    settings: dict,
+    hooks_dir_rel: str,
+    project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR,
+) -> bool:
     """Replace old PATH-dependent SciStudio hook commands in-place.
 
     User-owned custom commands are preserved. Only the exact command strings
@@ -159,8 +192,8 @@ def _upgrade_legacy_settings_commands(settings: dict, hooks_dir_rel: str) -> boo
                 if not isinstance(command, str):
                     continue
                 for script in scripts:
-                    if command == _legacy_python_hook_command(script, hooks_dir_rel):
-                        handler["command"] = f'{py} "$CLAUDE_PROJECT_DIR/{hooks_dir_rel}/{script}"'
+                    if command == _legacy_python_hook_command(script, hooks_dir_rel, project_dir_var):
+                        handler["command"] = f'{py} "${project_dir_var}/{hooks_dir_rel}/{script}"'
                         changed = True
                         break
     return changed
@@ -189,7 +222,7 @@ def _entry_script_name(entry: object, script_names: set[str]) -> str | None:
     return None
 
 
-def _merge_missing_canonical_hooks(settings: dict) -> bool:
+def _merge_missing_canonical_hooks(settings: dict, project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR) -> bool:
     """Additively register canonical hook entries missing from ``settings``.
 
     ADR-040 Addendum 6 top-up (#1858): when a newer SciStudio version adds a
@@ -202,7 +235,7 @@ def _merge_missing_canonical_hooks(settings: dict) -> bool:
     entry (including a user-edited matcher/command for it) are left untouched.
     Returns True if the settings dict was modified.
     """
-    canonical = _build_settings_json(_HOOKS_DIR_REL)["hooks"]
+    canonical = _build_settings_json(_HOOKS_DIR_REL, project_dir_var)["hooks"]
     hooks = settings.get("hooks")
     if not isinstance(hooks, dict):
         if "hooks" in settings:
@@ -227,12 +260,65 @@ def _merge_missing_canonical_hooks(settings: dict) -> bool:
     return changed
 
 
+def _write_settings_file(
+    project_dir: Path,
+    settings_rel: str,
+    project_dir_var: str,
+    *,
+    force: bool,
+) -> list[str]:
+    """Create or top up one provider's project-scope hook settings file.
+
+    Shared by the Claude Code file and the Qoder file because they differ only
+    in location and in the project-root variable their command strings expand;
+    a second copy of this logic would be a second place for the two providers'
+    hook coverage to drift apart.
+
+    Same three-way behaviour in both cases: write when absent or forced,
+    otherwise upgrade legacy command strings and additively merge any canonical
+    hook the user's existing file is missing, never touching user-authored
+    entries (ADR-040 Addendum 6, #1858).
+    """
+    settings_path = project_dir / settings_rel
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not settings_path.exists() or force:
+        settings_path.write_text(
+            json.dumps(_build_settings_json(_HOOKS_DIR_REL, project_dir_var), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return [settings_rel]
+
+    try:
+        existing = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(existing, dict):
+        return []
+
+    # Order matters: upgrade legacy command strings first, then top up any
+    # canonical hooks this SciStudio version adds (#1858). Use a
+    # non-short-circuiting OR so both run.
+    upgraded = _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL, project_dir_var)
+    merged = _merge_missing_canonical_hooks(existing, project_dir_var)
+    if upgraded or merged:
+        settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+        return [settings_rel]
+    return []
+
+
 def write_hooks(
     project_dir: Path,
     *,
     force: bool = False,
 ) -> list[str]:
-    """Write ``<project>/.claude/settings.json`` + 7 hook scripts.
+    """Write the project-scope hook settings for every hook-capable provider.
+
+    Writes ``<project>/.claude/settings.json`` (Claude Code),
+    ``<project>/.qoder/settings.json`` (both Qoder channels) and the seven
+    shared hook scripts under ``<project>/.claude/hooks/``. Codex's hook
+    declarations live in ``<project>/.codex/config.toml`` and are written by
+    :mod:`scistudio.agent_provisioning.codex_config`.
 
     Returns list of project-relative paths actually written.
     """
@@ -243,27 +329,12 @@ def write_hooks(
 
     written: list[str] = []
 
-    settings_path = project_dir / _SETTINGS_REL
-    if not settings_path.exists() or force:
-        settings_path.write_text(
-            json.dumps(_build_settings_json(_HOOKS_DIR_REL), indent=2) + "\n",
-            encoding="utf-8",
-        )
-        written.append(_SETTINGS_REL)
-    else:
-        try:
-            existing = json.loads(settings_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            existing = None
-        if isinstance(existing, dict):
-            # Order matters: upgrade legacy command strings first, then top up
-            # any canonical hooks this SciStudio version adds (#1858). Use a
-            # non-short-circuiting OR so both run.
-            upgraded = _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL)
-            merged = _merge_missing_canonical_hooks(existing)
-            if upgraded or merged:
-                settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
-                written.append(_SETTINGS_REL)
+    written.extend(_write_settings_file(project_dir, _SETTINGS_REL, _CLAUDE_PROJECT_DIR_VAR, force=force))
+    # #1994 finding 3: the same hook set, in Qoder's own project-scope file.
+    # Without this, a Qoder chat tab ran with no data-protection and no
+    # tool-use hooks at all — SciStudio provisioned Claude Code and Codex and
+    # silently left both Qoder channels unguarded.
+    written.extend(_write_settings_file(project_dir, _QODER_SETTINGS_REL, _QODER_PROJECT_DIR_VAR, force=force))
 
     for template_name, dest_name in _HOOK_FILES:
         dest = hooks_dir / dest_name

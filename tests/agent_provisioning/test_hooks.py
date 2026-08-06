@@ -625,3 +625,91 @@ def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
     # MUST NOT flag — runtime value is opaque
     assert "DataObject" not in proc.stderr, f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
     assert "empty" not in proc.stderr.lower(), f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"
+
+
+# ---------------------------------------------------------------------------
+# #1994 finding 3 — Qoder hook parity.
+#
+# The owner found that SciStudio's data-protection and tool-use hooks did not
+# take effect for Qoder. They were not merely misconfigured: nothing was ever
+# written for Qoder at all. Every fact these tests encode was established by
+# running the installed CLI at 1.1.15, not read off documentation:
+#
+#   * ``qoderclicn hooks migrate --from-claude``, run in a project SciStudio
+#     had just provisioned, wrote ``<project>/.qoder/settings.json`` holding
+#     our seven entries with ``$CLAUDE_PROJECT_DIR`` rewritten to
+#     ``$QODER_PROJECT_DIR``. That is where Qoder looks and what it expects.
+#   * ``.qoder`` — not ``.qoder-cn`` — is the project scope for *both*
+#     channels: the observation above was made with the China-channel binary,
+#     whose user config root is ``~/.qoder-cn``.
+#   * A blocking hook placed in that file and run through ``qoderclicn``
+#     stopped the Bash tool call and surfaced the hook's stderr, so exit-code-2
+#     blocking works exactly as it does for Claude Code.
+# ---------------------------------------------------------------------------
+
+
+def test_write_hooks_creates_qoder_settings(tmp_project_dir: Path) -> None:
+    """Qoder gets the same hook set in the file Qoder actually reads."""
+    written = write_hooks(tmp_project_dir, force=False)
+    assert ".qoder/settings.json" in written
+
+    data = json.loads((tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8"))
+    assert len(data["hooks"]["PreToolUse"]) == 4
+    assert len(data["hooks"]["PostToolUse"]) == 3
+
+
+def test_qoder_hooks_expand_qoders_own_project_dir_variable(tmp_project_dir: Path) -> None:
+    """``$CLAUDE_PROJECT_DIR`` is not a variable Qoder sets.
+
+    Copying the Claude Code file verbatim would leave every command pointing at
+    an empty path, so the hooks would "exist" and silently never run — the same
+    user-visible outcome as not provisioning them.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    raw = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    assert "$QODER_PROJECT_DIR" in raw
+    assert "$CLAUDE_PROJECT_DIR" not in raw
+
+
+def test_qoder_hooks_reuse_the_shared_hook_scripts(tmp_project_dir: Path) -> None:
+    """One set of scripts serves every provider, as Qoder's own migration does."""
+    write_hooks(tmp_project_dir, force=False)
+    raw = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    for name in _HOOK_NAMES:
+        assert f".claude/hooks/{name}" in raw
+        assert (tmp_project_dir / ".claude" / "hooks" / name).is_file()
+
+
+def test_qoder_and_claude_hook_coverage_cannot_drift(tmp_project_dir: Path) -> None:
+    """The two files declare the same matchers against the same scripts.
+
+    Both are rendered by one builder precisely so a hook added for Claude Code
+    cannot quietly skip Qoder. Comparing them after normalising the project-dir
+    variable is what holds that guarantee in place.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    claude = (tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8")
+    qoder = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    assert qoder.replace("$QODER_PROJECT_DIR", "$CLAUDE_PROJECT_DIR") == claude
+
+
+def test_existing_qoder_settings_are_topped_up_not_clobbered(tmp_project_dir: Path) -> None:
+    """A user-authored Qoder hook survives; missing canonical ones are added."""
+    qoder_settings = tmp_project_dir / ".qoder" / "settings.json"
+    qoder_settings.parent.mkdir(parents=True, exist_ok=True)
+    qoder_settings.write_text(
+        json.dumps(
+            {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-own-hook"}]}]}}
+        ),
+        encoding="utf-8",
+    )
+
+    write_hooks(tmp_project_dir, force=False)
+    raw = qoder_settings.read_text(encoding="utf-8")
+
+    assert "my-own-hook" in raw
+    for name in _HOOK_NAMES:
+        assert name in raw

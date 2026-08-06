@@ -182,10 +182,12 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     task_out = asyncio.create_task(pump_pty_to_ws())
     task_in = asyncio.create_task(pump_ws_to_pty())
+    task_repaint = asyncio.create_task(_nudge_initial_repaint(pty, initial_cols, initial_rows))
 
     try:
         await stop.wait()
     finally:
+        task_repaint.cancel()
         # Pop from the registry FIRST.  The subsequent awaits in this
         # finally block can themselves be cancelled (e.g. Starlette's
         # WebSocketTestSession cancels the anyio scope on context exit
@@ -228,6 +230,51 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         for task in (task_out, task_in):
             with contextlib.suppress(asyncio.CancelledError, TimeoutError, Exception):
                 await asyncio.wait_for(task, timeout=1.0)
+
+
+#: Delay before the post-spawn repaint nudge (#1994 finding 4). Long enough
+#: that the CLI has drawn its first frame — a TUI that has not painted yet has
+#: nothing to repaint — and short enough that the user does not sit in front of
+#: a half-drawn terminal noticing it.
+_REPAINT_NUDGE_DELAY_S = 1.0
+
+
+async def _nudge_initial_repaint(pty: PtyProcess, cols: int, rows: int) -> None:
+    """Force one full TUI repaint shortly after the tab opens.
+
+    #1994 finding 4: with ``codex`` and both Qoder channels the CLI's bottom
+    input box was intermittently missing from a freshly opened tab, and a single
+    press of the ↓ key made it appear — the signature of a TUI that has drawn a
+    frame and is waiting for an event before drawing another.
+
+    The race is between the CLI's first paint and the viewport it paints into.
+    The PTY is created at the size the client asked for, so in the common case
+    the two agree and no resize frame is ever sent: the frontend's
+    ``ResizeObserver`` only emits when the fitted size *changes*. If the CLI
+    happens to paint before it has read the winsize — or paints against a
+    partially initialised console on Windows — nothing afterwards tells it to
+    try again, so the bottom composer stays absent until the user's first
+    keystroke. Whether that race is lost varies run to run, which is exactly the
+    intermittency reported.
+
+    A one-column jiggle back to the client's real size is the smallest event
+    that reliably provokes a full repaint: it delivers ``SIGWINCH`` on POSIX and
+    a console resize event on Windows, and it leaves the terminal at precisely
+    the size it already had, so a CLI that painted correctly sees a no-op.
+
+    Never fatal. A PTY that already exited, or a backend that rejects the
+    resize, must not take the tab down with it — the nudge is a cosmetic
+    guarantee, not part of the data path.
+    """
+    try:
+        await asyncio.sleep(_REPAINT_NUDGE_DELAY_S)
+    except asyncio.CancelledError:
+        return
+    if not pty.is_alive():
+        return
+    with contextlib.suppress(Exception):
+        pty.resize(cols=max(cols - 1, 1), rows=rows)
+        pty.resize(cols=cols, rows=rows)
 
 
 def _wait_exit_code(pty: PtyProcess) -> int:

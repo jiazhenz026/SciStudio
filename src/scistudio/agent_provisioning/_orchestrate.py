@@ -95,6 +95,10 @@ def install_project_agent_assets(
             lambda: write_hooks(project_dir, force=force),
             [
                 ".claude/settings.json",
+                # #1994 finding 3: Qoder's own project-scope settings file, in
+                # the identical Claude Code format. Both Qoder channels read
+                # ``.qoder/`` — the CN binary included — so one file covers them.
+                ".qoder/settings.json",
                 ".claude/hooks/deny_scistudio_cli.py",
                 ".claude/hooks/protect_workflow_yaml.py",
                 ".claude/hooks/protect_data_dir.py",

@@ -229,6 +229,67 @@ class ProviderDescriptor:
     bypass_argv: tuple[str, ...]
     """Argv fragment appended when the user opts into bypass permission mode."""
 
+    manual_argv: tuple[str, ...] = ()
+    """Argv fragment appended when the user picks **Manual Approve** (#1994).
+
+    Symmetric with :attr:`bypass_argv`, and it exists because silence is not a
+    safe default. Passing no flag in safe mode does not mean "ask me"; it means
+    "use whatever permission mode this CLI last persisted", and all of these
+    CLIs persist one across sessions. A user who picks Manual Approve and gets
+    a CLI that silently resumes its saved auto-accept has been handed a control
+    that does nothing — the defect the owner hit on 2026-08-06, where
+    ``claude-code`` launched in auto mode and ``codex`` launched in YOLO mode
+    despite Manual Approve being selected.
+
+    Empty means the CLI exposes no way to *assert* interactive approval on its
+    command line. That is a real observation about a CLI surface, not an
+    unfilled row, so it must be explained in
+    :attr:`manual_argv_absent_reason`; the registry completeness test requires
+    exactly one of the two to be present.
+    """
+
+    manual_argv_absent_reason: str | None = None
+    """Why :attr:`manual_argv` is empty, when it is. ``None`` otherwise."""
+
+    prompt_argv_prefix: tuple[str, ...] | None = ("--",)
+    """Argv placed before a positional initial prompt, or ``None`` (#1994).
+
+    ``("--",)`` — the end-of-options separator — is right for every CLI that
+    accepts a positional prompt, and it is required rather than cosmetic
+    (#1789): ``--mcp-config`` is variadic, so without it Claude Code swallows
+    the trailing prompt as another MCP config path and exits.
+
+    ``None`` means the CLI has **no** positional prompt argument, so an AI
+    Block task cannot reach it on the command line at all. Kimi Code is the
+    observed case: it is a commander.js CLI whose first positional is parsed as
+    a *subcommand*, so ``kimi -- "<task>"`` exits 1 with
+    ``unknown command '<task>'``. That is the AI Block launch failure the owner
+    reported, and appending the prompt anyway is what produced it.
+    """
+
+    prompt_unsupported_reason: str | None = None
+    """Why :attr:`prompt_argv_prefix` is ``None``, when it is.
+
+    Surfaced verbatim to the user by the AI Block's config validation, so it
+    must explain the CLI's limitation rather than name an internal field.
+    """
+
+    hook_trust_argv: tuple[str, ...] = ()
+    """Argv that lets SciStudio's own provisioned hooks actually run (#1994).
+
+    SciStudio writes the project's hook definitions itself, in files it owns,
+    from templates it ships. A CLI that gates hook execution behind an
+    interactive trust review is therefore asking the user to vouch for
+    SciStudio's own configuration — a prompt the embedded PTY tab never
+    surfaces, so the answer is never given and the hooks never fire. The user
+    ends up with an agent that has no data-protection and no tool-use
+    enforcement, and nothing anywhere says so.
+
+    Empty for every provider that runs project-scope hooks without a review
+    gate. Non-empty only where the CLI documents such a gate *and* the flag was
+    observed to lift it.
+    """
+
     excluded_dirs: tuple[tuple[str, ...], ...] = ()
     """Directory subtrees a resolution must never come from, as path segments.
 
@@ -430,6 +491,10 @@ def _qoder_channel(
             auth_status_argv=(),
         ),
         bypass_argv=("--dangerously-skip-permissions",),
+        # ``--permission-mode`` choices at 1.1.15, verified by running the
+        # binary with a bogus value: default | plan | auto | bypass_permissions
+        # | accept_edits | dont_ask. ``default`` is the ask-before-acting mode.
+        manual_argv=("--permission-mode", "default"),
         # The security-scan plugin's pinned internal copy, observed at 1.1.12
         # with ``{"channel": "global"}`` beside ``qodersec.exe``. Both channels
         # exclude it: it carries the international channel's binary name, so
@@ -473,6 +538,12 @@ _CLAUDE_CODE = ProviderDescriptor(
         auth_status_argv=("auth", "status", "--json"),
     ),
     bypass_argv=("--dangerously-skip-permissions",),
+    # ``--permission-mode`` choices at 2.x: acceptEdits | auto |
+    # bypassPermissions | manual | dontAsk | plan. ``manual`` is the literal
+    # ask-me mode. Without it Claude Code resumes the mode persisted in
+    # ``~/.claude/settings.json``, which is how a Manual Approve launch came up
+    # in auto mode on the owner's machine (#1994 finding 2).
+    manual_argv=("--permission-mode", "manual"),
 )
 
 _CODEX = ProviderDescriptor(
@@ -503,6 +574,26 @@ _CODEX = ProviderDescriptor(
         auth_status_argv=("login", "status"),
     ),
     bypass_argv=("--dangerously-bypass-approvals-and-sandbox",),
+    # ``-a/--ask-for-approval`` policies at 0.139.0: untrusted | on-failure
+    # (deprecated) | on-request | never. ``untrusted`` is the only value that
+    # guarantees an escalation to the human for anything outside the trusted
+    # command set; ``on-request`` delegates the decision to the model, which is
+    # not what "Manual Approve" promises the user.
+    manual_argv=("--ask-for-approval", "untrusted"),
+    # #1994 finding 3. Codex 0.130+ gates project-scope hooks behind an
+    # interactive trust review: the TUI opens a panel reading
+    # ``SessionStart 2 0 2 … Press t to trust all; enter to review hooks``
+    # (declared / trusted / untrusted), and until the user answers it, none of
+    # SciStudio's provisioned hooks run. Observed live at 0.139.0 against a
+    # project SciStudio had just provisioned — the declarations loaded and
+    # parsed, and fired nothing.
+    #
+    # The trust decision is about SciStudio's *own* hook files, written from
+    # SciStudio's own templates, so this is precisely the "automation that
+    # already vets hook sources" case the flag is documented for. Without it a
+    # SciStudio-launched Codex tab runs with no data-protection and no
+    # tool-use enforcement at all, silently.
+    hook_trust_argv=("--dangerously-bypass-hook-trust",),
 )
 
 _KIMI_CODE = ProviderDescriptor(
@@ -543,6 +634,28 @@ _KIMI_CODE = ProviderDescriptor(
         auth_status_argv=("doctor",),
     ),
     bypass_argv=("--auto",),
+    # Observed at 0.33.0: the only permission flags are ``-y/--yolo`` and
+    # ``--auto``, both of which *loosen* approval. There is no flag that
+    # asserts interactive approval, so manual mode is the absence of both.
+    manual_argv=(),
+    manual_argv_absent_reason=(
+        "kimi 0.33.0 exposes only the loosening flags -y/--yolo and --auto; it "
+        "has no flag that asserts interactive approval, so Manual Approve is "
+        "expressed by passing neither. Revisit when Kimi Code gains an explicit "
+        "permission-mode flag."
+    ),
+    # ``kimi --help`` at 0.33.0 shows ``Usage: kimi [options] [command]`` with
+    # no ``[prompt]`` positional; the prompt goes through ``-p/--prompt``, which
+    # is a one-shot non-interactive mode that prints and exits. A positional
+    # argument is parsed as a subcommand, so ``kimi -- "<task>"`` exits 1 with
+    # ``unknown command`` — verified by running the installed binary (#1994).
+    prompt_argv_prefix=None,
+    prompt_unsupported_reason=(
+        "Kimi Code has no positional prompt argument: its only prompt flag, "
+        "-p/--prompt, runs one prompt non-interactively and exits, so it cannot "
+        "seed the interactive session an AI Block needs. Kimi Code works as a "
+        "hand-launched chat tab; pick another provider for an AI Block."
+    ),
 )
 
 _QODER = _qoder_channel(

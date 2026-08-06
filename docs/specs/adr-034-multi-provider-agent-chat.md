@@ -217,6 +217,85 @@ Three consequences shape the whole design:
    directories rather than globbing for `qodercli*.exe` anywhere under the home
    directory, or SciStudio will offer a stale, unauthenticated agent.
 
+### Corrections from the owner's live hand-test (2026-08-06, issue #1994)
+
+The owner ran the implementation on a real workstation with `claude`, `codex`,
+`kimi` and `qoderclicn` installed. Five defects surfaced, and three of them
+falsify or extend facts recorded above. Live observation beats the tables, so
+the tables are corrected here rather than the code being bent to match them.
+
+**Manual Approve was never expressed on the command line.** The tables record a
+bypass flag per provider and nothing for safe mode, and the implementation
+matched that: safe mode appended no argv at all. Every one of these CLIs
+persists a permission mode across sessions, so "no flag" does not mean "ask
+me" — it means "resume whatever was saved". The owner selected Manual Approve
+and got Claude Code in auto mode and Codex in YOLO mode. Manual mode is now
+stated explicitly, as a descriptor field symmetric with the bypass flag:
+
+| Fact | `claude-code` | `codex` | `kimi-code` | `qoder` / `qoder-cn` |
+|---|---|---|---|---|
+| Manual-approve flag | `--permission-mode manual` | `--ask-for-approval untrusted` | **none** | `--permission-mode default` |
+
+Each value was confirmed by running the binary: a bogus value is rejected
+(`claude` exits 1, `codex` exits 2, `qoderclicn` exits 1 listing its choices)
+while the value above is accepted. Kimi Code exposes only the *loosening* flags
+`-y/--yolo` and `--auto`, so manual mode is the absence of both; the registry
+records that as an explicit reason string rather than an empty field.
+
+**Kimi Code has no positional prompt.** The tables do not record how each CLI
+receives an AI Block's task, and the implementation assumed every provider takes
+one after a `--` separator. `kimi --help` at 0.33.0 shows
+`Usage: kimi [options] [command]` with no `[prompt]` argument, so a positional
+is parsed as a subcommand: `kimi -- "<task>"` exits 1 with
+`unknown command '<task>'`. Its only prompt flag, `-p/--prompt`, runs one prompt
+non-interactively and exits, which cannot seed the interactive session an AI
+Block needs. Kimi Code is therefore a chat-tab provider only, and the AI Block
+refuses it at config time with that explanation.
+
+**A batch-launcher install truncates the AI Block prompt.** Codex installs from
+npm as `codex.cmd` with no `codex.exe` on PATH — the real binary sits under a
+hashed `node_modules` path — so `CreateProcess` runs it through `cmd.exe`, whose
+command line ends at the first line feed. The composed AI Block prompt is
+multi-line, so Codex received only its first line and the owner's own task never
+arrived. Claude Code resolves to `claude.exe` and was unaffected, which is why
+the defect looked Codex-specific. Prompts delivered to a `.cmd`/`.bat` launcher
+are now collapsed to a single line; providers resolving to a real executable
+keep their exact text.
+
+**Hook provisioning has no parity, and skills were never the problem.** The
+skills rows above are correct — the owner confirmed SciStudio's skills do take
+effect. What did not take effect are the data-protection and tool-use *hooks*, a
+separate per-CLI mechanism the tables never covered:
+
+| Fact | `claude-code` | `codex` | `kimi-code` | `qoder` / `qoder-cn` |
+|---|---|---|---|---|
+| Hook config location | `<project>/.claude/settings.json` | `<project>/.codex/config.toml` | **no hook system** | `<project>/.qoder/settings.json` |
+| Project-dir variable | `$CLAUDE_PROJECT_DIR` | `$(git rev-parse --show-toplevel)` | n/a | `$QODER_PROJECT_DIR` |
+| Provisioned before #1994 | yes | yes | n/a | **no** |
+| Extra gate | none | **interactive trust review** | n/a | none |
+
+Qoder's location and format were established by running
+`qoderclicn hooks migrate --from-claude` at 1.1.15 against a SciStudio-
+provisioned project: it wrote `<project>/.qoder/settings.json` holding
+SciStudio's seven hook entries with `$CLAUDE_PROJECT_DIR` rewritten to
+`$QODER_PROJECT_DIR`. `.qoder` — not `.qoder-cn` — is the project scope for both
+channels; the observation was made with the China-channel binary. A blocking
+hook placed in that file was then confirmed to stop a Bash tool call and surface
+the hook's stderr, so exit-code-2 blocking behaves as it does for Claude Code.
+
+Codex's declarations were already provisioned and do load — `--strict-config`
+accepts them, and a bogus key in the same file is rejected, proving the file is
+read — but Codex 0.130+ gates hook *execution* behind an interactive trust
+review. A Codex TUI opened in a provisioned project shows a panel reading
+`SessionStart 2 0 2 … Press t to trust all; enter to review hooks`: two hooks
+declared, zero trusted. The embedded PTY tab never surfaces that panel, so the
+answer is never given.
+
+Kimi Code has no hook surface at all: `kimi --help` at 0.33.0 lists none, and
+its config root contains no hook file. The owner asked specifically whether Kimi
+has the same gap — it does not have the gap because it has no mechanism to
+provision, which is a permanent limitation rather than a missing feature.
+
 ### Governance alignment — how the gap was closed (2026-08-06)
 
 This spec was authored as `status: Draft` because the

@@ -1,0 +1,129 @@
+{
+  "branch": "fix/1994-live-test-findings",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-06T21:37:01.119603Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1994,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner hand-test of ADR-034 multi-provider found five defects: (1) claude prints 'Transcript saving is off - inherited CLAUDE_CODE_CHILD_SESSION marker'; (2) safety-critical: Manual Approve launches claude in auto mode and codex in YOLO mode; (3) SciStudio data-protection/tool-use HOOKS do not take effect for codex and Qoder (skills DO work); (4) codex/Qoder bottom input box intermittently unrendered until keyboard down-arrow; (5) core: kimi-code AI Block fails to launch (PTY exit 1) and codex receives a truncated prompt cut at 'manifest at:'. Owner decisions: finding 2 must pass an explicit manual permission flag per provider as a descriptor field symmetric with bypass_argv; finding 5a is codex-only; finding 3 is re-scoped to hooks, not skills.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1994-live-test-findings",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119560Z",
+      "pattern": "src/scistudio/ai/agent/providers_registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119586Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119590Z",
+      "pattern": "src/scistudio/blocks/ai/ai_block.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119592Z",
+      "pattern": "tests/ai/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119594Z",
+      "pattern": "tests/blocks/ai/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T21:37:01.119596Z",
+      "pattern": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:12:43.653971Z",
+      "pattern": "src/scistudio/agent_provisioning/hooks.py",
+      "reason": "Owner directive: all five live-test findings ship in PR #2003, no follow-up issues. Finding 3 re-scoped from skills to hooks, which adds Qoder hook provisioning (agent_provisioning) and the Codex hook-trust flag; finding 4 adds a post-spawn repaint nudge in the PTY websocket route."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:12:43.653988Z",
+      "pattern": "src/scistudio/agent_provisioning/_orchestrate.py",
+      "reason": "Owner directive: all five live-test findings ship in PR #2003, no follow-up issues. Finding 3 re-scoped from skills to hooks, which adds Qoder hook provisioning (agent_provisioning) and the Codex hook-trust flag; finding 4 adds a post-spawn repaint nudge in the PTY websocket route."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:12:43.653990Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/websocket.py",
+      "reason": "Owner directive: all five live-test findings ship in PR #2003, no follow-up issues. Finding 3 re-scoped from skills to hooks, which adds Qoder hook provisioning (agent_provisioning) and the Codex hook-trust flag; finding 4 adds a post-spawn repaint nudge in the PTY websocket route."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:12:43.653992Z",
+      "pattern": "tests/agent_provisioning/",
+      "reason": "Owner directive: all five live-test findings ship in PR #2003, no follow-up issues. Finding 3 re-scoped from skills to hooks, which adds Qoder hook provisioning (agent_provisioning) and the Codex hook-trust flag; finding 4 adds a post-spawn repaint nudge in the PTY websocket route."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-06T22:12:43.653993Z",
+      "pattern": "tests/api/routes/ai_pty/",
+      "reason": "Owner directive: all five live-test findings ship in PR #2003, no follow-up issues. Finding 3 re-scoped from skills to hooks, which adds Qoder hook provisioning (agent_provisioning) and the Codex hook-trust flag; finding 4 adds a post-spawn repaint nudge in the PTY websocket route."
+    }
+  ],
+  "session_id": "096c3e4a-72b3-4fa3-a168-c97570542fde",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-06T21:37:01.119611Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_live_findings_1994.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

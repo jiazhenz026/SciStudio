@@ -100,7 +100,12 @@ def test_ai_block_discovery_uses_the_registry_resolver(monkeypatch: pytest.Monke
     # that the block reaches *that* function, so a same-named local stub
     # would prove nothing.
     monkeypatch.setattr(providers_registry, "resolve_binary", spy)
-    AIBlock().validate_config(_config(provider="kimi-code", user_prompt="hi"))
+    # #1994: kimi-code is rejected later in validate_config (it has no
+    # positional prompt, so it cannot run as an AI Block at all) — but the
+    # discovery call this test is about happens first, so the spy still records
+    # it. Asserting through the raise keeps the original claim intact.
+    with pytest.raises(ValueError, match="cannot run as an AI Block"):
+        AIBlock().validate_config(_config(provider="kimi-code", user_prompt="hi"))
     assert seen == ["kimi-code"]
     assert mod._discover_provider_binary(providers_registry.get("qoder-cn")) == Path("/fake/bin/agent")
     assert seen == ["kimi-code", "qoder-cn"]
@@ -148,7 +153,21 @@ def _provider_missing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.parametrize("provider", agent_keys())
 def test_validate_succeeds_for_every_registry_provider(provider: str, _provider_installed: None) -> None:
-    """FR-014: every agent key in the registry is an accepted provider."""
+    """FR-014: every agent key in the registry is an accepted provider.
+
+    #1994 added one qualifier. Being in the registry still means the key is
+    recognised, but a provider whose CLI has no positional prompt cannot carry
+    an AI Block task and is refused here — with its own explanation — rather
+    than spawned into a PTY that exits 1.
+    """
+    from scistudio.ai.agent.providers_registry import get as registry_get
+
+    descriptor = registry_get(provider)
+    if descriptor.prompt_argv_prefix is None:
+        with pytest.raises(ValueError, match="cannot run as an AI Block") as excinfo:
+            AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+        assert "unknown provider" not in str(excinfo.value)
+        return
     AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
 
 
