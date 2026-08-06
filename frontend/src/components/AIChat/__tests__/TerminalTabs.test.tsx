@@ -160,6 +160,35 @@ describe("TerminalTabs", () => {
     expect(useAppStore.getState().activeTerminalTabId).toBe(tabs[2].id);
   });
 
+  it("leaves Ctrl+C / Ctrl+V to the terminal clipboard handler (#1994)", async () => {
+    // The window-level shortcut listener must not claim the keys that
+    // TerminalView maps to copy/paste: no tab is opened, closed or switched.
+    render(<TerminalTabs />);
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
+    act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
+    const tabs = useAppStore.getState().terminalTabs;
+    const activeBefore = useAppStore.getState().activeTerminalTabId;
+    expect(tabs.length).toBe(2);
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+      fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    });
+
+    expect(useAppStore.getState().terminalTabs.length).toBe(2);
+    expect(useAppStore.getState().activeTerminalTabId).toBe(activeBefore);
+
+    // ...and the tab shortcuts still work afterwards.
+    act(() => {
+      fireEvent.keyDown(window, { key: "1", ctrlKey: true });
+    });
+    expect(useAppStore.getState().activeTerminalTabId).toBe(tabs[0].id);
+    act(() => {
+      fireEvent.keyDown(window, { key: "t", ctrlKey: true });
+    });
+    expect(useAppStore.getState().terminalTabs.length).toBe(3);
+  });
+
   it("rehydrate downgrades a running tab to closed with exitCode -1", async () => {
     // Simulate persisted state with a "running" tab.
     const { rehydrateTerminalTabs } = await import("../../../store/terminalTabsSlice");
