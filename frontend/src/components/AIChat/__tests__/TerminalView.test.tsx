@@ -712,10 +712,25 @@ describe("TerminalView", () => {
       const { term } = await mountRunningTerminal();
       term.selection = "some text";
 
+      // Ctrl+C is still claimed — the interrupt must not come back just because
+      // the clipboard is unreachable — and the user is told why nothing copied.
       expect(xtermState.keyHandler!(keyEvent("c").ev)).toBe(false);
       await waitFor(() =>
         expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent("unavailable"),
       );
+    });
+
+    it("stands aside on Ctrl+V when the page cannot read the clipboard", async () => {
+      // Firefox exposes readText() to extensions only; insecure origins expose
+      // no Clipboard API at all. There the browser's native paste is the only
+      // working path, so we must not claim the key or preventDefault it.
+      installClipboard({ writeText: vi.fn() });
+      await mountRunningTerminal();
+
+      const { ev, preventDefault } = keyEvent("v");
+      expect(xtermState.keyHandler!(ev)).toBe(true);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("terminal-clipboard-hint-t1")).toBeNull();
     });
 
     it("leaves every other key to xterm, including the tab shortcuts", async () => {

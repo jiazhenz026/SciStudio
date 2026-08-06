@@ -15,7 +15,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PtyClientFrame } from "../hooks/usePtyWebSocket";
-import { copyHint, copyTextToClipboard, pasteHint, readTextFromClipboard } from "./clipboard";
+import {
+  canReadClipboard,
+  copyHint,
+  copyTextToClipboard,
+  pasteHint,
+  readTextFromClipboard,
+} from "./clipboard";
 
 // How long a clipboard hint ("Copied", "Nothing selected", a denial) stays up.
 const CLIPBOARD_HINT_MS = 2200;
@@ -146,8 +152,13 @@ export function useTerminalClipboard({
       return false;
     }
     if (key === "v") {
-      // preventDefault() suppresses the native paste event xterm would also
-      // turn into stdin — without it the text would arrive twice.
+      // Where the page cannot read the clipboard (Firefox, insecure origins),
+      // stand aside: the browser's native paste is then the only working path,
+      // and xterm already forwards it to stdin via its paste event. Claiming
+      // the key here would take paste away entirely.
+      if (!canReadClipboard()) return true;
+      // preventDefault() suppresses that same native paste event — without it
+      // the text would arrive twice, once from the browser and once from us.
       ev.preventDefault();
       void pasteFromClipboardRef.current();
       return false;

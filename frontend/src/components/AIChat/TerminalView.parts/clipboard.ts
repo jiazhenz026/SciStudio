@@ -60,6 +60,19 @@ export async function copyTextToClipboard(text: string): Promise<ClipboardStatus
   }
 }
 
+/**
+ * True when the browser lets page script READ the clipboard.
+ *
+ * Firefox deliberately exposes `readText()` to extensions only, and any
+ * insecure origin has no Clipboard API at all. Where we cannot read, we must
+ * NOT claim the Ctrl+V keystroke: the browser's own paste (which xterm turns
+ * into stdin through its paste event) is the only path that still works, and
+ * calling preventDefault would remove it and leave the user unable to paste.
+ */
+export function canReadClipboard(): boolean {
+  return typeof clipboardApi()?.readText === "function";
+}
+
 /** Read the system clipboard, classifying denial / absence instead of throwing. */
 export async function readTextFromClipboard(): Promise<ClipboardReadResult> {
   const clipboard = clipboardApi();
