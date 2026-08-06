@@ -30,7 +30,7 @@ scope:
     - Pin the SetupScreen action bar so Launch is reachable at every bottom-panel height without scrolling.
     - Collapse the three duplicated frontend provider union types into one source.
     - Fix the orphaned system-prompt temp file leak on the AI Block spawn path.
-    - Fix the invalid `scistudio install --target claude-code` hint emitted by AI Block validate-time errors.
+    - Replace the invalid `scistudio install --target claude-code` hint emitted by AI Block validate-time errors with a message that does not suggest a command incapable of installing the provider CLI.
     - Update ADR-034, the embedded coding agent spec contract note, and the affected skill documentation.
   out:
     - Adding a non-CLI provider surface such as an IDE launcher or a hosted API backend.
@@ -79,6 +79,10 @@ governs:
     - frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx
     - frontend/src/components/AIChat/SetupScreen.parts/types.ts
     - frontend/src/components/AIChat/hooks/usePtyWebSocket.ts
+    - frontend/src/components/AIChat/TerminalTabs.tsx
+    - frontend/src/components/AIChat/blockPtyHandlers.ts
+    - frontend/src/components/BottomPanel.tsx
+    - frontend/src/hooks/useWebSocket.parts/handleBlockPty.ts
     - frontend/src/store/types.ts
     - frontend/src/store/terminalTabsSlice.ts
   excludes:
@@ -293,11 +297,15 @@ Acceptance Scenarios:
 - Given an AI Block run completes, when the run directory is inspected, then
   `<project>/.scistudio/.tmp/` contains no orphaned system-prompt file.
 - Given a provider binary is absent, when `validate_config` runs, then the error
-  names the provider and any install command it suggests is a command the
-  `scistudio install` CLI actually accepts.
+  names the provider and its expected binary and suggests no `scistudio install`
+  command, because that command cannot install a provider CLI.
 - Given an AI Block spawns a tab, when the frontend receives `block_pty_opened`,
   then the tab records the provider the engine actually spawned rather than a
-  hardcoded `claude-code`.
+  hardcoded `claude-code`, at every link from the WS payload through
+  `blockPtyHandlers` to the store.
+- Given a project already has a `.kimi-code/mcp.json` with the user's own MCP
+  servers, when a Kimi tab spawns, then those servers are still present
+  afterwards and only the SciStudio entry changed.
 
 ### User Story 3 - Pick A Provider Without A Growing Radio List (Priority: P2)
 
@@ -450,6 +458,13 @@ Acceptance Scenarios:
   rather than resolving to the installed sibling.
 - A stale sidecar copy of a provider binary exists outside the registered
   well-known directories. Discovery must not select it.
+- The project already has a `.kimi-code/mcp.json` containing the user's own MCP
+  servers. Injecting the SciStudio entry must leave every other entry intact.
+- That file exists but is malformed. The write must fail loudly rather than
+  replace it, because replacing it destroys content the user cannot recover.
+- Two SciStudio processes inject into the same provider-owned config file
+  concurrently. The write must be atomic so the file is never observed
+  half-written.
 - A saved workflow or persisted chat tab names a Qoder channel that is no longer
   installed. Status must report it unavailable without breaking the dropdown or
   the AI Block config load.
@@ -515,8 +530,12 @@ Acceptance Scenarios:
 - FR-013: The AI Block spawn path MUST NOT create files that no component
   deletes.
 - FR-014: `AIBlock.validate_config` MUST reject unknown providers against the
-  registry and MUST emit an install hint that the `scistudio install` CLI
-  accepts, or omit the hint when no valid target exists.
+  registry and, when the failure is a missing provider binary, MUST NOT suggest
+  `scistudio install`. That command wires SciStudio's MCP server and skills into
+  a CLI the user already has; it cannot install the CLI itself, so running it
+  would leave discovery failing. The error MUST name the provider and its
+  expected binary, and otherwise omit any command SciStudio cannot make
+  corrective.
 - FR-015: `AIBlock.config_schema` `provider` enum MUST be derived from the
   registry's agent provider keys with `claude-code` remaining the default.
 - FR-016: For providers with an explicit MCP config flag, the spawn argv MUST
@@ -524,12 +543,33 @@ Acceptance Scenarios:
 - FR-017: For providers without an MCP config flag, spawn MUST write the
   SciStudio MCP entry into that provider's own project-scope discovery location
   before the process starts.
+- FR-017a: When the write target is a config file owned by the provider rather
+  than by SciStudio, the write MUST read, merge, and atomically replace the
+  file, changing only the SciStudio server entry and preserving every other
+  key. Whole-file replacement is forbidden for such targets.
+- FR-017b: A merge write MUST refuse to proceed when the existing file is
+  present but unparseable, and MUST surface an actionable error rather than
+  overwriting or silently discarding the user's content.
 - FR-018: MCP entry content MUST remain provider-agnostic; only the write
   location and injection mechanism may differ per provider.
 - FR-019: Skill provisioning MUST remain unchanged; the spec MUST NOT add a new
   skills tree for either new provider.
-- FR-020: The frontend MUST declare the provider union type exactly once and
-  every consumer MUST import it.
+- FR-020: The frontend MUST declare the provider type exactly once and every
+  consumer MUST import it.
+- FR-020a: Agent provider keys MUST NOT be a hand-maintained TypeScript literal
+  union, because that reintroduces the duplication FR-001 removes and breaks the
+  registry-only extension path. The frontend MUST treat agent provider keys as
+  opaque strings validated at runtime against the status payload. The
+  `user-terminal` pseudo-provider MAY remain a literal, since the frontend
+  branches on it for surface routing.
+- FR-020b: Provider display labels MUST come from the backend status payload
+  rather than a frontend label map, so adding a provider requires no frontend
+  edit. The status entry gains a `label` field; the existing fields are
+  unchanged and the addition is backward compatible.
+- FR-020c: The provider MUST be carried end to end on the engine-initiated tab
+  path: the `block_pty_opened` payload, its WS dispatch handler, the
+  `blockPtyHandlers` entry point, and the store action that creates the tab MUST
+  each accept and forward it. No link may substitute a default.
 - FR-021: The Setup screen MUST render provider choice as a single select
   control driven by the status payload.
 - FR-021a: The select MUST list every supported agent provider, including those
@@ -613,7 +653,21 @@ MCP injection becomes a strategy dispatch with three observed shapes: an
 explicit `--mcp-config` flag (`claude-code`, `qoder`, `qoder-cn`), Codex `-c`
 overrides (`codex`), and a project-scope file write (`kimi-code`, writing
 `<project>/.kimi-code/mcp.json` before spawn). The payload in every case is the
-existing `_mcp_entry_payload(project_dir)`. System-prompt injection has two
+existing `_mcp_entry_payload(project_dir)`.
+
+The Kimi write must **not** reuse `_ensure_mcp_config`. That helper rewrites the
+whole file every call, which is correct for `<project>/.scistudio/mcp.json`
+because SciStudio owns that path, and destructive for
+`<project>/.kimi-code/mcp.json` because Kimi owns it and the user may have
+registered their own MCP servers there. Reusing the clobbering helper would
+silently delete that configuration. The Kimi strategy therefore reads the
+existing file, merges only the SciStudio server entry, and atomically replaces
+the file; an existing-but-unparseable file is an error, never an overwrite. The
+merge-preserving pattern already exists in `cli/install.py`, which edits
+user-owned `~/.claude.json` and `.codex/config.toml` without clobbering them —
+that is the precedent to follow, not `_ensure_mcp_config`.
+
+System-prompt injection has two
 observed shapes: a flag that accepts file indirection (`claude-code`), and
 ambient discovery through the already-provisioned skills trees (`codex`,
 `kimi-code`, `qoder`, `qoder-cn`). The Qoder channels' literal-text
@@ -633,10 +687,27 @@ The frontend consolidates on `store/types.ts` as the single `TerminalProvider`
 source; `SetupScreen.parts/types.ts` and the inline union in
 `usePtyWebSocket.ts` re-export or import it. `ProviderPicker` becomes a `select`
 driven by the `/api/ai/status` payload, with the `user-terminal` entry excluded
-because it is launched through a separate affordance. Provider display names
-come from a frontend label map keyed by provider key; the backend status payload
-is not widened to carry labels, because its entry shape is a locked contract and
-the label is presentation.
+because it is launched through a separate affordance.
+
+Two details here decide whether the registry actually delivers the
+single-file-extension promise of User Story 7. A hand-maintained TypeScript
+literal union and a frontend label map would both need editing for every new
+provider, which reintroduces exactly the duplication FR-001 removes. So agent
+provider keys become opaque strings validated at runtime against the status
+payload, and display labels are returned by the backend as a new `label` field
+on each status entry. `user-terminal` stays a literal because the frontend
+branches on it to route between the chat and terminal surfaces. The tradeoff is
+explicit: agent provider keys lose compile-time exhaustiveness checking in
+TypeScript, which is the price of not maintaining the list in two languages.
+
+The engine-initiated tab path needs the provider threaded through four links,
+not two. `open_engine_initiated_tab` already knows the provider once
+`PtyTabSpec` carries it, so `block_pty_opened` gains a `provider` field; the WS
+dispatch in `handleBlockPty.ts` forwards it; `blockPtyHandlers.handleBlockPtyOpened`
+accepts it in its payload type; and `addAiBlockTerminalTab` stores it instead of
+`terminalTabsSlice`'s hardcoded `"claude-code"`. Changing only the slice and the
+WS dispatch would leave `blockPtyHandlers` unable to forward a provider it never
+received, so the tab would keep recording the default.
 
 The zero-install state is a distinct render branch, not a disabled-everything
 picker. `SetupScreen` already distinguishes loading, error, and loaded status;
@@ -700,15 +771,16 @@ FR-021h records why an opaque background is now required.
 | `src/scistudio/api/routes/ai_pty/engine.py` | modify | Accept explicit `provider`; delete `_provider_from_argv` |
 | `src/scistudio/api/routes/ai_pty/internal_routes.py` | modify | Read `provider` from the request spec |
 | `src/scistudio/api/routes/ai_pty/__init__.py` | modify | Update the WS contract docstring provider list |
-| `src/scistudio/api/routes/ai.py` | modify | Registry-driven status list and credential probes |
+| `src/scistudio/api/routes/ai.py` | modify | Registry-driven status list and credential probes; add the `label` field to each status entry |
 | `src/scistudio/engine/pty_control.py` | modify | Add `provider` to `PtyTabSpec`; drop `spawn_argv` |
 | `src/scistudio/blocks/ai/ai_block.py` | modify | Delete `_build_spawn_argv`, `_BYPASS_FLAG`, `_discover_provider`; registry-derived enum and validation |
 | `src/scistudio/cli/install.py` | modify | Accept registry-derived targets; keep existing targets working |
 | `src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md` | modify | Update the documented AI Block provider enum |
 | `frontend/src/store/types.ts` | modify | Single `TerminalProvider` union |
 | `frontend/src/components/AIChat/SetupScreen.parts/types.ts` | modify | Import the shared union instead of redeclaring |
-| `frontend/src/components/AIChat/hooks/usePtyWebSocket.ts` | modify | Import the shared union instead of an inline literal |
-| `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | modify | Replace radio list with a status-driven select; label map; available-first ordering; `Choose provider…` placeholder |
+| `frontend/src/components/AIChat/hooks/usePtyWebSocket.ts` | modify | Import the shared provider type instead of an inline literal |
+| `frontend/src/components/AIChat/blockPtyHandlers.ts` | modify | Accept `provider` on the `block_pty_opened` payload and forward it to the store action |
+| `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | modify | Replace radio list with a status-driven select using backend-supplied labels; available-first ordering; `Choose provider…` placeholder |
 | `frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx` | modify | Relabel to Manual Approve / Bypass Permission; strip CLI flag names |
 | `frontend/src/components/AIChat/SetupScreen.parts/NoProvidersNotice.tsx` | create | Zero-install guidance panel naming every supported agent |
 | `frontend/src/components/AIChat/SetupScreen.tsx` | modify | Pass the status array instead of named per-provider props; branch to the zero-install notice; sticky opaque action bar |
@@ -730,18 +802,18 @@ FR-021h records why an opaque background is now required.
 | T-001 | none | Add descriptor dataclasses and the five agent descriptors plus `user-terminal` | Registry unit tests; every descriptor has a complete adapter definition; both Qoder channels present as distinct keys |
 | T-002 | T-001 | Parameterise `resolve_windows_executable` with descriptor well-known dirs; exact-name matching only | Resolution tests locate `kimi.exe`, `qodercli.exe`, and `qoderclicn.exe` off-PATH; sidecar copy is rejected; one missing channel does not resolve to the other |
 | T-003 | T-001, T-002 | Replace spawn factories with descriptor-driven `spawn_agent` | Argv snapshot tests per provider; no cross-provider flag leakage |
-| T-004 | T-003 | Implement the three MCP injection strategies | Kimi project MCP file written before spawn; flag providers pass the SciStudio path |
+| T-004 | T-003 | Implement the three MCP injection strategies, with a merge-preserving atomic write for provider-owned config files | Kimi project MCP file written before spawn; a pre-existing `.kimi-code/mcp.json` with unrelated servers survives unchanged; an unparseable file errors instead of being overwritten; flag providers pass the SciStudio path |
 | T-005 | T-001 | Derive `_VALID_PROVIDERS` / `_PROVIDER_SPAWNERS` and the status endpoint from the registry | WS rejection message enumerates five providers; status returns five entries |
 | T-006 | T-005 | Descriptor-driven credential probes | Per-provider logged-in tests using fake HOME fixtures |
 | T-007 | T-001 | Add `provider` to `PtyTabSpec`; accept it in the internal route and `open_engine_initiated_tab`; delete `_provider_from_argv` | Engine spawn tests assert provider passthrough, not argv inference |
-| T-008 | T-007 | Delete `_build_spawn_argv`, `_BYPASS_FLAG`, `_discover_provider`; wire AI Block to the registry | AI Block run leaves no orphaned temp file; validate hint is an accepted CLI command |
+| T-008 | T-007 | Delete `_build_spawn_argv`, `_BYPASS_FLAG`, `_discover_provider`; wire AI Block to the registry | AI Block run leaves no orphaned temp file; missing-binary error names the provider and its binary and suggests no non-corrective command |
 | T-009 | T-005, T-008 | Registry-derived AI Block `provider` enum | Existing `claude-code` workflows load unchanged; enum lists five providers |
-| T-010 | T-001 | Consolidate the frontend provider union to one source | Type check passes with no duplicate literal unions |
-| T-011 | T-010, T-005 | Replace the provider radio list with a status-driven select: label map, available-first ordering, `Choose provider…` placeholder | SetupScreen tests assert one select, disabled/annotation states, group ordering, and that Launch stays disabled until a provider is chosen |
+| T-010 | T-001 | Consolidate the frontend provider type to one source; agent keys become opaque strings; labels come from the status payload | Type check passes with no duplicate literal unions and no frontend label map |
+| T-011 | T-010, T-005 | Replace the provider radio list with a status-driven select: backend-supplied labels, available-first ordering, `Choose provider…` placeholder | SetupScreen tests assert one select, disabled/annotation states, group ordering, and that Launch stays disabled until a provider is chosen |
 | T-011a | T-011 | Add the zero-install guidance notice and its render branch | Tests for all-unavailable, in-flight, and status-error render paths |
 | T-011b | none | Relabel the permission picker and strip CLI flag names; align AI Block `ui_enum_labels` | Rendered text contains no `--` flag; stored values unchanged |
 | T-011c | none | Convert the two CSS-hiding wrappers to definite-height flex containers and pin the action bar with `sticky bottom-0` plus opaque background | Real-browser check at default, minimum, and restored-persisted panel heights; PTY survives a tab switch and a surface switch |
-| T-012 | T-007, T-010 | Carry engine-reported provider onto engine-initiated tabs | Block PTY handler tests assert the provider is not hardcoded |
+| T-012 | T-007, T-010 | Thread the provider through all four links: `block_pty_opened` payload, `handleBlockPty.ts` dispatch, `blockPtyHandlers.handleBlockPtyOpened`, and `addAiBlockTerminalTab` | Tests assert an engine-initiated Kimi or Qoder tab records that provider end to end and that no link substitutes a default |
 | T-013 | T-005 | Extend `scistudio install` targets from the registry | CLI accepts existing and new targets; unknown target still errors |
 | T-014 | T-001 to T-013 | Update ADR-034 addendum, the embedded-agent spec note, and SKILL.md | Docs checks pass; adapter matrix records the verification date |
 
@@ -764,9 +836,10 @@ FR-021h records why an opaque background is now required.
 - Add an AI Block temp-file regression test asserting
   `<project>/.scistudio/.tmp/` contains no files attributable to the worker
   after a run.
-- Add a validate-time test asserting the install hint string is accepted by the
-  `scistudio install` target parser, closing the loop that currently emits an
-  invalid command.
+- Add a validate-time test asserting the missing-binary error names the provider
+  and its expected binary and contains no `scistudio install` suggestion,
+  replacing the current message that emits a command the install CLI rejects and
+  that could not have installed the CLI even if it parsed.
 - Update `tests/api/test_provider_discovery.py` to assert the status set equals
   the registry's agent keys rather than a frozen literal set.
 - Replace `test_open_engine_tab_picks_codex_provider_from_argv` with a test
@@ -778,6 +851,14 @@ FR-021h records why an opaque background is now required.
   the third.
 - Add a permission-picker test asserting the rendered text contains no `--`
   substring, so a future edit cannot reintroduce flag names.
+- Add a merge-preservation test for the Kimi MCP write: seed
+  `.kimi-code/mcp.json` with an unrelated server, inject, and assert the
+  unrelated entry survives byte-for-byte while only the SciStudio entry changes.
+  Add a companion test asserting a malformed file raises instead of being
+  overwritten.
+- Add an end-to-end provider-propagation test for the engine-initiated path
+  covering all four links, so a future refactor cannot reintroduce a default at
+  any single hop.
 - **Verify the pinned action bar in a real browser, not in jsdom.** The existing
   test `keeps Cancel and Launch outside the scrollable setup body` asserts the
   class strings `overflow-hidden`, `overflow-y-auto`, and `shrink-0` and passes
@@ -844,6 +925,17 @@ FR-021h records why an opaque background is now required.
   scroll affordance, and visually check each tab at default and minimum panel
   heights before merge. `Lineage` is the reference that currently works, so any
   regression there is the clearest signal the change went too far.
+- **Writing into a provider-owned config file is destructive if done wrong.**
+  `.kimi-code/mcp.json` belongs to Kimi, not SciStudio, and a clobbering write
+  destroys user configuration with no recovery path. Mitigation: FR-017a/FR-017b
+  require read/merge/atomic-write with a hard failure on malformed input, and
+  the merge-preservation test is a required acceptance check rather than an
+  optional one.
+- **Dropping the TypeScript literal union loses compile-time exhaustiveness.**
+  A typo in a provider key becomes a runtime rather than a build failure.
+  Mitigation: validate provider keys at runtime against the status payload and
+  keep `user-terminal` a literal, so the one key the frontend branches on is
+  still type-checked.
 - **Rollback**: the registry is additive until T-005 switches the whitelists
   over. Reverting the frontend dropdown and the two new descriptors restores the
   previous two-provider behavior without touching the PTY transport. The three
@@ -866,7 +958,12 @@ FR-021h records why an opaque background is now required.
 - Per-provider knowledge exists in exactly one backend module; a repository
   search for a provider key outside the registry, tests, and documentation
   returns no spawn, status, or validation logic.
-- The frontend declares the provider union exactly once.
+- The frontend declares the provider type exactly once and contains no
+  hand-maintained list of agent provider keys or labels.
+- Injecting the SciStudio MCP entry into a provider-owned config file preserves
+  every unrelated entry in that file.
+- An engine-initiated tab records the provider the engine actually spawned, at
+  every link from the WS payload to the store.
 - Every supported agent is visible in the picker whether or not it is installed,
   only installed ones are selectable, and installed ones sort above the rest.
 - The picker opens with no provider chosen and Launch stays disabled until the
@@ -878,8 +975,8 @@ FR-021h records why an opaque background is now required.
 - Launch is visible without scrolling at the default panel height, the minimum
   panel height, and a restored persisted height, confirmed in a real browser.
 - An AI Block run creates no file that no component deletes.
-- The validate-time install hint is a command the `scistudio install` CLI
-  accepts.
+- The validate-time missing-binary error names the provider and its expected
+  binary and suggests no command that cannot install that binary.
 - No test asserts a hardcoded two-provider set.
 - Adding a sixth provider requires editing the registry module plus its
   discovery rule, and no other source file.
@@ -891,7 +988,14 @@ FR-021h records why an opaque background is now required.
   five CLIs consume the same payload and differ only in discovery mechanism.
 - Kimi Code's absence of a `--mcp-config` flag is treated as stable for 0.33.x;
   the project-scope file write is chosen over mutating the user-global
-  `<KIMI_CODE_HOME>/mcp.json` so SciStudio never edits shared user state.
+  `<KIMI_CODE_HOME>/mcp.json` so SciStudio never edits shared user state. The
+  project-scope file is still owned by Kimi rather than SciStudio, which is why
+  FR-017a requires a merge write there even though `_ensure_mcp_config` may keep
+  clobbering `<project>/.scistudio/mcp.json`, a path SciStudio does own.
+- Adding a `label` field to each `/api/ai/status` entry is assumed to be
+  backward compatible. The historical note calling that entry shape locked is in
+  a Deprecated spec, existing consumers read fields by name, and this change adds
+  rather than renames or removes.
 - Qoder CLI's `--append-system-prompt` is assumed to accept literal text only,
   based on its argument handling reading the value directly with no file
   indirection. The design therefore does not depend on that flag.
