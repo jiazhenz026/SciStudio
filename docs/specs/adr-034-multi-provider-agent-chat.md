@@ -296,7 +296,7 @@ separate per-CLI mechanism the tables never covered:
 | Hook config location | `<project>/.claude/settings.json` | `<project>/.codex/config.toml` | **no hook system** | `<project>/.qoder/settings.json` |
 | Project-dir variable | `$CLAUDE_PROJECT_DIR` | `$(git rev-parse --show-toplevel)` | n/a | `$QODER_PROJECT_DIR` |
 | Provisioned before #1994 | yes | yes | n/a | **no** |
-| Extra gate | none | **interactive trust review, answered in the PTY** | n/a | none |
+| Extra gate | none | **trust review (answered in PTY) + POSIX-only command, now fixed** | n/a | none |
 
 Qoder's location and format were established by running
 `qoderclicn hooks migrate --from-claude` at 1.1.15 against a SciStudio-
@@ -335,6 +335,55 @@ The WS route already forwards every keystroke to the PTY verbatim, so the user
 sees this on first launch in a project and answers it once. Option 3's
 parenthetical is Codex stating the consequence plainly, and it is why the
 owner's hooks did not run: the gate had not been answered.
+
+**Trust was necessary but not sufficient.** After the owner answered that menu,
+Codex hooks still failed repeatedly with a nonzero exit. The second cause is in
+the generated command itself, and it is older and larger than ADR-034: **no
+SciStudio hook has ever run under Codex on Windows.**
+
+Every Codex hook command SciStudio has written resolves the project root with
+`$(git rev-parse --show-toplevel)` — POSIX command substitution. Running the
+generated command from a provisioned project through each shell:
+
+| Shell | Result |
+|---|---|
+| `cmd.exe` | substitution passed through **literally**; Python is handed `…\$(git rev-parse --show-toplevel)\.claude\hooks\…` → `can't open file`, **exit 2** |
+| `powershell.exe` | fails earlier still: a command line whose first token is a quoted path parses as a string *expression*, not an invocation → `Unexpected token`, **exit 1** |
+| Git Bash | **exit 0** |
+
+Only a POSIX shell works. Claude Code and both Qoder channels run hooks through
+Git Bash, which is why they were unaffected and why the failure looked
+Codex-specific. It is not a Codex bug, and it is not TOML escaping — the
+escaping is correct.
+
+The fix removes the construct instead of translating it per shell: the
+project's absolute hook path is baked in at provisioning, spelled with forward
+slashes and left unquoted. That single string is verified to execute with exit
+0 in `cmd.exe`, PowerShell **and** `sh`, so it no longer depends on knowing
+which shell Codex uses — which remains undocumented and could not be
+established here, because no hook could be made to execute under Codex at all
+in a scratch project. Existing projects are repaired through the upgrade path,
+since `write_codex_config` preserves an existing file and would otherwise leave
+already-provisioned users with dead hooks indefinitely.
+
+Qoder was re-verified with SciStudio's **genuine generated** hook rather than a
+hand-written one: its writer emits `$QODER_PROJECT_DIR` and never the
+substitution, and the real `deny_scistudio_cli.py` blocked a `scistudio run`
+Bash call, with the agent relaying SciStudio's own hook text. Claude Code is
+*conditionally* fine: its command uses the same `"exe" "$VAR/…"` shape, which
+only a POSIX shell executes, so its hooks depend on Git Bash being present on
+Windows. That is a latent exposure for a Windows user without Git for Windows,
+recorded here rather than fixed because no such failure has been observed.
+
+Separately, the interpreter path baked into these commands is whatever
+`sys.executable` was at provisioning time. In the owner's sample that was
+`.workflow/local/venv/Scripts/python.exe` — the gate's disposable parity venv —
+because provisioning happened to run under it. This is a **real but narrower
+exposure**: it breaks hooks whenever that interpreter moves or is deleted, and
+it is not new (the MCP `command` in the same file has always been captured the
+same way). It is left unfixed and unhidden here because the correct remedy —
+resolving a stable interpreter, or re-resolving at hook time — is a design
+decision beyond this bug fix.
 
 `--dangerously-bypass-hook-trust` would make the hooks fire with no prompt, and
 was **deliberately rejected**. It disarms the review for the whole config file —
