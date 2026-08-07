@@ -3,10 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
-import { BlockDetailPopover, type PopoverAnchor } from "./BlockDetailPopover";
+import { BlockDetailPopover } from "./BlockDetailPopover";
 import { BlockTile } from "./BlockPalette.parts/BlockTile";
 import { CategoryChips } from "./BlockPalette.parts/CategoryChips";
-import { buildPaletteSections, type PaletteSection } from "./BlockPalette.parts/paletteModel";
+import {
+  buildPaletteSections,
+  isFiltering,
+  type PaletteSection,
+} from "./BlockPalette.parts/paletteModel";
+import { useHoverPopover } from "./palette/hoverPopover";
 
 interface BlockPaletteProps {
   blocks: BlockSummary[];
@@ -16,13 +21,6 @@ interface BlockPaletteProps {
   onReload: () => void;
   onAddBlock: (block: BlockSummary) => void;
 }
-
-/** Gap (px) between a tile's right edge and the detail popover. */
-const POPOVER_GAP = 8;
-/** Hover dwell before the detail popover opens (spec §6). */
-const POPOVER_OPEN_DELAY_MS = 150;
-/** Rough popover height used to keep it inside the viewport. */
-const POPOVER_MAX_HEIGHT = 240;
 
 // #1857: the tile grid auto-adapts its column count to the (resizable) palette
 // width instead of a hardcoded 2 columns. A tile's intrinsic minimum width is
@@ -86,12 +84,24 @@ function SectionView({
           </span>
         </button>
       )}
-      {open ? (
+      {open && section.items.length === 0 ? (
+        // FR-037: `My Library` and `This Project` render even when empty, each
+        // carrying one line stating what the section is for. For a user who has
+        // never heard of a personal library this is the only moment they are
+        // guaranteed to be looking at the place it would live.
+        <p
+          className="px-1 text-[11px] leading-snug text-stone-500"
+          data-testid="palette-section-empty"
+        >
+          {section.emptyHint}
+        </p>
+      ) : null}
+      {open && section.items.length > 0 ? (
         <div
           className="grid gap-1"
           style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
-          {section.blocks.map((block) => (
+          {section.items.map((block) => (
             <BlockTile
               block={block}
               key={`${block.type_name}-${block.name}`}
@@ -116,16 +126,16 @@ export function BlockPalette({
   onAddBlock,
 }: BlockPaletteProps) {
   const dragImageRef = useRef<HTMLDivElement | null>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Blink the palette body (search + chips + grid) once a Reload actually lands.
   const { ref: contentRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, BlockSummary[]>(
     blocks,
   );
 
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
-  const [hovered, setHovered] = useState<{ block: BlockSummary; anchor: PopoverAnchor } | null>(
-    null,
-  );
+  // FR-044/FR-046: the shared hover state machine. It delays the open so the
+  // card does not flash while the pointer sweeps the grid, and delays the close
+  // so the pointer can cross POPOVER_GAP into the card and click what is there.
+  const hover = useHoverPopover<BlockSummary>();
 
   // #1857: measure the scrollable grid area so the tile grid can pick a column
   // count that fits the resizable palette. clientWidth excludes the scrollbar,
@@ -150,7 +160,7 @@ export function BlockPalette({
   };
 
   const sections = buildPaletteSections(blocks, search, activeCategories);
-  const forceOpen = search.trim().length > 0 || activeCategories.length > 0;
+  const forceOpen = isFiltering(search, activeCategories);
 
   const toggleCategory = (key: string) => {
     setActiveCategories((prev) =>
@@ -158,30 +168,10 @@ export function BlockPalette({
     );
   };
 
-  const clearHover = () => {
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
-    }
-    setHovered(null);
-  };
-
-  const handleTileEnter = (block: BlockSummary, rect: DOMRect) => {
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current);
-    }
-    const maxTop =
-      typeof window === "undefined"
-        ? rect.top
-        : Math.max(8, window.innerHeight - POPOVER_MAX_HEIGHT);
-    const anchor: PopoverAnchor = {
-      left: rect.right + POPOVER_GAP,
-      top: Math.min(rect.top, maxTop),
-    };
-    hoverTimer.current = setTimeout(() => setHovered({ block, anchor }), POPOVER_OPEN_DELAY_MS);
-  };
-
   const handleDragStart = (event: React.DragEvent, block: BlockSummary) => {
+    // FR-045: dragging is unchanged, and the popover gets out of the way at
+    // once rather than lingering through the close grace period.
+    hover.closeNow();
     const payload = { ...block };
     if (block.direction) {
       (payload as Record<string, unknown>)._default_direction = block.direction;
@@ -202,7 +192,7 @@ export function BlockPalette({
   // Collapsed (rail) mode: a single column of icon-only swatches; no chips,
   // search, or popover. Behavior preserved as-is per spec §3.
   if (collapsed) {
-    const railBlocks = sections.flatMap((section) => section.blocks);
+    const railBlocks = sections.flatMap((section) => section.items);
     return (
       <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-2">
         <button className="toolbar-button mb-2 self-center" onClick={handleReload} type="button">
@@ -243,7 +233,9 @@ export function BlockPalette({
       />
 
       <div className="flex items-center justify-between gap-2">
-        <p className="font-display text-xl text-ink">Palette</p>
+        {/* FR-034: the panel names itself after its tab, so `Blocks` and the
+            `Data types` tab beside it read as peers. */}
+        <p className="font-display text-xl text-ink">Blocks</p>
         <button className="toolbar-button" onClick={handleReload} type="button">
           Reload
         </button>
@@ -270,15 +262,24 @@ export function BlockPalette({
               key={section.id}
               onAddBlock={onAddBlock}
               onDragStart={handleDragStart}
-              onEnter={handleTileEnter}
-              onLeave={clearHover}
+              onEnter={hover.openFor}
+              onLeave={hover.scheduleClose}
               section={section}
             />
           ))}
         </div>
       </div>
 
-      {hovered ? <BlockDetailPopover anchor={hovered.anchor} block={hovered.block} /> : null}
+      {hover.hovered ? (
+        // Spreading `popoverProps` is what makes the card interactive (FR-044):
+        // it supplies the pointer handlers that keep it open together with the
+        // flag that drops `pointer-events-none`.
+        <BlockDetailPopover
+          anchor={hover.hovered.anchor}
+          block={hover.hovered.item}
+          {...hover.popoverProps}
+        />
+      ) : null}
     </aside>
   );
 }

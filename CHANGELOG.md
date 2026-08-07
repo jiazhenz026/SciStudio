@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#1995][#2025] The block palette now names the two places a block of your own
+  can live instead of collapsing them into one `Custom` bucket. The user-wide
+  library (`~/.scistudio/blocks/`) and the project-local one
+  (`{project}/blocks/`) become **My Library** and **This Project**, ordered
+  `Data I/O → Built-in → My Library → This Project → plugin packages A→Z`; My
+  Library sits above This Project because it is the container the product is
+  asking you to build a habit around. Both sections **render even when empty**,
+  each carrying one line saying what it is for — for a user who has never heard
+  of a personal library that empty section is the only moment they are
+  guaranteed to be looking at the place it would live, so it is treated as
+  load-bearing rather than as polish. Every other section keeps omitting itself
+  when empty, and the teaching copy steps aside while a search or category chip
+  is narrowing the grid, where an empty section says nothing about the library
+  and everything about the query. Underneath, `buildPaletteSections` changes
+  grouping *dimension* rather than gaining two entries: it groups by the
+  backend-resolved origin tier first and by package only inside the package
+  family. A tier-1 block whose file path resolves to neither root reports
+  `custom` and renders under This Project, and a payload from a backend that
+  predates the tier split falls back to the legacy `source` label and lands in
+  the same place, so the palette degrades rather than breaking. The hover
+  popover also becomes interactive: it no longer carries `pointer-events-none`,
+  keeps itself open while the pointer is inside it, and survives the gap between
+  tile and card, which is what lets it hold the promotion action; dragging a
+  tile is unchanged. The section/filter/tile/chip/popover machinery moves into a
+  shared `components/palette/` set so the forthcoming Data types tab reuses one
+  implementation instead of growing a parallel one. Tests:
+  `frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts`,
+  `frontend/src/components/BlockPalette.test.tsx`,
+  `frontend/src/components/palette/__tests__/sections.test.ts`,
+  `frontend/src/components/palette/__tests__/useHoverPopover.test.tsx`.
+  (@claude, 2026-08-07, branch: feat/1995-palette-tiers-and-popover)
+
 - [#1983] Persisted block artifacts are now reclaimed instead of accumulating
   forever. Every block output is written as a full-size store under
   `data/zarr/<workflow_id>/<block_id>/`, and nothing ever removed one: a real

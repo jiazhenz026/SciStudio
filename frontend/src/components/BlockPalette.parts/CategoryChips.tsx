@@ -1,10 +1,24 @@
-// Top-of-panel category filter chips, styled with the canvas per-category
-// color language. Multi-select toggle; an empty active set means "all".
+// Top-of-panel category filter chips — the shared `FilterChips` row supplied
+// with the block base categories and the canvas per-category colour language.
 //
-// Spec: docs/specs/frontend-block-palette.md §5 Category Filter Chips.
+// Specs: docs/specs/frontend-block-palette.md §5 Category Filter Chips.
+//        docs/specs/adr-053-personal-tool-library.md §10.1 (shared chips),
+//        §10.2 (`CATEGORY_KEYS` stays a block concept).
 
 import { categoryVisuals } from "../nodes/BlockNode.parts/categoryVisuals";
+import { FilterChips, type FilterChip } from "../palette/FilterChips";
 import { CATEGORY_KEYS } from "./paletteModel";
+
+const CATEGORY_CHIPS: readonly FilterChip[] = CATEGORY_KEYS.map((key) => {
+  const visual = categoryVisuals[key];
+  return {
+    key,
+    label: visual.label,
+    background: visual.bg,
+    border: visual.border,
+    color: visual.fg,
+  };
+});
 
 export interface CategoryChipsProps {
   active: readonly string[];
@@ -12,30 +26,12 @@ export interface CategoryChipsProps {
 }
 
 export function CategoryChips({ active, onToggle }: CategoryChipsProps) {
-  const activeSet = new Set(active);
-
   return (
-    <div className="mt-3 flex flex-wrap gap-1" data-testid="palette-category-chips">
-      {CATEGORY_KEYS.map((key) => {
-        const visual = categoryVisuals[key];
-        const on = activeSet.has(key);
-        return (
-          <button
-            aria-pressed={on}
-            className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition"
-            key={key}
-            onClick={() => onToggle(key)}
-            style={
-              on
-                ? { backgroundColor: visual.bg, borderColor: visual.border, color: visual.fg }
-                : { backgroundColor: "transparent", borderColor: "#e7e5e4", color: "#78716c" }
-            }
-            type="button"
-          >
-            {visual.label}
-          </button>
-        );
-      })}
-    </div>
+    <FilterChips
+      active={active}
+      chips={CATEGORY_CHIPS}
+      onToggle={onToggle}
+      testId="palette-category-chips"
+    />
   );
 }

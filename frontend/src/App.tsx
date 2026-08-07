@@ -33,7 +33,7 @@ import type { ProjectResponse, WorkflowResponse } from "./types/api";
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { AppDialogs } from "./App.parts/AppDialogs";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
-import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
+import { ProjectWorkspace, type LeftTab } from "./App.parts/ProjectWorkspace";
 import { WelcomePane } from "./App.parts/WelcomePane";
 import { useActiveTab } from "./App.parts/useActiveTab";
 import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
@@ -211,7 +211,7 @@ export default function App() {
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
   const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
   const [busy, setBusy] = useState(false);
-  const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
+  const [leftTab, setLeftTab] = useState<LeftTab>("blocks");
   const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
   const {
