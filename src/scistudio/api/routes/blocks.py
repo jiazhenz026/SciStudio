@@ -280,14 +280,19 @@ async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
     an in-place source edit (e.g. changing a block's base class to
     ``ProcessBlock``) left its ``base_category``/``ui_color``/``ui_icon`` stale
     until the file was saved through the app or the agent ``reload_blocks`` tool
-    ran. This endpoint gives the button a real backend re-scan: it calls
-    ``registry.hot_reload()`` and emits ``blocks.reloaded`` so every connected
-    client refreshes its catalog through the existing WS → refresh path.
+    ran. This endpoint gives the button a real backend re-scan and emits
+    ``blocks.reloaded`` so every connected client refreshes its catalog through
+    the existing WS → refresh path.
+
+    ADR-053 FR-062: the re-scan is ``refresh_all_registries()`` rather than
+    ``block_registry.hot_reload()``. Reload is an event that invalidates the
+    registry, and FR-062 is written in terms of events, not method names — a
+    user who edits ``{project}/types/spectrum.py`` and presses Reload used to
+    get a fresh block registry and a stale type registry.
     """
-    registry = runtime.block_registry
-    before = set(registry.all_specs().keys())
-    registry.hot_reload()
-    after = set(registry.all_specs().keys())
+    before = set(runtime.block_registry.all_specs().keys())
+    runtime.refresh_all_registries()
+    after = set(runtime.block_registry.all_specs().keys())
     added = sorted(after - before)
     removed = sorted(before - after)
     logger.info("POST /api/blocks/reload: added=%s removed=%s", added, removed)

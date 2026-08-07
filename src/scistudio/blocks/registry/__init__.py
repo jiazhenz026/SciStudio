@@ -516,9 +516,15 @@ class BlockRegistry:
         if spec is None:
             raise KeyError(f"Block '{name}' is not registered.")
 
+        from scistudio.core.dropins import guard_dropin_type_roots
         from scistudio.desktop.paths import prepended_sys_paths
 
         runtime_import_roots = [Path(root) for root in spec.runtime_import_roots]
+        # ADR-053 FR-016: this is a second door onto the same sys.path as the
+        # palette scan — an in-process instantiation, long after the scan that
+        # stamped these roots. The guard runs at every such door or it protects
+        # none of them.
+        guard_dropin_type_roots(runtime_import_roots)
         with prepended_sys_paths(runtime_import_roots):
             # For Tier 1 (file-based), re-import with mtime.
             if spec.file_path:

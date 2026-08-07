@@ -10,8 +10,9 @@ Owns:
   AIBlock, SubWorkflowBlock).
 - ``_scan_tier1`` — discover blocks from ``.py`` files under configured
   scan directories.
-- ``_dropin_type_name_collisions`` — ADR-053 FR-016 / §13 OQ-1: reject a
-  drop-in type file whose stem would shadow an installed top-level module.
+- ``_reject_shadowing_type_files`` — ADR-053 FR-016 / §13 OQ-1 reporting
+  adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
+  the rule and the mitigation for every process.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
   (ADR-025 callable protocol).
 - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
@@ -37,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from scistudio.blocks.io.capabilities import FormatCapability
 from scistudio.core.dropins import (
     dropin_import_roots_for_block_dirs,
-    dropin_type_roots_for_block_dirs,
+    guard_dropin_type_roots,
 )
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.paths import (
@@ -159,61 +160,17 @@ def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: s
     registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
 
 
-def _shadowed_top_level_module(stem: str, type_roots: tuple[Path, ...]) -> str | None:
-    """Return where an installed top-level module named *stem* lives, else ``None``.
+def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Path, ...]) -> None:
+    """Report every FR-016 collision in *import_roots* on the registry.
 
-    ADR-053 FR-016. The lookup runs against a ``sys.path`` with the drop-in type
-    roots removed, and a hit whose origin is itself inside one of those roots is
-    discarded, so a type file can never report itself as a collision — including
-    on a re-scan, where an earlier drop-in import may have left the file's own
-    module in ``sys.modules``.
+    Detection and the pre-binding that keeps the installed module resolving are
+    :func:`scistudio.core.dropins.guard_dropin_type_roots`, which the worker and
+    the in-process instantiation path call too. This function is only the block
+    registry's FR-015 reporting adapter for it.
     """
-    excluded = {str(root) for root in type_roots} | {str(root.resolve()) for root in type_roots}
-    original = list(sys.path)
-    sys.path[:] = [entry for entry in original if entry not in excluded]
-    try:
-        found = importlib.util.find_spec(stem)
-    except Exception:
-        return None
-    finally:
-        sys.path[:] = original
-    if found is None:
-        return None
-    origin = found.origin
-    if origin and origin not in {"built-in", "frozen"}:
-        with suppress(OSError, ValueError):
-            if str(Path(origin).parent.resolve()) in excluded:
-                return None
-    return origin or "built-in"
-
-
-def _reject_shadowing_type_files(registry: BlockRegistry, type_roots: tuple[Path, ...]) -> None:
-    """Refuse drop-in type files that would shadow installed modules (FR-016).
-
-    Spec §13 OQ-1 is resolved as reject-with-error rather than warn-and-load: a
-    ``json.py`` or ``numpy.py`` under a types directory is reported on the
-    FR-015 surface, and the module it collides with is bound in ``sys.modules``
-    before any drop-in executes so the installed package keeps winning while the
-    user renames the file.
-    """
-    for root in type_roots:
-        if not root.is_dir():
-            continue
-        for py_file in sorted(root.glob("*.py")):
-            if py_file.name.startswith("_"):
-                continue
-            origin = _shadowed_top_level_module(py_file.stem, type_roots)
-            if origin is None:
-                continue
-            with suppress(Exception):
-                importlib.import_module(py_file.stem)
-            message = (
-                f"{py_file.name} is rejected: the name {py_file.stem!r} already belongs to an "
-                f"importable module ({origin}), which this file would shadow once the types "
-                f"directory joins sys.path. Rename it to a name no installed module uses."
-            )
-            logger.error("ADR-053 FR-016: rejected drop-in type file %s — %s", py_file, message)
-            _record_dropin_failure(registry, py_file, "DropinTypeNameCollision", message)
+    for collision in guard_dropin_type_roots(import_roots):
+        logger.error("ADR-053 FR-016: rejected drop-in type %s — %s", collision.path, collision.message)
+        _record_dropin_failure(registry, collision.path, "DropinTypeNameCollision", collision.message)
 
 
 def _scan_tier1(registry: BlockRegistry) -> None:
@@ -247,7 +204,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
 
     registry._dropin_failures = []
     import_roots = dropin_import_roots_for_block_dirs(registry._scan_dirs)
-    _reject_shadowing_type_files(registry, dropin_type_roots_for_block_dirs(registry._scan_dirs))
+    _reject_shadowing_type_files(registry, import_roots)
 
     for scan_dir in registry._scan_dirs:
         if not scan_dir.is_dir():

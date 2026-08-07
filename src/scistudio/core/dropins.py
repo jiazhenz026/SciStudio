@@ -53,6 +53,38 @@ each registry keeps its own discovery pass ordering. See
 :meth:`scistudio.core.types.registry.TypeRegistry.scan_all` for the FR-061
 record of why the two orders stay separate.
 
+**FR-016 lives here too, for the same reason FR-057 does.** A types directory
+on ``sys.path`` is a user-writable claim on the top-level module namespace: a
+``json.py`` or ``numpy.py`` there would be imported in preference to the real
+package by everything loaded afterwards. :func:`guard_dropin_type_roots` is the
+single definition of what counts as a collision *and* of the mitigation —
+binding the module the drop-in would shadow before the roots join ``sys.path``,
+so the installed package keeps winning while the user renames the file.
+
+It is here rather than in either registry because the roots reach ``sys.path``
+from four processes and the answer must be the same in all of them. It
+previously lived in ``blocks.registry._scan`` and ran only during the palette
+scan, so a block resolved the installed module in the API process and the
+drop-in file in the worker — the scan-time-versus-run-time divergence FR-013
+exists to eliminate, reintroduced by the fix for it. The call sites are
+:func:`scistudio.blocks.registry._scan._scan_tier1` (palette scan),
+:meth:`scistudio.blocks.registry.BlockRegistry.instantiate` (in-process
+execution), :func:`scistudio.engine.runners.worker._prepend_runtime_import_roots`
+(worker subprocess), and :meth:`scistudio.core.types.registry.TypeRegistry._scan_filesystem_dirs`,
+which asks the same question with ``bind=False`` and refuses registration on
+the answer (§13 OQ-1: the refusal is a refusal, not a warning). That one call
+site needs no binding because it loads drop-in types by file path rather than
+through ``sys.path``, so binding would import a third-party package for no
+reason; every site that *does* touch ``sys.path`` takes the default.
+
+The guard takes *import* roots rather than type roots and picks the type tiers
+out of them itself, by the ``<tier-root>/`` :data:`TYPES_DIR_NAME` shape
+:func:`_tier_dirs` builds — exact rather than heuristic, because the same
+module writes the paths and reads them back. ``runtime_import_roots``
+interleaves the type tiers with the shared user dependency site, and a caller
+that had to separate them first would be deciding FR-016's scope on its own —
+the class of decision FR-057 removed.
+
 One consumer holds block scan directories rather than a project directory.
 :class:`scistudio.blocks.registry.BlockRegistry` is handed its directories
 through :func:`register_block_scan_dirs` and never learns the project root, but
@@ -80,8 +112,13 @@ contract). ``core -> desktop.paths`` is an established edge
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import os
-from collections.abc import Iterable
+import sys
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -92,11 +129,13 @@ __all__ = [
     "PROJECT_DIR_ENV_VAR",
     "TYPES_DIR_NAME",
     "USER_LIBRARY_DIR_NAME",
+    "DropinTypeCollision",
     "SupportsScanDirs",
     "block_scan_dirs",
     "dropin_import_roots",
     "dropin_import_roots_for_block_dirs",
     "dropin_type_roots_for_block_dirs",
+    "guard_dropin_type_roots",
     "project_blocks_dir",
     "project_dir_from_env",
     "project_types_dir",
@@ -219,6 +258,126 @@ def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[
 def dropin_import_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
     """Return :func:`dropin_import_roots` for a caller that holds block dirs."""
     return (*dropin_type_roots_for_block_dirs(block_dirs), *user_python_import_roots())
+
+
+@dataclass(frozen=True)
+class DropinTypeCollision:
+    """A drop-in type entry whose name would shadow an installed module.
+
+    ``path`` is what the user renames — the ``.py`` file, or the package
+    directory when the entry is a package. ``stem`` is the top-level module
+    name the entry would claim, and ``origin`` is where the module it collides
+    with actually lives.
+    """
+
+    path: Path
+    stem: str
+    origin: str
+
+    @property
+    def message(self) -> str:
+        """The FR-015 text shown to the user for this refusal."""
+        return (
+            f"{self.path.name} is rejected: the name {self.stem!r} already belongs to an "
+            f"importable module ({self.origin}), which this drop-in would shadow once the "
+            f"types directory joins sys.path. Rename it to a name no installed module uses."
+        )
+
+
+@contextmanager
+def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
+    """Run the body with *type_roots* absent from ``sys.path``.
+
+    Every FR-016 question is "what would this name resolve to if the drop-in
+    were not there", so every one of them is asked from inside this block.
+    """
+    excluded = {str(root) for root in type_roots} | {str(root.resolve()) for root in type_roots}
+    original = list(sys.path)
+    sys.path[:] = [entry for entry in original if entry not in excluded]
+    try:
+        yield
+    finally:
+        sys.path[:] = original
+
+
+def _is_within(origin: str | None, type_roots: tuple[Path, ...]) -> bool:
+    """Return whether *origin* names a file inside one of *type_roots*."""
+    if not origin or origin in {"built-in", "frozen"}:
+        return False
+    with suppress(OSError, ValueError):
+        resolved = Path(origin).resolve()
+        return any(resolved.is_relative_to(root.resolve()) for root in type_roots)
+    return False
+
+
+def _installed_origin(stem: str, type_roots: tuple[Path, ...]) -> str | None:
+    """Return where an installed top-level *stem* lives, else ``None``.
+
+    ``find_spec`` short-circuits on ``sys.modules``, so an earlier drop-in
+    import of this very stem would otherwise answer for the installed module
+    and turn a real collision into a clean bill of health. Dropping that
+    binding first is safe: drop-in types register under synthetic
+    ``_scistudio_type_dropin_*`` names, so nothing resolves through the stem,
+    and a drop-in block that imports it gets it back on the next scan.
+    """
+    bound = sys.modules.get(stem)
+    if bound is not None and _is_within(getattr(bound, "__file__", None), type_roots):
+        del sys.modules[stem]
+    try:
+        found = importlib.util.find_spec(stem)
+    except Exception:
+        return None
+    if found is None or _is_within(found.origin, type_roots):
+        return None
+    return found.origin or "built-in"
+
+
+def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
+    """Yield ``(module name, path the user would rename)`` under *root*.
+
+    Both shapes a directory on ``sys.path`` makes importable are covered: a
+    ``<name>.py`` file and a ``<name>/__init__.py`` package. A plain
+    subdirectory is not, and cannot be: without ``__init__.py`` it only
+    contributes a namespace portion, and Python resolves a regular module or
+    package found anywhere on ``sys.path`` ahead of every namespace portion,
+    so it can never displace an installed module.
+    """
+    with suppress(OSError):
+        for entry in sorted(root.iterdir()):
+            if entry.name.startswith("_"):
+                continue
+            if entry.is_file() and entry.suffix == ".py":
+                yield entry.stem, entry
+            elif entry.is_dir() and (entry / "__init__.py").is_file():
+                yield entry.name, entry
+
+
+def guard_dropin_type_roots(
+    import_roots: Iterable[str | Path], *, bind: bool = True
+) -> tuple[DropinTypeCollision, ...]:
+    """Return the FR-016 collisions in *import_roots*, binding what they shadow.
+
+    The single definition of both the rule and its mitigation. Call it from
+    every site that puts drop-in type roots on ``sys.path``, before it does so.
+    Binding is once per process per name, so a ``tensorflow.py`` collision does
+    not re-import TensorFlow on every palette refresh. Pass ``bind=False`` when
+    the caller only needs the verdict and never touches ``sys.path``.
+    """
+    type_roots = tuple(path for path in map(Path, import_roots) if path.name == TYPES_DIR_NAME)
+    collisions: list[DropinTypeCollision] = []
+    with _sys_path_without(type_roots):
+        for root in type_roots:
+            if not root.is_dir():
+                continue
+            for stem, path in _importable_entries(root):
+                origin = _installed_origin(stem, type_roots)
+                if origin is None:
+                    continue
+                collisions.append(DropinTypeCollision(path=path, stem=stem, origin=origin))
+                if bind and stem not in sys.modules:
+                    with suppress(Exception):
+                        importlib.import_module(stem)
+    return tuple(collisions)
 
 
 def _register(registry: SupportsScanDirs, dirs: tuple[Path, ...]) -> tuple[Path, ...]:

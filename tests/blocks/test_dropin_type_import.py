@@ -14,13 +14,23 @@ These tests pin the five obligations that end that:
 * **FR-014** — a project type shadows a user-library type of the same file name.
 * **FR-015** — a refused drop-in reaches ``GET /api/blocks/``.
 * **FR-016** (spec §13 OQ-1, resolved as reject-with-error) — a type file whose
-  stem collides with an importable top-level module is rejected, and the module
-  it collides with still imports.
+  stem collides with an importable top-level module is rejected: registration is
+  refused, and the module it collides with still resolves to the installed
+  package **in every process**, the worker subprocess included.
+
+The FR-016 section carries two findings from the Track A audit (#2022). The
+rejection used to be announced by the block scan and enforced nowhere else: the
+type still registered in the ``TypeRegistry`` and still loaded, and the worker
+— which never runs the block scan — got the drop-in file. Both are pinned
+below against the surfaces that failed, a real ``TypeRegistry`` and a real
+worker subprocess.
 """
 
 from __future__ import annotations
 
+import importlib
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -33,7 +43,15 @@ from fastapi.testclient import TestClient
 from scistudio.api.deps import get_block_registry
 from scistudio.api.routes.blocks import router as blocks_router
 from scistudio.blocks.registry import BlockRegistry
-from scistudio.core.dropins import register_block_scan_dirs
+from scistudio.core import dropins as dropins_module
+from scistudio.core.dropins import (
+    block_scan_dirs,
+    dropin_type_roots_for_block_dirs,
+    register_block_scan_dirs,
+    register_type_scan_dirs,
+    type_scan_dirs,
+)
+from scistudio.core.types.registry import TypeRegistry
 from scistudio.engine.runners.process_handle import build_worker_payload
 
 # ---------------------------------------------------------------------------
@@ -114,6 +132,43 @@ class CollisionProbe(Block):
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
         return {}
 """
+
+
+#: A block that reports at *run* time — inside the worker — which ``sample_dep``
+#: its import resolved to. The name is fixed, so registration cannot stand in
+#: for execution the way ``CollisionProbe``'s class-name trick does.
+WORKER_COLLISION_BLOCK = """\
+from typing import Any, ClassVar
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.core.types.base import DataObject
+
+
+class WorkerCollisionProbe(Block):
+    type_name: ClassVar[str] = "test.worker_collision_probe"
+    name: ClassVar[str] = "worker_collision_probe"
+    base_category: ClassVar[str] = "process"
+    subcategory: ClassVar[str] = "test"
+    input_ports: ClassVar = []
+    output_ports: ClassVar = [OutputPort(name="origin", accepted_types=[DataObject])]
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        import sample_dep
+
+        return {"origin": getattr(sample_dep, "ORIGIN", "SHADOWED-BY-TYPE-FILE")}
+"""
+
+#: A drop-in type file that also declares a ``DataObject``, so the FR-016
+#: refusal has something to refuse rather than only something to report.
+SHADOWED_TYPE = '''\
+from scistudio.core.types.base import DataObject
+
+
+class ShadowedType(DataObject):
+    """Declared in a file whose name collides with an installed module."""
+'''
 
 
 def _shared_type(tier: str) -> str:
@@ -443,3 +498,171 @@ class TestTypeNameCollisionIsRejected:
         (project / "types" / "_sample_dep.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
 
         assert _scanned_registry(project).dropin_failures() == []
+
+    # -- #2022 P1-1: the guard must hold in the worker, not only the API ------
+
+    def test_the_installed_module_wins_inside_a_fresh_worker(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """FR-016 in the process that never runs the palette scan.
+
+        The worker puts the stamped type roots on ``sys.path`` itself and
+        reconstructs the block from its file, so a guard that lived only in
+        ``_scan_tier1`` left the installed module winning in the API process and
+        the type file winning here — the scan-time-versus-run-time divergence
+        FR-013 exists to eliminate. Registration is deliberately not the
+        assertion: the block reports its answer from ``run()``.
+        """
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        (project / "blocks" / "worker_collision_probe.py").write_text(WORKER_COLLISION_BLOCK, encoding="utf-8")
+
+        spec = _scanned_registry(project).get_spec("worker_collision_probe")
+        assert spec is not None
+
+        payload = build_worker_payload(
+            block_class=f"{spec.module_path}.{spec.class_name}",
+            inputs_refs={},
+            config={},
+            output_dir=None,
+            block_file_path=spec.file_path,
+            runtime_import_roots=spec.runtime_import_roots,
+        )
+        env = dict(os.environ)
+        # The installed module has to be importable in the subprocess for the
+        # question to mean anything; the fixture only put it on this process's
+        # sys.path.
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(installed_dep), env.get("PYTHONPATH", "")]))
+        proc = subprocess.run(
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
+            input=payload,
+            capture_output=True,
+            timeout=120,
+            env=env,
+        )
+
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        stderr = proc.stderr.decode("utf-8", errors="replace")
+        assert proc.returncode == 0, f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        result = json.loads(stdout)
+        assert "error" not in result, f"Worker reported error: {result.get('error')}"
+        assert result.get("outputs", {}).get("origin") == "installed", (
+            "FR-016: the worker must resolve the installed module, not the colliding type file"
+        )
+
+    # -- #2022 P1-2: refused means refused, not announced ---------------------
+
+    def test_a_colliding_type_file_does_not_register_its_type(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """Spec §13 OQ-1: registration is refused, not merely warned.
+
+        Built the way ``ApiRuntime.refresh_type_registry`` builds it. Before
+        #2022 the user was shown an error saying the file was rejected and had
+        to be renamed while the type it declared stayed resolvable and loadable,
+        and nothing in the product reconciled the two.
+        """
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        registry = TypeRegistry()
+        register_type_scan_dirs(registry, project)
+        registry.scan_all()
+
+        assert "ShadowedType" not in registry.all_types()
+        with pytest.raises(KeyError):
+            registry.resolve("ShadowedType")
+
+    def test_the_refusal_is_still_reported_while_a_neighbour_registers(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """Refusing registration must not cost the report, or the neighbours."""
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        types = TypeRegistry()
+        register_type_scan_dirs(types, project)
+        types.scan_all()
+
+        assert "SpectrumData" in types.all_types()
+        assert [failure.error_type for failure in _scanned_registry(project).dropin_failures()] == [
+            "DropinTypeNameCollision"
+        ]
+
+    # -- #2022 P3-1: a package directory shadows just as effectively ----------
+
+    def test_a_colliding_package_directory_is_rejected(self, home: Path, project: Path, installed_dep: Path) -> None:
+        """``types/sample_dep/__init__.py`` is as importable as ``sample_dep.py``."""
+        package_dir = project / "types" / "sample_dep"
+        package_dir.mkdir()
+        (package_dir / "__init__.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        (project / "blocks" / "collision_probe.py").write_text(COLLISION_PROBE_BLOCK, encoding="utf-8")
+
+        registry = _scanned_registry(project)
+
+        failures = registry.dropin_failures()
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert failures[0].file_path == str(package_dir)
+        assert registry.get_spec("collision_probe_installed") is not None
+
+    def test_a_plain_directory_is_not_reported_as_a_collision(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """A namespace portion cannot displace an installed regular module.
+
+        Python resolves a regular module or package found anywhere on
+        ``sys.path`` ahead of every namespace portion, so reporting one would
+        be a false refusal. Pins the reasoning the detector documents.
+        """
+        (project / "types" / "sample_dep").mkdir()
+        (project / "blocks" / "collision_probe.py").write_text(COLLISION_PROBE_BLOCK, encoding="utf-8")
+
+        registry = _scanned_registry(project)
+
+        assert registry.dropin_failures() == []
+        assert registry.get_spec("collision_probe_installed") is not None
+
+    # -- #2022 P3-2: bind the shadowed module once, not once per scan ---------
+
+    def test_the_shadowed_module_is_bound_once_per_process(
+        self, home: Path, project: Path, installed_dep: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A ``numpy.py`` collision must not re-import numpy on every refresh."""
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        registry = _scanned_registry(project)
+        assert sys.modules["sample_dep"].__file__ == str(installed_dep / "sample_dep.py")
+
+        imported: list[str] = []
+        real_import_module = importlib.import_module
+
+        def _spy(name: str, package: str | None = None):  # type: ignore[no-untyped-def]
+            imported.append(name)
+            return real_import_module(name, package)
+
+        monkeypatch.setattr(dropins_module.importlib, "import_module", _spy)
+        registry.hot_reload()
+
+        assert "sample_dep" not in imported
+        assert [failure.error_type for failure in registry.dropin_failures()] == ["DropinTypeNameCollision"]
+
+
+# ---------------------------------------------------------------------------
+# FR-012 / FR-014 — the sibling-``types/`` inference the roots rest on (#2022 P3-3)
+# ---------------------------------------------------------------------------
+
+
+class TestTypeRootDerivation:
+    """``dropin_type_roots_for_block_dirs`` assumes a tier layout. Pin it.
+
+    The registry is handed block directories and never learns the project root,
+    so it recovers the type roots as ``<block_dir>.parent / "types"``. That is
+    correct only while every block scan dir is ``<tier-root>/blocks``. The
+    assumption is load-bearing for FR-012 in all four processes and was stated
+    only in a docstring; a future tier layout change should fail here rather
+    than silently resolve nothing.
+    """
+
+    def test_block_dirs_round_trip_to_the_type_dirs_of_the_same_tiers(self, home: Path, project: Path) -> None:
+        assert dropin_type_roots_for_block_dirs(block_scan_dirs(project)) == type_scan_dirs(project)
+
+    def test_the_round_trip_holds_with_no_project_open(self, home: Path) -> None:
+        assert dropin_type_roots_for_block_dirs(block_scan_dirs(None)) == type_scan_dirs(None)

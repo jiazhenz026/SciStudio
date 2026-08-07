@@ -20,16 +20,21 @@ but retained here as inline regression evidence for the #1063 / #1539 fix.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, TypeVar
 
 import pytest
 
 from scistudio.ai.agent.mcp import _context, tools_authoring
 from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.registry import TypeRegistry
+
+_T = TypeVar("_T")
 
 
-def _run(coro):
+def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     """Run a coroutine synchronously (mirrors test_mcp_fastmcp.py helper)."""
     return asyncio.run(coro)
 
@@ -37,8 +42,13 @@ def _run(coro):
 @dataclass
 class _StubRuntime:
     block_registry: BlockRegistry = field(default_factory=BlockRegistry)
-    type_registry: object = field(default_factory=object)
+    # ADR-053 FR-062 / #2022: a real TypeRegistry, matching the ``MCPContext``
+    # Protocol. ``reload_blocks`` now refreshes the type registry too, and a
+    # bare ``object()`` here was a stub that could not have satisfied the
+    # Protocol it stands in for. Other MCP stubs already use the real class.
+    type_registry: TypeRegistry = field(default_factory=TypeRegistry)
     _project_dir: Path | None = None
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:
@@ -46,7 +56,7 @@ class _StubRuntime:
 
 
 @pytest.fixture
-def ctx(tmp_path: Path) -> _StubRuntime:
+def ctx(tmp_path: Path) -> Iterator[_StubRuntime]:
     runtime = _StubRuntime(_project_dir=tmp_path)
     runtime.block_registry.scan()
     _context.set_context(runtime)

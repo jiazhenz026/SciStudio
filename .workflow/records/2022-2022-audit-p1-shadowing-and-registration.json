@@ -1,0 +1,451 @@
+{
+  "branch": "fix/2022-audit-p1-shadowing-and-registration",
+  "check_events": [
+    {
+      "at": "2026-08-07T09:51:20.765958Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T09:51:31.807049Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T09:51:31.882604Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T09:51:54.287044Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-07T09:44:17.701867Z",
+      "owner_directive": "Complete delivery, no deferred scope: AUDIT-A P1-1 (shared collision guard at every sys.path site), P1-2 (TypeRegistry refuses registration), P2-1 (three hot_reload invalidation events), P2-2 (spec wording), and P3-1/P3-2/P3-3.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T09:44:17.701918Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:44:17.701923Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:44:17.701930Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-053 is unchanged; both P1s are conformance defects against the spec it already governs, and the spec text is corrected in place (FR-016, FR-062, section 11, section 14).",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-07T09:51:31.917149Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:31.931443Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:31.945347Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:31.959216Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:31.974146Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:31.988380Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:32.002735Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:32.016577Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:32.030228Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:32.044079Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.325483Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.338452Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.351740Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.364628Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.377068Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.389746Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.401919Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.414118Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.426890Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:51:54.440018Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2022,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2021,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2009,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "e3e95a7595026c6b67e1ec56952bc127ad4e4612",
+    "base_sha": "e3e95a75",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "e3e95a75",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix AUDIT-A P1/P2/P3 findings against integrated Track A: move drop-in type-root collision detection and pre-binding into one shared function in core/dropins.py called from every sys.path injection site (P1-1); refuse TypeRegistry registration of a colliding type file (P1-2); evaluate the three hot_reload invalidation events against the type/previewer registries (P2); restore owner FR-016 wording and correct spec 11/14 (P2); land all three P3s. Complete delivery, no deferred scope.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T09:51:32.044121Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-08-07T09:51:54.440066Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2022-2022-audit-p1-shadowing-and-registration",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701886Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701895Z",
+      "pattern": "src/scistudio/core/types/registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701898Z",
+      "pattern": "src/scistudio/blocks/registry/_scan.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701900Z",
+      "pattern": "src/scistudio/blocks/registry/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701902Z",
+      "pattern": "src/scistudio/api/routes/blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701904Z",
+      "pattern": "src/scistudio/api/routes/projects.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701905Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701907Z",
+      "pattern": "tests/blocks/test_dropin_type_import.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701908Z",
+      "pattern": "tests/api/test_registry_reload_symmetry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701909Z",
+      "pattern": "docs/specs/adr-053-personal-tool-library.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:17.701911Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:28.737940Z",
+      "pattern": "src/scistudio/engine/runners/worker.py",
+      "reason": "Scope beyond the dispatch write set, declared before commit. (1) src/scistudio/engine/runners/worker.py: P1-1's divergence physically lives here. The dispatch located the worker's sys.path injection at blocks/registry/__init__.py:521 (BlockRegistry.instantiate), but the worker never calls instantiate - it calls its own _prepend_runtime_import_roots (worker.py:96), which inserts the stamped type roots permanently. The shared guard is called from both; without the worker call site the P1-1 reproduction still fails. (2) tests/api/test_blocks.py, tests/api/test_reload_on_save.py, tests/ai/test_mcp_tools_authoring.py: consequences of the P2 route change the dispatch asked for (POST /api/blocks/reload and the save hook now call refresh_all_registries instead of block_registry.hot_reload, which builds a fresh registry rather than re-scanning the existing object). Each test's spy or ad-hoc scan dir had to move to the new entry point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:28.737957Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "Scope beyond the dispatch write set, declared before commit. (1) src/scistudio/engine/runners/worker.py: P1-1's divergence physically lives here. The dispatch located the worker's sys.path injection at blocks/registry/__init__.py:521 (BlockRegistry.instantiate), but the worker never calls instantiate - it calls its own _prepend_runtime_import_roots (worker.py:96), which inserts the stamped type roots permanently. The shared guard is called from both; without the worker call site the P1-1 reproduction still fails. (2) tests/api/test_blocks.py, tests/api/test_reload_on_save.py, tests/ai/test_mcp_tools_authoring.py: consequences of the P2 route change the dispatch asked for (POST /api/blocks/reload and the save hook now call refresh_all_registries instead of block_registry.hot_reload, which builds a fresh registry rather than re-scanning the existing object). Each test's spy or ad-hoc scan dir had to move to the new entry point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:28.737960Z",
+      "pattern": "tests/api/test_reload_on_save.py",
+      "reason": "Scope beyond the dispatch write set, declared before commit. (1) src/scistudio/engine/runners/worker.py: P1-1's divergence physically lives here. The dispatch located the worker's sys.path injection at blocks/registry/__init__.py:521 (BlockRegistry.instantiate), but the worker never calls instantiate - it calls its own _prepend_runtime_import_roots (worker.py:96), which inserts the stamped type roots permanently. The shared guard is called from both; without the worker call site the P1-1 reproduction still fails. (2) tests/api/test_blocks.py, tests/api/test_reload_on_save.py, tests/ai/test_mcp_tools_authoring.py: consequences of the P2 route change the dispatch asked for (POST /api/blocks/reload and the save hook now call refresh_all_registries instead of block_registry.hot_reload, which builds a fresh registry rather than re-scanning the existing object). Each test's spy or ad-hoc scan dir had to move to the new entry point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:44:28.737961Z",
+      "pattern": "tests/ai/test_mcp_tools_authoring.py",
+      "reason": "Scope beyond the dispatch write set, declared before commit. (1) src/scistudio/engine/runners/worker.py: P1-1's divergence physically lives here. The dispatch located the worker's sys.path injection at blocks/registry/__init__.py:521 (BlockRegistry.instantiate), but the worker never calls instantiate - it calls its own _prepend_runtime_import_roots (worker.py:96), which inserts the stamped type roots permanently. The shared guard is called from both; without the worker call site the P1-1 reproduction still fails. (2) tests/api/test_blocks.py, tests/api/test_reload_on_save.py, tests/ai/test_mcp_tools_authoring.py: consequences of the P2 route change the dispatch asked for (POST /api/blocks/reload and the save hook now call refresh_all_registries instead of block_registry.hot_reload, which builds a fresh registry rather than re-scanning the existing object). Each test's spy or ad-hoc scan dir had to move to the new entry point."
+    }
+  ],
+  "session_id": "fc0bfd07-2f35-4be6-ab0c-1cfed8ea23ef",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-07T09:44:17.701935Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:44:17.701938Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_registry_reload_symmetry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:44:28.737967Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_reload_on_save.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

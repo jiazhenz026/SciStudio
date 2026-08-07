@@ -11,10 +11,22 @@ that changed ``<project>/types/`` or ``<project>/previewers/``, produced no
 error and no hint: the new items simply were not there until the user happened
 to switch projects.
 
-The tests below pin the four halves of the fix: the FR-062 audit result (no
-route reaches an individual registry any more), FR-063 + #2009 at package
-install, FR-064 + #2009 at branch switch, and the FR-065 entry point that a
-user library write calls.
+The tests below pin the five halves of the fix: the FR-062 audit result (no
+route reaches an individual registry any more), the three ``hot_reload()``
+invalidation events, FR-063 + #2009 at package install, FR-064 + #2009 at
+branch switch, and the FR-065 entry point that a user library write calls.
+
+The ``hot_reload()`` group is the #2022 audit finding. FR-062 is written in
+terms of *events* that invalidate the registry, but the original audit
+enumerated ``refresh_block_registry`` call sites, so three events that rebuild
+the block registry a different way — the palette Reload button, the file-save
+hook, and the MCP ``reload_blocks`` tool — were never evaluated against the
+type registry. The most visible consequence was that saving a file under
+``{project}/types/`` refreshed nothing at all: the save hook's gate named only
+``blocks``. They are pinned here behaviourally — write a type, trigger the
+event, resolve the type — because the original regression test asserted
+coverage by grepping route sources for three literal method names and
+structurally could not see ``registry.hot_reload()``.
 """
 
 from __future__ import annotations
@@ -148,13 +160,17 @@ def _switch(client: TestClient, branch: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_no_route_refreshes_one_registry_on_its_own() -> None:
-    """Every invalidating route goes through the unified entry point (FR-062).
+def test_no_route_names_a_single_registry_refresh_method() -> None:
+    """No route under ``api/routes`` names one refresh method (FR-062).
 
-    The five known sites were only the ones that existed when the defect was
-    written up. Pinning the rule rather than the list is what stops a sixth
-    route from quietly rebuilding blocks alone — including the user library
-    write endpoint Track B adds next (#1996).
+    A source-level rule, and only that: it stops a new route from writing
+    ``runtime.refresh_block_registry()`` instead of the unified entry point,
+    including in the user library write endpoint Track B adds next (#1996).
+
+    It is deliberately *not* evidence that every invalidating event is
+    covered — it cannot see ``registry.hot_reload()``, which is how three of
+    them invalidated the registry until #2022. The event coverage is the
+    behavioural tests below; this one guards the naming.
     """
     from scistudio.api import routes
 
@@ -172,6 +188,103 @@ def test_no_route_refreshes_one_registry_on_its_own() -> None:
 def test_refresh_all_registries_is_bound_on_the_runtime() -> None:
     """The FR-065 entry point exists on ``ApiRuntime`` and covers all three."""
     assert callable(ApiRuntime.refresh_all_registries)
+
+
+# ---------------------------------------------------------------------------
+# FR-062 — the three ``hot_reload()`` invalidation events (#2022)
+# ---------------------------------------------------------------------------
+
+_LATE_TYPE_MODULE = _PROJECT_TYPE_MODULE.replace("BranchOnlyType", "LateType")
+
+
+def _write_project_type(project_dir: Path) -> None:
+    """Write a project-tier type the startup scan cannot have seen."""
+    types_dir = project_dir / "types"
+    types_dir.mkdir(parents=True, exist_ok=True)
+    (types_dir / "late_type.py").write_text(_LATE_TYPE_MODULE, encoding="utf-8")
+
+
+def test_palette_reload_button_refreshes_the_type_registry(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """``POST /api/blocks/reload`` is an invalidating event, so it refreshes all.
+
+    A user who edits ``{project}/types/spectrum.py`` and presses Reload used to
+    get a fresh block registry and a stale type registry.
+    """
+    _write_project_type(opened_project)
+    assert "LateType" not in _type_names(runtime)
+
+    assert client.post("/api/blocks/reload").status_code == 200
+
+    assert "LateType" in _type_names(runtime)
+
+
+def test_saving_a_project_type_file_refreshes_the_type_registry(
+    client: TestClient,
+    runtime: ApiRuntime,
+    project_parent: Path,
+) -> None:
+    """Saving ``types/*.py`` through the editor makes the type resolvable.
+
+    The save hook was gated on ``<project>/blocks``, so this path refreshed
+    nothing at all — the same user-visible failure FR-063 argues for fixing,
+    on a path the user hits far more often than package install.
+    """
+    created = client.post(
+        "/api/projects/",
+        json={"name": "TypeSave", "description": "", "path": str(project_parent)},
+    )
+    assert created.status_code == 200, created.text
+    project_id = created.json()["id"]
+
+    assert "LateType" not in _type_names(runtime)
+
+    saved = client.put(
+        f"/api/projects/{project_id}/file?path=types/late_type.py",
+        json={"content": _LATE_TYPE_MODULE},
+    )
+    assert saved.status_code == 200, saved.text
+
+    assert "LateType" in _type_names(runtime)
+    assert runtime.type_registry.resolve("LateType").name == "LateType"
+
+
+def test_mcp_reload_blocks_refreshes_the_type_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The agent's own reload keeps its type registry current too.
+
+    This path matters more since FR-059: the agent now *has* a populated type
+    registry, so it now has one that can go stale. The tool holds an
+    ``MCPContext`` rather than an ``ApiRuntime``, so it refreshes both
+    registries in place instead of calling ``refresh_all_registries()``.
+    """
+    import asyncio
+
+    from scistudio.ai.agent.mcp import _context, tools_authoring
+    from scistudio.ai.agent.mcp.runtime import make_mcp_runtime
+
+    fake_home = tmp_path / "home"
+    (fake_home / ".scistudio").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    ctx = make_mcp_runtime(project_dir)
+    _context.set_context(ctx)
+    try:
+        assert "LateType" not in ctx.type_registry.all_types()
+
+        _write_project_type(project_dir)
+        asyncio.run(tools_authoring.reload_blocks())
+
+        assert "LateType" in ctx.type_registry.all_types()
+    finally:
+        _context.set_context(None)
 
 
 # ---------------------------------------------------------------------------
