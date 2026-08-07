@@ -298,10 +298,48 @@ validates the backend spelling. Both must have a test that pins the mapping.
 
 ### 8.3 Implementation
 
-- [ ] Availability module -> `<artifact>`
-- [ ] `GET /api/ai/availability` endpoint -> `<artifact>`
-- [ ] Frontend availability client -> `<artifact>`
-- [ ] `tests/api/test_agent_availability.py` -> `<artifact>`
+- [x] Availability module -> `src/scistudio/ai/agent/availability.py`
+  (four-state resolution, per-provider minimal-call table, aggregate ranking,
+  memoised shared report; leaf module importing only stdlib and
+  `providers_registry`, so any surface can consume it — FR-031, FR-033, FR-036)
+- [x] `GET /api/ai/availability` endpoint -> `src/scistudio/api/routes/ai.py`
+  (returns contract C1 verbatim; grades the rows `GET /api/ai/status` already
+  produces rather than adding a second discovery path — FR-032. Accepts
+  `?refresh=true` to bypass the memoised report for an explicit retry control.)
+- [x] Frontend availability client -> `frontend/src/lib/api/agentAvailability.ts`
+  (`fetchAgentAvailability()` plus `AgentAvailabilityState`,
+  `ProviderAvailability`, `AgentAvailabilityResponse`; every availability type
+  lives here rather than in `store/types.ts`)
+- [x] `tests/api/test_agent_availability.py` -> 40 tests: all four states,
+  authenticated-but-failing, reinstall-guidance stripping (FR-034), a wedged
+  provider that ignores its own timeout asserted on elapsed wall-clock time
+  (FR-035), the full C1 aggregate ranking, minimal-call table completeness
+  against `agent_keys()`, and one end-to-end test driving both endpoints from
+  one set of discovery fakes. Client tests in
+  `frontend/src/lib/api/__tests__/agentAvailability.test.ts` (7 tests).
+
+**Live minimal call (FR-033), per provider.** Every argv was executed against
+the installed binary on the owner's workstation on 2026-08-07 and timed:
+
+| Provider | Observed | Wall clock | Cost / size |
+|---|---|---|---|
+| `claude-code` | exit 0, printed `ok` | 2.5 s | $0.0021 (haiku; $0.0346 unpinned) |
+| `codex` | exit 0, printed `ok` | 4.9 s | ~14.9k context tokens |
+| `kimi-code` | exit 1, "No model configured." | 0.7 s | no request billed |
+| `qoder-cn` | exit 0, printed `ok` | 8.3 s | not reported by the CLI |
+| `qoder` | not installed; shares the CN argv | — | — |
+
+The Kimi row is the FR-033 case observed rather than contrived: the credential
+file was present, so every presence check called it logged in, and the live call
+failed immediately with a readable cause.
+
+Three things bound the cost, since a live call is a real billed request:
+`not_installed` and `not_authenticated` are decided from the status row and
+never call at all; the probe runs tool-free (`--tools ""`, or Codex's read-only
+sandbox) in a throwaway working directory so no project config is loaded; and
+the report is memoised for 60 s and shared across surfaces. Per-call timeout is
+15 s (~1.8x the slowest observed call), with a second, independent budget on the
+whole report so a wedged child cannot hold the response.
 
 ### 8.4 Audit
 
