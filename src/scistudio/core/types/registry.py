@@ -33,6 +33,45 @@ Each core base class carries per-base ``reconstruct_extra_kwargs`` /
 ``serialise_extra_metadata`` hooks (ADR-052 §3.1 author extension point);
 the worker subprocess call site wires them. Both rely on the resolver and
 the validation hook added here.
+
+Scan order versus BlockRegistry
+-------------------------------
+
+ADR-053 FR-061. :meth:`TypeRegistry.scan_all` runs builtins -> entry-point ->
+package-src -> drop-in. :meth:`scistudio.blocks.registry.BlockRegistry.scan`
+runs builtins -> drop-in -> entry-point -> package-src. Both registries
+guarantee that entry-point registrations win on duplicates and both deliver
+it: the block registry by registering entry-points after drop-ins and
+overwriting, this registry by running entry-points early and having the later
+passes skip names already present.
+
+The orders stay separate deliberately, because the two drop-in tiers have
+opposite duplicate policies and both are correct for their domain:
+
+- A drop-in *block* may override a built-in of the same name. That is the
+  point of a project-local block file: replace the shipped block for this
+  project. ``blocks.registry._scan._scan_tier1`` therefore registers
+  unconditionally, and running it after the builtin pass is what makes the
+  override happen.
+- A drop-in *type* may **not** override a core base class.
+  :meth:`TypeRegistry._scan_filesystem_dirs` skips any name already
+  registered, so a file declaring ``Array`` or ``DataFrame`` cannot shadow the
+  core class. Worker-side reconstruction resolves a serialised ``type_chain``
+  by name (:meth:`TypeRegistry.resolve`), so a shadowed core name would
+  silently change what every persisted artifact deserialises to, in one
+  process and not another.
+
+Reordering :meth:`TypeRegistry.scan_all` to match the block registry would
+move the drop-in pass ahead of ``_scan_package_src_dirs`` and hand drop-in
+types precedence over plugin-package types — an observable precedence change
+with no requirement behind it. Unifying the duplicate policies would be worse:
+it would either let a drop-in shadow a core type or stop a drop-in block from
+overriding a builtin. The shared helper extracted for FR-057
+(:mod:`scistudio.core.dropins`) owns *which directories* a process scans, not
+*in what order* a registry runs its discovery passes, so the two orders can
+differ without reintroducing the ADR-053 §2.6 drift.
+``tests/api/test_registry_provisioning_parity.py`` pins both orders and both
+precedence outcomes so neither can drift silently.
 """
 
 from __future__ import annotations
@@ -110,9 +149,9 @@ class TypeRegistry:
         skipped at scan time rather than raising at registration time.
 
         ARCHITECTURE.md §10 (project layout) and §10.5 (user-wide
-        extension paths) document the two intended call sites; runtime
-        wiring in :class:`scistudio.api.runtime.ApiRuntime` issues these
-        calls before invoking :meth:`scan_all`.
+        extension paths) document the two intended tiers; ADR-053 FR-057
+        routes every runtime caller through
+        :func:`scistudio.core.dropins.register_type_scan_dirs`.
         """
         self._scan_dirs.append(Path(directory))
 
@@ -469,8 +508,12 @@ class TypeRegistry:
         Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point pass,
         this also walks every directory registered via :meth:`add_scan_dir` and
         registers any drop-in :class:`DataObject` subclass found in a ``.py``
-        file there. Entry-point registrations win on duplicates (this matches
-        :meth:`BlockRegistry.scan`'s ordering).
+        file there. Which directories those are is not decided here — see
+        :mod:`scistudio.core.dropins` (ADR-053 FR-057).
+
+        The pass order below deliberately differs from
+        :meth:`BlockRegistry.scan`. The reason is recorded in this module's
+        docstring under "Scan order versus BlockRegistry" (ADR-053 FR-061).
         """
         self.scan_builtins()
         self._scan_entrypoint_types()
