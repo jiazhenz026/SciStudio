@@ -34,21 +34,22 @@ export const USER_LIBRARY_SECTION_ID = "__user_library__";
 /** Stable id for the project-local section (`{project}/types/`). */
 export const PROJECT_LIBRARY_SECTION_ID = "__this_project__";
 /**
- * Stable id for types supplied by installed plugin distributions.
+ * Fallback section for a package-tier type whose distribution has no name.
  *
- * The Blocks tab renders one section per package because `BlockSummary`
- * carries `package_name`. `TypeSummary` carries no package attribution
- * (§7 FR-026 lists name, base type, description, origin, file path, colours,
- * extensions), so the Data types tab renders one `Packages` section rather
- * than inferring distribution names from `file_path` — an inferred name that
- * disagreed with the Blocks tab's real one for the same distribution would be
- * exactly the drift this spec exists to remove. The section still sits where
- * FR-040 puts packages: after the two tier sections, in the A→Z remainder.
+ * A package section is titled by its `package_name`, which the backend reports
+ * as the very string `BlockSummary.package_name` carries for the same
+ * distribution (FR-040) — never inferred from `file_path`, because a name that
+ * disagreed with the Blocks tab's would be exactly the drift this spec exists
+ * to remove. When the backend cannot name a distribution it says `null` rather
+ * than guessing, and those types collect here instead of vanishing. Both this
+ * id and every real package name land in the same A→Z remainder, which is
+ * where FR-040 puts packages: after the two tier sections.
  */
 export const PACKAGES_SECTION_ID = "Packages";
 
 /**
- * The section a type belongs to — its origin tier (FR-005, FR-040).
+ * The section a type belongs to — its origin tier, then its package (FR-005,
+ * FR-040), which is the order the Blocks tab resolves in too.
  *
  * `custom` is the FR-002 fallback for a drop-in whose `file_path` resolved
  * under neither tier root. It renders under **This Project** for the same
@@ -68,7 +69,7 @@ export function typeSectionIdFor(type: TypeSummary): string {
     case "custom":
       return PROJECT_LIBRARY_SECTION_ID;
     default:
-      return PACKAGES_SECTION_ID;
+      return type.package_name || PACKAGES_SECTION_ID;
   }
 }
 
@@ -210,9 +211,11 @@ const byName = (a: TypeSummary, b: TypeSummary): number => a.name.localeCompare(
 /**
  * Build the ordered Data types sections from the visible types.
  *
- * Order (FR-040): Core (pinned) → My Library → This Project → Packages. My
- * Library and This Project also render empty (FR-037) — except while a filter
- * is active, where an empty section says nothing about the library and
+ * Order (FR-040): Core (pinned) → My Library → This Project → one section per
+ * package, A→Z by name, exactly as the Blocks tab orders its own. The A→Z half
+ * is `buildSections`' remainder behaviour rather than a second ordering pass.
+ * My Library and This Project also render empty (FR-037) — except while a
+ * filter is active, where an empty section says nothing about the library and
  * everything about the query.
  */
 export function buildTypeSections(

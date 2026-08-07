@@ -173,6 +173,26 @@ class TypeSpec:
     ui_ring_color: str | None = None
     """The ring colour the class declared, validated, or ``None`` (FR-049)."""
 
+    package_root: str = ""
+    """Top-level import module of the distribution that registered this type.
+
+    ADR-053 FR-040 needs the Data types tab to split per-package sections the
+    way the Blocks tab does, and a section title the backend never supplied is
+    exactly the drift this spec removes — so the scan records *which*
+    distribution delivered the type, first-hand, and never infers it from a
+    file path afterwards. Only the two package passes set it; builtins and
+    drop-ins belong to no distribution and leave it ``""``.
+
+    It is the discovering package, not ``module_path``'s root: a plugin that
+    re-exports a class defined elsewhere still owns the registration, and the
+    class's own ``__module__`` would attribute it to the wrong distribution or
+    to none. The root — rather than a display name — is what
+    :mod:`scistudio.api.routes.types` joins on, because
+    :attr:`scistudio.blocks.registry.BlockSpec.module_path` is the only handle
+    the block side shares; the name itself is read from there so both surfaces
+    report one string rather than two independently derived ones.
+    """
+
 
 def _class_file(cls: type) -> str:
     """Return the file *cls* is defined in, or ``""`` when there is none."""
@@ -214,13 +234,36 @@ def _declared_colour(cls: type, attribute: str) -> str | None:
     return f"#{digits}"
 
 
-def _spec_for_class(cls: type) -> TypeSpec:
+def _entrypoint_module(ep: Any) -> str:
+    """Return the module the ``scistudio.types`` entry-point *ep* declares.
+
+    ``EntryPoint.module`` is the left-hand side of ``module:attr``, which roots
+    at the distribution's own package however the plugin arranges its
+    registration hook — ``pkg:get_types`` and ``pkg.registration:get_types``
+    both root at ``pkg``. Anything that is not a real string (an entry-point
+    double in a test, a shim without the property) yields ``""``: an
+    unattributed type still registers and still lists, it simply falls back to
+    the lumped section, which is the FR-040 degradation and not a failure.
+    """
+    module = getattr(ep, "module", None)
+    if isinstance(module, str) and module:
+        return module
+    value = getattr(ep, "value", None)
+    return value.split(":")[0] if isinstance(value, str) else ""
+
+
+def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
     """Describe *cls* as a :class:`TypeSpec`.
 
     The single construction site. Every discovery pass — builtins,
     entry-points, source packages, drop-ins — routes through here, so a field
     added to :class:`TypeSpec` is populated for all four tiers at once instead
     of for whichever pass the author happened to be editing.
+
+    ``package_root`` is the one fact this function cannot read off the class:
+    which distribution's discovery pass delivered it. A pass that knows it
+    hands it in; the rest leave it empty and the type belongs to no
+    distribution.
     """
     module_path = getattr(cls, "__module__", "") or ""
     return TypeSpec(
@@ -233,6 +276,7 @@ def _spec_for_class(cls: type) -> TypeSpec:
         is_dropin=module_path.startswith(DROPIN_MODULE_PREFIX),
         ui_color=_declared_colour(cls, "ui_color"),
         ui_ring_color=_declared_colour(cls, "ui_ring_color"),
+        package_root=package_root.split(".")[0],
     )
 
 
@@ -286,7 +330,7 @@ class TypeRegistry:
         """Register *spec* under *name*."""
         self._registry[name] = spec
 
-    def register_class(self, cls: type) -> None:
+    def register_class(self, cls: type, *, package_root: str = "") -> None:
         """Validate *cls* and register it by its ``__name__``.
 
         Convenience helper for callers that already have the class object
@@ -299,9 +343,17 @@ class TypeRegistry:
         :meth:`_validate_meta_class`, and validation happens here at
         registration time so broken ``Meta`` classes never enter the
         registry.
+
+        Args:
+            cls: The :class:`~scistudio.core.types.base.DataObject` subclass.
+            package_root: Import root of the distribution delivering *cls*,
+                for a caller that is one of the two package passes. See
+                :attr:`TypeSpec.package_root`; the default leaves the type
+                attributed to no distribution, which is correct for every
+                other caller.
         """
         self._validate_meta_class(cls)
-        self.register(cls.__name__, _spec_for_class(cls))
+        self.register(cls.__name__, _spec_for_class(cls, package_root=package_root))
 
     # -- resolve: overloaded on argument type -------------------------------
 
@@ -586,7 +638,7 @@ class TypeRegistry:
                 # Meta with a warning (log + skip) instead of raising so
                 # one bad plugin does not take down the whole registry.
                 try:
-                    self.register_class(cls)
+                    self.register_class(cls, package_root=_entrypoint_module(ep))
                 except ValueError:
                     logger.warning(
                         "Entry-point '%s' type %r has a Meta class that violates ADR-027 Addendum 1 §3; skipping",
@@ -647,7 +699,7 @@ class TypeRegistry:
         # the plugin's .dist-info on sys.path. Entry-point registrations still
         # win: the loop below skips any cls.__name__ already registered.
         package_dirs = [*self._package_src_dirs, *candidate_package_dirs()]
-        for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
+        for root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
             try:
                 with prepended_sys_paths(import_roots):
                     module = importlib.import_module(module_name)
@@ -680,7 +732,7 @@ class TypeRegistry:
                 if cls.__name__ in self._registry:
                     continue
                 try:
-                    self.register_class(cls)
+                    self.register_class(cls, package_root=root_name)
                 except Exception:
                     logger.warning(
                         "Failed to register source plugin type %r from '%s'",

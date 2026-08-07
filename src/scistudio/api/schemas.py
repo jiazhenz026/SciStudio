@@ -245,6 +245,19 @@ class TypeSummary(BaseModel):
         default=None,
         description="Absolute path of the file defining the type, or null when unresolvable.",
     )
+    # ADR-053 FR-040: the Data types tab splits per-package sections the way the
+    # Blocks tab does, which means a package-tier type has to name its
+    # distribution. The value is the very string ``BlockSummary.package_name``
+    # reports for that distribution — looked up, not derived a second time — so
+    # the two tabs cannot title one package two different ways. Null everywhere
+    # else, including a distribution the block side does not name either.
+    package_name: str | None = Field(
+        default=None,
+        description=(
+            "Owning distribution, exactly as BlockSummary.package_name reports it. "
+            "Null for core, user-tier, project-tier, and unattributable types."
+        ),
+    )
     # ADR-053 FR-049/FR-050: the colours the type itself declared, already
     # validated and normalised to long-form CSS hex by the registry (FR-052),
     # so an unusable value arrives here as null rather than as a string no

@@ -526,7 +526,13 @@ exactly the drift this spec is written to avoid.
 **FR-026.** A types listing endpoint MUST be added under a new
 `src/scistudio/api/routes/types.py`. It MUST return, per registered type: name,
 base type, description, origin tier (FR-005), `file_path` when resolvable, the
-declared colours (§7.1), and the supported file extensions (§7.2).
+owning package name when the type came from an installed distribution, the
+declared colours (§7.1), and the supported file extensions (§7.2). The package
+name MUST be the same value `BlockSummary.package_name` reports for that
+distribution — not a second name derived from the type's file path or module —
+so FR-040 can title a package section identically on both tabs. A type whose
+distribution cannot be named MUST report `null` rather than a guess, and MUST
+still be listed.
 
 **FR-027.** The endpoint MUST be independent of the block list response. The
 Data types tab MUST NOT depend on a blocks request to populate or refresh.
@@ -827,6 +833,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Extensions per type | Load and save extensions reported separately from `FormatCapability`; a type with none reports empty lists (FR-054 – FR-056) |
 | Palette sections | Order, both tiers rendered when empty, origin-first grouping (FR-035 – FR-038) |
 | Data types tab | Mirrors blocks structure; tab label is `Data types`; tile colour follows the FR-051 precedence (FR-039 – FR-041) |
+| Package attribution | A packaged type and a packaged block from one distribution report the same package name, and the tab renders one section per package A→Z; an unnameable distribution reports `null` and its types stay listed (FR-026, FR-040) |
 | Type popover contents | Name, parent (with core base when it differs), description, extensions, origin, promotion action (FR-042, FR-043) |
 | Popover | Interactive, survives the tile→popover gap, does not break dragging (FR-044, FR-045) |
 
@@ -857,7 +864,7 @@ contract and is the list an implementer works from.
 | `src/scistudio/api/routes/types.py` | create | Types listing and type template (§7) |
 | `src/scistudio/api/schemas.py` | modify | Type listing response, declared colours, extensions (§7) |
 | `src/scistudio/core/types/base.py` | modify | Colour class attributes on `DataObject` (FR-049) — protected core, needs `admin-approved:core-change` |
-| `src/scistudio/core/types/registry.py` | modify | Collect declared colours (FR-050); scan-order reconciliation (FR-061) |
+| `src/scistudio/core/types/registry.py` | modify | Collect declared colours (FR-050); record the registering distribution (FR-026, FR-040); scan-order reconciliation (FR-061) |
 | `src/scistudio/api/runtime/_projects.py` | modify | Consume the shared provisioning helper (FR-057); reload symmetry (FR-062) |
 | `src/scistudio/ai/agent/mcp/runtime.py` | modify | Register type directories (FR-059); consume the helper (FR-057) |
 | `src/scistudio/core/types/serialization.py` | modify | Consume the helper instead of duplicating scan dirs (FR-057) |

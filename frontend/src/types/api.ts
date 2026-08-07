@@ -269,6 +269,14 @@ export interface TypeSummary {
   /** First line of the class docstring; may be `""`. */
   description: string;
   origin: TypeOrigin;
+  /**
+   * ADR-053 FR-040 — the owning distribution, byte-identical to the
+   * `BlockSummary.package_name` the same distribution reports, because the
+   * backend reads one string rather than deriving two. `null` for core, both
+   * drop-in tiers, and any package the block side does not name either; such a
+   * type keeps the lumped `Packages` section rather than disappearing.
+   */
+  package_name: string | null;
   /** Absolute path of the defining file, or null when unresolvable. */
   file_path: string | null;
   /**

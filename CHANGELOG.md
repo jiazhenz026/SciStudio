@@ -97,6 +97,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#2025][#2024] The Data types tab now splits one section per installed
+  package, A→Z, instead of collecting every packaged type under a single
+  `Packages` heading. The tab shipped with that heading because a type had no
+  way to say which distribution it came from — the owning package was known
+  during the scan and then thrown away — and the heading was the honest answer
+  at the time: naming a package by reading a file path would have produced a
+  title the backend never supplied, and one that could disagree with the Blocks
+  tab's real name for the very same distribution. So the name is now carried
+  rather than guessed. The type registry records which distribution's discovery
+  hook delivered each type, and the types listing turns that into a
+  `package_name` by reading the string the *block* registry already resolved
+  for that distribution. Reading one string rather than deriving two is the
+  whole point: a packaged type and a packaged block from one package are
+  titled identically and cannot drift apart. Where no name exists — a package
+  the Blocks tab does not name either — the type keeps the lumped `Packages`
+  section rather than disappearing, so the tab degrades the way it did before
+  instead of losing a type to a missing attribution. Tests:
+  `tests/api/test_types_routes.py`, `tests/core/test_types.py`,
+  `frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts`.
+  (@claude, 2026-08-07, branch: feat/2025-type-package-attribution)
+
 - [#2025][#2024] The left panel gains a third tab, **Data types**, and the
   canvas starts reading type colour from the same place it does. Until now the
   data types a workflow is built from had no surface at all: you could see the

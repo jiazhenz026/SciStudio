@@ -7,6 +7,8 @@
 import { describe, expect, it } from "vitest";
 
 import { makeType } from "./fixtures";
+import { sectionIdFor } from "../../BlockPalette.parts/paletteModel";
+import type { BlockSummary } from "../../../types/api";
 import {
   buildTypeSections,
   CORE_SECTION_ID,
@@ -36,7 +38,20 @@ const series = makeType({
 const myType = makeType({ name: "MyDenoised", base_type: "Image", origin: "user" });
 const projectType = makeType({ name: "ProjectScan", base_type: "Array", origin: "project" });
 const customType = makeType({ name: "Stray", base_type: "Array", origin: "custom" });
+/** A packaged type the backend could not attribute — the FR-040 fallback. */
 const packageType = makeType({ name: "SRSImage", base_type: "Image", origin: "package" });
+const srsType = makeType({
+  name: "SRSStack",
+  base_type: "Array",
+  origin: "package",
+  package_name: "scistudio-blocks-srs",
+});
+const imagingType = makeType({
+  name: "FluorImage",
+  base_type: "Image",
+  origin: "package",
+  package_name: "scistudio-blocks-imaging",
+});
 
 const ALL = [dataObject, array, image, series, myType, projectType, customType, packageType];
 
@@ -45,13 +60,47 @@ describe("typeSectionIdFor — origin tier grouping (FR-040, FR-005)", () => {
     expect(typeSectionIdFor(array)).toBe(CORE_SECTION_ID);
     expect(typeSectionIdFor(myType)).toBe(USER_LIBRARY_SECTION_ID);
     expect(typeSectionIdFor(projectType)).toBe(PROJECT_LIBRARY_SECTION_ID);
-    expect(typeSectionIdFor(packageType)).toBe(PACKAGES_SECTION_ID);
   });
 
   it("files the FR-002 `custom` fallback under This Project, not My Library", () => {
     // An unresolvable drop-in is not known to be reusable across projects, so
     // it must not claim a section that promises cross-project reuse.
     expect(typeSectionIdFor(customType)).toBe(PROJECT_LIBRARY_SECTION_ID);
+  });
+
+  it("groups a packaged type under the distribution the backend named", () => {
+    expect(typeSectionIdFor(srsType)).toBe("scistudio-blocks-srs");
+    expect(typeSectionIdFor(imagingType)).toBe("scistudio-blocks-imaging");
+  });
+
+  it("keeps an unattributed packaged type in the lumped Packages section", () => {
+    // The backend says `null` rather than guessing a name that could contradict
+    // the Blocks tab; the type must still be reachable somewhere.
+    expect(typeSectionIdFor(packageType)).toBe(PACKAGES_SECTION_ID);
+  });
+
+  it("titles a package exactly as the Blocks tab titles the same distribution", () => {
+    // The one acceptance check FR-040 turns on. The backend reports one string
+    // on both summaries (it reads the block registry rather than deriving a
+    // second name), so the two surfaces must resolve to the same section id —
+    // a packaged type and a packaged block from one distribution sit under one
+    // heading, spelled one way.
+    for (const packageName of ["scistudio-blocks-srs", "scistudio-blocks-imaging"]) {
+      const block = {
+        name: "Probe",
+        type_name: "probe",
+        base_category: "process",
+        subcategory: "",
+        description: "",
+        version: "0.1.0",
+        input_ports: [],
+        output_ports: [],
+        origin: "package",
+        package_name: packageName,
+      } as BlockSummary;
+      const type = makeType({ name: "Probe", origin: "package", package_name: packageName });
+      expect(typeSectionIdFor(type)).toBe(sectionIdFor(block));
+    }
   });
 });
 
@@ -65,6 +114,24 @@ describe("buildTypeSections — order and empty states (FR-040, FR-037)", () => 
       "Packages",
     ]);
     expect(sections[0].pinned).toBe(true);
+  });
+
+  it("splits one section per package, A→Z, after the tier sections", () => {
+    const sections = buildTypeSections([array, myType, srsType, imagingType], "", []);
+    expect(sections.map((section) => section.title)).toEqual([
+      "Core",
+      "My Library",
+      "This Project",
+      "scistudio-blocks-imaging",
+      "scistudio-blocks-srs",
+    ]);
+  });
+
+  it("keeps an unnamed package alongside the named ones instead of dropping it", () => {
+    const sections = buildTypeSections([srsType, packageType], "", []);
+    const lumped = sections.find((section) => section.id === PACKAGES_SECTION_ID);
+    expect(lumped?.items.map((type) => type.name)).toEqual(["SRSImage"]);
+    expect(sections.some((section) => section.id === "scistudio-blocks-srs")).toBe(true);
   });
 
   it("sorts types by name inside a section", () => {
