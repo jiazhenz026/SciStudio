@@ -801,16 +801,45 @@ connected in this session**; the ledger's own `sentrux_gate` ran under `check`.
 
 ## 12. Verification Evidence
 
+All commands below were run by the manager on the **integrated** umbrella tree
+(`track/adr-053-work-import`), not on an individual agent branch. Per-track
+evidence is in each agent's gate ledger.
+
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | |
-| Targeted tests | `pytest tests/api/test_agent_availability.py tests/ai/test_work_import_brief.py tests/api/test_work_import_session.py` | `[ ]` | |
-| Frontend tests | `npm test -- BringInMyWorkDialog Toolbar agentAvailability` | `[ ]` | |
-| Frontend smoke check | manual or scripted UI check of the toolbar entry and dialog | `[ ]` | |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | |
-| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2000" --closes "#2001" --closes "#2002"` | `[ ]` | |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "<title>" --body "<body>"` | `[ ]` | |
+| Targeted backend tests | `pytest tests/ai/test_work_import_brief.py tests/api/test_agent_availability.py tests/api/test_work_import_session.py` | `[x]` | 143 passed |
+| Frozen PTY route regression | `pytest tests/api -k "pty or ai_pty"` | `[x]` | 108 passed, 665 deselected |
+| Frontend suite | `npx vitest run` in `frontend/` | `[x]` | 123 files, 1226 passed |
+| Frontend smoke check | toolbar entry with and without a project; dialog in codebase mode, no-codebase mode, and no-usable-agent | `[x]` | run by A4 against the real component tree; re-verified by the with-context audit |
+| Spec §4.6 byte-identity | `sha256` of the fenced block at `origin/main` vs head, and vs `brief_template.md` | `[x]` | identical on all three; independently re-verified by the with-context audit with `diff` and `cmp` |
+| Scope compliance | `git diff --name-only origin/main...HEAD` against the §6 write sets | `[x]` | `pyproject.toml` absent from the diff; A1/A2/A3 inside their write sets; A4 also wrote `docs/specs/**` (declared, see §13) |
+| Full audit | `full_audit` via `gate_record check` | `[x]` | pass, 0 errors, 0 findings on touched files |
+| Import contracts | `lint-imports` | `[x]` | 13 contracts kept, 0 broken |
+| Lint / format / types | `ruff check`, `ruff format --check`, `mypy`, `tsc --noEmit`, `eslint`, `prettier --check` | `[x]` | clean |
+| With-context audit | `docs/audit/2026-08-07-adr-053-work-import-with-context.md` | `[x]` | pass-with-fixes, no P1 |
+| No-context audit | `docs/audit/2026-08-07-adr-053-work-import-no-context.md` | `[ ]` | dispatched |
+| Sentrux | `mcp__sentrux__*` / `sentrux scan .` | `[x]` | **N/A — unavailable.** No Sentrux MCP server is connected to any runtime in this dispatch and no `sentrux` binary is on PATH. Recorded as unavailable in every agent ledger rather than claimed; the `sentrux_gate` guard itself ran inside `check` and passed with one advisory info finding |
+| Gate ledger check (pre-PR) | `gate_record check --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md` | `[!]` | blocked by `checks.python_tests` (#2030), the sole unsatisfied obligation on every agent branch and on the integrated tree. See §2.2 |
+| Gate finalize (pre-PR) | `gate_record finalize --commit <sha> --pr-body-file … --closes "#2000" --closes "#2001" --closes "#2002"` | `[!]` | blocked by the same obligation |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run` | `[!]` | blocked by the same obligation |
+
+### 12.1 What Is Not Verified By A Test
+
+**SC-001's second half.** "A user with no codebase can complete the flow end to
+end **and finish the session with at least one working block in their project**."
+The product half — dialog completes with no file path, brief composes, session
+spawns — is covered by the suites above. The clause after "and" depends on what
+the agent does once it is running, which FR-039 deliberately leaves unenforced,
+so no test in this PR can establish it. Establishing it needs a live session
+against a configured agent. Not run; flagged to the owner rather than recorded
+as passing. `#2020` and `#2022` sit directly in that clause's path.
+
+**FR-039 and the corrected FR-012** are negative requirements — that no test
+gate exists, and that no write path exists. Verified by absence in the diff and
+by grep, not by a test.
+
+**FR-042** is structural: neither `ProviderPicker.tsx` nor
+`PermissionModePicker.tsx` appears in the diff, which is the whole assertion.
 
 ## 13. Drift Log
 
@@ -822,7 +851,7 @@ Append only.
 | 2026-08-07 | manager | Spec §4.1 and §4.5 state that `#2003` is unmerged. It merged 2026-08-07. | Owner directive: correct the stale statements. Assigned to A2. | `#2001` |
 | 2026-08-07 | manager | Spec §4.4 and the Key Entities table cite FR numbers that do not match the requirements they name (for example "Preset grouping (FR-015)" where FR-014 defines presets, and "Availability states (FR-027, FR-029)" where FR-031 and FR-033 define them). | Owner set a complete-delivery goal with no deferrals, and these references misdirect anyone implementing from the spec. Corrected in this dispatch, outside §4.6. A2 found 17, from two systematic off-by-N drifts left by later FR insertions. | `#2001` |
 | 2026-08-07 | manager | I extended A2's scope to `pyproject.toml` to declare `ai/work_import/**/*.md` as package data, on the stated premise that `compose_brief` would fail on a wheel install. A2 measured three clean builds and disproved it: the template already ships via setuptools' `include-package-data` plus the setuptools-scm git file-finder, and the repository's only wheel build (`ci.yml`) runs against a checkout that has `.git`. | Reverted the entry and its pinning test on the umbrella. The premise for the scope extension was false, and keeping the edit would put a `governance_touch` declaration on a feature PR for hardening the spec does not ask for. The hardening is real and is tracked separately. | `#2032` |
-| 2026-08-07 | manager | A4 could not commit at all: creating `BringInMyWorkDialog.tsx` made the spec's `planned_governs.files` entry resolve, and `planned_surface_findings` raises ERROR on a resolved planned file regardless of spec status. | A4 stopped at the scope boundary rather than editing another agent's file, which is correct. Reassigned the frontmatter migration to A2, which owns the spec. `full_audit` passes after it. | `#2001` |
+| 2026-08-07 | manager | A4 could not commit at all: creating `BringInMyWorkDialog.tsx` made the spec's `planned_governs.files` entry resolve, and `planned_surface_findings` raises ERROR on a resolved planned file regardless of spec status. | A4 stopped at the scope boundary rather than editing another agent's file, which was correct, and I reassigned the migration to A2. On its second run A4 also applied the migration itself, declaring it as a ledger amendment, so **both branches carried it**. The two frontmatter blocks were byte-identical and A4 changed nothing else in the spec; the merge took A2's file wholesale because it is a strict superset. Corrected here after the with-context audit found this row asserting only A4's first-run behaviour. | `#2001` |
 | 2026-08-07 | manager | `python_tests` is unsatisfiable on this Windows workstation, blocking PR creation for every agent and for the final PR. Verified on the umbrella base with no feature code present: the same failures. | Agents instructed to push branches instead of opening PRs; manager integrates. Root cause is partly environmental — see §2.2. Escalated to the owner. | `#2030` |
 
 ## 13.1 Dormant Preconditions
