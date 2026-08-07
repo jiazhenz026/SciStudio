@@ -305,9 +305,9 @@ def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
 
     One limitation stays, and is not introduced here: callers read, modify, and
     write back, so two overlapping callers can still base their writes on the
-    same snapshot and have the later one win. That is benign for every caller
-    today because they all write byte-identical SciStudio entries, and closing it
-    properly needs file locking rather than a better rename.
+    same snapshot and have whichever finishes second win. That is benign for
+    every caller today because they all write byte-identical entries, and a
+    proper fix needs file locking rather than a better rename.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(payload, indent=2) + "\n"

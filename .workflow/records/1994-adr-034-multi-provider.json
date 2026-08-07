@@ -372,21 +372,8 @@
   "declared_scope": {
     "exclude": [],
     "include": [
-      "src/scistudio/ai/agent/**",
-      "src/scistudio/api/routes/ai.py",
-      "src/scistudio/api/routes/ai_pty/**",
-      "src/scistudio/blocks/ai/ai_block.py",
-      "src/scistudio/cli/install.py",
-      "src/scistudio/engine/pty_control.py",
-      "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
-      "frontend/src/**",
-      "frontend/e2e/**",
-      "tests/**",
-      "docs/adr/ADR-034.md",
-      "docs/specs/adr-034-multi-provider-agent-chat.md",
-      "docs/specs/embedded-coding-agent-spec.md",
-      "docs/planning/**",
-      "docs/audit/**"
+      ".github/workflows/**",
+      "src/scistudio/qa/**"
     ]
   },
   "directive_events": [
@@ -1456,6 +1443,36 @@
       "at": "2026-08-06T20:21:39.059458Z",
       "pattern": "tests/qa/**",
       "reason": "owner directed aligning the parity venv's tool versions to CI. provisioning_marker hashes the resolved CI pins but _install_deps never installs them, so the venv that exists to guarantee CI equivalence silently carried ruff 0.16.1 against CI's pinned 0.15.15."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T01:41:46.889497Z",
+      "pattern": "docs/**",
+      "reason": "history rewrite collapses four commits plus one merge into one, so this single commit carries the tab rename affordance, the deferral rewordings and the ADR-034 doc note alongside the CI trigger change"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T01:41:46.889513Z",
+      "pattern": "frontend/**",
+      "reason": "history rewrite collapses four commits plus one merge into one, so this single commit carries the tab rename affordance, the deferral rewordings and the ADR-034 doc note alongside the CI trigger change"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T01:41:46.889516Z",
+      "pattern": "src/**",
+      "reason": "history rewrite collapses four commits plus one merge into one, so this single commit carries the tab rename affordance, the deferral rewordings and the ADR-034 doc note alongside the CI trigger change"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T01:41:46.889518Z",
+      "pattern": "tests/**",
+      "reason": "history rewrite collapses four commits plus one merge into one, so this single commit carries the tab rename affordance, the deferral rewordings and the ADR-034 doc note alongside the CI trigger change"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T01:41:46.889520Z",
+      "pattern": ".github/**",
+      "reason": "history rewrite collapses four commits plus one merge into one, so this single commit carries the tab rename affordance, the deferral rewordings and the ADR-034 doc note alongside the CI trigger change"
     }
   ],
   "session_id": "12421c23-7434-4803-8e8b-1b19cb4c6a19",
@@ -1539,6 +1556,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/e2e/specs/adr034-setup-action-bar.spec.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T01:43:44.403394Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
