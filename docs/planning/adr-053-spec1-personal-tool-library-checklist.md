@@ -277,13 +277,35 @@ through the same helper so there is exactly one answer to "where does the user t
 
 ### 7.4 Audit
 
-- [ ] `AUDIT-A` assigned (`with-context`).
-- [ ] Audit report file path assigned: `docs/audit/2026-08-07-adr-053-spec1-track-a.md`
-- [ ] Audit report committed.
-- [ ] Audit report merged into PR A evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] `AUDIT-A` assigned (`with-context`) -> commit `8205d828`
+- [x] Audit report file path assigned: `docs/audit/2026-08-07-adr-053-spec1-track-a.md`
+- [x] Audit report committed -> `8205d828`
+- [x] Audit report merged into PR A evidence path -> merge `afab0e8a`
+- [x] Findings recorded. **Recommendation: pass-with-fixes.** 2 P1, 3 P2, 4 P3.
+- [~] P1 findings fixed before integration -> dispatched to `A-FIX` on `fix/2022-audit-p1-shadowing-and-registration`
+
+#### AUDIT-A findings
+
+| ID | Sev | Finding | Disposition |
+|---|---|---|---|
+| P1-1 | P1 | **The shadowing guard does not cover the worker.** `_reject_shadowing_type_files` pre-binds the installed module only inside `BlockRegistry._scan_tier1`. The worker reconstructs through `registry/__init__.py:521` — `prepended_sys_paths(spec.runtime_import_roots)` with no pre-binding — so `{project}/types/sample_dep.py` shadows the installed `sample_dep` there. Demonstrated with a real `python -m scistudio.engine.runners.worker` run. **A new hazard introduced by Track A**: before #2022 the type dirs were never on `sys.path`. This is the exact scan-time-vs-run-time divergence FR-013/FR-057 exist to prevent. | `A-FIX`: move detection + pre-binding into one shared function in `core/dropins.py`, called from every site that puts type roots on `sys.path` |
+| P1-2 | P1 | **"Rejected" is announced but registration is not refused.** `{project}/types/json.py` reports `DropinTypeNameCollision`, stdlib `json` still wins in the API process, **and the type still registers, resolvable and loadable**. The user is told to rename the file while the type keeps working. Owner's recorded decision was "registration is refused". Root cause of the miss: **not one of A3's 18 tests constructs a `TypeRegistry`.** | `A-FIX`: `TypeRegistry`'s drop-in pass skips colliding files using the same shared detection; test via a real `TypeRegistry` |
+| P2-1 | P2 | **FR-062's audit stopped at one method name.** FR-062 is written in terms of invalidating *events*, but A2 enumerated only `refresh_block_registry` sites. Three more invalidate via `hot_reload()`: `POST /api/blocks/reload`, the file-save hook (`routes/projects.py:491`), and MCP `reload_blocks`. **Saving a file under `{project}/types/` refreshes nothing at all.** | `A-FIX` |
+| P2-2 | P2 | A2's reload-symmetry test greps `api/routes/*.py` for three literal method names, so it structurally cannot see `hot_reload()`; its docstring overclaims what it proves. | `A-FIX`: replace with a behavioural test |
+| P2-3 | P2 | A3's FR-016 spec rewrite dropped the owner's "registration is refused" wording; the §11 acceptance row now certifies a build that fails both P1s; §14 claims the hazard is closed "by binding the real module before any drop-in runs", untrue in the worker. | `A-FIX` |
+| P3-1..4 | P3 | Directory-package collisions undetected (`*.py` glob only); the rejection eagerly imports the shadowed module on every scan; the sibling-`types/` inference is load-bearing but only documented, not pinned by a test; checklist §9 missed two accepted scope additions. | First three to `A-FIX`; the fourth fixed by the manager in this commit |
+
+#### Manager judgments AUDIT-A re-verified independently
+
+| Judgment I had accepted from an agent report | Verdict |
+|---|---|
+| A2 left `_configure_static_registries` out of the unified refresh (lazy preview service) | **Sound** — and no stale window: the lazy build sees the same `active_project is None`, and `open_project` rebuilds |
+| `previewers/**` needed no change; #2009 was purely a call-site defect | **Sound** — `refresh_preview_service` pre-existed at `_data.py:248`; diffstat over `src/scistudio/previewers/` is empty, and #2009 did not grow into #2017 |
+| A2's seven-site enumeration | **Count correct**, extras exactly as reported — but incomplete as a *method-name* audit, hence P2-1 |
+| A3's `dropin_type_roots_for_block_dirs` derivation, and its claim the API server never sets `SCISTUDIO_PROJECT_DIR` | **Sound** — every `SCISTUDIO_PROJECT_DIR` write in `src/` targets a child-process env dict; FR-014 ordering holds across all reachable tier combinations; `add_scan_dir` has exactly one caller in `src/` so no bypass exists |
+| A3's FR-061 back-pointer | **Delivered correctly** at `blocks/registry/__init__.py:403`, pointing at the type-registry record rather than duplicating it |
+
+Spec §2.5 was reproduced independently by the audit: `False` before at `b485e293`, `True` after at `e3e95a75`, on the worker path too.
 
 ### 7.5 Integration
 
@@ -389,6 +411,9 @@ Append only.
 | `2026-08-07` | `B3` | `Product judgment: the custom fallback origin groups into This Project rather than My Library or its own section.` | `Accepted by the manager. An unresolvable file_path is not evidence of cross-project reuse, so filing it under My Library would make a claim the backend never made; This Project renders unconditionally so a custom block can never vanish; and it is where every tier-1 block lands on a backend that has not yet split the tiers, so the palette degrades rather than breaks while B1 is in flight.` | `Confirm with AUDIT-B` |
 | `2026-08-07` | `B3` | `Left TODO(#2025) on the ProjectWorkspace types branch, which renders null.` | `Accepted. The TODO cites a tracked open issue and B4 fills it in the same PR, so it is not an untracked deferral. AUDIT-B must confirm it is gone by the time PR B is opened.` | `B4 (#2025)` |
 | `2026-08-07` | `manager` | `gate_record python_tests cannot reach green on this Windows host: 9 environmental failures, all reproducing on the unmodified base (POSIX unix sockets, POSIX shell rc, Windows path semantics, TOML backslash escaping, and the #2011 /bin/sh hook family).` | `Accepted for every agent slice. Each agent verified the failures reproduce on its own base commit before proceeding. The evaluator deliberately ignores a --check-na for python_tests because CI owns that job, so the Linux runner on the two delivery PRs is the authoritative evidence. Manager will not treat a local python_tests red as a slice defect without first reproducing it on the base.` | `CI on PR A / PR B` |
+| `2026-08-07` | `A2` | `Accepted scope addition: tests/api/test_packages.py (test double needed the unified entry point).` | `Recorded here to close AUDIT-A P3-4, which noted §9 was missing two accepted scope additions.` | `N/A` |
+| `2026-08-07` | `A3` | `Accepted scope addition: tests/blocks/test_registry_package_layout.py (ADR-047 §C9 class inventory plus a pre-existing mypy error the diff exposed).` | `Recorded here to close AUDIT-A P3-4.` | `N/A` |
+| `2026-08-07` | `manager` | `AUDIT-A returned two P1s. Track B backend (B1/B2) was unblocked by the owner's condition once the audit returned, but A-FIX and B1 both edit api/routes/blocks.py and ai/agent/mcp/**.` | `Held B1/B2 until A-FIX lands, rather than creating the two-agents-one-file hard fail the dispatch rules forbid.` | `N/A` |
 | `2026-08-07` | `manager` | `B3 was dispatched before the owner's "wait for the Track A audit" answer arrived. B3 is frontend-only, cut from origin/main, and shares no file with Track A.` | `Left running. The owner's constraint targeted the backend agents B1/B2, which depend on A1's helper; B3 does not.` | `N/A` |
 
 ## 10. Final Readiness
