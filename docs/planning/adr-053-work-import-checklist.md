@@ -451,9 +451,19 @@ validates the backend spelling. Both must have a test that pins the mapping.
       provider-neutral `_engine_prespawned` marker; the user-launched spawn
       contract (query params, spawn semantics, error frames, cap) is unchanged
       and pinned by six regression tests in the new file.
-- [x] `tests/api/test_work_import_session.py` -> 35 tests covering FR-022,
-      FR-024, FR-027 to FR-030, contract C3, the §7.4 permission-mode trap, and
-      the frozen user-launched route.
+- [x] Contract C2 error mapping -> `ImportSessionContext.__post_init__` raises
+      `ValueError` for every answer-shape violation; the endpoint turns each
+      into a `400` carrying the dataclass's own message rather than a `500`.
+      The endpoint's duplicate skipped-question validator was removed so the
+      rule has one owner. Covered by
+      `test_answer_shape_violations_are_4xx_with_a_usable_message` (5 cases)
+      and `test_a_blank_answer_is_a_valid_session_not_an_error`.
+- [x] `tests/api/test_work_import_session.py` -> 41 tests covering FR-022,
+      FR-024, FR-027 to FR-030, contract C2 error mapping, contract C3, the
+      §7.4 permission-mode trap, and the frozen user-launched route.
+      `PYTHONPATH=<worktree>/src python -m pytest tests/api/test_work_import_session.py`
+      -> 41 passed. `pytest tests/api -k "pty or ai_pty"` -> 107 passed.
+      `pytest tests/api/routes/ai_pty` -> 45 passed.
 
 ### 10.4 Audit
 
