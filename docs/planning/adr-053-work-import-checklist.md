@@ -957,10 +957,11 @@ no deferrals. Out of scope and untouched: spec §4.6, `docs/adr/ADR-053.md`,
 
 | Check | Status | Evidence |
 |---|---|---|
-| `pytest tests/ai/test_work_import_brief.py tests/api/test_agent_availability.py tests/api/test_work_import_session.py` | `[x]` | 114 passed |
-| `pytest tests/api -k "pty or ai_pty"` | `[x]` | 109 passed |
-| `pytest tests/architecture tests/ai tests/api` | `[x]` | 3 failures, all pre-existing `#2030`, all reproducing at `origin/main` |
-| `npx vitest run` in `frontend/` | `[x]` | 123 files, 1235 passed |
+| `pytest tests/ai/test_work_import_brief.py tests/api/test_agent_availability.py tests/api/test_work_import_session.py` | `[x]` | 186 passed (was 143 before this track) |
+| `pytest tests/api -k "pty or ai_pty"` | `[x]` | 109 passed, 698 deselected |
+| `pytest tests/architecture tests/ai tests/api` | `[x]` | 1750 passed, 3 failed — all three pre-existing `#2030`, all reproducing at `origin/main` per the no-context audit §6 |
+| `npx vitest run` in `frontend/` | `[x]` | 123 files, 1235 passed (was 1226) |
+| `gate_record check --mode pre-pr --base origin/track/adr-053-work-import --head HEAD` | `[!]` | tier 2, all 8 inferred checks run; `checks.python_tests` the sole unsatisfied obligation (`#2030`) |
 | `npm run typecheck` / `lint` / `format:check` | `[x]` | clean / 0 errors, 40 pre-existing warnings / clean |
 | `ruff check` / `ruff format --check` / `mypy src` | `[x]` | clean / 780 formatted / 347 files, no issues |
 | `full_audit` | `[x]` | `pass`, 0 findings on any file this track touched |

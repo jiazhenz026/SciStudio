@@ -348,6 +348,14 @@
       "path": "docs/planning/adr-053-work-import-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:08:19.512165Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -858,6 +866,14 @@
       "kind": "na",
       "path": null,
       "rationale": "docstring cross-reference to an open issue; no behaviour changed, and the capability it documents is already pinned by tests/api/test_agent_availability.py::test_the_session_capability_is_derived_from_the_registry",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:08:19.512186Z",
+      "class": "docs-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "checklist verification table; no code changed",
       "verified_in_diff": null
     }
   ]
