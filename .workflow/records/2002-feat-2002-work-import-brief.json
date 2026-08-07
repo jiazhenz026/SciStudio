@@ -336,9 +336,9 @@
     }
   ],
   "commit": {
-    "sha": "bc9572d5b9300d859ea3a440a8741b55a8a93b5b",
+    "sha": "ba1a49ba4d7cb0932dc6ac0b1683276bc3146c18",
     "shas": [
-      "bc9572d5b9300d859ea3a440a8741b55a8a93b5b"
+      "ba1a49ba4d7cb0932dc6ac0b1683276bc3146c18"
     ],
     "trailers": []
   },
@@ -1027,6 +1027,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.733094Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.745413Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.757603Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.769764Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.782004Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-07T08:27:17.794585Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.806766Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.819319Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.831156Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:27:17.844394Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1039,7 +1143,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/track/adr-053-work-import",
+    "base": "49d801e0",
     "base_sha": "49d801e0",
     "changed_files": [
       ".workflow/records/2002-feat-2002-work-import-brief.json",
@@ -1053,7 +1157,7 @@
       "tests/ai/test_work_import_brief.py"
     ],
     "diff_fingerprint": "sha256:4eefedff019adf41eeb2ddea4da9bc540da4b0229ba90e79c953e34f4a381f2f",
-    "head": "HEAD",
+    "head": "5a7ab640",
     "head_sha": "5a7ab640",
     "surfaces": {
       "docs": 2,
@@ -1160,6 +1264,17 @@
       "tier": 1,
       "unsatisfied": [
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T08:27:17.844424Z",
+      "diff_fingerprint": "sha256:4eefedff019adf41eeb2ddea4da9bc540da4b0229ba90e79c953e34f4a381f2f",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "guard.mod_guard"
       ]
     }
   ],

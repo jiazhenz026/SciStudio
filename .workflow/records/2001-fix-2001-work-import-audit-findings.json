@@ -1,0 +1,289 @@
+{
+  "branch": "fix/2001-work-import-audit-findings",
+  "check_events": [
+    {
+      "at": "2026-08-07T08:31:10.679260Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T08:31:29.958535Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T08:31:30.012411Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/availability.py",
+      "src/scistudio/api/routes/ai.py",
+      "src/scistudio/api/routes/work_import.py",
+      "frontend/src/components/BringInMyWorkDialog.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/**",
+      "frontend/src/lib/api/**",
+      "frontend/src/components/__tests__/**",
+      "docs/specs/adr-053-work-import.md",
+      "docs/planning/adr-053-work-import-checklist.md",
+      "tests/api/test_agent_availability.py",
+      "tests/api/test_work_import_session.py",
+      "tests/ai/test_work_import_brief.py",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T08:30:22.170571Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:30:22.170588Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-07T08:31:30.056874Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.075839Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.095745Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.114627Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.133205Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.151253Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.168929Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.188447Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.207454Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:31:30.226835Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2001,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2000,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2002,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/track/adr-053-work-import",
+    "base_sha": "578b7dbc",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "ed5dab68",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix the P1/P2/P3 findings from the two ADR-053 work-import audits (2026-08-07 with-context and no-context): the kimi-code 500 + orphaned brief, availability guidance with no named action, call_failed copy and missing retry control, client probe cap shorter than the server budget, the unconstrained kimi probe, SC-006's false distinction, the spec's governs/tests frontmatter, the unpinned preset labels, gate ledger commit bookkeeping, and the empty-registry dead end. Complete delivery, no deferrals.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T08:31:30.226904Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2001-fix-2001-work-import-audit-findings",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:58:01.081248Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/engine.py",
+      "reason": "The no-context audit's P1 names open_work_import_tab's docstring as asserting the false FR-029 claim ('behaves identically across all five'). Correcting it requires editing src/scistudio/api/routes/ai_pty/engine.py, which was not in the declared include set. Docstring only; no behaviour change in that file."
+    }
+  ],
+  "session_id": "622236f7-e5c4-4ae6-8be5-0db1a95b6d83",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-07T08:30:22.170592Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_agent_availability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:30:22.170596Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:30:22.170598Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_work_import_brief.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:30:22.170601Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:30:22.170602Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/agentAvailability.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

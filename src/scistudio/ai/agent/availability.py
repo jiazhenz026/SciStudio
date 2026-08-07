@@ -55,11 +55,42 @@ bounded, and both are deliberate rather than incidental:
   answer. ``refresh=True`` is the escape hatch a "try again" control needs, so a
   user who has just topped up their quota is never told to wait out a cache.
 
+**What a probe may touch (the tool-restriction invariant).** A call fired on
+dialog open must leave nothing behind to reason about, so **no probe may write
+to or execute anything on the user's machine**. That bound is stated once, here,
+because it is not the same mechanism on every CLI and an invariant restated
+per-provider drifts:
+
+* ``claude-code``, ``qoder`` and ``qoder-cn`` pass ``--tools ""`` — an empty
+  tool allowlist, so the model has no tools at all and cannot read either.
+* ``kimi-code`` has no tool flag, but it does accept ``--agent-file <path>``,
+  and an agent definition's ``tools`` frontmatter field **is** its tool
+  allowlist. :data:`_KIMI_TOOL_FREE_PROFILE` is written into the probe's own
+  throwaway directory with an empty ``tools`` list, which lands in the same
+  place a flag would.
+* ``codex`` has neither, so ``--sandbox read-only`` is what bounds it: the
+  model may **read**, and cannot write or execute.
+
+``tests/api/test_agent_availability.py`` partitions :data:`MINIMAL_CALLS` over
+exactly those three mechanisms, so a sixth provider cannot land without stating
+which one bounds it.
+
 **Provenance of the per-provider call table.** Every argv in
 :data:`MINIMAL_CALLS` was run against the binary installed on the owner's
 workstation on **2026-08-07** and its wall-clock time observed; see
 :data:`MINIMAL_CALLS` for the per-provider table and the observations. Re-verify
 when a provider CLI's non-interactive surface changes.
+
+**Two facts about a provider that are not availability grades.** FR-031's four
+states answer "will a call work right now?". Two other things a consuming
+surface needs are registry facts rather than grades, and both ride on
+:class:`ProviderAvailability` rather than being re-derived per surface:
+:attr:`~ProviderAvailability.next_step` names the one action that moves *this*
+provider out of *this* state (SC-002), and
+:attr:`~ProviderAvailability.session_unsupported_reason` says when a provider
+cannot be handed an opening instruction on its command line at all — which is
+how every SciStudio-started session reaches its agent, so a provider that
+cannot take one cannot run one however ``ready`` it is.
 """
 
 from __future__ import annotations
@@ -78,7 +109,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from scistudio.ai.agent.providers_registry import ProviderDescriptor, resolve_binary
+from scistudio.ai.agent.providers_registry import CONFIG_ROOT, ProviderDescriptor, resolve_binary
 from scistudio.ai.agent.providers_registry import get as get_descriptor
 
 logger = logging.getLogger(__name__)
@@ -86,17 +117,22 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "CACHE_TTL_SECONDS",
     "LIVE_CALL_TIMEOUT_SECONDS",
+    "LOGIN_COMMANDS",
     "MINIMAL_CALLS",
     "REPORT_BUDGET_SECONDS",
     "AvailabilityReport",
     "AvailabilityState",
     "MinimalCall",
+    "ProbeFile",
     "ProviderAvailability",
     "StatusRow",
     "aggregate_state",
     "clear_availability_cache",
+    "install_hint",
+    "login_hint",
     "probe_availability",
     "resolve_availability",
+    "session_unsupported_reason",
 ]
 
 
@@ -152,6 +188,39 @@ class ProviderAvailability:
     :attr:`AvailabilityState.CALL_FAILED`, and never carrying reinstall
     guidance (FR-034)."""
 
+    next_step: str | None = None
+    """The one action that moves this provider out of this state (SC-002).
+
+    Populated for :attr:`AvailabilityState.NOT_INSTALLED` (how to install it)
+    and :attr:`AvailabilityState.NOT_AUTHENTICATED` (how to sign in), which are
+    exactly the two states FR-031 gives a guidance column to. ``None`` for
+    ``call_failed`` — there :attr:`cause` is the specific information, and FR-034
+    forbids sending a user whose CLI demonstrably runs off to fix their install —
+    and ``None`` for ``ready``, which needs no action.
+
+    A *sentence*, not a bare command, because the surface renders it next to a
+    provider label and a user has to be able to read it as an instruction.
+    """
+
+    session_unsupported_reason: str | None = None
+    """Why a SciStudio-started session cannot use this provider, if it cannot.
+
+    Independent of :attr:`state`: this is a fact about the CLI's argument
+    surface, not about the user's setup, and no amount of installing or signing
+    in changes it. Non-``None`` means the provider declares
+    ``prompt_argv_prefix is None`` — it has no positional prompt argument, so
+    the opening instruction that every SciStudio-started session is delivered
+    with cannot reach it (ADR-034 ``ProviderDescriptor.prompt_argv_prefix``).
+    Such a provider is still a perfectly good hand-launched chat tab, which is
+    why it is reported rather than hidden, and why this does not downgrade
+    :attr:`state`.
+
+    Carries the registry's own :attr:`~...ProviderDescriptor.prompt_unsupported_reason`
+    verbatim: the explanation of a CLI's limitation belongs beside the
+    descriptor that records the limitation, and paraphrasing it here would give
+    the user two subtly different accounts of one fact.
+    """
+
     def as_dict(self) -> dict[str, Any]:
         """Serialise to the wire shape of checklist contract C1."""
         return {
@@ -159,6 +228,8 @@ class ProviderAvailability:
             "label": self.label,
             "state": self.state.value,
             "cause": self.cause,
+            "next_step": self.next_step,
+            "session_unsupported_reason": self.session_unsupported_reason,
         }
 
 
@@ -211,11 +282,61 @@ LIVE_CALL_PROMPT = "Reply with the single word: ok"
 
 
 @dataclass(frozen=True)
+class ProbeFile:
+    """A file the probe materialises in its throwaway directory before calling.
+
+    The escape hatch for a CLI whose bound is expressed in a *file* rather than
+    in a flag. Kimi Code is the observed case and the only one: it has no tool
+    switch, but ``--agent-file`` selects an agent definition whose ``tools``
+    frontmatter field is that session's tool allowlist, so an empty list there
+    is the same bound ``--tools ""`` gives the other CLIs.
+
+    The file is written into the probe's own :class:`tempfile.TemporaryDirectory`
+    and dies with it, so nothing survives a probe.
+    """
+
+    flag: str
+    """Flag that points the CLI at the file, e.g. ``--agent-file``."""
+
+    name: str
+    """Filename inside the probe's throwaway directory."""
+
+    content: str
+    """The file's exact contents."""
+
+
+#: Kimi Code's tool restriction, as an agent definition rather than a flag.
+#:
+#: Verified against the installed ``kimi`` 0.33.0 on 2026-08-07: ``--help`` at
+#: that version lists no tool-disabling or sandbox flag, ``--plan`` is refused
+#: outright when combined with ``-p`` ("Cannot combine --prompt with --plan"),
+#: and ``--agent`` cannot be combined with ``--agent-file``. Passing this file
+#: alone is accepted — the CLI parses it and proceeds to its own
+#: model-configuration check — while a malformed one is rejected by name, which
+#: is how the frontmatter below was confirmed to be read rather than ignored.
+#:
+#: ``tools: ""`` parses to the empty list, and Kimi's own profile assembly uses
+#: a file's ``tools`` verbatim when present and only falls back to the default
+#: tool set when the field is absent — so an empty list is an empty allowlist,
+#: not "unrestricted". ``disallowedTools: "*"`` is belt and braces on the
+#: denylist side, which is evaluated separately against resolved MCP tool names.
+_KIMI_TOOL_FREE_PROFILE = """\
+---
+name: scistudio-availability-probe
+description: SciStudio availability probe. Answers in one word and uses no tools.
+tools: ""
+disallowedTools: "*"
+---
+Answer the user's message with a single word. You have no tools available; do not attempt to use any.
+"""
+
+
+@dataclass(frozen=True)
 class MinimalCall:
     """How to make one provider's cheapest possible real request.
 
-    Assembled as ``[binary, *argv, *economy_argv, <prompt>]``, where the prompt
-    is placed either behind :attr:`prompt_flag` or after
+    Assembled as ``[binary, *argv, *probe_file_argv, *economy_argv, <prompt>]``,
+    where the prompt is placed either behind :attr:`prompt_flag` or after
     :attr:`prompt_prefix`.
     """
 
@@ -243,9 +364,23 @@ class MinimalCall:
     reported. The success path pays nothing for the safeguard.
     """
 
-    def build_argv(self, binary: str, *, economy: bool) -> list[str]:
-        """Concrete argv for *binary*, with or without the economy hints."""
+    probe_file: ProbeFile | None = None
+    """A file this provider's bound is expressed in, or ``None`` for a flag.
+
+    ``workdir`` is required by :meth:`build_argv` because of this: the file's
+    path is part of the argv, so argv and directory cannot be decided apart.
+    """
+
+    def build_argv(self, binary: str, *, economy: bool, workdir: Path) -> list[str]:
+        """Concrete argv for *binary*, with or without the economy hints.
+
+        *workdir* is the throwaway directory the call runs in, and the
+        directory :attr:`probe_file` is materialised in by
+        :func:`_live_call_cause`.
+        """
         argv = [binary, *self.argv]
+        if self.probe_file is not None:
+            argv.extend([self.probe_file.flag, str(workdir / self.probe_file.name)])
         if economy:
             argv.extend(self.economy_argv)
         if self.prompt_flag is not None:
@@ -348,11 +483,19 @@ MINIMAL_CALLS: Mapping[str, MinimalCall] = {
         economy_argv=("-c", 'model_reasoning_effort="low"'),
     ),
     # Kimi Code has no positional prompt (its first positional is parsed as a
-    # subcommand) and no tool-restriction flag; ``-p`` runs one prompt
-    # non-interactively and exits, which is exactly the shape this probe wants.
+    # subcommand); ``-p`` runs one prompt non-interactively and exits, which is
+    # exactly the shape this probe wants. It has no tool-restriction *flag*
+    # either, so its bound arrives as an agent definition instead — see
+    # ``_KIMI_TOOL_FREE_PROFILE`` for what was checked against the installed
+    # CLI and why an empty ``tools`` list is an empty allowlist.
     "kimi-code": MinimalCall(
         argv=("--output-format", "text"),
         prompt_flag="-p",
+        probe_file=ProbeFile(
+            flag="--agent-file",
+            name="scistudio-availability-probe.md",
+            content=_KIMI_TOOL_FREE_PROFILE,
+        ),
     ),
     "qoder": _qoder_minimal_call(),
     "qoder-cn": _qoder_minimal_call(),
@@ -460,13 +603,133 @@ def _live_call_cause(descriptor: ProviderDescriptor) -> str | None:
     binary = str(resolved)
 
     with tempfile.TemporaryDirectory(prefix="scistudio-availability-") as workdir:
+        work = Path(workdir)
+        if call.probe_file is not None:
+            # Written before the first attempt and gone with the directory
+            # after the last: the tool restriction has to exist on disk for the
+            # duration of the call it bounds, and no longer.
+            (work / call.probe_file.name).write_text(call.probe_file.content, encoding="utf-8")
         attempts = (True, False) if call.economy_argv else (False,)
         cause: str | None = None
         for economy in attempts:
-            succeeded, cause = _run_minimal_call(call.build_argv(binary, economy=economy), cwd=workdir)
+            argv = call.build_argv(binary, economy=economy, workdir=work)
+            succeeded, cause = _run_minimal_call(argv, cwd=workdir)
             if succeeded:
                 return None
         return cause
+
+
+# ---------------------------------------------------------------------------
+# Per-provider next steps (SC-002) and session capability
+# ---------------------------------------------------------------------------
+
+
+#: How each provider is signed in, or ``None`` when it has no sign-in command.
+#:
+#: Verified on 2026-08-07 by reading the installed CLI's own ``--help``:
+#: ``claude auth`` lists ``login``; ``codex`` lists a top-level ``login``
+#: subcommand; ``kimi`` lists ``login`` ("Authenticate with Kimi Code CLI via
+#: the device-code flow"). Neither Qoder channel is installed on the owner's
+#: workstation and neither declares an ``auth_status_argv`` in the registry, so
+#: no command could be verified for them — their rows are an explicit ``None``,
+#: which routes to a hint naming the binary and the credential file SciStudio
+#: reads instead of a command that might not exist.
+#:
+#: A row is required for every registry agent even when it is ``None``: the
+#: completeness test in ``tests/api/test_agent_availability.py`` distinguishes
+#: "verified that there is no command" from "nobody looked". A **wrong** command
+#: here is worse than a vague sentence — it sends a user to a prompt that does
+#: not exist and makes SciStudio look like the broken part — so a key is only
+#: filled in from that CLI's own help output.
+LOGIN_COMMANDS: Mapping[str, str | None] = {
+    "claude-code": "claude auth login",
+    "codex": "codex login",
+    "kimi-code": "kimi login",
+    "qoder": None,
+    "qoder-cn": None,
+}
+
+
+def _home_relative(descriptor: ProviderDescriptor, segments: tuple[str, ...]) -> str:
+    """Render one ``well_known_dirs`` entry as a ``~``-relative display path."""
+    parts = (*descriptor.config_root, *segments[1:]) if segments and segments[0] == CONFIG_ROOT else segments
+    return "~/" + "/".join(parts)
+
+
+def install_hint(descriptor: ProviderDescriptor) -> str:
+    """Name the executable to install and everywhere SciStudio looked for it.
+
+    Deliberately **not** a command. ADR-034 FR-014 already records why: the one
+    install command SciStudio owns, ``scistudio install``, wires this product's
+    MCP server and skills into a CLI the user already has and cannot install the
+    CLI itself, so an earlier hint pointing at it left discovery failing. The
+    same reasoning rules out inventing each vendor's install line here — a
+    command that does not work is worse than a fact that does, and SciStudio
+    cannot make a vendor's installer corrective.
+
+    What the user can act on is what SciStudio actually checked: the exact
+    executable name, and the directories searched. Both are read off the
+    descriptor, so a registry change cannot leave this sentence stale.
+    """
+    names = " or ".join(f"`{name}`" for name in descriptor.binary_candidates)
+    if not names:  # pragma: no cover - every agent descriptor declares a binary
+        return f"Install the {descriptor.label} CLI so SciStudio can find it."
+    searched = ", ".join(_home_relative(descriptor, segments) for segments in descriptor.well_known_dirs)
+    location = f"your PATH and in {searched}" if searched else "your PATH"
+    return f"Install the {descriptor.label} CLI so that {names} is on {location}."
+
+
+def login_hint(descriptor: ProviderDescriptor) -> str:
+    """Name the command that signs this provider in, or the next best fact.
+
+    A verified command when :data:`LOGIN_COMMANDS` has one. Otherwise the
+    binary to start and the credential file SciStudio reads to decide the
+    question, which is a real next action — start it, sign in, come back — with
+    nothing invented in it.
+    """
+    command = LOGIN_COMMANDS.get(descriptor.key)
+    if command:
+        return f"Sign in by running `{command}` in a terminal."
+    binary = descriptor.binary_candidates[0] if descriptor.binary_candidates else descriptor.label
+    credential = descriptor.credentials
+    if credential is None:  # pragma: no cover - every agent descriptor probes credentials
+        return f"Start `{binary}` in a terminal and complete its sign-in."
+    where = _home_relative(descriptor, (CONFIG_ROOT, *credential.credential_path))
+    return f"Start `{binary}` in a terminal and complete its sign-in; SciStudio reads {where} to confirm it."
+
+
+def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
+    """Why a SciStudio-started session cannot use *descriptor*, or ``None``.
+
+    The single place this question is answered. Every SciStudio-started session
+    — an AI Block run, a Bring In My Work session — hands its agent an opening
+    instruction as a positional command-line argument, because four of the five
+    registry agents have no per-session prompt channel at all. A CLI that parses
+    its first positional as a *subcommand* cannot be reached that way, and the
+    registry records exactly that with ``prompt_argv_prefix is None`` plus a
+    sentence explaining it.
+
+    Consumers ask here rather than reading ``prompt_argv_prefix`` themselves so
+    the meaning of that field is interpreted once. Availability carries the
+    answer because availability is already the shared report every
+    agent-dependent surface reads (FR-036), and a surface that must not offer a
+    provider it cannot launch needs this at the same moment it needs the grade.
+    """
+    if descriptor.prompt_argv_prefix is not None:
+        return None
+    return descriptor.prompt_unsupported_reason or (
+        f"{descriptor.label} has no positional prompt argument, so a SciStudio-started session "
+        f"cannot hand it the instructions it needs."
+    )
+
+
+def _next_step(descriptor: ProviderDescriptor, state: AvailabilityState) -> str | None:
+    """The action for *descriptor* in *state*, or ``None`` when there is none."""
+    if state is AvailabilityState.NOT_INSTALLED:
+        return install_hint(descriptor)
+    if state is AvailabilityState.NOT_AUTHENTICATED:
+        return login_hint(descriptor)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -544,11 +807,20 @@ async def resolve_availability(status_rows: Sequence[StatusRow]) -> Availability
         if descriptor is None:
             # A row naming a provider the registry does not know cannot be
             # launched by any SciStudio surface, whatever it claims about
-            # itself, so it is reported the same way a missing CLI is.
+            # itself, so it is reported the same way a missing CLI is. No next
+            # step either: there is no descriptor to read one off, and inventing
+            # "install it" for a provider SciStudio cannot launch would send the
+            # user somewhere that does not help.
             graded[index] = ProviderAvailability(key=key, label=label, state=AvailabilityState.NOT_INSTALLED)
             continue
         if presence is not None:
-            graded[index] = ProviderAvailability(key=key, label=label, state=presence)
+            graded[index] = ProviderAvailability(
+                key=key,
+                label=label,
+                state=presence,
+                next_step=_next_step(descriptor, presence),
+                session_unsupported_reason=session_unsupported_reason(descriptor),
+            )
             continue
         pending.append((index, asyncio.ensure_future(asyncio.to_thread(_live_call_cause, descriptor))))
 
@@ -579,6 +851,9 @@ async def _settle_live_calls(
         row = status_rows[index]
         key = str(row.get("name", ""))
         label = str(row.get("label", key))
+        # Only rows with a descriptor reach a live call, so this cannot be None.
+        descriptor = _descriptor_for(row)
+        unsupported = session_unsupported_reason(descriptor) if descriptor is not None else None
         if not task.done():
             task.add_done_callback(_consume_late_result)
             graded[index] = ProviderAvailability(
@@ -586,6 +861,7 @@ async def _settle_live_calls(
                 label=label,
                 state=AvailabilityState.CALL_FAILED,
                 cause=f"the provider CLI did not respond within {REPORT_BUDGET_SECONDS:.0f} seconds",
+                session_unsupported_reason=unsupported,
             )
             continue
         try:
@@ -594,13 +870,19 @@ async def _settle_live_calls(
             logger.warning("live availability call for %r raised: %s", key, error)
             cause = _sanitise_cause(str(error)) or _CAUSE_NO_MESSAGE
         if cause is None:
-            graded[index] = ProviderAvailability(key=key, label=label, state=AvailabilityState.READY)
+            graded[index] = ProviderAvailability(
+                key=key,
+                label=label,
+                state=AvailabilityState.READY,
+                session_unsupported_reason=unsupported,
+            )
         else:
             graded[index] = ProviderAvailability(
                 key=key,
                 label=label,
                 state=AvailabilityState.CALL_FAILED,
                 cause=cause,
+                session_unsupported_reason=unsupported,
             )
 
 

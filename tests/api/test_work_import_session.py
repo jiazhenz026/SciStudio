@@ -31,6 +31,8 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 
+from scistudio.ai.agent import providers_registry
+from scistudio.ai.agent import terminal as terminal_module
 from scistudio.ai.agent.providers_registry import (
     SystemPromptStrategy,
     agent_descriptors,
@@ -397,15 +399,46 @@ def test_registry_still_has_both_system_prompt_strategies() -> None:
     assert SystemPromptStrategy.AMBIENT in strategies
 
 
-@pytest.mark.parametrize("provider", [descriptor.key for descriptor in agent_descriptors()])
+#: Registry agents a SciStudio-started session can actually be delivered to.
+#:
+#: FR-029 removes the *system-prompt* difference between providers. It does not
+#: remove the one requirement delivery still has: the pointer is a positional
+#: command-line argument, and a CLI that parses its first positional as a
+#: subcommand never receives it. The registry records exactly that with
+#: ``prompt_argv_prefix is None``, so the split is read off the registry rather
+#: than listed here — a sixth provider lands on the right side of it by itself.
+_DELIVERABLE_PROVIDERS = [d.key for d in agent_descriptors() if d.prompt_argv_prefix is not None]
+_UNDELIVERABLE_PROVIDERS = [d.key for d in agent_descriptors() if d.prompt_argv_prefix is None]
+
+
+def test_the_registry_still_contains_a_provider_that_cannot_take_a_prompt() -> None:
+    """Guards the split above from silently covering one side.
+
+    If every registry agent gained a positional prompt, the refusal tests below
+    would pass while exercising nothing, and the endpoint's guard could be
+    deleted without a failure.
+    """
+    assert _DELIVERABLE_PROVIDERS
+    assert _UNDELIVERABLE_PROVIDERS
+
+
+@pytest.mark.parametrize("provider", _DELIVERABLE_PROVIDERS)
 def test_delivery_is_identical_across_system_prompt_strategies(
     provider: str, client: TestClient, opened_project: Path, spawn: _SpawnRecorder
 ) -> None:
     """FR-029: a ``FLAG_FILE`` and an ``AMBIENT`` provider are served the same way.
 
-    Only ``claude-code`` can carry a hidden per-session prompt; the other
-    four have no per-session channel at all. Routing through a file plus a
+    Only ``claude-code`` can carry a hidden per-session prompt; the others
+    have no per-session channel at all. Routing through a file plus a
     pointer is what makes that difference invisible here.
+
+    This runs against a stubbed ``_spawn``, so what it proves is that the
+    *endpoint* hands every provider the same message and the same complete
+    brief. It does NOT prove the message can be delivered — the stub never
+    reaches argv assembly. That was the gap the 2026-08-07 no-context audit
+    found, and it is closed by
+    ``test_the_opening_message_reaches_the_command_line_for_every_provider``
+    below, which runs the real assembly.
     """
     body, data = _start(client, opened_project, provider=provider)
 
@@ -419,6 +452,92 @@ def test_delivery_is_identical_across_system_prompt_strategies(
     )
     # No provider-specific side channel is used to carry any of it.
     assert call["extra_env"] is None
+
+
+@pytest.mark.parametrize("provider", _DELIVERABLE_PROVIDERS)
+def test_the_opening_message_reaches_the_command_line_for_every_provider(
+    provider: str, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The argv every offered provider is actually launched with carries the pointer.
+
+    The test the audit asked for. The endpoint suite stubs ``_spawn``, which is
+    right for everything it pins and wrong for this one claim: a test that named
+    five providers and exercised the failing path for none of them read as
+    coverage for FR-029 while the real ``spawn_agent`` raised ``ValueError`` for
+    one of them, and the endpoint turned that into a 500.
+
+    So this drives ``spawn_agent`` itself — real descriptor, real binary
+    resolution, real ``_initial_prompt_argv`` — and stubs only ``PtyProcess``,
+    the one step that would start a process.
+    """
+    recorded: list[list[str]] = []
+
+    def record(argv: list[str], **_kwargs: Any) -> object:
+        recorded.append(list(argv))
+        return object()
+
+    monkeypatch.setattr(terminal_module, "PtyProcess", record)
+    message = work_import._opening_message(".scistudio/work-import/brief.md")
+
+    terminal_module.spawn_agent(
+        descriptor=providers_registry.get(provider),
+        project_dir=opened_project,
+        dangerous=False,
+        prompt=message,
+    )
+
+    assert recorded, "spawn_agent did not build an argv"
+    assert message in recorded[0], f"{provider} never receives the opening message"
+
+
+@pytest.mark.parametrize("provider", _UNDELIVERABLE_PROVIDERS)
+def test_a_provider_with_no_positional_prompt_is_refused_before_anything_is_written(
+    provider: str, client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """The P1 the 2026-08-07 no-context audit reproduced, from both ends.
+
+    Observed before the fix: ``POST`` with ``provider: "kimi-code"`` returned
+    ``{"detail": "Internal Server Error"}`` — the registry's own explanatory
+    sentence lost inside an unhandled ``ValueError`` — and left an orphaned
+    brief in the user's project for a session that never started. It was
+    reachable: the provider grades ``ready`` on a live call, so the dialog
+    offered it, and FR-043 auto-selected it when it was the only usable one.
+
+    Three things are pinned. A 4xx, because this is a bad request rather than a
+    server fault. The registry's sentence, because it is the only text that
+    tells the user what to do. And an untouched project, because the brief is
+    written before the spawn (FR-024) and a refusal that came later would leave
+    one behind.
+    """
+    resp = client.post("/api/work-import/sessions", json=_payload(opened_project, provider=provider))
+
+    assert 400 <= resp.status_code < 500, f"expected 4xx, got {resp.status_code}: {resp.text}"
+    assert "Internal Server Error" not in resp.text
+    reason = providers_registry.get(provider).prompt_unsupported_reason
+    assert reason and reason in resp.json()["detail"]
+    assert spawn.calls == []
+    assert not (opened_project / ".scistudio" / "work-import").exists()
+
+
+@pytest.mark.parametrize("provider", _UNDELIVERABLE_PROVIDERS)
+def test_the_spawn_path_agrees_that_such_a_provider_cannot_be_launched(
+    provider: str, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refusal above matches what the spawn would really have done.
+
+    Without this the endpoint guard could drift into refusing a provider that
+    works, or stop refusing one that does not, and the endpoint test alone would
+    not notice: it asserts the guard's own behaviour, not the reason for it.
+    """
+    monkeypatch.setattr(terminal_module, "PtyProcess", lambda argv, **_kwargs: object())
+
+    with pytest.raises(ValueError, match="cannot receive an initial prompt"):
+        terminal_module.spawn_agent(
+            descriptor=providers_registry.get(provider),
+            project_dir=opened_project,
+            dangerous=False,
+            prompt=work_import._opening_message(".scistudio/work-import/brief.md"),
+        )
 
 
 # ---------------------------------------------------------------------------

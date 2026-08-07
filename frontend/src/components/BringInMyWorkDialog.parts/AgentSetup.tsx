@@ -26,11 +26,19 @@ const STATE_SUMMARY: Record<string, string> = {
   call_failed: "a test call failed",
 };
 
+/** Summary for a provider that works but cannot be handed a task to start with. */
+const SESSION_UNSUPPORTED_SUMMARY = "cannot be started with a task";
+
 function unusableLine(provider: ProviderAvailability): string {
+  // A provider that cannot run a session is reported as that rather than by its
+  // availability state: it may well be `ready`, and "Kimi Code — ready" in a
+  // list headed "not usable right now" reads as a bug rather than as a fact.
+  if (provider.session_unsupported_reason) {
+    return `${provider.label} — ${SESSION_UNSUPPORTED_SUMMARY}: ${provider.session_unsupported_reason}`;
+  }
   const summary = STATE_SUMMARY[provider.state] ?? provider.state;
-  return provider.cause
-    ? `${provider.label} — ${summary}: ${provider.cause}`
-    : `${provider.label} — ${summary}`;
+  const detail = provider.state === "call_failed" ? provider.cause : provider.next_step;
+  return detail ? `${provider.label} — ${summary}: ${detail}` : `${provider.label} — ${summary}`;
 }
 
 export interface AgentSetupProps {

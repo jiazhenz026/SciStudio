@@ -220,8 +220,11 @@ report rather than diverge from it.
 {
   "state": "ready",
   "providers": [
-    {"key": "claude-code", "label": "Claude Code", "state": "ready", "cause": null},
-    {"key": "codex", "label": "Codex", "state": "call_failed", "cause": "quota exceeded"}
+    {"key": "claude-code", "label": "Claude Code", "state": "ready",
+     "cause": null, "next_step": null, "session_unsupported_reason": null},
+    {"key": "codex", "label": "Codex", "state": "call_failed",
+     "cause": "quota exceeded", "next_step": null,
+     "session_unsupported_reason": null}
   ]
 }
 ```
@@ -234,8 +237,21 @@ report rather than diverge from it.
   This is what lets FR-005 hold: a mixed result must not block the user.
 - `cause` is populated only for `call_failed` and MUST NOT contain reinstall
   guidance (FR-034).
+- `next_step` is the one action that moves this provider out of this state
+  (SC-002): which executable to install and where SciStudio looked, or the
+  command that signs it in. Populated for `not_installed` and
+  `not_authenticated` — the two states FR-031 gives a guidance column to — and
+  null for the other two. Composed on the backend because every fact in it
+  belongs to the ADR-034 registry.
+- `session_unsupported_reason`, when non-null, says this provider cannot be
+  handed the opening instruction a SciStudio-started session is delivered with,
+  so it MUST NOT be offered as the agent for a session however `ready` it is.
+  It is **not** a fifth state and does not affect `state` or the aggregate: the
+  provider genuinely answers calls, and the aggregate is read by surfaces that
+  ask "is an agent set up", not "can one run a session". Added by the fix track
+  after the no-context audit's P1; see §13 and §15.
 - Frontend client module `frontend/src/lib/api/agentAvailability.ts` exports
-  `fetchAgentAvailability()` plus the types `AgentAvailabilityState`,
+  `fetchAgentAvailability({refresh?})` plus the types `AgentAvailabilityState`,
   `ProviderAvailability`, `AgentAvailabilityResponse`.
 
 ### 7.2 C2 — Brief composition (A2 owns, A3 consumes)
@@ -853,6 +869,8 @@ Append only.
 | 2026-08-07 | manager | I extended A2's scope to `pyproject.toml` to declare `ai/work_import/**/*.md` as package data, on the stated premise that `compose_brief` would fail on a wheel install. A2 measured three clean builds and disproved it: the template already ships via setuptools' `include-package-data` plus the setuptools-scm git file-finder, and the repository's only wheel build (`ci.yml`) runs against a checkout that has `.git`. | Reverted the entry and its pinning test on the umbrella. The premise for the scope extension was false, and keeping the edit would put a `governance_touch` declaration on a feature PR for hardening the spec does not ask for. The hardening is real and is tracked separately. | `#2032` |
 | 2026-08-07 | manager | A4 could not commit at all: creating `BringInMyWorkDialog.tsx` made the spec's `planned_governs.files` entry resolve, and `planned_surface_findings` raises ERROR on a resolved planned file regardless of spec status. | A4 stopped at the scope boundary rather than editing another agent's file, which was correct, and I reassigned the migration to A2. On its second run A4 also applied the migration itself, declaring it as a ledger amendment, so **both branches carried it**. The two frontmatter blocks were byte-identical and A4 changed nothing else in the spec; the merge took A2's file wholesale because it is a strict superset. Corrected here after the with-context audit found this row asserting only A4's first-run behaviour. | `#2001` |
 | 2026-08-07 | manager | `python_tests` is unsatisfiable on this Windows workstation, blocking PR creation for every agent and for the final PR. Verified on the umbrella base with no feature code present: the same failures. | Agents instructed to push branches instead of opening PRs; manager integrates. Root cause is partly environmental — see §2.2. Escalated to the owner. | `#2030` |
+| 2026-08-07 | fix | Contract C1 gained two fields after the audits: `next_step` and `session_unsupported_reason`. C1 was declared frozen in §7.1 as the seam two tracks were built against in parallel, so extending it is drift against that declaration. | Both audits found guidance that named no action, and the no-context audit's P1 was a provider being offered for a session it cannot run — neither is fixable inside the three-field shape. Both new fields are additive and nullable, so no existing consumer breaks; both are backed by the ADR-034 registry, which is where the facts already live. Pinned in `test_response_matches_contract_c1`. | `#2001` |
+| 2026-08-07 | fix | The spec's `governs` block was expanded from three files to the real surface, which enlarges the dormant precondition in §13.1 rather than clearing it: flipping `status` now requires `docs/adr/ADR-053.md` to cover about twenty paths instead of one. | `status` deliberately left `Draft`. ADR-053 declares `agent_editable: false`, so the flip is an owner action; the files it would need to cover are listed in §13.1 so the owner has the whole edit in one place rather than discovering it from a failing audit. | `#2001` |
 
 ## 13.1 Dormant Preconditions
 
@@ -871,6 +889,28 @@ checked. Whoever flips that status must expect two findings:
   tutorial and palette files only. `docs/adr/ADR-053.md` is out of scope for
   this dispatch.
 
+**Updated 2026-08-07 by the fix track (§15).** Both audits found the spec's
+`governs` block describing three files where the change created about twenty,
+and naming neither new API entry point; it now describes the real surface —
+three modules, four contracts, `GET /api/ai/availability`,
+`POST /api/work-import/sessions`, and every file this feature owns. That makes
+the precondition above **larger**, not smaller: a status flip now needs
+ADR-053's `governs.files` to cover all of them, not just the dialog.
+
+`status` was deliberately left at `Draft`. Flipping it is blocked on an owner
+edit to `docs/adr/ADR-053.md`, whose frontmatter declares
+`agent_editable: false` — no agent in this dispatch may make that edit, and
+flipping the status without it turns a dormant precondition into a failing
+audit. **This is an owner action, not a deferral by an agent.** Files ADR-053
+would have to cover, beyond the tutorial and palette entries it lists today:
+
+- `src/scistudio/ai/agent/availability.py`
+- `src/scistudio/ai/work_import/**`
+- `src/scistudio/api/routes/work_import.py`
+- `frontend/src/components/BringInMyWorkDialog.tsx`
+- `frontend/src/components/BringInMyWorkDialog.parts/**`
+- `frontend/src/lib/api/agentAvailability.ts`, `frontend/src/lib/api/workImport.ts`
+
 ## 14. Final Readiness
 
 - [ ] All dispatched agents have final outputs.
@@ -880,3 +920,58 @@ checked. Whoever flips that status must expect two findings:
 - [ ] PR closes every issue fixed by the dispatch (`#2000`, `#2001`, `#2002`).
 - [ ] CI passed.
 - [ ] Checklist final state matches PR and gate record.
+
+## 15. Fix Track: Audit Findings (#2000, #2001, #2002)
+
+Branch `fix/2001-work-import-audit-findings`, worktree
+`SciStudio-wt-wi-fix`, task kind `bugfix`, persona `implementer`. Ledger:
+`.workflow/records/2001-fix-2001-work-import-audit-findings.json`. Base is the
+integrated umbrella head, not `origin/main`.
+
+### 15.1 Scope
+
+The findings the owner selected from
+`docs/audit/2026-08-07-adr-053-work-import-with-context.md` and
+`docs/audit/2026-08-07-adr-053-work-import-no-context.md`. Complete delivery,
+no deferrals. Out of scope and untouched: spec §4.6, `docs/adr/ADR-053.md`,
+`pyproject.toml`, `docs/ai-developer/**`, `ProviderPicker.tsx`,
+`PermissionModePicker.tsx`.
+
+### 15.2 Findings And Where Each Is Now Covered
+
+| Finding | Fix | Test that fails if it regresses |
+|---|---|---|
+| **P1** — a `kimi-code` session 500s and orphans its brief (no-context P1-1) | Refused at three levels: the endpoint returns 400 with the registry's own sentence before the brief is composed; the availability report carries `session_unsupported_reason` so the dialog never offers such a provider and FR-043 cannot auto-select it; the docstrings in `work_import.py` and `engine.py` that claimed identical behaviour across all five providers now say what delivery still requires | `t_sess::test_a_provider_with_no_positional_prompt_is_refused_before_anything_is_written`, `…::test_the_spawn_path_agrees_that_such_a_provider_cannot_be_launched`, `…::test_the_opening_message_reaches_the_command_line_for_every_provider`, `t_avail::test_a_provider_that_cannot_take_an_opening_prompt_says_so`, `t_dlg` "a provider that cannot run a session is never offered" ×4 |
+| **P1 test defect** — the FR-029 parametrisation named five providers and exercised the failing path for none | Split by `prompt_argv_prefix`, read off the registry rather than listed; the deliverable half additionally drives the real `spawn_agent` argv assembly with only `PtyProcess` stubbed | `t_sess::test_the_opening_message_reaches_the_command_line_for_every_provider`, guarded by `…::test_the_registry_still_contains_a_provider_that_cannot_take_a_prompt` |
+| **P2** — availability guidance named no action (both audits) | Per-provider `next_step` composed in `availability.py` from the registry: the executable and every directory searched for `not_installed`, a verified sign-in command for `not_authenticated`. No invented install commands, per ADR-034 FR-014's recorded reasoning | `t_avail::test_the_install_hint_names_the_executable_and_where_it_was_sought`, `…::test_the_login_hint_names_a_command_or_the_file_that_decides_it`, `…::test_every_registry_agent_has_a_login_row`, `t_dlg` "names the executable to install and where SciStudio looked", "names the sign-in command for the detected provider" |
+| **P2** — `call_failed` copy contradicted the implementation and invited a retry with no control | Copy no longer asserts the user's setup is fine; a **Check again** control calls `refresh=true`, bypassing the 60 s memoisation. FR-034 intact — no reinstall guidance | `t_dlg` "does not tell a user whose call failed that their setup is fine", "offers a retry that re-probes with refresh=true", "…never suggests reinstalling" |
+| **P2** — client probe cap (10 s) below the server budget (20 s) | `PROBE_TIMEOUT_MS` is now derived from `SERVER_REPORT_BUDGET_MS`, so it cannot structurally fall below it, and the mirror is pinned against the Python constant | `t_avail::test_the_client_probe_cap_is_longer_than_the_servers_own_budget` |
+| **P2** — the kimi probe ran unrestricted while the docstring claimed otherwise | `--agent-file` with an empty `tools` allowlist, verified against kimi 0.33.0; the invariant is stated once, accurately, per mechanism; the test now partitions `MINIMAL_CALLS` | `t_avail::test_every_probe_states_what_bounds_it`, `…::test_an_agent_file_bounded_probe_declares_an_empty_tool_allowlist`, `…::test_an_agent_file_probe_writes_its_restriction_before_calling` |
+| **P2** — SC-006 stated a distinction the design does not make | Reworded to FR-021's real distinction: "did not answer" versus "answered in the negative". Spec only; FR-021 unchanged | already covered by `t_brief::test_blank_answer_is_conveyed_as_skipped` and `…::test_skipped_question_renders_as_explicitly_skipped` |
+| **P2** — spec `governs` / `tests` did not describe the change | Both expanded to the real surface. `status` left `Draft` — see §13.1 | `full_audit` (`doc-drift`, `closure`) |
+| **P3** — preset labels unpinned across the Python/TypeScript boundary | A Python test reads `copy.ts` and asserts the eight options, in order, equal the brief's and appear in spec §4.6 | `t_brief::test_the_dialogs_preset_labels_are_the_ones_the_brief_reproduces`, `…::test_each_preset_label_appears_in_spec_section_4_6` |
+| **P3** — gate ledger commit bookkeeping | `#2002` corrected from the orphaned `bc9572d5` to `ba1a49ba`; `#2001` dialog finalized from `commit: null` to `ce431fd0`. Both via `gate_record`, both ancestors of the umbrella head, both with an `amend` event recording why | `git merge-base --is-ancestor` on both shas |
+| **P3** — empty registry rendered neither guidance nor a start action | `emptyReportGuidance` falls back to the aggregate `state` when `providers` is empty | `t_dlg` "explains itself when the report names no providers at all" |
+
+### 15.3 Verification
+
+| Check | Status | Evidence |
+|---|---|---|
+| `pytest tests/ai/test_work_import_brief.py tests/api/test_agent_availability.py tests/api/test_work_import_session.py` | `[x]` | 114 passed |
+| `pytest tests/api -k "pty or ai_pty"` | `[x]` | 109 passed |
+| `pytest tests/architecture tests/ai tests/api` | `[x]` | 3 failures, all pre-existing `#2030`, all reproducing at `origin/main` |
+| `npx vitest run` in `frontend/` | `[x]` | 123 files, 1235 passed |
+| `npm run typecheck` / `lint` / `format:check` | `[x]` | clean / 0 errors, 40 pre-existing warnings / clean |
+| `ruff check` / `ruff format --check` / `mypy src` | `[x]` | clean / 780 formatted / 347 files, no issues |
+| `full_audit` | `[x]` | `pass`, 0 findings on any file this track touched |
+| Kimi tool-restriction verification | `[x]` | `kimi --help` at 0.33.0 lists no tool or sandbox flag; `--plan` is refused with `-p`; `--agent` conflicts with `--agent-file`; the probe's agent file is accepted and a malformed one is rejected by name |
+
+### 15.4 Deliberately Not Changed
+
+- `docs/specs/adr-053-work-import.md` §4.6 — byte-identical to `origin/main`.
+- `docs/adr/ADR-053.md` — `agent_editable: false`. The spec's `status` flip
+  depends on an owner edit here; recorded in §13.1 as an owner action.
+- `pyproject.toml` — untouched, per `#2032`.
+- `aggregate_state` — a provider that cannot run a *session* is still a
+  legitimately available *agent*, so the shared aggregate is unchanged and only
+  consumers that start sessions filter on the new capability.

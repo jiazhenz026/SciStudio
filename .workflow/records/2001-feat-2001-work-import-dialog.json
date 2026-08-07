@@ -159,7 +159,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "ce431fd06fa9bc4f872c76f8de0c1fb4f01a517b",
+    "shas": [
+      "ce431fd06fa9bc4f872c76f8de0c1fb4f01a517b"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -281,6 +287,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.505159Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.517755Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.530689Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.543310Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.556116Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.571085Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.584282Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.597952Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.611527Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:28:15.632725Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -293,7 +381,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/track/adr-053-work-import",
+    "base": "6c0b9410",
     "base_sha": "6c0b9410",
     "changed_files": [
       ".workflow/records/2001-feat-2001-work-import-dialog.json",
@@ -321,7 +409,7 @@
       "frontend/src/store/uiSlice.ts"
     ],
     "diff_fingerprint": "sha256:38c82a3cc622491d883ff4fd348e0cf1d5de28d1f098e9c6b830ce0ff4b83af8",
-    "head": "HEAD",
+    "head": "0a1384ea",
     "head_sha": "0a1384ea",
     "surfaces": {
       "docs": 2,
@@ -338,10 +426,27 @@
   },
   "owner_directive": "Implement ADR-053 spec 2 (Bring in my work) in full; A4 owns the toolbar entry and the framing dialog. Complete-delivery goal with no deferred tasks.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2001
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T06:52:19.157400Z",
+      "diff_fingerprint": "sha256:38c82a3cc622491d883ff4fd348e0cf1d5de28d1f098e9c6b830ce0ff4b83af8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T08:28:15.632748Z",
       "diff_fingerprint": "sha256:38c82a3cc622491d883ff4fd348e0cf1d5de28d1f098e9c6b830ce0ff4b83af8",
       "mode": "pre-pr",
       "result": "fail",

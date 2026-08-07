@@ -33,8 +33,53 @@ function mockFetch(body: unknown, ok = true, status = 200): { url: string }[] {
 const READY: AgentAvailabilityResponse = {
   state: "ready",
   providers: [
-    { key: "claude-code", label: "Claude Code", state: "ready", cause: null },
-    { key: "codex", label: "Codex", state: "call_failed", cause: "quota exceeded" },
+    {
+      key: "claude-code",
+      label: "Claude Code",
+      state: "ready",
+      cause: null,
+      next_step: null,
+      session_unsupported_reason: null,
+    },
+    {
+      key: "codex",
+      label: "Codex",
+      state: "call_failed",
+      cause: "quota exceeded",
+      next_step: null,
+      session_unsupported_reason: null,
+    },
+  ],
+};
+
+const NEEDS_SETUP: AgentAvailabilityResponse = {
+  state: "not_authenticated",
+  providers: [
+    {
+      key: "claude-code",
+      label: "Claude Code",
+      state: "not_installed",
+      cause: null,
+      next_step:
+        "Install the Claude Code CLI so that `claude` is on your PATH and in ~/.local/bin.",
+      session_unsupported_reason: null,
+    },
+    {
+      key: "codex",
+      label: "Codex",
+      state: "not_authenticated",
+      cause: null,
+      next_step: "Sign in by running `codex login` in a terminal.",
+      session_unsupported_reason: null,
+    },
+    {
+      key: "kimi-code",
+      label: "Kimi Code",
+      state: "ready",
+      cause: null,
+      next_step: null,
+      session_unsupported_reason: "Kimi Code has no positional prompt argument.",
+    },
   ],
 };
 
@@ -105,10 +150,44 @@ describe("fetchAgentAvailability", () => {
       label: `P${index}`,
       state,
       cause: state === "call_failed" ? "network unreachable" : null,
+      next_step: null,
+      session_unsupported_reason: null,
     }));
     expect(providers.map((p) => p.state)).toEqual(states);
     // @ts-expect-error — a fifth state is not part of the contract.
     const invalid: AgentAvailabilityState = "maybe";
     expect(invalid).toBe("maybe");
+  });
+
+  it("carries a per-provider next step for the two states FR-031 gives guidance to", async () => {
+    // SC-002 requires guidance "naming a specific next action", and the facts
+    // it is made of — binary names, search directories, sign-in commands — live
+    // in the ADR-034 registry. The client must carry them through rather than
+    // let a consumer reinvent them per surface.
+    mockFetch(NEEDS_SETUP);
+    const report = await fetchAgentAvailability();
+
+    const notInstalled = report.providers.find((p) => p.state === "not_installed");
+    expect(notInstalled?.next_step).toContain("`claude`");
+    const notAuthenticated = report.providers.find((p) => p.state === "not_authenticated");
+    expect(notAuthenticated?.next_step).toContain("codex login");
+    // Populated for exactly those two: `call_failed` carries a cause instead,
+    // and a ready provider needs no action.
+    expect(report.providers.find((p) => p.state === "ready")?.next_step).toBeNull();
+  });
+
+  it("carries the session capability separately from the availability grade", async () => {
+    // A provider can be `ready` — installed, signed in, answering calls — and
+    // still be unable to run a SciStudio-started session, because the opening
+    // instruction is a positional command-line argument some CLIs cannot take.
+    // Collapsing the two would make `ready` mean something different to this
+    // dialog than to every other consumer of the shared report.
+    mockFetch(NEEDS_SETUP);
+    const report = await fetchAgentAvailability();
+
+    const kimi = report.providers.find((p) => p.key === "kimi-code");
+    expect(kimi?.state).toBe("ready");
+    expect(kimi?.session_unsupported_reason).toContain("no positional prompt argument");
+    expect(report.providers.find((p) => p.key === "codex")?.session_unsupported_reason).toBeNull();
   });
 });

@@ -192,13 +192,82 @@ def test_question_3_carries_its_examples(example: str) -> None:
     assert example in _answers_section(compose_brief(make_context()))
 
 
-@pytest.mark.parametrize(
-    "preset",
-    ["Array", "Table / dataframe", "Series", "Image", "Time series", "Spectrum", "Multi-omics", "Spatial omics"],
-)
+DATA_KIND_PRESETS = [
+    "Array",
+    "Table / dataframe",
+    "Series",
+    "Image",
+    "Time series",
+    "Spectrum",
+    "Multi-omics",
+    "Spatial omics",
+]
+"""The eight options question 1 offers, as spec §4.6 reproduces them.
+
+Written out here, and pinned against the dialog's own list by
+``test_the_dialogs_preset_labels_are_the_ones_the_brief_reproduces``, because
+the property that matters is not that any one copy is right — it is that all
+three agree.
+"""
+
+
+@pytest.mark.parametrize("preset", DATA_KIND_PRESETS)
 def test_question_1_offers_its_preset_options_to_the_agent(preset: str) -> None:
     """What the user did *not* select is informative, so every option is shown."""
     assert preset in _answers_section(compose_brief(make_context(data_kinds=(), skipped=frozenset())))
+
+
+COPY_TS_PATH = REPO_ROOT / "frontend" / "src" / "components" / "BringInMyWorkDialog.parts" / "copy.ts"
+
+
+def _dialog_preset_labels() -> list[str]:
+    """The option strings from ``DATA_KIND_GROUPS`` in the dialog's copy module.
+
+    Read out of the TypeScript source rather than imported: there is no shared
+    build step between the two languages, and this is the cheap direction — the
+    brief's side of the property is Python, spec §4.6 is a file this suite
+    already parses, and a Python test can read a ``.ts`` file with no toolchain
+    at all. A vitest test would have to reach the spec AND the template AND
+    agree with this suite about how §4.6 is extracted.
+    """
+    source = COPY_TS_PATH.read_text(encoding="utf-8")
+    start = source.index("export const DATA_KIND_GROUPS")
+    declaration = source[start : source.index("\n];", start)]
+    labels: list[str] = []
+    # One `options: [...]` per group, in declaration order — which is the order
+    # the user reads them in, so it is part of what is being pinned.
+    for block in re.findall(r"options:\s*\[([^\]]*)\]", declaration, re.DOTALL):
+        labels.extend(re.findall(r'"([^"]+)"', block))
+    assert labels, f"no preset options found in {COPY_TS_PATH}; the declaration's shape changed"
+    return labels
+
+
+def test_the_dialogs_preset_labels_are_the_ones_the_brief_reproduces() -> None:
+    """The eight options are the same strings on both sides of the boundary.
+
+    ``copy.ts`` states the property in as many words — "The option labels are
+    reproduced verbatim in the brief's 'What they told us' section (spec §4.6),
+    so what the user saw and what the agent reads are the same strings" — and
+    until now nothing enforced it. The brief's own preamble depends on it: it
+    tells the agent each question is reproduced "as they saw it, including the
+    examples and options we offered them", so an edit to either list on its own
+    makes the brief misreport what the user was actually shown, silently and in
+    the one direction nobody would look.
+
+    Order is asserted too, not just membership: the brief lists the options in
+    one line and the user read them in one order.
+    """
+    assert _dialog_preset_labels() == DATA_KIND_PRESETS
+
+
+@pytest.mark.parametrize("preset", DATA_KIND_PRESETS)
+def test_each_preset_label_appears_in_spec_section_4_6(preset: str) -> None:
+    """The third copy — the spec's own prose list — agrees with the other two.
+
+    ``test_brief_template_is_verbatim_spec_section_4_6`` already ties the
+    template to §4.6, so this closes the triangle: dialog == template == spec.
+    """
+    assert preset in _extract_spec_section_4_6()
 
 
 def test_selected_presets_and_free_text_are_rendered_separately() -> None:

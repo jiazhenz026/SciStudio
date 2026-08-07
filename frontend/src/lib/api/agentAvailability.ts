@@ -45,6 +45,33 @@ export interface ProviderAvailability {
    * reinstall it sends them to fix something that is not broken.
    */
   cause: string | null;
+  /**
+   * The one action that moves this provider out of this state (SC-002).
+   *
+   * Populated for `not_installed` (which executable to install and where
+   * SciStudio looked) and `not_authenticated` (the command that signs it in) —
+   * the two states FR-031 gives a guidance column to. Null for `call_failed`,
+   * where `cause` is the specific information and FR-034 forbids sending the
+   * user to fix an install that demonstrably runs, and null for `ready`.
+   *
+   * The backend composes it because the facts in it — binary names, search
+   * directories, sign-in commands — belong to the ADR-034 registry, and a copy
+   * of them in the frontend would drift the moment a provider is added.
+   */
+  next_step: string | null;
+  /**
+   * Set when this provider cannot run a SciStudio-started session at all.
+   *
+   * Independent of `state`, because it is a fact about the CLI's argument
+   * surface rather than about the user's setup: a provider that parses its
+   * first positional argument as a subcommand cannot be handed the opening
+   * instruction a session is started with, and no amount of installing or
+   * signing in changes that. Such a provider must never be offered as the agent
+   * for a session, however `ready` it is — see `usableProviders` in the
+   * dialog's `availability.ts`. It remains a perfectly good hand-launched chat
+   * tab, which is why it is reported with a reason rather than hidden.
+   */
+  session_unsupported_reason: string | null;
 }
 
 /** The full report returned by `GET /api/ai/availability`. */

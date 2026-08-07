@@ -72,7 +72,7 @@ import {
 } from "./BringInMyWorkDialog.parts/formState";
 import {
   useAgentAvailability,
-  type AgentAvailabilityResponse,
+  type AvailabilityFetcher,
 } from "./BringInMyWorkDialog.parts/useAgentAvailability";
 
 export interface BringInMyWorkDialogProps {
@@ -81,7 +81,7 @@ export interface BringInMyWorkDialogProps {
    * Test seam for contract C1. Production passes nothing and the hook uses
    * `fetchAgentAvailability` from the availability track's client module.
    */
-  fetchAvailability?: () => Promise<AgentAvailabilityResponse>;
+  fetchAvailability?: AvailabilityFetcher;
   /** Test seam for the request itself; production posts to `POST /api/work-import/sessions`. */
   startSession?: (request: WorkImportSessionRequest) => Promise<{
     tab_id: string;
@@ -115,7 +115,13 @@ export function BringInMyWorkDialog({
   const [error, setError] = useState<string | null>(null);
 
   // FR-035 — renders immediately; a hanging probe degrades to a reported state.
-  const { loading: probing, availability, probeError } = useAgentAvailability(fetchAvailability);
+  const {
+    loading: probing,
+    availability,
+    probeError,
+    retry,
+    retrying,
+  } = useAgentAvailability(fetchAvailability);
   const agentUsable = hasUsableProvider(availability);
 
   // FR-043 — one usable provider is selected rather than offered as a choice.
@@ -273,7 +279,12 @@ export function BringInMyWorkDialog({
               onPermissionModeChange={(permissionMode) => patch({ permissionMode })}
             />
           ) : (
-            <AvailabilityGuidance availability={availability} probeError={probeError} />
+            <AvailabilityGuidance
+              availability={availability}
+              probeError={probeError}
+              onRetry={retry}
+              retrying={retrying}
+            />
           )}
 
           <DataKindsQuestion

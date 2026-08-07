@@ -143,9 +143,11 @@ async def agent_availability_report(
           "state": "ready",
           "providers": [
             {"key": "claude-code", "label": "Claude Code",
-             "state": "ready", "cause": null},
+             "state": "ready", "cause": null, "next_step": null,
+             "session_unsupported_reason": null},
             {"key": "codex", "label": "Codex",
-             "state": "call_failed", "cause": "quota exceeded"}
+             "state": "call_failed", "cause": "quota exceeded",
+             "next_step": null, "session_unsupported_reason": null}
           ]
         }
 
@@ -156,6 +158,16 @@ async def agent_availability_report(
     because a credential file on disk and a successful ``--version`` do not
     establish that a request will succeed. ``cause`` is populated only for
     ``call_failed`` and never carries reinstall guidance.
+
+    Two further fields are facts about the provider rather than grades of it.
+    ``next_step`` is the one action that moves this provider out of this state —
+    how to install it, or the command that signs it in — populated for the two
+    states FR-031 gives a guidance column to and null for the other two.
+    ``session_unsupported_reason``, when non-null, says the provider has no
+    positional prompt argument and therefore cannot be handed the opening
+    instruction every SciStudio-started session is delivered with; such a
+    provider must not be offered as the agent for a session however ``ready``
+    it is, though it remains a usable hand-launched chat tab.
 
     The aggregate ``state`` is ``ready`` when **any** provider is ready, so one
     unconfigured CLI never blocks a user who has a working one; otherwise it is

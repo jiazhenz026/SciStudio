@@ -21,6 +21,7 @@ the machine running the suite, and no test ever makes a billed request.
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -39,7 +40,7 @@ from scistudio.ai.agent.availability import (
 )
 from scistudio.api.routes import ai as ai_routes
 
-_PROVIDER_KEYS = {"key", "label", "state", "cause"}
+_PROVIDER_KEYS = {"key", "label", "state", "cause", "next_step", "session_unsupported_reason"}
 _STATE_VALUES = {"not_installed", "not_authenticated", "call_failed", "ready"}
 
 
@@ -182,6 +183,8 @@ def test_response_matches_contract_c1(
         "label": "Claude Code",
         "state": "ready",
         "cause": None,
+        "next_step": None,
+        "session_unsupported_reason": None,
     }
 
 
@@ -615,10 +618,10 @@ def test_every_registry_agent_has_a_minimal_call() -> None:
 
 
 @pytest.mark.parametrize("key", providers_registry.agent_keys())
-def test_minimal_call_argv_is_well_formed(key: str) -> None:
+def test_minimal_call_argv_is_well_formed(key: str, tmp_path: Path) -> None:
     """Each row carries the prompt exactly once and starts with the binary."""
     call = availability_module.MINIMAL_CALLS[key]
-    argv = call.build_argv("/fake/bin/cli", economy=True)
+    argv = call.build_argv("/fake/bin/cli", economy=True, workdir=tmp_path)
     assert argv[0] == "/fake/bin/cli"
     assert argv.count(availability_module.LIVE_CALL_PROMPT) == 1
     assert argv[-1] == availability_module.LIVE_CALL_PROMPT
@@ -628,19 +631,98 @@ def test_minimal_call_argv_is_well_formed(key: str) -> None:
         assert fragment in argv
 
 
-def test_the_probe_never_grants_the_cli_tools(fake_home: Path) -> None:
-    """No probe may read, write, or execute on the user's machine.
+# The three mechanisms that bound a probe, one provider key per mechanism.
+#
+# The previous version of the test below asserted a universal ("no probe may
+# read, write or execute") over a hardcoded list of four of the five providers.
+# ``kimi-code`` was silently absent, and the shipped system therefore fired a
+# fully tool-enabled agent on dialog open while a test named
+# ``test_the_probe_never_grants_the_cli_tools`` passed. A partition is used here
+# instead of a list so a sixth provider cannot be omitted the same way: the
+# union has to equal ``MINIMAL_CALLS`` exactly, and there is no row a provider
+# can be added to that does not also state what bounds it.
+_TOOL_FREE_BY_FLAG = {"claude-code", "qoder", "qoder-cn"}
+"""``--tools ""`` — an empty allowlist, so the model has no tools at all."""
 
-    A call fired on dialog open must have nothing to reason about afterwards.
-    Where the CLI has a tool switch it is turned off outright; Codex has none,
-    so its read-only sandbox is what bounds it.
+_TOOL_FREE_BY_AGENT_FILE = {"kimi-code"}
+"""No tool flag exists, so the empty allowlist arrives as an agent definition."""
+
+_SANDBOXED = {"codex"}
+"""No tool switch and no agent file; the read-only sandbox is the bound.
+
+The single justified exception to "cannot read": Codex's sandbox permits
+reading and forbids writing and executing, which is the strongest bound that
+CLI offers. The probe's cwd is a fresh temporary directory, so what it can read
+is the user's filesystem rather than their project.
+"""
+
+
+def test_every_probe_states_what_bounds_it() -> None:
+    """Every ``MINIMAL_CALLS`` row is classified, and none is classified twice.
+
+    This is the guard the old hardcoded list was not. A provider added to
+    ``MINIMAL_CALLS`` without a decision about its tool restriction fails here
+    rather than shipping an unbounded probe behind a test that reads as coverage.
     """
-    calls = availability_module.MINIMAL_CALLS
-    for key in ("claude-code", "qoder", "qoder-cn"):
-        argv = calls[key].build_argv("cli", economy=False)
-        assert argv[argv.index("--tools") + 1] == ""
-    codex_argv = calls["codex"].build_argv("cli", economy=False)
-    assert codex_argv[codex_argv.index("--sandbox") + 1] == "read-only"
+    classified = _TOOL_FREE_BY_FLAG | _TOOL_FREE_BY_AGENT_FILE | _SANDBOXED
+    assert classified == set(availability_module.MINIMAL_CALLS)
+    assert len(_TOOL_FREE_BY_FLAG) + len(_TOOL_FREE_BY_AGENT_FILE) + len(_SANDBOXED) == len(classified)
+
+
+@pytest.mark.parametrize("key", sorted(_TOOL_FREE_BY_FLAG))
+def test_a_flag_bounded_probe_grants_no_tools(key: str, tmp_path: Path) -> None:
+    """``--tools ""`` — the CLI cannot read, write, or execute anything."""
+    argv = availability_module.MINIMAL_CALLS[key].build_argv("cli", economy=False, workdir=tmp_path)
+    assert argv[argv.index("--tools") + 1] == ""
+
+
+@pytest.mark.parametrize("key", sorted(_SANDBOXED))
+def test_a_sandboxed_probe_cannot_write_or_execute(key: str, tmp_path: Path) -> None:
+    """Codex has no tool switch, so its read-only sandbox is what bounds it."""
+    argv = availability_module.MINIMAL_CALLS[key].build_argv("cli", economy=False, workdir=tmp_path)
+    assert argv[argv.index("--sandbox") + 1] == "read-only"
+
+
+@pytest.mark.parametrize("key", sorted(_TOOL_FREE_BY_AGENT_FILE))
+def test_an_agent_file_bounded_probe_declares_an_empty_tool_allowlist(key: str, tmp_path: Path) -> None:
+    """The file is real, is named on the argv, and grants nothing.
+
+    Kimi Code 0.33.0 exposes no tool-disabling or sandbox flag — ``--plan`` is
+    refused outright alongside ``-p`` — but an agent definition's ``tools``
+    frontmatter field IS its tool allowlist, and an empty one is an empty
+    allowlist rather than "unrestricted".
+    """
+    call = availability_module.MINIMAL_CALLS[key]
+    assert call.probe_file is not None
+    argv = call.build_argv("cli", economy=False, workdir=tmp_path)
+    assert argv[argv.index(call.probe_file.flag) + 1] == str(tmp_path / call.probe_file.name)
+    assert 'tools: ""' in call.probe_file.content
+    assert 'disallowedTools: "*"' in call.probe_file.content
+
+
+def test_an_agent_file_probe_writes_its_restriction_before_calling(
+    monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    """The restriction exists on disk while the call it bounds is running.
+
+    Read from *inside* the fake subprocess rather than after the fact: an argv
+    naming a file that is not there yet is an unrestricted call, and a check
+    that ran afterwards could not tell the two apart. The probe's temporary
+    directory is removed on the way out, so nothing survives.
+    """
+    descriptor = providers_registry.get("kimi-code")
+    call = availability_module.MINIMAL_CALLS["kimi-code"]
+    seen: list[str | None] = []
+
+    def handler(argv: list[str], **_kwargs: Any) -> Any:
+        path = Path(argv[argv.index(call.probe_file.flag) + 1]) if call.probe_file else None
+        seen.append(path.read_text(encoding="utf-8") if path and path.is_file() else None)
+        return _completed(argv)
+
+    _stub_live_call(monkeypatch, handler)
+
+    assert availability_module._live_call_cause(descriptor) is None
+    assert seen == [call.probe_file.content if call.probe_file else None]
 
 
 def test_the_probe_runs_outside_the_server_working_directory(
@@ -845,3 +927,253 @@ def test_availability_runs_on_the_status_endpoints_own_discovery(
     assert next(e for e in status["providers"] if e["name"] == "qoder")["available"] is False
     assert _by_key(availability, "qoder")["state"] == "not_installed"
     assert [entry["key"] for entry in availability["providers"]] == [entry["name"] for entry in status["providers"]]
+
+
+# ---------------------------------------------------------------------------
+# SC-002 — guidance that names a specific next action
+#
+# FR-031's table gives two of the four states a guidance column: "Installation
+# instructions" and "Login instructions for the detected provider". Both audits
+# on 2026-08-07 found that what shipped named the providers and then named no
+# action at all. The instruction is composed in ``availability.py``, from the
+# registry, because every fact in it — which executable, which directories,
+# which sign-in command — belongs to ADR-034, and a second copy of it in the
+# frontend would be wrong the first time a provider was added.
+# ---------------------------------------------------------------------------
+
+
+def test_every_registry_agent_has_a_login_row() -> None:
+    """A sixth provider cannot land without a decision about its sign-in.
+
+    ``None`` is a legitimate value — it means "checked, and this CLI exposes no
+    sign-in command" — and it routes to a hint naming the binary and the
+    credential file instead. What must not happen is a provider falling through
+    to that generic hint because nobody looked.
+    """
+    assert set(availability_module.LOGIN_COMMANDS) == set(providers_registry.agent_keys())
+
+
+@pytest.mark.parametrize("key", providers_registry.agent_keys())
+def test_the_install_hint_names_the_executable_and_where_it_was_sought(key: str) -> None:
+    """Not a command — the executable, and every directory SciStudio searched.
+
+    ADR-034 FR-014 already records why this is not an install command: the only
+    install command SciStudio owns cannot install a vendor's CLI, and an earlier
+    hint pointing at it left discovery failing. What the user can act on is what
+    was actually checked, and both facts are read off the descriptor so a
+    registry change cannot leave the sentence stale.
+    """
+    descriptor = providers_registry.get(key)
+    hint = availability_module.install_hint(descriptor)
+
+    assert descriptor.label in hint
+    for candidate in descriptor.binary_candidates:
+        assert f"`{candidate}`" in hint
+    assert "PATH" in hint
+    for segments in descriptor.well_known_dirs:
+        tail = segments[1:] if segments[0] == providers_registry.CONFIG_ROOT else segments
+        assert "/".join(tail) in hint
+
+
+@pytest.mark.parametrize("key", providers_registry.agent_keys())
+def test_the_login_hint_names_a_command_or_the_file_that_decides_it(key: str) -> None:
+    """A verified command where one exists, and a real action where none does.
+
+    "Sign in the way that agent expects" is precisely what a user in this state
+    does not know, so a hint that names nothing is the defect. A hint naming a
+    command that does not exist is worse — it makes SciStudio look like the
+    broken part — which is why the two unverified providers get the binary and
+    the credential file SciStudio reads rather than a guess.
+    """
+    descriptor = providers_registry.get(key)
+    hint = availability_module.login_hint(descriptor)
+    command = availability_module.LOGIN_COMMANDS[key]
+
+    if command is not None:
+        assert f"`{command}`" in hint
+        # The command has to start with a binary this descriptor actually names.
+        assert command.split()[0] in descriptor.binary_candidates
+    else:
+        assert f"`{descriptor.binary_candidates[0]}`" in hint
+        assert descriptor.credentials is not None
+        assert descriptor.credentials.credential_path[-1] in hint
+
+
+def test_a_missing_cli_is_told_what_to_install(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    _stub_status_rows(monkeypatch, [_row("claude-code", available=False, logged_in=False)])
+    _stub_live_call(monkeypatch, lambda argv, **_: _completed(argv))
+
+    entry = _by_key(client.get("/api/ai/availability").json(), "claude-code")
+    assert entry["state"] == "not_installed"
+    assert entry["next_step"] == availability_module.install_hint(providers_registry.get("claude-code"))
+
+
+def test_a_signed_out_cli_is_told_how_to_sign_in(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    _stub_status_rows(monkeypatch, [_row("codex", logged_in=False)])
+    _stub_live_call(monkeypatch, lambda argv, **_: _completed(argv))
+
+    entry = _by_key(client.get("/api/ai/availability").json(), "codex")
+    assert entry["state"] == "not_authenticated"
+    assert "codex login" in (entry["next_step"] or "")
+
+
+def test_no_next_step_is_offered_where_scistudio_does_not_know_one(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    """``call_failed`` and ``ready`` carry no next step, for opposite reasons.
+
+    A ready provider needs no action. A failed call has a ``cause`` instead, and
+    FR-034 forbids sending a user whose CLI demonstrably runs off to fix their
+    install — which a next step in this state would amount to, whatever it said.
+    """
+    _stub_status_rows(monkeypatch, [_row("claude-code"), _row("codex")])
+
+    def handler(argv: list[str], **_: Any) -> Any:
+        if "codex" in argv[0]:
+            return _completed(argv, returncode=1, stderr="quota exceeded\n")
+        return _completed(argv)
+
+    _stub_live_call(monkeypatch, handler)
+
+    body = client.get("/api/ai/availability").json()
+    assert _by_key(body, "claude-code")["state"] == "ready"
+    assert _by_key(body, "claude-code")["next_step"] is None
+    assert _by_key(body, "codex")["state"] == "call_failed"
+    assert _by_key(body, "codex")["next_step"] is None
+
+
+# ---------------------------------------------------------------------------
+# The session capability — separate from the availability grade
+# ---------------------------------------------------------------------------
+
+
+def test_a_provider_that_cannot_take_an_opening_prompt_says_so(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    """``kimi-code`` is reported ready AND unable to run a session.
+
+    Both halves matter. It answers live calls, so grading it anything but
+    ``ready`` would be a false report about a working agent — and it parses its
+    first positional argument as a subcommand, so the one-line pointer every
+    SciStudio-started session is delivered with never reaches it. A consumer
+    reading only the grade auto-selects an agent that cannot start, which is the
+    2026-08-07 no-context audit's P1.
+    """
+    _stub_status_rows(monkeypatch, [_row("kimi-code"), _row("claude-code")])
+    _stub_live_call(monkeypatch, lambda argv, **_: _completed(argv))
+
+    body = client.get("/api/ai/availability").json()
+    kimi = _by_key(body, "kimi-code")
+    assert kimi["state"] == "ready"
+    assert kimi["session_unsupported_reason"] == providers_registry.get("kimi-code").prompt_unsupported_reason
+    assert _by_key(body, "claude-code")["session_unsupported_reason"] is None
+
+
+def test_the_session_capability_is_reported_in_every_state(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_home: Path
+) -> None:
+    """It is a fact about the CLI, not about the user's setup.
+
+    Installing or signing in changes the state and changes nothing here, so a
+    consumer must be able to read it without first getting the provider to
+    ``ready`` — otherwise "install this" is offered for a provider installing
+    will not help.
+    """
+    _stub_status_rows(monkeypatch, [_row("kimi-code", available=False, logged_in=False)])
+    _stub_live_call(monkeypatch, lambda argv, **_: _completed(argv))
+
+    entry = _by_key(client.get("/api/ai/availability").json(), "kimi-code")
+    assert entry["state"] == "not_installed"
+    assert entry["session_unsupported_reason"]
+
+
+@pytest.mark.parametrize("key", providers_registry.agent_keys())
+def test_the_session_capability_is_derived_from_the_registry(key: str) -> None:
+    """One reading of ``prompt_argv_prefix``, shared by every caller.
+
+    ``spawn_agent`` raises for these providers, the AI Block refuses them at
+    config time, and the work-import endpoint refuses them before writing
+    anything. All three mean the same thing, so they ask the same function.
+    """
+    descriptor = providers_registry.get(key)
+    reason = availability_module.session_unsupported_reason(descriptor)
+
+    if descriptor.prompt_argv_prefix is None:
+        assert reason == descriptor.prompt_unsupported_reason
+    else:
+        assert reason is None
+
+
+# ---------------------------------------------------------------------------
+# The client's cap on the probe, pinned against the server's own budget
+# ---------------------------------------------------------------------------
+
+
+_USE_AGENT_AVAILABILITY_TS = (
+    Path(__file__).resolve().parents[2]
+    / "frontend"
+    / "src"
+    / "components"
+    / "BringInMyWorkDialog.parts"
+    / "useAgentAvailability.ts"
+)
+
+
+def _ts_number(source: str, name: str, known: dict[str, float] | None = None) -> float:
+    """Read an exported numeric constant out of a TypeScript module.
+
+    Read rather than imported: the two sides are different languages with no
+    shared build step. This direction — Python reading TypeScript — is the cheap
+    one, because the authoritative values are the server's and they live here,
+    and because a Python test can read a ``.ts`` file with no toolchain at all
+    while a vitest test would have to parse Python to learn them.
+
+    Handles a sum of literals and already-resolved constants, which is the shape
+    the client cap is written in on purpose — deriving it from the mirrored
+    server budget is what makes it structurally impossible for the cap to fall
+    below the budget. Anything else raises rather than guessing: a constant that
+    stops being arithmetic is a change someone has to come back and re-pin.
+    """
+    match = re.search(rf"export const {name}\s*=\s*([^;\n]+)", source)
+    assert match is not None, f"{name} is no longer an exported constant"
+    expression = match.group(1).strip().rstrip(";")
+    resolved = known or {}
+    total = 0.0
+    for raw_term in expression.split("+"):
+        term = raw_term.strip()
+        # ``_`` is a digit separator in a numeric literal and part of the name
+        # in an identifier, so it is only stripped from the former.
+        total += resolved[term] if term in resolved else float(term.replace("_", ""))
+    return total
+
+
+def test_the_client_probe_cap_is_longer_than_the_servers_own_budget() -> None:
+    """A slow-but-working agent must not be reported as failed by the client.
+
+    The server bounds a whole report at ``REPORT_BUDGET_SECONDS`` and reports
+    whatever is still outstanding as timed out. A client cap below that gives up
+    while the server is legitimately still working: the dialog then renders
+    ``call_failed`` guidance and withholds the start action for an agent that
+    was about to answer. That shipped at 10 s against a 20 s budget, with the
+    slowest measured successful call at 8.3 s — 1.7 s of margin for a working
+    setup.
+
+    Pinned across the boundary because neither side can see the other. The two
+    constants are in different languages and nothing failed when they drifted.
+    """
+    source = _USE_AGENT_AVAILABILITY_TS.read_text(encoding="utf-8")
+    mirrored_budget_ms = _ts_number(source, "SERVER_REPORT_BUDGET_MS")
+    client_cap_ms = _ts_number(
+        source,
+        "PROBE_TIMEOUT_MS",
+        {"SERVER_REPORT_BUDGET_MS": mirrored_budget_ms},
+    )
+
+    # The client's mirror of the server budget is the server budget.
+    assert mirrored_budget_ms == availability_module.REPORT_BUDGET_SECONDS * 1000
+    # And its own cap leaves room for the round trip on top of that.
+    assert client_cap_ms > mirrored_budget_ms
