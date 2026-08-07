@@ -81,16 +81,68 @@ Fix: register a type that **declares** `ui_color` / `ui_ring_color`, then assert
 types endpoint reports the declared value. Verify your new test **fails** if you temporarily
 populate the field, and say so in your report. Correct the docstring.
 
-## AUDIT-SEC findings
+## AUDIT-SEC P1-1 — DO THIS FIRST. Arbitrary code execution.
 
-Fix every P1 and P2 in `docs/audit/2026-08-07-adr-053-spec1-write-path.md` at the severity
-the report assigns. That audit ran without task context and attacked the write endpoints and
-the `sys.path` widening directly, so treat its reproductions as authoritative and re-run
-them before and after.
+The FR-016 collision guard skips every `_`-prefixed filename:
+`core/dropins.py::_importable_entries` does `if entry.name.startswith("_"): continue`.
 
-If it reports that a containment case could not be executed on this Windows host (symlink
-creation is not permitted here), **do not mark that case verified**. Add the test so Linux CI
-executes it, and say plainly in your report which cases you could not exercise locally.
+Underscore-prefixed modules **are** importable, and the standard library imports several of
+them internally. A file at `~/.scistudio/types/_strptime.py` therefore shadows the stdlib
+module that `datetime.strptime` loads on first use, and executes in the API and worker
+processes. Two shipped endpoints accept exactly that write: the user-library write endpoint
+with `target=types`, and the project file endpoint at `types/<name>.py`, which now triggers a
+registry rebuild.
+
+This is a hazard **this spec introduced** — before #2022 the type directories were never on
+`sys.path` — and the guard that was supposed to close it has a hole. The accidental case, a
+user naming a helper `types/_helpers.py`, is far more likely than the hostile one and is
+silent in both directions.
+
+`tests/blocks/test_dropin_type_import.py:496` currently pins the gap **as if it were correct**,
+with the docstring *"Private files are not importable by name, so they cannot collide."* That
+sentence is false. Fix the guard, invert that test, and make sure it fails against the current
+code.
+
+Spec FR-016 says the rule covers any entry the directory makes importable. Underscore is not
+an exemption — only `__init__.py` and `__pycache__` are structurally not importable *by name*.
+
+Treat this as the highest-priority item in this dispatch: land it first, in its own commit, so
+it can be reviewed and shipped independently of everything else here.
+
+## AUDIT-SEC remaining findings
+
+Fix every other P1 and P2 in `docs/audit/2026-08-07-adr-053-spec1-write-path.md` at the
+severity the report assigns. That audit ran without task context and attacked the write
+endpoints and the `sys.path` widening directly, so treat its reproductions as authoritative
+and re-run them before and after. In particular:
+
+- **P2-1** — `_scan_tier1` catches `Exception`, not `BaseException`, so a drop-in calling
+  `sys.exit()` or `os._exit()` kills the scan and an infinite loop hangs it, with no
+  `DropinFailure` recorded. The docstring claims isolation. Note `#1531` deliberately scoped
+  out a full sandbox; stay inside that boundary and do not attempt one.
+- **P2-2** — the write path's `.__scistudio_write_*.py` temp file lives inside the globbed
+  scan directory and was **executed by a real `BlockRegistry.scan()`**. A filename with an
+  embedded NUL raises `ValueError`, which the `except OSError` cleanup misses, leaking a
+  caller-controlled `.py` file permanently. Contradicts the module's atomicity claim.
+- **P2-5** — four containment rules in `user_library.py` (lines 110, 112, 145, 149) are
+  never executed by any test; coverage proves removing them would fail nothing. Cover them.
+
+**P2-3 (`scaffold_block`) and P2-4 (`POST /api/workflows/export-path`) are pre-existing
+defects outside this spec's surface.** Do not fix them here — that would widen PR B well
+beyond its scope. Report them to the manager with enough detail to file follow-up issues, and
+do not leave a `TODO` in the tree for them.
+
+If a containment case could not be executed on this Windows host (symlink creation is not
+permitted here), **do not mark it verified**. Add the test so Linux CI executes it, and say
+plainly which cases you could not exercise locally.
+
+## Report handling — read this
+
+The AUDIT-SEC report contains a working exploit for a defect that is **not yet fixed**, and it
+was pushed to a public repository. Do not copy exploit scripts, payloads, or step-by-step
+reproduction into `CHANGELOG.md`, the spec, commit messages, or any file destined for PR B.
+Describe the defect and the fix; reference the report path for detail. The manager is
+redacting the report itself.
 
 ## P3s — address, do not defer
 
