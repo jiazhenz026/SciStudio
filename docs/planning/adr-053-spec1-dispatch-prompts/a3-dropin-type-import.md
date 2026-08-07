@@ -130,6 +130,31 @@ explicitly out of scope and unchanged; do not attempt it and do not weaken the e
    blocks: the API, the agent, the worker, and IO dispatch. That obligation is discharged
    by A1's shared helper; your job is to consume it, not to edit four call sites.
 
+   A1 landed `src/scistudio/core/dropins.py`. The function you want is:
+
+   ```python
+   dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]
+   #   == (<project>/types, ~/.scistudio/types, *user_python_import_roots())
+   ```
+
+   The ordering already satisfies FR-014 — project types ahead of user types — so do not
+   re-sort it. `project_dir=None` **is** the declaration "no project context exists".
+   Paths are returned whether or not they exist; `prepended_sys_paths` filters missing
+   roots. Get the project dir from `project_dir_from_env()` where you have no better source.
+
+7a. **FR-061 gap left by A1 — you own the fix.** Spec §10.3 FR-061 says that if the two
+   scan orders are kept separate, "the reason MUST be recorded **at both call sites**."
+   A1 kept them separate and recorded a thorough rationale on the type side
+   (`scistudio/core/types/registry.py` module docstring, "Scan order versus BlockRegistry",
+   pointed at from `scan_all()`). The **block side was not touched**, so a reader arriving
+   at `BlockRegistry.scan()` has no record.
+
+   You own `src/scistudio/blocks/registry/__init__.py`. Add a short back-pointer at
+   `BlockRegistry.scan()` to that record — a few lines naming FR-061, stating that the pass
+   order deliberately differs from `TypeRegistry.scan_all()`, and pointing at the type
+   registry module docstring for the reason. Do not restate the whole rationale; a
+   duplicated rationale is the drift this spec exists to remove.
+
 8. **Write `tests/blocks/test_dropin_type_import.py`** covering: the §2.5 reproduction now
    registers `uses_spectrum` (FR-012); the worker runs it, not just registers it (FR-013);
    a project type shadows a user type of the same name (FR-014); an import failure reaches
@@ -150,6 +175,31 @@ You are editing a spec file (`docs/specs/adr-053-personal-tool-library.md`). Tha
 product spec, not a governance surface — `docs/ai-developer/**` is untouched, so
 `governance_touch` stays false. Record the spec path and `CHANGELOG.md` as docs updates in
 your ledger.
+
+## Protected-Core Label — Manager Note
+
+`PROTECTED_CORE_PATTERNS` (`src/scistudio/qa/governance/gate_record/surfaces.py`) covers
+`src/scistudio/{core,engine,blocks,workflow,utils}/**`. Your write set touches it, so
+`gate_record check` will fail `guard.core_change_guard` and **block your local commit**.
+
+Record the label as a request on your own ledger so you can commit:
+
+```bash
+gate_record amend --reason "protected-core surface: <files>; manager is obtaining owner authorization for the PR A label" --admin-label admin-approved:core-change
+```
+
+Local ledger records of requested labels are **not authoritative** — ADR-042 Addendum 6
+§2.7 makes CI the sole authority on label actor provenance. The manager is obtaining owner
+authorization for the integration PR. Do not claim the label was granted to you, and do
+not weaken or move code out of protected paths to dodge the guard.
+
+## Semantic-Dup Ratchet Warning
+
+The ratchet is razor-thin on `main`: 119/120 clusters, 6970/7000 duplicate LOC. **Duplicate
+LOC counts docstring lines**, so a long docstring on a function that already sits in a
+cluster can break the gate on its own. A1 left roughly 26 LOC of headroom for every
+remaining agent. Prefer one implementation with thin wrappers over parallel block/type
+twins, and put long rationale in a module docstring rather than on a clustered function.
 
 ## Output Required
 
