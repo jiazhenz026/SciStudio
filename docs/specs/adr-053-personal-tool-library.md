@@ -462,6 +462,19 @@ module found elsewhere on `sys.path`. The collision test MUST run against a
 `sys.path` from which the types directories are absent, so a type file can never
 report itself as a collision.
 
+**A leading underscore is not an exemption.** "Any entry the directory makes
+importable" includes `_name.py` and `_name/__init__.py`. The underscore is a
+convention meaning *do not register me*, which the registries honour for the
+separate question of which files declare types, and it does not stop `import`
+from resolving the name. Exempting it removes exactly the class of name that
+matters most, because several of the standard library's private modules are
+imported lazily by ordinary calls, long after any scan has run, and a guard
+that only looks at public names never sees them. The only entries out of scope
+are the ones a directory on `sys.path` structurally does not make importable
+*by name*: `__init__.py`, which names the directory rather than a top-level
+module, and `__pycache__`. This narrowing was shipped; it is recorded, with its
+reproduction, in `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1).
+
 ## 6. Promotion
 
 **FR-017.** Promotion MUST copy, never move. The originating project MUST keep

@@ -56,10 +56,16 @@ record of why the two orders stay separate.
 **FR-016 lives here too, for the same reason FR-057 does.** A types directory
 on ``sys.path`` is a user-writable claim on the top-level module namespace: a
 ``json.py`` or ``numpy.py`` there would be imported in preference to the real
-package by everything loaded afterwards. :func:`guard_dropin_type_roots` is the
-single definition of what counts as a collision *and* of the mitigation —
-binding the module the drop-in would shadow before the roots join ``sys.path``,
-so the installed package keeps winning while the user renames the file.
+package by everything loaded afterwards.
+:func:`guard_dropin_type_roots` is the single definition of what counts as a
+collision *and* of the mitigation — binding the module the drop-in would
+shadow before the roots join ``sys.path``, so the installed package keeps
+winning while the user renames the file.
+
+The collision question is asked of every name the directory makes importable,
+including underscore-prefixed ones; :func:`_importable_entries` records why,
+and why that is a different question from whether a registry registers the
+file.
 
 It is here rather than in either registry because the roots reach ``sys.path``
 from four processes and the answer must be the same in all of them. It
@@ -332,6 +338,13 @@ def _installed_origin(stem: str, type_roots: tuple[Path, ...]) -> str | None:
     return found.origin or "built-in"
 
 
+#: Entries a directory on ``sys.path`` never makes importable *by name*.
+#: ``__init__.py`` names the directory itself rather than a top-level module,
+#: and ``__pycache__`` holds compiled artefacts. Everything else that matches
+#: the two importable shapes below is in scope, underscore-prefixed or not.
+_NEVER_IMPORTABLE_BY_NAME = frozenset({"__init__.py", "__pycache__"})
+
+
 def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
     """Yield ``(module name, path the user would rename)`` under *root*.
 
@@ -341,14 +354,32 @@ def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
     contributes a namespace portion, and Python resolves a regular module or
     package found anywhere on ``sys.path`` ahead of every namespace portion,
     so it can never displace an installed module.
+
+    **Underscore-prefixed names are in scope** (AUDIT-SEC P1-1,
+    ``docs/audit/2026-08-07-adr-053-spec1-write-path.md``). This function
+    answers the *collision* question — "which names does this directory claim
+    on the top-level module namespace" — and a leading underscore does not
+    stop ``import`` from finding a file. It is a convention meaning "private",
+    and the two registries honour it for the separate *registration* question
+    by skipping such files. Skipping them here as well exempted exactly the
+    names that matter most: several of the standard library's private modules
+    are imported lazily by ordinary calls, long after any scan has run, so a
+    guard that only looks at public names never sees them. A user writing
+    ``types/_helpers.py`` collides with nothing and is unaffected; only a name
+    an installed module already owns is refused.
+
+    The only exclusions are the entries that are structurally not importable
+    by name (:data:`_NEVER_IMPORTABLE_BY_NAME`) and stems that are not Python
+    identifiers, which no ``import`` statement can name and no installed
+    module can be called.
     """
     with suppress(OSError):
         for entry in sorted(root.iterdir()):
-            if entry.name.startswith("_"):
+            if entry.name in _NEVER_IMPORTABLE_BY_NAME:
                 continue
-            if entry.is_file() and entry.suffix == ".py":
+            if entry.is_file() and entry.suffix == ".py" and entry.stem.isidentifier():
                 yield entry.stem, entry
-            elif entry.is_dir() and (entry / "__init__.py").is_file():
+            elif entry.is_dir() and entry.name.isidentifier() and (entry / "__init__.py").is_file():
                 yield entry.name, entry
 
 

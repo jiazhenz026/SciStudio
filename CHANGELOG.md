@@ -306,6 +306,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2022] The drop-in type name-collision guard now looks at private names too.
+  ADR-053 FR-016 refuses a file in `{project}/types/` or `~/.scistudio/types/`
+  whose name would shadow an installed top-level module, because those
+  directories join `sys.path`. The implementation skipped every entry whose
+  name began with `_`, on the stated premise that private files are not
+  importable by name. They are: the underscore is a convention about what a
+  registry *registers*, not about what `import` can find. The exemption
+  therefore covered the names most worth protecting, because several of the
+  standard library's private modules are imported lazily by ordinary calls long
+  after any scan has run — so a file a user meant as a private helper could
+  quietly take a standard-library module's place for the rest of the API and
+  worker process lifetime, with no palette error, no log line, and no recorded
+  failure. The guard now asks the collision question of every entry the
+  directory makes importable, excluding only the two that structurally are not
+  importable by name, `__init__.py` and `__pycache__`. The registries keep
+  skipping `_` files for the separate question of which files declare types, so
+  a private helper whose name is free is still not refused. A test asserted the
+  exemption was correct and has been replaced by tests that assert the refusal,
+  for both the file and the package shape. Found by the independent no-context
+  write-path audit; the finding and its reproduction are in
+  `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1). Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt
   from five places — the branch-switch route and the four package

@@ -190,7 +190,7 @@ def _shared_type(tier: str) -> str:
 
 #: Top-level names a drop-in type import binds in ``sys.modules``. They are the
 #: file stems, so they would leak into unrelated tests in the same session.
-_DROPIN_MODULE_NAMES = ("spectrum", "shared_type", "sample_dep")
+_DROPIN_MODULE_NAMES = ("spectrum", "shared_type", "sample_dep", "_sample_dep")
 
 
 @pytest.fixture(autouse=True)
@@ -423,10 +423,17 @@ class TestFailureSurfacing:
 class TestTypeNameCollisionIsRejected:
     @pytest.fixture
     def installed_dep(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-        """An importable top-level ``sample_dep`` module outside the type dirs."""
+        """Importable top-level modules outside the type dirs.
+
+        ``sample_dep`` stands in for an ordinary installed dependency and
+        ``_sample_dep`` for a private one — the class the collision guard used
+        to exempt (AUDIT-SEC P1-1). Both are needed because the two questions
+        the guard answers about them are the same question.
+        """
         site = tmp_path / "site"
         site.mkdir()
         (site / "sample_dep.py").write_text('ORIGIN = "installed"\n', encoding="utf-8")
+        (site / "_sample_dep.py").write_text('ORIGIN = "installed"\n', encoding="utf-8")
         monkeypatch.syspath_prepend(str(site))
         return site
 
@@ -493,9 +500,87 @@ class TestTypeNameCollisionIsRejected:
         assert registry.dropin_failures() == []
         assert registry.get_spec("uses_spectrum") is not None
 
-    def test_underscore_prefixed_type_files_are_ignored(self, home: Path, project: Path, installed_dep: Path) -> None:
-        """Private files are not importable by name, so they cannot collide."""
+    # -- AUDIT-SEC P1-1: a leading underscore is not an exemption -------------
+
+    def test_an_underscore_prefixed_type_file_that_takes_a_taken_name_is_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """A ``_``-prefixed ``.py`` file on ``sys.path`` *is* importable by name.
+
+        This test replaces one that asserted the opposite, on the stated
+        premise that "private files are not importable by name, so they cannot
+        collide". That premise is false, and it was the reason the exemption
+        survived review. ``_`` is a convention meaning "do not register me",
+        which the two registries honour for the *registration* question; the
+        *collision* question is about which names the directory claims on the
+        top-level module namespace, and the underscore does not change that
+        answer. See ``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P1-1.
+        """
         (project / "types" / "_sample_dep.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert failures[0].file_path == str(project / "types" / "_sample_dep.py")
+        assert "_sample_dep" in failures[0].message
+
+    def test_a_lazily_imported_private_stdlib_module_is_refused(self, home: Path, project: Path) -> None:
+        """The concrete accident: ``types/_strptime.py``.
+
+        No fixture stands in for the installed module here, because the point
+        is that the exempted class was the standard library's own private
+        modules — imported lazily, long after any scan, by ordinary calls
+        (``datetime.strptime`` loads ``_strptime`` on first use). A guard that
+        only looks at public names never sees them.
+        """
+        (project / "types" / "_strptime.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert "_strptime" in failures[0].message
+
+    def test_an_underscore_prefixed_package_that_takes_a_taken_name_is_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The package shape was exempted by the same bug and closed by the same rule."""
+        package_dir = project / "types" / "_sample_dep"
+        package_dir.mkdir()
+        (package_dir / "__init__.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert failures[0].file_path == str(package_dir)
+
+    def test_a_private_helper_whose_name_is_free_is_not_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The rule is "this name is already taken", not "this name is private".
+
+        A user writing an ordinary private helper next to their types must not
+        be refused — widening the guard to every importable name must not
+        widen it to every underscore name.
+        """
+        (project / "types" / "_project_helpers.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        assert _scanned_registry(project).dropin_failures() == []
+
+    def test_the_entries_that_name_no_top_level_module_are_not_reported(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """``__init__.py`` and ``__pycache__`` stay out of the collision question.
+
+        They are the only entries a directory on ``sys.path`` structurally does
+        not make importable *by name*: ``__init__.py`` names the directory
+        rather than a top-level module, and ``__pycache__`` holds compiled
+        artefacts. Pinning them keeps the widened rule from drifting into
+        "report everything in the directory".
+        """
+        (project / "types" / "__init__.py").write_text("", encoding="utf-8")
+        cache_dir = project / "types" / "__pycache__"
+        cache_dir.mkdir()
+        (cache_dir / "__init__.py").write_text("", encoding="utf-8")
 
         assert _scanned_registry(project).dropin_failures() == []
 
