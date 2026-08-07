@@ -1013,8 +1013,12 @@ it. Beyond that, a few things worth keeping in mind:
   sure rather than inventing a feature they will go looking for.
 - **Never modify their original code.** Read it as much as you like. If you find
   a bug in it, tell them and let them decide.
-- **Install dependencies into `~/.scistudio/`** with `pip install --target`,
-  never into whatever environment is active. Theirs took effort to get right.
+- **Install dependencies with a plain `pip install`.** Your terminal is already
+  pointed at SciStudio's own package location — `PIP_TARGET` is set for you.
+  Do not pass `--target`, and do not switch interpreters: either one puts the
+  package where blocks cannot import from, and a block that cannot import is
+  skipped silently. Never install into the environment their own analysis runs
+  in; that one took effort to get right.
 - **Shell for their world, MCP for ours.** Read and run their code with the
   shell; create blocks, workflows, and runs only through `mcp__scistudio__*`.
   Never hand-write `workflows/*.yaml`.

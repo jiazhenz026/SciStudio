@@ -323,6 +323,11 @@
       "at": "2026-08-07T04:11:10.320139Z",
       "owner_directive": "We only handled the case where no provider is available. If the user has several usable providers we never let them choose. Add provider selection and the permission choice to the dialog's first page, below the source and destination fields, matching what the AI chat setup screen in PR #2003 offers.",
       "reason": "Owner spotted that multiple usable providers were unhandled; dialog gains provider and permission controls"
+    },
+    {
+      "at": "2026-08-07T04:28:50.397258Z",
+      "owner_directive": "Investigate the Codex finding on the dependency install instruction and fix it if it holds.",
+      "reason": "Codex review found the dependency-install instruction points at a path blocks cannot import from"
     }
   ],
   "docs_events": [
@@ -1448,6 +1453,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.065264Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.077979Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.090896Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.103090Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.115231Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.128685Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.141011Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.153862Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.173070Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:28:51.191788Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1460,16 +1547,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "6579d9ce222a927767c93781422de2d8f83a92b2",
-    "base_sha": "6579d9ce",
+    "base": "origin/main",
+    "base_sha": "3569bcfb",
     "changed_files": [
       ".workflow/records/2010-guided-codebase-import-spec.json",
       "docs/adr/ADR-053.md",
       "docs/specs/adr-053-work-import.md"
     ],
-    "diff_fingerprint": "sha256:e772693235c4fcfb52d2a7a20f9e99a1c6719b76f981f9ba4bf5ae7e9052c88a",
+    "diff_fingerprint": "sha256:954daef38729cb0f27ac645ee8cb9e9098fdb7e3985dadd011a840536d93b026",
     "head": "HEAD",
-    "head_sha": "b594d41f",
+    "head_sha": "f2f3b6e7",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -1603,6 +1690,14 @@
     {
       "at": "2026-08-07T04:16:19.662453Z",
       "diff_fingerprint": "sha256:e772693235c4fcfb52d2a7a20f9e99a1c6719b76f981f9ba4bf5ae7e9052c88a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T04:28:51.191825Z",
+      "diff_fingerprint": "sha256:954daef38729cb0f27ac645ee8cb9e9098fdb7e3985dadd011a840536d93b026",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
