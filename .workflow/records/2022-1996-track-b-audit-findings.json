@@ -32,6 +32,38 @@
       "path": "CHANGELOG.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438654Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438657Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438659Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:12:30.720366Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs landed earlier on this same branch \u2014 CHANGELOG.md carries the [#1996] Track B P3 entry and docs/specs/adr-053-personal-tool-library.md plus docs/architecture/ARCHITECTURE.md landed at commit 4d58da2e; this slice adds no behaviour and needs no further docs",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -176,6 +208,24 @@
       "at": "2026-08-07T15:13:16.961784Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T16:09:52.438628Z",
+      "pattern": "frontend/src/components/promotion/promotable.ts",
+      "reason": "Track B P3 follow-ups touch frontend sources whose tests and docs landings were not in the original plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T16:09:52.438645Z",
+      "pattern": "frontend/src/config/typeColorMap.ts",
+      "reason": "Track B P3 follow-ups touch frontend sources whose tests and docs landings were not in the original plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T16:09:52.438648Z",
+      "pattern": "frontend/src/components/promotion/promoteToUserLibrary.ts",
+      "reason": "Track B P3 follow-ups touch frontend sources whose tests and docs landings were not in the original plan"
     }
   ],
   "session_id": "5ba1bbae-fdab-42e7-8198-8b1cd71563ae",
@@ -219,6 +269,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_types_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438662Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/entryPoints.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438665Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_library_write.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T16:09:52.438666Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
       "rationale": null,
       "verified_in_diff": null
     }
