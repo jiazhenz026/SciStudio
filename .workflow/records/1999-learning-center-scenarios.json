@@ -1,6 +1,56 @@
 {
   "branch": "guided/learning-center-scenarios",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-07T23:17:33.302234Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T23:17:45.953879Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T23:17:46.023708Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -10,14 +60,98 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T23:18:02.264889Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T23:18:02.264905Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-053.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-07T23:17:46.058023Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.072570Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.086829Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.101704Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.116626Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.130980Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.145997Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.159556Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.173530Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T23:17:46.187666Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1999,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1998,
       "url": null
     }
   ],
@@ -26,21 +160,67 @@
   "owner_directive": "Owner-directed design session for ADR-053: design the six core Learning Center tutorial levels as scenarios, decide the Learning Center infrastructure form, and save the draft to the repo.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T23:17:46.205302Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-commit",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "1999-learning-center-scenarios",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T23:06:43.576223Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Owner authorised authoring the Learning Center system spec in speckit form and revising ADR-053 sections 2.1, 2.2, 4.2 and 8 in the same session."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T23:06:43.576242Z",
+      "pattern": "docs/adr/ADR-053.md",
+      "reason": "Owner authorised authoring the Learning Center system spec in speckit form and revising ADR-053 sections 2.1, 2.2, 4.2 and 8 in the same session."
+    }
+  ],
   "session_id": "6dc64796-0ea8-4207-8b64-93841a2ad93c",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-08-07T23:18:02.264913Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Spec and ADR authoring only; no runtime, API, or frontend behaviour changes in this PR. Implementation and its tests are enumerated in the spec's verification plan and tracked by #1998 and #1999.",
+      "verified_in_diff": null
+    }
+  ]
 }
