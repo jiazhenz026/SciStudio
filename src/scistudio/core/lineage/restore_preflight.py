@@ -102,7 +102,7 @@ def _input_warnings(store: LineageStore, run_id: str) -> list[dict[str, str]]:
 
 
 def _mtime_is_newer(current_epoch: float, recorded_iso: str) -> bool:
-    """Return True when *current_epoch* is later than the recorded ISO stamp.
+    """Return True when *current_epoch* postdates the recorded ISO stamp.
 
     Returns ``False`` on an unparseable stamp: an unreadable record is not
     evidence that the file changed, and a false "modified" warning on every

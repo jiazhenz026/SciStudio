@@ -374,6 +374,22 @@
       "path": "CHANGELOG.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:49:32.422761Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "probe",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:49:55.060056Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docstring wording only; the behaviour it documents is unchanged and already described by ADR-038 Addendum 1 and the user-guide rewrite in the parent commit",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -1597,6 +1613,14 @@
       "kind": "path",
       "path": "tests/api/test_runs_routes.py",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:49:55.060074Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docstring wording only; _mtime_is_newer's behaviour is unchanged and already asserted by the preflight tests in the parent commit",
       "verified_in_diff": null
     }
   ]
