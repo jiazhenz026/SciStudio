@@ -10,9 +10,11 @@ Behavioural tests live in ``tests/ai/test_finish_ai_block.py``.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
+from typing import Any
 
 
-def _run(coro):
+def _run(coro: Coroutine[Any, Any, Any]) -> Any:
     return asyncio.run(coro)
 
 
@@ -32,12 +34,12 @@ def test_finish_ai_block_is_registered() -> None:
     assert "write" in tags
 
 
-def test_registry_now_has_35_tools() -> None:
-    """ADR-035 §3.5 + ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): FastMCP exposes 35 tools."""
+def test_registry_now_has_36_tools() -> None:
+    """ADR-035 §3.5 + ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: FastMCP exposes 36 tools."""
     from scistudio.ai.agent.mcp.server import mcp
 
     tools = _run(mcp.list_tools())
-    assert len(tools) == 35
+    assert len(tools) == 36
 
 
 def test_finish_ai_block_handler_has_docstring() -> None:

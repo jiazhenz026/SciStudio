@@ -65,6 +65,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#1995][#1996] The personal tool library is now a place the product can see
+  and write to. The block palette's single `custom` origin covered two different
+  directories — `~/.scistudio/blocks/` and `{project}/blocks/` — so the
+  user-wide tier existed on disk, worked, and was invisible; and nothing in the
+  product could put a file there, which meant the only way to promote a block
+  from "code in this project" to "a tool I own" was a file manager. Blocks now
+  resolve to distinct `builtin` / `user` / `project` / `package` origins, with
+  `custom` kept as the fallback for a path that resolves under neither drop-in
+  root (an absent path, a symlink escaping both, a differing Windows drive) so
+  behaviour degrades instead of breaking. Resolution is one shared function that
+  also serves the data-type surface, comparing **resolved real paths** rather
+  than string prefixes; the pre-existing `source` field is untouched, so existing
+  consumers of `custom` keep working. New `GET`/`PUT /api/user-library/file`
+  write into the two library directories with the **inverse** of the project
+  endpoint's path constraint — the target must be inside the library root — and
+  `PUT /api/projects/{project_id}/file` is unchanged: this adds a second door
+  rather than widening the first. The caller names the target tier explicitly and
+  supplies a bare `.py` filename; traversal, absolute and drive-relative paths,
+  nested and symlinked subdirectories, and non-Python extensions are refused, and
+  an existing file is reported as a 409 rather than silently overwritten
+  (overwriting takes an explicit opt-in). Every registry is rebuilt after a
+  write, so a new block or type is discoverable without a restart. A new
+  `promote_to_user_library` MCP tool gives the agent the same action — it copies
+  rather than moves, and refuses a built-in, packaged, or already-promoted block
+  — and the standalone `scistudio mcp-bridge` gained the invalidation channel it
+  never had: it used to build its registries once and hold them for the whole
+  session, so a file written by any other process stayed invisible until
+  restart, and it now re-reads the drop-in directories before handing a registry
+  out. Tests: `tests/api/test_block_origin_tiers.py`,
+  `tests/api/test_user_library_write.py`, `tests/ai/test_mcp_tools_library.py`.
+  (@claude, 2026-08-07, branch: feat/1995-origin-tiers-and-user-library-write)
+
 - [#1974] Canvas block nodes now show how long a block has been running: a
   compact elapsed-time counter appears beside the spinner on the node's status
   surface the moment the block enters the running state, counts up (`7s`,

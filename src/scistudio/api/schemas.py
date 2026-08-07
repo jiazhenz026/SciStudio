@@ -183,6 +183,12 @@ class BlockSummary(BaseModel):
     output_ports: list[BlockPortResponse] = Field(default_factory=list)
     direction: str | None = None
     source: str = ""
+    # ADR-053 FR-001/FR-002/FR-004: the resolved origin tier —
+    # ``builtin`` | ``user`` | ``project`` | ``package`` | ``custom``, where
+    # ``custom`` is the unresolvable-path fallback only. Additive rather than a
+    # redefinition of ``source``, which keeps its pre-ADR-053 collapsed
+    # vocabulary so existing consumers of ``custom`` keep working (FR-002).
+    origin: str = ""
     package_name: str = ""
     # ADR-029 D8: variadic port flags so the frontend palette can show [+]
     # affordances for variadic blocks even before the full schema is fetched.
@@ -224,7 +230,12 @@ class BlockSourceResponse(BaseModel):
     path: str = Field(description="Absolute filesystem path of the block's source file.")
     source: str = Field(description="Full source text of the block's file.")
     language: str = Field(default="python", description="Source language (always 'python' today).")
-    origin: str = Field(description="Block origin: 'builtin' | 'package' | 'custom'.")
+    origin: str = Field(
+        description=(
+            "ADR-053 FR-001 resolved origin tier: 'builtin' | 'user' | 'project' | "
+            "'package' | 'custom', where 'custom' is the unresolvable-path fallback."
+        )
+    )
 
 
 class BlockSchemaResponse(BlockSummary):
@@ -599,3 +610,69 @@ class ErrorResponse(BaseModel):
 
     detail: str
     error_code: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 §4 — the user-wide library write path (FR-006 to FR-008).
+#
+# The user library is the one place in the product that lives outside every
+# project root, so its request shapes are deliberately narrow: the caller names
+# the target tier explicitly (FR-006 forbids inferring it from file content)
+# and supplies a bare filename, never a path. Nothing here can express a
+# directory, which is what makes the route's containment check a confirmation
+# rather than the only line of defence.
+# ---------------------------------------------------------------------------
+
+#: FR-006: the two user-library targets, chosen by the caller and never
+#: inferred. The values are the drop-in child directory names from
+#: :mod:`scistudio.core.dropins`.
+UserLibraryTarget = Literal["blocks", "types"]
+
+
+class UserLibraryWriteRequest(BaseModel):
+    """Request body for ``PUT /api/user-library/file`` (ADR-053 FR-006)."""
+
+    content: str = Field(description="Full UTF-8 text to write to the file.")
+    overwrite: bool = Field(
+        default=False,
+        description=(
+            "ADR-053 FR-008: writing over an existing file requires this explicit "
+            "opt-in. Without it an existing target is reported as a 409 conflict so "
+            "the UI can prompt for overwrite or save-as-new-name."
+        ),
+    )
+
+
+class UserLibraryFileResponse(BaseModel):
+    """Response body for ``GET /api/user-library/file`` (ADR-053 FR-031).
+
+    The user-library counterpart of the project file read: a 200 means the file
+    exists, a 404 means it does not, which is exactly the signal the frontend's
+    existence probe needs before offering to create or promote.
+    """
+
+    target: UserLibraryTarget
+    filename: str
+    path: str = Field(description="Absolute path of the file inside the user library.")
+    content: str
+    mtime: float
+    size: int
+    encoding: str = "utf-8"
+
+
+class UserLibraryWriteResponse(BaseModel):
+    """Response body for ``PUT /api/user-library/file`` (ADR-053 FR-006/FR-010)."""
+
+    target: UserLibraryTarget
+    filename: str
+    path: str = Field(description="Absolute path of the file inside the user library.")
+    mtime: float
+    size: int
+    kind: str = Field(description="'created' for a new file, 'modified' for an accepted overwrite.")
+    registries_refreshed: bool = Field(
+        description=(
+            "ADR-053 FR-010: whether the post-write registry refresh succeeded, so the "
+            "new block or type is discoverable without a restart. False means the file "
+            "landed but the caller should trigger a palette reload."
+        )
+    )

@@ -1,0 +1,274 @@
+"""The write path into the user-wide library, ``~/.scistudio/`` (ADR-053 §4).
+
+``docs/specs/adr-053-personal-tool-library.md`` §2.3: before this router the
+only file-write endpoint in the product was
+``PUT /api/projects/{project_id}/file``, which rejects any path resolving
+outside the project root. The user library sits outside every project root by
+construction, so reaching ``~/.scistudio/blocks/`` or ``~/.scistudio/types/``
+required a file manager, and nothing in the product could put a file there.
+
+This is the second door, and §14 calls it "the highest-risk surface in the
+spec". Its constraint is the **inverse** of the project endpoint's rather than
+a relaxation of it (FR-007): the resolved target must be inside the relevant
+user library root, and ``PUT /api/projects/{project_id}/file`` is untouched
+(FR-009).
+
+Four rules make that constraint hold, and each one closes a case the others do
+not:
+
+1. **The caller names the tier.** ``target`` is a ``Literal["blocks", "types"]``
+   and the roots come from :mod:`scistudio.core.dropins`, so the destination is
+   never inferred from file content (FR-006) and this module never spells out
+   ``~/.scistudio`` itself (FR-058).
+2. **The caller supplies a filename, not a path.** Anything carrying a
+   separator, a drive, a ``..`` segment, or an absolute or drive-relative form
+   is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
+   drive-relative path whose ``Path.name`` is ``blocks.py``, so the drive test
+   is separate from the basename test rather than implied by it.
+3. **Containment is decided on resolved real paths.** ``os.path.realpath``
+   collapses symlinks first and ``os.path.commonpath`` compares canonical
+   forms — the CodeQL ``py/path-injection`` sanitiser the project endpoint
+   already uses. A symlink in the library pointing at ``/etc/passwd`` resolves
+   to ``/etc/passwd`` and fails the comparison; a path on another Windows drive
+   makes ``commonpath`` raise, which is treated as an escape. String prefixes
+   are never compared.
+4. **The file lands directly in the root.** After resolution the target's
+   parent must be the root itself, so a nested subdirectory — including one
+   reached through a symlinked subdirectory that stays inside the root — is
+   refused, and the extension must be ``.py``.
+
+Error shapes match the project endpoint so one frontend error path serves both:
+400 for an empty name, 403 for traversal and escape, 415 for a non-``.py``
+extension, 404 when a read finds nothing. The one addition is **409 for a
+collision** (FR-008): an existing file is reported to the caller rather than
+silently overwritten, and overwriting requires ``overwrite: true``.
+
+After a successful write the registries are rebuilt through
+``ApiRuntime.refresh_all_registries()`` (FR-010/FR-062) so the new block or
+type is discoverable without a restart — the caller names the *event*, not the
+registry set.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import tempfile
+from pathlib import Path
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from scistudio.api.deps import get_runtime
+from scistudio.api.routes.projects import ADR036_FILE_SIZE_CAP_BYTES
+from scistudio.api.runtime import ApiRuntime
+from scistudio.api.schemas import (
+    UserLibraryFileResponse,
+    UserLibraryTarget,
+    UserLibraryWriteRequest,
+    UserLibraryWriteResponse,
+)
+from scistudio.core.dropins import user_blocks_dir, user_types_dir
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/user-library", tags=["user-library"])
+RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+
+#: FR-006: the caller's ``target`` value to the ``core.dropins`` accessor for
+#: that tier. The mapping is the whole of the target selection — no other code
+#: in this module decides where a file goes.
+_TARGET_ROOTS = {
+    "blocks": user_blocks_dir,
+    "types": user_types_dir,
+}
+
+#: Only Python sources belong in a drop-in tier; both registries scan for
+#: ``.py`` files and nothing else there is loadable.
+_ALLOWED_SUFFIX = ".py"
+
+
+def _reject(status_code: int, detail: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail=detail)
+
+
+def _validate_filename(filename: str) -> str:
+    """Return *filename* if it is a bare ``.py`` basename, else raise.
+
+    Rule 2 of the module docstring. Every rejection here happens before any
+    filesystem access, so a hostile value never reaches ``realpath``.
+    """
+    name = filename.strip()
+    if not name:
+        raise _reject(400, "filename query parameter is required")
+    drive, _ = os.path.splitdrive(name)
+    if drive or os.path.isabs(name) or name.startswith(("/", "\\")):
+        raise _reject(403, "Absolute and drive-relative paths are not allowed")
+    if "/" in name or "\\" in name:
+        raise _reject(403, "The user library accepts a bare filename, not a path")
+    if name in (".", "..") or ".." in name.split("."):
+        raise _reject(403, "Path traversal is not allowed")
+    if Path(name).name != name:
+        raise _reject(403, "The user library accepts a bare filename, not a path")
+    if Path(name).suffix.lower() != _ALLOWED_SUFFIX:
+        raise _reject(415, f"Only {_ALLOWED_SUFFIX} files belong in the user library")
+    return name
+
+
+def _resolve_user_library_file(target: UserLibraryTarget, filename: str) -> tuple[Path, Path]:
+    """Return ``(root, target_path)`` for a validated user-library write.
+
+    Rules 3 and 4 of the module docstring: real paths are compared, and the
+    file must land directly in the root. The root is created if missing so a
+    first-ever promotion works on a machine that has never had a user library,
+    and so ``realpath`` resolves a real directory rather than a phantom.
+    """
+    root_factory = _TARGET_ROOTS.get(target)
+    if root_factory is None:  # pragma: no cover - FastAPI validates the Literal
+        raise _reject(422, f"Unknown user library target: {target!r}")
+    name = _validate_filename(filename)
+
+    declared_root = root_factory()
+    try:
+        declared_root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise _reject(500, f"Could not create user library directory: {exc}") from exc
+    root = os.path.realpath(str(declared_root))
+
+    candidate = os.path.realpath(os.path.join(root, name))
+    # CodeQL py/path-injection canonical sanitiser: realpath + commonpath.
+    try:
+        if os.path.commonpath([root, candidate]) != root:
+            raise _reject(403, "Path escapes the user library root")
+    except ValueError as exc:
+        # commonpath raises on different drives (Windows) — treat as an escape.
+        raise _reject(403, "Path escapes the user library root") from exc
+
+    resolved = Path(candidate)
+    if str(resolved.parent) != root:
+        raise _reject(403, "User library files must live directly in the target directory")
+    return Path(root), resolved
+
+
+@router.get("/file", response_model=UserLibraryFileResponse)
+async def read_user_library_file(
+    target: UserLibraryTarget,
+    filename: str = "",
+) -> UserLibraryFileResponse:
+    """Read one file from the user library, or 404 when it is absent.
+
+    ADR-053 FR-031: the existence probe the new-file and promotion flows run
+    before writing. It mirrors ``GET /api/projects/{project_id}/file`` exactly —
+    200 means "exists, do not overwrite", 404 means "safe to create" — so the
+    frontend probe helper is the same shape for both destinations.
+    """
+    _root, resolved = _resolve_user_library_file(target, filename)
+    if not resolved.exists():
+        raise _reject(404, "File not found")
+    if resolved.is_dir():
+        raise _reject(400, "Path is a directory, not a file")
+    try:
+        stat = resolved.stat()
+        content = resolved.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise _reject(415, f"File is not valid UTF-8: {exc}") from exc
+    except OSError as exc:
+        raise _reject(500, f"read failed: {exc}") from exc
+    return UserLibraryFileResponse(
+        target=target,
+        filename=resolved.name,
+        path=str(resolved),
+        content=content,
+        mtime=stat.st_mtime,
+        size=stat.st_size,
+    )
+
+
+@router.put("/file", response_model=UserLibraryWriteResponse)
+async def write_user_library_file(
+    body: UserLibraryWriteRequest,
+    runtime: RuntimeDep,
+    target: UserLibraryTarget,
+    filename: str = "",
+) -> UserLibraryWriteResponse:
+    """Write one file into the user-wide library (ADR-053 FR-006 to FR-010).
+
+    An existing target is a 409 unless ``overwrite`` is set (FR-008); the write
+    itself is atomic (temp file in the destination directory plus
+    ``os.replace``) so a failure never leaves a half-written block where the
+    registry will find it.
+    """
+    _root, resolved = _resolve_user_library_file(target, filename)
+
+    encoded = body.content.encode("utf-8")
+    if len(encoded) > ADR036_FILE_SIZE_CAP_BYTES:
+        raise _reject(
+            413,
+            f"Content size {len(encoded)} exceeds editor cap {ADR036_FILE_SIZE_CAP_BYTES} bytes",
+        )
+
+    if resolved.is_dir():
+        raise _reject(400, "Path is a directory, not a file")
+    existed = resolved.exists()
+    if existed and not body.overwrite:
+        raise _reject(
+            409,
+            (
+                f"{resolved.name} already exists in the user library {target} directory. "
+                "Retry with overwrite=true to replace it, or choose another name."
+            ),
+        )
+
+    # ``resolved`` passed realpath + commonpath containment above.
+    # lgtm[py/path-injection]
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        prefix=".__scistudio_write_",
+        suffix=_ALLOWED_SUFFIX,
+        dir=str(resolved.parent),
+    )
+    try:
+        with os.fdopen(tmp_fd, "wb") as tmp_file:
+            tmp_file.write(encoded)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_path, resolved)
+    except OSError as exc:
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise _reject(500, f"write failed: {exc}") from exc
+
+    refreshed = _refresh_registries(runtime)
+
+    try:
+        stat = resolved.stat()
+    except OSError as exc:
+        raise _reject(500, f"post-write stat failed: {exc}") from exc
+
+    return UserLibraryWriteResponse(
+        target=target,
+        filename=resolved.name,
+        path=str(resolved),
+        mtime=stat.st_mtime,
+        size=stat.st_size,
+        kind="modified" if existed else "created",
+        registries_refreshed=refreshed,
+    )
+
+
+def _refresh_registries(runtime: ApiRuntime) -> bool:
+    """Rebuild every registry the write invalidated (FR-010 / FR-062).
+
+    ``refresh_all_registries`` is the one entry point a caller naming this
+    *event* uses; refreshing a single registry here would reintroduce exactly
+    the drift FR-062 removed. A failure is reported to the caller rather than
+    raised: the file is already on disk, so failing the request would be a lie.
+    """
+    try:
+        runtime.refresh_all_registries()
+    except Exception:
+        logger.exception("user library write: refresh_all_registries() raised")
+        return False
+    return True
