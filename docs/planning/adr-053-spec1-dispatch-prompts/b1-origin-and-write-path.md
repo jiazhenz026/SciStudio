@@ -141,11 +141,36 @@ anywhere — that is exactly the drift #2020 removed (FR-058).
    proving the project endpoint is unchanged.
 
 9. **FR-010** — after a successful write, refresh the affected registry so the new block or
-   type is discoverable without a restart. A2 (#2021) built the refresh entry point; use
-   it. **FR-065** requires the refresh to reach every process holding a registry, not only
-   the one that served the request — check A2's report/notes on the tracking branch for
-   whether the cross-process part landed there or was sequenced to you. If it was sequenced
-   to you, it is in your scope and must land here.
+   type is discoverable without a restart. A2 (#2021) built the entry point:
+
+   ```python
+   ApiRuntime.refresh_all_registries()   # types, then blocks, then previewers
+   ```
+
+   Call that rather than refreshing one registry, and rather than adding a fourth call
+   site — FR-062 exists so callers name the *event*, not the registry set.
+
+9a. **FR-065 cross-process refresh — SEQUENCED INTO YOUR SLICE.** Not optional, not
+   deferred; the manager moved it here deliberately, recorded in checklist §7.3 and §9.
+
+   A2 delivered the in-process half: `_RuntimeAdapter` exposes `block_registry` and
+   `type_registry` as read-through properties, so a refresh in the API process is
+   immediately visible to the in-process MCP agent. That is the desktop path.
+
+   The half A2 could not land is the standalone `scistudio mcp-bridge`. It builds its
+   registries once in `make_mcp_runtime` (`src/scistudio/ai/agent/mcp/runtime.py`) and has
+   **no invalidation channel at all**. A2 could not add one: it needed changes in
+   `ai/agent/mcp/**` (outside A2's write set) and there was no trigger for it until your
+   write endpoint existed. Both are now true for you — `ai/agent/mcp/**` is in your write
+   set, and FR-011's MCP promotion tool is the trigger.
+
+   Deliver it. FR-065's own acceptance sentence is: *"A block promoted through the agent
+   MUST become visible in the palette without a restart."* Test exactly that.
+
+   If after investigation the standalone bridge genuinely cannot be invalidated without
+   machinery beyond this spec's scope, **stop and report it as a blocker with your
+   reasoning** — do not write a `TODO` and move on. The owner directive is complete
+   delivery.
 
 10. **FR-011** — the agent performs the same promotion through an MCP tool. Without it the
     agent cannot act on the promotion opportunities ADR-053 §3 expects it to offer. Follow
