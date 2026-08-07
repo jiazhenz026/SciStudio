@@ -395,12 +395,42 @@ whole report so a wedged child cannot hold the response.
 
 ### 9.3 Implementation
 
-- [ ] `brief_template.md` verbatim from §4.6 -> `<artifact>`
-- [ ] `ImportSessionContext` per C2 -> `<artifact>`
-- [ ] `compose_brief` with skip semantics -> `<artifact>`
-- [ ] Spec FR-012 correction, `#2003` staleness removal, FR cross-reference
-      corrections -> `<artifact>`
-- [ ] `tests/ai/test_work_import_brief.py` -> `<artifact>`
+- [x] `brief_template.md` verbatim from §4.6
+      -> `src/scistudio/ai/work_import/brief_template.md`, extracted
+      mechanically from the §4.6 fenced block (376 lines, 18,866 bytes).
+      Byte-identity is pinned as a permanent regression guard by
+      `test_brief_template_is_verbatim_spec_section_4_6`, which re-extracts §4.6
+      at test time — if `#2017` edits §4.6, the test fails until the template is
+      re-transcribed.
+- [x] `ImportSessionContext` per C2
+      -> `src/scistudio/ai/work_import/context.py`. Field names, types, and
+      order are pinned by `test_context_matches_contract_c2_field_names_and_order`.
+      Adds `__post_init__` validation (unknown tier/permission mode, unknown
+      skippable question, source-plus-no-codebase, neither-source-nor-no-codebase,
+      skipped-and-answered) and list->tuple / list->frozenset normalisation so a
+      decoded JSON body can be passed straight in. A3/A4 producers must satisfy
+      those invariants.
+- [x] `compose_brief` with skip semantics
+      -> `src/scistudio/ai/work_import/brief.py`. Substitutes only at the seven
+      `{...}` placeholders §4.6 shows in "What they told us"; the four
+      `{project}` path literals in "What to deliver" are left alone. Skip wording
+      is read out of the template's own `{<answer>, or "<...>"}` alternative
+      rather than restated in Python, so FR-021's wording cannot drift from
+      §4.6. Provider and permission mode are deliberately absent from the brief
+      body — §4.6 gives them no placeholder and FR-026 forbids adding one; they
+      reach the spawn instead (FR-044).
+- [x] Spec FR-012 correction, `#2003` staleness removal, FR cross-reference
+      corrections -> `docs/specs/adr-053-work-import.md`, 23 edits, all outside
+      §4.6 (the applier asserts each match is unique, asserts it is not inside
+      §4.6, and re-checks §4.6 byte-identity afterwards). FR-012 now states the
+      in-session agent writes `~/.scistudio/types/` and `~/.scistudio/blocks/`
+      itself with no endpoint involved; the three `#2003`-is-unmerged statements
+      (§4.1, §4.3 T-002, §4.5) now record that it merged 2026-08-07; 17 FR
+      cross-references in §2, §3 Key Entities, §4.1, §4.2, §4.4, and §4.5 now
+      name the requirement they describe.
+- [x] `tests/ai/test_work_import_brief.py`
+      -> 62 tests. `PYTHONPATH=./src python -m pytest tests/ai/test_work_import_brief.py -q`
+      -> 62 passed.
 
 ### 9.4 Audit
 

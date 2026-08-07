@@ -1,0 +1,118 @@
+{
+  "branch": "feat/2002-work-import-brief",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/work_import/**",
+      "tests/ai/test_work_import_brief.py",
+      "docs/specs/adr-053-work-import.md",
+      "docs/planning/adr-053-work-import-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:42:38.100681Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:42:38.100686Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2002,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-053 spec 2 (Bring in my work) issue #2002: the agent task brief. Transcribe docs/specs/adr-053-work-import.md 4.6 verbatim into brief_template.md, implement ImportSessionContext per checklist contract C2 and compose_brief with skipped-vs-unanswered rendering, and make three factual corrections to the spec outside 4.6 (FR-012 personal-library write path, #2003 staleness, wrong FR cross-references). Complete-delivery goal with no deferred tasks.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2002-feat-2002-work-import-brief",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100645Z",
+      "pattern": "src/scistudio/ai/work_import/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100666Z",
+      "pattern": "src/scistudio/ai/work_import/context.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100668Z",
+      "pattern": "src/scistudio/ai/work_import/brief.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100670Z",
+      "pattern": "src/scistudio/ai/work_import/brief_template.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100672Z",
+      "pattern": "tests/ai/test_work_import_brief.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100673Z",
+      "pattern": "docs/specs/adr-053-work-import.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:42:38.100674Z",
+      "pattern": "docs/planning/adr-053-work-import-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "96e8a5cb-7efe-450a-a4b2-0bc768cae82e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:42:38.100691Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_work_import_brief.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
