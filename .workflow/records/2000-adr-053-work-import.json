@@ -203,6 +203,14 @@
       "path": "docs/specs/adr-053-work-import.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T09:26:17.972370Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "comment-only change to three docstrings; no behaviour, contract, schema, or user-facing text changed, so no doc, changelog, spec, or ADR is affected. The reason is recorded in the commit message and in checklist section 13.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,

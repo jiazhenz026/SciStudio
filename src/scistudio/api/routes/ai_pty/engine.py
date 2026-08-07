@@ -85,7 +85,7 @@ def _open_prespawned_tab(
     """Validate, cap-check, spawn, stamp and register one server-side PTY.
 
     The single body behind every pre-spawned tab. Returns the fresh
-    ``tab_id`` the frontend later connects with.
+    ``tab_id`` the frontend then connects with.
 
     Steps (ADR-035 §3.10):
 

@@ -17,9 +17,9 @@ agent providers in the ADR-034 registry only ``claude-code`` is
 ``FLAG_FILE`` and can carry a hidden per-session prompt; ``codex``,
 ``kimi-code`` and both Qoder channels are ``AMBIENT`` and have no
 per-session channel at all. A file plus a one-line pointer is the only
-delivery that does not vary with that difference, and a provider added
-later needs nothing of this module beyond reading a file it is told to
-read (FR-029).
+delivery that does not vary with that difference, and a sixth provider
+needs nothing of this module beyond reading a file it is told to read
+(FR-029).
 
 **The one thing delivery still requires of a provider.** The pointer
 itself is a positional command-line argument, so a CLI that parses its
@@ -80,7 +80,7 @@ def _new_brief_filename() -> str:
     """Return a fresh, collision-proof brief filename (FR-030).
 
     Timestamp first so a directory listing reads chronologically — the
-    brief outlives its session precisely so it can be found later — and a
+    brief outlives its session precisely so it stays findable — and a
     random suffix so two sessions started in the same second still get
     distinct files.
     """
