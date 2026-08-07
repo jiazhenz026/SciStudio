@@ -370,3 +370,126 @@ trigger; it does not change the popover's content or the palette behavior above.
   overlap and both may be visible on hover.
 - **Graceful no-op.** When `data.summary` is absent (e.g. an unresolved
   custom/plugin block), no popover opens.
+
+## 11. Data Types Tab (ADR-053 §9.2 Amendment)
+
+The left panel gains a third tab, **Data types**, between Blocks and Project
+(ADR-053 FR-039). The label is `Data types` rather than `Types`, which is too
+abstract standing alone next to `Blocks`; the internal `leftTab` key stays
+`types`. `frontend/src/components/TypePalette.tsx` is the pane, with its
+`TypePalette.parts/` model, tile, and popover siblings.
+
+### 11.1 It Mirrors The Blocks Tab, Reusing Its Machinery
+
+The tab reuses §4.3's shared skeleton rather than restating it: `filterItems`
+and `buildSections<T>` build the sections, `PaletteTile` is the grid cell,
+`FilterChips` is the chip row, `useHoverPopover` is the hover state machine,
+and `DetailPopover` is the card. The type side supplies only its four
+callbacks — group, sort, haystack, facet — which is ADR-053 FR-047's claim that
+one skeleton fits both surfaces with no per-surface special-casing. Per
+ADR-053 §10.2 nothing block-side is reused (`derivePackage`, the io
+source/sink predicates, `CATEGORY_KEYS`, `portSignature` stay block concepts)
+and nothing type-side is generalised into the block model.
+
+Section order (FR-040): **Core** (pinned, never collapses) → **My Library** →
+**This Project** → **Packages**. My Library and This Project render even when
+empty, each carrying one line stating what the section is for, on the same
+terms as §4.2 — and, as there, the teaching copy is dropped while a filter is
+active. The FR-002 `custom` fallback files under This Project for the same
+reason it does on the Blocks tab.
+
+`TypeSummary` carries no package attribution — ADR-053 FR-026 lists name, base
+type, description, origin tier, file path, colours, and extensions — so
+package-tier types render in **one** `Packages` section rather than one section
+per distribution. Inferring a distribution name from `file_path` was rejected:
+it would produce a section title the backend never supplied, and one that could
+disagree with the Blocks tab's real `package_name` for the same distribution,
+which is the drift ADR-053 exists to remove. The section still sits where
+FR-040 puts packages, after both tier sections.
+
+The search input matches name, description, base type, **and** registered
+extensions, so typing `.csv` answers "which type do I get if I load a CSV?".
+The chip vocabulary is surface-owned (ADR-053 §10.1): the Blocks tab filters by
+base category, the Data types tab filters by the **core base family** a type
+descends from (`Array`, `DataFrame`, `Series`, …), resolved with the existing
+`resolveCoreBaseType`. Each chip is tinted with that family's own resolved
+colour, so the chip row doubles as a legend for the tile swatches.
+
+The tab reads the type catalogue directly rather than taking it as a prop
+(ADR-053 FR-027): opening it neither waits for nor re-triggers a blocks fetch,
+and its Reload re-fetches only types, blinking with the same `useReloadFlash`
+hook the Blocks tab and the project tree use.
+
+### 11.2 Tile And Popover
+
+Each tile is a `PaletteTile` carrying the **canvas port colour** — solid fill
+plus ring, with `border = ring ?? fill` — lifted verbatim from the port handles
+rather than restated, so a type reads identically in the palette and on a
+canvas port (ADR-053 FR-041). No new colour table is introduced. Type tiles are
+not draggable; click or keyboard activation opens the same detail card hovering
+does, anchored to the tile, so the card and the action inside it are reachable
+without a pointer.
+
+The popover is the §6 shared card composed with type content (testid
+`type-detail-popover`), carrying: name and swatch in the header; the immediate
+parent, plus the core base type when the two differ (FR-043 — `resolveCoreBaseType`
+returns `null` when the type already is a core base, so no redundant
+`Array (Array)` is rendered, and the row is omitted for `DataObject`, which has
+no parent); the docstring description; loadable-from and saveable-to extensions
+reported **separately**, an empty direction rendering as an em dash so a
+save-only type reads as save-only (FR-055), or one explicit
+`No file formats registered` line when the type has neither (FR-056); and the
+origin tier. The `actions` slot (testid `palette-popover-actions`, §6.1) is
+where **Promote to My Library** mounts, exactly as on the block card.
+
+### 11.3 Canvas Port Colour Changes Source (ADR-053 FR-066, FR-067)
+
+Canvas port and edge colour previously resolved entirely frontend-side, with
+`type_hierarchy` supplying `base_type`. A type can now declare its own colour,
+and that declaration arrives on the types listing — which becomes the **single
+source of type colour** for the product. `type_hierarchy` keeps serving type
+hierarchy and stops being a colour transport; its long-dead `ui_ring_color`
+field stays dead and is no longer read, because two supply points for one fact
+are the drift being removed.
+
+Resolution precedence, identical for palette tiles and canvas ports (FR-051):
+
+1. the colour the type declared, from the types listing,
+2. the existing `typeColorMap` entry — directly or via `base_type`,
+3. the `hashTypeName` fallback.
+
+An undeclared type therefore resolves byte-identically to before. A malformed
+declaration is warned once and falls through to the next level (FR-052); the
+warning is de-duplicated because ports re-resolve colour on every render.
+
+Colour and block data used to arrive in one response and so could never
+disagree or arrive out of order; they are now two. The window between them is
+handled by not having one: the declared-colour lookup is `undefined` until a
+complete listing lands, the resolvers read `undefined` exactly as they read
+"declares nothing", and ports render the pre-ADR-053 colour meanwhile. Nothing
+re-layouts when the listing arrives — colour is paint-only, port Y comes from
+`portRailOffset` — and for a type that declares nothing the two answers are the
+same string, so there is nothing to see. That is FR-067, and it is covered by
+`components/__tests__/typeColorSource.test.tsx`, which renders a palette tile
+and a canvas port together and asserts they agree before and after the listing
+lands.
+
+### 11.4 Test Plan
+
+Pure model rules live in `TypePalette.parts/typeModel.ts` and are covered by
+`TypePalette.parts/__tests__/typeModel.test.ts`: origin-tier grouping including
+the `custom` fallback, section order, both tier empty states and their
+suppression under a filter, search across name/description/base/extensions,
+chip composition, family resolution, the parent chain, and the separate
+load/save extension rows including the no-formats case.
+
+Component behaviour is covered by `components/__tests__/TypePalette.test.tsx`:
+the panel title and tab structure, tier sections and teaching copy, search and
+chip filtering, tile colour under the precedence, every popover row, popover
+interactivity across the tile→card gap, self-fetching, and Reload.
+
+Cross-surface colour behaviour is covered by
+`components/__tests__/typeColorSource.test.tsx` (FR-066 parity, the FR-067
+loading window and its no-flash / no-re-layout assertions, FR-052 fall-through)
+and by `config/__tests__/typeColorMap.test.ts` for the pure precedence,
+normalisation, and warning de-duplication.

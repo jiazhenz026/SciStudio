@@ -47,6 +47,7 @@ governs:
   files:
     - docs/specs/adr-053-personal-tool-library.md
     - src/scistudio/api/routes/types.py
+    - frontend/src/components/TypePalette.tsx
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -54,8 +55,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/components/TypePalette.tsx
+  files: []
   excludes: []
 tests:
   - tests/api/test_block_origin_tiers.py

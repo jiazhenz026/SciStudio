@@ -97,6 +97,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#2025][#2024] The left panel gains a third tab, **Data types**, and the
+  canvas starts reading type colour from the same place it does. Until now the
+  data types a workflow is built from had no surface at all: you could see the
+  blocks you owned but not the types they exchange, and a type's colour existed
+  only as a hand-written frontend table plus a hash of its name. The new tab
+  mirrors the Blocks tab — search, filter chips, and tier sections ordered
+  `Core (pinned) → My Library → This Project → Packages`, with both tier
+  sections rendering even when empty so the personal library teaches itself in
+  the same moment on both tabs. It reuses the shared palette machinery rather
+  than growing a parallel one, and it fetches types independently, so opening it
+  neither waits for nor re-triggers a blocks request and its Reload refreshes
+  only types. Search matches a type's registered extensions as well as its name
+  and description, so typing `.csv` answers "which type do I get if I load a
+  CSV?", and the chips filter by the core base family a type descends from.
+  Hovering a tile opens the same interactive card the Blocks tab uses, carrying
+  the type's parent — annotated with its core base when the two differ, so
+  `SRSImage` reads `Image (Array)` and `Image` never reads `Array (Array)` — its
+  description, its loadable-from and saveable-to extensions **reported
+  separately** so a type saveable to a format it cannot be loaded from reads as
+  exactly that, or one explicit `No file formats registered` line when it has
+  neither, and which tier it came from. Underneath, canvas port and edge colour
+  change source: a type's *declared* colour now comes from the types listing
+  rather than from `type_hierarchy`, which carries no fill colour at all and
+  would otherwise have shown a declaring type in its own colour in the palette
+  and a hashed one on the canvas. Precedence is declared colour → the existing
+  colour table → the hash fallback, applied identically on both surfaces, so a
+  type that declares nothing looks exactly as it did before, and a malformed
+  hex in a hand-edited type file is warned once and ignored rather than
+  breaking either surface. Colour and block data used to arrive together and
+  now arrive as two responses; the window between them is handled by ports
+  keeping their existing colour until a complete listing lands, so nothing
+  flashes and no port moves when it does. Tests:
+  `frontend/src/components/__tests__/TypePalette.test.tsx`,
+  `frontend/src/components/__tests__/typeColorSource.test.tsx`,
+  `frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts`,
+  `frontend/src/config/__tests__/typeColorMap.test.ts`. (@claude, 2026-08-07,
+  branch: feat/2025-data-types-tab-and-canvas-colour)
+
 - [#2023][#2024] A data type can now say how it looks and what files it reads,
   and there is an endpoint that answers both. Type information used to reach the
   frontend only as `type_hierarchy` riding on the block *schema* response, so

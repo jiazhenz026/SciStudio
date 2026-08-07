@@ -234,7 +234,73 @@ export interface TypeHierarchyEntry {
   name: string;
   base_type: string;
   description: string;
+  /**
+   * Mirrors `TypeHierarchyEntry.ui_ring_color` on the backend schema, which
+   * nothing has ever populated (ADR-053 spec §2.8). ADR-053 FR-066 leaves it
+   * dead rather than reviving it — declared type colour travels on
+   * `TypeSummary` from `GET /api/types/`, and `type_hierarchy` keeps serving
+   * `base_type` lookups only. Kept here because the backend field still
+   * exists; not read by any colour resolution.
+   */
   ui_ring_color?: string | null;
+}
+
+/**
+ * ADR-053 FR-005 — the tier a registered data type came from.
+ *
+ * Same vocabulary as `BlockOrigin` with `core` in place of `builtin`, because
+ * the two surfaces share one backend resolver. `custom` is the fallback for a
+ * drop-in whose file path resolves under neither tier root.
+ */
+export type TypeOrigin = "core" | "user" | "project" | "package" | "custom";
+
+/**
+ * One registered `DataObject` type, as `GET /api/types/` reports it
+ * (ADR-053 FR-026).
+ *
+ * Deliberately not an extension of `TypeHierarchyEntry`: FR-027 makes the
+ * types listing independent of the block listing, so the Data types tab
+ * neither waits for nor re-triggers a palette fetch.
+ */
+export interface TypeSummary {
+  name: string;
+  /** Immediate parent type name; `""` for `DataObject` itself. */
+  base_type: string;
+  /** First line of the class docstring; may be `""`. */
+  description: string;
+  origin: TypeOrigin;
+  /** Absolute path of the defining file, or null when unresolvable. */
+  file_path: string | null;
+  /**
+   * ADR-053 FR-049/FR-050 — the fill the type declared, already validated and
+   * normalised to long-form `#rrggbb` / `#rrggbbaa` by the registry (FR-052).
+   * `null` means the type declared nothing, and the rest of the FR-051
+   * precedence applies.
+   */
+  ui_color: string | null;
+  /** As `ui_color`, for the ring. `null` derives the ring from the fill. */
+  ui_ring_color: string | null;
+  /**
+   * ADR-053 FR-054 – FR-056 — always present, possibly empty. Load and save
+   * are reported separately (FR-055) because a type readable from a format it
+   * cannot be written back to is a real asymmetry; empty means "no format
+   * capability registered for this direction", which the popover states
+   * outright (FR-056).
+   */
+  load_extensions: string[];
+  save_extensions: string[];
+}
+
+/** Response body of `GET /api/types/` — sorted by `name` ascending. */
+export interface TypeListResponse {
+  types: TypeSummary[];
+}
+
+/** Response body of `GET /api/types/template` (ADR-053 FR-028). */
+export interface TypeTemplateResponse {
+  kind: string;
+  content: string;
+  suggested_filename: string;
 }
 
 /**

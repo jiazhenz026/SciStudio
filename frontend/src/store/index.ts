@@ -12,6 +12,7 @@ import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
 import { createTutorialSlice } from "./tutorialSlice";
+import { createTypesSlice } from "./typesSlice";
 import type { AppStore, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
@@ -69,6 +70,8 @@ export const useAppStore = create<AppStore>()(
       ...createUISlice(...args),
       ...createPreviewSlice(...args),
       ...createPaletteSlice(...args),
+      // ADR-053 §7 — registered data type catalogue (FR-026 / FR-027).
+      ...createTypesSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
       // ADR-038 §3.8 — Lineage tab state.
