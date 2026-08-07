@@ -1,0 +1,92 @@
+{
+  "branch": "track/adr-053-work-import",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-053-work-import-checklist.md",
+      "docs/planning/adr-053-work-import-dispatch-prompts.md",
+      "docs/audit/2026-08-07-adr-053-work-import-*.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-07T05:34:46.203012Z",
+      "owner_directive": "Complete delivery of ADR-053 spec 2 with no deferred tasks; four implementation agents plus two audits; one final reviewable PR.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:34:46.203037Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:34:46.203045Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2000,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2001,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2002,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manage the full implementation of ADR-053 spec 2 (docs/specs/adr-053-work-import.md, 'Bring in my work'): dispatch implementation and audit agents and produce one reviewable final PR.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2000-adr-053-work-import",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "8cdbb4c4-f0d1-4d2d-b502-1ba1c6ae678f",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:34:46.203053Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager-owned coordination artifacts only; implementation tests land with the dispatched tracks (tests/api/test_agent_availability.py, tests/ai/test_work_import_brief.py, tests/api/test_work_import_session.py, frontend dialog and toolbar tests)",
+      "verified_in_diff": null
+    }
+  ]
+}
