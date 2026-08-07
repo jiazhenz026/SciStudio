@@ -1,0 +1,137 @@
+{
+  "branch": "track/adr-053-spec1-personal-tool-library",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-07T05:39:13.847934Z",
+      "owner_directive": "Two-PR delivery: PR A = #2020/#2021/#2009/#2022 runtime defects; PR B = #1995/#1996/#2023/#2024/#2025/#2026 feature, stacked on PR A. Owner decisions: OQ-1 reject colliding type filename; admin-approved:core-change authorized for PR B; #2009 folded into PR A.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:39:13.847968Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1995,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1996,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2009,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2020,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2021,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2022,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2023,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2024,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2025,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2026,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager: deliver ADR-053 Spec 1 (personal tool library) in full via dispatched agents; two reviewable PRs (A=runtime defects #2020/#2021/#2009/#2022, B=feature #1995/#1996/#2023/#2024/#2025/#2026), stacked B on A; no deferred scope. Owner decisions: OQ-1=reject colliding type filename with error; admin-approved:core-change authorized for PR B; #2009 folded into PR A.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1995-adr-053-spec1-personal-tool-library",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:39:13.847954Z",
+      "pattern": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:39:13.847960Z",
+      "pattern": "docs/planning/adr-053-spec1-dispatch-prompts/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4f08a2fe-e4d4-4a6b-86c7-91c06eb4914b",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:39:13.847981Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager coordination slice \u2014 checklist and dispatch prompts only; implementation tests land in the dispatched agent slices (tests/api/test_registry_provisioning_parity.py, tests/api/test_registry_reload_symmetry.py, tests/blocks/test_dropin_type_import.py, tests/api/test_block_origin_tiers.py, tests/api/test_user_library_write.py, tests/api/test_types_routes.py and the frontend suites)",
+      "verified_in_diff": null
+    }
+  ]
+}
