@@ -39,6 +39,7 @@ governs:
   files:
     - docs/specs/adr-053-work-import.md
     - docs/adr/ADR-053.md
+    - frontend/src/components/BringInMyWorkDialog.tsx
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -46,8 +47,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/components/BringInMyWorkDialog.tsx
+  files: []
   excludes: []
 tests:
   - tests/api/test_agent_availability.py

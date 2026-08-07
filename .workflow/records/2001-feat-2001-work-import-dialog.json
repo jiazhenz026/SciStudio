@@ -1,0 +1,182 @@
+{
+  "branch": "feat/2001-work-import-dialog",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/BringInMyWorkDialog*",
+      "frontend/src/components/Toolbar*",
+      "frontend/src/store/**",
+      "frontend/src/lib/api/workImport.ts",
+      "frontend/src/components/AIChat/**",
+      "docs/planning/adr-053-work-import-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:45:39.123871Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:39.123881Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/specs/adr-053-work-import.md is the contract for this surface and needs no amendment to implement it (checklist 11.1); the only permitted spec edits in this dispatch are owned by A2.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T06:22:20.532762Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2001,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-053 spec 2 (Bring in my work) in full; A4 owns the toolbar entry and the framing dialog. Complete-delivery goal with no deferred tasks.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2001-feat-2001-work-import-dialog",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123827Z",
+      "pattern": "frontend/src/components/BringInMyWorkDialog.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123848Z",
+      "pattern": "frontend/src/components/BringInMyWorkDialog.parts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123851Z",
+      "pattern": "frontend/src/components/Toolbar.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123852Z",
+      "pattern": "frontend/src/components/Toolbar.parts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123854Z",
+      "pattern": "frontend/src/store/terminalTabsSlice.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123856Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123857Z",
+      "pattern": "frontend/src/store/uiSlice.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123859Z",
+      "pattern": "frontend/src/lib/api/workImport.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123860Z",
+      "pattern": "frontend/src/components/__tests__/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123862Z",
+      "pattern": "frontend/src/store/__tests__/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:45:39.123863Z",
+      "pattern": "docs/planning/adr-053-work-import-checklist.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:22:20.532640Z",
+      "pattern": "docs/specs/adr-053-work-import.md",
+      "reason": "Scope expanded by one frontmatter migration in docs/specs/adr-053-work-import.md, under the manager's directive to fix any unsatisfied gate obligation other than python_tests. Creating frontend/src/components/BringInMyWorkDialog.tsx makes the spec's planned_governs.files entry resolve, which full_audit raises as doc-drift.planned-file-is-resolved and closure.planned-file-is-resolved at ERROR severity, blocking every commit in this worktree. The edit is exactly the ADR-042 lifecycle step the audit names: move that one path from planned_governs.files to governs.files and leave planned_governs.files empty. No FR text, no body prose, and nothing in section 4.6 is touched, so it cannot conflict with A2's assigned spec corrections. full_audit now passes with status=pass and zero errors across all nine children. Flagged to the manager for review since docs/specs/** was out of A4's original write set."
+    }
+  ],
+  "session_id": "3e511d29-6800-41ba-8569-ff3d65282993",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:45:39.123887Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:39.123891Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:39.123893Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/workImport.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:39.123894Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/terminalTabsSlice.workImport.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

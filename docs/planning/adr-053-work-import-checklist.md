@@ -527,23 +527,80 @@ whole report so a wedged child cannot hold the response.
 
 ### 11.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
-- [ ] Audit mode recorded when persona is `audit_reviewer`. -> `N/A`
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded.
+      -> `docs/planning/adr-053-work-import-dispatch-prompts.md` §A4
+- [x] Correct prompt template selected.
+      -> `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+- [x] Audit mode recorded when persona is `audit_reviewer`. -> `N/A`
+- [x] Agent branch/worktree assigned.
+      -> `feat/2001-work-import-dialog` in `C:/Users/jiazh/workspace/SciStudio-wt-wi-a4`
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
 
 ### 11.3 Implementation
 
-- [ ] Toolbar entry and enablement -> `<artifact>`
-- [ ] Dialog page one incl. caveat -> `<artifact>`
-- [ ] No-codebase mode -> `<artifact>`
-- [ ] The four questions -> `<artifact>`
-- [ ] Availability guidance -> `<artifact>`
-- [ ] Session start and tab attach -> `<artifact>`
-- [ ] Frontend tests -> `<artifact>`
+- [x] Toolbar entry and enablement (FR-001, FR-002)
+      -> `frontend/src/components/Toolbar.tsx`; permanently rendered for both
+      tab kinds, disabled without an open project. Verified by
+      `frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx`.
+- [x] Dialog page one incl. caveat (FR-003 – FR-012, FR-037, FR-038)
+      -> `frontend/src/components/BringInMyWorkDialog.tsx`,
+      `BringInMyWorkDialog.parts/{SourceAndDestination,CorrectnessCaveat,copy}.tsx|ts`.
+      The caveat renders inline, always expanded, immediately above the start
+      action, in both modes.
+- [x] No-codebase mode (FR-009, FR-010, FR-017)
+      -> `BringInMyWorkDialog.parts/formState.ts` (`sourceFieldDisabled`,
+      `workflowDescriptionRequired`). Source field and browse control disable;
+      destination, presets, provider and permission mode stay in effect;
+      question 2 becomes required with longer prompt wording.
+- [x] The four questions (FR-013 – FR-021)
+      -> `BringInMyWorkDialog.parts/{copy.ts,DataKindsQuestion.tsx,FreeTextQuestion.tsx}`.
+      Presets are grouped into "How the data is arranged" and "What the data
+      is"; skipped answers reach the request in `skipped[]` with a `null` value
+      rather than being omitted.
+- [x] Availability guidance (FR-005, FR-031, FR-034, FR-035)
+      -> `BringInMyWorkDialog.parts/{AvailabilityGuidance.tsx,availability.ts,useAgentAvailability.ts}`.
+      One guidance block per non-ready state; the start action is absent when no
+      provider is `ready`; `call_failed` reports its cause and its copy contains
+      no "install" at all; a hanging probe is capped at 10 s and degrades to a
+      reported state.
+- [x] Session start and tab attach (FR-022, FR-025, FR-044; contract C3, §7.4)
+      -> `frontend/src/lib/api/workImport.ts`,
+      `frontend/src/store/{terminalTabsSlice,types,uiSlice}.ts`. `POST
+      /api/work-import/sessions`, then `addWorkImportTerminalTab` adds the
+      returned `tab_id` in `running` state with `source: "user"`, which mounts
+      `TerminalView` and joins `WS /api/ai/pty/{tab_id}`. Permission mode is
+      mapped `dangerous -> bypass` at the request boundary and back on the
+      response.
+- [x] Request validation against A2's `ImportSessionContext` rules
+      -> `frontend/src/lib/api/workImport.ts` (`validateWorkImportRequest`).
+      Enforced in the dialog before submit and again inside
+      `startWorkImportSession`, so a body the endpoint would reject never
+      leaves: non-blank `provider`; backend permission-mode spelling; exactly
+      one of `source_location` / `has_no_codebase`; `skipped` restricted to the
+      three question keys with no duplicates; no question both skipped and
+      answered; blank answers sent as skipped.
+- [x] Frontend tests
+      -> `npm --prefix frontend test -- BringInMyWorkDialog Toolbar workImport`
+      — 5 files, 80 tests, all passing. Full suite: 122 files / 1200 tests
+      passing. `npm --prefix frontend run lint` 0 errors,
+      `npm --prefix frontend run typecheck` clean, `npm --prefix frontend run build` clean.
+- [x] Spec frontmatter migration (ADR-042 lifecycle, forced by this track)
+      -> `docs/specs/adr-053-work-import.md`: once
+      `frontend/src/components/BringInMyWorkDialog.tsx` exists, the spec's
+      `planned_governs.files` entry resolves and `full_audit` raises
+      `doc-drift.planned-file-is-resolved` / `closure.planned-file-is-resolved`
+      at ERROR severity, blocking every commit. The path moved to
+      `governs.files`; `planned_governs.files` is now empty. Frontmatter only —
+      no FR text, no body prose, nothing in §4.6. Recorded as a gate-ledger
+      amendment. **Manager review requested**: `docs/specs/**` was outside A4's
+      original write set.
+- [!] Integration dependency — `frontend/src/lib/api/agentAvailability.ts`
+      (contract C1, owned by `A1`) does not exist on this branch, so this
+      branch alone does not typecheck in CI. The dialog consumes C1 through the
+      single seam `BringInMyWorkDialog.parts/useAgentAvailability.ts`. Resolved
+      when A1's module lands on `track/adr-053-work-import`.
 
 ### 11.4 Audit
 
