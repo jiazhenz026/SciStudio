@@ -12,6 +12,13 @@ interface ProjectDialogProps {
   description: string;
   path: string;
   recentProjects: ProjectResponse[];
+  /**
+   * #2019: a create/open is in flight. Both calls rebind a lot of server-side
+   * state, so submitting twice would race two project switches against each
+   * other — and "Create project" gives no feedback of its own, which made
+   * re-clicking the natural response to a slow (or hung) request.
+   */
+  busy?: boolean;
   onClose: () => void;
   onChange: (patch: Partial<{ name: string; description: string; path: string }>) => void;
   onSubmit: () => void;
@@ -26,6 +33,7 @@ export function ProjectDialog({
   description,
   path,
   recentProjects,
+  busy = false,
   onClose,
   onChange,
   onSubmit,
@@ -53,6 +61,7 @@ export function ProjectDialog({
   }
 
   function handleSubmit() {
+    if (busy) return;
     if (mode === "new" && !path.trim()) {
       setPathError("Parent directory is required");
       return;
@@ -122,11 +131,13 @@ export function ProjectDialog({
             Cancel
           </button>
           <button
-            className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-stone-50 transition hover:bg-pine"
+            className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-stone-50 transition hover:bg-pine disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="project-dialog-submit"
+            disabled={busy}
             onClick={handleSubmit}
             type="button"
           >
-            {mode === "new" ? "Create project" : "Open project"}
+            {busy ? "Working…" : mode === "new" ? "Create project" : "Open project"}
           </button>
         </div>
       </div>
