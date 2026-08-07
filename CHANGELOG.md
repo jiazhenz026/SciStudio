@@ -363,6 +363,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/ai/test_mcp_tools_library.py`, `tests/api/test_block_origin_tiers.py`.
   (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
 
+- [#2024] The FR-066 dead-field guard can now fail. ADR-053 rejected supplying
+  type colour from a second place, so `TypeHierarchyEntry.ui_ring_color` on the
+  block schema response stays `None` while the types listing carries the
+  declared value. The test written to stop that decision being quietly reversed
+  ran against a fixture whose only registered types are the six core bases, and
+  none of those declares a colour — so the field was already `None` for reasons
+  that had nothing to do with the contract, and reintroducing the rejected
+  design would have left the test green. It now registers a type that really
+  does declare `ui_color` and `ui_ring_color`, asserts the listing carries them,
+  and only then asserts the hierarchy entry for that same type is still `None`.
+  Verified by reintroducing the rejected line: the new guard fails, the old one
+  passes. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-1). Tests:
+  `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt
   from five places — the branch-switch route and the four package

@@ -57,6 +57,7 @@ class {class_name}(DataObject):
     """{description}"""
 
     ui_color: ClassVar[str | None] = {ui_color}
+    ui_ring_color: ClassVar[str | None] = {ui_ring_color}
 '''
 
 
@@ -69,7 +70,14 @@ class _Spec:
         self.is_dropin = is_dropin
 
 
-def _write_type(directory: Path, stem: str, *, ui_color: str | None = None, description: str = "A probe type.") -> Path:
+def _write_type(
+    directory: Path,
+    stem: str,
+    *,
+    ui_color: str | None = None,
+    ui_ring_color: str | None = None,
+    description: str = "A probe type.",
+) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / f"{stem}.py"
     target.write_text(
@@ -77,6 +85,7 @@ def _write_type(directory: Path, stem: str, *, ui_color: str | None = None, desc
             class_name=stem.title().replace("_", ""),
             description=description,
             ui_color=repr(ui_color) if ui_color is not None else "None",
+            ui_ring_color=repr(ui_ring_color) if ui_ring_color is not None else "None",
         ),
         encoding="utf-8",
     )
@@ -285,20 +294,45 @@ def test_the_data_types_tab_needs_no_block_request(
     assert "IndependentProbe" in _types(client)
 
 
-def test_type_hierarchy_still_carries_its_dead_colour_field(client: TestClient) -> None:
+def test_type_hierarchy_still_carries_its_dead_colour_field(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
     """``TypeHierarchyEntry.ui_ring_color`` stays unpopulated (FR-066).
 
     The cheap alternative to a types endpoint was to start populating this
     field. It was rejected: it would make type colour arrive from two places
     that have to be kept in step by hand. ``type_hierarchy`` keeps serving
-    hierarchy, so this assertion is what stops the rejected design from being
-    reintroduced by someone who finds the field and assumes it was an oversight.
+    hierarchy, and the declared colour arrives only on the types listing.
+
+    The guard has to **register a type that declares a ring colour**, because
+    that is the only shape in which the rejected design is observable. An
+    earlier version of this test asserted the same thing against the shared
+    ``client`` fixture, whose only registered types are the six core bases —
+    none of which declares a colour — so a reintroduced
+    ``ui_ring_color=entry.ui_ring_color`` would have left the field ``None``
+    and the test would have passed anyway
+    (``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` P2-1). The listing
+    assertions below are the precondition that makes the hierarchy assertion
+    mean something: the same type, in the same request cycle, really does carry
+    a declared ring colour somewhere.
     """
+    _write_type(opened_project / "types", "ring_probe", ui_color="#112233", ui_ring_color="#445566")
+    runtime.refresh_all_registries()
+
+    listed = _types(client)["RingProbe"]
+    assert listed["ui_color"] == "#112233"
+    assert listed["ui_ring_color"] == "#445566", "precondition: FR-050's supply point carries the declaration"
+
     response = client.get("/api/blocks/load_data/schema")
     assert response.status_code == 200, response.text
-    hierarchy = response.json()["type_hierarchy"]
+    hierarchy = {entry["name"]: entry for entry in response.json()["type_hierarchy"]}
     assert hierarchy, "the block schema must still carry type_hierarchy"
-    assert all(entry["ui_ring_color"] is None for entry in hierarchy)
+    assert "RingProbe" in hierarchy, "precondition: the declaring type reaches the hierarchy"
+
+    assert hierarchy["RingProbe"]["ui_ring_color"] is None
+    assert all(entry["ui_ring_color"] is None for entry in hierarchy.values())
 
 
 # ---------------------------------------------------------------------------
