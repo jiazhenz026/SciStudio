@@ -414,23 +414,53 @@ Spec §2.5 was reproduced independently by the audit: `False` before at `b485e29
 - [x] `B6` **type package attribution, closing the one partial requirement in this track** -> commit `52d47616`. FR-040's per-package A→Z split now works. `TypeSpec.package_root` records which distribution's discovery hook delivered the class; the route looks that root up in the map the block registry already maintains. Agreement with `BlockSummary.package_name` is **structural** — one string read once, not two derivations kept in step. Pinned by an end-to-end parity test that builds a real source package shipping one block and one type and scans both through real discovery machinery.
 
 **B6's honest residual, recorded rather than smoothed over.** No discovery tier can make the two tabs *contradict* each other; what remains is *incompleteness*. A package whose `PackageInfo.name` is a display string (`"SRS Imaging"`) is blanked by the existing `routes/blocks.py` filter, so its types report `null` and stay lumped while the Blocks tab titles its section from a frontend display heuristic types have no equivalent of. Reproducing that heuristic backend-side would be inventing a name — the thing B4 and the manager both refused. A distribution shipping types but no blocks likewise reports `null`, with no Blocks section to disagree with. In every case the lumped `Packages` section still renders and no type is dropped.
-- [ ] `B5` promotion action shared across E1/E2/E5, copy-not-move, collision prompt, hidden rules (FR-017 – FR-020, FR-025) -> `<commit>`
-- [ ] `B5` cascade promotion with AST dependency detection (FR-021 – FR-024) -> `<commit>`
-- [ ] `B5` New data type + new-file destination choice E4 (FR-029 – FR-033) -> `<commit>`
-- [ ] Docs: `docs/specs/frontend-block-palette.md` + CHANGELOG -> `<commit>`
+- [x] `B5` promotion action shared across E1/E2/E5, copy-not-move, collision prompt, hidden rules (FR-017 – FR-020, FR-025) -> commit `11871bef`. Manager grepped it; AUDIT-B proved it more strongly: four render sites -> one `PromoteToLibraryAction` -> one `runPromotion` -> one `promoteToUserLibrary`, pinned by a test that mocks `runPromotion` and shows all three surfaces hit the same mock.
+- [x] `B5` **FR-019 subtlety neither the spec nor the manager anticipated** -> the popovers pass `actions` only when the item is promotable. `DetailPopover` renders its hairline on truthiness and a JSX element is always truthy, so a component returning `null` would have left an empty ruled strip under every built-in tile, which is not "hidden". Covered by `it.each` over built-in / packaged / already-in-library asserting `palette-popover-actions` is absent.
+- [x] `B5` cascade promotion with AST dependency detection (FR-021 – FR-024) -> commit `11871bef`. Parses statically from source the app already holds; classification is **not** re-derived client-side but read from `TypeSummary.origin`, which the backend filled with the FR-003 resolver, so no backend endpoint was needed. Second-level dependencies are reported and the one-level stop is proven by test.
+- [x] `B5` New data type + new-file destination choice E4 (FR-029 – FR-033) -> commit `11871bef`. One `createDropinFile` flow; tests assert identical call sequences and the **same validator function object**.
+- [x] Docs: `docs/specs/frontend-block-palette.md` + CHANGELOG -> across B3, B4, B5, B6
+- [x] **Integration conflict only integration could catch** -> B6 made `TypeSummary.package_name` required while B5's promotion fixture was written against the pre-B6 shape. Both branches were green alone; the merge failed typecheck. Fixed by the manager at `327ae238`.
 
 ### 8.4 Audit
 
-- [ ] `AUDIT-B` assigned (`with-context`).
-- [ ] `AUDIT-SEC` assigned (`no-context`) for the write path and `sys.path` widening.
-- [ ] Audit report paths assigned:
-      `docs/audit/2026-08-07-adr-053-spec1-track-b.md`,
-      `docs/audit/2026-08-07-adr-053-spec1-write-path.md`
-- [ ] Audit reports committed.
-- [ ] Audit reports merged into PR B evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] `AUDIT-B` assigned (`with-context`) -> commit `c2b41907`. **Recommendation: pass-with-fixes, 0 P1, 2 P2, 6 P3.**
+- [x] `AUDIT-SEC` assigned (`no-context`) for the write path and `sys.path` widening.
+- [x] Audit report paths assigned and committed.
+- [~] Audit reports merged into PR B evidence path.
+- [x] Findings recorded below.
+- [x] No P1 findings in AUDIT-B.
+- [~] P2/P3 findings -> dispatched to `B-FIX` on `fix/1996-track-b-audit-findings`
+
+#### AUDIT-B findings
+
+| ID | Sev | Finding | Disposition |
+|---|---|---|---|
+| P2-1 | P2 | **The FR-066 dead-field guard cannot fail.** `test_type_hierarchy_still_carries_its_dead_colour_field` uses a fixture whose only registered types are the six core bases, none declaring a colour, so a reintroduced `ui_ring_color=entry.ui_ring_color` would leave the field `None` and the test would still pass. Its docstring, `CHANGELOG.md` and this checklist all claimed otherwise. | `B-FIX`: register a type that declares a colour, and verify the new test fails when the field is populated |
+| P2-2 | P2 | **The MCP promotion tool applies a second, narrower origin rule, which is the exact FR-003 divergence the requirement exists to prevent, already realised rather than merely risked.** E1/E2/E5 hide promotion unless the resolved origin is `project`; E3 (`tools_library.py:167`) tests `source.parent == library_root`, so a `custom`-origin block is hidden by the three frontend entry points and **accepted by the agent**. Refusal-for-refusal parity is claimed in a docstring, in CHANGELOG and in this checklist, and is false as written. Root cause is layering: `resolve_origin` lives in `scistudio.api._block_source` and the import-linter contract "AI must not depend on api" forbids the AI layer from importing it. | `B-FIX`: move the resolver to a layer both `api` and `ai` can import, the same lesson as `core/dropins.py`, and add a parity test covering the whole vocabulary including `custom` |
+| P3 x6 | P3 | Assorted. | `B-FIX` |
+
+#### The six claims AUDIT-B re-verified independently
+
+All upheld: FR-025 single implementation, proved more strongly than the manager's grep;
+FR-019 on the resolved origin with the user-library trap explicitly pinned; FR-067 with a
+**non-vacuous** no-re-layout test that also asserts the declaring port changed; FR-051
+undeclared-type resolution byte-identical, the only deletion being the provably never
+populated `ui_ring_color` branch; FR-066 nothing populates the field, though the guard is
+weak (P2-1); and B6's package parity as structurally one string, its residual confirmed to be
+incompleteness rather than contradiction.
+
+Both manager-accepted scope additions were judged **accept**, and AUDIT-B supplied a reason
+the manager had not: passing `NodeActionToolbar` a *node* rather than an `onPromote` callback
+is correct precisely because a callback would have put a second copy of the FR-019 decision
+in `BlockNode`.
+
+Also confirmed: cascade genuinely writes dependencies rather than warning; no tips strip;
+**zero** new `TODO(` in the range and B3's `TODO(#2025)` gone; every source change carries
+test changes; seven ledgers clean of absolute paths, usernames and transcripts.
+
+Not done, stated rather than glossed: no browser smoke check (no browser on this host),
+Sentrux unavailable, and two symlink tests skip because this host forbids symlink creation.
+The directory-junction escape case does run, and passes.
 
 ### 8.5 Integration
 
