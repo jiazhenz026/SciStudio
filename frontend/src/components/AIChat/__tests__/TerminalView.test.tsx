@@ -474,25 +474,45 @@ describe("TerminalView", () => {
       expect(ws.sent).not.toContain(STDIN_INTERRUPT);
     });
 
-    it("Ctrl+V writes the clipboard text to the PTY stdin", async () => {
-      installClipboard({
-        writeText: vi.fn(),
-        readText: vi.fn().mockResolvedValue("import numpy as np\n"),
-      });
-      const { ws } = await mountRunningTerminal();
+    it("claims Ctrl+V without cancelling the browser's native paste", async () => {
+      // The bug this replaces: the old handler called preventDefault and then
+      // read the clipboard itself. preventDefault kills the browser's paste —
+      // the ONE path that needs no permission — and readText() rejects with
+      // NotAllowedError until `clipboard-read` is granted, so nothing pasted.
+      //
+      // Returning false stops xterm encoding \x16; NOT calling preventDefault
+      // lets the browser paste, which xterm converts to PTY input. That
+      // delivery is pinned against the real xterm in xtermPasteContract.test.ts
+      // — a mock cannot prove it, which is exactly how the bug shipped.
+      const readText = vi.fn().mockResolvedValue("import numpy as np\n");
+      installClipboard({ writeText: vi.fn(), readText });
+      await mountRunningTerminal();
 
       const { ev, preventDefault } = keyEvent("v");
       expect(xtermState.keyHandler!(ev)).toBe(false);
-      expect(preventDefault).toHaveBeenCalled();
-
-      await waitFor(() =>
-        expect(ws.sent).toContain(JSON.stringify({ type: "stdin", data: "import numpy as np\n" })),
-      );
-      // A successful paste is its own feedback; no toast.
+      expect(preventDefault).not.toHaveBeenCalled();
+      // And it does not touch the Clipboard API at all, so a denied
+      // `clipboard-read` permission cannot break Ctrl+V.
+      expect(readText).not.toHaveBeenCalled();
       expect(screen.queryByTestId("terminal-clipboard-hint-t1")).toBeNull();
     });
 
-    it("reports a denied clipboard permission instead of failing silently", async () => {
+    it("Ctrl+V still works when clipboard reads are denied", async () => {
+      // The owner's actual environment: readText() exists but rejects.
+      installClipboard({
+        writeText: vi.fn(),
+        readText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+      });
+      await mountRunningTerminal();
+
+      const { ev, preventDefault } = keyEvent("v");
+      expect(xtermState.keyHandler!(ev)).toBe(false);
+      expect(preventDefault).not.toHaveBeenCalled();
+      // No error toast: nothing failed, because nothing was read.
+      expect(screen.queryByTestId("terminal-clipboard-hint-t1")).toBeNull();
+    });
+
+    it("reports a denied clipboard permission on copy instead of failing silently", async () => {
       installClipboard({
         writeText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
         readText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
@@ -506,11 +526,25 @@ describe("TerminalView", () => {
           "permission denied",
         ),
       );
+      expect(ws.sent.some((f) => f.includes('"stdin"'))).toBe(false);
+    });
 
-      xtermState.keyHandler!(keyEvent("v").ev);
+    it("points the user at Ctrl+V when menu Paste is denied", async () => {
+      // Right-click Paste has no browser paste gesture behind it, so it can
+      // only use the Clipboard API. When that is denied the hint must be
+      // actionable rather than a dead end — Ctrl+V still works.
+      installClipboard({
+        writeText: vi.fn(),
+        readText: vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+      });
+      const { ws } = await mountRunningTerminal();
+
+      fireEvent.contextMenu(screen.getByTestId("terminal-view-t1"));
+      fireEvent.click(screen.getByTestId("terminal-context-paste-t1"));
+
       await waitFor(() =>
         expect(screen.getByTestId("terminal-clipboard-hint-t1")).toHaveTextContent(
-          "could not paste",
+          "press Ctrl+V to paste instead",
         ),
       );
       expect(ws.sent.some((f) => f.includes('"stdin"'))).toBe(false);
@@ -529,15 +563,15 @@ describe("TerminalView", () => {
       );
     });
 
-    it("stands aside on Ctrl+V when the page cannot read the clipboard", async () => {
-      // Firefox exposes readText() to extensions only; insecure origins expose
-      // no Clipboard API at all. There the browser's native paste is the only
-      // working path, so we must not claim the key or preventDefault it.
-      installClipboard({ writeText: vi.fn() });
+    it("claims Ctrl+V even where the Clipboard API is absent entirely", async () => {
+      // Firefox exposes readText() to extensions only; an insecure origin has
+      // no Clipboard API at all. Ctrl+V must behave identically in all three
+      // cases, because it no longer depends on the API.
+      installClipboard(null);
       await mountRunningTerminal();
 
       const { ev, preventDefault } = keyEvent("v");
-      expect(xtermState.keyHandler!(ev)).toBe(true);
+      expect(xtermState.keyHandler!(ev)).toBe(false);
       expect(preventDefault).not.toHaveBeenCalled();
       expect(screen.queryByTestId("terminal-clipboard-hint-t1")).toBeNull();
     });

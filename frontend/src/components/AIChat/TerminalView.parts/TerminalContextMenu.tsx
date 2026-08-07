@@ -13,8 +13,16 @@
  * Dismissal: Escape, any pointer-down outside the menu, or picking an item.
  * The outside-click listener runs on the capture phase so it still fires when
  * the click lands on xterm's own textarea, which stops propagation.
+ *
+ * Edge handling: the frame is `overflow-hidden`, so a menu opened near an edge
+ * used to be clipped away entirely and became unclickable. After mount we
+ * measure it and flip it to the other side of the cursor on either axis (see
+ * resolveMenuPlacement). Measuring happens in useLayoutEffect, before paint, so
+ * the corrected position is the first one the user sees — no visible jump.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { resolveMenuPlacement } from "./menuPlacement";
 
 export interface TerminalContextMenuProps {
   /** Owning terminal tab; used for stable test ids. */
@@ -42,6 +50,25 @@ export function TerminalContextMenu({
   onClose,
 }: TerminalContextMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [placement, setPlacement] = useState<{ left: number; top: number }>({ left: x, top: y });
+
+  // Measure and correct before paint. offsetParent is the `relative` terminal
+  // frame the menu is absolutely positioned inside, which is the box the menu
+  // must stay within; fall back to the viewport if the layout ever changes.
+  useLayoutEffect(() => {
+    const node = menuRef.current;
+    if (!node) return;
+    const frame = node.offsetParent as HTMLElement | null;
+    const { left, top } = resolveMenuPlacement({
+      x,
+      y,
+      menuWidth: node.offsetWidth,
+      menuHeight: node.offsetHeight,
+      frameWidth: frame?.clientWidth ?? window.innerWidth,
+      frameHeight: frame?.clientHeight ?? window.innerHeight,
+    });
+    setPlacement({ left, top });
+  }, [x, y]);
 
   useEffect(() => {
     const onPointerDown = (ev: MouseEvent) => {
@@ -70,7 +97,7 @@ export function TerminalContextMenu({
       aria-label="Terminal actions"
       data-testid={`terminal-context-menu-${tabId}`}
       className="absolute z-50 min-w-[8rem] overflow-hidden rounded-lg border border-white/10 bg-[#252526] py-1 shadow-lg"
-      style={{ left: x, top: y }}
+      style={{ left: placement.left, top: placement.top }}
     >
       <button
         type="button"
