@@ -26,6 +26,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
+from scistudio.api.routes.ai_pty import engine as _engine
 from scistudio.api.routes.ai_pty.validation import _validate_project_dir
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,12 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     if existing_pty is not None:
         pty = existing_pty
+        # The handoff completed: this tab is now owned by this WebSocket and
+        # is reclaimed by the teardown below, so the orphan reaper must leave
+        # it alone. Stamped on join rather than inferred, because "in
+        # ``_active_ptys`` and pre-spawned" cannot tell a live joined tab from
+        # one whose WebSocket never arrived.
+        pty._engine_joined = True  # type: ignore[attr-defined]
         # #1789: the server pre-spawns this PTY before any WS connects, so it was
         # sized at the default 120x30 — not the frontend's real viewport. Without
         # correcting it on join, the agent TUI keeps drawing at 120x30 while xterm
@@ -104,6 +111,11 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
             pty.resize(cols=initial_cols, rows=initial_rows)
     else:
         # ---- Resource cap --------------------------------------------------
+        # Reclaim orphaned pre-spawned tabs before counting. Their handoff
+        # never completed, so nothing else will ever remove them, and without
+        # this a user-launched chat could be refused for a cap that is full of
+        # dead entries.
+        _engine.reclaim_orphaned_prespawned_tabs()
         async with _pkg._active_lock:
             if len(_pkg._active_ptys) >= _pkg.MAX_ACTIVE_PTYS:
                 # Note: send + close while still holding the lock would

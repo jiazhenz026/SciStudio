@@ -42,10 +42,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
 import uuid
 from pathlib import Path
 
 from scistudio.ai.agent.providers_registry import agent_keys
+from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
 
@@ -70,6 +73,71 @@ def get_block_run_id_for_tab(tab_id: str) -> str | None:
     addressed by tab_id into a CANCEL_BLOCK_REQUEST keyed by block_run_id.
     """
     return _pkg._engine_tab_to_run.get(tab_id)
+
+
+#: How long a pre-spawned PTY may sit unjoined before it is treated as
+#: orphaned. The frontend connects its WebSocket immediately after the
+#: spawning call returns, so this is orders of magnitude above the real
+#: handoff time; it is sized to never reap a slow-but-live handoff rather
+#: than to reclaim promptly.
+PRESPAWN_JOIN_GRACE_SECONDS = 120.0
+
+
+def reclaim_orphaned_prespawned_tabs(*, grace_seconds: float | None = None) -> int:
+    """Kill and deregister pre-spawned PTYs whose WebSocket never arrived.
+
+    A pre-spawned tab is a two-step handoff: something spawns the agent
+    and returns a ``tab_id``, then the frontend connects
+    ``WS /api/ai/pty/{tab_id}`` to join it. Only the WebSocket handler's
+    teardown removes an entry from ``_active_ptys`` and kills the
+    process, so a handoff that never completes — the user closes the
+    dialog, the tab navigates away, the WebSocket fails to open, the
+    client raises before connecting — leaves a live agent process
+    holding a cap slot for the lifetime of the server. Enough of them
+    and ``MAX_ACTIVE_PTYS`` is exhausted, at which point *every* agent
+    chat is refused until a restart.
+
+    Bring In My Work made that reachable in ordinary use: its handoff
+    starts from a plain HTTP POST behind a dialog the user can dismiss
+    at any moment, where the AI Block's is driven by a workflow run.
+
+    Reaping is on-demand rather than on a timer: this runs at the two
+    points where a slot is about to be needed, so a server that is not
+    spawning anything does no work and one that is cannot be blocked by
+    a dead entry. An entry is orphaned only when it was pre-spawned,
+    was never joined, and has outlived *grace_seconds*; a joined tab is
+    owned by its WebSocket and reclaimed by that route's teardown.
+
+    Returns the number of tabs reclaimed.
+    """
+    grace = PRESPAWN_JOIN_GRACE_SECONDS if grace_seconds is None else grace_seconds
+    now = time.monotonic()
+    orphans: list[tuple[str, PtyProcess]] = []
+    for tab_id, pty in list(_pkg._active_ptys.items()):
+        if not getattr(pty, "_engine_prespawned", False):
+            continue
+        if getattr(pty, "_engine_joined", False):
+            continue
+        spawned_at = getattr(pty, "_engine_prespawned_at", None)
+        if spawned_at is None or now - spawned_at < grace:
+            continue
+        orphans.append((tab_id, pty))
+
+    for tab_id, pty in orphans:
+        _pkg._active_ptys.pop(tab_id, None)
+        run_id = _pkg._engine_tab_to_run.pop(tab_id, None)
+        if run_id is not None:
+            _pkg._engine_run_to_run_dir.pop(run_id, None)
+        # Same teardown the WebSocket route uses, on a daemon thread so a
+        # wedged child cannot block the caller that is trying to spawn.
+        threading.Thread(target=pty.kill_tree, daemon=True).start()
+        logger.info(
+            "reclaimed orphaned pre-spawned PTY tab_id=%s after %.0fs unjoined",
+            tab_id,
+            now - getattr(pty, "_engine_prespawned_at", now),
+        )
+
+    return len(orphans)
 
 
 def _open_prespawned_tab(
@@ -134,6 +202,11 @@ def _open_prespawned_tab(
     if provider not in accepted:
         raise RuntimeError(f"pre-spawned PTY tab: unknown provider {provider!r}; expected one of {sorted(accepted)}")
 
+    # Reclaim first: an orphan from an earlier handoff that never happened
+    # holds a slot it will never use, and without this a run of failed
+    # handoffs would exhaust the cap and refuse a request that is fine.
+    reclaim_orphaned_prespawned_tabs()
+
     # Cap check — same limit as the user-launched route; plain dict access
     # is safe because we are not on the asyncio loop here.
     if len(_pkg._active_ptys) >= _pkg.MAX_ACTIVE_PTYS:
@@ -151,6 +224,9 @@ def _open_prespawned_tab(
     # for its tab_id must join rather than spawn. Stamped for every
     # pre-spawned tab, AI Block or not.
     pty._engine_prespawned = True  # type: ignore[attr-defined]
+    # When it was pre-spawned, so an orphan can be told from a live tab.
+    # Cleared in practice by ``pty_endpoint`` stamping ``_engine_joined``.
+    pty._engine_prespawned_at = time.monotonic()  # type: ignore[attr-defined]
     if block_run_id is not None:
         # AI-Block-only metadata. The prompt was delivered as a spawn
         # argument above, so there is nothing left to replay over stdin.

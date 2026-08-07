@@ -211,6 +211,22 @@
       "path": null,
       "rationale": "comment-only change to three docstrings; no behaviour, contract, schema, or user-facing text changed, so no doc, changelog, spec, or ADR is affected. The reason is recorded in the commit message and in checklist section 13.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T22:34:09.014647Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T22:34:09.014663Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -914,6 +930,14 @@
       "kind": "na",
       "path": null,
       "rationale": "integration commits carry the tracks' own tests; the manager adds no production code",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T22:34:09.014667Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]

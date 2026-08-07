@@ -45,6 +45,7 @@ from scistudio.api.routes.ai_pty import (
     _active_ptys,
     _engine_run_to_run_dir,
     _engine_tab_to_run,
+    engine,
     get_block_run_id_for_tab,
 )
 from scistudio.core.versioning.git_binary import GitBinary
@@ -871,3 +872,125 @@ def test_an_unmarked_registered_pty_is_never_joined(
             stray.kill_tree()
 
     assert len(spawn.calls) == 1, "an unmarked PTY must not be joined"
+
+
+def _age_prespawn(tab_id: str, seconds: float) -> None:
+    """Backdate a pre-spawned tab's stamp so the reaper will consider it.
+
+    Real time is not worth waiting out for a 120 s grace, and freezing the
+    clock would hide whether the reaper reads the stamp at all.
+    """
+    pty = _active_ptys[tab_id]
+    pty._engine_prespawned_at -= seconds  # type: ignore[attr-defined]
+
+
+def _mark_joined(tab_id: str) -> None:
+    """Stamp what ``pty_endpoint``'s join branch stamps on a completed handoff."""
+    _active_ptys[tab_id]._engine_joined = True  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Orphan reclamation — a handoff that never completes must not hold a slot
+# ---------------------------------------------------------------------------
+
+
+def test_a_session_whose_websocket_never_arrives_is_reclaimed(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """A pre-spawned tab nobody joins is killed and deregistered.
+
+    Only ``pty_endpoint``'s teardown pops ``_active_ptys``, so a handoff
+    that never completes — the user dismisses the dialog, the tab
+    navigates away, the WebSocket fails to open — would otherwise leave a
+    live agent holding a cap slot for the lifetime of the server.
+    """
+    _body, data = _start(client, opened_project)
+    tab_id = data["tab_id"]
+    assert tab_id in _active_ptys
+
+    # Nothing joined it, and it is older than the grace period.
+    _age_prespawn(tab_id, engine.PRESPAWN_JOIN_GRACE_SECONDS + 1)
+
+    assert engine.reclaim_orphaned_prespawned_tabs() == 1
+    assert tab_id not in _active_ptys
+
+
+def test_a_joined_session_is_never_reclaimed(client: TestClient, opened_project: Path, spawn: _SpawnRecorder) -> None:
+    """A live tab is owned by its WebSocket, however long it has been open.
+
+    Reaping on age alone would kill the sessions this feature exists to
+    produce: a Bring In My Work session is long — the user talks to it
+    while the agent reads a codebase and writes blocks.
+    """
+    _body, data = _start(client, opened_project)
+    tab_id = data["tab_id"]
+
+    # The join branch of ``pty_endpoint`` stamps this.
+    _mark_joined(tab_id)
+    _age_prespawn(tab_id, engine.PRESPAWN_JOIN_GRACE_SECONDS * 100)
+
+    assert engine.reclaim_orphaned_prespawned_tabs() == 0
+    assert tab_id in _active_ptys
+
+
+def test_a_recent_unjoined_session_is_left_alone(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """The window between the POST returning and the WebSocket connecting.
+
+    Reclaiming inside it would kill the session the caller is in the
+    middle of handing over, which is worse than the leak it prevents.
+    """
+    _body, data = _start(client, opened_project)
+    assert engine.reclaim_orphaned_prespawned_tabs() == 0
+    assert data["tab_id"] in _active_ptys
+
+
+def test_orphans_do_not_permanently_consume_the_cap(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The failure mode this reclamation exists for.
+
+    Repeated failed handoffs used to fill ``MAX_ACTIVE_PTYS`` and refuse
+    every agent chat until a restart. A later session must succeed.
+    """
+    monkeypatch.setattr(ai_pty._state, "MAX_ACTIVE_PTYS", 2)
+
+    first = _start(client, opened_project)[1]["tab_id"]
+    second = _start(client, opened_project)[1]["tab_id"]
+    assert len(_active_ptys) == 2
+
+    # Both handoffs failed: nobody ever connected, and the grace has passed.
+    for tab_id in (first, second):
+        _age_prespawn(tab_id, engine.PRESPAWN_JOIN_GRACE_SECONDS + 1)
+
+    # Before the fix this raised the cap error instead of starting.
+    third = _start(client, opened_project)[1]["tab_id"]
+    assert third in _active_ptys
+    assert first not in _active_ptys
+    assert second not in _active_ptys
+
+
+def test_reclaiming_an_ai_block_orphan_clears_its_run_maps(opened_project: Path, spawn: _SpawnRecorder) -> None:
+    """An AI Block orphan must not leave a stale block_run_id pointer.
+
+    ``pty_endpoint``'s teardown clears both maps; the reaper is the other
+    path that removes a tab, so it owes the same cleanup.
+    """
+    tab_id = engine.open_engine_initiated_tab(
+        title="AI Block",
+        provider="claude-code",
+        cwd=str(opened_project),
+        initial_stdin="do the thing",
+        block_run_id="run-42",
+        permission_mode="safe",
+        run_dir_path=str(opened_project),
+    )
+    assert _engine_tab_to_run[tab_id] == "run-42"
+
+    _age_prespawn(tab_id, engine.PRESPAWN_JOIN_GRACE_SECONDS + 1)
+    assert engine.reclaim_orphaned_prespawned_tabs() == 1
+
+    assert tab_id not in _active_ptys
+    assert tab_id not in _engine_tab_to_run
+    assert "run-42" not in _engine_run_to_run_dir

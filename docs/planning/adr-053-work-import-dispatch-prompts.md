@@ -149,12 +149,17 @@ Known deferred items:
 
 - `PYTHONPATH=./src python -m pytest tests/api/test_agent_availability.py -q`
 - `npm --prefix frontend test -- agentAvailability`
-- `python -m scistudio.qa.governance.gate_record check --mode pre-pr` to run
-  tier-selected CI-equivalent checks and reconcile the gate ledger before PR
-  creation
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr --base origin/track/adr-053-work-import --head HEAD`
+  to run tier-selected CI-equivalent checks and reconcile the gate ledger
+  before PR creation. **Pass `--base` explicitly.** These are stacked branches:
+  `resolve_default_base()` falls back to `origin/main` when neither `--base`
+  nor `SCISTUDIO_GATE_BASE` is set, which pulls the umbrella's own commits
+  into your observed diff and fails `scope.out-of-scope` on files you never
+  touched. `export SCISTUDIO_GATE_BASE=origin/track/adr-053-work-import` also
+  covers the pre-commit and commit-msg hooks, which take no `--base`
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2000"` before PR creation
-- `python scripts/scistudio_pr_create.py` for the PR (do not use `gh pr create`
-  directly), targeting track/adr-053-work-import
+- `python scripts/scistudio_pr_create.py --base track/adr-053-work-import` for
+  the PR (do not use `gh pr create` directly)
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` after the PR is created
 - Sentrux: record MCP availability or the CLI fallback in your ledger.
 
@@ -329,15 +334,18 @@ Known deferred items:
    renders with its own text, its examples, and its preset options, so the agent
    reads answers in the context they were given; a skipped question renders as
    explicitly skipped rather than omitted; both destination tiers render their
-   own guidance; every context field reaches the output.
+   own guidance; every context field **that §4.6 gives a substitution point**
+   reaches the output. Do **not** assert that `provider` and `permission_mode`
+   appear in the brief: §4.6 has no placeholder for either, FR-026 forbids
+   adding one, and FR-044 sends both to the spawn rather than the brief. They
+   ride on the context for the endpoint's use only.
 
 ## Required Tests And Checks
 
 - `PYTHONPATH=./src python -m pytest tests/ai/test_work_import_brief.py -q`
 - `python -m scistudio.qa.governance.gate_record check --mode pre-pr`
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2002"` before PR creation
-- `python scripts/scistudio_pr_create.py` for the PR, targeting
-  track/adr-053-work-import
+- `python scripts/scistudio_pr_create.py --base track/adr-053-work-import` for the PR
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` after the PR is created
 - Docs: your spec edit is a docs change; record it with
   `gate_record amend --docs-updated docs/specs/adr-053-work-import.md`.
@@ -523,8 +531,7 @@ Known deferred items:
   you did not regress the frozen route
 - `python -m scistudio.qa.governance.gate_record check --mode pre-pr`
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2001"` before PR creation
-- `python scripts/scistudio_pr_create.py` for the PR, targeting
-  track/adr-053-work-import
+- `python scripts/scistudio_pr_create.py --base track/adr-053-work-import` for the PR
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` after the PR is created
 - Sentrux: record MCP availability or the CLI fallback in your ledger.
 
@@ -736,8 +743,7 @@ Known deferred items:
 - `npm --prefix frontend run lint` and the repository's type check
 - `python -m scistudio.qa.governance.gate_record check --mode pre-pr`
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2001"` before PR creation
-- `python scripts/scistudio_pr_create.py` for the PR, targeting
-  track/adr-053-work-import
+- `python scripts/scistudio_pr_create.py --base track/adr-053-work-import` for the PR
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>` after the PR is created
 - A frontend smoke check of the toolbar entry and the dialog in both modes.
 - Sentrux: record MCP availability or the CLI fallback in your ledger.
@@ -905,18 +911,123 @@ Stop and report back if:
 
 ## AU2 — Audit No Context
 
-The no-context prompt is filled from
-`docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
-and deliberately carries no issue number, no checklist reference, no PR claim,
-no commit message, and no manager summary. It is recorded here by reference
-only, so this file does not become a context leak into that audit. The manager
-holds the filled text and dispatches it directly.
+Recorded verbatim so a reviewer can verify what the no-context audit was
+actually told. Committing it leaks nothing into that audit: the prompt is
+context-free by construction, and the audit has already run.
 
 - Audit mode: `no-context`
 - Audit branch: `audit/2001-work-import-no-context`
 - Audit worktree: `C:/Users/jiazh/workspace/SciStudio-wt-wi-au2`
 - Audit report path: `docs/audit/2026-08-07-adr-053-work-import-no-context.md`
-- Surfaces named to the agent: the work-import feature surface reachable from
-  the toolbar, the availability endpoint, the brief composition module, and
-  their tests — described by path, without claims about what they are supposed
-  to do beyond the committed specs the agent reads itself.
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-no-context]
+
+You are an independent audit reviewer. Work ONLY in your worktree. **Do not write feature code.**
+
+## Persona and mode
+
+- Persona: `audit_reviewer`
+- Audit mode: **no-context**
+- Branch under review: `track/adr-053-work-import` (also your PR base)
+- Audit report path: `docs/audit/2026-08-07-adr-053-work-import-no-context.md`
+
+## What no-context means here — read carefully
+
+You are deliberately **not** being told what the implementing agents claimed, what any
+planning checklist asserts, what the commit messages argue, or what any manager concluded.
+Those are the artefacts most likely to make you agree with a wrong answer.
+
+**You MUST NOT read, and MUST NOT let into your reasoning:**
+
+- `docs/planning/adr-053-work-import-checklist.md` and
+  `docs/planning/adr-053-work-import-dispatch-prompts.md`
+- any GitHub issue or pull request body or comment
+- `git log` commit messages on this branch, and `.workflow/records/**` gate ledgers
+- `docs/audit/2026-08-07-adr-053-work-import-with-context.md`, if it appears
+
+**You MAY and SHOULD use:** the committed source code, the committed tests, the committed
+specifications and ADRs under `docs/`, generated facts under `docs/audit/latest/`, and any
+tool output you run yourself.
+
+Read the diff as `git diff origin/main...HEAD -- <paths>` so you see the change without
+reading its commit messages.
+
+## What you are auditing
+
+A feature that lets a user bring existing work into SciStudio through a guided agent
+session. Its surfaces, by path:
+
+- `src/scistudio/ai/agent/availability.py` and the endpoints in `src/scistudio/api/routes/ai.py`
+- `src/scistudio/ai/work_import/**`
+- `src/scistudio/api/routes/work_import.py`, and the changes to `src/scistudio/api/routes/ai_pty/**`
+- `frontend/src/components/BringInMyWorkDialog*`, `frontend/src/components/Toolbar*`,
+  `frontend/src/store/**`, `frontend/src/lib/api/agentAvailability.ts`,
+  `frontend/src/lib/api/workImport.ts`
+- `tests/api/test_agent_availability.py`, `tests/ai/test_work_import_brief.py`,
+  `tests/api/test_work_import_session.py`, and the frontend tests beside those components
+
+The governing documents are `docs/specs/adr-053-work-import.md` and `docs/adr/ADR-053.md`.
+Read them yourself and form your own view of what they require. Note that the spec itself
+was modified in this change — judge whether each modification is *correct*, not merely
+whether it was made.
+
+## Your job
+
+Independently determine whether the implementation does what the committed specification
+says it should, and whether the tests would actually catch it if it did not.
+
+Questions worth answering, though do not treat this as an exhaustive list — find what is
+actually wrong:
+
+1. Does every functional requirement in the spec have an implementation **and** a test that
+   would fail if the implementation were wrong? Report each requirement you cannot trace to
+   both.
+2. Are there tests that assert something weaker than the requirement they claim to cover? A
+   test asserting a file exists after a spawn does not establish that it existed *before* the
+   spawn.
+3. The spec requires a body of instruction text to be reproduced verbatim from one of its own
+   sections. Verify byte-identity yourself.
+4. The spec requires distinguishing states that a presence check cannot distinguish. Does the
+   implementation actually make the distinction the spec demands, or does it approximate it?
+5. Does any user-facing copy tell a user to do something that would not fix their problem?
+6. One pre-existing route is marked frozen by an ADR. Determine which, whether it changed, and
+   whether any observable behaviour of it differs.
+7. Are the specification's own edits internally consistent with the rest of the specification
+   and with the code?
+8. Is there any error path that returns a 500 where a 4xx is correct, or that loses information
+   the caller needs?
+9. Does anything in the change create a file, endpoint, or write path that the specification
+   says should not exist?
+
+## Coordination
+
+- MUST work only on your assigned audit branch and worktree. MUST NOT `pip install -e .`.
+- MUST NOT merge any PR. MUST NOT fix implementation code.
+- Write **only** the audit report file.
+- Commit the report and push your branch. **Do not open a PR.**
+
+## Checks to run
+
+Run the test suites named above and the repository's own audit tooling, and report what you
+observe. If some tests fail, determine for yourself whether the failures relate to this change
+by reproducing them at `origin/main` — do not assume either way.
+
+## Output Required
+
+- Audit report path and the commit containing it.
+- Findings ordered by severity: **P1** blocks merge or breaks a contract; **P2** should fix;
+  **P3** improvement.
+- Each finding with file:line and the evidence you gathered yourself.
+- Requirements you could not trace to an implementation, a test, or both.
+- **Recommendation: pass, pass-with-fixes, or block.**
+
+## Stop Conditions
+
+Stop and report if you need to change implementation code, if required evidence is
+unavailable, or if the audit scope conflicts with AGENTS.md, an ADR, or a spec.
+```
+
+The operating-environment preamble each agent also received — worktree root, absolute
+`PYTHONPATH`, the Windows commit trap, `SCISTUDIO_GATE_BASE` — is identical across
+dispatches and is recorded in checklist §2.2 and §3.1.
