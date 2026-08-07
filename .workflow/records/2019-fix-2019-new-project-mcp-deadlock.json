@@ -117,15 +117,151 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-08-07T05:18:59.490741Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:46a86e4d225a390fa2b85d8ab221e184d19fba41cc1e5603301196db15d76d34",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:19:44.008678Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:28398ea21a977a24f29baa69fc01815d26f21a9122599a81fb1d59ecde79426b",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:19:52.442206Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dcb38e3894078d0dba4028d9ab04caf08fef41a0aa05fe36b196c1066339a434",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:19:52.677857Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8293230205f57dad8b66b41190172a2cd25b160d78ae8a0fb51e8b584835c106",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:19:52.713096Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d5d9220e429803eeff5ffd1267751d0f7fb8a2716086999aafa270c512e78663",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:21:49.648766Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5abe0739ba615e59d931f6f5aba0e2dc4e1aece1a56bcb4c0808f68ff0b4df62",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:23:00.923396Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8729d82ee90c4b284d74e98150ec5a8556dd3087b86a5d862e12fc45070eb118",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:23:09.863561Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:def196c9a163a1f22c7742af3d4e233f47ef8172b4eaf022c22f39f44f73edf4",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [
     {
       "name": "format_check",
       "rationale": "Gate parity venv installs an unpinned ruff that disagrees with CI (tracked by open issue #1981). It flags 54 pre-existing files (markdown code blocks under src/scistudio/_user_guide/** and others) that this branch does not touch; the repo-pinned ruff 0.15.15 reports the clean baseline and every file in this diff as already formatted. Owner directed proceeding; CI runs its own pinned ruff and is authoritative."
+    },
+    {
+      "name": "python_tests",
+      "rationale": "12 failures on this Windows workstation (provider_discovery, codex_config, terminal_post_rc, install, gate_record_hooks, filesystem_browse, mcp_transport_publish). Verified pre-existing: with src/scistudio/ai/agent/mcp/server.py reverted to origin/main, the same 12 fail identically. They need POSIX shells (/bin/sh, zsh, bash), the codex CLI, and unix-domain sockets, none of which exist on this box; the mcp_transport_publish pair asserts a .scistudio/mcp.sock that the Windows TCP transport never creates. 5309 passed. CI runs on Linux and is authoritative."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "89c103c2c000bb64e2bf5452e6386349a2f32236",
+    "shas": [
+      "89c103c2c000bb64e2bf5452e6386349a2f32236"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -417,6 +553,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.361465Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.374855Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.389217Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.403812Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.416939Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.430611Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.444396Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.458254Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.471749Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:18:48.488840Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.913690Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.927780Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.943104Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.958160Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.972390Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:09.986971Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:10.003108Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:10.017828Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:10.031937Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:23:10.051222Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -431,26 +731,47 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "b485e293",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/2019-fix-2019-new-project-mcp-deadlock.json",
+      "CHANGELOG.md",
+      "frontend/src/App.busyIndicator.test.tsx",
+      "frontend/src/App.parts/AppDialogs.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/components/ProjectDialog.test.tsx",
+      "frontend/src/components/ProjectDialog.tsx",
+      "frontend/src/lib/api.ts",
+      "frontend/src/lib/api/__tests__/timeout.test.ts",
+      "frontend/src/lib/api/core.ts",
+      "frontend/src/lib/api/projects.ts",
+      "src/scistudio/ai/agent/mcp/server.py",
+      "tests/ai/test_mcp_server_stop.py"
+    ],
+    "diff_fingerprint": "sha256:7255ba2136f92bb5e71edd4df2e026dfa99496ee0680ccce21124923fb487297",
     "head": "HEAD",
-    "head_sha": "6579d9ce",
+    "head_sha": "89c103c2",
     "surfaces": {
       "docs": 0,
-      "frontend": 0,
+      "frontend": 9,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 10,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 11,
+      "test": 4,
       "workflow_ci": 0
     }
   },
   "owner_directive": "Fix two things together in a live session: (1) the bottom-right Working indicator must always render on top of everything, at any time; (2) investigate why creating a New project freezes the app when a project is already open.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2019
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T05:07:25.784049Z",
@@ -492,6 +813,34 @@
       "unsatisfied": [
         "checks.format_check"
       ]
+    },
+    {
+      "at": "2026-08-07T05:18:48.488872Z",
+      "diff_fingerprint": "sha256:7255ba2136f92bb5e71edd4df2e026dfa99496ee0680ccce21124923fb487297",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "checks.type_check"
+      ]
+    },
+    {
+      "at": "2026-08-07T05:23:10.051258Z",
+      "diff_fingerprint": "sha256:7255ba2136f92bb5e71edd4df2e026dfa99496ee0680ccce21124923fb487297",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2019-fix-2019-new-project-mcp-deadlock",
@@ -500,10 +849,17 @@
     "admin_labels": [],
     "checks": [
       "format_check",
+      "frontend",
       "full_audit",
-      "lint_format"
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -516,7 +872,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
