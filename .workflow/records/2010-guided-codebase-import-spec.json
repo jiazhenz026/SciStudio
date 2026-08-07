@@ -126,6 +126,36 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T02:35:47.793791Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7eaea36482ebb52f32eb1574e1e13526883ee1dd419c7d603c99627d7eda372f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T02:37:00.385038Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6b3702c5b21fdbc30ae9f912ffd6cc10dd56e33c1d41175c4ec35809d9d6b95a",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -147,6 +177,11 @@
       "at": "2026-08-07T02:11:33.653857Z",
       "owner_directive": "Users may have no codebase at all \u2014 pure spreadsheet or GUI-software workflows. Add an 'I have no codebase' option to the source choice, make the workflow-description question required in that mode, and generalise the whole feature so people who do not process data with code can use it. Name the entry 'Bring in my work'.",
       "reason": "Owner generalised the feature to users with no codebase and renamed it"
+    },
+    {
+      "at": "2026-08-07T02:35:37.801296Z",
+      "owner_directive": "Verification is over-specified. Keep it flexible: if the codebase has data, the agent tells the user it will verify with it; if not, it asks whether the user can supply some; with no codebase it asks the same. Also, a MATLAB codebase should be transcribed to Python rather than declared out of scope \u2014 say 'other languages' without enumerating them.",
+      "reason": "Owner simplified verification to a flexible agent-led flow and put cross-language transcription in scope"
     }
   ],
   "docs_events": [
@@ -534,6 +569,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.421397Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.435479Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.449227Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.463178Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.477511Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.491780Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.505592Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.519829Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.534558Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:37:00.552406Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -547,15 +664,15 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "6579d9ce",
+    "base_sha": "b877f38c",
     "changed_files": [
       ".workflow/records/2010-guided-codebase-import-spec.json",
       "docs/adr/ADR-053.md",
       "docs/specs/adr-053-work-import.md"
     ],
-    "diff_fingerprint": "sha256:13a14f75f3ca429dc592129b428a6fde2bef693a274339f7e7359fdd84c4be24",
+    "diff_fingerprint": "sha256:0ba30319b750314d9aad3c2ae5204775da51492a69b638b2f3427c3911badceb",
     "head": "HEAD",
-    "head_sha": "052292c5",
+    "head_sha": "9332abad",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -610,6 +727,14 @@
     {
       "at": "2026-08-07T02:22:20.610415Z",
       "diff_fingerprint": "sha256:13a14f75f3ca429dc592129b428a6fde2bef693a274339f7e7359fdd84c4be24",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T02:37:00.552448Z",
+      "diff_fingerprint": "sha256:0ba30319b750314d9aad3c2ae5204775da51492a69b638b2f3427c3911badceb",
       "mode": "local",
       "result": "pass",
       "tier": 2,

@@ -19,6 +19,7 @@ scope:
     - A toolbar entry labelled "Bring in my work", enabled when a project is open and disabled otherwise.
     - A dialog collecting the source location, destination tier, and four framing answers before the session starts.
     - Support for users with no codebase at all - spreadsheet and GUI-software workflows - as a first-class path rather than a degraded one.
+    - Transcribing from other languages into SciStudio's Python blocks, with the added uncertainty that carries surfaced to the user.
     - Spawning a chat session preloaded with a system prompt composed from the source location and those answers, reusing the agent block's session mechanism.
     - The system prompt's instruction set - what the agent is told to do, ask, write, and report - including how verification differs with and without an original implementation.
     - The caveat copy shown in the import surface stating that the agent can make mistakes, that a check is requested, that equivalence is not guaranteed, and that the user must review the result.
@@ -123,8 +124,8 @@ in that repository.
    written a block, **then** it asks the user for input data and for the expected
    result before reporting the block as done.
 4. **Given** the agent has run its check, **when** it reports the outcome,
-   **then** the report states that the block was compared against the original
-   implementation.
+   **then** the report states what the block was checked against — the original
+   run on real data, the user's stated expectation, or neither.
 
 ### User Story 2 - A scientist with no code carries their workflow across (Priority: P1)
 
@@ -150,9 +151,8 @@ user's description alone.
    skip the workflow-description question, **then** the dialog requires an answer
    before the session can start.
 3. **Given** a no-codebase session is running, **when** the agent verifies a
-   block, **then** it asks for input data and the expected result, and its report
-   states that the block produces the result the user specified rather than
-   claiming a comparison against an original.
+   block, **then** it asks whether the user can provide data and what the right
+   answer looks like, and its report claims only what it actually checked.
 
 ### User Story 3 - A user without a working agent learns exactly what to do (Priority: P2)
 
@@ -216,8 +216,10 @@ bypassable before the session starts.
   project and fail in every other. The prompt must prevent it (FR-013).
 - **A provider probe hangs or the binary exists but does not respond.** Treated as
   a reported state, never as a stuck dialog (FR-031).
-- **The user has a codebase but it is in a language SciStudio cannot host.** Out
-  of scope for this spec; the agent reports what it can and cannot do.
+- **The user's codebase is in another language.** Transcription across languages
+  is in scope (FR-044). Whether the original can be executed for comparison
+  depends on what is installed, which is one of the things FR-040 leaves to the
+  agent to work out with the user.
 
 ## 3. Requirements
 
@@ -463,26 +465,35 @@ debugging are already provisioned into every project and loaded on demand.
 Restating them here would both waste prompt budget and create a second source of
 truth that drifts from the skills when they change.
 
-**FR-040.** The prompt MUST instruct the agent differently depending on whether a
-source location was given. With a codebase there is an original implementation to
-run, so step 5 is a genuine comparison: same input through the old code and the
-new block. With no codebase there is nothing to run — the only reference is what
-the user says the answer should be. The agent MUST ask for input data and the
-expected result and assert against that, and MUST NOT describe the outcome as a
-comparison against the original.
+**FR-040.** The prompt MUST instruct the agent to find something to verify
+against, flexibly rather than by a fixed rule. If the codebase contains data it
+can use, it tells the user it intends to verify with that data. If it finds none,
+it asks whether the user can provide some. With no codebase it asks the same
+question. The user may decline, and the agent proceeds and says so.
 
-**FR-041.** The prompt MUST make the agent state which of the two it did. "This
-matches your original script on the data you gave me" and "this produces the
-result you told me to expect" are different claims with different strength, and a
-user who cannot tell them apart cannot calibrate how much to trust the block.
+**FR-041.** However the check was done, the prompt MUST make the agent state what
+it was checked against. "This matches your original script on the data you gave
+me", "this produces the result you told me to expect", and "I could not run the
+original, so I only checked that the logic reads the same" are three claims of
+very different strength, and a user who cannot tell them apart cannot calibrate
+how much to trust the block. Reading the original and concluding the logic
+matches is not verification and MUST NOT be reported as though it were.
 
 **FR-042.** Checks MUST be saved inside the project directory. Their value is that
 they can be rerun by hand later, which requires the user to be able to find them.
 
-**FR-043.** In no-codebase mode the caveat in FR-033 is more load-bearing, not
-less. There is no original implementation to disagree with, so the only check on
-the agent's understanding is the user's own review. The caveat copy MUST NOT be
-weakened or hidden in this mode on the grounds that no transcription took place.
+**FR-043.** With no codebase the caveat in FR-033 is more load-bearing, not less.
+There is no original implementation to disagree with, so the only check on the
+agent's understanding is the user's own review. The caveat copy MUST NOT be
+weakened or hidden in that case on the grounds that no transcription took place.
+
+**FR-044.** Transcription from other languages into Python blocks is in scope.
+The prompt MUST require the agent to say when it has translated across languages
+and to flag the constructs where the translation could plausibly differ in
+meaning rather than only in syntax. Cross-language mistakes tend to be semantic —
+index bases, default axis conventions, integer division — and they produce code
+that runs and yields plausible-looking numbers, which is exactly the class of
+error a user is least able to spot by reading.
 
 ### Key Entities
 
@@ -582,7 +593,9 @@ settled by a single review (see §4.5).
 | Probe non-blocking | A hanging provider yields a reported state rather than a stuck dialog (FR-031) |
 | Caveat presence | The caveat is present and the session cannot be started without it having been shown (FR-033, FR-034) |
 | No enforcement | Nothing blocks a block on the absence of a test file (FR-035) |
-| Verification mode | The composed brief instructs comparison against the original in codebase mode, and assertion against user-stated expectations without one (FR-040) |
+| Verification framing | The composed brief instructs the agent to find data to verify against, to ask when it finds none, and to accept a refusal (FR-040) |
+| Claim strength | The brief requires the agent to state what it checked against and forbids reporting a read-through as verification (FR-041) |
+| Cross-language | The brief requires the agent to flag language translation and its semantic risk points (FR-044) |
 
 Lint, type, and docs checks run through the standard gate. This PR is docs-only;
 the tests above land with the implementing tasks.
@@ -611,6 +624,13 @@ the ones with nothing reusable today.
 best available position, and it is still a sentence people skip. The honest
 statement is better than a false guarantee, even when some users do not read it.
 
+**Cross-language transcription fails semantically, not visibly.** Translating
+from another language can produce code that runs and returns plausible numbers
+while differing in index base, axis convention, or division behaviour. FR-044
+requires the agent to flag these points, which helps a reviewing user and does
+nothing for one who does not read. Where the original cannot be executed there is
+no automatic check that would catch it either.
+
 **The dependency is unmerged.** T-002 builds on #2003.
 
 **Rollback**: every element is additive — a toolbar entry, a dialog, a prompt
@@ -638,9 +658,9 @@ displayed, in either mode.
 of software-development concepts to answer. Measured by review of the question
 set against FR-006 and FR-007 at each change to it.
 
-**SC-005.** Every agent verification report identifies which reference it checked
-against — the original implementation, or the user's stated expectation — so the
-two are never presented as the same claim.
+**SC-005.** Every agent verification report identifies what it checked against —
+the original run on real data, the user's stated expectation, or neither — so
+claims of different strength are never presented as equivalent.
 
 **SC-006.** A user who skips every skippable question can still start a session,
 and the resulting brief distinguishes skipped questions from unanswered ones.
@@ -661,6 +681,8 @@ are already provisioned as skills. Measured by review at each prompt change.
 | The import surface states plainly that correctness is not guaranteed | owner |
 | Users with no codebase are in scope, and the entry is labelled "Bring in my work" rather than naming code | owner |
 | A prose description of a spreadsheet or GUI workflow is enough for the agent to work from | owner |
+| Verification is a flexible agent-led conversation rather than a fixed rule, and the user may decline to supply data | owner |
+| Transcribing from other languages is in scope | owner |
 | The Learning Center unlock only routes to this entry point | owner |
 | Environment investigation is delegated to the agent rather than asked of the user | owner |
 | ADR-053 §4.1 and §5 as originally written were the authoring agent's decisions, not the intended design | owner |
