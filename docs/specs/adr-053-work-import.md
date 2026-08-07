@@ -20,7 +20,7 @@ scope:
     - A dialog collecting the source location, destination tier, and four framing answers before the session starts.
     - Support for users with no codebase at all - spreadsheet and GUI-software workflows - as a first-class path rather than a degraded one.
     - Transcribing from other languages into SciStudio's Python blocks, with the added uncertainty that carries surfaced to the user.
-    - Spawning a chat session preloaded with a system prompt composed from the source location and those answers, reusing the agent block's session mechanism.
+    - Spawning a chat session whose task brief is written to a file under .scistudio/ and referenced by a single visible line, so no provider shows the user a wall of instructions.
     - The system prompt's instruction set - what the agent is told to do, ask, write, and report - including how verification differs with and without an original implementation.
     - The caveat copy shown in the import surface stating that the agent can make mistakes, that a check is requested, that equivalence is not guaranteed, and that the user must review the result.
     - Graded agent availability - four states derived from the provider registry plus a live minimal call, with per-state guidance.
@@ -118,8 +118,9 @@ in that repository.
    the toolbar entry, **then** the dialog opens with the source, destination, and
    four questions.
 2. **Given** the user supplies a repository directory and answers question 1,
-   **when** they start the session, **then** a chat session opens whose system
-   prompt carries the source location and every answer given.
+   **when** they start the session, **then** a brief file is written under
+   `.scistudio/` carrying the source location and every answer given, and the
+   session opens showing a single line pointing at it.
 3. **Given** a session is running against a repository, **when** the agent has
    written a block, **then** it asks the user for input data and for the expected
    result before reporting the block as done.
@@ -368,8 +369,31 @@ mechanism the agent block uses. This feature does not introduce a second way to
 run an agent.
 
 **FR-024.** The source location and every dialog answer MUST be composed into the
-spawned session's system prompt. No answer collected may be silently dropped — if
+task brief the session receives. No answer collected may be silently dropped — if
 a question is worth asking, its answer reaches the agent.
+
+**FR-045.** The composed brief MUST be written to a file under the project's
+`.scistudio/` directory, which is already in the default project `.gitignore` as
+per-machine runtime state. The brief is session state, not project content, and
+must not enter the user's version history.
+
+**FR-046.** The message the user sees when the session starts MUST be a single
+line pointing the agent at that file. The agent reads the brief itself. A user
+watching the terminal sees one sentence rather than the full instruction set.
+
+**FR-047.** Brief delivery MUST NOT depend on a provider's system-prompt
+capability. `SystemPromptStrategy` in the #1994 registry has two values, and only
+`FLAG_FILE` (claude-code) can carry a hidden per-session prompt; `codex`,
+`kimi-code`, and both Qoder channels are `AMBIENT`, which reads only from the
+statically provisioned skills tree and has no per-session channel at all. Routing
+the brief through a file and a pointer gives every provider identical behaviour,
+and adding a provider later requires nothing of it beyond reading a file it is
+told to read.
+
+**FR-048.** Each session MUST get its own brief file. Concurrent sessions in one
+project must not overwrite each other's instructions, and a brief that survives
+its session lets a user see what their agent was actually told — useful when a
+session went wrong.
 
 **FR-025.** The system prompt MUST instruct the agent to ask the user when it
 needs information rather than assuming. The design premise of ADR-053 §4.1 is
@@ -499,7 +523,7 @@ error a user is least able to spot by reading.
 
 | Entity | Description | Attributes | Relationships |
 |---|---|---|---|
-| `ImportSessionContext` | Everything the dialog collects, composed into the system prompt at spawn time | `source_location` (nullable), `has_no_codebase` (bool), `destination_tier` (`project` \| `user_library`), `data_kinds` (preset selections + free text), `workflow_description`, `interaction_wishes`, `other_software`, and a skipped/answered marker per optional question | Consumed once by prompt composition (FR-024); not persisted as product state |
+| `ImportSessionContext` | Everything the dialog collects, composed into the system prompt at spawn time | `source_location` (nullable), `has_no_codebase` (bool), `destination_tier` (`project` \| `user_library`), `data_kinds` (preset selections + free text), `workflow_description`, `interaction_wishes`, `other_software`, and a skipped/answered marker per optional question | Composed into the brief file at spawn time (FR-024, FR-045); per-session, gitignored, not product state |
 | `AgentAvailability` | The graded result of probing a provider | `state` (`not_installed` \| `not_authenticated` \| `call_failed` \| `ready`), `cause` (populated for `call_failed`), `providers` (populated for `ready`) | Derived from the #1994 provider registry rows plus a live call (FR-028, FR-029); consumed by this dialog and by any other agent-dependent surface (FR-032) |
 
 ## 4. Implementation Plan
@@ -529,17 +553,29 @@ can run the user's original code in the environment that code was written for,
 which a SciStudio-hosted runner could not do without reproducing that
 environment.
 
-**The prompt is a task brief, not a tutorial.** `compose_system_prompt(project_dir)`
+**The brief is a task brief, not a tutorial.** `compose_system_prompt(project_dir)`
 already assembles a SKILL.md base, a tool catalog, and a project-context block,
 and `agent_provisioning/skills.py` provisions seven skills into every project
 (`scistudio`, `-build-workflow`, `-write-block`, `-debug-run`, `-inspect-data`,
-`-project-qa`, `-write-plot`), loaded on demand. The prompt composed here adds
-only what is true of this session — the task, the user's answers, the mode, and
-the reporting obligations — per FR-039. Composition needs a way to pass that
-brief through, which `compose_system_prompt` does not currently accept; whether
-it gains an optional parameter or this feature composes alongside it is an
-implementation choice, but a second full prompt-assembly path would duplicate the
-tool catalog and project context and is not intended.
+`-project-qa`, `-write-plot`), loaded on demand. The brief composed here adds
+only what is true of this session — the task, the user's answers, and the
+reporting obligations — per FR-039.
+
+**Delivery is by file reference, not by prompt injection.** Today the composed
+system prompt reaches claude through `_write_system_prompt_tempfile` and
+`--append-system-prompt @<path>`, while the AI block's instruction is passed as
+claude's positional `[prompt]` argument and is therefore echoed in the terminal
+(the #1789 comment records why: a system prompt does not make the agent act, and
+typing into a raw-mode TUI never submits). Neither route generalises. The
+`--append-system-prompt` flag only exists for `FLAG_FILE` providers, and the
+positional route shows the user everything it carries.
+
+So the brief is written to a file under `.scistudio/` and the session's opening
+message is one line naming that file. This works identically on every provider,
+including `AMBIENT` ones with no per-session prompt channel, and keeps the
+terminal readable. It also means the existing prompt machinery is untouched:
+`compose_system_prompt` keeps its current signature and responsibility, and this
+feature adds a brief file rather than a second prompt-assembly path.
 
 ### 4.2 Affected Files
 
@@ -587,7 +623,11 @@ settled by a single review (see §4.5).
 | Question 2 conditionality | Skippable with a source location, required without one (FR-017, FR-018) |
 | Required vs skippable | Source-or-no-codebase, destination, and question 1 required; questions 3 and 4 each offer an explicit skip (FR-021) |
 | Skip is conveyed | A skipped question reaches the brief marked as skipped rather than being omitted (FR-022) |
-| Prompt composition | Every dialog answer and the source location appear in the composed brief (FR-024) |
+| Brief composition | Every dialog answer and the source location appear in the composed brief (FR-024) |
+| Brief location | The brief is written under `.scistudio/` and is not picked up by git in a project using the default ignore file (FR-045) |
+| Visible message | Session start shows one line referencing the brief, not the brief's contents (FR-046) |
+| Provider independence | Brief delivery is identical for a `FLAG_FILE` and an `AMBIENT` provider (FR-047) |
+| Concurrent sessions | Two sessions started in one project get distinct brief files (FR-048) |
 | Availability states | All four states resolve correctly, including authenticated-but-failing (FR-027, FR-029) |
 | Availability guidance | `call_failed` reports its cause and does not suggest reinstalling (FR-030) |
 | Probe non-blocking | A hanging provider yields a reported state rather than a stuck dialog (FR-031) |
@@ -665,6 +705,9 @@ claims of different strength are never presented as equivalent.
 **SC-006.** A user who skips every skippable question can still start a session,
 and the resulting brief distinguishes skipped questions from unanswered ones.
 
+**SC-008.** Starting a session displays at most one line of instruction text to
+the user, on every supported provider.
+
 **SC-007.** The composed brief contains no restatement of block authoring,
 workflow construction, plotting, inspection, or debugging guidance, all of which
 are already provisioned as skills. Measured by review at each prompt change.
@@ -683,6 +726,8 @@ are already provisioned as skills. Measured by review at each prompt change.
 | A prose description of a spreadsheet or GUI workflow is enough for the agent to work from | owner |
 | Verification is a flexible agent-led conversation rather than a fixed rule, and the user may decline to supply data | owner |
 | Transcribing from other languages is in scope | owner |
+| The brief is delivered as a file under `.scistudio/` with a one-line pointer, so the user is not shown a wall of instructions | owner |
+| `.scistudio/` is gitignored in projects, so a brief written there stays out of version history | existing-system |
 | The Learning Center unlock only routes to this entry point | owner |
 | Environment investigation is delegated to the agent rather than asked of the user | owner |
 | ADR-053 §4.1 and §5 as originally written were the authoring agent's decisions, not the intended design | owner |
