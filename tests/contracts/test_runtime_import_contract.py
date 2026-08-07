@@ -15,7 +15,7 @@ the other contract files in tests/contracts/:
    contract break.
 
 3. **MCP tool registry contract**: The MCP server must always expose
-   exactly 35 tools (ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
+   exactly 36 tools (ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912
    + open_gui #1947 tools). This is a separate
    invariant from the parity test in test_mcp_fastmcp.py — it ensures
    the contract is also enforced from the contracts test suite so that
@@ -136,7 +136,7 @@ def _collect_route_paths(routes: object, prefix: str = "") -> set[str]:
     helper handles both so the route contract is dependency-version agnostic.
     """
     paths: set[str] = set()
-    for route in routes:  # type: ignore[union-attr]
+    for route in routes:  # type: ignore[attr-defined,union-attr]
         path = getattr(route, "path", None)
         if path is not None:
             paths.add(prefix + path)
@@ -202,7 +202,8 @@ def test_api_ai_routes_are_registered(app_routes: set[str]) -> None:
 # 3. MCP tool registry contract.
 # ---------------------------------------------------------------------------
 
-# ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): 35 tools total.
+# ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947)
+# + promote_to_user_library (ADR-053 FR-011): 36 tools total.
 _MCP_EXPECTED_TOOL_NAMES = {
     # category (a) workflow (11 + 1 addendum5)
     "list_blocks",
@@ -244,12 +245,14 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "read_plot_source",
     "validate_plot",
     "run_plot_job",
+    # category (f) library (1) — ADR-053 FR-011
+    "promote_to_user_library",
 }
-_MCP_EXPECTED_COUNT = 35
+_MCP_EXPECTED_COUNT = 36
 
 
-def test_mcp_server_exposes_35_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): MCP server must expose 35 tools.
+def test_mcp_server_exposes_36_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: MCP server must expose 36 tools.
 
     This contract test mirrors the parity check in test_mcp_fastmcp.py but
     lives in the contracts suite so a regression is flagged as an

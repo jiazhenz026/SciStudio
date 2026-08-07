@@ -9,16 +9,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from scistudio.api._block_source import (
     BlockSourceUnavailableError,
+    map_block_origin,
+    map_source_label,
     resolve_block_source,
-)
-from scistudio.api._block_source import (
-    map_block_origin as _map_source,
 )
 from scistudio.api.deps import get_block_registry, get_runtime, get_type_registry
 from scistudio.api.schemas import (
@@ -45,6 +44,23 @@ router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 BlockRegistryDep = Annotated[Any, Depends(get_block_registry)]
 TypeRegistryDep = Annotated[Any, Depends(get_type_registry)]
 RuntimeDep = Annotated[Any, Depends(get_runtime)]
+
+
+def get_optional_runtime(request: Request) -> Any:
+    """Return the runtime if the app has one, else ``None``.
+
+    ADR-053 FR-001 made the read-only block responses depend on the active
+    project, which is a property of the runtime. They must not start *requiring*
+    one: a caller that mounts this router over a bare registry — the registry
+    scan tests do exactly that to read ``dropin_failures`` — has no active
+    project by definition, and the FR-002 fallback already covers "the project
+    tier does not exist here". Hard-failing instead would make an origin field
+    a precondition for listing blocks at all.
+    """
+    return getattr(request.app.state, "runtime", None)
+
+
+OptionalRuntimeDep = Annotated[Any, Depends(get_optional_runtime)]
 
 
 def _port_response(port: Any, *, direction: str) -> BlockPortResponse:
@@ -191,7 +207,19 @@ def _all_format_capabilities_for_core_io(registry: Any, spec: Any) -> list[Any]:
     return list(getattr(spec, "format_capabilities", []))
 
 
-def _summary(spec: Any, registry: Any = None) -> BlockSummary:
+def _active_project_dir(runtime: Any) -> Path | None:
+    """Return the active project root, or ``None`` when no project is open.
+
+    ADR-053 FR-001: the project tier of the origin split is defined by the
+    active project, so a block only resolves to ``project`` while that project
+    is open. With none open — or with no runtime at all — the same file falls
+    back to ``custom``, which is the FR-002 degradation and not a failure.
+    """
+    active = getattr(runtime, "active_project", None)
+    return Path(active.path) if active is not None else None
+
+
+def _summary(spec: Any, registry: Any = None, project_dir: Path | None = None) -> BlockSummary:
     raw_pkg = getattr(spec, "package_name", "") or ""
     # Only keep the package_name for genuine plugin packages so the
     # frontend groups core blocks together under "SciStudio Core".
@@ -209,7 +237,10 @@ def _summary(spec: Any, registry: Any = None) -> BlockSummary:
         input_ports=[_port_response(port, direction="input") for port in spec.input_ports],
         output_ports=[_port_response(port, direction="output") for port in spec.output_ports],
         direction=spec.direction or None,
-        source=_map_source(getattr(spec, "source", "") or ""),
+        # ``source`` keeps the pre-ADR-053 collapsed vocabulary (FR-002);
+        # ``origin`` carries the FR-001 tier split (FR-004).
+        source=map_source_label(getattr(spec, "source", "") or ""),
+        origin=map_block_origin(spec, project_dir=project_dir),
         package_name=package_name,
         variadic_inputs=bool(getattr(spec, "variadic_inputs", False)),
         variadic_outputs=bool(getattr(spec, "variadic_outputs", False)),
@@ -249,15 +280,22 @@ def _dropin_failures(registry: Any) -> list[DropinFailureResponse]:
 
 
 @router.get("/", response_model=BlockListResponse)
-async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
+async def list_blocks(registry: BlockRegistryDep, runtime: OptionalRuntimeDep) -> BlockListResponse:
     """Return the full block palette available in the current registry.
+
+    ADR-053 FR-004: every entry carries its resolved ``origin`` tier, which is
+    what lets the palette name ``My Library`` and ``This Project`` separately
+    (FR-035) and what gates the promotion action (FR-019).
 
     ADR-053 FR-015: ``dropin_failures`` carries the drop-in files the scan
     refused — a block whose import raised, or a type file rejected under FR-016
     for shadowing an installed module — so a missing block has a visible cause.
     """
+    project_dir = _active_project_dir(runtime)
     blocks = [
-        _summary(spec, registry) for spec in registry.all_specs().values() if not _is_replaced_io_palette_block(spec)
+        _summary(spec, registry, project_dir)
+        for spec in registry.all_specs().values()
+        if not _is_replaced_io_palette_block(spec)
     ]
     blocks.sort(key=lambda item: (item.base_category, item.subcategory, item.name))
     return BlockListResponse(blocks=blocks, dropin_failures=_dropin_failures(registry))
@@ -395,13 +433,14 @@ async def get_block_schema(
     block_type: str,
     registry: BlockRegistryDep,
     type_registry: TypeRegistryDep,
+    runtime: OptionalRuntimeDep,
 ) -> BlockSchemaResponse:
     """Return the JSON Schema for a block type's parameters and ports."""
     spec = registry.get_spec(block_type)
     if spec is None:
         raise HTTPException(status_code=404, detail=f"Unknown block type: {block_type}")
     return BlockSchemaResponse(
-        **_summary(spec, registry).model_dump(),
+        **_summary(spec, registry, _active_project_dir(runtime)).model_dump(),
         config_schema=_config_schema_for_block(spec, registry, type_registry),
         type_hierarchy=[
             TypeHierarchyEntry(
@@ -430,6 +469,7 @@ async def get_block_schema(
 async def get_block_source(
     block_type: str,
     registry: BlockRegistryDep,
+    runtime: OptionalRuntimeDep,
 ) -> BlockSourceResponse:
     """Return the read-only Python source backing a registered block type.
 
@@ -437,9 +477,13 @@ async def get_block_source(
     canvas (#1758): core, package, and custom blocks alike resolve to their
     on-disk source file. Read-only and registry-gated — only a registered
     block type resolves, never an arbitrary filesystem path.
+
+    ADR-053 FR-019: ``origin`` is the same resolved tier the palette shows, so
+    the source editor's promotion affordance (§6.2 E1) and the palette agree
+    about which library the open file came from.
     """
     try:
-        resolved = resolve_block_source(registry, block_type)
+        resolved = resolve_block_source(registry, block_type, project_dir=_active_project_dir(runtime))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown block type: {block_type}") from exc
     except BlockSourceUnavailableError as exc:

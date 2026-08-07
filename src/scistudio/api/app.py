@@ -26,6 +26,7 @@ from scistudio.api.routes import (
     projects,
     runs,
     tutorials,
+    user_library,
     workflows,
 )
 from scistudio.api.routes import (
@@ -280,6 +281,11 @@ def create_app() -> FastAPI:
     # match /api/projects/{id}/tree as a project-id lookup.
     app.include_router(filesystem.router)
     app.include_router(projects.router)
+    # ADR-053 §4 — the user-wide library write path. Registered beside the
+    # project file endpoints it inverts (FR-007) rather than under them: its
+    # target lives outside every project root, so it cannot hang off
+    # ``/api/projects/{project_id}``.
+    app.include_router(user_library.router)
     app.include_router(ai.router)
     app.include_router(ai_pty.router)
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.

@@ -4,7 +4,7 @@ Drives the JSON-RPC dispatcher over the actual transport (Unix socket
 on POSIX, TCP loopback on Windows). Verifies:
 
 * ``initialize`` handshake returns server info.
-* ``tools/list`` enumerates all 35 tools (25 baseline + finish_ai_block + ADR-040 Addendum 5 get_active_workflow_context + 6 ADR-048 SPEC 2 plot tools + open_gui #1947).
+* ``tools/list`` enumerates all 36 tools (25 baseline + finish_ai_block + ADR-040 Addendum 5 get_active_workflow_context + 6 ADR-048 SPEC 2 plot tools + open_gui #1947 + promote_to_user_library per ADR-053 FR-011).
 * ``tools/call`` for a read-only tool (``list_types``) round-trips.
 * Graceful start / stop, no orphan socket files on POSIX.
 """
@@ -31,6 +31,8 @@ class _StubRuntime:
     type_registry: TypeRegistry = field(default_factory=TypeRegistry)
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     _project_dir: Path | None = None
+    # ADR-040 Addendum 5 / #1488 member of the MCPContext Protocol.
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:
@@ -50,7 +52,8 @@ async def _connect_and_call(server: MCPServer, request: dict[str, Any]) -> dict[
         writer.write((json.dumps(request) + "\n").encode("utf-8"))
         await writer.drain()
         line = await asyncio.wait_for(reader.readline(), timeout=10.0)
-        return json.loads(line.decode("utf-8"))
+        decoded: dict[str, Any] = json.loads(line.decode("utf-8"))
+        return decoded
     finally:
         writer.close()
         with contextlib.suppress(Exception):
@@ -82,7 +85,7 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         # + open_gui from #1947).
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
-        assert len(tools) == 35
+        assert len(tools) == 36
         names = {t["name"] for t in tools}
         assert "list_blocks" in names and "preview_data" in names and "search_docs" in names
         assert "edit_workflow" in names
