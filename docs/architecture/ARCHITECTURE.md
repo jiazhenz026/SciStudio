@@ -2184,6 +2184,36 @@ and can be iterated before deciding whether it belongs in a package. User-wide
 `blocks/` and `types/` cover code a user reuses across projects; previewers are
 extended at the project or package level rather than user-wide.
 
+Three consequences of ADR-053 belong here, because a reader assessing the risk
+of these directories would look for them and would not otherwise find them.
+
+**The two `types/` directories join `sys.path`.** A drop-in block has to be able
+to `from spectrum import SpectrumData` when `spectrum.py` sits beside it in the
+same tier, so the type directories of both tiers are put on `sys.path` — project
+tier first — by every process that loads a drop-in: the API server, the agent
+bridge, the worker subprocess, and IO dispatch. `scistudio.core.dropins` is the
+single implementation all four call, so they cannot disagree about which
+directories those are.
+
+**A name collision there is a hard refusal, not a warning.** A directory on
+`sys.path` is a claim on the top-level module namespace, so a `types/json.py`
+would be imported in preference to the standard library's by everything loaded
+afterwards. Any entry the directory makes importable — `<name>.py` or
+`<name>/__init__.py`, private names included — whose name an installed module
+already owns is refused: the type does not register, the refusal reaches the
+user through the same surface as any other drop-in failure, and the module it
+would have shadowed is bound *before* the roots join `sys.path`, so the
+installed one keeps winning while the user renames the file.
+
+**The product can now write into `~/.scistudio/`.** `PUT /api/user-library/file`
+is the second file-write endpoint in the product and the only one whose target
+is outside every project root, which is what makes promotion and "new file in my
+library" possible without a file manager. Its constraint is the inverse of the
+project endpoint's rather than a relaxation of it: the caller names the tier and
+supplies a bare filename, containment is decided on resolved real paths, the
+file must land directly in the tier root, and an existing file is a 409 unless
+the caller opts in to overwriting. The project endpoint is unchanged.
+
 ### 12.6 Public API Boundary
 
 Extensions — and the embedded agent that writes them — build against a **named

@@ -379,6 +379,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
   fix/1996-track-b-audit-findings)
 
+- [#1996, #2022] Hardening across the drop-in write path and the drop-in scan,
+  from the independent no-context write-path audit
+  (`docs/audit/2026-08-07-adr-053-spec1-write-path.md`). Its verdict on the new
+  endpoint's containment was that it held against every escape the auditor could
+  execute — traversal, absolute, UNC, extended-length, device-namespace,
+  drive-relative, cross-drive, trailing-separator, and reparse-point — so what
+  follows is the edges around it rather than the rule itself.
+  **A drop-in that exits no longer takes the scan with it.** The scan isolated
+  `Exception` but not `SystemExit`, so a script turned into a block that kept
+  its `sys.exit(main())` or its `argparse` error path killed the palette refresh
+  on every startup, recorded no failure, and left the user no way to find the
+  file — the palette that would have shown the error is what died. Both drop-in
+  passes now record it and carry on. Two things stay outside that boundary and
+  are now said so plainly instead of being covered by a claim of isolation:
+  `os._exit()`, which no handler can intercept, and a module that never returns
+  from import. Both need the out-of-process sandbox deferred at #1531.
+  **The atomic write's temp file is no longer a drop-in.** It has to share the
+  destination directory for the rename to be atomic, and that directory is
+  scanned for `*.py` and executed — so a save concurrent with a palette refresh
+  could import a half-written temp file, and a failed write could leave one
+  behind for good. It now carries a `.tmp` suffix, and cleanup catches
+  everything the write can raise rather than only `OSError`.
+  **The filename rule refuses four more things that are never what the user
+  meant**: control characters (an embedded NUL passed every path check and then
+  broke the write), a leading dot (a live drop-in that most file listings hide),
+  a Windows reserved device stem, and an uppercase `.PY` (a live drop-in on
+  Windows and dead on POSIX). The basename test now asks both path flavours, so
+  the same rule holds whichever operating system opens the library.
+  **The two `sys.path` windows undo their own edits** instead of restoring a
+  snapshot taken on entry, which discarded anything the body added and, when two
+  windows overlapped, both lost the inner roots and leaked them.
+  The standalone bridge's change detector now sees package-shaped drop-ins and
+  uppercase suffixes; a collision with a namespace package no longer reports its
+  origin as `built-in`; and `_safe_under`'s refusal no longer says "outside
+  project root" for a path that has nothing to do with a project. Four
+  containment rules with no test that would fail if they were deleted now have
+  one each. Tests: `tests/api/test_user_library_write.py`,
+  `tests/blocks/test_dropin_type_import.py`, `tests/ai/test_mcp_tools_library.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
+- [#1996] Three follow-ups from the with-context Track B audit
+  (`docs/audit/2026-08-07-adr-053-spec1-track-b.md`), none of them behaviour
+  changes. The Data types popover now walks all three non-promotable origins
+  when asserting FR-019 hides the action, matching the Blocks side, which had
+  the full sweep while the type side tested only `core` (P3-5).
+  `resolveRingColor`'s `typeHierarchy` parameter, unread since FR-066 removed
+  the branch that read it and kept only for positional parity with
+  `resolveTypeColor`, is renamed to `_typeHierarchy` so the signature says so
+  (P3-4). And the editor-toolbar entry point records, where it infers `project`
+  from a tab's path shape, that this is a claim about the path rather than the
+  backend's resolved answer, the one case where the two can differ, and why the
+  inference is not replaced by a lookup (P3-2). Tests:
+  `frontend/src/components/promotion/__tests__/entryPoints.test.tsx`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt
   from five places — the branch-switch route and the four package

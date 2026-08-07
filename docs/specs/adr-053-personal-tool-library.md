@@ -42,11 +42,19 @@ scope:
 governs:
   modules:
     - scistudio.api.routes.types
+    - scistudio.api.routes.user_library
+    - scistudio.core.dropins
+    - scistudio.core.origins
+    - scistudio.ai.agent.mcp.tools_library
   contracts: []
   entry_points: []
   files:
     - docs/specs/adr-053-personal-tool-library.md
     - src/scistudio/api/routes/types.py
+    - src/scistudio/api/routes/user_library.py
+    - src/scistudio/core/dropins.py
+    - src/scistudio/core/origins.py
+    - src/scistudio/ai/agent/mcp/tools_library.py
     - frontend/src/components/TypePalette.tsx
   excludes:
     - docs/user/reference/**
@@ -371,6 +379,15 @@ consumers of `custom` MUST continue to function.
 **FR-003.** Origin resolution MUST be a single shared implementation used by
 both the block and type surfaces (§10), not two path comparisons that can
 diverge.
+
+"Both surfaces" means every consumer, including the ones in other layers.
+The resolver therefore lives in `scistudio.core`, not in `scistudio.api`:
+the agent's promotion tool (§6.2 E3) applies the same rule as the palette, and
+the `AI must not depend on api` import-linter contract makes an `api` module
+unreachable from it — which is exactly how a second, narrower comparison came
+to be written there, and how E3 came to accept a block the three frontend entry
+points hide (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P2-2). A layer
+boundary that forces a copy is a design answer, not a reason for the copy.
 
 **FR-004.** The block list response MUST carry the resolved origin.
 
@@ -827,8 +844,11 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Area | Test |
 |---|---|
 | Origin tiers | A block resolved from each directory returns its distinct origin; unresolvable path falls back to `custom` (FR-001, FR-002) |
-| Shared resolver | Block and type origin resolution exercise the same function (FR-003) |
+| Shared resolver | Every surface — the block listing, the types listing, the source endpoint, and the agent's promotion tool — holds the *same function object*, and the agent tool's accept set equals the frontend predicate's across the whole origin vocabulary, `custom` included (FR-003, FR-019, FR-025) |
 | Write endpoint | Writes land in the user library; traversal and symlink escapes 403; existing file is reported rather than overwritten (FR-006 – FR-008) |
+| Write endpoint containment | Every containment rule has a test that fails if the rule is removed, including the ones no ordinary request reaches: a link resolving to a deeper directory *inside* the root, and a containment comparison that raises rather than returning (FR-007) |
+| Write endpoint temp file | No `.py` file other than the destination exists in the scanned directory at any point during a write, and a write that fails leaves nothing behind whatever it raised (FR-007) |
+| Drop-in isolation | A drop-in that raises outside `Exception` — `sys.exit()` being the ordinary accident — is recorded as a failure and skipped, and the healthy neighbours still register (FR-015) |
 | Project endpoint unchanged | Escaping paths still 403 (FR-009) |
 | Registry refresh | A written block/type is discoverable without restart (FR-010) |
 | MCP promotion | The agent tool promotes a block and the result is discoverable (FR-011) |
@@ -872,7 +892,8 @@ contract and is the list an implementer works from.
 
 | File | Action | Why |
 |---|---|---|
-| `src/scistudio/api/_block_source.py` | modify | Split `map_block_origin` into `user` / `project` with fallback (FR-001, FR-002) |
+| `src/scistudio/core/origins.py` | create | The shared origin resolver (FR-001 – FR-005). It lives in `core` because its consumers span layers: the API's block and type listings and the agent's promotion tool must apply one rule, and `AI must not depend on api` puts an `api` module out of the agent's reach |
+| `src/scistudio/api/_block_source.py` | modify | Re-export the resolver for its existing API callers; keep the legacy `source` label mapping (FR-001, FR-002) |
 | `src/scistudio/api/routes/blocks.py` | modify | Carry resolved origin (FR-004); populate `ui_ring_color` (FR-050) |
 | `src/scistudio/api/routes/types.py` | create | Types listing and type template (§7) |
 | `src/scistudio/api/schemas.py` | modify | Type listing response, declared colours, extensions (§7) |

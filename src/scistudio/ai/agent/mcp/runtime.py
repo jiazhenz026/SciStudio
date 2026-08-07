@@ -67,6 +67,18 @@ def dropin_revision(scan_dirs: Iterable[Path]) -> tuple[tuple[str, int, int], ..
 
     Unreadable or missing directories contribute nothing, matching both
     registries' behaviour of skipping absent scan directories.
+
+    Two shapes beyond a plain ``<name>.py`` have to be watched, because both
+    are things a scan would read (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``,
+    P3-9 and P3-2):
+
+    * ``<name>/__init__.py``. A package-shaped drop-in type is a first-class
+      citizen of the FR-016 guard, so it must not be invisible to the detector
+      that decides whether to re-scan.
+    * ``<NAME>.PY``. Windows ``glob("*.py")`` is case-insensitive, so an
+      uppercase suffix is a live drop-in there, and a case-sensitive comparison
+      here meant editing one never moved the signature. The product refuses to
+      *create* such a file, but a user can still place one by hand.
     """
     entries: list[tuple[str, int, int]] = []
     for directory in scan_dirs:
@@ -75,13 +87,18 @@ def dropin_revision(scan_dirs: Iterable[Path]) -> tuple[tuple[str, int, int], ..
         except OSError:
             continue
         for entry in children:
-            if entry.suffix != ".py":
+            watched = entry
+            if entry.is_dir():
+                watched = entry / "__init__.py"
+                if not watched.is_file():
+                    continue
+            elif entry.suffix.lower() != ".py":
                 continue
             try:
-                stat = entry.stat()
+                stat = watched.stat()
             except OSError:
                 continue
-            entries.append((str(entry), stat.st_size, stat.st_mtime_ns))
+            entries.append((str(watched), stat.st_size, stat.st_mtime_ns))
     return tuple(entries)
 
 

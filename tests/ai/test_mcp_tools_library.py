@@ -26,6 +26,7 @@ too.
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
@@ -35,9 +36,9 @@ from typing import Any, TypeVar
 import pytest
 
 from scistudio.ai.agent.mcp import _context, tools_library
-from scistudio.ai.agent.mcp.runtime import make_mcp_runtime
+from scistudio.ai.agent.mcp.runtime import dropin_revision, make_mcp_runtime
 from scistudio.blocks.registry import BlockRegistry
-from scistudio.core.dropins import register_block_scan_dirs, user_blocks_dir
+from scistudio.core.dropins import register_block_scan_dirs, user_blocks_dir, user_types_dir
 from scistudio.core.origins import BLOCK_SURFACE, map_block_origin
 from scistudio.core.types.registry import TypeRegistry
 
@@ -417,3 +418,55 @@ def test_promotion_through_a_standalone_bridge_is_immediately_visible(home: Path
         assert elsewhere.get_spec("test.bridge_promotable") is not None
     finally:
         _context.set_context(None)
+
+
+# ---------------------------------------------------------------------------
+# FR-065 — what the change detector can see (AUDIT-SEC P3-9, P3-2)
+# ---------------------------------------------------------------------------
+
+
+def test_the_change_detector_sees_a_package_shaped_dropin(home: Path, project: Path) -> None:
+    """``<name>/__init__.py`` is a drop-in the FR-016 guard already governs.
+
+    It was invisible to ``dropin_revision``, which stats only ``*.py`` entries
+    directly under each scan dir — so editing a package-shaped drop-in type
+    never moved the signature and the standalone bridge never re-scanned
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-9).
+    """
+    package = user_types_dir() / "package_shaped"
+    package.mkdir(parents=True)
+    init = package / "__init__.py"
+    init.write_text("VALUE = 1\n", encoding="utf-8")
+
+    before = dropin_revision([user_types_dir()])
+    assert before, "the package must contribute to the signature at all"
+
+    init.write_text("VALUE = 2\n", encoding="utf-8")
+    os.utime(init, (1_700_000_000, 1_700_000_000))
+
+    assert dropin_revision([user_types_dir()]) != before
+
+
+def test_the_change_detector_sees_an_uppercase_suffix(home: Path, project: Path) -> None:
+    """Windows ``glob("*.py")`` is case-insensitive, so ``.PY`` is a live drop-in.
+
+    The write endpoints refuse to create one, but a user can still place one by
+    hand, and a case-sensitive comparison here meant editing it never moved the
+    signature (P3-2).
+    """
+    shouty = user_blocks_dir() / "SHOUT.PY"
+    shouty.write_text("VALUE = 1\n", encoding="utf-8")
+
+    before = dropin_revision([user_blocks_dir()])
+    assert before
+
+    shouty.write_text("VALUE = 22\n", encoding="utf-8")
+
+    assert dropin_revision([user_blocks_dir()]) != before
+
+
+def test_a_directory_without_an_init_contributes_nothing(home: Path, project: Path) -> None:
+    """A plain subdirectory is not importable, so it is not a drop-in."""
+    (user_types_dir() / "not_a_package").mkdir(parents=True)
+
+    assert dropin_revision([user_types_dir()]) == ()

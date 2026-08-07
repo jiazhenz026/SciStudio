@@ -822,7 +822,18 @@ class TypeRegistry:
                     # un-loadable (Codex P1 finding on PR #1339).
                     sys.modules[spec.name] = module
                     spec.loader.exec_module(module)
-                except Exception:
+                except KeyboardInterrupt:
+                    # The operator's own signal, not the drop-in's failure.
+                    raise
+                except BaseException:
+                    # ``BaseException`` rather than ``Exception`` for the same
+                    # reason the block scan uses it: a ``sys.exit()`` carried
+                    # over from a script raises ``SystemExit``, which would
+                    # otherwise take the whole type scan down with it
+                    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
+                    # P2-1). ``os._exit()`` and a module that never returns
+                    # from import stay outside this boundary; they need the
+                    # out-of-process sandbox deferred at ``TODO(#1531)``.
                     logger.warning(
                         "TypeRegistry: failed to import type drop-in from %s",
                         py_file,

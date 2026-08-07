@@ -24,7 +24,13 @@ not:
    separator, a drive, a ``..`` segment, or an absolute or drive-relative form
    is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
    drive-relative path whose ``Path.name`` is ``blocks.py``, so the drive test
-   is separate from the basename test rather than implied by it.
+   is separate from the basename test rather than implied by it. The basename
+   test asks both path flavours, so the rule does not change meaning when the
+   same library is used from the other operating system. Control characters, a
+   leading dot, a Windows reserved device stem, and any extension but an exact
+   ``.py`` are refused for the same reason: each of them produces a file that
+   either is not what the user asked for or cannot be found and removed
+   through the product.
 3. **Containment is decided on resolved real paths.** ``os.path.realpath``
    collapses symlinks first and ``os.path.commonpath`` compares canonical
    forms — the CodeQL ``py/path-injection`` sanitiser the project endpoint
@@ -54,7 +60,8 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from pathlib import Path
+from contextlib import suppress
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -87,9 +94,37 @@ _TARGET_ROOTS = {
 #: ``.py`` files and nothing else there is loadable.
 _ALLOWED_SUFFIX = ".py"
 
+#: Suffix of the temp file the atomic write goes through. Deliberately **not**
+#: ``.py``: the temp file lives in the destination directory so ``os.replace``
+#: stays atomic, and that directory is globbed for ``*.py`` and executed on
+#: every scan. A ``.py`` temp file is therefore a drop-in that a concurrent
+#: palette refresh can import half-written, and one left behind by a failed
+#: write is caller-controlled code the user cannot see in the palette or delete
+#: through the product (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
+#: P2-2). ``os.replace`` does not care about the source extension.
+_WRITE_TEMP_SUFFIX = ".tmp"
+
+#: Windows device names, which Win32 may resolve ahead of a real file of the
+#: same stem. Refused on every platform so a library written on POSIX does not
+#: become unusable — or worse, a device write — when synced to Windows.
+_RESERVED_DEVICE_STEMS = frozenset(
+    {"CON", "PRN", "AUX", "NUL"} | {f"COM{digit}" for digit in "0123456789"} | {f"LPT{digit}" for digit in "0123456789"}
+)
+
 
 def _reject(status_code: int, detail: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail=detail)
+
+
+def _is_reserved_device_name(name: str) -> bool:
+    """Return whether *name*'s stem is a Windows reserved device name.
+
+    Win32 resolves ``NUL.py`` to the ``NUL`` device on some builds and to an
+    ordinary file on others, so the same request either writes to a device or
+    fails late inside ``os.replace`` depending on the host. Refusing the whole
+    family up front is cheaper than either outcome.
+    """
+    return name.split(".", 1)[0].upper() in _RESERVED_DEVICE_STEMS
 
 
 def _validate_filename(filename: str) -> str:
@@ -97,20 +132,45 @@ def _validate_filename(filename: str) -> str:
 
     Rule 2 of the module docstring. Every rejection here happens before any
     filesystem access, so a hostile value never reaches ``realpath``.
+
+    The basename test asks **both** path flavours, not the host's. A file
+    written on Linux is read on Windows and vice versa, so ``sub\\evil.py`` has
+    to be refused on POSIX even though POSIX treats the backslash as an
+    ordinary character — otherwise the same library is a bare filename on one
+    machine and a nested path on another. Asking
+    :class:`~pathlib.PureWindowsPath` as well is also what makes this rule
+    reachable rather than implied by an earlier separator check that only
+    happened to catch the same inputs
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-5).
     """
     name = filename.strip()
     if not name:
         raise _reject(400, "filename query parameter is required")
+    # A control character is never a legitimate filename, and an embedded NUL
+    # in particular survives every path test here and then makes ``os.replace``
+    # raise ``ValueError`` deep in the write, past the ``OSError`` cleanup
+    # handler — an unhandled 500 that leaks the temp file (P2-2).
+    if any(character < " " or character == "\x7f" for character in name):
+        raise _reject(403, "Control characters are not allowed in a filename")
     drive, _ = os.path.splitdrive(name)
     if drive or os.path.isabs(name) or name.startswith(("/", "\\")):
         raise _reject(403, "Absolute and drive-relative paths are not allowed")
-    if "/" in name or "\\" in name:
-        raise _reject(403, "The user library accepts a bare filename, not a path")
-    if name in (".", "..") or ".." in name.split("."):
+    if name in (".", ".."):
         raise _reject(403, "Path traversal is not allowed")
-    if Path(name).name != name:
+    if PurePosixPath(name).name != name or PureWindowsPath(name).name != name:
         raise _reject(403, "The user library accepts a bare filename, not a path")
-    if Path(name).suffix.lower() != _ALLOWED_SUFFIX:
+    # A leading dot makes a live drop-in that most file listings hide, so the
+    # user cannot find it to delete it and the palette cannot explain it.
+    if name.startswith("."):
+        raise _reject(403, "A user library filename cannot start with a dot")
+    if _is_reserved_device_name(name):
+        raise _reject(403, f"{name} is a reserved device name on Windows and cannot be used")
+    # Exact ``.py``, not a case-insensitive match. ``SHOUT.PY`` is a live
+    # drop-in on Windows (whose ``glob`` is case-insensitive) and dead on
+    # POSIX, and the standalone bridge's change detector never sees it, so the
+    # product refuses to create one rather than creating a file that means two
+    # different things on two machines (P3-2).
+    if not name.endswith(_ALLOWED_SUFFIX) or name == _ALLOWED_SUFFIX:
         raise _reject(415, f"Only {_ALLOWED_SUFFIX} files belong in the user library")
     return name
 
@@ -197,6 +257,15 @@ async def write_user_library_file(
     itself is atomic (temp file in the destination directory plus
     ``os.replace``) so a failure never leaves a half-written block where the
     registry will find it.
+
+    The temp file has to live in the destination directory for ``os.replace``
+    to be atomic, and that directory is globbed for ``*.py`` and executed on
+    every scan — so it is written with :data:`_WRITE_TEMP_SUFFIX` instead.
+    Atomicity of the destination *name* is not enough on its own: a ``.py``
+    temp file is a second name in the same scanned directory, and a palette
+    refresh concurrent with a save could import it half-written. Cleanup
+    catches every exception rather than only ``OSError``, because anything that
+    escapes it leaves that file behind.
     """
     _root, resolved = _resolve_user_library_file(target, filename)
 
@@ -223,7 +292,7 @@ async def write_user_library_file(
     # lgtm[py/path-injection]
     tmp_fd, tmp_path = tempfile.mkstemp(
         prefix=".__scistudio_write_",
-        suffix=_ALLOWED_SUFFIX,
+        suffix=_WRITE_TEMP_SUFFIX,
         dir=str(resolved.parent),
     )
     try:
@@ -232,12 +301,13 @@ async def write_user_library_file(
             tmp_file.flush()
             os.fsync(tmp_file.fileno())
         os.replace(tmp_path, resolved)
-    except OSError as exc:
-        try:
+    except Exception as exc:
+        # Not ``except OSError``: the cleanup has to cover everything the write
+        # can raise, because whatever escapes it leaves a file behind in a
+        # directory the scan reads.
+        with suppress(OSError):
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
-        except OSError:
-            pass
         raise _reject(500, f"write failed: {exc}") from exc
 
     refreshed = _refresh_registries(runtime)

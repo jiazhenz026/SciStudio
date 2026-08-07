@@ -45,6 +45,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
@@ -59,6 +60,10 @@ from scistudio.core.origins import PROJECT_ORIGIN, map_block_origin
 logger = logging.getLogger(__name__)
 
 _ALLOWED_SUFFIX = ".py"
+
+#: Suffix of the temp file :func:`_atomic_write` goes through — deliberately
+#: not ``.py``, since the temp file shares the scanned destination directory.
+_WRITE_TEMP_SUFFIX = ".tmp"
 
 #: FR-019, per resolved origin tier: why this block is not promotable. Keyed by
 #: every non-``project`` value :data:`~scistudio.core.origins.BLOCK_SURFACE`
@@ -120,7 +125,11 @@ def _library_filename(name: str) -> str:
 
     Rejected before any filesystem access: a separator, a Windows drive (a
     drive-relative ``C:evil.py`` has a harmless-looking ``Path.name``), an
-    absolute form, a ``..`` segment, or a non-Python extension.
+    absolute form, a ``..`` segment, a control character, a leading dot, or
+    anything but an exact ``.py`` extension. The extension test is
+    case-sensitive for the reason the HTTP endpoint's is: a ``.PY`` file is a
+    live drop-in on Windows and dead on POSIX, so the product declines to
+    create one.
     """
     candidate = name.strip()
     drive, _ = os.path.splitdrive(candidate)
@@ -131,8 +140,11 @@ def _library_filename(name: str) -> str:
         or "/" in candidate
         or "\\" in candidate
         or candidate in (".", "..")
+        or candidate.startswith(".")
+        or any(character < " " or character == "\x7f" for character in candidate)
         or Path(candidate).name != candidate
-        or Path(candidate).suffix.lower() != _ALLOWED_SUFFIX
+        or not candidate.endswith(_ALLOWED_SUFFIX)
+        or candidate == _ALLOWED_SUFFIX
     ):
         raise ValueError(f"{name!r} is not a valid user library filename; pass a bare '<name>.py'")
     return candidate
@@ -259,10 +271,18 @@ def _atomic_write(destination: Path, payload: bytes) -> None:
 
     A partially written file in a drop-in directory is a block the next scan
     tries to import, so the destination must never be observable half-written.
+
+    The temp file must share the destination's directory for ``os.replace`` to
+    be atomic, and that directory is globbed for ``*.py`` and executed on every
+    scan — hence :data:`_WRITE_TEMP_SUFFIX` rather than ``.py``, so the temp
+    file is not itself a drop-in while it exists. Cleanup catches every
+    exception rather than only ``OSError``, because whatever escapes it leaves
+    that file behind permanently
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-2).
     """
     tmp_fd, tmp_path = tempfile.mkstemp(
         prefix=".__scistudio_promote_",
-        suffix=_ALLOWED_SUFFIX,
+        suffix=_WRITE_TEMP_SUFFIX,
         dir=str(destination.parent),
     )
     try:
@@ -271,10 +291,8 @@ def _atomic_write(destination: Path, payload: bytes) -> None:
             tmp_file.flush()
             os.fsync(tmp_file.fileno())
         os.replace(tmp_path, destination)
-    except OSError:
-        try:
+    except Exception:
+        with suppress(OSError):
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
-        except OSError:
-            pass
         raise

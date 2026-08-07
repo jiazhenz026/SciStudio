@@ -296,14 +296,23 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
 
     Every FR-016 question is "what would this name resolve to if the drop-in
     were not there", so every one of them is asked from inside this block.
+
+    Removes and re-inserts only the entries it took out, rather than swapping
+    ``sys.path`` for a snapshot. The snapshot form clobbers a concurrent
+    :func:`scistudio.desktop.paths.prepended_sys_paths` window — which is how a
+    scan could end up asking this question against the wrong ``sys.path`` and
+    reporting a false verdict in either direction
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-1).
     """
     excluded = {str(root) for root in type_roots} | {str(root.resolve()) for root in type_roots}
-    original = list(sys.path)
-    sys.path[:] = [entry for entry in original if entry not in excluded]
+    removed = [(index, entry) for index, entry in enumerate(sys.path) if entry in excluded]
+    for index, _entry in reversed(removed):
+        del sys.path[index]
     try:
         yield
     finally:
-        sys.path[:] = original
+        for index, entry in removed:
+            sys.path.insert(min(index, len(sys.path)), entry)
 
 
 def _is_within(origin: str | None, type_roots: tuple[Path, ...]) -> bool:
@@ -335,7 +344,17 @@ def _installed_origin(stem: str, type_roots: tuple[Path, ...]) -> str | None:
         return None
     if found is None or _is_within(found.origin, type_roots):
         return None
-    return found.origin or "built-in"
+    if found.origin:
+        return found.origin
+    # ``origin`` is ``None`` for a namespace package as well as for a genuinely
+    # built-in module, and reporting a directory on disk as ``built-in`` sends
+    # the user looking in the wrong place. Reporting the collision is still
+    # right — a regular module does displace a namespace portion — so name the
+    # directories instead (P3-10).
+    locations = list(getattr(found, "submodule_search_locations", None) or [])
+    if locations:
+        return f"namespace package at {os.pathsep.join(locations)}"
+    return "built-in"
 
 
 #: Entries a directory on ``sys.path`` never makes importable *by name*.
