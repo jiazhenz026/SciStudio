@@ -39,6 +39,7 @@ governs:
   files:
     - docs/specs/adr-053-work-import.md
     - docs/adr/ADR-053.md
+    - frontend/src/components/BringInMyWorkDialog.tsx
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -46,8 +47,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/components/BringInMyWorkDialog.tsx
+  files: []
   excludes: []
 tests:
   - tests/api/test_agent_availability.py
@@ -552,7 +552,7 @@ feature adds a brief file rather than a second prompt-assembly path.
 |---|---|---|
 | `docs/adr/ADR-053.md` | modify | Revise §4.1 and §5; generalise §4 to users without code; synchronise §1.1, §6, §7, §8, §9.5 |
 | `docs/specs/adr-053-work-import.md` | create | This spec |
-| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog, caveat copy, and availability guidance (FR-003 – FR-021) |
+| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog and its four questions (FR-003 – FR-021), the provider and permission-mode controls (FR-040 – FR-044), the caveat copy (FR-037, FR-038), and per-state availability guidance shown in place of a start action (FR-005, FR-031, FR-034) |
 | `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | reuse | Provider selection, unchanged (FR-042) |
 | `frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx` | reuse | Permission mode, unchanged (FR-042) |
 | Toolbar component | modify | The entry and its enablement rule (FR-001, FR-002) |
@@ -650,12 +650,13 @@ no automatic check that would catch it either.
 on #2003, which merged on 2026-08-07, so the risk this entry recorded — building
 on unmerged work — no longer applies.
 
-**The implementation issues describe a superseded design.** #2000, #2001, and
-#2002 were written against the scan-then-transcribe flow that ADR-053 §4.1 no
-longer describes. #2001's static-scan scope does not exist any more, none of the
-three covers the no-codebase path, and none reflects the delivery standard in
-§4.6. They need rewriting before implementation starts, or an implementer will
-build from them rather than from this spec.
+**The implementation issues have been rewritten.** #2000, #2001, and #2002 were
+written against the scan-then-transcribe flow that ADR-053 §4.1 no longer
+describes, and the risk this entry recorded was that an implementer would build
+from them rather than from this spec. All three were rewritten on 2026-08-07
+against the revision in #2010 — #2001's static-scan scope is gone, the
+no-codebase path is covered, and the delivery standard in §4.6 is reflected — so
+that risk no longer applies.
 
 **Rollback**: every element is additive — a toolbar entry, a dialog, a prompt
 template, and a probe. Removing the toolbar entry disables the feature without
