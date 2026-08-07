@@ -1,6 +1,22 @@
 {
   "branch": "track/adr-053-work-import",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-07T05:36:07.928689Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:357f2a38197796be881a7433b063ca861589572f566b5a4b92b334d7761268ff",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -37,7 +53,128 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-07T05:36:07.965885Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:07.980847Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:07.996990Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.013221Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.028675Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.044016Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.060232Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.075648Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.090921Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:08.109909Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.803482Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.816030Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.828701Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.841046Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.853612Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.866236Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.878665Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.897615Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.910326Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:36:11.929057Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -59,25 +196,78 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "b485e293",
+    "changed_files": [
+      ".workflow/records/2000-adr-053-work-import.json",
+      "docs/planning/adr-053-work-import-checklist.md",
+      "docs/planning/adr-053-work-import-dispatch-prompts.md"
+    ],
+    "diff_fingerprint": "sha256:8c4e3310abaf069fce661c3b41e1e10a4a0e6cd5f366660ff6b6c88247fcd8f4",
+    "head": "HEAD",
+    "head_sha": "52cf1dc1",
+    "surfaces": {
+      "docs": 2,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Manage the full implementation of ADR-053 spec 2 (docs/specs/adr-053-work-import.md, 'Bring in my work'): dispatch implementation and audit agents and produce one reviewable final PR.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T05:36:08.109949Z",
+      "diff_fingerprint": "sha256:8c4e3310abaf069fce661c3b41e1e10a4a0e6cd5f366660ff6b6c88247fcd8f4",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T05:36:11.929092Z",
+      "diff_fingerprint": "sha256:8c4e3310abaf069fce661c3b41e1e10a4a0e6cd5f366660ff6b6c88247fcd8f4",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2000-adr-053-work-import",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "8cdbb4c4-f0d1-4d2d-b502-1ba1c6ae678f",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "manager",
   "test_events": [
     {

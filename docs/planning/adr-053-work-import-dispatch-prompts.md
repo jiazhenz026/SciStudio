@@ -39,7 +39,7 @@ Templates used:
 - Persona: implementer
 - Issue: #2000
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2000
-- Umbrella PR: #2027 `[DO NOT MERGE]`
+- Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
 - Agent branch: track/adr-053-work-import/a1-availability
@@ -203,7 +203,7 @@ Stop and report back if:
 - Persona: implementer
 - Issue: #2002
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2002
-- Umbrella PR: #2027 `[DO NOT MERGE]`
+- Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
 - Agent branch: track/adr-053-work-import/a2-brief
@@ -388,7 +388,7 @@ Stop and report back if:
 - Persona: implementer
 - Issue: #2001
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2001
-- Umbrella PR: #2027 `[DO NOT MERGE]`
+- Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
 - Agent branch: track/adr-053-work-import/a3-session
@@ -573,7 +573,7 @@ Stop and report back if:
 - Persona: implementer
 - Issue: #2001
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2001
-- Umbrella PR: #2027 `[DO NOT MERGE]`
+- Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
 - Agent branch: track/adr-053-work-import/a4-dialog
@@ -788,7 +788,7 @@ Stop and report back if:
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2001
 - Owner request: Implement ADR-053 spec 2 ("Bring in my work") in full and
   deliver one reviewable PR.
-- Umbrella PR: #2027 `[DO NOT MERGE]`
+- Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
 - Audit branch: track/adr-053-work-import/au1-with-context

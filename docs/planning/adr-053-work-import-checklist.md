@@ -33,7 +33,7 @@ language_source: en
   `track/adr-053-work-import/<agent>` with one dedicated worktree each.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-053-work-import`
-- Umbrella PR: `#2027`
+- Umbrella PR: `#2028`
 - Umbrella PR title: `[DO NOT MERGE] ADR-053 spec 2: Bring in my work`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -117,7 +117,7 @@ reviewer does not read a weak session result as a defect in this work.
       -> `.workflow/records/2000-adr-053-work-import.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [x] Umbrella PR opened. -> `#2027`
+- [x] Umbrella PR opened. -> `#2028`
 - [x] Umbrella PR title includes `[DO NOT MERGE]`.
 - [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found.
