@@ -63,8 +63,8 @@ package-src -> drop-in. :meth:`scistudio.blocks.registry.BlockRegistry.scan`
 runs builtins -> drop-in -> entry-point -> package-src. Both registries
 guarantee that entry-point registrations win on duplicates and both deliver
 it: the block registry by registering entry-points after drop-ins and
-overwriting, this registry by running entry-points early and having the later
-passes skip names already present.
+overwriting, this registry by running entry-points early and having each
+subsequent pass skip names already present.
 
 The orders stay separate deliberately, because the two drop-in tiers have
 opposite duplicate policies and both are correct for their domain:
@@ -673,8 +673,8 @@ class TypeRegistry:
 
         The type-side counterpart of
         :meth:`scistudio.blocks.registry.BlockRegistry.hot_reload`. A bare
-        :meth:`scan_all` on a populated registry is additive — every later pass
-        skips names already present — so an *edited* or *deleted* drop-in type
+        :meth:`scan_all` on a populated registry is additive — each subsequent
+        pass skips names already present — so an *edited* or *deleted* drop-in type
         would keep its first definition forever. Clearing first is what makes a
         type edit behave the way a block edit already does.
 
