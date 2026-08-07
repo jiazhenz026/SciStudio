@@ -500,13 +500,51 @@ Append only.
 
 ## 10. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate records include issue, scope, plan, docs, tests, checks, Sentrux evidence when
-      needed, commit, and PR evidence for both tracks.
-- [ ] PR A closes `#2020`, `#2021`, `#2009`, `#2022`.
-- [ ] PR B closes `#1995`, `#1996`, `#2023`, `#2024`, `#2025`, `#2026`.
-- [ ] `admin-approved:core-change` present on PR B.
-- [ ] CI passed on both PRs.
-- [ ] Checklist final state matches both PRs and both gate records.
-- [ ] Umbrella PR `#2029` closed without merging.
+- [x] All dispatched agents have final outputs. **11 agents**: A1, A2, A3, A-FIX, AUDIT-A on Track A; B1–B6, B-FIX, AUDIT-B, AUDIT-SEC on Track B.
+- [x] Manager reviewed every changed file, and independently re-verified the load-bearing claims rather than accepting agent summaries.
+- [x] Gate records carry issue, scope, plan, docs, tests, checks, commit and PR evidence for both tracks. Sentrux was unavailable on this host and that is recorded rather than claimed.
+- [x] PR **#2035** closes `#2020`, `#2021`, `#2009`, `#2022`.
+- [x] PR **#2036** closes `#1995`, `#1996`, `#2023`, `#2024`, `#2025`, `#2026`.
+- [ ] **`admin-approved:core-change` on both PRs — OWNER ACTION.** The agent is not permitted to apply `admin-approved:*` labels, and CI verifies actor provenance, so self-applying would hollow out the check it exists to perform. Both PR bodies say so. `Verify Workflow Compliance` is the only red check on either PR and resolves when the label lands.
+- [~] CI. **PR A: every check green except the label gate**, including `Test (Python 3.11)` and `Test (Python 3.13)` on Linux. **PR B: full CI has not run** — `ci.yml` triggers only on PRs targeting `main`, and PR B targets PR A's branch, so only `workflow-gate.yml` ran. This is an unavoidable consequence of the stacked structure; PR B's full CI fires when PR A merges and GitHub retargets it. Verified locally instead: **5773 backend tests pass** (9 failures, all reproducing on unmodified `origin/main`), **1383 frontend tests pass**, `npm run check:ci` exit 0, import-linter 13/13, semantic-dup ratchet 119/120 clusters and 6960/7000 LOC.
+- [x] Checklist final state matches both PRs and both gate records.
+- [ ] Umbrella PR `#2029` closed without merging — **OWNER ACTION** once both delivery PRs land.
+
+### 10.1 Deferred Work
+
+**None.** Every finding from all three audits is fixed in the delivery PRs. Three
+follow-ups were filed for defects **outside this spec's surface**, so PR B did not widen:
+
+| Issue | Defect | Why it is not in PR B |
+|---|---|---|
+| #2037 | MCP `scaffold_block` performs an unvalidated path join and can write outside the project root | Pre-existing; the branch diff touches only `reload_blocks` in that module |
+| #2038 | `POST /api/workflows/export-path` has no containment and overwrites silently | Pre-existing; the fix helper already exists on sibling routes |
+| #2039 | Overwrite semantics are inconsistent across nine write surfaces | A product decision across five shipped endpoints; the editor save path must overwrite silently, so it cannot be settled mechanically |
+
+Nothing was left in the tree for any of them: **zero new `TODO(` across both PRs.**
+
+### 10.2 Security Incident — Owner Decision Outstanding
+
+The `AUDIT-SEC` agent pushed its report, containing a **working exploit for a
+then-unpatched arbitrary-code-execution defect**, to this **public** repository. The
+manager's dispatch prompt did not forbid that, which is the root cause.
+
+Actions taken:
+
+1. The defect is **fixed** and the fix is verified — the manager reproduced the guard
+   behaviour directly before and after.
+2. The runnable exploit — payload bodies, probe script, step-by-step reproduction — was
+   **redacted** from the report, keeping the finding, the vulnerable path, the severity and
+   the required fix, which are what make it reviewable. A handling note at the top of the
+   report tells future readers not to reintroduce exploit detail.
+3. Deleting the remote branch was **blocked by the harness classifier**. The manager did not
+   work around it. The pre-redaction commit therefore **remains reachable in that branch's
+   history**.
+
+**Owner decision:** whether to delete or purge the history of
+`audit/adr-053-spec1-write-path`. The fix has shipped, so the urgency is much reduced, but
+the pre-redaction commit is still public.
+
+**Process lesson for future dispatches:** an audit prompt that asks an agent to attack a
+surface must also tell it not to publish a working exploit for an unpatched defect. The
+`no-context` audit template is the natural place to record that.
