@@ -30,7 +30,9 @@ language_source: en
 - Gate record: `.workflow/records/2000-adr-053-work-import.json`
 - Branch/worktree plan: manager branch `track/adr-053-work-import` in
   `C:/Users/jiazh/workspace/SciStudio-wt-work-import`; agent branches use
-  `track/adr-053-work-import/<agent>` with one dedicated worktree each.
+  `<type>/<issue>-work-import-<slug>` with one dedicated worktree each. Agent
+  branches are **not** named under `track/adr-053-work-import/` — git cannot
+  create a ref below an existing branch ref of the same name.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-053-work-import`
 - Umbrella PR: `#2028`
@@ -107,6 +109,16 @@ reviewer does not read a weak session result as a defect in this work.
 - Agents edit only their own rows.
 - Scope changes require gate-record amendment before work continues.
 
+### 3.1 Windows Commit Trap
+
+`git commit` fails with `ExecutableNotFoundError: Executable /bin/sh not found`
+when tracked files are modified but unstaged. pre-commit stashes the unstaged
+changes with `git checkout -- .`, which fires the post-checkout hook, which
+re-enters pre-commit and dies. Stage every modified tracked file — including the
+gate ledger, which `gate_record check` rewrites — before committing. The same
+message printed *after* a successful commit is post-commit noise and is
+harmless.
+
 ## 4. Manager Preflight
 
 - [x] Dedicated manager branch and worktree created.
@@ -156,12 +168,12 @@ reviewer does not read a weak session result as a defect in this work.
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | prompts §A1 | Graded agent availability probe over the provider registry | `track/adr-053-work-import/a1-availability` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a1` | `src/scistudio/ai/agent/availability.py`, `src/scistudio/api/routes/ai.py`, `tests/api/test_agent_availability.py`, `frontend/src/lib/api/agentAvailability.ts` (+ its test) | `frontend/src/components/**`, `src/scistudio/ai/work_import/**`, `src/scistudio/api/routes/ai_pty/**`, `docs/specs/**` | `#2000` | `[ ]` |
-| `A2` | `implementer` | `N/A` | prompts §A2 | Brief template transcribed verbatim from spec §4.6, session context, composition | `track/adr-053-work-import/a2-brief` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a2` | `src/scistudio/ai/work_import/{__init__,context,brief}.py`, `src/scistudio/ai/work_import/brief_template.md`, `tests/ai/test_work_import_brief.py`, `docs/specs/adr-053-work-import.md` (FR-012 + `#2003` staleness only) | `src/scistudio/api/**`, `frontend/**`, spec §4.6 body | `#2002` | `[ ]` |
-| `A3` | `implementer` | `N/A` | prompts §A3 | Work-import session endpoint: validate, compose, write brief, spawn PTY tab | `track/adr-053-work-import/a3-session` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a3` | `src/scistudio/api/routes/work_import.py`, `src/scistudio/api/app.py` (router include only), `src/scistudio/api/routes/ai_pty/**`, `tests/api/test_work_import_session.py` | `frontend/**`, `src/scistudio/ai/work_import/**`, `src/scistudio/api/routes/ai.py`, `docs/specs/**` | `#2001` | `[ ]` |
-| `A4` | `implementer` | `N/A` | prompts §A4 | Toolbar entry, Bring In My Work dialog, availability guidance, session start | `track/adr-053-work-import/a4-dialog` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a4` | `frontend/src/components/BringInMyWorkDialog*`, `frontend/src/components/Toolbar*`, `frontend/src/store/{terminalTabsSlice,types,uiSlice}.ts`, `frontend/src/components/AIChat/**`, `frontend/src/lib/api/workImport.ts`, matching tests | `src/scistudio/**`, `frontend/src/lib/api/agentAvailability.ts`, `docs/specs/**` | `#2001` | `[ ]` |
-| `AU1` | `audit_reviewer` | `with-context` | prompts §AU1 | Verify claimed work against issues, spec, checklist, code, tests, CI | `track/adr-053-work-import/au1-with-context` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-au1` | `docs/audit/2026-08-07-adr-053-work-import-with-context.md`, own checklist rows | all implementation code | `#2001` | `[ ]` |
-| `AU2` | `audit_reviewer` | `no-context` | prompts §AU2 | Independent conformance of the implemented surface against repository docs, code, tests | `track/adr-053-work-import/au2-no-context` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-au2` | `docs/audit/2026-08-07-adr-053-work-import-no-context.md` | all implementation code | `N/A` | `[ ]` |
+| `A1` | `implementer` | `N/A` | prompts §A1 | Graded agent availability probe over the provider registry | `feat/2000-work-import-availability` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a1` | `src/scistudio/ai/agent/availability.py`, `src/scistudio/api/routes/ai.py`, `tests/api/test_agent_availability.py`, `frontend/src/lib/api/agentAvailability.ts` (+ its test) | `frontend/src/components/**`, `src/scistudio/ai/work_import/**`, `src/scistudio/api/routes/ai_pty/**`, `docs/specs/**` | `#2000` | `[ ]` |
+| `A2` | `implementer` | `N/A` | prompts §A2 | Brief template transcribed verbatim from spec §4.6, session context, composition | `feat/2002-work-import-brief` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a2` | `src/scistudio/ai/work_import/{__init__,context,brief}.py`, `src/scistudio/ai/work_import/brief_template.md`, `tests/ai/test_work_import_brief.py`, `docs/specs/adr-053-work-import.md` (FR-012 + `#2003` staleness only) | `src/scistudio/api/**`, `frontend/**`, spec §4.6 body | `#2002` | `[ ]` |
+| `A3` | `implementer` | `N/A` | prompts §A3 | Work-import session endpoint: validate, compose, write brief, spawn PTY tab | `feat/2001-work-import-session` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a3` | `src/scistudio/api/routes/work_import.py`, `src/scistudio/api/app.py` (router include only), `src/scistudio/api/routes/ai_pty/**`, `tests/api/test_work_import_session.py` | `frontend/**`, `src/scistudio/ai/work_import/**`, `src/scistudio/api/routes/ai.py`, `docs/specs/**` | `#2001` | `[ ]` |
+| `A4` | `implementer` | `N/A` | prompts §A4 | Toolbar entry, Bring In My Work dialog, availability guidance, session start | `feat/2001-work-import-dialog` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-a4` | `frontend/src/components/BringInMyWorkDialog*`, `frontend/src/components/Toolbar*`, `frontend/src/store/{terminalTabsSlice,types,uiSlice}.ts`, `frontend/src/components/AIChat/**`, `frontend/src/lib/api/workImport.ts`, matching tests | `src/scistudio/**`, `frontend/src/lib/api/agentAvailability.ts`, `docs/specs/**` | `#2001` | `[ ]` |
+| `AU1` | `audit_reviewer` | `with-context` | prompts §AU1 | Verify claimed work against issues, spec, checklist, code, tests, CI | `audit/2001-work-import-with-context` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-au1` | `docs/audit/2026-08-07-adr-053-work-import-with-context.md`, own checklist rows | all implementation code | `#2001` | `[ ]` |
+| `AU2` | `audit_reviewer` | `no-context` | prompts §AU2 | Independent conformance of the implemented surface against repository docs, code, tests | `audit/2001-work-import-no-context` | `C:/Users/jiazh/workspace/SciStudio-wt-wi-au2` | `docs/audit/2026-08-07-adr-053-work-import-no-context.md` | all implementation code | `N/A` | `[ ]` |
 
 ## 7. Fixed Interface Contracts
 

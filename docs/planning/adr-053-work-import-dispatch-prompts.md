@@ -42,7 +42,7 @@ Templates used:
 - Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
-- Agent branch: track/adr-053-work-import/a1-availability
+- Agent branch: feat/2000-work-import-availability
 - Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-wi-a1
 - Gate record: create your own with `gate_record init` on your branch
 - Checklist: docs/planning/adr-053-work-import-checklist.md
@@ -206,7 +206,7 @@ Stop and report back if:
 - Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
-- Agent branch: track/adr-053-work-import/a2-brief
+- Agent branch: feat/2002-work-import-brief
 - Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-wi-a2
 - Gate record: create your own with `gate_record init` on your branch
 - Checklist: docs/planning/adr-053-work-import-checklist.md
@@ -391,7 +391,7 @@ Stop and report back if:
 - Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
-- Agent branch: track/adr-053-work-import/a3-session
+- Agent branch: feat/2001-work-import-session
 - Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-wi-a3
 - Gate record: create your own with `gate_record init` on your branch
 - Checklist: docs/planning/adr-053-work-import-checklist.md
@@ -576,7 +576,7 @@ Stop and report back if:
 - Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
-- Agent branch: track/adr-053-work-import/a4-dialog
+- Agent branch: feat/2001-work-import-dialog
 - Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-wi-a4
 - Gate record: create your own with `gate_record init` on your branch
 - Checklist: docs/planning/adr-053-work-import-checklist.md
@@ -791,7 +791,7 @@ Stop and report back if:
 - Umbrella PR: #2028 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-053-work-import
-- Audit branch: track/adr-053-work-import/au1-with-context
+- Audit branch: audit/2001-work-import-with-context
 - Audit worktree: C:/Users/jiazh/workspace/SciStudio-wt-wi-au1
 - Gate record: create your own with `gate_record init` on your branch
 - Checklist: docs/planning/adr-053-work-import-checklist.md
@@ -913,7 +913,7 @@ only, so this file does not become a context leak into that audit. The manager
 holds the filled text and dispatches it directly.
 
 - Audit mode: `no-context`
-- Audit branch: `track/adr-053-work-import/au2-no-context`
+- Audit branch: `audit/2001-work-import-no-context`
 - Audit worktree: `C:/Users/jiazh/workspace/SciStudio-wt-wi-au2`
 - Audit report path: `docs/audit/2026-08-07-adr-053-work-import-no-context.md`
 - Surfaces named to the agent: the work-import feature surface reachable from
