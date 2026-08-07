@@ -435,9 +435,12 @@ obligation is that silent disappearance ends.
 **FR-016.** Because the types directories join `sys.path`, a file there can
 shadow an installed third-party package of the same name — a `json.py` or
 `numpy.py` under `{project}/types/` would be imported in preference to the real
-package by any code loaded afterwards. The implementation MUST warn on a type
-file whose stem collides with an importable top-level module. Whether this
-warns or blocks is an open decision (§13, OQ-1).
+package by any code loaded afterwards. A type file whose stem collides with an
+importable top-level module MUST be rejected with an error reported through the
+FR-015 surface, and the module it collides with MUST still resolve to the
+installed package (§13, OQ-1, resolved). The collision test MUST run against a
+`sys.path` from which the types directories are absent, so a type file can never
+report itself as a collision.
 
 ## 6. Promotion
 
@@ -782,7 +785,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Drop-in import | The §2.5 reproduction now registers `uses_spectrum`; project types shadow user types (FR-012, FR-014) |
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
-| Shadowing warning | A type file colliding with an importable top-level module warns (FR-016) |
+| Shadowing rejection | A type file colliding with an importable top-level module is rejected with an error, and the real module still imports (FR-016) |
 | Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
 | Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
@@ -882,10 +885,14 @@ so it lands with the provisioning helper.
 
 ## 13. Open Questions
 
-**OQ-1.** Does a type file whose stem shadows an importable top-level module
-warn, or is it rejected outright (FR-016)? Warning preserves the user's freedom
-to name files as they like; rejecting prevents a failure mode that will be very
-hard for a user to diagnose.
+**OQ-1.** *Resolved.* A type file whose stem shadows an importable top-level
+module is rejected outright with an error, not warned (FR-016). The open
+question was whether to preserve the user's freedom to name files as they like.
+It is not worth preserving: the failure it permits is a `numpy.py` in a types
+directory silently becoming what every subsequently loaded module imports, which
+is among the hardest failures in this product to diagnose, and a warning that
+arrives in a server log is not seen by the person who caused it. Rejection costs
+the user a rename and is reported on the FR-015 surface, where they will see it.
 
 **OQ-2.** *Resolved.* User-tier discovery is unconditional (FR-060). The open
 question was whether to defer the direction to the Learning Center system spec,
@@ -908,9 +915,13 @@ groups rather than adding sections to it, so every existing palette ordering
 test is in scope. Mitigated by `paletteModel` being pure and already unit-tested.
 
 **Types directories join `sys.path`.** §5 makes a user-writable directory
-participate in module resolution for any code loaded afterwards. The shadowing
-warning (FR-016) reduces but does not eliminate this. The blast radius is bounded
-by these directories already executing arbitrary user code in-process (#1531).
+participate in module resolution for any code loaded afterwards. FR-016's
+rejection closes the case that mattered — a type file taking over the name of an
+installed module — by refusing the file and binding the real module before any
+drop-in runs. What remains is a name no installed module currently uses, which
+becomes a collision only when the user later installs a package of that name.
+The blast radius is bounded by these directories already executing arbitrary
+user code in-process (#1531).
 
 **A second write door.** The user library endpoint writes outside every project
 root — the first such path in the product. Its constraint is inverted rather

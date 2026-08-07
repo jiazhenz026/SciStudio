@@ -123,6 +123,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   types, then blocks, then previewers. Tests:
   `tests/api/test_registry_reload_symmetry.py`. (@claude, 2026-08-07, branch:
   fix/2021-registry-reload-symmetry)
+- [#2022] A drop-in block can now import a drop-in type, and a drop-in that
+  fails no longer disappears without a word. `ARCHITECTURE.md` presents
+  `{project}/blocks/` and `{project}/types/` as companion extension points, but
+  a block file doing `from spectrum import SpectrumData` raised
+  `ModuleNotFoundError` during the palette scan, was skipped, and left nothing
+  behind but a server-side warning — from the user's side the block they had
+  just written simply was not there. The types directories now join `sys.path`
+  for the duration of drop-in execution, project tier ahead of user tier so a
+  project-local type shadows a user-library type of the same file name, and the
+  same roots are stamped on the block spec so the worker subprocess reconstructs
+  the block against an identical import path — a block that resolved at palette
+  time and failed at run time would not have been a fix. Which directories those
+  are is answered by the #2020 shared helper rather than decided here, so the
+  API, the agent, the worker, and IO dispatch cannot drift apart on it.
+  **Failures are now visible.** `GET /api/blocks/` — the response the palette
+  already fetches — carries a `dropin_failures` list naming the file, the
+  exception type, and the message; one bad drop-in still cannot stop the rest of
+  the scan (#1531). **A type file that would hijack an installed module is
+  refused.** Because the types directories participate in module resolution, a
+  `numpy.py` there would become what everything loaded afterwards imports; such
+  a file is now rejected with an error on the same surface and the real module
+  is bound first, so the installed package keeps winning while the user renames
+  the file. The collision test runs against a `sys.path` with the types
+  directories removed, so a type file never reports itself. Resolves ADR-053
+  spec §13 OQ-1 as reject-with-error rather than warn-and-load. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/2022-dropin-type-import)
 
 - [#2020] Every process now resolves the same drop-in block and type
   directories. "Which drop-in directories does this process see?" was written

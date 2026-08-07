@@ -145,6 +145,29 @@ class AmbiguousCapabilityError(CapabilityLookupError):
     """
 
 
+@dataclass(frozen=True)
+class DropinFailure:
+    """One drop-in file the scan refused, kept so a user can be told why.
+
+    ADR-053 FR-015: a drop-in block that fails to import used to leave nothing
+    behind but a server-side warning, so from the user's side the block simply
+    vanished. The scan now records each refusal here and
+    ``GET /api/blocks/`` returns them alongside the palette, which is the
+    response the palette already fetches.
+
+    FR-016 refusals share the record: a drop-in *type* file whose stem would
+    shadow an installed top-level module is rejected the same way, with
+    :attr:`error_type` naming the collision instead of a Python exception.
+    """
+
+    file_path: str
+    """Absolute path of the drop-in file that was refused."""
+    error_type: str
+    """Exception class name, or ``"DropinTypeNameCollision"`` for FR-016."""
+    message: str
+    """One-line explanation, safe to show to the user."""
+
+
 @dataclass
 class BlockSpec:
     """A lightweight description of one registered block type.
@@ -333,6 +356,7 @@ class BlockRegistry:
         self._scan_dirs: list[Path] = []
         self._package_src_dirs: list[Path] = []
         self._packages: dict[str, PackageInfo] = {}
+        self._dropin_failures: list[DropinFailure] = []
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Register a directory of drop-in block files to scan.
@@ -372,7 +396,14 @@ class BlockRegistry:
         registry, before looking blocks up.
 
         A block that cannot be registered (for example a mis-packaged plugin)
-        is logged and skipped so the rest of the catalogue still loads.
+        is logged and skipped so the rest of the catalogue still loads; the
+        skipped drop-in files are readable afterwards via
+        :meth:`dropin_failures`.
+
+        The pass order below deliberately differs from
+        :meth:`scistudio.core.types.registry.TypeRegistry.scan_all`. The reason
+        is recorded in that module's docstring under "Scan order versus
+        BlockRegistry" (ADR-053 FR-061).
 
         Example:
             >>> registry = BlockRegistry()
@@ -566,6 +597,14 @@ class BlockRegistry:
         for spec in self._registry.values():
             grouped.setdefault(spec.package_name, []).append(spec)
         return grouped
+
+    def dropin_failures(self) -> list[DropinFailure]:
+        """Return the drop-in files the most recent drop-in pass refused.
+
+        See :class:`DropinFailure`. Rebuilt by every :meth:`scan` and
+        :meth:`hot_reload`.
+        """
+        return list(self._dropin_failures)
 
     def all_specs(self) -> dict[str, BlockSpec]:
         """Return every registered block keyed by name.
@@ -762,6 +801,7 @@ __all__ = [
     "BlockSpec",
     "CapabilityLookupError",
     "CapabilityRegistrationError",
+    "DropinFailure",
     "MissingCapabilityError",
     "_format_capabilities_from_class",
     "_infer_category",
