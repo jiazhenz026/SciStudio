@@ -319,7 +319,8 @@ Blocks already have the mechanism types lack. `BlockSummary.ui_color` and
 `ui_icon` (#1839) let a block declare its canvas appearance, and the schema
 comment at `src/scistudio/api/schemas.py:177` describes them as mirroring "the
 `TypeHierarchyEntry.ui_ring_color` precedent for ports" — a precedent that was
-never wired up. §7.1 completes it.
+never wired up. §7.1 supplies the equivalent capability for types, but delivers
+it through the types endpoint rather than by reviving that field (FR-066).
 
 ### 2.9 Format Capabilities Already Record Type-To-Extension Mapping
 
@@ -446,9 +447,15 @@ working exactly as before.
 **FR-018.** A name collision in the destination MUST prompt the user with
 overwrite and save-as-new-name options. Silent overwrite is forbidden.
 
-**FR-019.** Promotion MUST be offered only for tier-1 blocks and types with a
-resolvable `file_path`. For built-in and packaged items — which already live in
-a library — the action MUST be hidden, not shown disabled.
+**FR-019.** Promotion MUST be offered only for items whose **resolved origin is
+`project`** (FR-001). Built-in and packaged items already live in a library, and
+items already in the user library are already at the destination — promoting one
+would copy a file onto itself and raise a meaningless overwrite prompt. In all
+three cases the action MUST be hidden, not shown disabled.
+
+The condition is the resolved origin, not the internal tier-1 classification: a
+user-library block is also tier-1 with a resolvable `file_path`, so the broader
+test would offer promotion for an item that is already promoted.
 
 **FR-020.** On success the UI MUST confirm inline and reveal the item in its new
 section in the palette. The action exists to teach that the container exists; a
@@ -522,9 +529,30 @@ strings, both defaulting to `None`. Naming MUST mirror the block precedent
 (`ui_color`, `ui_ring_color`).
 
 **FR-050.** `TypeRegistry` MUST collect the declared colours onto the type spec,
-and the types listing endpoint MUST surface them. `TypeHierarchyEntry.ui_ring_color`
-on the block response MUST also be populated from the same source, ending the
-dead field described in §2.7.
+and the types listing endpoint MUST surface them. That endpoint is the **single
+source of type colour** for the whole product.
+
+**FR-066.** Canvas port colour resolution MUST consume the types listing
+response rather than `BlockSchemaResponse.type_hierarchy`. Without this the two
+surfaces diverge: the palette reads declared colours from the types endpoint
+while the canvas resolves from `type_hierarchy`, whose `TypeHierarchyEntry`
+carries no fill-colour field at all (§2.8) — so a type declaring `ui_color`
+would render in its declared colour in the palette and in a hash-derived colour
+on the canvas, contradicting FR-051.
+
+The cheaper alternative — adding `ui_color` to `TypeHierarchyEntry` and
+populating it — is rejected because it creates a second supply point for type
+colour that must be kept in step by hand, which is the drift this spec exists to
+remove. `type_hierarchy` therefore keeps serving type *hierarchy* (`base_type`
+lookups) and stops being a colour transport. The dead `ui_ring_color` field is
+left dead rather than revived.
+
+**FR-067.** The canvas MUST render deterministically while type data is still
+loading. Colour and block data arrive in one response today and therefore always
+arrive together; routing colour through a separate endpoint introduces a window
+where ports exist and colours do not. Ports MUST fall back to the existing
+resolution during that window and MUST NOT flash or re-layout when the data
+lands.
 
 **FR-051.** Colour resolution precedence MUST be: type-declared colour, then the
 existing `typeColorMap` entry, then the `hashTypeName` fallback. A declared
@@ -704,11 +732,16 @@ directories. Today `_build_type_registry()` registers none (§2.6), so agent
 promotion (FR-011) and cascade dependency detection (FR-022) resolve against an
 empty view of the user's types.
 
-**FR-060.** Whether the user tier requires an active project MUST be one
-decision applied to both blocks and types, not four independent ones. It is
-currently unconditional for types under the API, unconditional for blocks under
-the agent, and conditional for blocks under the API. See OQ-2 for which way the
-single answer goes.
+**FR-060.** User-tier discovery MUST NOT depend on an active project, for
+blocks and for types alike, at all four registration points. The user library is
+defined by the user's home directory and has no relationship to which project
+happens to be open; gating it on an active project is an accident of where two
+`add_scan_dir` calls were written, not a decision anyone made.
+
+Today the behaviour is unconditional for types under the API, unconditional for
+blocks under the agent, and conditional for blocks under the API. After this
+spec it is unconditional everywhere. Project-tier discovery still requires a
+project, since without one there is no project directory to scan.
 
 **FR-061.** The scan order difference (§2.6) MUST be reconciled or documented as
 deliberate. Both registries claim entry-point registrations win on duplicates
@@ -750,10 +783,12 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
 | Shadowing warning | A type file colliding with an importable top-level module warns (FR-016) |
-| Promotion semantics | Copy not move; collision prompts; hidden for built-in/packaged (FR-017 – FR-019) |
+| Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
-| Type colour declaration | A type declaring a colour surfaces it through the listing and through `type_hierarchy`; the field is no longer always `None` (FR-049, FR-050) |
+| Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
 | Colour precedence | Declared colour beats `typeColorMap`, which beats the hash fallback; an undeclared type is unchanged from today (FR-051) |
+| Colour parity | A type declaring `ui_color` renders in that colour on both a palette tile and a canvas port (FR-066, FR-051) |
+| Colour load window | Ports render with the fallback before type data arrives, and do not flash or re-layout when it lands (FR-067) |
 | Invalid colour | A malformed hex value warns and falls through without breaking palette or canvas (FR-052) |
 | Extensions per type | Load and save extensions reported separately from `FormatCapability`; a type with none reports empty lists (FR-054 – FR-056) |
 | Palette sections | Order, both tiers rendered when empty, origin-first grouping (FR-035 – FR-038) |
@@ -764,7 +799,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Provisioning parity | The four registration sites resolve identical drop-in directories and import roots for a given project context (FR-057, FR-058) |
 | Agent type visibility | A drop-in type in the project and in the user library is registered in the agent runtime (FR-059) |
 | Agent import parity | The §2.5 reproduction registers under the agent runtime and the worker, not only under the API (FR-013, §10.3) |
-| Tier condition | The active-project condition resolves the same way for blocks and types across all sites (FR-060) |
+| Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |
 | Cross-process refresh | A block promoted through the agent appears in the palette without restart (FR-065) |
@@ -802,7 +837,9 @@ contract and is the list an implementer works from.
 | `frontend/src/components/BlockPalette.parts/paletteModel.ts` | modify | Origin-first grouping; extract shared helpers (FR-038, §10.1) |
 | `frontend/src/components/BlockDetailPopover.tsx` | modify | Becomes interactive and serves both surfaces (FR-044, FR-046) |
 | `frontend/src/components/TypePalette.tsx` | create | The Data types tab (§9.2) |
-| `frontend/src/config/typeColorMap.ts` | modify | Declared-colour precedence (FR-051, FR-052) |
+| `frontend/src/config/typeColorMap.ts` | modify | Declared-colour precedence; resolvers read colour from the types data rather than `type_hierarchy` (FR-051, FR-052, FR-066) |
+| `frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx` | modify | Canvas ports resolve colour from the types source, with a loading fallback (FR-066, FR-067) |
+| `frontend/src/components/WorkflowCanvas.tsx` | modify | Same colour-source change where edges resolve type colour (FR-066) |
 | `frontend/src/lib/api/code.ts` | modify | Type template and types listing clients (§7) |
 | `docs/specs/frontend-block-palette.md` | modify | Amend for the renamed tab, tier sections, grouping change, interactive popover |
 
@@ -822,16 +859,21 @@ contract and is the list an implementer works from.
    (FR-053), so it is sequenced early enough that the label review does not
    block the frontend work behind it.
 7. Per-type extension derivation from format capabilities (§7.2).
-8. `routes/types.py`: types listing and type template (§7).
+8. `routes/types.py`: types listing and type template (§7). Step 12 depends on
+   this endpoint existing.
 9. Shared frontend helpers (§10.1) and the `buildSections` grouping change.
 10. Blocks tab rename, tier sections, empty states (§9.1).
 11. Interactive popover (§9.3).
-12. Data types tab, tiles, and popover contents (§9.2).
-13. Promotion action and entry points E1, E2, E5 (§6).
-14. Cascade promotion (§6.1).
-15. New data type and the new-file target choice (§8).
-16. MCP promotion tool, E3 (FR-011).
-17. Amend `docs/specs/frontend-block-palette.md` for the renamed tab, the tier
+12. Canvas colour source switch and its loading fallback (FR-066, FR-067).
+    Sequenced after the types endpoint and before the Data types tab, so that
+    the moment either surface can show a declared colour, both read it from
+    the same source and cannot disagree.
+13. Data types tab, tiles, and popover contents (§9.2).
+14. Promotion action and entry points E1, E2, E5 (§6).
+15. Cascade promotion (§6.1).
+16. New data type and the new-file target choice (§8).
+17. MCP promotion tool, E3 (FR-011).
+18. Amend `docs/specs/frontend-block-palette.md` for the renamed tab, the tier
     sections, the grouping change, and the interactive popover.
 
 The user-tier active-project condition (§2.4, OQ-2) is settled inside step 1
@@ -845,12 +887,12 @@ warn, or is it rejected outright (FR-016)? Warning preserves the user's freedom
 to name files as they like; rejecting prevents a failure mode that will be very
 hard for a user to diagnose.
 
-**OQ-2.** Should the user tier require an active project? FR-060 makes this one
-decision covering blocks and types in all four processes, rather than the four
-independent answers in place today, but does not say which way it goes. Dropping
-the condition aligns blocks with types and is required if any no-project surface
-must show library contents; the Learning Center system spec owns that first-run
-no-project surface, so the answer is settled there and executed here.
+**OQ-2.** *Resolved.* User-tier discovery is unconditional (FR-060). The open
+question was whether to defer the direction to the Learning Center system spec,
+which owns the first-run no-project surface. It is settled here instead: a
+requirement that permits either behaviour permits any implementation, and its
+acceptance test would pass either way. No Learning Center design wants a user
+library whose contents exist but cannot be seen, so deferring bought nothing.
 
 **OQ-3.** Issue coverage. #1995 and #1996 exist. The drop-in import defect
 (§5), the Data types tab (§9.2), New data type (§8), backend-declared type
@@ -892,6 +934,15 @@ install/uninstall and branch switch refresh the type registry, which they do not
 do today. Any code that depends on the type registry surviving a package
 operation unchanged would be affected. No such dependency was found, but this is
 behaviour change to a path outside the spec's headline feature.
+
+**Canvas colour changes its data source.** FR-066 moves canvas port colour off
+the block response and onto the types endpoint. Today colour and block data
+arrive together and therefore cannot disagree or arrive out of order; after
+this they are two responses. FR-067 requires a deterministic fallback for the
+window in between, and that window is the risk — a wrong fallback shows every
+port in the wrong colour for a moment on every canvas open, which is far more
+visible than the drift it prevents. The cheaper option was rejected knowingly
+(FR-066), and this is the cost of that choice.
 
 **Type colour touches protected core.** §7.1 adds class attributes to
 `DataObject`, so the implementing PR needs `admin-approved:core-change`
