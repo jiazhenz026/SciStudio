@@ -50,6 +50,22 @@
       "path": "docs/planning/adr-053-work-import-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T06:53:41.720888Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T06:53:41.720892Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -265,7 +281,44 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720857Z",
+      "pattern": "src/scistudio/ai/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720875Z",
+      "pattern": "src/scistudio/api/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720877Z",
+      "pattern": "frontend/src/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720879Z",
+      "pattern": "tests/api/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720881Z",
+      "pattern": "tests/ai/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:53:41.720882Z",
+      "pattern": ".workflow/records/**",
+      "reason": "Manager integration: the umbrella now carries the four agent tracks, so the observed diff includes their source and test files. Also reverting the pyproject package-data entry A2 disproved the need for."
+    }
+  ],
   "session_id": "8cdbb4c4-f0d1-4d2d-b502-1ba1c6ae678f",
   "strictness_tier": 3,
   "task_kind": "manager",
@@ -276,6 +329,14 @@
       "kind": "na",
       "path": null,
       "rationale": "manager-owned coordination artifacts only; implementation tests land with the dispatched tracks (tests/api/test_agent_availability.py, tests/ai/test_work_import_brief.py, tests/api/test_work_import_session.py, frontend dialog and toolbar tests)",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T06:53:41.720899Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "integration commits carry the tracks' own tests; the manager adds no production code",
       "verified_in_diff": null
     }
   ]

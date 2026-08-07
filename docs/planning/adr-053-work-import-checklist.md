@@ -97,6 +97,37 @@ reviewer does not read a weak session result as a defect in this work.
 | `#2020` | The agent runtime registers no type directory, so a drop-in type may not be visible to the runtime the session writes into. | Out of scope. Tracked separately. |
 | `#2022` | A drop-in block cannot import a drop-in type and is then skipped silently. | Out of scope. §4.6 of the spec already instructs the agent to confirm each block actually loaded after writing it, which is the mitigation available from inside a session. |
 
+## 2.2 Environment Findings
+
+Verified by the manager on 2026-08-07. These are workstation facts, not repository
+defects, and they explain failures an agent or reviewer would otherwise misread.
+
+**A stale editable install poisons subprocess imports.**
+`.venv/Lib/site-packages/__editable__.scistudio-0.2.1.pth` points at
+`C:\Users\jiazh\Desktop\workspace\SciStudio\src`, a directory that no longer
+exists. Any child process that does not receive an explicit `PYTHONPATH` resolves
+`scistudio` to that dead path and dies with `ModuleNotFoundError`. This is the
+pollution `AGENTS.md` forbids `pip install -e .` in order to prevent, and it has
+already happened. Measured effect on `tests/qa/test_gate_record_hooks.py`:
+
+| Invocation | Result |
+|---|---|
+| `PYTHONPATH=./src` | 3 failed — a relative path resolves against the child's cwd |
+| `PYTHONPATH=<absolute>/src` | 15 passed |
+
+Consequence for #2030: three of the nine failures it records as Group B test
+defects are this, not test defects. Patching the shipped
+`scripts/hooks/check-worktree-write-guard.sh` to inject `PYTHONPATH` would be
+compensating in product code for one workstation's broken virtualenv. Worth
+resolving before that fix lands.
+
+**Track-stacked branches need `SCISTUDIO_GATE_BASE`.** The pre-commit and
+commit-msg hooks default their diff base to `origin/main`, which pulls the
+umbrella's own files into a sub-branch's observed diff and fails
+`scope.out-of-scope` on files the agent never touched. Set
+`SCISTUDIO_GATE_BASE=origin/track/adr-053-work-import`; this is the documented
+#1627 mechanism. `finalize` needs the same base passed explicitly with `--base`.
+
 ## 3. Conventions
 
 - `[ ]` not started
@@ -395,12 +426,42 @@ whole report so a wedged child cannot hold the response.
 
 ### 9.3 Implementation
 
-- [ ] `brief_template.md` verbatim from §4.6 -> `<artifact>`
-- [ ] `ImportSessionContext` per C2 -> `<artifact>`
-- [ ] `compose_brief` with skip semantics -> `<artifact>`
-- [ ] Spec FR-012 correction, `#2003` staleness removal, FR cross-reference
-      corrections -> `<artifact>`
-- [ ] `tests/ai/test_work_import_brief.py` -> `<artifact>`
+- [x] `brief_template.md` verbatim from §4.6
+      -> `src/scistudio/ai/work_import/brief_template.md`, extracted
+      mechanically from the §4.6 fenced block (376 lines, 18,866 bytes).
+      Byte-identity is pinned as a permanent regression guard by
+      `test_brief_template_is_verbatim_spec_section_4_6`, which re-extracts §4.6
+      at test time — if `#2017` edits §4.6, the test fails until the template is
+      re-transcribed.
+- [x] `ImportSessionContext` per C2
+      -> `src/scistudio/ai/work_import/context.py`. Field names, types, and
+      order are pinned by `test_context_matches_contract_c2_field_names_and_order`.
+      Adds `__post_init__` validation (unknown tier/permission mode, unknown
+      skippable question, source-plus-no-codebase, neither-source-nor-no-codebase,
+      skipped-and-answered) and list->tuple / list->frozenset normalisation so a
+      decoded JSON body can be passed straight in. A3/A4 producers must satisfy
+      those invariants.
+- [x] `compose_brief` with skip semantics
+      -> `src/scistudio/ai/work_import/brief.py`. Substitutes only at the seven
+      `{...}` placeholders §4.6 shows in "What they told us"; the four
+      `{project}` path literals in "What to deliver" are left alone. Skip wording
+      is read out of the template's own `{<answer>, or "<...>"}` alternative
+      rather than restated in Python, so FR-021's wording cannot drift from
+      §4.6. Provider and permission mode are deliberately absent from the brief
+      body — §4.6 gives them no placeholder and FR-026 forbids adding one; they
+      reach the spawn instead (FR-044).
+- [x] Spec FR-012 correction, `#2003` staleness removal, FR cross-reference
+      corrections -> `docs/specs/adr-053-work-import.md`, 23 edits, all outside
+      §4.6 (the applier asserts each match is unique, asserts it is not inside
+      §4.6, and re-checks §4.6 byte-identity afterwards). FR-012 now states the
+      in-session agent writes `~/.scistudio/types/` and `~/.scistudio/blocks/`
+      itself with no endpoint involved; the three `#2003`-is-unmerged statements
+      (§4.1, §4.3 T-002, §4.5) now record that it merged 2026-08-07; 17 FR
+      cross-references in §2, §3 Key Entities, §4.1, §4.2, §4.4, and §4.5 now
+      name the requirement they describe.
+- [x] `tests/ai/test_work_import_brief.py`
+      -> 62 tests. `PYTHONPATH=./src python -m pytest tests/ai/test_work_import_brief.py -q`
+      -> 62 passed.
 
 ### 9.4 Audit
 
@@ -583,7 +644,27 @@ Append only.
 |---|---|---|---|---|
 | 2026-08-07 | manager | Spec FR-012 asserted the personal-library destination depends on the personal tool library spec's FR-006 write endpoint. §4.6 has the agent write those directories directly with its shell, so no endpoint is involved. | Owner directive: correct FR-012 in this dispatch and build no write path. Assigned to A2. | `#2001` |
 | 2026-08-07 | manager | Spec §4.1 and §4.5 state that `#2003` is unmerged. It merged 2026-08-07. | Owner directive: correct the stale statements. Assigned to A2. | `#2001` |
-| 2026-08-07 | manager | Spec §4.4 and the Key Entities table cite FR numbers that do not match the requirements they name (for example "Preset grouping (FR-015)" where FR-014 defines presets, and "Availability states (FR-027, FR-029)" where FR-031 and FR-033 define them). | Owner set a complete-delivery goal with no deferrals, and these references misdirect anyone implementing from the spec. Corrected in this dispatch, outside §4.6. Assigned to A2. | `#2001` |
+| 2026-08-07 | manager | Spec §4.4 and the Key Entities table cite FR numbers that do not match the requirements they name (for example "Preset grouping (FR-015)" where FR-014 defines presets, and "Availability states (FR-027, FR-029)" where FR-031 and FR-033 define them). | Owner set a complete-delivery goal with no deferrals, and these references misdirect anyone implementing from the spec. Corrected in this dispatch, outside §4.6. A2 found 17, from two systematic off-by-N drifts left by later FR insertions. | `#2001` |
+| 2026-08-07 | manager | I extended A2's scope to `pyproject.toml` to declare `ai/work_import/**/*.md` as package data, on the stated premise that `compose_brief` would fail on a wheel install. A2 measured three clean builds and disproved it: the template already ships via setuptools' `include-package-data` plus the setuptools-scm git file-finder, and the repository's only wheel build (`ci.yml`) runs against a checkout that has `.git`. | Reverted the entry and its pinning test on the umbrella. The premise for the scope extension was false, and keeping the edit would put a `governance_touch` declaration on a feature PR for hardening the spec does not ask for. The hardening is real and is tracked separately. | `#2032` |
+| 2026-08-07 | manager | A4 could not commit at all: creating `BringInMyWorkDialog.tsx` made the spec's `planned_governs.files` entry resolve, and `planned_surface_findings` raises ERROR on a resolved planned file regardless of spec status. | A4 stopped at the scope boundary rather than editing another agent's file, which is correct. Reassigned the frontmatter migration to A2, which owns the spec. `full_audit` passes after it. | `#2001` |
+| 2026-08-07 | manager | `python_tests` is unsatisfiable on this Windows workstation, blocking PR creation for every agent and for the final PR. Verified on the umbrella base with no feature code present: the same failures. | Agents instructed to push branches instead of opening PRs; manager integrates. Root cause is partly environmental — see §2.2. Escalated to the owner. | `#2030` |
+
+## 13.1 Dormant Preconditions
+
+Recorded because they are invisible today and will fire later.
+
+`docs/specs/adr-053-work-import.md` is `status: Draft`. `_active_governance` in
+both `closure.py` and `doc_drift.py` evaluates a spec's `governs` block only
+when status is `Planned` or `Implemented`, so the block is currently not
+checked. Whoever flips that status must expect two findings:
+
+- `closure.unresolved-file-claim` will require
+  `frontend/src/components/BringInMyWorkDialog.tsx` to exist in the same tree.
+  Satisfied once A4 is integrated.
+- `doc-drift.missing-adr-governance` will require `docs/adr/ADR-053.md`'s own
+  `governs.files` to cover that path. **It does not today** — ADR-053 lists the
+  tutorial and palette files only. `docs/adr/ADR-053.md` is out of scope for
+  this dispatch.
 
 ## 14. Final Readiness
 
