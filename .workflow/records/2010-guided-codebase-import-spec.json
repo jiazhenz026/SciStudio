@@ -246,10 +246,46 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T04:14:29.612211Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:69aaccdbef8842422e2b80cd9e9f4c1125a0e35a92e533485453dd2d2947c7d9",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T04:15:40.205084Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9808d8f247906a6f1c5188ec5c2d3f2c7e45b0a9cf5d3f451bc2669dce276b50",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "758bc481422c1098efd978e47abf17735d5eee13",
+    "shas": [
+      "758bc481422c1098efd978e47abf17735d5eee13"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1084,6 +1120,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.239427Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.252937Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.265449Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.278287Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.290746Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.309624Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.321591Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.333835Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.346349Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:40.363993Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.137384Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.157954Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.171724Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.185345Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.198202Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.211414Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.225421Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.241474Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.262603Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:15:47.281650Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1103,9 +1303,9 @@
       "docs/adr/ADR-053.md",
       "docs/specs/adr-053-work-import.md"
     ],
-    "diff_fingerprint": "sha256:90c81024fe7101b1e241032d74091aba7172c4b9185c7a359f4fad1b2aac4fd4",
+    "diff_fingerprint": "sha256:b5820585497c95ed19e1172abdd8963a77631df5aa5d6040494de58195d0d208",
     "head": "HEAD",
-    "head_sha": "11464715",
+    "head_sha": "758bc481",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -1121,7 +1321,14 @@
   },
   "owner_directive": "Revise ADR-053 and author the codebase import spec in one PR, ADR first. OWNER AUTHORIZATION: ADR-053 carries agent_editable: false; the owner explicitly authorizes the agent to edit docs/adr/ADR-053.md for this task, having determined that its section 4.1 (scanning is not an agent task) and section 5 (differential tests as a system-enforced acceptance criterion) were written by the authoring agent and are not the intended design.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2010
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T00:50:06.258186Z",
@@ -1201,6 +1408,22 @@
       "at": "2026-08-07T04:11:10.985854Z",
       "diff_fingerprint": "sha256:90c81024fe7101b1e241032d74091aba7172c4b9185c7a359f4fad1b2aac4fd4",
       "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T04:15:40.364028Z",
+      "diff_fingerprint": "sha256:b5820585497c95ed19e1172abdd8963a77631df5aa5d6040494de58195d0d208",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T04:15:47.281686Z",
+      "diff_fingerprint": "sha256:b5820585497c95ed19e1172abdd8963a77631df5aa5d6040494de58195d0d208",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
