@@ -1,0 +1,71 @@
+{
+  "branch": "audit/adr-053-spec1-track-b",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T14:36:34.133011Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-08-07-adr-053-spec1-track-b.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1995,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Audit ADR-053 Spec 1 Track B (personal tool library) on feat/1995-adr-053-personal-tool-library at 327ae238; walk spec \u00a711 row by row; adjudicate six manager claims; write docs/audit/2026-08-07-adr-053-spec1-track-b.md",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1995-adr-053-spec1-track-b-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T14:36:34.132986Z",
+      "pattern": "docs/audit/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "d2f3dc0d-7cef-4758-aa40-c2b199537c95",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-07T14:36:34.133022Z",
+      "class": "python_tests",
+      "kind": "na",
+      "path": null,
+      "rationale": "Audit report is a documentation artifact; it adds no runtime behaviour. Verification evidence for the audited branch is recorded in the report (full pytest run, frontend check:ci, import-linter).",
+      "verified_in_diff": null
+    }
+  ]
+}
