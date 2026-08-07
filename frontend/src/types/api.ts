@@ -304,6 +304,43 @@ export interface TypeTemplateResponse {
 }
 
 /**
+ * ADR-053 FR-006 — which user library directory a write or read addresses.
+ *
+ * Named by the caller and never inferred from file content: `blocks` is
+ * `~/.scistudio/blocks/` and `types` is `~/.scistudio/types/`.
+ */
+export type UserLibraryTarget = "blocks" | "types";
+
+/** Response body of `GET /api/user-library/file` (ADR-053 FR-031). */
+export interface UserLibraryFileResponse {
+  target: UserLibraryTarget;
+  filename: string;
+  /** Absolute path of the file inside the user library. */
+  path: string;
+  content: string;
+  mtime: number;
+  size: number;
+  encoding?: string;
+}
+
+/** Response body of `PUT /api/user-library/file` (ADR-053 FR-006 / FR-010). */
+export interface UserLibraryWriteResponse {
+  target: UserLibraryTarget;
+  filename: string;
+  /** Absolute path of the file inside the user library. */
+  path: string;
+  mtime: number;
+  size: number;
+  /** `created` for a new file, `modified` for an accepted overwrite. */
+  kind: "created" | "modified";
+  /**
+   * FR-010: whether the post-write registry refresh succeeded. `false` means
+   * the file landed but the caller should trigger a palette reload itself.
+   */
+  registries_refreshed: boolean;
+}
+
+/**
  * Declarative dynamic-port descriptor for blocks whose port types depend on
  * a config field selection (e.g. ``LoadData``'s ``core_type`` dropdown).
  *

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
 import { BlockDetailPopover } from "./BlockDetailPopover";
+import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
+import { isPromotable, promotableBlock } from "./promotion/promotable";
 import { BlockTile } from "./BlockPalette.parts/BlockTile";
 import { CategoryChips } from "./BlockPalette.parts/CategoryChips";
 import {
@@ -33,6 +35,21 @@ const GRID_GAP_PX = 4; // Tailwind gap-1 = 0.25rem.
 const MIN_COLUMNS = 1;
 const MAX_COLUMNS = 3;
 const DEFAULT_COLUMNS = 2;
+
+/**
+ * ADR-053 §6.2 E5 — the popover's action row, or `undefined`.
+ *
+ * FR-019 is "hidden, not shown disabled", and the row itself is part of what
+ * has to be hidden: `DetailPopover` draws a hairline above whatever `actions`
+ * it is given, so passing an element that renders nothing would leave an empty
+ * ruled-off strip under every built-in tile. Deciding here keeps the card
+ * byte-identical to today's for anything that is not project-tier.
+ */
+function promoteAction(block: BlockSummary): ReactNode | undefined {
+  const item = promotableBlock(block);
+  if (!isPromotable(item)) return undefined;
+  return <PromoteToLibraryAction entryPoint="E5" item={item} variant="popover" />;
+}
 
 /** Column count that fits `width` px, clamped to [MIN_COLUMNS, MAX_COLUMNS]. */
 export function paletteColumns(width: number): number {
@@ -275,6 +292,7 @@ export function BlockPalette({
         // it supplies the pointer handlers that keep it open together with the
         // flag that drops `pointer-events-none`.
         <BlockDetailPopover
+          actions={promoteAction(hover.hovered.item)}
           anchor={hover.hovered.anchor}
           block={hover.hovered.item}
           {...hover.popoverProps}

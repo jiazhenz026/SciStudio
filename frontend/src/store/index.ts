@@ -47,7 +47,11 @@ function partializeTabs(tabs: TabState[]): TabState[] {
       // comes from the block registry, not a project file, and has no
       // rehydrate-refetch path. Drop them from persistence so a reload does not
       // leave a permanently-empty placeholder.
-      .filter((tab) => !(tab.kind === "file" && tab.blockSourceType))
+      //
+      // ADR-053 FR-032: user-library tabs are dropped for the same reason.
+      // Their file lives outside every project root, so the project-file
+      // rehydrate path cannot restore it either.
+      .filter((tab) => !(tab.kind === "file" && (tab.blockSourceType || tab.userLibraryTarget)))
       .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
   );
 }
