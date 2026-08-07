@@ -301,6 +301,36 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-07T09:09:13.331195Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d9a3866e0de69a460c492ad93aae0f3b132e4630ab82ddba0d6760f30983a022",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T09:11:01.680026Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c600894e05b44cb51c038cc597bccc296fbd6429ce0af674a3180bca49b7b913",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -665,6 +695,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.735403Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.750380Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.764655Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.779559Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.795322Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.809999Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.823880Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.838476Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.852696Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:11:01.875211Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -714,9 +826,9 @@
       "tests/api/test_agent_availability.py",
       "tests/api/test_work_import_session.py"
     ],
-    "diff_fingerprint": "sha256:11983dcfa819a45feeb725c872e82f74d02d84fbdba926ad3fba874435a9e161",
+    "diff_fingerprint": "sha256:e3f6edf8c2b0f7364462c0174ee9c62a288fe4f4fb4ff6f7bd1b2b75e1d09ca7",
     "head": "HEAD",
-    "head_sha": "0b2c3b51",
+    "head_sha": "b719a58c",
     "surfaces": {
       "docs": 2,
       "frontend": 9,
@@ -765,6 +877,16 @@
     {
       "at": "2026-08-07T08:54:17.763909Z",
       "diff_fingerprint": "sha256:11983dcfa819a45feeb725c872e82f74d02d84fbdba926ad3fba874435a9e161",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T09:11:01.875237Z",
+      "diff_fingerprint": "sha256:e3f6edf8c2b0f7364462c0174ee9c62a288fe4f4fb4ff6f7bd1b2b75e1d09ca7",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
