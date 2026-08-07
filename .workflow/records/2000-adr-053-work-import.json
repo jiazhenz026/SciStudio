@@ -32,6 +32,11 @@
       "at": "2026-08-07T05:34:46.203012Z",
       "owner_directive": "Complete delivery of ADR-053 spec 2 with no deferred tasks; four implementation agents plus two audits; one final reviewable PR.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-07T07:55:41.294773Z",
+      "owner_directive": "Leaving the spec status at Draft is fine, it does not affect the implementation. Carry the work through to completion.",
+      "reason": "Owner directive 2026-08-07: leave the spec at status Draft; it does not affect the implementation. Owner also directed the manager to carry the dispatch through to the final PR without further check-ins."
     }
   ],
   "docs_events": [

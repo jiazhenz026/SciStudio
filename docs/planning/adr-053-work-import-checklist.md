@@ -871,6 +871,9 @@ checked. Whoever flips that status must expect two findings:
   tutorial and palette files only. `docs/adr/ADR-053.md` is out of scope for
   this dispatch.
 
+| 2026-08-07 | manager | The spec's `status: Draft` understates a fully implemented feature, but flipping it activates `_active_governance` in `closure.py`/`doc_drift.py`, which would require `docs/adr/ADR-053.md`'s `governs.files` to cover the dialog path. ADR-053 declares `agent_editable: false`, so no agent may make that edit. | **Owner directive 2026-08-07: leave it at Draft — it does not affect the implementation.** The spec's `governs.files` and `tests:` are still expanded to describe the change; only the status flip is deferred to the owner. | owner |
+| 2026-08-07 | manager | Owner directed the manager to carry the dispatch through to the final PR without further check-ins, while `#2030` and the merge decision remain open. | Completing every step the manager is authorised to take: fixes, integration, verification, gate evidence, and the final PR body with closing keywords. Not taken: merging to `main`, applying a bypass label, and touching another session's uncommitted `#2030` work — all three need owner authorisation. | `#2030` |
+
 ## 14. Final Readiness
 
 - [ ] All dispatched agents have final outputs.
