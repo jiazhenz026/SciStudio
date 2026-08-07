@@ -24,6 +24,22 @@
       "path": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:47:45.378787Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-spec1-dispatch-prompts/b1-origin-and-write-path.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:47:45.378804Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-spec1-dispatch-prompts/audit-sec-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,

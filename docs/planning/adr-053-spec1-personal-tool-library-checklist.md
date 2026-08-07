@@ -26,7 +26,7 @@ language_source: en
 - Manager gate record: `.workflow/records/1995-adr-053-spec1-personal-tool-library.json`
 - Protected branch: `main`
 - Umbrella branch: `track/adr-053-spec1-personal-tool-library`
-- Umbrella PR: `#2027`
+- Umbrella PR: `#2029`
 - Umbrella PR title: `[DO NOT MERGE] ADR-053 Spec 1: personal tool library (manager track)`
 - Manager worktree: `SciStudio-wt-2053-mgr`
 - Final PR target:
@@ -128,7 +128,7 @@ Agents MUST NOT edit files owned by the spec 2 track and MUST NOT rebase onto
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Owner decisions on OQ-1, PR structure, core-change label, and #2009 recorded (§1.2).
 - [x] Umbrella branch created.
-- [x] Umbrella PR opened (`#2027`).
+- [x] Umbrella PR opened (`#2029`).
 - [x] Umbrella PR title includes `[DO NOT MERGE]`.
 - [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found (`PYTHONPATH=./src` used in every worktree).
@@ -383,4 +383,4 @@ Append only.
 - [ ] `admin-approved:core-change` present on PR B.
 - [ ] CI passed on both PRs.
 - [ ] Checklist final state matches both PRs and both gate records.
-- [ ] Umbrella PR `#2027` closed without merging.
+- [ ] Umbrella PR `#2029` closed without merging.
