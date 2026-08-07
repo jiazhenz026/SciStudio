@@ -7,7 +7,7 @@
 **为你的科研而生:每一份数据,每一个工具,汇于同一条工作流。**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue.svg)](https://jiazhenz026.github.io/SciStudio/)
@@ -114,4 +114,4 @@ SciStudio 目前处于 **alpha** 阶段,正在积极开发中。各版本之间�
 
 ## 许可证
 
-SciStudio 以 MIT 许可证发布。完整条款见 [LICENSE](LICENSE)。
+SciStudio 以 Apache License 2.0 发布。完整条款见 [LICENSE](LICENSE)。
